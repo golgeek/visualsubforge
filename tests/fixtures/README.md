@@ -1,5 +1,10 @@
 # Synthetic media fixtures — task 003a
 
+Use [current status](../../docs/status.md) for today's implementation and validation
+limits. Task-numbered sections below retain dated experiments; links into local
+untracked research may be unavailable in a fresh checkout. Fixture generation
+and the tracked scripts do not require those notes.
+
 All signals and images are generated from FFmpeg lavfi expressions in `scripts/media-fixtures.py`. No source material, fonts, or legacy assets are imported. Generated files are ignored by Git. FFV1/PCM in Matroska avoids encoder delay in the offset experiment; this does not demonstrate compressed-codec delay handling.
 
 ## Generate and validate
