@@ -156,7 +156,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus
       - name: Install pinned Rust
         run: rustup show
       - run: npm ci
@@ -187,6 +187,25 @@ jobs:
           python scripts/resync-fixtures.py
           cargo test --locked -p visualsubforge resync::tests::actual_analysis -- --ignored --nocapture --test-threads=1
       - run: npm run tauri -- build --debug --no-bundle -- --locked
+      - name: Check optional desktop test instrumentation
+        run: cargo clippy --locked -p visualsubforge --features desktop-e2e --all-targets -- -D warnings
+      - run: npm run build:desktop-test
+      - name: Real webview, IPC, persistence and recovery (Linux virtual display)
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        env:
+          GDK_BACKEND: x11
+        run: xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- npm run test:desktop
+      - name: Real webview, IPC, persistence and recovery
+        if: runner.os != 'Linux'
+        timeout-minutes: 5
+        run: npm run test:desktop
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: desktop-workflow-results-${{ matrix.os }}
+          path: test-results/desktop-*/
+          retention-days: 7
       - name: Compile macOS GPU adapter (no runtime claim)
         if: runner.os == 'macOS'
         run: |

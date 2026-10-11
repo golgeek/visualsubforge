@@ -95,6 +95,13 @@ npm run tauri -- build --debug --no-bundle -- --locked
 
 `npm run build` includes strict Svelte/TypeScript checking; `npm run check` runs that step alone. `npm run format` and `cargo fmt --all` apply formatting. Prettier covers frontend and configuration files; existing planning Markdown is excluded to preserve its formatting.
 
+The [real desktop workflow lane](tests/desktop/README.md) additionally builds an
+isolated, optionally instrumented app and exercises actual IPC, edits, Undo/Redo,
+failed/cancelled saves, reopen and crash recovery. Run `npm run build:desktop-test`
+then `npm run test:desktop`; headless Linux needs the documented Xvfb/session-bus
+wrapper. This supplies file selections and excludes native dialogs and playback.
+Normal builds do not include the WebDriver server.
+
 After changing a Rust IPC definition, run `npm run ipc:generate`, then `npm run
 check` and the relevant browser workflows. `ipc:check` generates into a temporary
 directory and fails on drift without writing repository files. Both commands

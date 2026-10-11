@@ -5,13 +5,15 @@ mod atomic_file;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod audio_smoke;
 mod desktop;
+#[cfg(feature = "desktop-e2e")]
+mod desktop_test;
 mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
 mod file_lease;
 mod ipc;
 mod ipc_number;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]
 mod linux_dialog;
 #[cfg(all(feature = "media-prototype", target_os = "linux"))]
 mod linux_locale;
@@ -78,15 +80,31 @@ fn main() {
         }
     }
     let ipc = ipc::bindings();
+    #[cfg(feature = "desktop-e2e")]
+    let test_driver = desktop_test::Driver::from_environment().unwrap_or_else(|error| {
+        eprintln!("Cannot start desktop test: {error}");
+        std::process::exit(1);
+    });
     let builder = tauri::Builder::default();
+    #[cfg(feature = "desktop-e2e")]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
     #[cfg(not(target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_dialog::init());
     let app = builder
         .invoke_handler(ipc.invoke_handler())
         .setup(move |app| {
             ipc.mount_events(app);
+            #[cfg(feature = "desktop-e2e")]
+            app.manage(test_driver);
             let documents = document::Documents::default();
-            documents.start_recovery(app.path().app_data_dir()?.join("recovery-v1"))?;
+            #[cfg(not(feature = "desktop-e2e"))]
+            let recovery_root = app.path().app_data_dir()?.join("recovery-v1");
+            #[cfg(feature = "desktop-e2e")]
+            let recovery_root = app
+                .state::<desktop_test::Driver>()
+                .root()
+                .join("recovery-v1");
+            documents.start_recovery(recovery_root)?;
             app.manage(documents);
             app.manage(project::Projects::default());
             app.manage(desktop::ExitGate::default());

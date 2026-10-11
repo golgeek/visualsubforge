@@ -1,0 +1,20 @@
+{
+  "identifier": "com.golgeek.visualsubforge.desktop-test",
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "desktop-test-events",
+          "windows": ["main"],
+          "permissions": [
+            "core:event:allow-listen",
+            "core:event:allow-unlisten",
+            "core:event:allow-emit",
+            "wdio-webdriver:default"
+          ]
+        }
+      ]
+    }
+  }
+}

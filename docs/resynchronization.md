@@ -431,10 +431,11 @@ running bundle was preserved. These are build checks, not native interaction.
 
 ## Remaining first-release acceptance checks
 
-- Add the planned default Tauri real-app automation lane: exercise actual IPC,
-  editing/Undo, failed save, successful save/reopen and recovery without command
-  mocks. Existing browser fixtures model IPC, while backend owner tests bypass
-  a live webview; neither proves that complete boundary.
+- Complete Windows execution of the new default Tauri real-app automation lane.
+  Mac and Ubuntu ARM64 (Xvfb) now pass actual IPC, editing/Undo/Redo,
+  cancelled/failed saves, exact-byte save/reopen, process-loss recovery, external
+  file conflict protection and normal shutdown. This complements modeled browser
+  and backend tests; it does not exercise the resync proposal UI or native dialogs.
 - Complete the actual native resync review, acceptance, Undo/Redo, protected Save
   As and save-before-project/reopen walkthrough, checking fixture hashes and
   resulting timestamps. The Mac remains locked at the latest interaction attempt.
@@ -445,11 +446,24 @@ The WebdriverIO route was evaluated against the current
 The published embedded plugin `tauri-plugin-wdio-webdriver` 1.5.0 supplies a
 loopback WebDriver server and standard script/element operations; the broader
 Tauri service adds separate plugins for logging/backend helpers and mocking.
-A compatibility trial must keep test instrumentation behind an explicit optional
-feature and out of normal builds, isolate test app data, and leave IPC unmocked.
-No driver dependency or test plugin has yet been adopted. File-selection seams
-would not establish native-dialog coverage, and virtual-display execution would
-not establish native GPU/audio performance. Hosted/x64 CI still requires an
+The [implemented lane](../tests/desktop/README.md) uses only the embedded plugin,
+pinned at 1.5.0 behind `desktop-e2e`, with WebdriverIO 9.31.9. It excludes the
+broader helper/mocking plugins and leaves document IPC unmocked. Test app identity,
+settings and recovery are isolated; ordinary builds exclude the driver. File
+selection is supplied by a bounded queue. Mac/Ubuntu strict feature Clippy passes;
+the instrumented executable rejects a missing test root before app startup, and
+the normal dependency tree excludes the driver. The first workflow runs exposed
+an incorrect test expectation about ordinary recovery: explicit Save As can reuse
+an unchanged source. The corrected case simulates a newer external edit and checks
+that recovery preserves it. Failed-run evidence is retained. Resync's distinct-file
+rule is separate and remains tested in Rust.
+
+Run `npm run build:desktop-test`, then `npm run test:desktop` with the README's
+Xvfb/session-bus wrapper on headless Linux. Receipts/logs/screenshots are retained
+under `test-results/desktop-*`; local completed evidence is copied into ignored
+`resync/desktop-e2e-{mac,linux}-v2/`. CI configures all three desktop OSes.
+Virtual-display execution does not establish native GPU/audio performance.
+Hosted/x64 CI still requires an
 available remote/runner; no such execution is claimed here.
 
 
@@ -462,5 +476,7 @@ error propagation, no sync after a failed write and removal of owned temporaries
 This tests preparation failure handling, not disk hardware or power-loss recovery.
 `cargo test --locked -p vsf-application -p visualsubforge` passes 111 ordinary
 tests; strict Clippy for both packages passes on Mac. Logs are retained as
-`resync/validation-io-failures*.log`. Other-OS execution of the new cases remains
-pending.
+`resync/validation-io-failures*.log`. Ubuntu ARM64 also passes both preparation
+tests via `cargo test --locked -p vsf-application atomic_file::tests`, recorded in
+`resync/desktop-e2e-linux-v2/`. Filtered zero-test integration harnesses are not
+additional evidence. Windows execution of the new cases remains pending.

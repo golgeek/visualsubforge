@@ -3,7 +3,11 @@
 use crate::timing_preset::Settings as Timing;
 use media_analysis::scenes::Detail;
 use serde::{Deserialize, Serialize};
-use std::{fs, io::Read, path::Path};
+use std::{
+    fs,
+    io::Read,
+    path::{Path, PathBuf},
+};
 use tauri::Manager;
 type Result<T> = std::result::Result<T, String>;
 
@@ -61,31 +65,29 @@ fn write(path: &Path, value: &Preferences) -> Result<()> {
 #[tauri::command]
 #[specta::specta]
 pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
-    tauri::async_runtime::spawn_blocking(move || {
-        read(
-            &app.path()
-                .app_config_dir()
-                .map_err(|e| e.to_string())?
-                .join("settings-v1.json"),
-        )
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || read(&settings_path(&app)?))
+        .await
+        .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 #[specta::specta]
 pub async fn preferences_save(app: tauri::AppHandle, preferences: Preferences) -> Result<()> {
-    tauri::async_runtime::spawn_blocking(move || {
-        write(
-            &app.path()
-                .app_config_dir()
-                .map_err(|e| e.to_string())?
-                .join("settings-v1.json"),
-            &preferences,
-        )
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || write(&settings_path(&app)?, &preferences))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
+    #[cfg(feature = "desktop-e2e")]
+    return Ok(app
+        .state::<crate::desktop_test::Driver>()
+        .root()
+        .join("settings-v1.json"));
+    #[cfg(not(feature = "desktop-e2e"))]
+    app.path()
+        .app_config_dir()
+        .map(|path| path.join("settings-v1.json"))
+        .map_err(|e| e.to_string())
 }
 #[cfg(test)]
 mod tests {

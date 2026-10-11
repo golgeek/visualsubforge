@@ -1327,6 +1327,7 @@
   }}
 />
 <main
+  aria-busy={busy || !ready}
   class:has-recovery={recovery.entries.length > 0 || !!recovery.error}
   style:--workspace-height={`${workspaceHeight}px`}
 >

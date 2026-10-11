@@ -19,6 +19,7 @@ tauri = { version = "2", features = [] }
 specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "=0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+tauri-plugin-wdio-webdriver = { version = "=1.5.0", optional = true }
 
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
@@ -40,6 +41,7 @@ libc = { version = "0.2", optional = true }
 media-prototype = ["dep:media-player", "media-player/native-mpv", "dep:libc"]
 macos-angle = ["media-prototype", "media-player/macos-angle"]
 custom-protocol = ["tauri/custom-protocol"]
+desktop-e2e = ["dep:tauri-plugin-wdio-webdriver"]
 
 [lints.rust]
 unsafe_code = "deny"

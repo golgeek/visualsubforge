@@ -5,7 +5,7 @@ use tauri::{
     Manager,
     menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder},
 };
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(not(target_os = "linux"), not(feature = "desktop-e2e")))]
 use tauri_plugin_dialog::DialogExt;
 use tauri_specta::Event;
 
@@ -258,7 +258,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
     }
     Ok(())
 }
-#[derive(Deserialize, specta::Type)]
+#[derive(Debug, PartialEq, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum FileChoice {
     Media,
@@ -276,10 +276,16 @@ pub async fn choose_file(
     kind: FileChoice,
     current: Option<String>,
 ) -> Result<Option<String>, String> {
-    #[cfg(target_os = "linux")]
+    #[cfg(feature = "desktop-e2e")]
+    {
+        let _ = current;
+        app.state::<crate::desktop_test::Driver>().choose(kind)
+    }
+
+    #[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]
     return crate::linux_dialog::choose_file(app, kind, current).await;
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(all(not(target_os = "linux"), not(feature = "desktop-e2e")))]
     tauri::async_runtime::spawn_blocking(move || {
         let mut dialog = app.dialog().file();
         if let Some(window) = app.get_webview_window("main") {
