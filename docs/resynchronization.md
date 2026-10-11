@@ -1,10 +1,12 @@
 # Subtitle resynchronization implementation
 
-The first release is under development. The current alignment experiment is
-documented in the [corpus guide](../tests/fixtures/resync/README.md). A headless CLI
-now calls the shared operation. The desktop backend owns proposal review pages,
-acceptance and persistence protection, with a Svelte review workflow under Tools.
-Wider matching/platform and actual-native workflow validation remain open.
+The first resync implementation and its defined acceptance checks are complete.
+A headless CLI calls the shared operation. The desktop backend owns proposal
+review pages, acceptance and persistence protection, with a Svelte review workflow
+under Tools. The [corpus guide](../tests/fixtures/resync/README.md) records the
+matcher’s measured range and limitations. Local ARM64 checks cover three OSes;
+the native resync walkthrough covers the development Mac. Hosted/x64 CI, wider
+content evaluation and native distribution/GPU/audio acceptance remain separate.
 
 Timing policy: every cue start and end follows the measured content map. This
 scales short gaps and long pauses when programme speed changes, without deriving
@@ -131,8 +133,8 @@ clears it. Recovery format 3 retains the flag and accepted SRT; versions 1 and 2
 remain readable. Rust also checks project subtitle references under the document
 lock through publication, preventing a pending resync from attaching the original
 SRT as though it contained the target timings. The frontend's save-before-project
-continuation passes modeled-browser resync checks; actual native interaction
-remains a separate acceptance gate.
+continuation passes modeled-browser resync checks and the actual Mac native
+walkthrough recorded below. Other OS native resync dialogs remain untested.
 
 ```sh
 cargo test --locked -p visualsubforge
@@ -322,6 +324,10 @@ policy rejection, no-op preservation and generated sequences of accepted edits.
 
 ## Recorded resync validation
 
+The entries below retain incremental results, including failures and then-open
+gates. Later v4 and native-walkthrough results supersede those earlier pending
+states; the opening summary describes current acceptance.
+
 The 2026-10-11 VM checks used guest-local copies of committed source `d80580e`,
 with Rust 1.98.1. The identical source archive SHA-256 was
 `81c61292d754634defb791e6ae33a4ef82812e18bc3cba80cfd2b33e94c50ef8`.
@@ -354,7 +360,7 @@ these counts. The Windows count excludes Unix-only signal and alias controls;
 the separate Windows console check closes the signal-delivery gap.
 
 Ignored receipts, exact command logs, truth and evaluation results are under
-`tests/fixtures/generated/resync/platform-validation-v1/`. The current Mac native
+`tests/fixtures/generated/resync/platform-validation-v1/`. The initial Mac native
 build, preflight and mapped-file receipts use the `gui-native-*-v1` prefix in
 the parent directory. They do not establish GPU/audio quality or completed GUI
 resync acceptance. Subsequent Mac v2 matching checks add fractional rates,
@@ -428,14 +434,49 @@ Windows was restored to paused with idle pausing on; Ubuntu stayed running.
 The selected Mac native preflight/no-bundle build and ad-hoc local bundle
 verification also pass at `ddc841a`. The current prepared bundle is
 `/tmp/vsf-resync-ddc841a-native/VisualSubForge.app`, with receipts in ignored
-`resync/gui-native-ddc841a/`. The earlier v4 bundle and previous running app are
-preserved. These are build checks, not native interaction.
+`resync/gui-native-ddc841a/`. The earlier bundles are preserved. These are build
+checks; the subsequent native interaction evidence is recorded below.
 
-## Remaining first-release acceptance checks
+## Native resync walkthrough
 
-- Complete the actual native resync review, acceptance, Undo/Redo, protected Save
-  As and save-before-project/reopen walkthrough, checking fixture hashes and
-  resulting timestamps. The Mac remains locked at the latest interaction attempt.
+On 2026-10-11, the previously locked Mac became available. The prior empty app
+was closed normally, then the `ddc841a` bundle ran with its selected private
+mpv/ANGLE libraries. No `desktop-e2e` feature, supplied chooser, or mocked command
+was used. Actual native menus and file dialogs exercised this sequence:
+
+1. Open generated `offset.mkv` as the target and a source SRT with labels 7/8/9,
+   Unicode text, a 100 ms gap and an 11-second pause. Select `source.mkv` in Tools
+   → Resynchronize Subtitles and run analysis.
+2. Review all three old/new cue ranges and the matched section: scale 1,
+   offset +3 seconds, 17 anchors and zero maximum fit error. Accept once; Undo
+   once restores all source ranges and Redo once restores all proposed ranges.
+3. Verify that the Save As requirement survives Undo. Cancel Save As, then
+   explicitly choose the original SRT and confirm the OS replacement prompt.
+   VSF refuses that path and retains the accepted timings; the source hash is
+   unchanged.
+4. Invoke Save Project before saving subtitles. Its continuation first saves a
+   distinct `resynced.srt`, then `resynced.vsfproject`. Close both subtitles and
+   media; reopen the project and verify all timings, the target media and paused
+   playback. Quit normally and verify the owned process has exited.
+
+The output is byte-for-byte the expected SRT: 6–7 s, 7.100–8 s and 19–20 s,
+with original labels/text retained. The project references `resynced.srt`, not
+the source; all three input hashes are unchanged. The run’s executable SHA-256
+is `8c7c60ecc07e41abfa6afa63faa3050d936aeeaa6d5b453c3bc3cfdf81fd736a`.
+`scripts/record-native-runtime.py` confirmed the executable, libmpv and both
+ANGLE images actually loaded. The visible native surface and renderer log show
+ANGLE/Metal on the M3 Max. This is a video-only fixture; “No mapped audio track”
+is expected and supplies no acoustic or audio-synchronization evidence.
+
+Ignored evidence is retained in
+`tests/fixtures/generated/resync/gui-native-walkthrough-v1/`: input/binary hashes,
+loaded-library receipt, accessibility states, proposal/reopen screenshots, exact
+output files and `verification.json` recording all eleven checks and normal quit.
+This controlled native offset workflow complements the separate automated
+speed/ad/trim corpus and three-OS default-app lane. It does not claim native
+resync interaction on Windows/Linux or product-wide GPU/audio acceptance.
+
+## Actual default-app workflow and IO-failure checks
 
 The WebdriverIO route was evaluated against the current
 [Tauri guide](https://v2.tauri.app/develop/tests/webdriver/) and

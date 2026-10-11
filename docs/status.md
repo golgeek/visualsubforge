@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-11 (America/New_York): CLI and GUI resync are implemented with generated IPC; native workflow and broader matching validation remain in progress.
+Updated 2026-10-11 (America/New_York): the first CLI/GUI resync milestone is complete, including generated IPC, local three-OS automated validation and the Mac native workflow.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
@@ -10,14 +10,14 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
 | Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |
-| Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. Windows/Linux execution of the newly added save-lease regressions is still unverified locally. |
+| Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | The v4 verifier passes the 29-case combined synthetic corpus and both reference films on Mac, including periodic-motion coverage and ambiguous-edit controls. The same 29 synthetic cases and shared-operation tests pass on Ubuntu/Windows ARM64. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native interaction remains open. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | Actual GUI/native integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
-| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow passes modeled-browser checks; native integration validation remains. |
-| Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
+| Resynchronization | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). The v4 verifier passes 29 synthetic cases on Mac/Ubuntu/Windows ARM64 and both reference films on Mac. | Coverage is measured, not universal. Sampled visual evidence can miss indistinguishable edits; ambiguous or unsupported cues remain unresolved. Wider real-programme evaluation is a follow-up. |
+| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | Blocking filesystem calls can delay cancellation. Hosted/x64 CI remains unavailable. Bulk minimum-gap enforcement and audio matching are separate unimplemented features. |
+| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). Rust and modeled-browser tests cover proposal ownership, Save As/recovery and project references. The actual Mac native workflow passes review/accept/Undo/Redo, source-path rejection, save-before-project and reopen. | Native resync dialogs were exercised on Mac only. Recovery tests do not imply power-loss guarantees or restoration of unapplied drafts/history. |
+| Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. Real default-app IPC passes on all three local ARM64 OSes; Mac native resync transport also passes. | The pinned generator has documented naming limitations; upgrades require contract and runtime regression checks. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
 
@@ -37,9 +37,13 @@ FFmpeg integrations pass. The new EOF tests cover short clips, nonzero origins
 and a longer audio track that supplies no video-edge evidence. At `921181c`,
 Ubuntu/Windows ARM64 pass 167/160 ordinary tests, the same twelve integrations,
 all 29 combined cases, three evaluator-oracle tests and strict Clippy. All 369
-tracked files are hash-verified. Native v4 compilation and a separate local
-bundle are ready; the actual GUI walkthrough remains pending. The acceptance
-audit retains native interaction and final platform checks as unfinished. The
+tracked files are hash-verified. The `ddc841a` Mac native bundle subsequently
+passed proposal review/acceptance, one Undo/Redo, cancelled Save As, explicit
+source-path rejection, save-before-project and reopen from an empty workspace.
+Exact output bytes and all input hashes match expectations; the project refers
+to the new SRT. The app quit normally. The [native walkthrough](resynchronization.md#native-resync-walkthrough)
+records executable/runtime identities and retained screenshots. This closes
+the first resync milestone; video-only fixtures do not validate audio. The
 [real desktop workflow lane](../tests/desktop/README.md) now passes on Mac,
 Ubuntu (Xvfb) and Windows ARM64, with actual webview/IPC, editing/history, failed/cancelled
 saves, exact-byte reopen, process-loss recovery, external-file conflict protection
@@ -95,8 +99,8 @@ distinguishes the current macOS, Ubuntu ARM64 and Windows ARM64 results. Both VM
 headless suites, actual FFmpeg operations and ten compact alignment cases pass.
 Both VMs' desktop owner/persistence, generated IPC and frontend checks pass.
 Windows console Ctrl-C and timeout terminate the analysis child and preserve
-files. Actual native GUI resync and the
-broader matching corpus remain acceptance gates.
+files. Native GUI resync and the broader matching corpus were still open at
+that earlier stage; the v4 and native-walkthrough results above supersede it.
 
 ## Earlier implementation evidence
 
