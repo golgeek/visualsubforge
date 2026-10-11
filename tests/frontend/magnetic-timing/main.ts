@@ -395,6 +395,8 @@ async function run() {
     gap.dispatchEvent(new Event('change', { bubbles: true }));
     button('Cancel').click();
     await until(() => !host.querySelector('dialog[open]'));
+    // Closing the HTML dialog precedes acknowledged native video/focus cleanup.
+    await until(() => !menuState?.busy);
     callbacks.get(eventHandler)!({ payload: 'settings' });
     await until(() => !!host.querySelector('dialog[open] .settings'));
     assert(
@@ -427,6 +429,7 @@ async function run() {
     failSettings = false;
     button('Apply settings').click();
     await until(() => !host.querySelector('dialog[open]'));
+    await until(() => !menuState?.busy);
     menuAction('saveProject');
     await until(
       () =>

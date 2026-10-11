@@ -1,0 +1,128 @@
+import {
+  chooseFile,
+  documentAction,
+  emptyDocument,
+  type DocumentAction,
+  type DocumentSnapshot,
+} from './client';
+import {
+  operationSelection,
+  reconcileCueSelection,
+  type CueOperationPlan,
+} from './cue-operations';
+import { formatTime, parseTime } from './timeline';
+
+const client = { chooseFile, documentAction };
+type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
+
+// Rust owns the document and history. This owner replaces accepted projections;
+// only selection and the three draft fields are editable frontend state.
+export class DocumentSession {
+  private accepted = $state.raw<DocumentSnapshot>({ ...emptyDocument });
+  private selection = $state<number | null>(null);
+  private alive = true;
+  private pending = false;
+  private client: typeof client;
+  text = $state('');
+  start = $state('');
+  end = $state('');
+
+  constructor(api = client) {
+    this.client = api;
+  }
+  get snapshot() {
+    return this.accepted;
+  }
+  get selected() {
+    return this.selection;
+  }
+  get cue() {
+    return this.accepted.cues.find((cue) => cue.id === this.selection);
+  }
+  get dirty() {
+    const cue = this.cue;
+    return (
+      !!cue &&
+      (this.text !== cue.text ||
+        this.start !== formatTime(cue.startMs) ||
+        this.end !== formatTime(cue.endMs))
+    );
+  }
+  select(id: number | null) {
+    if (!this.alive) return;
+    this.selection = this.accepted.cues.some((cue) => cue.id === id)
+      ? id
+      : null;
+    this.revert();
+  }
+  revert() {
+    if (!this.alive) return;
+    const cue = this.cue;
+    this.text = cue?.text ?? '';
+    this.start = cue ? formatTime(cue.startMs) : '';
+    this.end = cue ? formatTime(cue.endMs) : '';
+  }
+  async command(
+    action: DocumentAction,
+    options: {
+      plan?: CueOperationPlan;
+      version?: Version;
+      preferred?: number | null;
+    } = {},
+  ): Promise<boolean> {
+    if (!this.alive) return false;
+    // App disables editing while a command is pending. Enforce the same rule
+    // here so a second caller cannot send a mutation with the same revision.
+    if (this.pending)
+      throw new Error('Wait for the current subtitle operation.');
+    this.pending = true;
+    const before = this.accepted;
+    try {
+      const next = await this.client.documentAction(
+        action,
+        options.version ?? before,
+      );
+      if (!this.alive) return false;
+      const preferred = options.plan
+        ? operationSelection(options.plan, before.cues, next.cues)
+        : options.preferred;
+      this.selection =
+        next.generation !== before.generation
+          ? (next.cues[0]?.id ?? null)
+          : preferred === undefined
+            ? reconcileCueSelection(before.cues, next.cues, this.selection)
+            : preferred;
+      this.accepted = next;
+      this.revert();
+      return true;
+    } finally {
+      this.pending = false;
+    }
+  }
+  async apply(): Promise<boolean> {
+    if (!this.alive) return false;
+    const cue = this.cue;
+    if (!cue || !this.dirty) return true;
+    return this.command({
+      kind: 'edit',
+      cueId: cue.id,
+      startMs: parseTime(this.start),
+      endMs: parseTime(this.end),
+      text: this.text,
+    });
+  }
+  async save(as: boolean): Promise<boolean> {
+    if (!(await this.apply())) return false;
+    as = as || this.accepted.requiresSaveAs;
+    const path = as
+      ? await this.client.chooseFile('saveSubtitles', this.accepted.path)
+      : null;
+    if (!this.alive || (as && !path)) return false;
+    return this.command({ kind: 'save', path });
+  }
+  dispose() {
+    // An already accepted Rust edit is not rolled back. Ignore its late reply
+    // and prevent subsequent chooser/save operations from this dead workspace.
+    this.alive = false;
+  }
+}

@@ -11,23 +11,16 @@
     getPreferences,
     type Preferences,
   } from './lib/client';
-  import { LiveLoop } from './lib/live-loop';
+  import { DocumentSession } from './lib/document-session.svelte';
+  import { MediaSession } from './lib/media-session.svelte';
+  import { ProjectWorkflow } from './lib/project-workflow.svelte';
+  import { PendingDecision } from './lib/pending-decision';
   import { onMount, tick, untrack } from 'svelte';
   import {
-    openProject,
-    attachProject,
-    detachProject,
-    saveProject as writeProject,
-    restoreScenes,
-    emptyStatus,
-    emptyDocument,
-    mediaAction,
-    documentAction,
     traceApplyInput,
     chooseFile,
     workspaceActions,
     updateMenu,
-    finishExit,
     recoveryStatus,
     discardRecovery,
     type RecoveryStatus,
@@ -35,12 +28,11 @@
     waveformView,
     type MediaAction,
     type DocumentAction,
-    type DocumentSnapshot,
     type WorkspaceAction,
     type WaveformView,
     type Cue,
   } from './lib/client';
-  import { clamp, formatTime, parseTime, viewport } from './lib/timeline';
+  import { clamp, formatTime, viewport } from './lib/timeline';
   import {
     playbackViewportStart,
     waveformRequestWindow,
@@ -60,8 +52,6 @@
   import {
     cueOperationLabels,
     planCueOperation,
-    reconcileCueSelection,
-    operationSelection,
     type CueOperation,
     type CueOperationPlan,
   } from './lib/cue-operations';
@@ -86,10 +76,12 @@
     type TimingEdit,
     type CueBoundary,
   } from './lib/cue-timing';
-  let status = $state({ ...emptyStatus });
-  // Rust owns accepted state. Replace snapshots in accept(); never mutate their
-  // cues locally or allocate deep reactive proxies for the whole document.
-  let doc = $state.raw({ ...emptyDocument });
+  const subtitles = new DocumentSession();
+  const media = new MediaSession((failure) => {
+    if (alive) error = String(failure);
+  });
+  const status = $derived(media.status);
+  const doc = $derived(subtitles.snapshot);
   let recovery = $state<RecoveryStatus>({ entries: [], error: null });
   let discardRecoveryId = $state<string | null>(null);
   let recoveryRequest = 0;
@@ -250,8 +242,7 @@
           await docAct(plan.action, plan);
           focusWaveform();
         } else {
-          selected = context.cueId;
-          loadDraft(cue);
+          subtitles.select(context.cueId);
           await revealSelection();
           await focusText();
         }
@@ -352,8 +343,7 @@
           clamp(index + (action === 'nextCue' ? 1 : -1), 0, doc.cues.length - 1)
         ];
       if (next) {
-        selected = next.id;
-        loadDraft(next);
+        subtitles.select(next.id);
         await revealSelection();
         await focusText();
       }
@@ -371,7 +361,7 @@
   let cueFollowing = $state<CueFollowing>('following');
   let editorFocused = $state(false);
   let lastRevealedCue = '';
-  let mediaPending = $state(false);
+  const mediaPending = $derived(media.pending);
   const activeIds = $derived(
     activeCueIds(
       doc.cues,
@@ -383,8 +373,6 @@
   let error = $state('');
   let notice = $state('');
   let mediaPath = $state('');
-  let projectPath = $state<string | null>(null);
-  let projectToken = $state<number | null>(null);
   let restoredScenes = $state<{ session: number; generation: number } | null>(
     null,
   );
@@ -426,17 +414,9 @@
   }
 
   let hardware = $state(true);
-  let selected = $state<number | null>(null);
-  let draftText = $state('');
-  let draftStart = $state('');
-  let draftEnd = $state('');
-  const cue = $derived(doc.cues.find((c) => c.id === selected));
-  const draftDirty = $derived(
-    !!cue &&
-      (draftText !== cue.text ||
-        draftStart !== formatTime(cue.startMs) ||
-        draftEnd !== formatTime(cue.endMs)),
-  );
+  const selected = $derived(subtitles.selected);
+  const cue = $derived(subtitles.cue);
+  const draftDirty = $derived(subtitles.dirty);
   let timingEdit = $state<TimingEdit | null>(null);
   let timingMagnets: {
     cues: Cue[];
@@ -444,14 +424,7 @@
     settings: TimingSettings;
   } | null = null;
   let timingRangeBefore: [number, number] | null = null;
-  const liveLoop = new LiveLoop(
-    async (session, [start, end]) => {
-      await mediaAction({ kind: 'loop', start, end }, session);
-    },
-    (e) => {
-      if (alive) error = `Loop preview: ${String(e)}`;
-    },
-  );
+  const liveLoop = media.loop;
   function selectRange(next: [number, number]) {
     range = next;
     liveLoop.update(status.session, next);
@@ -518,8 +491,10 @@
         : null;
       if (action) {
         // Send the gesture's captured version, never substitute the latest one.
-        const next = await documentAction(action, edit);
-        if (alive) accept(next, edit.original.id);
+        await subtitles.command(action, {
+          version: edit,
+          preferred: edit.original.id,
+        });
       }
       accepted = commit;
       notice = commit ? 'Timing applied' : 'Timing cancelled';
@@ -625,81 +600,29 @@
     Math.max(status.durationSeconds ?? 0, wave?.durationSeconds ?? 0),
   );
   let confirmation: HTMLDialogElement;
-  let confirmResolve: ((value: 'save' | 'discard' | 'cancel') => void) | null =
-    null;
+  const subtitleDecision = new PendingDecision<'save' | 'discard' | 'cancel'>(
+    'cancel',
+  );
   let confirming = $state(false);
   let projectExitError = $state<string | null>(null);
-  let projectExitResolve: ((choice: ProjectExitChoice) => void) | null = null;
+  const projectExitDecision = new PendingDecision<ProjectExitChoice>('cancel');
   let lastMenu = '';
-  let revision = 0;
   let alive = true;
-  function loadDraft(c: Cue | undefined) {
-    draftText = c?.text ?? '';
-    draftStart = c ? formatTime(c.startMs) : '';
-    draftEnd = c ? formatTime(c.endMs) : '';
+  function docAct(action: DocumentAction, plan?: CueOperationPlan) {
+    return subtitles.command(action, plan ? { plan } : {});
   }
-  function accept(next: DocumentSnapshot, preferred?: number | null) {
-    selected =
-      next.generation !== doc.generation
-        ? (next.cues[0]?.id ?? null)
-        : preferred === undefined
-          ? reconcileCueSelection(doc.cues, next.cues, selected)
-          : preferred;
-    doc = next;
-    loadDraft(next.cues.find((c) => c.id === selected));
-  }
-  async function docAct(action: DocumentAction, plan?: CueOperationPlan) {
-    const before = doc.cues;
-    const next = await documentAction(action, doc);
-    if (alive)
-      accept(
-        next,
-        plan ? operationSelection(plan, before, next.cues) : undefined,
-      );
-  }
-  async function applyDraft() {
-    if (!cue || !draftDirty) return;
-    await docAct({
-      kind: 'edit',
-      cueId: cue.id,
-      startMs: parseTime(draftStart),
-      endMs: parseTime(draftEnd),
-      text: draftText,
-    });
+  function applyDraft() {
+    return subtitles.apply();
   }
   async function save(as: boolean) {
-    await applyDraft();
-    as = as || doc.requiresSaveAs;
-    const path = as ? await chooseFile('saveSubtitles', doc.path) : null;
-    if (as && !path) return false;
-    await docAct({ kind: 'save', path });
-    notice = 'Subtitles saved';
-    return true;
+    const saved = await subtitles.save(as);
+    if (saved) notice = 'Subtitles saved';
+    return saved;
   }
-  async function saveWorkspace(as: boolean, saveSubtitles = true) {
-    if (!status.loaded || !mediaPath) return false;
-    if (
-      saveSubtitles &&
-      doc.loaded &&
-      (doc.dirty || draftDirty || doc.requiresSaveAs)
-    ) {
-      if (!(await save(false))) return false;
-    }
-    const path =
-      as || !projectPath
-        ? await chooseFile(
-            'saveProject',
-            projectPath ?? mediaPath.replace(/\.[^/.\\]+$/, '') + '.vsfproject',
-          )
-        : projectPath;
-    if (!path) return false;
-    const saved = await writeProject({
-      path,
-      token: projectToken,
+  const projects = new ProjectWorkflow(subtitles, media, {
+    read: () => ({
       mediaPath,
-      subtitlePath: doc.path,
-      session: status.session,
-      positionSeconds: status.positionSeconds ?? 0,
+      hardware,
       options: {
         waveformStart: start,
         waveformSpan: span,
@@ -708,99 +631,62 @@
         showScenes,
         timing: timingSettings,
       },
-    });
-    projectPath = saved.path;
-    projectToken = saved.token;
-    notice = 'Project saved';
-    return true;
-  }
-  async function loadWorkspace() {
-    const path = await chooseFile('project', projectPath);
-    if (!path) return;
-    // Validate version, media identity, cuts and subtitle reference before replacing state.
-    const project = await openProject(path);
-    if (!(await protect())) return;
-    restoredScenes = null;
-    wave = null;
-    waveGeneration = null;
-    range = null;
-    await act({ kind: 'open', path: project.mediaPath, hardware });
-    mediaPath = project.mediaPath;
-    // A failed restore must not leave the preceding project's autosave destination attached.
-    projectPath = null;
-    projectToken = null;
-    // loadfile acknowledges before native FILE_LOADED. The regular status poll
-    // advances this state; seeking earlier can fail on a cold decoder startup.
-    const openingSession = status.session;
-    const deadline = performance.now() + 15_000;
-    while (
-      alive &&
-      status.session === openingSession &&
-      !status.loaded &&
-      !status.error
-    ) {
-      if (performance.now() >= deadline)
-        throw new Error('Timed out waiting for project video to load');
-      await new Promise<void>((resolve) => setTimeout(resolve, 50));
-    }
-    if (!alive || status.session !== openingSession)
-      throw new Error('Media changed while opening project');
-    if (status.error) throw new Error(status.error);
-    if (project.subtitlePath)
-      await docAct({ kind: 'open', path: project.subtitlePath, discard: true });
-    else if (doc.loaded) await docAct({ kind: 'close', discard: true });
-    if (project.scenes?.mode === 'visual') {
-      const generation = await restoreScenes(
-        mediaPath,
-        status.session,
-        project.scenes,
+    }),
+    beginRestore: () => {
+      // Suspend analysis until the newly opened native session has a path.
+      mediaPath = '';
+      restoredScenes = null;
+      wave = null;
+      waveGeneration = null;
+      range = null;
+    },
+    mediaOpened: (path) => {
+      mediaPath = path;
+    },
+    restoreOptions: (options) => {
+      follow = options.followPlayback;
+      cueFollowing = options.followSubtitle ? 'following' : 'off';
+      showScenes = options.showScenes;
+      timingSettings = { ...(options.timing ?? preferences.timing) };
+      span = Math.max(
+        0.01,
+        Math.min(
+          options.waveformSpan,
+          status.durationSeconds ?? options.waveformSpan,
+        ),
       );
-      restoredScenes = { session: status.session, generation };
-    }
-    follow = project.options.followPlayback;
-    cueFollowing = project.options.followSubtitle ? 'following' : 'off';
-    showScenes = project.options.showScenes;
-    timingSettings = { ...(project.options.timing ?? preferences.timing) };
-    span = Math.max(
-      0.01,
-      Math.min(
-        project.options.waveformSpan,
-        status.durationSeconds ?? project.options.waveformSpan,
-      ),
-    );
-    start = Math.max(
-      0,
-      Math.min(
-        project.options.waveformStart,
-        Math.max(0, (status.durationSeconds ?? 0) - span),
-      ),
-    );
-    await act({
-      kind: 'seek',
-      seconds: Math.min(
-        project.positionSeconds,
-        status.durationSeconds ?? project.positionSeconds,
-      ),
-    });
-    const attached = await attachProject(project.token);
-    projectPath = attached.path;
-    projectToken = attached.token;
-    notice =
-      project.scenes?.mode === 'keyframes'
-        ? 'Project restored · playback paused · keyframe markers skipped; run a visual scan'
-        : 'Project restored · playback paused';
-  }
-  async function occludeVideo(occluded: boolean) {
-    if (status.available && status.surfaceAboveWebview)
-      await mediaAction({ kind: 'occlude', occluded }, status.session);
+      start = Math.max(
+        0,
+        Math.min(
+          options.waveformStart,
+          Math.max(0, (status.durationSeconds ?? 0) - span),
+        ),
+      );
+    },
+    restoreScenes: (session, generation) => {
+      restoredScenes = { session, generation };
+    },
+    protect,
+    saveSubtitles: () => save(false),
+    saveFailed: projectSaveFailed,
+    notify: (message) => {
+      notice = message;
+    },
+  });
+  function occludeVideo(occluded: boolean) {
+    return media.occlude(occluded);
   }
   async function confirmChanges(): Promise<'save' | 'discard' | 'cancel'> {
     confirming = true;
     try {
       // The native child must be hidden before the dialog becomes visible.
       await occludeVideo(true);
+      if (!alive) {
+        confirming = false;
+        return 'cancel';
+      }
       confirmation.showModal();
-      return new Promise((resolve) => (confirmResolve = resolve));
+      return subtitleDecision.wait();
     } catch (e) {
       confirming = false;
       throw e;
@@ -808,24 +694,23 @@
   }
   async function answer(value: 'save' | 'discard' | 'cancel') {
     if (!confirming) return;
-    const resolve = confirmResolve;
-    confirmResolve = null;
     confirmation.close();
     confirming = false;
     await tick();
     try {
       // Diagnostics can remain open behind this dialog and still own occlusion.
       await occludeVideo(diagnostics);
-      resolve?.(value);
+      subtitleDecision.answer(alive ? value : 'cancel');
     } catch (e) {
       error = String(e);
-      resolve?.('cancel');
+      subtitleDecision.answer('cancel');
     }
   }
   async function protect() {
+    if (!alive) return false;
     if (!doc.dirty && !draftDirty) return true;
     const choice = await confirmChanges();
-    if (choice === 'cancel') return false;
+    if (!alive || choice === 'cancel') return false;
     if (choice === 'save') return save(false);
     return true;
   }
@@ -837,46 +722,30 @@
         confirming = false;
         return 'cancel';
       }
-      return new Promise((resolve) => {
-        projectExitResolve = resolve;
-        projectExitError = String(error);
-      });
+      const decision = projectExitDecision.wait();
+      projectExitError = String(error);
+      return decision;
     } catch (error) {
       confirming = false;
       throw error;
     }
   }
   async function answerProjectExit(choice: ProjectExitChoice) {
-    const resolve = projectExitResolve;
-    if (!resolve) return;
-    projectExitResolve = null;
+    if (!projectExitDecision.pending || projectExitError === null) return;
     projectExitError = null;
     confirming = false;
     await tick();
     try {
       await occludeVideo(diagnostics);
-      resolve(alive ? choice : 'cancel');
+      projectExitDecision.answer(alive ? choice : 'cancel');
     } catch (failure) {
       error = String(failure);
-      resolve('cancel');
+      projectExitDecision.answer('cancel');
     }
   }
-  async function act(action: MediaAction) {
+  function act(action: MediaAction) {
     cancelHeldTiming();
-    if (['open', 'close', 'clearLoop'].includes(action.kind))
-      await liveLoop.stop();
-    else await liveLoop.flush();
-    const request = ++revision;
-    mediaPending = true;
-    try {
-      const next = await mediaAction(action, status.session);
-      if (alive && request === revision) {
-        status = next;
-        if (action.kind === 'loop') liveLoop.activate(next.session);
-      }
-    } finally {
-      if (request === revision) mediaPending = false;
-    }
+    return media.command(action);
   }
   async function selectCue(id: number) {
     // Rows use aria-disabled so transport commands do not drop keyboard focus.
@@ -888,9 +757,8 @@
     error = '';
     try {
       await applyDraft();
-      selected = id;
-      const selectedCue = doc.cues.find((c) => c.id === id);
-      loadDraft(selectedCue);
+      subtitles.select(id);
+      const selectedCue = subtitles.cue;
       if (selectedCue)
         selectRange([selectedCue.startMs / 1000, selectedCue.endMs / 1000]);
       await revealSelection();
@@ -949,13 +817,13 @@
           settingsOpen = true;
           break;
         case 'openProject':
-          await loadWorkspace();
+          await projects.open();
           break;
         case 'saveProject':
-          await saveWorkspace(false);
+          await projects.save(false);
           break;
         case 'saveProjectAs':
-          await saveWorkspace(true);
+          await projects.save(true);
           break;
         case 'createCue':
         case 'deleteCue':
@@ -980,9 +848,7 @@
             start = 0;
             await act({ kind: 'open', path, hardware });
             mediaPath = path;
-            if (projectToken !== null) await detachProject();
-            projectPath = null;
-            projectToken = null;
+            await projects.detach();
             restoredScenes = null;
             timingSettings = { ...preferences.timing };
           }
@@ -991,9 +857,7 @@
         case 'closeMedia':
           await act({ kind: 'close' });
           mediaPath = '';
-          if (projectToken !== null) await detachProject();
-          projectPath = null;
-          projectToken = null;
+          await projects.detach();
           restoredScenes = null;
           wave = null;
           waveGeneration = null;
@@ -1068,23 +932,7 @@
           }
           break;
         case 'quit':
-          if (await protect()) {
-            if (projectPath && status.loaded) {
-              let saveAs = false;
-              while (alive) {
-                try {
-                  if (!(await saveWorkspace(saveAs, false))) return;
-                  break;
-                } catch (failure) {
-                  const choice = await projectSaveFailed(failure);
-                  if (choice === 'cancel') return;
-                  if (choice === 'quit') break;
-                  if (choice === 'saveAs') saveAs = true;
-                }
-              }
-            }
-            if (alive) await finishExit(doc, true);
-          }
+          await projects.quit();
           break;
       }
     } catch (e) {
@@ -1240,8 +1088,7 @@
     untrack(() => {
       // Automatic selection never calls selectCue: that path commits and seeks.
       if (next !== selected) {
-        selected = next;
-        loadDraft(doc.cues[index]);
+        subtitles.select(next);
       }
       if (list && key !== lastRevealedCue) {
         list.scrollTop = revealCueRow(index, list.scrollTop, listHeight);
@@ -1252,19 +1099,17 @@
   });
   onMount(() => {
     alive = true;
-    let polling = false;
     let wavePolling = false;
     let unlisten = () => {};
     void Promise.all([
-      documentAction({ kind: 'status' }, doc),
+      subtitles.command({ kind: 'status' }),
       getPreferences().catch((e) => {
         if (alive) error = String(e);
         return defaultPreferences;
       }),
     ])
-      .then(([next, saved]) => {
+      .then(([, saved]) => {
         if (alive) {
-          accept(next);
           preferences = { ...saved, timing: { ...saved.timing } };
           timingSettings = { ...saved.timing };
         }
@@ -1281,19 +1126,6 @@
         else stop();
       })
       .catch((e) => (error = String(e)));
-    async function poll() {
-      if (polling || mediaPending) return;
-      polling = true;
-      const request = revision;
-      try {
-        const next = await mediaAction({ kind: 'status' }, status.session);
-        if (alive && request === revision) status = next;
-      } catch (e) {
-        if (alive && request === revision) error = String(e);
-      } finally {
-        polling = false;
-      }
-    }
     let lastWave = '';
     async function pollWave() {
       if (wavePolling || waveGeneration === null) return;
@@ -1354,7 +1186,7 @@
       if (key === lastLayout) return;
       layoutPending = true;
       try {
-        await mediaAction(bounds, status.session);
+        await media.layout(bounds);
         if (alive) lastLayout = key;
       } catch (e) {
         if (alive) error = String(e);
@@ -1371,19 +1203,19 @@
     window.addEventListener('resize', layout);
     window.addEventListener('scroll', layout, true);
     const timer = setInterval(() => {
-      void poll();
       void pollWave();
     }, 100);
     const layoutTimer = setInterval(() => void layout(), 100);
     const recoveryTimer = setInterval(() => void refreshRecovery(), 5000);
     void refreshRecovery();
-    void poll();
+    media.startPolling();
     return () => {
       alive = false;
-      projectExitResolve?.('cancel');
-      projectExitResolve = null;
-      void liveLoop.stop();
-      revision++;
+      projects.dispose();
+      subtitles.dispose();
+      media.dispose();
+      subtitleDecision.dispose();
+      projectExitDecision.dispose();
       waveRequest++;
       unlisten();
       observer.disconnect();
@@ -1475,7 +1307,7 @@
       >
       <button
         disabled={busy || !ready || !status.loaded}
-        title={projectPath ??
+        title={projects.path ??
           'Save media, scene results, view options and resume position'}
         onclick={() => void run('saveProject')}>Save Project</button
       >
@@ -1893,7 +1725,7 @@
         ><label
           >Start <input
             aria-label="Cue start"
-            bind:value={draftStart}
+            bind:value={subtitles.start}
             disabled={!cue}
             readonly={busy}
             spellcheck="false"
@@ -1901,7 +1733,7 @@
         ><label
           >End <input
             aria-label="Cue end"
-            bind:value={draftEnd}
+            bind:value={subtitles.end}
             disabled={!cue}
             readonly={busy}
             spellcheck="false"
@@ -1913,7 +1745,7 @@
             status.positionSeconds === null}
           onclick={() => {
             if (status.positionSeconds !== null)
-              draftStart = formatTime(status.positionSeconds * 1000);
+              subtitles.start = formatTime(status.positionSeconds * 1000);
           }}>Start here</button
         ><button
           disabled={!cue ||
@@ -1922,14 +1754,14 @@
             status.positionSeconds === null}
           onclick={() => {
             if (status.positionSeconds !== null)
-              draftEnd = formatTime(status.positionSeconds * 1000);
+              subtitles.end = formatTime(status.positionSeconds * 1000);
           }}>End here</button
         >
       </div>
       <textarea
         aria-label="Subtitle text"
         bind:this={textEditor}
-        bind:value={draftText}
+        bind:value={subtitles.text}
         disabled={!cue}
         readonly={busy}
         placeholder="Select a subtitle to edit its text."
@@ -1951,8 +1783,9 @@
         <button
           disabled={!draftDirty || busy}
           onclick={(e) => void run('apply', e)}>Apply edit</button
-        ><button disabled={!draftDirty || busy} onclick={() => loadDraft(cue)}
-          >Revert draft</button
+        ><button
+          disabled={!draftDirty || busy}
+          onclick={() => subtitles.revert()}>Revert draft</button
         ><button
           disabled={!doc.canUndo || draftDirty || busy}
           onclick={() => void run('undo')}>Undo edit</button

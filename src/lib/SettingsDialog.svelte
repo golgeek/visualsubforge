@@ -117,7 +117,9 @@
       <TimingSettingsPanel
         value={draft.timing}
         disabled={busy}
-        onchange={(value) => (draft.timing = value)}
+        onchange={(value) => {
+          draft.timing = value;
+        }}
         onimport={() => void preset(true)}
         onexport={() => void preset(false)}
       />

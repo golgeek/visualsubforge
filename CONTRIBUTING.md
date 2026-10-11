@@ -104,7 +104,7 @@ npm run test:browser
 On Linux, use `npx playwright install --with-deps chromium webkit` to install
 browser prerequisites too. The runner starts its own Vite server on port 1421
 (override with `VSF_BROWSER_TEST_PORT`) and refuses to reuse an existing server.
-It checks all eight pages in `tests/frontend/` in Chromium and WebKit, including
+It checks the component and workspace-lifecycle pages in `tests/frontend/` in Chromium and WebKit, including
 project save failures, recovery response ordering and gesture cancellation.
 FAIL rows, page errors, incomplete results, zero checks and inconsistent passing
 counts fail the run. Negative controls verify those runner failure modes. Reports,
