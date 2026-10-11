@@ -73,6 +73,10 @@ The application builds without a VisualSubSync checkout. Legacy source is an
 optional behavior reference, not a build or runtime dependency, and is kept
 unchanged. No legacy code or assets have been imported.
 
-The new project's license is not selected. Legacy VisualSubSync carries GPL
-notices; dependency patches retain their notices and provenance. A complete
-release dependency/license inventory and distribution decision remain required.
+VisualSubForge's original code is licensed under the GNU General Public License,
+version 3 or (at your option) any later version. See [LICENSE](LICENSE). You may
+use, modify and redistribute it under those terms; it comes without any warranty.
+
+Third-party code and dependency patches retain their own licenses, notices and
+provenance. This choice does not relicense those files. A complete inventory of
+the dependencies actually included in each release remains required.
