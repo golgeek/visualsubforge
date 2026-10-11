@@ -6,7 +6,7 @@ use media_analysis::{Tools, alignment, scenes::visual, tools::Versions};
 use serde::Serialize;
 use std::{io::Write, path::PathBuf, time::Duration};
 
-pub const ALGORITHM_VERSION: &str = "scene-visual-sampled-v2";
+pub const ALGORITHM_VERSION: &str = "scene-visual-neighborhoods-v3";
 pub const MAX_REPORT_BYTES: usize = 64 * 1024 * 1024;
 
 pub enum Subtitles {
@@ -100,12 +100,30 @@ pub fn analyze(
     progress(Stage::Match);
     let mut alignment = alignment::align(&source_cuts, &target_cuts, cancel, budget.remaining()?)?;
     progress(Stage::VerifySamples);
+    let requests = alignment::verify::target_sample_times(
+        &alignment,
+        &source_samples,
+        cancel,
+        budget.remaining()?,
+    )?;
+    let detailed = visual::sample_near(
+        tools,
+        &target_video.canonical_path,
+        &requests,
+        alignment::verify::LOOKAROUND_US,
+        &versions.ffmpeg,
+        cancel,
+        budget.remaining()?,
+    )?;
     alignment::verify::refine(
         &mut alignment,
         &source_cuts,
         &target_cuts,
         &source_samples,
-        &target_samples,
+        alignment::verify::TargetSamples {
+            coarse: &target_samples,
+            detailed: Some(&detailed),
+        },
         cancel,
         budget.remaining()?,
     )?;

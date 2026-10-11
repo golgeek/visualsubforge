@@ -14,7 +14,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | Original 16 cases and a second reference film pass. The new robustness corpus still fails two low-cut coverage gates; brightness changes abstain. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native interaction remains open. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | The v3 verifier passes the original 16 cases and live-action reference, and rejects a newly demonstrated false match. One periodic-motion case still misses its coverage target. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native interaction remains open. |
 | Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | Actual GUI/native integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow passes modeled-browser checks; native integration validation remains. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
@@ -22,6 +22,23 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
 
 ## Latest resync evidence
+
+Algorithm `scene-visual-neighborhoods-v3` adds bounded dense target
+observations around unsupported intervals. A newly generated deletion of one
+repeating motion cycle exposed a 1,760 ms false accepted mapping in v2; v3 leaves
+that tail unresolved. All original 16 cases pass, with reference coverage 97.9%.
+The expanded 21-case robustness corpus passes 20 cases: the nonrepeating pan
+reaches 92.9% and its tail-deletion variant 95.7%, but periodic-motion coverage
+remains below its 90% gate at 77.8%. These cases have no measured wrong accepted
+timings. Live-action coverage reaches 96.6%, with a 5.385 ms worst accepted
+endpoint error. An intermediate 80.9% regression exposed an interval merge that
+mixed two fits' endpoints and invented a third slope. Retaining an original
+cut model fixes the regression; its failing unit test and corpus evidence are
+preserved. Latest local workspace tests (162), strict Clippy and ten explicitly
+invoked visual/shared-operation/CLI/desktop-owner FFmpeg tests pass;
+the new sampling path still needs Windows/Linux and native GUI validation.
+
+The following results describe the preceding committed v2 implementation:
 
 The sampled verifier now preserves cut-derived evidence on either side of
 differing timing models and leaves their uncertain gap unresolved. The original

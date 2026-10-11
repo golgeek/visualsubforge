@@ -54,6 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or_else(|| "ffprobe".into()),
     };
     let cancellation = Cancellation::default();
+    let versions = tools.versions(&cancellation, Duration::from_secs(10))?;
     let mut signatures = BTreeMap::new();
     let mut samples = BTreeMap::new();
     for case in &truth.cases {
@@ -86,12 +87,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let source = &signatures[&case.source];
         let target = &signatures[&case.target];
         let mut result = alignment::align(source, target, &cancellation, Duration::from_secs(30))?;
+        let detailed = {
+            let requests = alignment::verify::target_sample_times(
+                &result,
+                &samples[&case.source],
+                &cancellation,
+                Duration::from_secs(30),
+            )?;
+            eprintln!("{}: {} targeted frame requests", case.name, requests.len());
+            visual::sample_near(
+                &tools,
+                &path.join(&case.target),
+                &requests,
+                alignment::verify::LOOKAROUND_US,
+                &versions.ffmpeg,
+                &cancellation,
+                Duration::from_secs(180),
+            )?
+        };
         alignment::verify::refine(
             &mut result,
             source,
             target,
             &samples[&case.source],
-            &samples[&case.target],
+            alignment::verify::TargetSamples {
+                coarse: &samples[&case.target],
+                detailed: Some(&detailed),
+            },
             &cancellation,
             Duration::from_secs(30),
         )?;

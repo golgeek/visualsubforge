@@ -207,6 +207,15 @@ def main():
     reordered = edited(source, "reordered", [(24, 36), (0, 12), (12, 24)])
     reordered["expected"] = "reject_reordered"
     cases.append(reordered)
+    if args.extended or args.robustness:
+        low_cut = OUT / "low-cut-source.mkv"
+        synthetic(low_cut, seconds=120, fps=25, seed=631895, shot_seconds=10)
+        # Removing one full motion cycle hides the edit from sparse sampling.
+        # No later cut anchors disambiguate the final shot.
+        ambiguous = edited(low_cut, "low-cut-tail-cycle-deletion",
+                           [(0, 113), (Fraction(2869, 25), 120)], fps=25)
+        ambiguous.update(expected="reject_ambiguous_tail", unsafe_after_us=110_000_000)
+        cases.append(ambiguous)
     if args.extended:
         held_out = OUT / "held-out-source.mkv"
         synthetic(held_out, seconds=72, fps=30, seed=424242)
@@ -256,8 +265,6 @@ def main():
         case = edited(fades, "robust-fades", edits, scale=Fraction(1001, 960), fps="24000/1001")
         case["expected"] = "safe_partial_mapping"
         cases.append(case)
-        low_cut = OUT / "low-cut-source.mkv"
-        synthetic(low_cut, seconds=120, fps=25, seed=631895, shot_seconds=10)
         # A three-frame deletion inside a moving shot may not trigger scdet.
         # It still must not be hidden by visually similar half-second samples.
         cases.append(edited(low_cut, "low-cut-short-deletion",
@@ -268,6 +275,8 @@ def main():
         synthetic(pan, seconds=120, fps=25, seed=852891, shot_seconds=10, pan=True)
         cases.append(edited(pan, "low-cut-pan-deletion",
                             [(0, Fraction(287, 5)), (Fraction(1438, 25), 120)], fps=25))
+        cases.append(edited(pan, "low-cut-pan-tail-deletion",
+                            [(0, 113), (Fraction(2828, 25), 120)], fps=25))
         negative = OUT / "negative-origin.ts"
         # Matroska/NUT cannot retain these negative presentation timestamps.
         # MPEG-TS can; probe below verifies that they really survived encoding.

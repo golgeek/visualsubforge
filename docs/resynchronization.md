@@ -175,6 +175,13 @@ and actual-PTS samples sequentially, matches/verifies supported intervals, and
 builds an immutable `Proposal`. It never mutates accepted subtitles. The desktop
 adapter retains job/media/document generation and revision guards.
 
+The v3 verifier requests dense target frames around unsupported intervals, in
+two additional sequential passes. It compares the frame nearest the predicted
+timestamp with alternative offsets; it does not slide a cue to the best-looking
+nearby image. Verified extents retain an original cut-derived fit when merged,
+so sampling cannot invent a new playback rate. Repeating or static evidence
+still leaves intervals unresolved. See the corpus record for measured limits.
+
 The operation selects the first video stream and normalizes times to the
 container origin. `Tools::discover` uses the same explicit `VSF_FFMPEG` and
 `VSF_FFPROBE` overrides and development fallback as desktop scene/waveform work.
@@ -222,9 +229,15 @@ One deadline and cancellation token cover input hashing, supervised subprocesses
 matching, proposal construction and final verification. At most one analysis child
 is active; resync requests two decoder threads and one filter thread per decode
 pass. Bounds include four-hour timelines, 256 GiB per media file, 20,000 cut
-anchors, 30,000 image samples, the existing pair-comparison caps, 16 MiB SRT and
+anchors, 30,000 coarse image samples per video and 30,000 additional target
+frames, the existing pair-comparison caps, 16 MiB SRT and
 64 MiB reports. Blocking filesystem operations can delay cancellation. Decoded
 images remain inside the analysis library, never ordinary desktop IPC.
+Dense filter expressions use temporary files to avoid platform command-line
+limits. Their owner retains them until each supervised child has exited,
+including cancellation/failure. FFmpeg 7+ uses its filter-file option; the older
+syntax is selected for FFmpeg 6. That older branch is source-checked and unit
+tested, but has not yet been exercised against a local FFmpeg 6 binary.
 
 File identities include SHA-256 and canonical/requested paths. The subtitle file
 is parsed from the same bytes that were hashed. Inputs are rehashed after analysis
@@ -342,3 +355,14 @@ zero measured accepted error; brightness changes abstain. The
 retains the failures and exact reproduction commands. These newer cases and
 the v2 guard have not been rerun in the VMs. Actual native review/Undo/Save As/
 project interaction, x64 and hosted CI remain open.
+
+Subsequent v3 Mac validation: 162 ordinary workspace tests, strict workspace
+Clippy, four visual, three shared-operation, two executable and one desktop-owner
+FFmpeg integrations pass. Original 16-case and 11-case live-action corpora pass;
+live-action coverage is 96.6%. The expanded robustness corpus passes 20/21 cases:
+periodic-motion coverage remains 77.8%, below its unchanged 90% gate. A new
+repeating-tail deletion that v2 accepted with a 1,760 ms error is now unresolved.
+An intermediate live-action regression was a merge defect, fixed by retaining
+the original cut model rather than blending endpoints. These are correctness
+and coverage measurements, not GPU/audio or native GUI acceptance. V3 VM checks
+remain pending; retained receipts use `evaluation-v3-preserved-models.json`.

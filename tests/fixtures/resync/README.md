@@ -16,7 +16,8 @@ Truth is derived before matching, never from detector or alignment output.
 
 Use `--extended` for a held-out seed, resize/FPS and speed/ad cases, a 250 ms
 replacement, ambiguous deletion inside a static tail, and three ten-minute
-programme blocks. These cases were added after the initial cut matcher and its
+programme blocks. It also includes a deletion of one whole repeating-motion
+cycle in the final shot, which must remain unresolved. These cases were added after the initial cut matcher and its
 thresholds were fixed. CI runs this extended synthetic corpus.
 
 Procedural spatial patterns and moving objects are original test material. The
@@ -104,10 +105,27 @@ and offset; samples can establish additional intervals inside that model's
 neighborhood. The verifier requires spatial and local temporal detail, image
 error at most 6, and a better match than alternative offsets at ±2/4 seconds.
 Static or repeating images cannot alone establish timing. At least two seconds
-of consecutive evidence are required, and unmatched cuts between samples split
+of evidence are required, and unmatched cuts between samples split
 the interval. Unknown gaps are not merged; cancellation publishes no partial
 refinement. Sampling remains heuristic: sub-sample edits without a detected cut
 and unseen visual distortions remain quality risks, not proven capabilities.
+
+Algorithm `scene-visual-neighborhoods-v3` additionally decodes every frame in
+merged ±4.3-second target neighborhoods around predicted times outside trusted
+intervals. Two sequential passes retain at most 30,000 extra images, with an
+8 MiB metadata cap. File-backed selection expressions avoid command-line limits.
+The central comparison uses the nearest presentation timestamp, not the best
+image anywhere within 300 ms; that broader search can hide short edits. Dense
+observations check alternative offsets around ±2/4 seconds. Sparse fallback
+requires those alternatives to exceed the image-error limit. One matching but
+ambiguous observation may join distinctive neighbors; it cannot start/end an
+extension, bridge a second ambiguity or bypass an unmatched cut.
+
+Each observed range retains its original cut-derived model. Merging ranges
+requires models to agree across their union and uses one original model, preferring
+the fit supported by more cuts. Blending two fits' endpoints can invent a new
+slope and erase trusted evidence during conflict checking; a regression test
+covers the demonstrated live-action failure.
 
 Algorithm `scene-visual-sampled-v2` also leaves the interval between differing
 neighboring cut-derived models unresolved. Half-second image samples searched
@@ -167,12 +185,12 @@ cargo run --locked -p media-analysis --example resync-evaluate -- tests/fixtures
 ```
 
 `--robustness` adds fractional 24000/1001 FPS with and without actual slowdown,
-negative presentation timestamps, fades, crop/logo/brightness changes and two
+negative presentation timestamps, fades, crop/logo/brightness changes and three
 low-cut/short-deletion cases. Fractional rates and timestamp origins retain the
 90% coverage requirement. Visual distortions use `safe_partial_mapping`: there
 is no promised coverage, but every accepted interval must satisfy the same
 correctness criteria. These expectations were chosen before their first results.
-The two low-cut cases still fail the unchanged 90% gate, so the robustness
+The periodic-motion case still fails the unchanged 90% gate, so the robustness
 command currently returns exit 2. It is not yet a passing CI lane.
 
 The generator checks actual presentation timestamps and final frame duration;
@@ -218,3 +236,31 @@ three retained blocks also succeeded: all three input hashes, text, cue labels
 and CRLF formatting were preserved; maximum output endpoint error after final
 millisecond rounding was 5.552 ms. This checks actual CLI publication against the
 independent edit list, not GUI interaction or audible synchronization.
+
+## Dense-neighborhood verification results (v3)
+
+Development Mac, FFmpeg 9.0.2, 2026-10-11: the original 16-case corpus passes,
+with animated-reference coverage 97.9%; the 11-case live-action corpus passes,
+with live-action coverage 96.6% and worst accepted endpoint error 5.385 ms.
+An intermediate 80.9% live-action result exposed the endpoint-blending defect
+described above, rather than an image-threshold problem. That failure remains
+in `resync-live-action-v1/evaluation-v3.json`; the corrected result is
+`evaluation-v3-preserved-models.json` in the same directory.
+
+The expanded robustness corpus has 21 cases and passes 20. Fractional-rate,
+crop/logo/brightness/fade and negative-origin results retain the v2 table's
+outcomes. Updated/new low-cut results:
+
+| Case | Interior coverage | Worst accepted error | Result |
+| --- | ---: | ---: | --- |
+| Periodic motion, 120 ms deletion | 77.8% | 0 ms | Still fails 90% coverage target |
+| Nonrepeating pan, 120 ms deletion | 92.9% | 0 ms | Pass |
+| Nonrepeating pan, 120 ms tail deletion | 95.7% | 0 ms | Pass |
+| Repeating tail, one 1,760 ms cycle deleted | 87.7% | 0 ms | Pass: ambiguous tail remains unresolved |
+
+The cycle-deletion negative previously had a 1,760 ms wrong accepted mapping
+under v2. Dense alternatives now reject that evidence. This case also runs in
+the `--extended` CI corpus; it is not subject to the positive-case coverage gate.
+The positive periodic-motion case remains an open gate, not silently reclassified
+as passing. Receipts are in `resync-robustness-v5/`; old failures remain intact.
+The same v3 sampler is used by the evaluator and shared CLI/GUI operation.
