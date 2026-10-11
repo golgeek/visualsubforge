@@ -43,6 +43,50 @@ jobs:
             tests/fixtures/generated/resync/evaluation.json
           retention-days: 7
       - run: cargo clippy --locked -p media-analysis -p vsf-application --all-targets -- -D warnings
+  headless:
+    name: Headless CLI and persistence (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-2022, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.7'
+      - name: Install pinned Rust
+        run: rustup show
+      - name: Install Linux FFmpeg
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Install macOS FFmpeg
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install Windows FFmpeg
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
+      - name: Record tool and architecture evidence
+        run: |
+          rustc -vV
+          python --version
+          ffmpeg -version
+          ffprobe -version
+      - run: python scripts/resync-fixtures.py
+      - run: cargo test --locked -p vsf-application -p vsf-cli
+      - run: cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
+      - run: cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
+      - run: cargo clippy --locked -p vsf-application -p vsf-cli --all-targets -- -D warnings
+      - name: Inspect headless runtime dependencies
+        run: cargo tree --locked -p vsf-cli --edges normal
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: headless-fixture-truth-${{ matrix.os }}
+          path: tests/fixtures/generated/resync/truth.json
+          retention-days: 7
   browser-workflows:
     name: Browser workflows (modeled IPC, Chromium and WebKit)
     runs-on: ubuntu-24.04

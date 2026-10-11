@@ -47,6 +47,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   regenerable inputs, controls and diagnostic scope.
 - [Timing preset format](docs/timing-presets.md): portable settings and limited
   legacy INI migration.
+- [Headless resynchronization](docs/resynchronization.md): CLI commands, shared
+  operation, output protections and current matching/validation limits.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT parsing/serialization without filesystem access. `vsf-application`

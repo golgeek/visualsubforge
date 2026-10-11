@@ -1,0 +1,25 @@
+[package]
+name = "vsf-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "vsf"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "=4.6.7", features = ["derive"] }
+ctrlc = { version = "=3.5.2", features = ["termination"] }
+media-analysis = { path = "../media-analysis" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+vsf-application = { path = "../vsf-application" }
+
+[dev-dependencies]
+tempfile = "3"
+subtitle-formats = { path = "../subtitle-formats" }
+
+[lints]
+workspace = true

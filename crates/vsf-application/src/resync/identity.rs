@@ -25,7 +25,16 @@ impl FileIdentity {
     }
 
     pub fn verify(&self, budget: &Budget<'_>) -> Result<()> {
-        let current = Self::capture(&self.requested_path, self.bytes, budget)?;
+        let current = Self::capture(&self.requested_path, self.bytes, budget).map_err(|error| {
+            match error {
+                // A previously valid regular file that grew or changed type
+                // is a changed input, not an invalid original request.
+                Error::InvalidInput(_) => {
+                    Error::InputChanged(self.requested_path.display().to_string())
+                }
+                other => other,
+            }
+        })?;
         if current.canonical_path != self.canonical_path
             || current.bytes != self.bytes
             || current.sha256 != self.sha256
@@ -139,6 +148,11 @@ mod tests {
         ));
         assert!(FileIdentity::capture(&path, 7, &budget).is_err());
         assert!(FileIdentity::capture(dir.path(), 1024, &budget).is_err());
+        fs::write(&path, b"longer modified content").unwrap();
+        assert!(matches!(
+            identity.verify(&budget),
+            Err(Error::InputChanged(_))
+        ));
     }
 
     #[test]

@@ -135,6 +135,21 @@ runs the extended synthetic corpus, including three ten-minute content blocks.
 The wider local reference-movie case meets its coverage target after sample
 verification; a passing corpus is not general matching or product acceptance.
 
+The [resync CLI](docs/resynchronization.md) builds with
+`cargo build --locked -p vsf-cli`, without Node or desktop/native playback
+dependencies. Run `cargo test --locked -p vsf-application -p vsf-cli` for policy,
+persistence and executable checks. After generating the resync fixtures, also run:
+
+```sh
+cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
+cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
+```
+
+The headless CI matrix configures these on macOS, Windows and Linux with recorded
+package-manager FFmpeg versions; it is not evidence of hosted execution or native
+device behavior. Unix executable cancellation tests send SIGINT and verify child
+reaping. Windows console Ctrl-C delivery remains a separate check.
+
 ### Native oracle controls
 
 The Python analysis tools have synthetic positive/negative controls that require

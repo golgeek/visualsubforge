@@ -1,8 +1,68 @@
 # Subtitle resynchronization implementation
 
 The first release is under development. The current alignment experiment is
-documented in the [corpus guide](../tests/fixtures/resync/README.md). There is no
-product CLI or desktop resync interface yet.
+documented in the [corpus guide](../tests/fixtures/resync/README.md). A headless CLI
+now calls the shared operation. Desktop proposal review/acceptance is not yet
+implemented; wider matching/platform validation remains open.
+
+## CLI workflow
+
+Build without Tauri, a webview, libmpv or Node:
+
+```sh
+cargo build --locked -p vsf-cli
+target/debug/vsf resync \
+  --source-video original.mkv \
+  --source-subtitles original.srt \
+  --target-video destination.mkv \
+  --output destination.srt \
+  --report alignment.json
+```
+
+Windows uses `target/debug/vsf.exe`. Run `vsf resync --help` for options. All input
+files must be local. `VSF_FFMPEG`/`VSF_FFPROBE` select explicit tools; the same
+desktop development fallback applies otherwise. FFmpeg distribution/licensing
+is not solved by this CLI. It never loads or modifies desktop settings/projects.
+
+`--analysis-only` replaces `--output` and writes only the report. The report path
+is always required; outputs must not already exist, even for a repeated run.
+Unresolved cues produce a report and exit 3, with no SRT. The default total
+time budget is 1800 seconds; `--timeout-seconds` accepts 1–14400. Ctrl-C requests
+cancellation and waits for owned child cleanup; Unix SIGTERM/SIGHUP use the same
+path. The publication commit boundary below still applies.
+
+Progress and errors go to stderr. Normal operation leaves stdout empty; `--json`
+prints one version-1 completion object containing `status`, `report`, `output`
+(null if none) and `unresolved_cues`. Errors emit no completion JSON. A stdout
+write failure after publication returns an IO error but retains published files.
+Reports currently require Unicode-representable paths for JSON serialization;
+encoding failure occurs before publication.
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | Complete report/SRT publication, or complete analysis-only report. |
+| 2 | Invalid arguments, subtitle/policy input or existing/aliased output. |
+| 3 | Report published; some cues need review; no SRT published. |
+| 4 | Missing/failing analysis tools or decoding/matching failure. |
+| 5 | Filesystem, signal-handler setup or completion-output IO failure. |
+| 6 | Input content/identity changed after capture. |
+| 7 | Total time limit exceeded. |
+| 130 | Cancelled before publication began. |
+
+```sh
+cargo test --locked -p vsf-cli
+cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
+```
+
+The first command runs executable argument/failure checks and, on Unix, actual
+SIGINT/timeout child-reaping tests with a controlled tool. The second requires
+generated resync fixtures and runs actual FFmpeg through the executable. CI
+configures a headless macOS/Windows/Linux matrix; no hosted execution is claimed.
+FFmpeg comes from each runner's package manager and its exact version is recorded,
+so the environment is not hermetically pinned. Windows console-event delivery
+still needs direct evidence; portable cancellation-token tests do not prove it.
+Clap 4.6.7 and ctrlc 3.5.2 are exact direct dependency pins; Cargo.lock pins their
+transitive dependencies.
 
 ## Shared application boundary
 
@@ -89,8 +149,7 @@ Pure tests cover rounding, gaps, stale snapshots, history, output collisions,
 aliases, changed input hashes and mid-hash cancellation. A subprocess exits
 between publications to verify crash/retry behavior. Actual FFmpeg integrations
 cover offset, FPS-only conversion, speed/ad edits, unresolved cues, changed inputs
-and cancellation. These are application operations; product CLI and GUI adapters
-are the next increments.
+and cancellation. The CLI calls these operations directly; GUI integration is next.
 
 ## Atomic retiming in the subtitle domain
 
