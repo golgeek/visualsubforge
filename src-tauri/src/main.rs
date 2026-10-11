@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod analysis_tools;
+mod analysis_worker;
 mod atomic_file;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod audio_smoke;

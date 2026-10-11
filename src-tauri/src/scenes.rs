@@ -1,5 +1,6 @@
-//! One cancellable scene job per media session. No frame pixels cross IPC.
-//! Workers own supervised children; shutdown cancels and joins off the UI thread.
+//! One active scene job and one coalesced pending request. No frame pixels cross
+//! IPC. The worker owns supervised children and joins off the UI thread.
+use crate::analysis_worker::Worker;
 use media_analysis::{
     Cancellation, Tools,
     scenes::{Detail, Phase, Update},
@@ -21,15 +22,18 @@ pub enum Mode {
 }
 
 type Result<T> = std::result::Result<T, String>;
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Scenes {
     job: Arc<Mutex<Job>>,
-    workers: Arc<Mutex<Workers>>,
+    worker: Arc<Mutex<Worker>>,
 }
-#[derive(Default)]
-struct Workers {
-    closing: bool,
-    handles: Vec<std::thread::JoinHandle<()>>,
+impl Default for Scenes {
+    fn default() -> Self {
+        Self {
+            job: Arc::default(),
+            worker: Arc::new(Mutex::new(Worker::new("scene-analysis"))),
+        }
+    }
 }
 #[derive(Default)]
 struct Job {
@@ -179,6 +183,11 @@ impl Scenes {
         if saved.mode != Mode::Visual {
             return Err("Keyframes are not scene changes; run a visual scan".into());
         }
+        let mut worker = self.worker.lock().map_err(|_| "Scene worker unavailable")?;
+        if worker.is_closing() {
+            return Err("Application is shutting down".into());
+        }
+        worker.cancel();
         let mut job = self.job.lock().map_err(|_| "Scene state unavailable")?;
         job.cancellation.cancel();
         *job = Job {
@@ -193,6 +202,12 @@ impl Scenes {
         Ok(job.generation)
     }
     pub fn cancel(&self) {
+        if let Ok(mut worker) = self.worker.lock() {
+            worker.cancel();
+            self.invalidate();
+        }
+    }
+    fn invalidate(&self) {
         if let Ok(mut job) = self.job.lock() {
             job.cancellation.cancel();
             job.generation += 1;
@@ -210,6 +225,8 @@ impl Scenes {
         }
     }
     fn stop(&self) -> Result<u64> {
+        let mut worker = self.worker.lock().map_err(|_| "Scene worker unavailable")?;
+        worker.cancel();
         let mut job = self.job.lock().map_err(|_| "Scene state unavailable")?;
         job.cancellation.cancel();
         job.generation += 1;
@@ -219,12 +236,9 @@ impl Scenes {
         Ok(job.generation)
     }
     pub fn shutdown(&self) {
-        if let Ok(mut workers) = self.workers.lock() {
-            workers.closing = true;
-            self.cancel();
-            for worker in workers.handles.drain(..) {
-                let _ = worker.join();
-            }
+        if let Ok(mut worker) = self.worker.lock() {
+            self.invalidate();
+            worker.shutdown();
         }
     }
     fn start(
@@ -240,17 +254,13 @@ impl Scenes {
                 "Keyframe scene detection is no longer supported; run a visual scan".into(),
             );
         }
-        let mut workers = self
-            .workers
-            .lock()
-            .map_err(|_| "Scene workers unavailable")?;
-        if workers.closing {
+        let mut worker = self.worker.lock().map_err(|_| "Scene worker unavailable")?;
+        if worker.is_closing() {
             return Err("Application is shutting down".into());
         }
         if app.state::<crate::media::Media>().current_session() != session {
             return Err("Media changed before scene detection started".into());
         }
-        workers.handles.retain(|h| !h.is_finished());
         let (generation, cancellation) = {
             let mut job = self.job.lock().map_err(|_| "Scene state unavailable")?;
             job.cancellation.cancel();
@@ -298,9 +308,8 @@ impl Scenes {
             (generation, job.cancellation.clone())
         };
         let state = self.clone();
-        let handle = std::thread::Builder::new()
-            .name("scene-analysis".into())
-            .spawn(move || {
+        worker
+            .replace(cancellation.clone(), move || {
                 let source_identity = crate::project::identify(Path::new(&path));
                 let result = source_identity
                     .as_ref()
@@ -348,14 +357,12 @@ impl Scenes {
                     }
                 }
             })
-            .map_err(|e| {
+            .inspect_err(|e| {
                 if let Ok(mut job) = self.job.lock() {
                     job.running = false;
-                    job.error = Some(e.to_string());
+                    job.error = Some(e.clone());
                 }
-                e.to_string()
             })?;
-        workers.handles.push(handle);
         Ok(generation)
     }
     fn view(&self, generation: u64, start: f64, end: f64, position: f64) -> Result<View> {
@@ -518,6 +525,22 @@ mod tests {
         let identity = crate::project::identify(&path).unwrap();
         let scenes = Scenes::default();
         let token = scenes.job.lock().unwrap().cancellation.clone();
+        let (started, started_rx) = std::sync::mpsc::channel();
+        let (release, release_rx) = std::sync::mpsc::channel();
+        let (finished, finished_rx) = std::sync::mpsc::channel();
+        let result_state = scenes.job.clone();
+        scenes
+            .worker
+            .lock()
+            .unwrap()
+            .replace(token.clone(), move || {
+                started.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                let accepted = result_state.lock().unwrap().finish(0, 0, 0, Ok(vec![3.]));
+                finished.send(accepted).unwrap();
+            })
+            .unwrap();
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         let generation = scenes
             .restore(
                 7,
@@ -530,6 +553,8 @@ mod tests {
             )
             .unwrap();
         assert!(token.is_cancelled());
+        release.send(()).unwrap();
+        assert!(!finished_rx.recv_timeout(Duration::from_secs(5)).unwrap());
         assert!(!scenes.job.lock().unwrap().finish(0, 7, 7, Ok(vec![3.])));
         assert_eq!(
             scenes.view(generation, 0., 4., 0.).unwrap().cuts,
@@ -540,6 +565,7 @@ mod tests {
             scenes.saved(7, &identity).unwrap().unwrap().mode,
             Mode::Visual
         );
+        scenes.shutdown();
     }
     #[test]
     fn visual_cache_version_tracks_completed_analysis_not_rescan_attempts() {
@@ -679,18 +705,20 @@ mod tests {
     fn shutdown_cancels_and_joins_workers() {
         let scenes = Scenes::default();
         let token = scenes.job.lock().unwrap().cancellation.clone();
+        let (started, started_rx) = std::sync::mpsc::channel();
         scenes
-            .workers
+            .worker
             .lock()
             .unwrap()
-            .handles
-            .push(std::thread::spawn(move || {
+            .replace(token.clone(), move || {
+                started.send(()).unwrap();
                 while !token.is_cancelled() {
                     std::thread::yield_now();
                 }
-            }));
+            })
+            .unwrap();
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         scenes.shutdown();
-        assert!(scenes.workers.lock().unwrap().closing);
-        assert!(scenes.workers.lock().unwrap().handles.is_empty());
+        assert!(scenes.worker.lock().unwrap().is_closing());
     }
 }

@@ -1,6 +1,7 @@
 //! Cancellable analysis/cache. Completed results are accepted only for the current
 //! analysis generation and media session. IPC contains bounded visible peaks.
 use crate::analysis_tools::tool;
+use crate::analysis_worker::Worker;
 use media_analysis::{Cancellation, Tools, Waveform};
 use serde::Serialize;
 use std::{
@@ -11,15 +12,18 @@ use std::{
 use tauri::Manager;
 
 type Result<T> = std::result::Result<T, String>;
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Waveforms {
     job: Arc<Mutex<Job>>,
-    workers: Arc<Mutex<Workers>>,
+    worker: Arc<Mutex<Worker>>,
 }
-#[derive(Default)]
-struct Workers {
-    closing: bool,
-    handles: Vec<std::thread::JoinHandle<()>>,
+impl Default for Waveforms {
+    fn default() -> Self {
+        Self {
+            job: Arc::default(),
+            worker: Arc::new(Mutex::new(Worker::new("waveform-analysis"))),
+        }
+    }
 }
 #[derive(Default)]
 struct Job {
@@ -129,16 +133,19 @@ impl Waveforms {
     /// Called on a blocking worker before process exit, so FFmpeg children are
     /// cancelled and reaped before the app/runtime is destroyed.
     pub fn shutdown(&self) {
-        if let Ok(mut workers) = self.workers.lock() {
-            workers.closing = true;
-            self.cancel();
-            for handle in workers.handles.drain(..) {
-                let _ = handle.join();
-            }
+        if let Ok(mut worker) = self.worker.lock() {
+            self.invalidate();
+            worker.shutdown();
         }
     }
 
     pub fn cancel(&self) {
+        if let Ok(mut worker) = self.worker.lock() {
+            worker.cancel();
+            self.invalidate();
+        }
+    }
+    fn invalidate(&self) {
         if let Ok(mut job) = self.job.lock() {
             job.cancellation.cancel();
             job.generation += 1;
@@ -159,17 +166,16 @@ pub async fn waveform_start(
         return Err("Media changed before waveform analysis started".into());
     }
     let state = app.state::<Waveforms>().inner().clone();
-    let mut workers = state
-        .workers
+    let mut worker = state
+        .worker
         .lock()
-        .map_err(|_| "Waveform workers unavailable")?;
-    if workers.closing {
+        .map_err(|_| "Waveform worker unavailable")?;
+    if worker.is_closing() {
         return Err("Application is shutting down".into());
     }
     if app.state::<crate::media::Media>().current_session() != session {
         return Err("Media changed before waveform analysis started".into());
     }
-    workers.handles.retain(|handle| !handle.is_finished());
     let (generation, cancellation) = {
         let mut job = state.job.lock().map_err(|_| "Waveform state unavailable")?;
         job.cancellation.cancel();
@@ -182,9 +188,8 @@ pub async fn waveform_start(
         (job.generation, job.cancellation.clone())
     };
     let job_state = state.clone();
-    let worker = std::thread::Builder::new()
-        .name("waveform-analysis".into())
-        .spawn(move || {
+    worker
+        .replace(cancellation.clone(), move || {
             let result = media_analysis::analyze(
                 &Tools {
                     ffmpeg: tool("ffmpeg"),
@@ -206,14 +211,12 @@ pub async fn waveform_start(
                 );
             }
         })
-        .map_err(|error| {
+        .inspect_err(|error| {
             if let Ok(mut job) = state.job.lock() {
                 job.running = false;
-                job.error = Some(error.to_string());
+                job.error = Some(error.clone());
             }
-            error.to_string()
         })?;
-    workers.handles.push(worker);
     Ok(generation)
 }
 #[tauri::command]
@@ -300,12 +303,37 @@ mod tests {
     fn cancellation_invalidates_generation_and_retained_data() {
         let state = Waveforms::default();
         let token = state.job.lock().unwrap().cancellation.clone();
+        let (started, started_rx) = std::sync::mpsc::channel();
+        let (release, release_rx) = std::sync::mpsc::channel();
+        let (finished, finished_rx) = std::sync::mpsc::channel();
+        let result_state = state.job.clone();
+        state
+            .worker
+            .lock()
+            .unwrap()
+            .replace(token.clone(), move || {
+                started.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                let accepted =
+                    result_state
+                        .lock()
+                        .unwrap()
+                        .finish(0, 0, 0, Err("late failure".into()));
+                finished.send(accepted).unwrap();
+            })
+            .unwrap();
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         state.cancel();
+        release.send(()).unwrap();
+        assert!(!finished_rx.recv_timeout(Duration::from_secs(5)).unwrap());
         assert!(token.is_cancelled());
-        let job = state.job.lock().unwrap();
-        assert_eq!(job.generation, 1);
-        assert!(!job.running);
-        assert!(job.data.is_none());
+        {
+            let job = state.job.lock().unwrap();
+            assert_eq!(job.generation, 1);
+            assert!(!job.running);
+            assert!(job.data.is_none() && job.error.is_none());
+        }
+        state.shutdown();
     }
     #[test]
     fn late_result_cannot_replace_new_analysis_or_media_session() {
@@ -331,19 +359,22 @@ mod tests {
         let token = state.job.lock().unwrap().cancellation.clone();
         let done = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let other = done.clone();
+        let (started, started_rx) = std::sync::mpsc::channel();
         state
-            .workers
+            .worker
             .lock()
             .unwrap()
-            .handles
-            .push(std::thread::spawn(move || {
+            .replace(token.clone(), move || {
+                started.send(()).unwrap();
                 while !token.is_cancelled() {
                     std::thread::yield_now();
                 }
                 other.store(true, std::sync::atomic::Ordering::Release);
-            }));
+            })
+            .unwrap();
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         state.shutdown();
         assert!(done.load(std::sync::atomic::Ordering::Acquire));
-        assert!(state.workers.lock().unwrap().closing);
+        assert!(state.worker.lock().unwrap().is_closing());
     }
 }
