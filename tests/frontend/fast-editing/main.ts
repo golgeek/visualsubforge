@@ -297,12 +297,15 @@ async function run() {
     );
     passed('Row context deletion targets the clicked cue without seeking');
     canvas.focus();
+    // Adding result rows above the app changes its position. In Linux WebKit,
+    // reusing the earlier rectangle hits the selection band instead of the cue.
+    const cueBounds = canvas.getBoundingClientRect();
     canvas.dispatchEvent(
       new MouseEvent('contextmenu', {
         bubbles: true,
         cancelable: true,
-        clientX: bounds.left + (bounds.width * 5.5) / 20,
-        clientY: bounds.top + 35,
+        clientX: cueBounds.left + (cueBounds.width * 5.5) / 20,
+        clientY: cueBounds.top + 35,
       }),
     );
     await until(() => !!host.querySelector('[role=menu]'));
