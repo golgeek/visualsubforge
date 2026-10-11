@@ -35,8 +35,13 @@ endpoint error. An intermediate 80.9% regression exposed an interval merge that
 mixed two fits' endpoints and invented a third slope. Retaining an original
 cut model fixes the regression; its failing unit test and corpus evidence are
 preserved. Latest local workspace tests (162), strict Clippy and ten explicitly
-invoked visual/shared-operation/CLI/desktop-owner FFmpeg tests pass;
-the new sampling path still needs Windows/Linux and native GUI validation.
+invoked visual/shared-operation/CLI/desktop-owner FFmpeg tests pass. At `f3df34c`,
+Ubuntu ARM64 passes 164 ordinary workspace tests and Windows ARM64 passes 157;
+both pass the same ten FFmpeg integrations, all 16 regenerated extended cases
+and strict Clippy. Source hashes match all 368 tracked files. The Windows
+filter-file test exceeds its command-line limit without putting the filter on
+that command line. Mac Ctrl-C during actual dense sampling reaps the child,
+removes both filter files and publishes nothing. Native GUI validation remains.
 
 The following results describe the preceding committed v2 implementation:
 

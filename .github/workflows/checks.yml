@@ -77,6 +77,8 @@ jobs:
           ffprobe -version
       - run: python scripts/resync-fixtures.py
       - run: cargo test --locked -p vsf-application -p vsf-cli
+      - name: Verify bounded frame sampling and filter-file portability
+        run: cargo test --locked -p media-analysis --test visual -- --ignored --nocapture --test-threads=1
       - name: Exercise Windows console cancellation and child cleanup
         if: runner.os == 'Windows'
         run: |
@@ -84,6 +86,8 @@ jobs:
           python tests/cli/windows-signals.py --vsf target/debug/vsf.exe
       - run: cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
       - run: cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
+      - name: Evaluate compact resync ground truth
+        run: cargo run --locked -p media-analysis --example resync-evaluate > tests/fixtures/generated/resync/evaluation.json
       - run: cargo clippy --locked -p vsf-application -p vsf-cli --all-targets -- -D warnings
       - name: Inspect headless runtime dependencies
         run: cargo tree --locked -p vsf-cli --edges normal
@@ -91,7 +95,9 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: headless-fixture-truth-${{ matrix.os }}
-          path: tests/fixtures/generated/resync/truth.json
+          path: |
+            tests/fixtures/generated/resync/truth.json
+            tests/fixtures/generated/resync/evaluation.json
           retention-days: 7
   browser-workflows:
     name: Browser workflows (modeled IPC, Chromium and WebKit)

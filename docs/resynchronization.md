@@ -364,5 +364,26 @@ periodic-motion coverage remains 77.8%, below its unchanged 90% gate. A new
 repeating-tail deletion that v2 accepted with a 1,760 ms error is now unresolved.
 An intermediate live-action regression was a merge defect, fixed by retaining
 the original cut model rather than blending endpoints. These are correctness
-and coverage measurements, not GPU/audio or native GUI acceptance. V3 VM checks
-remain pending; retained receipts use `evaluation-v3-preserved-models.json`.
+and coverage measurements, not GPU/audio or native GUI acceptance. Retained
+corpus receipts use `evaluation-v3-preserved-models.json`.
+
+V3 checks at `f3df34c` also pass in the supplied VMs (same Rust/FFmpeg versions
+as the table above): Ubuntu ARM64 runs 164 ordinary workspace tests and Windows
+ARM64 runs 157. Each runs all ten opt-in visual/application/CLI/desktop-owner
+FFmpeg integrations, all 16 current extended synthetic cases, and strict
+workspace Clippy. SHA-256 checks match every one of the 368 tracked source files.
+Receipts, exact commands, truth and results are in ignored
+`tests/fixtures/generated/resync/platform-validation-v3/`. Both include the
+filter-file expression larger than Windows' command-line limit and rejection
+of the repeating-tail deletion. Live-action and robustness corpora remain Mac
+evidence. CI now configures visual sampling and compact evaluation on all three
+headless OS runners; hosted execution remains unverified.
+
+An actual Mac v3 CLI live-action run preserves all input hashes and reproduces
+the previously verified three-cue output (maximum rounded endpoint error
+5.552 ms). A separate run receives SIGINT while FFmpeg reads a dense filter file:
+exit 130 in 0.007 seconds, the observed child reaped, both temporary filters
+removed, unchanged inputs and no report/SRT output. The retained
+`resync-live-action-v1/cli-*-v3` receipts distinguish these checks from GUI or
+audible synchronization. Windows was restored to its initial paused state with
+idle pausing enabled; Ubuntu was left running as found.
