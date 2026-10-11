@@ -1,0 +1,205 @@
+//! Accepted-document preview, serialized on the existing media control worker.
+//! mpv owns subtitle timing/composition. No UI clock or decoded frames cross IPC.
+mod text;
+pub(crate) use text::serialize;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Revision(pub u64, pub u64);
+
+pub struct Snapshot {
+    pub revision: Revision,
+    pub content: Result<Option<String>, String>,
+}
+
+// Local seam for testing failures at the native command boundary.
+trait Output {
+    fn command(&mut self, args: &[&str]) -> Result<(), String>;
+    fn selected_subtitle(&mut self) -> Option<u64>;
+}
+
+#[derive(Default)]
+pub struct Renderer {
+    session: Option<u64>,
+    revision: Option<Revision>,
+    track: Option<u64>,
+    unknown_track: bool,
+    pub error: Option<String>,
+}
+impl Renderer {
+    pub fn reset(&mut self, session: u64) {
+        if self.session != Some(session) {
+            // Track IDs belong to the unloaded media, never to the next file.
+            *self = Self {
+                session: Some(session),
+                ..Self::default()
+            };
+        }
+    }
+    pub fn revision(&self) -> Option<Revision> {
+        self.revision
+    }
+
+    fn replace(&mut self, output: &mut impl Output, snapshot: Snapshot) {
+        if self.revision == Some(snapshot.revision) {
+            return;
+        }
+        self.revision = Some(snapshot.revision);
+        if self.unknown_track {
+            // Do not accumulate unidentifiable tracks on subsequent edits.
+            self.error =
+                Some("Subtitle preview: reopen media after an unidentifiable native track".into());
+            return;
+        }
+        let result = (|| {
+            // Hide the previous revision before replacement; propagate a hide failure
+            // explicitly. Keep a failed-removal ID for the next revision.
+            output.command(&["set", "sid", "no"])?;
+            if let Some(id) = self.track {
+                output.command(&["sub-remove", &id.to_string()])?;
+                self.track = None;
+            }
+            if let Some(text) = snapshot.content? {
+                output.command(&[
+                    "sub-add",
+                    &format!("memory://{text}"),
+                    "select",
+                    "VSF accepted subtitles",
+                ])?;
+                self.track = output.selected_subtitle();
+                if self.track.is_none() {
+                    self.unknown_track = true;
+                    output.command(&["set", "sid", "no"])?;
+                    return Err("Native player did not select the accepted subtitle preview".into());
+                }
+            }
+            Ok(())
+        })();
+        self.error = result
+            .err()
+            .map(|error: String| format!("Subtitle preview: {error}"));
+    }
+}
+
+#[cfg(all(
+    feature = "media-prototype",
+    any(target_os = "macos", target_os = "windows", target_os = "linux")
+))]
+impl Output for media_player::Player {
+    fn command(&mut self, args: &[&str]) -> Result<(), String> {
+        self.command(args)
+    }
+    fn selected_subtitle(&mut self) -> Option<u64> {
+        self.number(c"sid")
+            .filter(|id| id.is_finite() && *id > 0.0 && id.fract() == 0.0)
+            .map(|id| id as u64)
+    }
+}
+
+#[cfg(all(
+    feature = "media-prototype",
+    any(target_os = "macos", target_os = "windows", target_os = "linux")
+))]
+impl Renderer {
+    pub fn reconcile(
+        &mut self,
+        player: &mut media_player::Player,
+        documents: &crate::document::Documents,
+    ) {
+        let started = crate::workflow_trace::enabled().then(std::time::Instant::now);
+        match documents.preview_since(self.revision()) {
+            Ok(Some(snapshot)) => {
+                let revision = snapshot.revision;
+                self.replace(player, snapshot);
+                if let Some(started) = started {
+                    crate::workflow_trace::preview_command(
+                        revision.0,
+                        revision.1,
+                        started.elapsed().as_secs_f64() * 1000.0,
+                        self.error.is_none(),
+                    );
+                }
+            }
+            Ok(None) => {}
+            Err(error) => self.error = Some(format!("Subtitle preview: {error}")),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[derive(Default)]
+    struct Fake {
+        commands: Vec<Vec<String>>,
+        fail: Option<&'static str>,
+        id: u64,
+    }
+    impl Output for Fake {
+        fn command(&mut self, args: &[&str]) -> Result<(), String> {
+            self.commands
+                .push(args.iter().map(|s| s.to_string()).collect());
+            if self.fail == Some(args[0]) {
+                return Err("injected failure".into());
+            }
+            if args[0] == "sub-add" {
+                self.id += 1;
+            }
+            Ok(())
+        }
+        fn selected_subtitle(&mut self) -> Option<u64> {
+            Some(self.id)
+        }
+    }
+    fn snapshot(revision: u64, text: Option<&str>) -> Snapshot {
+        Snapshot {
+            revision: Revision(1, revision),
+            content: Ok(text.map(str::to_owned)),
+        }
+    }
+    #[test]
+    fn replacement_removes_old_track_and_closed_document_clears_preview() {
+        let mut r = Renderer::default();
+        let mut p = Fake::default();
+        r.reset(1);
+        r.replace(&mut p, snapshot(0, Some("original")));
+        r.replace(&mut p, snapshot(1, Some("accepted")));
+        assert_eq!(r.track, Some(2));
+        assert_eq!(p.commands[3], ["sub-remove", "1"]);
+        let count = p.commands.len();
+        r.replace(&mut p, snapshot(1, Some("stale duplicate")));
+        assert_eq!(p.commands.len(), count);
+        r.replace(&mut p, snapshot(2, None));
+        assert_eq!(r.track, None);
+        assert!(r.error.is_none());
+        assert_eq!(p.commands.last().unwrap(), &["sub-remove", "2"]);
+    }
+    #[test]
+    fn failure_hides_old_preview_and_does_not_accumulate_tracks() {
+        let mut r = Renderer::default();
+        let mut p = Fake::default();
+        r.replace(&mut p, snapshot(0, Some("original")));
+        p.fail = Some("sub-remove");
+        r.replace(&mut p, snapshot(1, Some("changed")));
+        assert_eq!(r.track, Some(1));
+        assert!(r.error.is_some());
+        assert_eq!(p.id, 1);
+        p.fail = None;
+        r.replace(&mut p, snapshot(2, None));
+        assert!(r.error.is_none());
+        assert_eq!(r.track, None);
+        assert_eq!(p.commands[2], ["set", "sid", "no"]);
+    }
+    #[test]
+    fn new_media_never_removes_an_id_from_previous_session() {
+        let mut r = Renderer::default();
+        let mut p = Fake::default();
+        r.reset(1);
+        r.replace(&mut p, snapshot(0, Some("original")));
+        r.reset(2);
+        assert_eq!(r.revision(), None);
+        assert_eq!(r.track, None);
+        p.commands.clear();
+        r.replace(&mut p, snapshot(0, Some("original")));
+        assert!(!p.commands.iter().any(|c| c[0] == "sub-remove"));
+    }
+}

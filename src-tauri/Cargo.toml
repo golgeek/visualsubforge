@@ -1,0 +1,45 @@
+[package]
+name = "visualsubforge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[build-dependencies]
+cc = "1"
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+subtitle-core = { path = "../crates/subtitle-core" }
+subtitle-formats = { path = "../crates/subtitle-formats" }
+tempfile = "3"
+media-analysis = { path = "../crates/media-analysis" }
+tauri = { version = "2", features = [] }
+
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+media-player = { path = "../crates/media-player", optional = true }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+tauri-plugin-dialog = { version = "2", default-features = false }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "=0.11.1", default-features = false, features = ["tokio", "raw_handle", "wayland"] }
+raw-window-handle = "0.6"
+url = "2"
+gtk = "0.18"
+futures-util = "0.3"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+libc = { version = "0.2", optional = true }
+
+[features]
+media-prototype = ["dep:media-player", "media-player/native-mpv", "dep:libc"]
+macos-angle = ["media-prototype", "media-player/macos-angle"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[lints.rust]
+unsafe_code = "deny"
+
+[[example]]
+name = "linux-locale"
+required-features = ["media-prototype"]

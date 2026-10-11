@@ -1,0 +1,38 @@
+{
+  "name": "visualsubforge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.21.0",
+    "npm": "11.19.0"
+  },
+  "packageManager": "npm@11.19.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run check && vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "tauri": "tauri",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@tauri-apps/api": "2.12.0",
+    "@tauri-apps/cli": "2.12.0",
+    "@types/node": "24.19.0",
+    "eslint": "10.11.0",
+    "eslint-plugin-svelte": "3.23.0",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "prettier-plugin-svelte": "4.1.1",
+    "svelte": "5.57.1",
+    "svelte-check": "4.7.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.1"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+target/
+src-tauri/target/
+src-tauri/gen/
+package-lock.json
+Cargo.lock
+# Preserve the original planning documents; format new frontend/config files only.
+*.md
+docs/
+tests/fixtures/generated/

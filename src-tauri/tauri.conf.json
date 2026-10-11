@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "VisualSubForge",
+  "version": "0.1.0",
+  "identifier": "com.golgeek.visualsubforge",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "VisualSubForge",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 400,
+        "minHeight": 300,
+        "preventOverflow": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost",
+      "capabilities": [
+        {
+          "identifier": "workspace-events",
+          "windows": ["main"],
+          "permissions": [
+            "core:event:allow-listen",
+            "core:event:allow-unlisten"
+          ]
+        }
+      ]
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+.DS_Store
+/target/
+node_modules/
+/dist/
+/.svelte-kit/
+/src-tauri/target/
+/src-tauri/gen/
+.env
+.env.*
+!.env.example
+/tests/fixtures/generated/
+__pycache__/

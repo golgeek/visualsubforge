@@ -1,0 +1,17 @@
+[package]
+name = "media-player"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[build-dependencies]
+cc = "1"
+pkg-config = "0.3"
+
+[features]
+native-mpv = []
+macos-angle = ["native-mpv"]
+
+[lints.rust]
+unsafe_code = "deny"

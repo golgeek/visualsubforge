@@ -1,0 +1,67 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  domain:
+    name: Domain without desktop dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust
+        run: rustup show
+      - run: cargo check --locked -p subtitle-core -p subtitle-formats
+      - run: cargo test --locked -p subtitle-core -p subtitle-formats
+      - run: cargo clippy --locked -p subtitle-core -p subtitle-formats --all-targets -- -D warnings
+  media-analysis:
+    name: Synthetic media analysis (no desktop)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust
+        run: rustup show
+      - name: Install fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - run: python3 scripts/media-fixtures.py
+      - run: cargo test --locked -p media-analysis
+      - run: cargo test --locked -p media-analysis --test ffmpeg -- --ignored --nocapture --test-threads=1
+      - run: cargo clippy --locked -p media-analysis --all-targets -- -D warnings
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-2022, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Install pinned Rust
+        run: rustup show
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace
+      - run: npm run tauri -- build --debug --no-bundle -- --locked
+      - name: Compile macOS GPU adapter (no runtime claim)
+        if: runner.os == 'macOS'
+        run: |
+          brew install mpv pkg-config
+          pkg-config --modversion mpv
+          cargo clippy --locked -p visualsubforge --features media-prototype --all-targets -- -D warnings
+          npm run tauri -- build --debug --no-bundle --features media-prototype -- --locked
