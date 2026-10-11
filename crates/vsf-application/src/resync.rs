@@ -5,7 +5,9 @@ mod proposal;
 mod publication;
 pub use identity::FileIdentity;
 pub use job::{Analysis, Request, Stage, Subtitles, analyze};
-pub use proposal::{CueOutcome, CueProposal, Proposal, SubtitleSnapshot, UnresolvedReason};
+pub use proposal::{
+    CueGap, CueOutcome, CueProposal, GapOutcome, Proposal, SubtitleSnapshot, UnresolvedReason,
+};
 pub use publication::{OutputPaths, Publication};
 
 pub use media_analysis::Cancellation;

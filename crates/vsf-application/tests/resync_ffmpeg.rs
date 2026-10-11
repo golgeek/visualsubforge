@@ -9,8 +9,7 @@ use vsf_application::resync::{
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/generated/resync")
 }
-const SUBTITLES: &str =
-    "7\n00:00:03,000 --> 00:00:04,000\n<i>世界</i>\n\n9\n00:00:16,000 --> 00:00:17,000\nB\n";
+const SUBTITLES: &str = "7\n00:00:03,000 --> 00:00:04,000\n<i>世界</i>\n\n8\n00:00:04,100 --> 00:00:05,000\nAfter 100 ms\n\n9\n00:00:16,000 --> 00:00:17,000\nB\n";
 fn request(path: PathBuf, target: &str) -> Request {
     Request {
         source_video: fixtures().join("source.mkv"),
@@ -23,9 +22,12 @@ fn request(path: PathBuf, target: &str) -> Request {
 #[ignore = "Requires python3 scripts/resync-fixtures.py and FFmpeg/ffprobe"]
 fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
     for (target, expected) in [
-        ("offset.mkv", [(6000, 7000), (19000, 20000)]),
-        ("fps-only.mkv", [(3000, 4000), (16000, 17000)]),
-        ("speed-ads.mkv", [(1960, 2920), (14520, 15480)]),
+        ("offset.mkv", [(6000, 7000), (7100, 8000), (19000, 20000)]),
+        ("fps-only.mkv", [(3000, 4000), (4100, 5000), (16000, 17000)]),
+        (
+            "speed-ads.mkv",
+            [(1960, 2916), (3016, 3880), (14520, 15480)],
+        ),
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("source.srt");
@@ -72,6 +74,21 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
             result.proposal().srt_sha256().unwrap()
         );
         assert_eq!(report["cues"][0]["cue_id"], "1");
+        assert_eq!(report["cues"][0]["following_gap"]["source_ms"], 100);
+        assert_eq!(
+            report["cues"][0]["following_gap"]["outcome"]["status"],
+            "preserved"
+        );
+        if target == "speed-ads.mkv" {
+            assert_eq!(
+                report["cues"][0]["following_gap"]["outcome"]["adjustment_ms"],
+                -4
+            );
+            assert_eq!(
+                report["cues"][1]["following_gap"]["outcome"]["status"],
+                "across_sections"
+            );
+        }
         assert!(
             report["tools"]["ffmpeg"]
                 .as_str()

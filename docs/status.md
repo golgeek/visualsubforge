@@ -15,7 +15,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
 | Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. Generated IPC migration and GUI resync are not yet implemented. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. | GUI caller is next. Exact-gap behavior across speed changes is under clarification. Broader matching, OS/process/filesystem and GUI lifecycle gates remain. |
+| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. Original millisecond gaps within a supported block survive speed changes by adjusting preceding ends. | GUI caller is next. Broader matching, OS/process/filesystem and GUI lifecycle gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | GUI Save As protection, proposal acceptance and lifecycle integration are not implemented yet. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
@@ -64,6 +64,19 @@ passed, including JSON stdout separation, report/SRT round trips, unresolved
 output refusal, retry protection, actual SIGINT cancellation and active-child
 reaping on cancellation/timeout. Strict CLI Clippy passed. A headless OS matrix
 is configured but not run here; Windows console signals remain unverified.
+
+Exact-gap refinement: eight proposal tests pass, including 32-cue sequences at
+46 speed scales, unsorted SRT order, Undo/Redo, ad-boundary exceptions and collapse
+refusal. Three application FFmpeg tests and two CLI FFmpeg tests pass with an
+actual 100 ms source gap preserved at 24/25 speed and a separate ad gap left to
+the section mapping. These validate the approved end adjustment, which can
+intentionally differ from the direct content-mapped cue end.
+
+After the CLI and exact-gap changes, `cargo test --locked --workspace` passed
+131 tests and strict workspace Clippy passed. The workspace command leaves
+FFmpeg integrations opt-in; the three shared-operation and two CLI FFmpeg tests
+were run separately and passed. Formatting and diff checks passed. This is
+macOS default-build evidence, with no new native GPU/audio or other-OS claim.
 
 ## Historical evidence and local context
 

@@ -104,6 +104,24 @@ monotonic in both timelines; this preserves cue ordering and existing overlaps
 without introducing inversions/overlaps between previously separated cues. No
 sorting, text changes or minimum-duration repairs occur. Positive rational
 arithmetic rounds once to milliseconds, with half-millisecond ties rounded up.
+
+Resync then preserves each original nonnegative inter-cue gap in milliseconds,
+even when programme speed changes. Within one supported section, it keeps the
+next cue's content-matched start and sets the preceding end to that start minus
+the original gap. A 100 ms gap therefore stays 100 ms at 24/25 speed; the preceding
+end moves 4 ms earlier than its direct content mapping. At slower speed it may
+move later. An adjustment that collapses a cue makes that cue unresolved. Cue
+starts remain unchanged; the last cue retains its mapped end.
+
+Neighbors are identified by source chronology without reordering the document.
+Existing overlaps are mapped with content and are not repaired. Corrections
+never cross supported-section boundaries (ads/edits or unverified continuity).
+The report records each gap's original size and whether it was preserved,
+crossed sections, had an unresolved neighbor or would collapse a cue. Preserved
+gaps include the mapped end and signed adjustment for review. This policy is
+independent of the editor's minimum-gap setting: resync does not normalize gaps
+to a preset. The separate bulk minimum-gap editor action is not implemented.
+
 The complete candidate is validated through the existing batch domain operation
 and SRT size policy. An incomplete proposal has no exportable SRT.
 
@@ -145,7 +163,8 @@ python3 scripts/resync-fixtures.py
 cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
 ```
 
-Pure tests cover rounding, gaps, stale snapshots, history, output collisions,
+Pure tests cover rounding, exact gaps across generated speed scales, unsorted
+source order, ad boundaries, collapse refusal, stale snapshots, history, output collisions,
 aliases, changed input hashes and mid-hash cancellation. A subprocess exits
 between publications to verify crash/retry behavior. Actual FFmpeg integrations
 cover offset, FPS-only conversion, speed/ad edits, unresolved cues, changed inputs

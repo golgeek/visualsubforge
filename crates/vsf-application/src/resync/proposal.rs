@@ -47,6 +47,29 @@ pub enum UnresolvedReason {
     UnsupportedCoverage,
     CrossesDiscontinuity,
     InvalidMappedRange,
+    GapWouldCollapseCue,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CueGap {
+    pub next_cue_id: String,
+    pub source_ms: u64,
+    pub outcome: GapOutcome,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum GapOutcome {
+    Preserved {
+        mapped_end_ms: u64,
+        adjustment_ms: i64,
+    },
+    AcrossSections,
+    UnresolvedNeighbor,
+    WouldCollapse {
+        mapped_end_ms: u64,
+        requested_end_ms: i64,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -69,6 +92,9 @@ pub struct CueProposal {
     pub source_start_ms: u64,
     pub source_end_ms: u64,
     pub outcome: CueOutcome,
+    /// Nonnegative gap to the next cue by source start time. Overlaps are not
+    /// repaired; array order/IDs stay unchanged even for unsorted input SRTs.
+    pub following_gap: Option<CueGap>,
 }
 
 /// Owned and immutable after construction. A projection/report cannot be used
@@ -90,13 +116,24 @@ impl Proposal {
         budget.check()?;
         validate_map(&alignment)?;
         let mut cues = Vec::with_capacity(snapshot.document.cues().len());
-        let mut timings = Vec::with_capacity(snapshot.document.cues().len());
         for cue in snapshot.document.cues() {
             budget.check()?;
             let outcome = map_cue(cue.start(), cue.end(), &alignment);
+            cues.push(CueProposal {
+                cue_id: cue.id().0.to_string(),
+                source_start_ms: cue.start().get(),
+                source_end_ms: cue.end().get(),
+                outcome,
+                following_gap: None,
+            });
+        }
+        preserve_gaps(&mut cues, budget)?;
+        let mut timings = Vec::with_capacity(cues.len());
+        for (cue, proposed) in snapshot.document.cues().iter().zip(&cues) {
+            budget.check()?;
             if let CueOutcome::Mapped {
                 start_ms, end_ms, ..
-            } = outcome
+            } = proposed.outcome
             {
                 timings.push(CueTiming {
                     id: cue.id(),
@@ -104,12 +141,6 @@ impl Proposal {
                     end: Milliseconds::new(end_ms).map_err(Error::InvalidInput)?,
                 });
             }
-            cues.push(CueProposal {
-                cue_id: cue.id().0.to_string(),
-                source_start_ms: cue.start().get(),
-                source_end_ms: cue.end().get(),
-                outcome,
-            });
         }
         let complete = timings.len() == cues.len();
         let srt = if complete {
@@ -174,6 +205,73 @@ impl Proposal {
             timings: timings.clone(),
         })
     }
+}
+
+fn preserve_gaps(cues: &mut [CueProposal], budget: &Budget<'_>) -> Result<()> {
+    let mut order: Vec<_> = (0..cues.len()).collect();
+    order.sort_unstable_by_key(|&i| (cues[i].source_start_ms, cues[i].source_end_ms, i));
+    for pair in order.windows(2) {
+        budget.check()?;
+        let (previous, next) = (pair[0], pair[1]);
+        let Some(gap_ms) = cues[next]
+            .source_start_ms
+            .checked_sub(cues[previous].source_end_ms)
+        else {
+            continue; // An intentional overlap remains a content-mapped overlap.
+        };
+        let next_cue_id = cues[next].cue_id.clone();
+        let outcome = match (&cues[previous].outcome, &cues[next].outcome) {
+            (
+                CueOutcome::Mapped {
+                    start_ms,
+                    end_ms,
+                    section_index,
+                },
+                CueOutcome::Mapped {
+                    start_ms: next_start,
+                    section_index: next_section,
+                    ..
+                },
+            ) => {
+                if section_index != next_section {
+                    GapOutcome::AcrossSections
+                } else {
+                    // All values are bounded by the domain clock (well below
+                    // i64::MAX). Keep each onset on matched content; preserve
+                    // the source gap by moving only the preceding cue's end.
+                    let requested = *next_start as i64 - gap_ms as i64;
+                    let mapped_end_ms = *end_ms;
+                    if requested <= *start_ms as i64 {
+                        cues[previous].outcome = CueOutcome::Unresolved {
+                            reason: UnresolvedReason::GapWouldCollapseCue,
+                        };
+                        GapOutcome::WouldCollapse {
+                            mapped_end_ms,
+                            requested_end_ms: requested,
+                        }
+                    } else {
+                        let adjustment_ms = requested - mapped_end_ms as i64;
+                        cues[previous].outcome = CueOutcome::Mapped {
+                            start_ms: *start_ms,
+                            end_ms: requested as u64,
+                            section_index: *section_index,
+                        };
+                        GapOutcome::Preserved {
+                            mapped_end_ms,
+                            adjustment_ms,
+                        }
+                    }
+                }
+            }
+            _ => GapOutcome::UnresolvedNeighbor,
+        };
+        cues[previous].following_gap = Some(CueGap {
+            next_cue_id,
+            source_ms: gap_ms,
+            outcome,
+        });
+    }
+    Ok(())
 }
 
 fn validate_map(alignment: &Alignment) -> Result<()> {

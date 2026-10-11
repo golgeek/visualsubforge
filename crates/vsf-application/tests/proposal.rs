@@ -3,7 +3,8 @@ use std::time::Duration;
 use subtitle_core::{Edit, Editor, Milliseconds};
 use subtitle_formats::srt;
 use vsf_application::resync::{
-    Budget, Cancellation, CueOutcome, Error, Proposal, SubtitleSnapshot, UnresolvedReason,
+    Budget, Cancellation, CueOutcome, Error, GapOutcome, Proposal, SubtitleSnapshot,
+    UnresolvedReason,
 };
 
 fn section(s: u64, e: u64, t: u64, u: u64) -> Segment {
@@ -37,6 +38,124 @@ fn proposal(text: &str, map: Alignment) -> Proposal {
     .unwrap()
 }
 const SOURCE: &str = "\u{feff}007\r\n00:00:01,000 --> 00:00:03,000\r\n<i>世界</i>\r\n\r\n003\r\n00:00:02,500 --> 00:00:04,000\r\nOverlap\r\n\r\n";
+
+#[test]
+fn exact_gaps_keep_content_onsets_and_move_only_preceding_ends() {
+    // Intentionally out of document order. Chronological neighbor lookup must
+    // not reorder the SRT or change imported labels/identities.
+    let source =
+        "9\n00:00:02,100 --> 00:00:03,000\nLater\n\n7\n00:00:01,000 --> 00:00:02,000\nEarlier\n";
+    for (target_end, expected_start, expected_end, adjustment) in [
+        (3_840_000, 2016, 1916, -4),
+        (4_160_000, 2184, 2084, 4),
+        (4_000_000, 2100, 2000, 0),
+    ] {
+        let p = proposal(
+            source,
+            alignment(vec![section(0, 4_000_000, 0, target_end)]),
+        );
+        assert!(p.is_complete());
+        let parsed = srt::parse(p.srt().unwrap()).unwrap();
+        assert_eq!(parsed.document.cues()[0].start().get(), expected_start);
+        assert_eq!(parsed.document.cues()[1].end().get(), expected_end);
+        assert_eq!(expected_start - expected_end, 100);
+        assert!(
+            matches!(p.cues()[1].following_gap.as_ref().unwrap().outcome,
+            GapOutcome::Preserved { adjustment_ms, .. } if adjustment_ms == adjustment)
+        );
+        assert!(p.srt().unwrap().starts_with("9\n"));
+        assert!(p.cues()[0].following_gap.is_none());
+        let mut editor = Editor::new(p.snapshot().document().clone());
+        let accepted = editor
+            .apply_edit(0, p.edit(editor.document()).unwrap(), |_| Ok(()))
+            .unwrap();
+        if accepted.changed {
+            editor.undo(1).unwrap();
+            assert_eq!(editor.document(), p.snapshot().document());
+            editor.redo(2).unwrap();
+        } else {
+            assert_eq!(editor.revision(), 0);
+            assert!(!editor.can_undo());
+        }
+        assert_eq!(editor.document().cues()[1].end().get(), expected_end);
+    }
+}
+
+#[test]
+fn gap_corrections_do_not_cross_sections_or_hide_collapsed_cues() {
+    let source = "1\n00:00:01,000 --> 00:00:02,000\nA\n\n2\n00:00:02,100 --> 00:00:03,000\nB\n";
+    let p = proposal(
+        source,
+        alignment(vec![
+            section(0, 2_050_000, 0, 1_968_000),
+            section(2_050_000, 4_000_000, 2_968_000, 4_840_000),
+        ]),
+    );
+    assert!(matches!(
+        p.cues()[0].outcome,
+        CueOutcome::Mapped { end_ms: 1920, .. }
+    ));
+    assert!(matches!(
+        p.cues()[0].following_gap.as_ref().unwrap().outcome,
+        GapOutcome::AcrossSections
+    ));
+    let p = proposal(
+        "1\n00:00:01,000 --> 00:00:01,100\nShort\n\n2\n00:00:20,000 --> 00:00:21,000\nAfter long gap\n",
+        alignment(vec![section(0, 30_000_000, 0, 28_800_000)]),
+    );
+    assert!(!p.is_complete());
+    assert!(p.srt().is_none());
+    assert!(matches!(
+        p.cues()[0].outcome,
+        CueOutcome::Unresolved {
+            reason: UnresolvedReason::GapWouldCollapseCue
+        }
+    ));
+    assert!(matches!(
+        p.cues()[0].following_gap.as_ref().unwrap().outcome,
+        GapOutcome::WouldCollapse {
+            requested_end_ms: 300,
+            ..
+        }
+    ));
+    assert!(p.edit(p.snapshot().document()).is_err());
+}
+
+#[test]
+fn generated_gap_sequences_remain_exact_after_all_supported_speed_scales() {
+    let mut source = String::new();
+    let mut start = 1000;
+    let mut starts = Vec::new();
+    let mut gaps = Vec::new();
+    for index in 0..32 {
+        let gap = [0, 1, 80, 100, 500][index % 5];
+        starts.push(start);
+        gaps.push(gap);
+        source.push_str(&format!(
+            "{}\n{} --> {}\nCue {}\n\n",
+            index + 1,
+            srt::format_time(Milliseconds::new(start).unwrap()),
+            srt::format_time(Milliseconds::new(start + 200).unwrap()),
+            index + 1
+        ));
+        start += 200 + gap;
+    }
+    for percent in 80..=125 {
+        let p = proposal(
+            &source,
+            alignment(vec![section(0, 60_000_000, 0, 600_000 * percent)]),
+        );
+        assert!(p.is_complete());
+        let parsed = srt::parse(p.srt().unwrap()).unwrap();
+        for (index, cue) in parsed.document.cues().iter().enumerate() {
+            assert_eq!(cue.start().get(), (starts[index] * percent + 50) / 100);
+            assert!(cue.end() > cue.start());
+            if let Some(next) = parsed.document.cues().get(index + 1) {
+                assert_eq!(next.start().get() - cue.end().get(), gaps[index]);
+            }
+        }
+    }
+}
 
 #[test]
 fn complete_proposal_preserves_format_text_order_overlap_and_one_undo() {

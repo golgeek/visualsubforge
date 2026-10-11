@@ -59,7 +59,7 @@ fn vsf() -> Command {
 fn run(command: &mut Command) -> Output {
     Running::start(command).finish()
 }
-const SRT: &str = "7\n00:00:03,000 --> 00:00:04,000\n<i>世界</i>\n";
+const SRT: &str = "7\n00:00:03,000 --> 00:00:04,000\n<i>世界</i>\n\n9\n00:00:04,100 --> 00:00:05,000\nAfter 100 ms\n";
 
 fn setup(dir: &Path) -> Command {
     fs::write(dir.join("source.srt"), SRT).unwrap();
@@ -232,6 +232,16 @@ fn analysis_only_and_needs_review_do_not_create_subtitle_outputs() {
         assert!(summary["output"].is_null());
         assert!(!dir.path().join("result.srt").exists());
         assert!(dir.path().join("report.json").is_file());
+        if status == "analysis_only" {
+            let report: serde_json::Value =
+                serde_json::from_slice(&fs::read(dir.path().join("report.json")).unwrap()).unwrap();
+            assert_eq!(report["cues"][0]["outcome"]["end_ms"], 2916);
+            assert_eq!(report["cues"][1]["outcome"]["start_ms"], 3016);
+            assert_eq!(
+                report["cues"][0]["following_gap"]["outcome"]["adjustment_ms"],
+                -4
+            );
+        }
         assert_eq!(
             fs::read_to_string(dir.path().join("source.srt")).unwrap(),
             srt

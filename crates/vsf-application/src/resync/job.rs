@@ -145,6 +145,7 @@ impl Analysis {
             // this explicitly avoids implying user-selected stream support.
             video_stream_selection: &'a str,
             timestamp_origin: &'a str,
+            cue_gap_policy: &'a str,
             source_video: &'a FileIdentity,
             target_video: &'a FileIdentity,
             source_subtitle_file: &'a Option<FileIdentity>,
@@ -161,6 +162,7 @@ impl Analysis {
             algorithm_version: ALGORITHM_VERSION,
             video_stream_selection: "first_video_stream",
             timestamp_origin: "container_start",
+            cue_gap_policy: "preserve_source_ms_within_section_by_adjusting_preceding_end_v1",
             source_video: &self.source_video,
             target_video: &self.target_video,
             source_subtitle_file: &self.subtitle_file,
