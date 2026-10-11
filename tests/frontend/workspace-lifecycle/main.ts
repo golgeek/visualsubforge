@@ -89,6 +89,9 @@ async function documentCases() {
   let picker: ReturnType<typeof deferred<string | null>> | null = null;
   let choosing = false;
   const model = new DocumentSession({
+    resyncAccept: async () => {
+      throw new Error('Resync is not used in this fixture');
+    },
     documentAction: async (action, version) => {
       requests.push({ action, ...version });
       if (failure) throw new Error('Rejected edit');
@@ -181,6 +184,9 @@ async function documentCases() {
   passed('document disposal rejects late projection updates and new commands');
 
   const saveModel = new DocumentSession({
+    resyncAccept: async () => {
+      throw new Error('Resync is not used in this fixture');
+    },
     documentAction: async (action) => {
       requests.push({ action, generation: 0, revision: 0 });
       return snapshot();
@@ -355,6 +361,9 @@ function projectFixture(hold: string | null = null) {
   let mediaPath = '';
   let current = status();
   const subtitles = new DocumentSession({
+    resyncAccept: async () => {
+      throw new Error('Resync is not used in this fixture');
+    },
     chooseFile: async () => null,
     documentAction: async () => {
       await step('subtitles');

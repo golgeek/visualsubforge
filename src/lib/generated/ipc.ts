@@ -625,6 +625,7 @@ export type visualsubforge_desktop_MenuState = {
   available: boolean;
   media: boolean;
   document: boolean;
+  resync: boolean;
   undo: boolean;
   redo: boolean;
   range: boolean;
@@ -981,6 +982,7 @@ export type visualsubforge_waveform_WaveformView_Serialize = {
 export type visualsubforge_desktop_WorkspaceAction =
   | 'settings'
   | 'timingSettings'
+  | 'resync'
   | 'showScenes'
   | 'scanScenes'
   | 'cancelSceneScan'

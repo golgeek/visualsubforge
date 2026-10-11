@@ -15,6 +15,7 @@ use tauri_specta::Event;
 pub enum WorkspaceAction {
     Settings,
     TimingSettings,
+    Resync,
     ShowScenes,
     ScanScenes,
     CancelSceneScan,
@@ -140,6 +141,8 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .text("clearLoop", "Clear Loop")
         .build()?;
     let tools = SubmenuBuilder::new(app, "Tools")
+        .text("resync", "Resynchronize Subtitles…")
+        .separator()
         .text("scanScenes", "Scan Scene Changes")
         .text("cancelSceneScan", "Cancel Scene Scan")
         .separator()
@@ -169,6 +172,7 @@ pub struct MenuState {
     available: bool,
     media: bool,
     document: bool,
+    resync: bool,
     undo: bool,
     redo: bool,
     range: bool,
@@ -189,6 +193,7 @@ pub struct MenuState {
 pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String> {
     if let Some(menu) = app.menu() {
         for (id, enabled) in [
+            ("resync", state.resync),
             ("settings", true),
             ("timingSettings", true),
             (
@@ -357,6 +362,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
     let values = serde_json::json!([
         "settings",
         "timingSettings",
+        "resync",
         "showScenes",
         "scanScenes",
         "cancelSceneScan",

@@ -9,6 +9,7 @@ mount and are disposed on unmount; they are not global stores.
 | `DocumentSession` | Replacement-only projection of Rust's document, selected cue, and text/time drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
+| `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
@@ -30,6 +31,14 @@ previews. App disposes the shared `PendingDecision` owners, settling both modal 
 still complete in Rust; disposal does not roll back an accepted operation or
 pretend to cancel native IO. Late replies cannot update the disposed projection
 or dispatch the next project/Save As step.
+
+Resync captures the accepted snapshot after an explicit cue-draft apply/discard
+choice. The modal keeps native video occluded; it cannot close during a document
+mutation acknowledgment, so a late draft/accept reply cannot overwrite new typing
+behind it. Closing during analysis cancels the known job; closing during Start
+cancels the job when its delayed ID arrives. Input/capture changes retire review,
+and only a complete proposal enables acceptance. Rust remains authoritative for
+all final identity, history and source-file protection checks.
 
 The browser workflow fixtures mount the actual App. `workspace-lifecycle` also
 exercises these compiled Svelte owners with controlled replies, checking ordering,

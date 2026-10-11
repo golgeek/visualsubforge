@@ -244,6 +244,7 @@ export const resyncView = {
 export const workspaceActions = [
   'settings',
   'timingSettings',
+  'resync',
   'showScenes',
   'scanScenes',
   'cancelSceneScan',

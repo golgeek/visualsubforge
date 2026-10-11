@@ -3,8 +3,8 @@
 The first release is under development. The current alignment experiment is
 documented in the [corpus guide](../tests/fixtures/resync/README.md). A headless CLI
 now calls the shared operation. The desktop backend owns proposal review pages,
-acceptance and persistence protection; its GUI is still being connected. Wider
-matching/platform validation remains open.
+acceptance and persistence protection, with a Svelte review workflow under Tools.
+Wider matching/platform and actual-native workflow validation remain open.
 
 Timing policy: every cue start and end follows the measured content map. This
 scales short gaps and long pauses when programme speed changes, without deriving
@@ -71,6 +71,29 @@ still needs direct evidence; portable cancellation-token tests do not prove it.
 Clap 4.6.7 and ctrlc 3.5.2 are exact direct dependency pins; Cargo.lock pins their
 transitive dependencies.
 
+## Desktop workflow
+
+1. Load the target video and the subtitles timed for the source version.
+2. Choose **Tools → Resynchronize Subtitles…**, then select the source video.
+   The dialog uses current accepted subtitle edits; resolve an unapplied cue
+   draft with Apply or Discard, or cancel without changing it.
+3. Analyze, then inspect matched sections and paged original/proposed timings.
+   Missing/ambiguous cues prevent acceptance of the entire proposal.
+4. **Accept timings** applies the complete proposal through the existing document
+   owner. Undo/Redo changes all mapped timings together. It does not replace media.
+5. Save As to a different SRT. Save Project first asks for that subtitle save;
+   cancellation/failure leaves the project unwritten.
+
+Closing an analysis cancels its job. During input verification, Cancel requests
+cancellation; if Rust has already committed, its accepted document still wins.
+The modal waits for a document mutation acknowledgment before closing. Candidate
+subtitles are reviewed as timing rows; native video keeps accepted subtitles
+until acceptance. Analysis does not open a second native player.
+
+The browser [workflow fixture](../tests/frontend/resync/README.md) covers delayed
+replies, drafts, review, acceptance, history and save/project sequencing with
+modeled IPC. It is separate from Rust/FFmpeg and native execution evidence.
+
 ## Desktop proposal ownership
 
 Four generated JSON commands start, inspect, cancel and accept one Rust-owned
@@ -78,7 +101,8 @@ proposal. Start captures the current accepted document and loaded target video;
 the source video is read directly through FFmpeg. The frontend supplies a job ID
 for acceptance, never computed cue timings. Review returns at most 100 cue rows
 and 100 matched sections per request, including unresolved reasons and anchor
-residuals. The GUI controls are not implemented yet.
+residuals. `ResyncSession` owns only the frontend projection and operation epochs;
+`DocumentSession` serializes acceptance with other document commands.
 
 `src-tauri/src/resync.rs` owns one analysis worker, with no pending queue. It
 cancels and drains scene scanning before decoding; the existing scene generation

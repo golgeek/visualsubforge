@@ -40,6 +40,7 @@ for (const name of [
   'cue-timing',
   'waveform-selection',
   'workspace-lifecycle',
+  'resync',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

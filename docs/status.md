@@ -14,9 +14,9 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. GUI resync is not yet implemented. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | GUI integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
-| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow and native integration validation remain. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native and remaining platform checks stay open. |
+| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | Actual GUI/native integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
+| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow passes modeled-browser checks; native integration validation remains. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
@@ -190,3 +190,27 @@ legacy recovery reads, project-reference rejection and retained scene polling.
 The CI desktop matrix now configures the actual-FFmpeg owner test on all three
 OSes. No remote is configured, so no hosted run is claimed. GUI interaction,
 real Tauri transport, wider corpus and remaining OS checks are still required.
+
+GUI review increment (2026-10-11): Tools opens a focused resync dialog and
+`ResyncSession`, with source/target roles, draft apply/discard/cancel, progress,
+100-row cue/section pages, unresolved reasons and complete-proposal acceptance.
+DocumentSession uses one serialized reconciliation path for ordinary actions
+and resync acceptance. App adds modal occlusion, focus and dispatch only. Closing
+while Start is pending cancels its eventual ID; old view/picker replies cannot
+revive a disposed job. The dialog waits for draft/accept acknowledgment before
+allowing Close, preventing late accepted replies from overwriting later typing.
+
+`npm run test:browser` passed all 30 Chromium/WebKit cases, including the new
+resync workflow. After adding explicit draft-discard and same-revision Save As
+controls, `npm run test:browser -- --grep 'workflow: resync'` passed all 21 fixture
+assertions on each engine. `npm run build`/`npm run check` passed without warnings;
+IPC generation/drift, lint and formatting passed. Strict desktop Clippy and
+`cargo test --locked -p visualsubforge` passed all 91 ordinary tests (explicit
+exporter/FFmpeg tests remain opt-in). No matching algorithm changed.
+
+Interactive modeled review was inspected at 1440×1000 and 480×700. The narrow
+dialog stayed inside the viewport without outer horizontal overflow; tables
+scroll separately, including PageDown after keyboard focus. Ignored screenshots
+are `tests/fixtures/generated/resync/gui-review-{wide,narrow}.png`. These browser
+checks model media, file dialogs and storage. Actual Tauri/native resync, remaining
+platform/process/filesystem and broader corpus validation remain open.

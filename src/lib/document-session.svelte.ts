@@ -1,6 +1,7 @@
 import {
   chooseFile,
   documentAction,
+  resyncAccept,
   emptyDocument,
   type DocumentAction,
   type DocumentSnapshot,
@@ -12,8 +13,13 @@ import {
 } from './cue-operations';
 import { formatTime, parseTime } from './timeline';
 
-const client = { chooseFile, documentAction };
+const client = { chooseFile, documentAction, resyncAccept };
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
+type CommandOptions = {
+  plan?: CueOperationPlan;
+  version?: Version;
+  preferred?: number | null;
+};
 
 // Rust owns the document and history. This owner replaces accepted projections;
 // only selection and the three draft fields are editable frontend state.
@@ -62,13 +68,25 @@ export class DocumentSession {
     this.start = cue ? formatTime(cue.startMs) : '';
     this.end = cue ? formatTime(cue.endMs) : '';
   }
-  async command(
+  command(
     action: DocumentAction,
-    options: {
-      plan?: CueOperationPlan;
-      version?: Version;
-      preferred?: number | null;
-    } = {},
+    options: CommandOptions = {},
+  ): Promise<boolean> {
+    return this.update(
+      (before) => this.client.documentAction(action, options.version ?? before),
+      options,
+    );
+  }
+  acceptResync(id: number, expected: DocumentSnapshot): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; analyze again.'),
+      );
+    return this.update(() => this.client.resyncAccept(id));
+  }
+  private async update(
+    request: (before: DocumentSnapshot) => Promise<DocumentSnapshot>,
+    options: CommandOptions = {},
   ): Promise<boolean> {
     if (!this.alive) return false;
     // App disables editing while a command is pending. Enforce the same rule
@@ -78,10 +96,7 @@ export class DocumentSession {
     this.pending = true;
     const before = this.accepted;
     try {
-      const next = await this.client.documentAction(
-        action,
-        options.version ?? before,
-      );
+      const next = await request(before);
       if (!this.alive) return false;
       const preferred = options.plan
         ? operationSelection(options.plan, before.cues, next.cues)

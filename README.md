@@ -25,6 +25,9 @@ The editor provides:
 - `.vsfproject` references to media/SRT, completed scene results, view/timing
   options and paused resume position. Save subtitles separately for interchange.
   Normal quit updates an attached project and offers explicit choices on failure.
+- Experimental subtitle resynchronization through a headless CLI or Tools →
+  Resynchronize Subtitles, with proposal review, one-step Undo and protected Save
+  As. The desktop workflow uses the loaded target video and a selected source.
 - Persistent settings, portable timing presets and native menus. Settings drafts
   are committed with Apply; project timing options can override workspace defaults.
 

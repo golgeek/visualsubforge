@@ -1,5 +1,6 @@
 <script lang="ts">
   import SettingsDialog from './lib/SettingsDialog.svelte';
+  import ResyncDialog from './lib/ResyncDialog.svelte';
   import { isTauri } from '@tauri-apps/api/core';
   import {
     defaultTiming,
@@ -382,6 +383,8 @@
     timing: { ...defaultTiming },
   });
   let settingsOpen = $state(false);
+  let resyncOpen = $state(false);
+  let resyncReturn: HTMLElement | null = null;
   let settingsReturn: HTMLElement | null = null;
   const nativeMenus = isTauri();
   let sceneControls: {
@@ -410,6 +413,23 @@
       error = String(e);
     } finally {
       confirming = false;
+    }
+  }
+
+  async function closeResync(accepted = false) {
+    resyncOpen = false;
+    if (accepted)
+      notice =
+        'Timings accepted. Use Save As to preserve the original subtitles.';
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (resyncReturn?.isConnected) resyncReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
     }
   }
 
@@ -806,6 +826,17 @@
     notice = '';
     try {
       switch (action) {
+        case 'resync':
+          if (!status.loaded || !doc.cues.length) break;
+          resyncReturn =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+          await occludeVideo(true);
+          if (!alive) break;
+          confirming = true;
+          resyncOpen = true;
+          break;
         case 'settings':
         case 'timingSettings':
           settingsReturn =
@@ -999,6 +1030,7 @@
       available: status.available,
       media: status.loaded,
       document: doc.loaded,
+      resync: status.loaded && doc.cues.length > 0,
       undo: doc.canUndo || draftDirty || textFocused,
       redo: doc.canRedo || draftDirty || textFocused,
       range: !!range && range[1] > range[0],
@@ -1339,6 +1371,14 @@
       <button
         disabled={busy || confirming || !ready}
         onclick={() => void run('settings')}>Settings…</button
+      >
+      <button
+        disabled={busy ||
+          confirming ||
+          !ready ||
+          !status.loaded ||
+          !doc.cues.length}
+        onclick={() => void run('resync')}>Resynchronize subtitles…</button
       >
       <button
         disabled={!status.loaded || busy || confirming || sceneState.pending}
@@ -1886,6 +1926,15 @@
     <ProjectSaveFailureDialog
       error={projectExitError}
       onchoose={(choice) => void answerProjectExit(choice)}
+    />
+  {/if}
+  {#if resyncOpen}
+    <ResyncDialog
+      {subtitles}
+      media={() => status}
+      target={mediaPath}
+      onclose={() => void closeResync()}
+      onaccepted={() => void closeResync(true)}
     />
   {/if}
   {#if settingsOpen}
