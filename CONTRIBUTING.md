@@ -155,7 +155,18 @@ cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-thread
 The headless CI matrix configures these on macOS, Windows and Linux with recorded
 package-manager FFmpeg versions; it is not evidence of hosted execution or native
 device behavior. Unix executable cancellation tests send SIGINT and verify child
-reaping. Windows console Ctrl-C delivery remains a separate check.
+reaping. On Windows, build the CLI and run the console-event check separately:
+
+```sh
+cargo build --locked -p vsf-cli
+python tests/cli/windows-signals.py --vsf target/debug/vsf.exe
+```
+
+It creates a private console, sends an actual Ctrl-C event, and checks exit 130,
+child termination, unchanged inputs and absent outputs. A separate timeout case
+checks exit 7. The controlled child ignores Ctrl-C, so the test cannot pass merely
+because Windows delivered the event to both processes. The headless Windows CI
+lane includes this check; local ARM64 execution is recorded in the resync guide.
 
 ### Native oracle controls
 

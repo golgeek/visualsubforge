@@ -76,6 +76,11 @@ jobs:
           ffprobe -version
       - run: python scripts/resync-fixtures.py
       - run: cargo test --locked -p vsf-application -p vsf-cli
+      - name: Exercise Windows console cancellation and child cleanup
+        if: runner.os == 'Windows'
+        run: |
+          cargo build --locked -p vsf-cli
+          python tests/cli/windows-signals.py --vsf target/debug/vsf.exe
       - run: cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
       - run: cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
       - run: cargo clippy --locked -p vsf-application -p vsf-cli --all-targets -- -D warnings

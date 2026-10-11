@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-11 (America/New_York): headless resync is implemented; generated IPC is migrated and GUI integration remains in progress.
+Updated 2026-10-11 (America/New_York): CLI and GUI resync are implemented with generated IPC; native workflow and broader matching validation remain in progress.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
@@ -21,7 +21,17 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
 
-## Latest local evidence
+## Latest resync evidence
+
+The [dated resync validation record](resynchronization.md#recorded-resync-validation)
+distinguishes the current macOS, Ubuntu ARM64 and Windows ARM64 results. Both VM
+headless suites, actual FFmpeg operations and ten compact alignment cases pass.
+Both VMs' desktop owner/persistence, generated IPC and frontend checks pass.
+Windows console Ctrl-C and timeout terminate the analysis child and preserve
+files. Actual native GUI resync and the
+broader matching corpus remain acceptance gates.
+
+## Earlier implementation evidence
 
 The table records review-remediation results, not a fresh-machine installation or a
 claim that all platform gates passed. Commands are in [CONTRIBUTING](../CONTRIBUTING.md)
@@ -164,8 +174,8 @@ by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
 The active direction is shared Rust application operations for a headless CLI
-and desktop resynchronization, with generated JSON IPC bindings. Continue the
-application integration and broaden matching evidence; preserve conservative refusal
+and desktop resynchronization, with generated JSON IPC bindings. Complete native
+workflow validation and broaden matching evidence; preserve conservative refusal
 at ambiguous or missing content. Broader formats, plugin frameworks and cosmetic
 module rearrangements can wait. Packaging, licensing, physical-device/x64 and
 scale/display coverage remain prerequisites for corresponding release claims.

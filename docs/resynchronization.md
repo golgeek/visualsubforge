@@ -66,8 +66,11 @@ SIGINT/timeout child-reaping tests with a controlled tool. The second requires
 generated resync fixtures and runs actual FFmpeg through the executable. CI
 configures a headless macOS/Windows/Linux matrix; no hosted execution is claimed.
 FFmpeg comes from each runner's package manager and its exact version is recorded,
-so the environment is not hermetically pinned. Windows console-event delivery
-still needs direct evidence; portable cancellation-token tests do not prove it.
+so the environment is not hermetically pinned. Windows runs the separate
+`python tests/cli/windows-signals.py --vsf target/debug/vsf.exe` check after building
+the CLI. It sends actual Ctrl-C in a private console and verifies cleanup of a
+controlled child that ignores the event, plus timeout cleanup. This tests console
+events, not physical keyboard input or console-window close/logoff behavior.
 Clap 4.6.7 and ctrlc 3.5.2 are exact direct dependency pins; Cargo.lock pins their
 transitive dependencies.
 
@@ -128,7 +131,8 @@ clears it. Recovery format 3 retains the flag and accepted SRT; versions 1 and 2
 remain readable. Rust also checks project subtitle references under the document
 lock through publication, preventing a pending resync from attaching the original
 SRT as though it contained the target timings. The frontend's save-before-project
-continuation still needs resync workflow validation.
+continuation passes modeled-browser resync checks; actual native interaction
+remains a separate acceptance gate.
 
 ```sh
 cargo test --locked -p visualsubforge
@@ -141,7 +145,7 @@ recovery and source-protection checks. The opt-in test runs actual FFmpeg throug
 the desktop owner, checks bounded review pages, acceptance and stale/changed-input
 rejection, and uses a controlled media selection. It does not exercise native
 playback, Tauri transport or GUI interactions. The desktop CI matrix configures
-that test on all three OS runners; local execution is currently macOS only.
+that test on all three OS runners; dated local results are recorded below.
 
 ## Shared application boundary
 
@@ -169,7 +173,7 @@ cargo tree --locked -p vsf-application --edges normal
 media, records supervised FFmpeg/ffprobe version output, extracts scene anchors
 and actual-PTS samples sequentially, matches/verifies supported intervals, and
 builds an immutable `Proposal`. It never mutates accepted subtitles. The desktop
-adapter must still retain job/media/document generation and revision guards.
+adapter retains job/media/document generation and revision guards.
 
 The operation selects the first video stream and normalizes times to the
 container origin. `Tools::discover` uses the same explicit `VSF_FFMPEG` and
@@ -258,7 +262,7 @@ collapse refusal, stale snapshots, history, output collisions,
 aliases, changed input hashes and mid-hash cancellation. A subprocess exits
 between publications to verify crash/retry behavior. Actual FFmpeg integrations
 cover offset, FPS-only conversion, speed/ad edits, unresolved cues, changed inputs
-and cancellation. The CLI calls these operations directly; GUI integration is next.
+and cancellation. Both the CLI and desktop proposal owner call these operations.
 
 ## Atomic retiming in the subtitle domain
 
@@ -290,3 +294,43 @@ cargo test --locked -p subtitle-core --test retiming
 
 The tests include complete undo/redo restoration, invalid/stale/duplicate inputs,
 policy rejection, no-op preservation and generated sequences of accepted edits.
+
+## Recorded resync validation
+
+The 2026-10-11 VM checks used guest-local copies of committed source `d80580e`,
+with Rust 1.98.1. The identical source archive SHA-256 was
+`81c61292d754634defb791e6ae33a4ef82812e18bc3cba80cfd2b33e94c50ef8`.
+Files and advisory locks were exercised on each guest's local filesystem, not
+a shared host folder. The Windows console harness was then added and its source
+hashes verified before execution. These are ARM64 machines, not the x64 hosted
+runner images. No Git remote is configured, so hosted CI remains unrun.
+
+| Environment | Completed checks and scope |
+| --- | --- |
+| Development macOS ARM64; FFmpeg 9.0.2 | Earlier full workspace, CLI/shared-operation FFmpeg tests, 16 extended/reference alignment cases, and 30 modeled Chromium/WebKit workflow cases pass. GUI native build/preflight and loaded-library recording pass; real resync interaction is pending. |
+| Ubuntu 26.04 ARM64; FFmpeg 8.0.1-3ubuntu2; Python 3.14.4 | 62 headless Rust tests, three shared-operation, two executable and three visual FFmpeg integrations pass. Ten compact alignment cases pass. Desktop: 93 ordinary tests, the explicit FFmpeg proposal-owner test, generated IPC drift check, 39 frontend tests, production build and strict workspace Clippy pass. |
+| Windows 11 ARM64, build 22631.6199; MSYS2 FFmpeg 9.0.2; Python 3.14.7 | 60 headless Rust tests and the same eight FFmpeg integrations pass. Ten compact alignment cases pass. Actual Ctrl-C returns 130 in 0.092 seconds; the two-second timeout returns 7 in 2.071 seconds. Both terminate the controlled child and preserve inputs without publishing outputs. Desktop: 88 ordinary tests, explicit FFmpeg proposal-owner test, IPC drift, 39 frontend tests, production build and strict workspace Clippy pass. |
+
+Both VM compact-corpus runs measure 93.7–100% interior coverage in positive cases,
+zero measured accepted timing error, abstention on unrelated/repeated/flat footage,
+and an explicit reordering diagnosis. The extended/reference corpus has not been
+rerun in these VMs. The Ubuntu fixture interpreter differs from CI's Python
+3.14.7 pin; its actual version is recorded rather than claiming an identical
+environment. Desktop frontend checks use Node 24.21.0 and npm 11.19.0.
+
+Reproduce headless checks using the CLI/shared-operation commands above and
+the [visual fixture/evaluation commands](../tests/fixtures/resync/README.md).
+The default Rust scope was `cargo test --locked -p subtitle-core -p
+subtitle-formats -p media-analysis -p vsf-application -p vsf-cli`; strict Clippy
+used the same headless application/analysis/CLI packages. Desktop commands are
+in [CONTRIBUTING](../CONTRIBUTING.md), with the opt-in proposal-owner test above.
+Zero-test harnesses and deliberately ignored integrations are excluded from
+these counts. The Windows count excludes Unix-only signal and alias controls;
+the separate Windows console check closes the signal-delivery gap.
+
+Ignored receipts, exact command logs, truth and evaluation results are under
+`tests/fixtures/generated/resync/platform-validation-v1/`. The current Mac native
+build, preflight and mapped-file receipts use the `gui-native-*-v1` prefix in
+the parent directory. They do not establish GPU/audio quality or completed GUI
+resync acceptance. Wider held-out content, fades/crop/logo robustness, actual
+native review/Undo/Save As/project interaction, x64 and hosted CI remain open.
