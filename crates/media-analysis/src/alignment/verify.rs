@@ -60,15 +60,30 @@ pub fn refine(
     let mut additions = Vec::new();
     for (index, seed) in seeds.iter().enumerate() {
         check()?;
-        // A distinctive neighboring block is contradictory evidence for this
-        // model outside its neighborhood. Do not carry an offset past that block.
+        // Different cut-derived models establish a discontinuity, but the
+        // coarse image samples cannot locate it. Keep that entire gap unknown:
+        // a nearby frame can agree with both offsets around a short edit.
+        // Otherwise weak extensions can overlap and erase trusted cut evidence
+        // in the conflict filter below.
         let lower = index
             .checked_sub(1)
-            .map(|i| seeds[i].source_end_us)
+            .map(|i| {
+                if same_map(&seeds[i], seed) {
+                    seeds[i].source_end_us
+                } else {
+                    seed.source_start_us
+                }
+            })
             .unwrap_or(0);
         let upper = seeds
             .get(index + 1)
-            .map(|s| s.source_start_us)
+            .map(|next| {
+                if same_map(seed, next) {
+                    next.source_start_us
+                } else {
+                    seed.source_end_us
+                }
+            })
             .unwrap_or(u64::MAX);
         let samples = &source_samples[source_samples.partition_point(|s| s.time_us < lower)
             ..source_samples.partition_point(|s| s.time_us <= upper)];
@@ -336,6 +351,46 @@ mod tests {
                 .segments
                 .iter()
                 .any(|s| s.source_start_us >= 4_500_000)
+        );
+    }
+    #[test]
+    fn different_offsets_do_not_extend_into_the_uncertain_gap_or_erase_cut_evidence() {
+        let source = frames(0, None);
+        let mut target = frames(1_000_000, None);
+        for frame in target.iter_mut().skip(10) {
+            frame.time_us -= 120_000;
+        }
+        let mut result = seed();
+        result.segments.push(Segment {
+            source_start_us: 6_000_000,
+            source_end_us: 8_000_000,
+            target_start_us: 6_880_000,
+            target_end_us: 8_880_000,
+            anchors: 3,
+            max_residual_us: 0.,
+        });
+        run(&mut result, &source, &target, &[]);
+        // A nearest image within the 300 ms sampling radius can agree with
+        // either model. It does not locate this 120 ms edit between cut runs.
+        assert!(
+            result
+                .segments
+                .iter()
+                .any(|s| s.map_us(2_000_000) == Some(3_000_000.)
+                    && s.map_us(4_000_000) == Some(5_000_000.))
+        );
+        assert!(
+            result
+                .segments
+                .iter()
+                .any(|s| s.map_us(6_000_000) == Some(6_880_000.)
+                    && s.map_us(8_000_000) == Some(8_880_000.))
+        );
+        assert!(
+            result
+                .segments
+                .iter()
+                .all(|s| s.source_end_us <= 4_000_000 || s.source_start_us >= 6_000_000)
         );
     }
     #[test]

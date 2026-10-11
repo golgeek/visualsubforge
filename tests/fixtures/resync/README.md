@@ -38,7 +38,7 @@ content, not representative evidence for all broadcast programmes.
 
 - Pure known-map evaluation: exact rational mapping, with at most 0.5 ms final
   rounding error; invalid/collapsed time ranges remain unresolved.
-- Decoded positive cases: every accepted interior mapping must be within the
+- Decoded positive cases: every accepted mapping, including segment endpoints, must be within the
   source maximum presentation interval plus target maximum presentation interval
   plus 1 ms of ground truth. The generator probes those intervals; FPS metadata
   is not used to assign the tolerance or expected speed.
@@ -68,6 +68,7 @@ evidence that a matcher already meets them.
 
 ```sh
 cargo test --locked -p media-analysis
+cargo test --locked -p media-analysis --example resync-evaluate
 cargo test --locked -p media-analysis --test visual -- --ignored --nocapture --test-threads=1
 cargo run --locked -p media-analysis --example resync-evaluate > tests/fixtures/generated/resync/evaluation.json
 ```
@@ -106,6 +107,13 @@ the interval. Unknown gaps are not merged; cancellation publishes no partial
 refinement. Sampling remains heuristic: sub-sample edits without a detected cut
 and unseen visual distortions remain quality risks, not proven capabilities.
 
+Algorithm `scene-visual-sampled-v2` also leaves the interval between differing
+neighboring cut-derived models unresolved. Half-second image samples searched
+within 300 ms cannot locate a shorter edit between those models. Allowing both
+models to extend there could cause the conflict filter to discard trusted cut
+evidence as well as the weak extensions. A focused regression now protects both
+trusted intervals and requires abstention throughout the uncertain gap.
+
 Initial development Mac evidence (FFmpeg 9.0.2): the ten synthetic cases passed,
 with 93.7–94.9% interior coverage on positive cases and zero measured mapping
 error; unrelated/repeated/flat cases abstain and reordering is identified. The
@@ -128,3 +136,20 @@ generated directory. Regenerating with `--reference` reproduces the wider case
 set. The new result is retained locally as `evaluation-extended.json`. Fade,
 crop/logo and additional representative-content checks remain open; this
 experiment is not release acceptance.
+
+With the v2 discontinuity guard, the same 16 cases pass; reference coverage is
+94.3% (previously 95.2%), with zero measured accepted error. The evaluator now
+checks both endpoints of every accepted interval against the independent edit
+list in addition to its quarter-second interior grid. Its three oracle tests
+cover short intervals between grid samples, affine endpoint errors and an
+interval crossing deleted footage. CI explicitly runs these example tests.
+
+A new, still experimental 120-second low-cut case deletes 120 ms inside a
+ten-second shot. Its original result lost the trustworthy source 10–50 second
+interval: coverage was 50.6%. V2 retains that interval and reaches 85.3%, with
+zero measured error, but still fails the unchanged 90% target. Source 50–60
+seconds remains uncertain around the edit, and the final shot's motion repeats
+exactly every 1.76 seconds (three decoded frame hashes agree). This is evidence
+of a coverage limitation, not a passing release gate. The experiment and its
+original failure remain in the current robustness work; broader quality
+validation is still in progress.

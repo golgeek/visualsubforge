@@ -23,6 +23,13 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Latest resync evidence
 
+The sampled verifier now preserves cut-derived evidence on either side of
+differing timing models and leaves their uncertain gap unresolved. The original
+16-case corpus still passes, with reference coverage 94.3% and zero measured
+accepted error. A new low-cut/short-deletion experiment improves from 50.6% to
+85.3% coverage but still misses its 90% target. Matching quality remains an open
+gate; see the [corpus record](../tests/fixtures/resync/README.md).
+
 The [dated resync validation record](resynchronization.md#recorded-resync-validation)
 distinguishes the current macOS, Ubuntu ARM64 and Windows ARM64 results. Both VM
 headless suites, actual FFmpeg operations and ten compact alignment cases pass.

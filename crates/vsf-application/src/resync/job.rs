@@ -6,7 +6,7 @@ use media_analysis::{Tools, alignment, scenes::visual, tools::Versions};
 use serde::Serialize;
 use std::{io::Write, path::PathBuf, time::Duration};
 
-pub const ALGORITHM_VERSION: &str = "scene-visual-sampled-v1";
+pub const ALGORITHM_VERSION: &str = "scene-visual-sampled-v2";
 pub const MAX_REPORT_BYTES: usize = 64 * 1024 * 1024;
 
 pub enum Subtitles {
