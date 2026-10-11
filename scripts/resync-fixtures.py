@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Generate resync ground truth from edit lists, independently of any matcher.
 
-Outputs are disposable, under tests/fixtures/generated/resync. --reference uses
-the existing licensed Blender fixture; no external media is downloaded here.
+Outputs are disposable, under tests/fixtures/generated (resync by default).
+--reference and --live-action use existing licensed Blender fixtures; no
+external media is downloaded here.
 """
 import argparse
 from fractions import Fraction
@@ -45,34 +46,53 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False, still_tail=None):
+def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False, still_tail=None,
+              fade_every=None, shot_seconds=2, pan=False):
     """Original spatial textures and moving objects; no embedded shot IDs.
 
-    Every shot lasts two seconds deliberately: cut intervals alone cannot
-    distinguish these clips or repeated shots.
+    Default shots last two seconds: cut intervals alone cannot distinguish
+    these clips or repeated shots. Some robustness cases use longer shots.
     """
     width, height = 96, 64
+    if pan and fade_every:
+        raise ValueError("Use separate pan and fade fixtures")
+    field_width = width + shot_seconds * fps if pan else width
+    columns = (field_width + 7) // 8
     with tempfile.TemporaryFile() as raw:
         backgrounds = {}
         for frame in range(seconds * fps):
-            shot = frame // (2 * fps)
+            shot = frame // (shot_seconds * fps)
             identity = shot % 4 if repeat else shot
             still = still_tail is not None and frame >= still_tail * fps
             if still:
-                identity = still_tail // 2
+                identity = still_tail // shot_seconds
             if flat:
                 identity = 0
             if identity not in backgrounds:
                 rng = random.Random(seed + identity)
                 low, high = (15, 105) if identity % 2 == 0 else (145, 235)
-                grid = [rng.randrange(low, high) for _ in range(12 * 8)]
+                grid = [rng.randrange(low, high) for _ in range(columns * 8)]
                 backgrounds[identity] = bytes(
-                    grid[(y // 8) * 12 + x // 8]
-                    for y in range(height) for x in range(width) for _ in range(3)
+                    grid[(y // 8) * columns + x // 8]
+                    for y in range(height) for x in range(field_width) for _ in range(3)
                 )
+            phase = frame % (shot_seconds * fps)
             pixels = bytearray(backgrounds[identity])
+            if pan:
+                pixels = bytearray().join(
+                    backgrounds[identity][(y * field_width + phase) * 3:
+                                          (y * field_width + phase + width) * 3]
+                    for y in range(height)
+                )
+            if fade_every and shot and shot % fade_every == 0:
+                phase = frame % (shot_seconds * fps)
+                fade_frames = fps // 2
+                if phase < fade_frames:
+                    previous = backgrounds[identity - 1]
+                    pixels = bytearray((old * (fade_frames - phase) + new * phase) // fade_frames
+                                       for old, new in zip(previous, pixels))
             if not flat and not still:
-                x = (frame % (2 * fps)) * 2 % (width - 8)
+                x = (frame % (shot_seconds * fps)) * 2 % (width - 8)
                 for y in range(24, 32):
                     offset = (y * width + x) * 3
                     pixels[offset:offset + 24] = bytes([255, 90, 50]) * 8
@@ -86,7 +106,7 @@ def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False, stil
         subprocess.run(command, stdin=raw, check=True, capture_output=True, timeout=300)
 
 
-def edited(source, name, pieces, *, scale=Fraction(1), fps=24, vf=None):
+def edited(source, name, pieces, *, scale=Fraction(1), fps=24, vf=None, ad_size="96x64"):
     """A piece is (source start, source end) or an unmatched ad duration.
 
     Truth is calculated directly from this rational edit list, never inferred
@@ -110,7 +130,7 @@ def edited(source, name, pieces, *, scale=Fraction(1), fps=24, vf=None):
             })
         else:
             duration = Fraction(piece)
-            filters.append(f"testsrc2=s=96x64:r={fps}:d={float(duration)},"
+            filters.append(f"testsrc2=s={ad_size}:r={fps}:d={float(duration)},"
                            f"settb=AVTB[{label}]")
         target += duration
         inputs.append(f"[{label}]")
@@ -126,25 +146,41 @@ def edited(source, name, pieces, *, scale=Fraction(1), fps=24, vf=None):
 
 def probe(path):
     data = json.loads(run([FFPROBE, "-v", "error", "-select_streams", "v:0",
-                          "-show_entries", "frame=best_effort_timestamp_time:format=start_time,duration",
-                          "-show_frames", "-of", "json", str(path)]))
+                          "-show_entries", "frame=best_effort_timestamp_time,duration_time:format=start_time,duration",
+                          "-of", "json", str(path)]))
     times = [Fraction(frame["best_effort_timestamp_time"]) for frame in data["frames"]]
     if not times or any(b <= a for a, b in zip(times, times[1:])):
         raise RuntimeError(f"Missing or non-monotonic presentation timestamps: {path}")
     gaps = [b - a for a, b in zip(times, times[1:])]
+    origin = Fraction(data["format"].get("start_time", "0"))
+    last_duration = Fraction(data["frames"][-1].get("duration_time", "0"))
+    if last_duration <= 0:
+        raise RuntimeError(f"Missing final decoded frame duration: {path}")
     return {"sha256": digest(path), "frames": len(times),
-            "origin_us": micros(data["format"].get("start_time", "0")),
+            "origin_us": micros(origin),
             "duration_us": micros(data["format"]["duration"]),
+            "first_pts_us": micros(times[0]), "last_pts_us": micros(times[-1]),
+            "presentation_duration_us": micros(times[-1] + last_duration - origin),
             "max_frame_interval_us": micros(max(gaps, default=Fraction(0)))}
 
 
 def main():
+    global OUT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", action="store_true",
                         help="also derive edits from the already fetched Blender reference movie")
     parser.add_argument("--extended", action="store_true",
                         help="add held-out seeds, ambiguous static edits and three ten-minute blocks")
+    parser.add_argument("--robustness", action="store_true",
+                        help="add negative PTS, fractional rates, fades, crops, logos and brightness changes")
+    parser.add_argument("--live-action", action="store_true",
+                        help="derive held-out edits from the already fetched Tears of Steel movie")
+    parser.add_argument("--output", type=Path, default=OUT,
+                        help="generated fixture directory (defaults to tests/fixtures/generated/resync)")
     args = parser.parse_args()
+    OUT = args.output.resolve()
+    if not OUT.is_relative_to((ROOT / "tests/fixtures/generated").resolve()):
+        parser.error("--output must be inside tests/fixtures/generated")
     OUT.mkdir(parents=True, exist_ok=True)
     source = OUT / "source.mkv"
     synthetic(source)
@@ -197,6 +233,60 @@ def main():
                OUT / "reference.mkv")
         cases.append(edited(OUT / "reference.mkv", "reference-ads",
                             [1, (30, 200), 2, (215, 400), 3, (Fraction(1609, 4), 550)]))
+    if args.robustness:
+        # Expectations are selected before inspecting any matcher result. Ordinary
+        # rate/origin conversions retain the 90% gate; visual distortions measure
+        # scope but must never accept incorrect correspondence at any coverage.
+        held_out = OUT / "robust-source.mkv"
+        synthetic(held_out, seconds=72, fps=25, seed=909019)
+        edits = [2, (1, 23), 3, (Fraction(49, 2), 47), 1, (50, 71)]
+        cases.append(edited(held_out, "fractional-fps-only", edits, fps="24000/1001"))
+        cases.append(edited(held_out, "fractional-slowdown", edits,
+                            scale=Fraction(1001, 960), fps="24000/1001"))
+        for name, effect in [
+            ("crop", "crop=88:56:4:4,scale=96:64"),
+            ("logo", "drawbox=x=78:y=3:w=14:h=10:color=white@0.7:t=fill"),
+            ("brightness", "eq=brightness=0.1:contrast=1.12"),
+        ]:
+            case = edited(held_out, f"robust-{name}", edits, fps=25, vf=effect)
+            case["expected"] = "safe_partial_mapping"
+            cases.append(case)
+        fades = OUT / "fade-source.mkv"
+        synthetic(fades, seconds=72, fps=25, seed=672031, fade_every=3)
+        case = edited(fades, "robust-fades", edits, scale=Fraction(1001, 960), fps="24000/1001")
+        case["expected"] = "safe_partial_mapping"
+        cases.append(case)
+        low_cut = OUT / "low-cut-source.mkv"
+        synthetic(low_cut, seconds=120, fps=25, seed=631895, shot_seconds=10)
+        # A three-frame deletion inside a moving shot may not trigger scdet.
+        # It still must not be hidden by visually similar half-second samples.
+        cases.append(edited(low_cut, "low-cut-short-deletion",
+                            [(0, Fraction(287, 5)), (Fraction(1438, 25), 120)], fps=25))
+        # A separate held-out low-cut control has a nonrepeating pan. Retain the
+        # original periodic-motion failure above; do not change its truth/gate.
+        pan = OUT / "low-cut-pan-source.mkv"
+        synthetic(pan, seconds=120, fps=25, seed=852891, shot_seconds=10, pan=True)
+        cases.append(edited(pan, "low-cut-pan-deletion",
+                            [(0, Fraction(287, 5)), (Fraction(1438, 25), 120)], fps=25))
+        negative = OUT / "negative-origin.ts"
+        # Matroska/NUT cannot retain these negative presentation timestamps.
+        # MPEG-TS can; probe below verifies that they really survived encoding.
+        encode(["-i", str(source), "-output_ts_offset", "-5", "-avoid_negative_ts", "disabled",
+                "-mpegts_copyts", "1", "-muxdelay", "0", "-f", "mpegts"], negative)
+        cases.append({"name": "negative-origin", "source": source.name, "target": negative.name,
+                      "segments": [{"source_start_us": 0, "source_end_us": 36_000_000,
+                                    "target_start_us": 0, "target_end_us": 36_000_000}],
+                      "target_duration_us": 36_000_000, "expected": "map_supported_interiors"})
+    if args.live_action:
+        reference = ROOT / "tests/fixtures/generated/tears-of-steel-720.mov"
+        if not reference.is_file():
+            raise RuntimeError("Run python3 scripts/fetch-reference-movie.py --film tears-of-steel first")
+        live = OUT / "live-action-source.mkv"
+        encode(["-i", str(reference), "-vf", "scale=320:180,setsar=1,fps=25"], live)
+        cases.append(edited(live, "live-action-speed-ads",
+                            [2, (20, 210), 3, (Fraction(859, 4), 410), 1, (421, 650)],
+                            scale=Fraction(1001, 960), fps="24000/1001", ad_size="320x180",
+                            vf="scale=480:270"))
     media = {name: probe(OUT / name) for name in sorted(
         {case[key] for case in cases for key in ("source", "target")})}
     for case in cases:
@@ -204,15 +294,22 @@ def main():
         case["boundary_tolerance_us"] = (source_info["max_frame_interval_us"]
                                          + target_info["max_frame_interval_us"] + 1_000)
         if "target_duration_us" in case:
-            # Matroska duration includes the nonzero timestamp origin.
-            observed = target_info["duration_us"] - target_info["origin_us"]
+            # Container duration semantics differ. Measure the final decoded
+            # frame endpoint relative to origin instead of guessing from format.
+            observed = target_info["presentation_duration_us"]
             if abs(observed - case["target_duration_us"]) > case["boundary_tolerance_us"]:
                 raise RuntimeError(f"Encoded duration disagrees with edit list: {case['name']}")
+    if args.robustness and (media["negative-origin.ts"]["origin_us"] != -5_000_000
+                            or media["negative-origin.ts"]["first_pts_us"] != -5_000_000):
+        raise RuntimeError("MPEG-TS did not preserve the expected negative presentation origin")
     manifest = {"schema_version": 1, "cases": cases, "media": media,
                 "tools": {name: run([tool, "-version"]).decode().splitlines()[0]
                           for name, tool in [("ffmpeg", FFMPEG), ("ffprobe", FFPROBE)]},
                 "reference_attribution": "Blender Foundation, Big Buck Bunny (2008), CC BY 3.0; "
                                          "derived edits for testing" if args.reference else None,
+                "live_action_attribution": "(CC) Blender Foundation | mango.blender.org; "
+                                           "Tears of Steel, CC BY 3.0; silent derived edits for testing"
+                                           if args.live_action else None,
                 "commands": COMMANDS}
     (OUT / "truth.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Generated {len(cases)} cases in {OUT}; presentation timing and durations verified.")

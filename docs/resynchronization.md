@@ -332,5 +332,13 @@ Ignored receipts, exact command logs, truth and evaluation results are under
 `tests/fixtures/generated/resync/platform-validation-v1/`. The current Mac native
 build, preflight and mapped-file receipts use the `gui-native-*-v1` prefix in
 the parent directory. They do not establish GPU/audio quality or completed GUI
-resync acceptance. Wider held-out content, fades/crop/logo robustness, actual
-native review/Undo/Save As/project interaction, x64 and hosted CI remain open.
+resync acceptance. Subsequent Mac v2 matching checks add fractional rates,
+negative PTS, fades/crop/logo/brightness controls and a second reference film.
+The live-action speed/ad edit passes at 95.8% coverage and 5.385 ms worst accepted
+error; an actual three-cue CLI run preserves inputs and publishes the new SRT.
+Two new low-cut cases still miss the 90% coverage gate (85.3% and 85.6%), with
+zero measured accepted error; brightness changes abstain. The
+[corpus record](../tests/fixtures/resync/README.md#additional-robustness-and-live-action-evaluation)
+retains the failures and exact reproduction commands. These newer cases and
+the v2 guard have not been rerun in the VMs. Actual native review/Undo/Save As/
+project interaction, x64 and hosted CI remain open.

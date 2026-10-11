@@ -14,7 +14,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native and remaining platform checks stay open. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | Original 16 cases and a second reference film pass. The new robustness corpus still fails two low-cut coverage gates; brightness changes abstain. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native interaction remains open. |
 | Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | Actual GUI/native integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow passes modeled-browser checks; native integration validation remains. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
@@ -27,8 +27,12 @@ The sampled verifier now preserves cut-derived evidence on either side of
 differing timing models and leaves their uncertain gap unresolved. The original
 16-case corpus still passes, with reference coverage 94.3% and zero measured
 accepted error. A new low-cut/short-deletion experiment improves from 50.6% to
-85.3% coverage but still misses its 90% target. Matching quality remains an open
-gate; see the [corpus record](../tests/fixtures/resync/README.md).
+85.3% coverage but still misses its 90% target. A separate nonrepeating pan
+reaches 85.6%; inspection shows that half-second sampling can miss the matching
+frame at the predicted timestamp. The held-out live-action speed/ad edit reaches
+95.8% coverage with 5.385 ms worst accepted error, and an actual three-cue CLI
+run preserves inputs and publishes correct output. Matching quality remains an
+open gate; see the [corpus record](../tests/fixtures/resync/README.md).
 
 The [dated resync validation record](resynchronization.md#recorded-resync-validation)
 distinguishes the current macOS, Ubuntu ARM64 and Windows ARM64 results. Both VM

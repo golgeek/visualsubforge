@@ -6,7 +6,9 @@ Generate the original synthetic corpus with:
 python3 scripts/resync-fixtures.py
 ```
 
-The script writes only `tests/fixtures/generated/resync/`. It uses the configured
+The script defaults to `tests/fixtures/generated/resync/`; `--output` selects a
+different directory inside `tests/fixtures/generated/` to preserve earlier
+experiments. It uses the configured
 `VSF_FFMPEG`/`VSF_FFPROBE` or PATH, with a five-minute bound per subprocess and two
 encoder threads. Inputs, commands, tool versions, media SHA-256 values and rational
 edit-list ground truth are recorded in `truth.json`. Generated binaries are ignored.
@@ -17,8 +19,8 @@ replacement, ambiguous deletion inside a static tail, and three ten-minute
 programme blocks. These cases were added after the initial cut matcher and its
 thresholds were fixed. CI runs this extended synthetic corpus.
 
-Procedural spatial patterns and moving objects are original test material. All
-shots last two seconds deliberately: equally spaced scene cuts are insufficient
+Procedural spatial patterns and moving objects are original test material. The
+default shots last two seconds deliberately: equally spaced scene cuts are insufficient
 to distinguish the source from unrelated pictures. Cases cover offsets, unchanged
 duration at different FPS, actual speed changes, replaced ads, trims, a partial
 shot deletion, VFR with nonzero origin, repeated content, flat video and reordering.
@@ -133,9 +135,9 @@ still abstain. These are measured corpus results, not a universal accuracy claim
 The original reference result/truth are preserved locally as
 `evaluation-reference-baseline.json` and `truth-reference-baseline.json` in the
 generated directory. Regenerating with `--reference` reproduces the wider case
-set. The new result is retained locally as `evaluation-extended.json`. Fade,
-crop/logo and additional representative-content checks remain open; this
-experiment is not release acceptance.
+set. The new result is retained locally as `evaluation-extended.json`. At that
+stage, fade, crop/logo and additional representative-content checks remained
+open; subsequent results are below. This experiment is not release acceptance.
 
 With the v2 discontinuity guard, the same 16 cases pass; reference coverage is
 94.3% (previously 95.2%), with zero measured accepted error. The evaluator now
@@ -153,3 +155,66 @@ exactly every 1.76 seconds (three decoded frame hashes agree). This is evidence
 of a coverage limitation, not a passing release gate. The experiment and its
 original failure remain in the current robustness work; broader quality
 validation is still in progress.
+
+## Additional robustness and live-action evaluation
+
+```sh
+python3 scripts/resync-fixtures.py --robustness --output tests/fixtures/generated/resync-robustness
+cargo run --locked -p media-analysis --example resync-evaluate -- tests/fixtures/generated/resync-robustness > tests/fixtures/generated/resync-robustness/evaluation.json
+python3 scripts/fetch-reference-movie.py --film tears-of-steel
+python3 scripts/resync-fixtures.py --live-action --output tests/fixtures/generated/resync-live-action
+cargo run --locked -p media-analysis --example resync-evaluate -- tests/fixtures/generated/resync-live-action > tests/fixtures/generated/resync-live-action/evaluation.json
+```
+
+`--robustness` adds fractional 24000/1001 FPS with and without actual slowdown,
+negative presentation timestamps, fades, crop/logo/brightness changes and two
+low-cut/short-deletion cases. Fractional rates and timestamp origins retain the
+90% coverage requirement. Visual distortions use `safe_partial_mapping`: there
+is no promised coverage, but every accepted interval must satisfy the same
+correctness criteria. These expectations were chosen before their first results.
+The two low-cut cases still fail the unchanged 90% gate, so the robustness
+command currently returns exit 2. It is not yet a passing CI lane.
+
+The generator checks actual presentation timestamps and final frame duration;
+it does not assume `format.duration` includes the timestamp origin. MPEG-TS
+retains the negative-origin case; its first decoded PTS and container origin
+must both equal -5 seconds. Tool versions and decoded intervals are recorded.
+
+Development Mac, FFmpeg 9.0.2, algorithm v2 (2026-10-11):
+
+| Added case | Interior coverage | Worst accepted endpoint error | Result |
+| --- | ---: | ---: | --- |
+| Fractional FPS, unchanged programme speed | 99.2% | 55.000 ms | Pass within decoded-frame tolerance |
+| Fractional slowdown | 99.2% | 15.813 ms | Pass |
+| Crop | 94.1% | 20.000 ms | Correct partial mapping |
+| Logo | 99.2% | 20.000 ms | Correct partial mapping |
+| Brightness/contrast change | 0% | No accepted mapping | Safe abstention; unsupported coverage |
+| Fades with slowdown | 99.2% | 15.813 ms | Correct partial mapping |
+| Low-cut periodic motion, 120 ms deletion | 85.3% | 0 ms | Fails coverage target |
+| Low-cut nonrepeating pan, 120 ms deletion | 85.6% | 0 ms | Fails coverage target |
+| Negative timestamp origin | 100% | 0 ms | Pass |
+| Live-action slowdown/ad edits | 95.8% | 5.385 ms | Pass |
+
+The second low-cut case shows that repetition is not the only limitation. The
+source frame at 112 seconds matches target 111.88 seconds with mean grayscale
+error 0.316, but the nearest retained half-second target sample (112 seconds)
+has error 12.078, above the unchanged limit of 6. The cut-supported source
+0–50 and 60–110 second intervals survive; the uncertain edit interval and the
+tail remain unresolved. More precise sampling needs investigation; do not relax
+the image threshold or count these failures as successes.
+
+The live-action source is **Tears of Steel**, attribution **(CC) Blender Foundation
+| mango.blender.org**, licensed [CC BY 3.0 under the film's sharing instructions](https://mango.blender.org/sharing/).
+The downloader pins the unchanged official MOV's SHA-256, supports bounded
+resumable downloads and records provenance beside it. The local test derivatives
+remove audio, resize, change playback speed and replace sections with synthetic
+ads. The separately published soundtrack's license is not used for these edits.
+Both reference movies and derivatives remain ignored. Two films still do not
+establish general broadcast-programme accuracy.
+
+Local receipts use `resync-robustness-v3/` and `resync-live-action-v1/` in the
+generated directory. A three-cue real CLI run across the live-action case's
+three retained blocks also succeeded: all three input hashes, text, cue labels
+and CRLF formatting were preserved; maximum output endpoint error after final
+millisecond rounding was 5.552 ms. This checks actual CLI publication against the
+independent edit list, not GUI interaction or audible synchronization.
