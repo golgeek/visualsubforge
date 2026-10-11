@@ -13,7 +13,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { join, resolve } from 'node:path';
+import { join, resolve, toNamespacedPath } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
@@ -138,12 +138,16 @@ async function launch(choices) {
   await record({ step: 'launch', pid: app.pid, port, mockedIpc: false });
 }
 async function invoke(command, args = {}) {
-  const result = await browser.executeAsync(
-    (name, input, done) => {
-      window.__TAURI__.core.invoke(name, input).then(
-        (value) => done({ ok: true, value }),
-        (error) => done({ ok: false, error: String(error) }),
-      );
+  const result = await browser.execute(
+    async (name, input) => {
+      try {
+        return {
+          ok: true,
+          value: await window.__TAURI__.core.invoke(name, input),
+        };
+      } catch (error) {
+        return { ok: false, error: String(error) };
+      }
     },
     command,
     args,
@@ -164,12 +168,22 @@ async function documentIs(label, predicate) {
     return predicate(value) && value;
   });
 }
+function samePath(actual, expected) {
+  // Rust canonicalizes Windows paths with the extended-length prefix. Keep
+  // the complete path comparison, normalizing only that representation.
+  return (
+    typeof actual === 'string' &&
+    toNamespacedPath(actual) === toNamespacedPath(expected)
+  );
+}
 async function menu(action) {
-  const result = await browser.executeAsync((action, done) => {
-    window.__TAURI__.event.emit('workspace-action', action).then(
-      () => done(null),
-      (error) => done(String(error)),
-    );
+  const result = await browser.execute(async (action) => {
+    try {
+      await window.__TAURI__.event.emit('workspace-action', action);
+      return null;
+    } catch (error) {
+      return String(error);
+    }
   }, action);
   assert.equal(result, null);
 }
@@ -246,12 +260,15 @@ try {
   );
   const failed = await status();
   assert.equal(failed.dirty, true);
-  assert.equal(failed.path, source);
+  assert.ok(
+    samePath(failed.path, source),
+    `Unexpected source path: ${failed.path}`,
+  );
   assert.equal(await readFile(source, 'utf8'), original);
   await menu('saveAs');
   await documentIs(
     'successful Save As',
-    (doc) => !doc.dirty && doc.path === copy,
+    (doc) => !doc.dirty && samePath(doc.path, copy),
   );
   const savedBytes = await readFile(copy, 'utf8');
   assert.equal(savedBytes, original.replace('<i>世界</i>', 'Edited 世界'));
@@ -260,7 +277,7 @@ try {
   await menu('openSubtitles');
   await documentIs(
     'reopened saved copy',
-    (doc) => doc.path === copy && doc.cues[0]?.text === 'Edited 世界',
+    (doc) => samePath(doc.path, copy) && doc.cues[0]?.text === 'Edited 世界',
   );
   await record({
     step: 'cancelled/failed Save As preservation and successful save/reopen',
@@ -321,7 +338,8 @@ try {
   await menu('saveAs');
   await documentIs(
     'saved recovered copy',
-    (doc) => !doc.requiresSaveAs && !doc.dirty && doc.path === recoveredCopy,
+    (doc) =>
+      !doc.requiresSaveAs && !doc.dirty && samePath(doc.path, recoveredCopy),
   );
   assert.equal(
     await readFile(recoveredCopy, 'utf8'),

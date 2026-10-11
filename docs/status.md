@@ -40,17 +40,18 @@ all 29 combined cases, three evaluator-oracle tests and strict Clippy. All 369
 tracked files are hash-verified. Native v4 compilation and a separate local
 bundle are ready; the actual GUI walkthrough remains pending. The acceptance
 audit retains native interaction and final platform checks as unfinished. The
-[real desktop workflow lane](../tests/desktop/README.md) now passes on Mac and
-Ubuntu ARM64 (Xvfb), with actual webview/IPC, editing/history, failed/cancelled
+[real desktop workflow lane](../tests/desktop/README.md) now passes on Mac,
+Ubuntu (Xvfb) and Windows ARM64, with actual webview/IPC, editing/history, failed/cancelled
 saves, exact-byte reopen, process-loss recovery, external-file conflict protection
 and normal shutdown. Its optional pinned WebDriver instrumentation is absent from
 ordinary builds; only file choices and app-data location are supplied. CI
-configures this lane on all three desktop OSes, but Windows/hosted execution
-remains pending. A new
+configures this lane on all three desktop OSes; hosted execution remains pending.
+The pinned test client is now WebdriverIO 10.0.2, and source-map-js is patched to
+1.2.2; a dated npm audit reports zero advisories. A new
 private IO seam now tests partial-write and sync failures on actual temporary
 files, preserving existing/absent destinations and cleaning temporaries; the
 111 application/desktop tests and strict Clippy pass on Mac; both preparation
-tests also pass on Ubuntu ARM64. Windows checks of these new cases remain pending.
+tests also pass on Ubuntu and Windows ARM64.
 These sampled heuristics
 do not guarantee detection of visually indistinguishable edits.
 

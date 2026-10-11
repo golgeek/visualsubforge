@@ -19,7 +19,7 @@ On headless Linux, install `xvfb`, `xauth` and `dbus`, then run:
 GDK_BACKEND=x11 xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- npm run test:desktop
 ```
 
-`test:desktop -- --binary /absolute/path/to/visualsubforge` selects another
+`npm run test:desktop -- --binary /absolute/path/to/visualsubforge` selects another
 instrumented executable. The default is `target/debug/visualsubforge` (`.exe` on
 Windows). The test build replaces that debug executable; rebuild normally before
 using it as an ordinary editor.
@@ -43,7 +43,7 @@ power-loss durability.
 ## The test boundary
 
 The explicit `desktop-e2e` Cargo feature enables pinned
-`tauri-plugin-wdio-webdriver` 1.5.0; the Node runner uses pinned WebdriverIO 9.31.9.
+`tauri-plugin-wdio-webdriver` 1.5.0; the Node runner uses pinned WebdriverIO 10.0.2.
 The embedded driver serves standard WebDriver on a loopback port chosen for the
 run. No external driver, IPC-mocking plugin or native media SDK is required.
 Normal builds exclude the driver and the test module.
@@ -66,8 +66,26 @@ playback, GPU/audio output or the resync proposal walkthrough. Those have separa
 backend/browser tests and native acceptance checks. Do not distribute the
 instrumented executable as a production app.
 
-Local evidence on 2026-10-11: passes on macOS ARM64 and Ubuntu 26.04 ARM64 under
-Xvfb. Windows and hosted CI execution remain unverified. The first Mac/Linux runs
+Local evidence on 2026-10-11: the workflow passes on macOS ARM64, Ubuntu 26.04
+ARM64 under Xvfb, and Windows 11 ARM64. Hosted CI execution remains unverified.
+The first Mac/Linux runs
 incorrectly expected ordinary recovery to prohibit any reuse of its unchanged
 source; the corrected scenario tests the actual external-edit conflict guarantee.
 Resync's stricter distinct-file rule is covered separately.
+
+The first Windows run reached the save-failure check, then failed because Rust's
+canonical path had the Windows extended-length prefix. The runner now normalizes
+that representation with Node's `toNamespacedPath`, retaining a complete path
+comparison. No product save behavior changed.
+
+Dependency review replaced the initial WebdriverIO 9.31.9 trial with 10.0.2,
+removing the affected archive/proxy dependency chain reported by `npm audit`.
+The runner follows v10's documented async `execute` API; it still uses the same
+standard WebDriver endpoint on the embedded plugin. The existing `source-map-js`
+1.2.1 lock entry was also updated to the compatible 1.2.2 security patch.
+`npm audit --json` reports zero advisories on 2026-10-11; this is a dated registry
+check, not proof of vulnerability-free dependencies. Upgrade these pins with the
+same real-app checks on each OS. See the
+[v10 changes](https://github.com/webdriverio/webdriverio/releases/tag/v10.0.0),
+[archive advisory](https://github.com/advisories/GHSA-jmr9-qjv8-65gv) and
+[source-map advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).

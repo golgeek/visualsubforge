@@ -40,6 +40,6 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",
     "vite": "8.3.1",
-    "webdriverio": "9.31.9"
+    "webdriverio": "10.0.2"
   }
 }
