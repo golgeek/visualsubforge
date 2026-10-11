@@ -113,3 +113,73 @@ fn sampled_frames_keep_actual_pts_and_zero_in_both_origins() {
         vfr.iter().map(|s| s.time_us).collect::<Vec<_>>()
     );
 }
+
+#[test]
+#[ignore = "requires resync fixtures and FFmpeg"]
+fn requested_neighborhoods_keep_actual_pts_coalesce_ranges_and_handle_eof() {
+    let cancel = Cancellation::default();
+    let tools = tools();
+    let version = tools
+        .versions(&cancel, Duration::from_secs(10))
+        .unwrap()
+        .ffmpeg;
+    for (name, expected) in [
+        (
+            "source.mkv",
+            vec![917_000, 958_000, 1_000_000, 1_042_000, 1_083_000],
+        ),
+        ("vfr-origin.mkv", vec![1_000_000]),
+    ] {
+        let frames = visual::sample_near(
+            &tools,
+            &fixture(name),
+            &[1_000_000, 1_010_000],
+            100_000,
+            &version,
+            &cancel,
+            Duration::from_secs(30),
+        )
+        .unwrap();
+        assert_eq!(
+            frames
+                .frames()
+                .iter()
+                .map(|f| f.time_us)
+                .collect::<Vec<_>>(),
+            expected,
+            "{name}"
+        );
+    }
+    assert!(
+        visual::sample_near(
+            &tools,
+            &fixture("source.mkv"),
+            &[37_000_000],
+            100_000,
+            &version,
+            &cancel,
+            Duration::from_secs(30)
+        )
+        .unwrap()
+        .frames()
+        .is_empty()
+    );
+    // The expression is far beyond Windows' command-line ceiling. Every frame
+    // in each disjoint 200 ms interval must still be emitted exactly once.
+    let requests: Vec<_> = (0..10_000).map(|i| i * 1_000_000).collect();
+    let frames = visual::sample_near(
+        &tools,
+        &fixture("source.mkv"),
+        &requests,
+        100_000,
+        &version,
+        &cancel,
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert_eq!(frames.frames().len(), 180);
+    assert!(frames.frames().iter().all(|f| {
+        let phase = f.time_us % 1_000_000;
+        phase <= 100_000 || phase >= 900_000
+    }));
+}
