@@ -1,7 +1,19 @@
 use crate::{Cue, CueId, Document, Milliseconds, Result};
 
+/// New timing for an existing cue. Text and document order cannot be changed by
+/// a retiming operation. The application supplies one entry per accepted cue.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CueTiming {
+    pub id: CueId,
+    pub start: Milliseconds,
+    pub end: Milliseconds,
+}
+
 /// Domain edits use validated times and identities, independently of any IPC or format.
 pub enum Edit {
+    Retime {
+        timings: Vec<CueTiming>,
+    },
     Text {
         id: CueId,
         start: Milliseconds,
@@ -114,6 +126,24 @@ impl Editor {
         self.expect_revision(expected)?;
         let mut created = None;
         let (index, count, after) = match edit {
+            Edit::Retime { timings } => {
+                if timings.len() != self.document.cues.len() {
+                    return Err("Retiming must include every cue once in document order".into());
+                }
+                let mut after = Vec::with_capacity(timings.len());
+                for (original, timing) in self.document.cues.iter().zip(timings) {
+                    if original.id != timing.id {
+                        return Err("Retiming must include every cue once in document order".into());
+                    }
+                    Cue::validate(timing.start, timing.end, &original.text)?;
+                    after.push(Cue {
+                        start: timing.start,
+                        end: timing.end,
+                        ..original.clone()
+                    });
+                }
+                (0, self.document.cues.len(), after)
+            }
             Edit::Text {
                 id,
                 start,
