@@ -20,7 +20,7 @@ pub enum Command {
 
 #[derive(Args)]
 #[command(
-    after_help = "Matches content in order. Missing or ambiguous footage remains unresolved.\nOutputs must be new paths. The report is published first, then the SRT; failures may leave only a report.\nUse VSF_FFMPEG and VSF_FFPROBE to select tools. The first video stream is used.\nExit codes: 0 complete/analysis-only, 2 input, 3 needs review, 4 analysis/tool, 5 IO, 6 changed input, 7 timeout, 130 cancelled."
+    after_help = "Matches content in order. Missing or ambiguous footage remains unresolved.\nOutputs must be new paths. The report is published first, then the SRT; failures may leave only a report.\nInstalled releases use bundled FFmpeg tools. Development builds allow VSF_FFMPEG and VSF_FFPROBE overrides. The first video stream is used.\nExit codes: 0 complete/analysis-only, 2 input, 3 needs review, 4 analysis/tool, 5 IO, 6 changed input, 7 timeout, 130 cancelled."
 )]
 pub struct Resync {
     /// Video to which the existing subtitles are timed.

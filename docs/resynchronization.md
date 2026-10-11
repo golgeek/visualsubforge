@@ -191,8 +191,11 @@ duration or matching edge pictures alone are insufficient. This does not locate
 edits between different models. See the corpus record for measured limits.
 
 The operation selects the first video stream and normalizes times to the
-container origin. `Tools::discover` uses the same explicit `VSF_FFMPEG` and
-`VSF_FFPROBE` overrides and development fallback as desktop scene/waveform work.
+container origin. `Tools::discover` is shared with desktop scene/waveform work.
+Development builds allow explicit `VSF_FFMPEG` and `VSF_FFPROBE` overrides and
+system discovery. The `bundled-tools` release feature instead requires both
+tools beside the executable and returns an installation error if either is
+missing; it never falls back to environment overrides or system tools.
 The algorithm version identifies fixed thresholds/configuration; tool version
 text identifies the executed build, not a cryptographically pinned executable.
 

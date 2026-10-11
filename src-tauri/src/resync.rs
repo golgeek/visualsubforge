@@ -101,7 +101,7 @@ impl Resync {
                 scenes.pause_for_resync()?;
                 let remaining = budget.remaining().map_err(|error| error.to_string())?;
                 application::analyze(
-                    &media_analysis::Tools::discover(),
+                    &media_analysis::Tools::discover().map_err(|error| error.to_string())?,
                     request,
                     &token,
                     remaining,

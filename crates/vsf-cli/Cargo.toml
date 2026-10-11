@@ -22,5 +22,8 @@ vsf-application = { path = "../vsf-application" }
 tempfile = "3"
 subtitle-formats = { path = "../subtitle-formats" }
 
+[features]
+bundled-tools = ["media-analysis/bundled-tools"]
+
 [lints]
 workspace = true

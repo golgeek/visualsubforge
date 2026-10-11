@@ -39,6 +39,7 @@ zbus = { version = "5", default-features = false, features = ["tokio"] }
 libc = { version = "0.2", optional = true }
 
 [features]
+bundled-tools = ["media-analysis/bundled-tools"]
 media-prototype = ["dep:media-player", "media-player/native-mpv", "dep:libc"]
 macos-angle = ["media-prototype", "media-player/macos-angle"]
 custom-protocol = ["tauri/custom-protocol"]

@@ -1,6 +1,5 @@
 //! Cancellable analysis/cache. Completed results are accepted only for the current
 //! analysis generation and media session. IPC contains bounded visible peaks.
-use crate::analysis_tools::tool;
 use crate::analysis_worker::Worker;
 use media_analysis::{Cancellation, Tools, Waveform};
 use serde::Serialize;
@@ -204,18 +203,18 @@ pub async fn waveform_start(
     let job_state = state.clone();
     worker
         .replace(cancellation.clone(), move || {
-            let result = media_analysis::analyze(
-                &Tools {
-                    ffmpeg: tool("ffmpeg"),
-                    ffprobe: tool("ffprobe"),
-                },
-                Path::new(&path),
-                audio_ordinal,
-                &cancellation,
-                Duration::from_secs(600),
-            )
-            .map(Pyramid::new)
-            .map_err(|e| e.to_string());
+            let result = Tools::discover()
+                .and_then(|tools| {
+                    media_analysis::analyze(
+                        &tools,
+                        Path::new(&path),
+                        audio_ordinal,
+                        &cancellation,
+                        Duration::from_secs(600),
+                    )
+                })
+                .map(Pyramid::new)
+                .map_err(|e| e.to_string());
             if let Ok(mut job) = job_state.job.lock() {
                 job.finish(
                     generation,

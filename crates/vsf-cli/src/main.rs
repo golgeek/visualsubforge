@@ -55,7 +55,7 @@ fn run(args: Resync, cancel: &Cancellation) -> resync::Result<u8> {
     let budget = Budget::new(cancel, Duration::from_secs(args.timeout_seconds));
     let paths = OutputPaths::new(&args.report, args.output.as_deref())?;
     let analysis = resync::analyze(
-        &Tools::discover(),
+        &Tools::discover()?,
         Request {
             source_video: args.source_video,
             target_video: args.target_video,

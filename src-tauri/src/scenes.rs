@@ -344,10 +344,7 @@ impl Scenes {
                     .map_err(Clone::clone)
                     .and_then(|identity| {
                         media_analysis::scenes::scan(
-                            &Tools {
-                                ffmpeg: crate::analysis_tools::tool("ffmpeg"),
-                                ffprobe: crate::analysis_tools::tool("ffprobe"),
-                            },
+                            &Tools::discover().map_err(|error| error.to_string())?,
                             Path::new(&path),
                             &cancellation,
                             Duration::from_secs(1800),

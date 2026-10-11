@@ -34,7 +34,7 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
         fs::write(&source, SUBTITLES).unwrap();
         let cancel = Cancellation::default();
         let result = resync::analyze(
-            &Tools::discover(),
+            &Tools::discover().unwrap(),
             request(source.clone(), target),
             &cancel,
             Duration::from_secs(90),
@@ -113,7 +113,7 @@ fn unresolved_and_changed_inputs_cannot_publish_subtitles() {
     fs::write(&source, "1\n00:00:12,200 --> 00:00:13,000\nRemoved ad\n").unwrap();
     let cancel = Cancellation::default();
     let result = resync::analyze(
-        &Tools::discover(),
+        &Tools::discover().unwrap(),
         request(source.clone(), "speed-ads.mkv"),
         &cancel,
         Duration::from_secs(90),
@@ -152,7 +152,7 @@ fn cancelled_or_changed_input_job_never_returns_a_proposal() {
     fs::write(&source, SUBTITLES).unwrap();
     let cancel = Cancellation::default();
     let result = resync::analyze(
-        &Tools::discover(),
+        &Tools::discover().unwrap(),
         request(source.clone(), "offset.mkv"),
         &cancel,
         Duration::from_secs(90),
@@ -164,7 +164,7 @@ fn cancelled_or_changed_input_job_never_returns_a_proposal() {
     );
     assert!(matches!(result, Err(Error::Cancelled)));
     let result = resync::analyze(
-        &Tools::discover(),
+        &Tools::discover().unwrap(),
         request(source.clone(), "offset.mkv"),
         &Cancellation::default(),
         Duration::from_secs(90),

@@ -255,7 +255,7 @@ fn actual_analysis_reviews_bounded_pages_accepts_once_and_rechecks_all_identitie
     let id = owner
         .launch(1, capture, move |cancel, stage| {
             application::analyze(
-                &media_analysis::Tools::discover(),
+                &media_analysis::Tools::discover().unwrap(),
                 request,
                 &cancel,
                 Duration::from_secs(90),

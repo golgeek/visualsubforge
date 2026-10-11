@@ -14,6 +14,7 @@ specta = { version = "=2.0.0-rc.25", features = ["derive"], optional = true }
 
 [features]
 specta = ["dep:specta"]
+bundled-tools = []
 
 [lints]
 workspace = true
