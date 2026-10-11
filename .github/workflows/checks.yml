@@ -136,6 +136,7 @@ jobs:
       - run: |
           python -m pip install --only-binary=:all: -r tests/native/requirements.txt
       - run: python tests/native/check-controls.py
+      - run: python -m unittest discover -s tests/release -p 'test_*.py'
       - name: Install mpv headers for fake-client test
         run: |
           sudo apt-get update

@@ -90,6 +90,9 @@ def assemble(args):
     destination = args.output.resolve()
     if destination.exists() or destination.is_relative_to(source):
         raise ValueError("Choose a new output path outside the source app")
+    receipt_path = destination.parent / "assembly-receipt.json"
+    if receipt_path.exists():
+        raise ValueError("The output directory already contains an assembly receipt")
     with (source / "Contents/Info.plist").open("rb") as stream:
         info = plistlib.load(stream)
     main = source / "Contents/MacOS" / info["CFBundleExecutable"]
@@ -156,7 +159,7 @@ def assemble(args):
         subprocess.run(["codesign", "--force", "--sign", "-", str(copied)], check=True)
         records.append({"file": str(relative), "source": str(original),
                         "minimum_macos": targets[original],
-                        "source_sha256": digest(original), "bundled_sha256": digest(copied)})
+                        "source_sha256": digest(original)})
     version = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text())["version"]
     numeric_version = version.split("-", 1)[0]
     info.update(CFBundleShortVersionString=numeric_version, CFBundleVersion=numeric_version,
@@ -174,6 +177,17 @@ def assemble(args):
     (resources / "native-runtime.json").write_text(json.dumps(manifest, indent=2) + "\n")
     subprocess.run(["codesign", "--force", "--sign", "-", str(destination)], check=True)
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(destination)], check=True)
+    # Signing the outer bundle changes its main executable. Final hashes must
+    # live outside the app: embedding its own final hash creates a cycle through
+    # the CodeResources signature. The receipt covers web assets/resources too.
+    receipt = dict(manifest)
+    receipt["files"] = [dict(record, bundled_sha256=digest(destination / record["file"]))
+                        for record in records]
+    receipt["bundle_files_sha256"] = {
+        str(path.relative_to(destination)): digest(path)
+        for path in sorted(destination.rglob("*")) if path.is_file() and not path.is_symlink()
+    }
+    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps({"app": str(destination), "native_files": len(records),
                       "minimum_macos": info["LSMinimumSystemVersion"]}))
 

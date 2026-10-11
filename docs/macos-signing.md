@@ -4,10 +4,11 @@ This guide prepares credentials for VSF releases built on GitHub Actions. You
 only create/export the signing identity on your Mac; release builds do not need
 to run locally. The same identity can sign both Intel and Apple Silicon builds.
 
-Status, 2026-10-11: the macOS packaging workflow currently produces unsigned
-validation artifacts. It does **not yet consume these secrets**. Signing,
-notarization and release publication are still being integrated; setting the
-secrets does not by itself publish a release. See [release preparation](releases.md).
+Status, 2026-10-11: the six repository secrets are configured. The manual macOS
+packaging workflow now has a separate signing job that consumes them when
+`sign` is selected on `main`. Hosted signing/notarization has not yet passed;
+the build must first produce its validation artifact. This workflow does not
+publish a release. See [release preparation](releases.md).
 
 ## 1. Choose the certificate
 
@@ -132,7 +133,7 @@ Open the repository's [Actions secrets settings](https://github.com/golgeek/visu
 **Settings → Secrets and variables → Actions → Repository secrets**.
 Use **New repository secret**, not a repository variable.
 
-These are the names reserved for the VSF signing workflow:
+These are the names used by the VSF signing workflow:
 
 | Secret | Value |
 | --- | --- |
@@ -187,9 +188,12 @@ profile name `visualsubforge-notary`. The identity and Team ID are also safe to
 share for troubleshooting. Do not send passwords, the `.p12`, its base64 contents
 or a private key in chat.
 
-The release workflow still needs to sign the fully assembled application and
-its native tools/libraries, submit it to Apple, confirm notarization acceptance,
-staple the ticket and verify the final downloadable package. Successful
-credential setup is not evidence that those steps or clean-install checks have
-passed. Signing also does not lower the minimum macOS version required by the
-compiled dependencies.
+The signing job checks the assembly hashes, imports the identity into a private
+temporary Keychain, signs the fully assembled application and its native tools,
+submits it to Apple, requires acceptance, staples the ticket and runs signature
+and Gatekeeper checks. It then recreates the ZIP with the stapled app. The job
+cleans up the Keychain/export and uploads a receipt with the submission ID and
+final archive hash. Secrets are scoped to this step, not the build/test jobs.
+Successful credential setup is not evidence that signing or clean-install checks
+have passed. Signing also does not lower the minimum macOS version required by
+the compiled dependencies.

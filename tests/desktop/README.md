@@ -67,7 +67,10 @@ backend/browser tests and native acceptance checks. Do not distribute the
 instrumented executable as a production app.
 
 Local evidence on 2026-10-11: the workflow passes on macOS ARM64, Ubuntu 26.04
-ARM64 under Xvfb, and Windows 11 ARM64. Hosted CI execution remains unverified.
+ARM64 under Xvfb, and Windows 11 ARM64. Hosted default-app execution also passes
+on macOS 14, Windows Server 2022 and Ubuntu 24.04 at `ce43559`
+([run](https://github.com/golgeek/visualsubforge/actions/runs/38167423845)); that
+run's separate modeled browser job failed and was corrected subsequently.
 The first Mac/Linux runs
 incorrectly expected ordinary recovery to prohibit any reuse of its unchanged
 source; the corrected scenario tests the actual external-edit conflict guarantee.

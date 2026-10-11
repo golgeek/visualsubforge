@@ -105,7 +105,11 @@ mod tests {
     fn packaged_tools_stay_with_the_executable_after_relocation() {
         let temporary = tempfile::tempdir().unwrap();
         for suffix in ["", ".exe"] {
-            let directory = temporary.path().join(format!("Moved application {suffix}"));
+            // Keep the internal space without a trailing space: ordinary
+            // Windows paths normalize trailing spaces in directory names.
+            let directory = temporary
+                .path()
+                .join(format!("Moved application ({suffix})"));
             std::fs::create_dir(&directory).unwrap();
             for name in ["ffmpeg", "ffprobe"] {
                 std::fs::write(directory.join(format!("{name}{suffix}")), b"fixture").unwrap();

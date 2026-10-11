@@ -35,9 +35,18 @@ license name alone is not that inventory.
 
 ## Validation so far (2026-10-11)
 
-- Hosted native contracts at `ce43559`: all six jobs passed, including all three
+- Hosted native contracts at `ce43559` and `a565564`: all six jobs passed, including all three
   pinned mpv source variants and compilation of each native adapter. This is not
   GPU/audio or packaged-app acceptance.
+- The first hosted default-app workflow passes on macOS, Windows and Ubuntu at
+  `ce43559`. At `a565564`, the corrected browser fixture passes all 30 checks;
+  Windows found a new tool-discovery test directory with a trailing space, now
+  corrected, and the Mac artifact upload hit a storage DNS failure after its
+  application tests passed. Neither failure is treated as a green run.
+- The first hosted ARM64 package build stopped before compilation: the default
+  Xcode 15.4 SDK was below pinned ANGLE's SDK requirement. Packaging now explicitly
+  selects the runner's Xcode 16.2 (macOS 15.2 SDK), retaining the macOS 14 deployment
+  target. Intel's first native dependency build is still in progress.
 - Local `cargo test --locked --workspace` and default/packaged strict Clippy pass.
   `cargo test --locked -p media-analysis --features bundled-tools --lib tools::tests`
   exercises relocated tool paths and incomplete-installation failure.
@@ -62,9 +71,27 @@ macOS direct distribution uses a **Developer ID Application** certificate and
 Apple notarization, rather than App Store review. Follow the
 [macOS signing setup](macos-signing.md) for certificate creation, local Keychain
 storage, an encrypted export and the exact GitHub Actions secrets. A local
-`notarytool` profile cannot be used directly by hosted runners. CI signing is
-still being integrated; credentials and exported private keys must never enter
-source, logs or build artifacts.
+`notarytool` profile cannot be used directly by hosted runners. The six secret
+names are verified on GitHub, and the user configured local profile
+`visualsubforge-notary`. No private credential values were read for that check.
+
+The manual workflow accepts `architecture` (`both`, `aarch64`, `x86_64`) and
+`sign` (default true). Its separate signing job runs on `main` after packaging,
+with secrets scoped only to the signing step. It validates the assembly hashes,
+uses a temporary Keychain, signs all native code with hardened runtime and a
+timestamp, submits to Apple, requires acceptance, staples and verifies the app,
+then archives it again. A submission ID is saved before waiting so a timeout
+can be investigated without blindly resubmitting. The original unsigned app
+is preserved. Assembly and signing receipts live outside the app and describe
+the final hashes for their respective stages. The assembly receipt also covers
+web assets/resources. The internal native inventory records source hashes;
+embedding the final executable hash in its own signed resources would create a
+hash cycle, since outer app signing changes that executable.
+
+Signing integration is implemented but hosted acceptance is pending. Signed
+validation artifacts remain separate from a published release: the dependency
+source/license inventory and install/runtime checks still need completion.
+Credentials and exported private keys must never enter source, logs or artifacts.
 
 Windows Authenticode signing is recommended but is not required on ordinary
 Windows configurations; SmartScreen reputation warnings can remain for a new

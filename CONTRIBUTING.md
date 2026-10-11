@@ -219,8 +219,9 @@ all three pinned mpv variants and compiles the Mac ANGLE, Windows and Linux
 adapters. See [its exact scope](docs/native-runtime.md#ci-scope); configured jobs
 are not evidence of a GitHub run until their actual results exist. Hosted results
 and packaging limits are recorded in [release preparation](docs/releases.md).
-The manual macOS package workflow assembles unsigned validation artifacts for
-Apple Silicon and Intel. Signing setup is documented [separately](docs/macos-signing.md);
+The manual macOS package workflow assembles validation artifacts for Apple Silicon
+and Intel, with optional Developer ID signing/notarization in a separate job.
+Signing setup is documented [separately](docs/macos-signing.md);
 package creation alone does not establish release support.
 
 ### Shell walkthrough

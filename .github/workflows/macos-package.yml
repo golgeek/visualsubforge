@@ -1,22 +1,28 @@
 name: macOS preview packages
 on:
   workflow_dispatch:
+    inputs:
+      architecture:
+        description: Architecture to build
+        type: choice
+        options: [both, aarch64, x86_64]
+        default: both
+      sign:
+        description: Sign and notarize the validation package (does not publish a release)
+        type: boolean
+        default: true
 permissions:
   contents: read
 concurrency:
-  group: macos-preview-${{ github.ref }}
-  cancel-in-progress: true
+  group: macos-preview-${{ github.ref }}-${{ inputs.architecture }}
+  cancel-in-progress: false
 jobs:
   package:
     name: Native package (${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-14
-            arch: aarch64
-          - os: macos-15-intel
-            arch: x86_64
+        include: ${{ fromJSON(inputs.architecture == 'aarch64' && '[{"os":"macos-14","arch":"aarch64"}]' || inputs.architecture == 'x86_64' && '[{"os":"macos-15-intel","arch":"x86_64"}]' || '[{"os":"macos-14","arch":"aarch64"},{"os":"macos-15-intel","arch":"x86_64"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     env:
@@ -33,12 +39,24 @@ jobs:
       - name: Install application and native build prerequisites
         run: |
           echo "CARGO_TARGET_DIR=$RUNNER_TEMP/app-target" >> "$GITHUB_ENV"
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
           rustup show
           npm ci
           brew install mpv pkg-config
           python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
           if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
+      - name: Restore the pinned ANGLE SDK
+        id: angle-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ${{ runner.temp }}/angle/sdk
+            ${{ runner.temp }}/angle/build-receipt.json
+          key: angle-${{ matrix.os }}-${{ matrix.arch }}-xcode16.2-macos14-${{ hashFiles('tests/native/angle/manifest.json', 'scripts/build-angle-macos.py') }}
       - name: Build pinned ANGLE with Metal
+        if: steps.angle-cache.outputs.cache-hit != 'true'
         run: python scripts/build-angle-macos.py --output "$RUNNER_TEMP/angle" --minimum-macos 14.0 --jobs 3
       - name: Build and test the pinned mpv audio candidate
         run: |
@@ -69,6 +87,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/artifacts"
           ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_0.0.1-alpha_${{ matrix.arch }}_macos-unsigned.zip"
           cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
+          cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
           shasum -a 256 "$RUNNER_TEMP/artifacts/VisualSubForge_0.0.1-alpha_${{ matrix.arch }}_macos-unsigned.zip" > "$RUNNER_TEMP/artifacts/SHA256SUMS"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -88,4 +107,53 @@ jobs:
             ${{ runner.temp }}/mpv/build-receipt.json
             ${{ runner.temp }}/mpv/commands.log
             ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
+          retention-days: 14
+  sign:
+    name: Sign and notarize (${{ matrix.arch }})
+    needs: package
+    if: ${{ inputs.sign && github.ref == 'refs/heads/main' }}
+    runs-on: macos-14
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(inputs.architecture == 'both' && '["aarch64","x86_64"]' || inputs.architecture == 'aarch64' && '["aarch64"]' || '["x86_64"]') }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: macos-unsigned-${{ matrix.arch }}
+          path: ${{ runner.temp }}/unsigned
+      - name: Expand the assembled app
+        run: |
+          archive=$(find "$RUNNER_TEMP/unsigned" -name '*_macos-unsigned.zip' -type f)
+          test -f "$archive"
+          ditto -x -k "$archive" "$RUNNER_TEMP/signing-input"
+      - name: Sign, notarize, staple and verify
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: python scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --output "$RUNNER_TEMP/signed"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-notarized-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/signed/*.zip
+            ${{ runner.temp }}/signed/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: macos-signing-evidence-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/signed/signing-receipt.json
+            ${{ runner.temp }}/signed/notarization-log.json
           retention-days: 14
