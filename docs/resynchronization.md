@@ -425,9 +425,11 @@ its completed checks are linked by receipt SHA-256 from
 `resync/platform-validation-v4-completion/`, which holds final evaluation/Clippy
 results. Original harness failures remain in `resync/platform-validation-v4/`.
 Windows was restored to paused with idle pausing on; Ubuntu stayed running.
-The selected Mac native no-bundle build and ad-hoc local bundle verification pass.
-The new bundle is `/tmp/vsf-resync-v4-native/VisualSubForge.app`; the previous
-running bundle was preserved. These are build checks, not native interaction.
+The selected Mac native preflight/no-bundle build and ad-hoc local bundle
+verification also pass at `ddc841a`. The current prepared bundle is
+`/tmp/vsf-resync-ddc841a-native/VisualSubForge.app`, with receipts in ignored
+`resync/gui-native-ddc841a/`. The earlier v4 bundle and previous running app are
+preserved. These are build checks, not native interaction.
 
 ## Remaining first-release acceptance checks
 
