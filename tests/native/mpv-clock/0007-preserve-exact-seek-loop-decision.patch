@@ -1,0 +1,25 @@
+--- a/player/playloop.c
++++ b/player/playloop.c
+@@ -1182,6 +1182,12 @@
+     }
+ 
+     if (!mpctx->restart_complete) {
++        // An exact seek already set loop eligibility from its requested target.
++        // Audio can drain to the quantized B sample before restart completes;
++        // rechecking that clock would turn harmless rounding past B into an
++        // unintended seek out of the loop. Approximate seeks still need their
++        // resolved playback position checked below.
++        bool exact_seek = mpctx->hrseek_active && mpctx->current_seek.type;
+         mpctx->hrseek_active = false;
+         mpctx->restart_complete = true;
+         mpctx->current_seek = (struct seek_params){0};
+@@ -1208,7 +1214,8 @@
+         }
+         mpctx->playing_msg_shown = true;
+         mp_wakeup_core(mpctx);
+-        update_ab_loop_clip(mpctx);
++        if (!exact_seek)
++            update_ab_loop_clip(mpctx);
+         MP_VERBOSE(mpctx, "playback restart complete @ %f, audio=%s, video=%s%s\n",
+                    mpctx->playback_pts, mp_status_str(mpctx->audio_status),
+                    mp_status_str(mpctx->video_status),

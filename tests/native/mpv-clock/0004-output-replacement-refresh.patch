@@ -1,0 +1,17 @@
+diff --git a/player/audio.c b/player/audio.c
+index a55f5fc..6f9b607 100644
+--- a/player/audio.c
++++ b/player/audio.c
+@@ -772,6 +772,12 @@ void reload_audio_output(struct MPContext *mpctx)
+     if (!mpctx->ao)
+         return;
+ 
++    // Replacing the output discards queued samples, including potentially the
++    // whole remaining short loop. Refill from the current playback position
++    // before losing the old output clock; preserve already queued user seeks.
++    if (mpctx->demuxer && mpctx->demuxer->seekable)
++        issue_refresh_seek(mpctx, MPSEEK_EXACT);
++
+     ao_reset(mpctx->ao);
+     uninit_audio_out(mpctx);
+     reinit_audio_filters(mpctx); // mostly to issue refresh seek

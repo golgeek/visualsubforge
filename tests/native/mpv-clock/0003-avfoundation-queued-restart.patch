@@ -1,0 +1,22 @@
+diff --git a/audio/out/ao_avfoundation.m b/audio/out/ao_avfoundation.m
+index 09f3ef0..0d28a9d 100644
+--- a/audio/out/ao_avfoundation.m
++++ b/audio/out/ao_avfoundation.m
+@@ -144,7 +144,8 @@ static void start(struct ao *ao)
+ {
+     struct priv *p = ao->priv;
+ 
+-    p->end_time_av = -1;
++    // A source underrun can restart requests with audio still enqueued.
++    // Preserve that timeline; only a real flush invalidates its end.
+     [p->synchronizer setRate:1];
+     [p->renderer requestMediaDataWhenReadyOnQueue:p->queue usingBlock:^{
+         feed(ao);
+@@ -158,6 +159,7 @@ static void stop(struct ao *ao)
+     dispatch_sync(p->queue, ^{
+         [p->renderer stopRequestingMediaData];
+         [p->renderer flush];
++        p->end_time_av = -1;
+         [p->synchronizer setRate:0];
+     });
+ }

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "Example community timing — illustrative only",
+  "timing": {
+    "enabled": true,
+    "snapCues": true,
+    "snapScenes": true,
+    "cueGapMs": 80,
+    "sceneBeforeMs": 130,
+    "sceneAfterMs": 130,
+    "snapDistancePx": 8
+  }
+}

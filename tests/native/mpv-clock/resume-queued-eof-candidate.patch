@@ -1,0 +1,73 @@
+--- a/audio/out/buffer.c
++++ b/audio/out/buffer.c
+@@ -60,14 +60,10 @@
+     bool playing;               // logically playing audio from buffer
+     bool paused;                // logically paused
+     bool hw_paused;             // driver->set_pause() was used successfully
++    bool resume_streaming;      // pull request state before hardware pause
+ 
+     int64_t pause_started_ns;   // protected by lock; freeze pull-AO delay
+     int64_t end_time_ns;        // absolute output time of last played sample
+-    int64_t queued_time_ns;     // duration of samples that have been queued to
+-                                // the device but have not been played.
+-                                // This field is only set in ao_set_paused(),
+-                                // and is considered as a temporary solution;
+-                                // DO NOT USE IT IN OTHER PLACES.
+ 
+     // "Push" AOs only (AOs with driver->write).
+     bool recover_pause;         // non-hw_paused: needs to recover delay
+@@ -400,7 +396,9 @@
+     mp_mutex_lock(&p->lock);
+ 
+     if ((p->playing || !ao->driver->write) && !p->paused && paused) {
+-        if (p->streaming && !ao->stream_silence) {
++        bool queued_pull = !ao->driver->write && ao->driver->set_pause &&
++                           p->end_time_ns > mp_time_ns();
++        if ((p->streaming || queued_pull) && !ao->stream_silence) {
+             if (ao->driver->write) {
+                 if (!p->recover_pause)
+                     get_dev_state(ao, &p->prepause_state);
+@@ -414,12 +412,13 @@
+             } else if (ao->driver->reset || ao->driver->set_pause) {
+                 // See ao_reset() why this is done outside of the lock.
+                 do_change_state = true;
++                p->resume_streaming = p->streaming;
+                 p->streaming = false;
+                 is_hw_paused = p->hw_paused = !!ao->driver->set_pause;
+             }
+         }
+         wakeup = true;
+-    } else if (p->playing && p->paused && !paused) {
++    } else if ((p->playing || p->hw_paused) && p->paused && !paused) {
+         if (ao->driver->write) {
+             if (p->hw_paused)
+                 ao->driver->set_pause(ao, false);
+@@ -427,8 +426,12 @@
+         } else {
+             if (!p->streaming)
+                 do_change_state = true;
+-            p->streaming = true;
+             is_hw_paused = p->hw_paused;
++            p->streaming = is_hw_paused ? p->resume_streaming : true;
++            // Freeze and resume the same presentation interval. Native pause
++            // calls can block; their return time is not the logical pause time.
++            if (is_hw_paused)
++                p->end_time_ns += mp_time_ns() - p->pause_started_ns;
+             p->hw_paused = false;
+         }
+         wakeup = true;
+@@ -441,13 +444,7 @@
+ 
+     if (do_change_state) {
+         if (is_hw_paused) {
+-            if (paused) {
+-                ao->driver->set_pause(ao, true);
+-                p->queued_time_ns = p->end_time_ns - mp_time_ns();
+-            } else {
+-                p->end_time_ns = p->queued_time_ns + mp_time_ns();
+-                ao->driver->set_pause(ao, false);
+-            }
++            ao->driver->set_pause(ao, paused);
+         } else {
+             if (paused)
+                 ao->driver->reset(ao);

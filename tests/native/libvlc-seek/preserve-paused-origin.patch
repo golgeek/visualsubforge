@@ -1,0 +1,14 @@
+--- a/src/clock/clock.c
++++ b/src/clock/clock.c
+@@ -394,7 +394,10 @@
+     AvgResetAndFill(&main_clock->coeff_avg, ctx->coeff);
+ 
+     main_clock->wait_sync_ref_priority = UINT_MAX;
+-    main_clock->pause_date = VLC_TICK_INVALID;
++    /* A clock rebuilt during pause still needs the pause origin so resume
++     * can translate references expressed against the frozen pause date. */
++    if (!main_clock->paused)
++        main_clock->pause_date = VLC_TICK_INVALID;
+     vlc_cond_broadcast(&main_clock->cond);
+ }
+ 

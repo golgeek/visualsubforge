@@ -1,0 +1,157 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>VSF ANGLE composition probe</title>
+<style>
+  html {
+    overflow-y: scroll;
+  }
+  body {
+    margin: 16px;
+    background: #18202d;
+    color: #e8efff;
+    font: 16px system-ui;
+  }
+  h2 {
+    margin: 0 0 10px;
+  }
+  #video {
+    height: calc(100vh - 340px);
+    min-height: 100px;
+    background: black;
+  }
+  button,
+  input {
+    font: inherit;
+    margin: 8px 5px 8px 0;
+  }
+  #waveform {
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100px;
+    background: #0b1220;
+  }
+  #cursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #ffbc70;
+    pointer-events: none;
+  }
+  #status {
+    font: 12px monospace;
+  }
+  dialog {
+    color: white;
+    background: #28354b;
+    padding: 32px;
+  }
+  dialog::backdrop {
+    background: #0008;
+  }
+</style>
+<h2>Metal video + opaque WebView</h2>
+<div id="video"></div>
+<button onclick="send('play')">Play / pause</button>
+<button onclick="send('seek', { seconds: 0 })">Seek 0 s</button>
+<button onclick="send('seek', { seconds: 2 })">Seek 2 s</button>
+<button onclick="send('seek', { seconds: 4 })">Seek 4 s</button>
+<button onclick="send('subtitle')">Toggle subtitles</button>
+<button onclick="send('edit')">Edit preview</button>
+<button onclick="send('stop')">Unload</button>
+<button onclick="send('reload')">Reload video</button>
+<button
+  onclick="
+    send('overlay', { visible: true });
+    modal.showModal();
+  "
+>
+  Modal
+</button>
+<input placeholder="Keyboard focus test" />
+<p>Decoded audio peaks · click the waveform to seek.</p>
+<div id="waveform">
+  <canvas id="wave"></canvas>
+  <div id="cursor" hidden></div>
+</div>
+<p id="status">Starting native player…</p>
+<small
+  >Waveform covers the first <span id="duration"></span> seconds. Five-minute
+  diagnostic.</small
+>
+<dialog id="modal">
+  HTML modal: native video is hidden while open.<br /><input
+    placeholder="Modal focus test"
+  /><button onclick="modal.close()">Close</button>
+</dialog>
+<script>
+  const peaks = __VSF_PEAKS__;
+  const duration = __VSF_PEAK_DURATION__;
+  const video = document.querySelector('#video');
+  const modal = document.querySelector('#modal');
+  const canvas = document.querySelector('#wave');
+  const cursor = document.querySelector('#cursor');
+  const status = document.querySelector('#status');
+  let drawnSize = '';
+  document.querySelector('#duration').textContent = duration.toFixed(3);
+  function send(op, rest = {}) {
+    window.webkit.messageHandlers.probe.postMessage({ op, ...rest });
+  }
+  function layout() {
+    const r = video.getBoundingClientRect();
+    send('layout', { x: r.x, y: r.y, width: r.width, height: r.height });
+  }
+  function draw() {
+    const r = canvas.getBoundingClientRect();
+    const scale = devicePixelRatio;
+    const key = `${r.width}/${r.height}/${scale}`;
+    if (drawnSize === key || r.width <= 0 || r.height <= 0) return;
+    drawnSize = key;
+    canvas.width = Math.round(r.width * scale);
+    canvas.height = Math.round(r.height * scale);
+    const c = canvas.getContext('2d');
+    c.setTransform(scale, 0, 0, scale, 0, 0);
+    c.strokeStyle = '#65dcb7';
+    c.beginPath();
+    peaks.forEach(([low, high], i) => {
+      const x = (i * r.width) / peaks.length;
+      c.moveTo(x, r.height / 2 - high * r.height * 0.45);
+      c.lineTo(x, r.height / 2 - low * r.height * 0.45);
+    });
+    c.stroke();
+  }
+  window.vsfStatus = (state) => {
+    const available = state.loaded && Number.isFinite(state.position);
+    cursor.hidden =
+      !available || state.position < 0 || state.position > duration;
+    if (!cursor.hidden)
+      cursor.style.left = `${(state.position / duration) * 100}%`;
+    const text = `${state.loaded ? (state.paused ? 'Paused' : 'Playing') : 'Unloaded'} · ${available ? state.position.toFixed(3) + ' s' : '—'} · decoder ${state.decoder}`;
+    if (status.textContent !== text) status.textContent = text;
+    draw(); // Cached while only playback position changes; also detects DPI changes.
+  };
+  canvas.addEventListener('click', (event) => {
+    const r = canvas.getBoundingClientRect();
+    send('seek', {
+      seconds: Math.max(
+        0,
+        Math.min(duration, ((event.clientX - r.left) / r.width) * duration),
+      ),
+    });
+  });
+  new ResizeObserver(layout).observe(video);
+  new ResizeObserver(draw).observe(canvas);
+  addEventListener('resize', () => {
+    layout();
+    draw();
+  });
+  addEventListener('scroll', layout);
+  modal.addEventListener('close', () => send('overlay', { visible: false }));
+  layout();
+  draw();
+  send('ready');
+</script>

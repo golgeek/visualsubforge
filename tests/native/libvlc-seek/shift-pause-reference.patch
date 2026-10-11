@@ -1,0 +1,30 @@
+--- a/src/player/timer.c
++++ b/src/player/timer.c
+@@ -295,7 +295,27 @@
+         case VLC_PLAYER_TIMER_EVENT_PLAYING:
+             assert(!player->timer.stopping);
+             if (system_date != VLC_TICK_INVALID)
++            {
+                 player->timer.last_resume_date = system_date;
++                if (player->timer.pause_date != VLC_TICK_INVALID &&
++                    system_date >= player->timer.pause_date)
++                {
++                    const vlc_tick_t delay = system_date - player->timer.pause_date;
++                    for (size_t i = 0; i < VLC_PLAYER_TIMER_TYPE_COUNT; ++i)
++                    {
++                        struct vlc_player_timer_source *source = &player->timer.sources[i];
++                        if (source->point.system_date != VLC_TICK_INVALID &&
++                            source->point.system_date != VLC_TICK_MAX)
++                        {
++                            source->point.system_date += delay;
++                            if (i == VLC_PLAYER_TIMER_TYPE_BEST)
++                                vlc_player_SendTimerSourceUpdates(player, source, true,
++                                                                  &source->point);
++                        }
++                    }
++                    player->timer.pause_date = VLC_TICK_INVALID;
++                }
++            }
+             player->timer.update_state = UPDATE_STATE_RESUMING;
+             break;
+ 

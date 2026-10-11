@@ -1,0 +1,186 @@
+--- a/audio/queued_pts.c
++++ b/audio/queued_pts.c
+@@ -62,12 +62,15 @@
+     clock->count++;
+ }
+ 
+-double mp_queued_pts_get(const struct mp_queued_pts *clock, double delay)
++static double lookup(const struct mp_queued_pts *clock, double delay, bool continuation)
+ {
+     if (!isfinite(delay) || delay < 0)
+         return MP_NOPTS_VALUE;
+     double output = clock->written - delay;
+-    for (int n = clock->count - 1; n >= 0; n--) {
++    // Continuation belongs to the last submitted interval. At an exact loop
++    // boundary that is B, even if a queued, unsubmitted interval begins at A.
++    for (int i = 0; i < clock->count; i++) {
++        int n = continuation ? i : clock->count - 1 - i;
+         const struct mp_queued_pts_segment *s = &clock->segments[index_at(clock, n)];
+         // Admit only sub-sample arithmetic error from separately accumulated
+         // frame durations and AO sample totals (paused-start regression).
+@@ -82,3 +85,13 @@
+     }
+     return MP_NOPTS_VALUE;
+ }
++
++double mp_queued_pts_get(const struct mp_queued_pts *clock, double delay)
++{
++    return lookup(clock, delay, false);
++}
++
++double mp_queued_pts_continuation(const struct mp_queued_pts *clock, double delay)
++{
++    return lookup(clock, delay, true);
++}
+--- a/audio/queued_pts.h
++++ b/audio/queued_pts.h
+@@ -24,3 +24,7 @@
+                           double start_pts, double end_pts);
+ // Returns MP_NOPTS_VALUE for an uncovered/unknown interval or invalid delay.
+ double mp_queued_pts_get(const struct mp_queued_pts *clock, double output_delay);
++// Map the end of submitted output, choosing the left side of a discontinuity.
++// Pass software-queue duration only; this is NOT an audible presentation clock.
++// An untouched queue maps to its known start; empty/lost/unknown history is unavailable.
++double mp_queued_pts_continuation(const struct mp_queued_pts *clock, double unsubmitted);
+--- a/audio/out/ao.h
++++ b/audio/out/ao.h
+@@ -96,6 +96,8 @@
+ int ao_control(struct ao *ao, enum aocontrol cmd, void *arg);
+ void ao_set_gain(struct ao *ao, float gain);
+ double ao_get_delay(struct ao *ao);
++// Paused PCM pull queue only; NAN when no stable software snapshot is available.
++double ao_get_unsubmitted_duration(struct ao *ao);
+ double ao_get_drain_timeout(struct ao *ao);
+ void ao_reset(struct ao *ao);
+ void ao_start(struct ao *ao);
+--- a/audio/out/buffer.c
++++ b/audio/out/buffer.c
+@@ -313,6 +313,24 @@
+ 
+     mp_mutex_unlock(&p->lock);
+     return driver_delay + pending / (double)ao->samplerate;
++}
++
++// Control thread only. The buffer lock excludes a pull callback while reading
++// pending samples; pause keeps callbacks from consuming data after this read.
++// Driver/device buffering is deliberately excluded.
++double ao_get_unsubmitted_duration(struct ao *ao)
++{
++    struct buffer_state *p = ao->buffer_state;
++    mp_mutex_lock(&p->lock);
++    double duration = NAN;
++    if (p->paused && !ao->driver->write && af_fmt_is_pcm(ao->format)) {
++        int64_t samples = mp_async_queue_get_samples(p->queue);
++        if (p->pending)
++            samples += mp_aframe_get_size(p->pending);
++        duration = samples / (double)ao->samplerate;
++    }
++    mp_mutex_unlock(&p->lock);
++    return duration;
+ }
+ 
+ // Fully stop playback; clear buffers, including queue.
+--- a/player/core.h
++++ b/player/core.h
+@@ -514,6 +514,7 @@
+ int init_audio_decoder(struct MPContext *mpctx, struct track *track);
+ int reinit_audio_filters(struct MPContext *mpctx);
+ double playing_audio_pts(struct MPContext *mpctx);
++double audio_continuation_pts(struct MPContext *mpctx);
+ void fill_audio_out_buffers(struct MPContext *mpctx);
+ double written_audio_pts(struct MPContext *mpctx);
+ void clear_audio_output_buffers(struct MPContext *mpctx);
+--- a/player/audio.c
++++ b/player/audio.c
+@@ -631,6 +631,19 @@
+     return mp_queued_pts_get(&c->clock, ao_get_delay(mpctx->ao));
+ }
+ 
++// Local continuation contract, deliberately restricted to the tested retained-
++// output backend. Other drivers can discard submitted output on reset, so the
++// same queue snapshot is not a portable restart policy. Called on the core owner.
++double audio_continuation_pts(struct MPContext *mpctx)
++{
++    struct ao_chain *c = mpctx->ao_chain;
++    if (!mpctx->playback_initialized || !mpctx->paused || !mpctx->ao || !c ||
++        strcmp(ao_get_name(mpctx->ao), "coreaudio") != 0)
++        return MP_NOPTS_VALUE;
++    return mp_queued_pts_continuation(&c->clock,
++                                     ao_get_unsubmitted_duration(mpctx->ao));
++}
++
+ // This garbage is needed for untimed AOs. These consume audio infinitely fast,
+ // so try keeping approximate A/V sync by blocking audio transfer as needed.
+ static void update_throttle(struct MPContext *mpctx)
+--- a/player/command.c
++++ b/player/command.c
+@@ -888,6 +888,12 @@
+         return M_PROPERTY_UNAVAILABLE;
+ 
+     return property_time(action, arg, playing_audio_pts(mpctx));
++}
++
++static int mp_property_vsf_audio_continuation(void *ctx, struct m_property *prop,
++                                               int action, void *arg)
++{
++    return property_time(action, arg, audio_continuation_pts(ctx));
+ }
+ 
+ static bool time_remaining(MPContext *mpctx, double *remaining)
+@@ -4688,6 +4694,7 @@
+     {"time-pos", mp_property_time_pos},
+     {"time-remaining", mp_property_remaining},
+     {"audio-pts", mp_property_audio_pts},
++    {"vsf-audio-continuation-pts", mp_property_vsf_audio_continuation},
+     {"playtime-remaining", mp_property_playtime_remaining},
+     M_PROPERTY_ALIAS("playback-time", "time-pos"),
+     {"remaining-file-loops", mp_property_remaining_file_loops},
+@@ -4856,6 +4863,7 @@
+ 
+     {"mpv-version", mp_property_version},
+     {"vsf-audio-clock-version", mp_property_vsf_audio_clock},
++    {"vsf-audio-continuation-version", mp_property_vsf_audio_clock},
+     {"mpv-configuration", mp_property_configuration},
+     {"ffmpeg-version", mp_property_ffmpeg},
+     {"libass-version", mp_property_libass_version},
+--- a/test/queued_pts.c
++++ b/test/queued_pts.c
+@@ -22,6 +22,14 @@
+     assert_float_equal(mp_queued_pts_get(&c, .5), 100.5, 1e-12);
+     assert_float_equal(mp_queued_pts_get(&c, 1), 100, 1e-12);
+ 
++    // A clear at the exact submitted loop boundary continues from B, not the
++    // next unsubmitted loop's A. Interior positions share the ordinary mapping.
++    assert_float_equal(mp_queued_pts_continuation(&c, 1), 102, 1e-12);
++    assert_float_equal(mp_queued_pts_continuation(&c, .5), 100.5, 1e-12);
++    assert_float_equal(mp_queued_pts_continuation(&c, 3), 100, 1e-12);
++    assert_true(mp_queued_pts_continuation(&c, NAN) == MP_NOPTS_VALUE);
++    assert_true(mp_queued_pts_continuation(&c, -1) == MP_NOPTS_VALUE);
++
+     // Output speed changes may coexist in the device queue.
+     mp_queued_pts_append(&c, 2, 101, 102);
+     assert_float_equal(mp_queued_pts_get(&c, 1), 101.5, 1e-12);
+@@ -37,6 +45,9 @@
+     mp_queued_pts_append(&c, 1, 1, 2);
+     assert_int_equal(c.count, 3);
+     assert_float_equal(mp_queued_pts_get(&c, 2.5), .5, 1e-12);
++    // Unknown submitted content cannot be replaced by the next known interval.
++    assert_true(mp_queued_pts_continuation(&c, 1) == MP_NOPTS_VALUE);
++    assert_float_equal(mp_queued_pts_get(&c, 1), 1, 1e-12);
+     assert_true(mp_queued_pts_get(&c, 1.5) == MP_NOPTS_VALUE);
+     assert_float_equal(mp_queued_pts_get(&c, .5), 1.5, 1e-12);
+ 
+--- a/test/libmpv_test_options.c
++++ b/test/libmpv_test_options.c
+@@ -73,7 +73,11 @@
+ static void test_options_and_properties(void)
+ {
+     check_string("vsf-audio-clock-version", "1");
++    check_string("vsf-audio-continuation-version", "1");
+     const char *clock_version = "2";
++    if (mpv_set_property(ctx, "vsf-audio-continuation-version", MPV_FORMAT_STRING,
++                         &clock_version) >= 0)
++        fail("Continuation capability must be read-only\n");
+     if (mpv_set_property(ctx, "vsf-audio-clock-version", MPV_FORMAT_STRING,
+                          &clock_version) >= 0)
+         fail("Experimental clock capability must be read-only\n");

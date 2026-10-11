@@ -1,0 +1,21 @@
+{
+  "upstream_commit": "c1529642089bfebfc928a1c1664638a7a5d219ba",
+  "status": "approved scope; experimental candidates, not accepted runtime",
+  "patches": [
+    {
+      "file": "0010-scaletempo-eof.patch",
+      "sha256": "dc970ecb5d2741216cdf91dcb29cfe045df968c3d897f9657969b15eccff7198",
+      "description": "Finish the output timeline before declaring stretched PCM unavailable at EOF."
+    },
+    {
+      "file": "0011-queued-eof-resume.patch",
+      "sha256": "ab0d09c429a4af1f1d28f48912e80374f10c6a0a963539da5846bd9ae9b98e1e",
+      "description": "Retain pull-output pause/resume state after the software queue reaches EOF."
+    },
+    {
+      "file": "0012-coreaudio-continuation.patch",
+      "sha256": "f691dc8f683c0379249f0034435a5ac756b74b3874f6824d36862826f7f6bc28",
+      "description": "Read-only paused CoreAudio submission endpoint, preserving the left side of exact loop boundaries; not an audible clock."
+    }
+  ]
+}

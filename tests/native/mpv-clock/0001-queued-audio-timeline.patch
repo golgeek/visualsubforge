@@ -1,0 +1,290 @@
+diff --git a/audio/queued_pts.c b/audio/queued_pts.c
+new file mode 100644
+index 0000000..5e4414a
+--- /dev/null
++++ b/audio/queued_pts.c
+@@ -0,0 +1,84 @@
++// SPDX-License-Identifier: LGPL-2.1-or-later
++// Experimental VSF audio timing change for mpv.
++
++#include <math.h>
++
++#include "common/common.h"
++#include "queued_pts.h"
++
++static bool known(double pts)
++{
++    return pts != MP_NOPTS_VALUE && isfinite(pts);
++}
++
++static int index_at(const struct mp_queued_pts *clock, int offset)
++{
++    return (clock->first + offset) % MP_QUEUED_PTS_CAPACITY;
++}
++
++void mp_queued_pts_reset(struct mp_queued_pts *clock)
++{
++    clock->first = clock->count = 0;
++    clock->written = 0;
++}
++
++void mp_queued_pts_append(struct mp_queued_pts *clock, double duration,
++                          double start_pts, double end_pts)
++{
++    if (!isfinite(duration) || duration <= 0 ||
++        !isfinite(clock->written + duration) ||
++        clock->written + duration <= clock->written) {
++        // A malformed output duration invalidates subsequent delay mapping.
++        mp_queued_pts_reset(clock);
++        return;
++    }
++    bool valid = known(start_pts) && known(end_pts);
++    if (!valid)
++        start_pts = end_pts = MP_NOPTS_VALUE;
++
++    struct mp_queued_pts_segment *last = clock->count
++        ? &clock->segments[index_at(clock, clock->count - 1)] : NULL;
++    bool merge = last && valid && known(last->pts_start) &&
++        fabs(last->pts_end - start_pts) < 1e-7 &&
++        fabs((last->pts_end - last->pts_start) /
++             (last->output_end - last->output_start) -
++             (end_pts - start_pts) / duration) < 1e-7;
++    // Explicit unknown segments are barriers: never join known media across
++    // timestamp-less output. Consecutive unknown segments can still coalesce.
++    merge |= last && !valid && !known(last->pts_start);
++    double start_output = clock->written;
++    clock->written += duration;
++    if (merge) {
++        last->output_end = clock->written;
++        last->pts_end = end_pts;
++        return;
++    }
++    if (clock->count == MP_QUEUED_PTS_CAPACITY) {
++        clock->first = index_at(clock, 1);
++        clock->count--;
++    }
++    clock->segments[index_at(clock, clock->count)] =
++        (struct mp_queued_pts_segment){start_output, clock->written, start_pts, end_pts};
++    clock->count++;
++}
++
++double mp_queued_pts_get(const struct mp_queued_pts *clock, double delay)
++{
++    if (!isfinite(delay) || delay < 0)
++        return MP_NOPTS_VALUE;
++    double output = clock->written - delay;
++    for (int n = clock->count - 1; n >= 0; n--) {
++        const struct mp_queued_pts_segment *s = &clock->segments[index_at(clock, n)];
++        // Admit only sub-sample arithmetic error from separately accumulated
++        // frame durations and AO sample totals (paused-start regression).
++        const double epsilon = 1e-9;
++        if (output >= s->output_start - epsilon && output <= s->output_end + epsilon) {
++            if (!known(s->pts_start))
++                return MP_NOPTS_VALUE;
++            double fraction = MPCLAMP((output - s->output_start) /
++                (s->output_end - s->output_start), 0.0, 1.0);
++            return s->pts_start + fraction * (s->pts_end - s->pts_start);
++        }
++    }
++    return MP_NOPTS_VALUE;
++}
+diff --git a/audio/queued_pts.h b/audio/queued_pts.h
+new file mode 100644
+index 0000000..2e0b989
+--- /dev/null
++++ b/audio/queued_pts.h
+@@ -0,0 +1,26 @@
++// SPDX-License-Identifier: LGPL-2.1-or-later
++// Experimental VSF audio timing change for mpv.
++
++#pragma once
++
++// Owned by the player thread. Durations are output seconds after resampling;
++// PTS endpoints are source media seconds, including the frame's speed mapping.
++#define MP_QUEUED_PTS_CAPACITY 8192
++
++struct mp_queued_pts_segment {
++    double output_start, output_end;
++    double pts_start, pts_end;
++};
++
++struct mp_queued_pts {
++    struct mp_queued_pts_segment segments[MP_QUEUED_PTS_CAPACITY];
++    int first, count;
++    double written;
++};
++
++// Reset only when the corresponding AO queue is flushed or replaced.
++void mp_queued_pts_reset(struct mp_queued_pts *clock);
++void mp_queued_pts_append(struct mp_queued_pts *clock, double output_duration,
++                          double start_pts, double end_pts);
++// Returns MP_NOPTS_VALUE for an uncovered/unknown interval or invalid delay.
++double mp_queued_pts_get(const struct mp_queued_pts *clock, double output_delay);
+diff --git a/meson.build b/meson.build
+index fb10be5..1314efa 100644
+--- a/meson.build
++++ b/meson.build
+@@ -56,6 +56,7 @@ features = {
+ sources = files(
+     ## Audio
+     'audio/aframe.c',
++    'audio/queued_pts.c',
+     'audio/chmap.c',
+     'audio/chmap_avchannel.c',
+     'audio/chmap_sel.c',
+diff --git a/player/audio.c b/player/audio.c
+index b3e975d..a55f5fc 100644
+--- a/player/audio.c
++++ b/player/audio.c
+@@ -244,6 +244,7 @@ void uninit_audio_out(struct MPContext *mpctx)
+ {
+     struct ao_chain *ao_c = mpctx->ao_chain;
+     if (ao_c) {
++        mp_queued_pts_reset(&ao_c->clock);
+         ao_c->ao_queue = NULL;
+         TA_FREEP(&ao_c->queue_filter);
+         ao_c->ao = NULL;
+@@ -624,9 +625,10 @@ double written_audio_pts(struct MPContext *mpctx)
+ double playing_audio_pts(struct MPContext *mpctx)
+ {
+     double pts = written_audio_pts(mpctx);
+-    if (pts == MP_NOPTS_VALUE || !mpctx->ao)
++    struct ao_chain *c = mpctx->ao_chain;
++    if (!mpctx->ao || !c)
+         return pts;
+-    return pts - mpctx->audio_speed * ao_get_delay(mpctx->ao);
++    return mp_queued_pts_get(&c->clock, ao_get_delay(mpctx->ao));
+ }
+ 
+ // This garbage is needed for untimed AOs. These consume audio infinitely fast,
+@@ -735,6 +737,9 @@ static void ao_process(struct mp_filter *f)
+         if (mpctx->video_status != STATUS_EOF)
+             mpctx->delay += samples / real_samplerate;
+         ao_c->last_out_pts = mp_aframe_end_pts(af);
++        mp_queued_pts_append(&ao_c->clock,
++            samples / (double)mp_aframe_get_rate(af),
++            mp_aframe_get_pts(af), mp_aframe_end_pts(af));
+         update_throttle(mpctx);
+ 
+         // Gapless case: the AO is still playing from previous file. It makes
+@@ -986,6 +991,9 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
+ // Drop data queued for output, or which the AO is currently outputting.
+ void clear_audio_output_buffers(struct MPContext *mpctx)
+ {
++    if (mpctx->ao_chain) {
++        mp_queued_pts_reset(&mpctx->ao_chain->clock);
++    }
+     if (mpctx->ao)
+         ao_reset(mpctx->ao);
+ }
+diff --git a/player/core.h b/player/core.h
+index eb7f508..2de3388 100644
+--- a/player/core.h
++++ b/player/core.h
+@@ -22,6 +22,7 @@
+ #include <stdbool.h>
+ 
+ #include "audio/aframe.h"
++#include "audio/queued_pts.h"
+ #include "clipboard/clipboard.h"
+ #include "common/common.h"
+ #include "filters/f_output_chain.h"
+@@ -194,6 +195,8 @@ struct ao_chain {
+     bool out_eof;
+     double last_out_pts;
+ 
++    struct mp_queued_pts clock;
++
+     double start_pts;
+     bool start_pts_known;
+ 
+diff --git a/test/meson.build b/test/meson.build
+index b670741..589ea2e 100644
+--- a/test/meson.build
++++ b/test/meson.build
+@@ -191,3 +191,8 @@ if refdir != ''
+         test('scale-zimg', scale_zimg, args: [refdir, outdir], suite: 'ffmpeg')
+     endif
+ endif
++
++queued_pts = executable('queued-pts', files('queued_pts.c'),
++                        objects: libmpv.extract_objects('audio/queued_pts.c'),
++                        include_directories: incdir, link_with: test_utils)
++test('queued-pts', queued_pts)
+diff --git a/test/queued_pts.c b/test/queued_pts.c
+new file mode 100644
+index 0000000..2fb8c17
+--- /dev/null
++++ b/test/queued_pts.c
+@@ -0,0 +1,71 @@
++// SPDX-License-Identifier: LGPL-2.1-or-later
++// Experimental VSF audio timing change for mpv.
++
++#include "audio/queued_pts.h"
++#include "test_utils.h"
++
++int main(void)
++{
++    struct mp_queued_pts c = {0};
++    assert_true(mp_queued_pts_get(&c, 0) == MP_NOPTS_VALUE);
++    mp_queued_pts_append(&c, 1, 100, 101);
++    mp_queued_pts_append(&c, 1, 101, 102);
++    assert_int_equal(c.count, 1);
++    assert_float_equal(mp_queued_pts_get(&c, .5), 101.5, 1e-12);
++    assert_float_equal(mp_queued_pts_get(&c, 2 + 5e-10), 100, 1e-12);
++    assert_true(mp_queued_pts_get(&c, 2 + 2e-9) == MP_NOPTS_VALUE);
++
++    // Retained non-flushing loop seeks and lead-in use actual queued history.
++    mp_queued_pts_append(&c, 1, 100, 101);
++    assert_int_equal(c.count, 2);
++    assert_float_equal(mp_queued_pts_get(&c, 1.5), 101.5, 1e-12);
++    assert_float_equal(mp_queued_pts_get(&c, .5), 100.5, 1e-12);
++    assert_float_equal(mp_queued_pts_get(&c, 1), 100, 1e-12);
++
++    // Output speed changes may coexist in the device queue.
++    mp_queued_pts_append(&c, 2, 101, 102);
++    assert_float_equal(mp_queued_pts_get(&c, 1), 101.5, 1e-12);
++    assert_float_equal(mp_queued_pts_get(&c, 2.5), 100.5, 1e-12);
++    mp_queued_pts_append(&c, 1, 102, 100); // Reverse source interval.
++    assert_float_equal(mp_queued_pts_get(&c, .25), 100.5, 1e-12);
++
++    // Output replacement/flush invalidates the old media timeline.
++    mp_queued_pts_reset(&c);
++    assert_true(mp_queued_pts_get(&c, 0) == MP_NOPTS_VALUE);
++    mp_queued_pts_append(&c, 1, 0, 1);
++    mp_queued_pts_append(&c, 1, MP_NOPTS_VALUE, MP_NOPTS_VALUE);
++    mp_queued_pts_append(&c, 1, 1, 2);
++    assert_int_equal(c.count, 3);
++    assert_float_equal(mp_queued_pts_get(&c, 2.5), .5, 1e-12);
++    assert_true(mp_queued_pts_get(&c, 1.5) == MP_NOPTS_VALUE);
++    assert_float_equal(mp_queued_pts_get(&c, .5), 1.5, 1e-12);
++
++    // A partial/NaN timestamp invalidates that segment, not older history.
++    mp_queued_pts_append(&c, 1, NAN, 4);
++    mp_queued_pts_append(&c, 1, 4, MP_NOPTS_VALUE);
++    assert_int_equal(c.count, 4);
++    assert_true(mp_queued_pts_get(&c, .5) == MP_NOPTS_VALUE);
++    assert_float_equal(mp_queued_pts_get(&c, 2.5), 1.5, 1e-12);
++    assert_true(mp_queued_pts_get(&c, -1) == MP_NOPTS_VALUE);
++    assert_true(mp_queued_pts_get(&c, NAN) == MP_NOPTS_VALUE);
++    assert_true(mp_queued_pts_get(&c, INFINITY) == MP_NOPTS_VALUE);
++    mp_queued_pts_append(&c, NAN, 0, 1);
++    assert_int_equal(c.count, 0);
++    mp_queued_pts_append(&c, 0, 0, 0);
++    assert_int_equal(c.count, 0);
++    mp_queued_pts_append(&c, DBL_MAX / 2, 0, 1);
++    mp_queued_pts_append(&c, 1, 1, 2); // Duration no longer representable.
++    assert_int_equal(c.count, 0);
++
++    // Exhausted history is unavailable; no guessing/modulo and no growth.
++    for (int n = 0; n < MP_QUEUED_PTS_CAPACITY + 10; n++)
++        mp_queued_pts_append(&c, 1, 100, 101);
++    assert_int_equal(c.count, MP_QUEUED_PTS_CAPACITY);
++    assert_true(mp_queued_pts_get(&c, MP_QUEUED_PTS_CAPACITY + .5) == MP_NOPTS_VALUE);
++    assert_float_equal(mp_queued_pts_get(&c, MP_QUEUED_PTS_CAPACITY - .5), 100.5, 1e-12);
++    assert_float_equal(mp_queued_pts_get(&c, .5), 100.5, 1e-12);
++    mp_queued_pts_reset(&c);
++    mp_queued_pts_append(&c, .25, 3, 3.5);
++    assert_float_equal(mp_queued_pts_get(&c, .125), 3.25, 1e-12);
++    return 0;
++}

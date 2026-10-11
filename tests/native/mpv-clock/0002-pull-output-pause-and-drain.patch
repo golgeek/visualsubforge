@@ -1,0 +1,128 @@
+diff --git a/audio/out/buffer.c b/audio/out/buffer.c
+index 277b524..d244e89 100644
+--- a/audio/out/buffer.c
++++ b/audio/out/buffer.c
+@@ -61,6 +61,7 @@ struct buffer_state {
+     bool paused;                // logically paused
+     bool hw_paused;             // driver->set_pause() was used successfully
+ 
++    int64_t pause_started_ns;   // protected by lock; freeze pull-AO delay
+     int64_t end_time_ns;        // absolute output time of last played sample
+     int64_t queued_time_ns;     // duration of samples that have been queued to
+                                 // the device but have not been played.
+@@ -184,7 +185,8 @@ static int ao_read_data_locked(struct ao *ao, void **data, int samples,
+     int pos = read_buffer(ao, data, samples, eof, pad_silence);
+ 
+     if (pos > 0)
+-        p->end_time_ns = out_time_ns;
++        p->end_time_ns = out_time_ns -
++            MP_TIME_S_TO_NS((samples - pos) / (double)ao->samplerate);
+ 
+     if (pos < samples && p->playing && !p->paused) {
+         p->playing = false;
+@@ -305,7 +307,7 @@ double ao_get_delay(struct ao *ao)
+         driver_delay = state.delay;
+     } else {
+         int64_t end = p->end_time_ns;
+-        int64_t now = mp_time_ns();
++        int64_t now = p->paused ? p->pause_started_ns : mp_time_ns();
+         driver_delay = MPMAX(0, MP_TIME_NS_TO_S(end - now));
+     }
+ 
+@@ -431,6 +433,8 @@ void ao_set_paused(struct ao *ao, bool paused, bool eof)
+         }
+         wakeup = true;
+     }
++    if (paused && !p->paused)
++        p->pause_started_ns = mp_time_ns();
+     p->paused = paused;
+ 
+     mp_mutex_unlock(&p->lock);
+@@ -460,12 +464,21 @@ void ao_set_paused(struct ao *ao, bool paused, bool eof)
+ // and ao_start() was called. This returns true even if playback was logically
+ // paused. On false, EOF was reached, or an underrun happened, or ao_reset()
+ // was called.
++static bool is_playing_locked(struct ao *ao)
++{
++    struct buffer_state *p = ao->buffer_state;
++    int64_t now = p->paused ? p->pause_started_ns : mp_time_ns();
++    // A pull callback can run ahead of presentation (notably AVFoundation).
++    // Exhausting the source queue does not mean the device has drained.
++    return p->playing || (!ao->driver->write && p->end_time_ns > now);
++}
++
+ bool ao_is_playing(struct ao *ao)
+ {
+     struct buffer_state *p = ao->buffer_state;
+ 
+     mp_mutex_lock(&p->lock);
+-    bool playing = p->playing;
++    bool playing = is_playing_locked(ao);
+     mp_mutex_unlock(&p->lock);
+ 
+     return playing;
+@@ -477,7 +490,7 @@ void ao_drain(struct ao *ao)
+     struct buffer_state *p = ao->buffer_state;
+ 
+     mp_mutex_lock(&p->lock);
+-    while (!p->paused && p->playing) {
++    while (!p->paused && is_playing_locked(ao)) {
+         mp_mutex_unlock(&p->lock);
+         double delay = ao_get_delay(ao);
+         mp_mutex_lock(&p->lock);
+diff --git a/player/command.c b/player/command.c
+index 96bc06a..91bf5cf 100644
+--- a/player/command.c
++++ b/player/command.c
+@@ -851,8 +851,11 @@ static int mp_property_audio_pts(void *ctx, struct m_property *prop,
+                                 int action, void *arg)
+ {
+     MPContext *mpctx = ctx;
+-    if (!mpctx->playback_initialized || mpctx->audio_status < STATUS_PLAYING ||
+-        mpctx->audio_status >= STATUS_EOF)
++    // Decoder restarts and decoded EOF can coexist with queued audible audio.
++    // A non-flushing loop seek must not hide that output's timeline.
++    if (!mpctx->playback_initialized ||
++        ((mpctx->audio_status < STATUS_PLAYING || mpctx->audio_status >= STATUS_EOF) &&
++         (!mpctx->ao || !ao_is_playing(mpctx->ao))))
+         return M_PROPERTY_UNAVAILABLE;
+ 
+     return property_time(action, arg, playing_audio_pts(mpctx));
+@@ -1439,7 +1442,8 @@ static int mp_property_eof_reached(void *ctx, struct m_property *prop,
+     if (!mpctx->playback_initialized)
+         return M_PROPERTY_UNAVAILABLE;
+     bool eof = mpctx->video_status == STATUS_EOF &&
+-               mpctx->audio_status == STATUS_EOF;
++               mpctx->audio_status == STATUS_EOF &&
++               (!mpctx->ao || !ao_is_playing(mpctx->ao));
+     return m_property_bool_ro(action, arg, eof);
+ }
+ 
+diff --git a/player/playloop.c b/player/playloop.c
+index f111920..156280c 100644
+--- a/player/playloop.c
++++ b/player/playloop.c
+@@ -171,7 +171,10 @@ void set_pause_state(struct MPContext *mpctx, bool user_pause)
+         mpctx->paused = internal_paused;
+ 
+         if (mpctx->ao) {
+-            bool eof = mpctx->audio_status == STATUS_EOF;
++            // Decoded EOF is not output EOF. A user pause must freeze queued
++            // audio immediately, rather than blocking until it drains.
++            bool eof = mpctx->audio_status == STATUS_EOF &&
++                       !ao_is_playing(mpctx->ao);
+             ao_set_paused(mpctx->ao, internal_paused, eof);
+         }
+ 
+@@ -996,8 +999,10 @@ static void handle_keep_open(struct MPContext *mpctx)
+             }
+         }
+         if (opts->keep_open_pause) {
+-            if (mpctx->ao && ao_is_playing(mpctx->ao))
++            if (mpctx->ao && ao_is_playing(mpctx->ao)) {
++                mp_set_timeout(mpctx, ao_get_delay(mpctx->ao));
+                 return;
++            }
+             set_pause_state(mpctx, true);
+         }
+     }

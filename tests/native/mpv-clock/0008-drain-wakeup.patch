@@ -1,0 +1,48 @@
+--- a/audio/out/ao.h
++++ b/audio/out/ao.h
+@@ -96,6 +96,7 @@
+ int ao_control(struct ao *ao, enum aocontrol cmd, void *arg);
+ void ao_set_gain(struct ao *ao, float gain);
+ double ao_get_delay(struct ao *ao);
++double ao_get_drain_timeout(struct ao *ao);
+ void ao_reset(struct ao *ao);
+ void ao_start(struct ao *ao);
+ void ao_set_paused(struct ao *ao, bool paused, bool eof);
+--- a/audio/out/buffer.c
++++ b/audio/out/buffer.c
+@@ -500,6 +500,22 @@
+     return playing;
+ }
+ 
++// Return a deadline only when a pull output has consumed its source queue but
++// still has a presentation deadline. No callback is guaranteed at that deadline.
++// Otherwise the AO notifies the player when its playing state changes; -1 means
++// wait for that notification. In particular, zero push-output delay can precede
++// its EOF notification and must not turn into a player-thread busy loop.
++double ao_get_drain_timeout(struct ao *ao)
++{
++    struct buffer_state *p = ao->buffer_state;
++    mp_mutex_lock(&p->lock);
++    double timeout = -1;
++    if (!ao->driver->write && !p->playing && !p->paused)
++        timeout = MPMAX(0, MP_TIME_NS_TO_S(p->end_time_ns - mp_time_ns()));
++    mp_mutex_unlock(&p->lock);
++    return timeout;
++}
++
+ // Block until the current audio buffer has played completely.
+ void ao_drain(struct ao *ao)
+ {
+--- a/player/playloop.c
++++ b/player/playloop.c
+@@ -1000,7 +1000,9 @@
+         }
+         if (opts->keep_open_pause) {
+             if (mpctx->ao && ao_is_playing(mpctx->ao)) {
+-                mp_set_timeout(mpctx, ao_get_delay(mpctx->ao));
++                double timeout = ao_get_drain_timeout(mpctx->ao);
++                if (timeout >= 0)
++                    mp_set_timeout(mpctx, timeout);
+                 return;
+             }
+             set_pause_state(mpctx, true);

@@ -1,0 +1,12 @@
+{
+  "upstream_commit": "c1529642089bfebfc928a1c1664638a7a5d219ba",
+  "patches": [],
+  "integrated_upstream": [
+    {
+      "file": "0001-upstream-render-fences.patch",
+      "sha256": "d4885abf3a2b1a187ffe615406cb35a61966dc684b9f1a09e314b54df80595bf",
+      "upstream_fix": "f74adc4243bd9e1a8ee96d187c939e6232510650",
+      "description": "Do not create internal swapchain fences for the externally presented libmpv render API."
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+--- a/src/video_output/video_output.c
++++ b/src/video_output/video_output.c
+@@ -1602,7 +1602,7 @@
+ 
+     if (sys->displayed.current == NULL)
+     {
+-        sys->displayed.current = PreparePicture(sys, true, false);
++        sys->displayed.current = PreparePicture(sys, true, sys->pause.is_on);
+         return sys->displayed.current != NULL;
+     }
+ 
+@@ -1668,7 +1668,8 @@
+         // display forced picture immediately
+         bool render_now = sys->displayed.current->b_force;
+ 
+-        RenderPicture(vout, render_now ? RENDER_PICTURE_FORCED
++        RenderPicture(vout, sys->pause.is_on ? RENDER_PICTURE_NEXT
++                          : render_now ? RENDER_PICTURE_FORCED
+                                        : RENDER_PICTURE_NORMAL);
+         if (!render_now)
+             /* Prepare the next picture immediately without waiting */
+--- a/src/input/es_out.c
++++ b/src/input/es_out.c
+@@ -3232,7 +3232,9 @@
+ 
+         /* If i_date is still invalid (first/all non dated), expect to be in preroll */
+         if( i_date == VLC_TICK_INVALID ||
+-            es->i_pts_level < p_sys->i_preroll_end )
++            es->i_pts_level < p_sys->i_preroll_end ||
++            (es->fmt.i_cat == VIDEO_ES && p_block->i_length > 0 &&
++             es->i_pts_level == p_sys->i_preroll_end) )
+             p_block->i_flags |= BLOCK_FLAG_PREROLL;
+     }
+ 
+@@ -3674,7 +3676,7 @@
+         bool buffering = EsOutIsBuffering(p_sys) || p_sys->p_next_frame_es != NULL;
+         /* Do not account the download stall as clock lateness. The input
+          * clock will shift this frozen system date when rebuffering ends. */
+-        const vlc_tick_t system_now = p_sys->b_rebuffering
++        const vlc_tick_t system_now = EsOutIsPaused(p_sys)
+                                     ? p_sys->i_pause_date : vlc_tick_now();
+         vlc_tick_t i_late = input_clock_Update(
+                             p_pgrm->p_input_clock,

@@ -1,0 +1,25 @@
+{
+  "upstream_commit": "c1529642089bfebfc928a1c1664638a7a5d219ba",
+  "patches": [
+    {
+      "file": "0003-clear-disposed-unit.patch",
+      "sha256": "2e92a5b4139d9738139e1b55aa31ef903c10c528c2fd4b5dc1e8d5987c83cf05",
+      "status": "local ownership follow-up; not upstream accepted",
+      "description": "Clear the stored AudioUnit handle after inner error cleanup so outer cleanup cannot reuse it."
+    }
+  ],
+  "integrated_upstream": [
+    {
+      "file": "0001-upstream-init-cleanup.patch",
+      "sha256": "97b605452d280bde974dacf81f514d1f06c0a788ca2a1ddd4b4c66e4f5cc7010",
+      "upstream_fix": "af067b5ea8e5fe396ebd9d3f895e51a7e75b3c09",
+      "description": "Release CoreAudio resources on initialization failure."
+    },
+    {
+      "file": "0002-upstream-listener-order.patch",
+      "sha256": "404adc592f4345c691a70aa0c31ce505b34463f02d927fcd6b6f9d600e7be9d4",
+      "upstream_fix": "c5d391adba7bd024954d0df1e0405f5749f4d4ca",
+      "description": "Register device-change listeners only after AudioUnit initialization succeeds."
+    }
+  ]
+}

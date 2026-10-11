@@ -1,0 +1,102 @@
+diff --git a/player/command.c b/player/command.c
+index 96bc06a..3600977 100644
+--- a/player/command.c
++++ b/player/command.c
+@@ -6387,6 +6387,24 @@ static void cmd_track_remove(void *p)
+         print_track_list(mpctx, "Track removed:");
+ }
+ 
++static void cmd_vsf_replace_ass(void *p)
++{
++    struct mp_cmd_ctx *cmd = p;
++    struct MPContext *mpctx = cmd->mpctx;
++    struct track *track = mpctx->current_track[0][STREAM_SUB];
++    char *text = cmd->args[1].v.s;
++    if (!mpctx->playback_initialized || !track || !track->is_external ||
++        !track->d_sub || track->user_tid != cmd->args[0].v.i ||
++        strlen(text) > 4 * 1024 * 1024 ||
++        sub_control(track->d_sub, SD_CTRL_VSF_REPLACE_ASS, text) != CONTROL_OK)
++    {
++        cmd->success = false;
++        return;
++    }
++    redraw_subs(mpctx);
++    osd_changed(mpctx->osd);
++}
++
+ static void cmd_track_reload(void *p)
+ {
+     struct mp_cmd_ctx *cmd = p;
+@@ -7322,6 +7340,9 @@ const struct mp_cmd_def mp_cmds[] = {
+     { "video-remove", cmd_track_remove, { {"id", OPT_INT(v.i), OPTDEF_INT(-1)} },
+         .priv = &(const int){STREAM_VIDEO}, },
+ 
++    { "vsf-replace-ass", cmd_vsf_replace_ass,
++        { {"id", OPT_INT(v.i)}, {"document", OPT_STRING(v.s)} }, },
++
+     { "sub-reload", cmd_track_reload, { {"id", OPT_INT(v.i), OPTDEF_INT(-1)} },
+         .priv = &(const int){STREAM_SUB},
+         .spawn_thread = true,
+diff --git a/sub/dec_sub.c b/sub/dec_sub.c
+index 118221a..3a84f9a 100644
+--- a/sub/dec_sub.c
++++ b/sub/dec_sub.c
+@@ -505,6 +505,12 @@ int sub_control(struct dec_sub *sub, enum sd_ctrl cmd, void *arg)
+     mp_mutex_lock(&sub->lock);
+     bool propagate = false;
+     switch (cmd) {
++    case SD_CTRL_VSF_REPLACE_ASS:
++        // The same lock excludes render/get_text and packet decoding. The
++        // experiment only replaces a completely preloaded external ASS track.
++        if (sub->preload_attempted && sub->sd->preload_ok && !sub->new_segment)
++            propagate = true;
++        break;
+     case SD_CTRL_SET_VIDEO_DEF_FPS:
+         sub->video_fps = *(double *)arg;
+         update_subtitle_speed(sub);
+diff --git a/sub/dec_sub.h b/sub/dec_sub.h
+index 476e83a..110fbfb 100644
+--- a/sub/dec_sub.h
++++ b/sub/dec_sub.h
+@@ -16,6 +16,7 @@ struct sd;
+ 
+ enum sd_ctrl {
+     SD_CTRL_SUB_STEP,
++    SD_CTRL_VSF_REPLACE_ASS, // Local fixed-option external-preview experiment.
+     SD_CTRL_SET_ANIMATED_CHECK,
+     SD_CTRL_SET_VIDEO_PARAMS,
+     SD_CTRL_SET_VIDEO_DEF_FPS,
+diff --git a/sub/sd_ass.c b/sub/sd_ass.c
+index ece372a..2a9bed3 100644
+--- a/sub/sd_ass.c
++++ b/sub/sd_ass.c
+@@ -1019,6 +1019,29 @@ static int control(struct sd *sd, enum sd_ctrl cmd, void *arg)
+ {
+     struct sd_ass_priv *ctx = sd->priv;
+     switch (cmd) {
++    case SD_CTRL_VSF_REPLACE_ASS: {
++        // Local experiment, not a general subtitle-editing API. In particular,
++        // option-driven decoder rebuilds still restore the original demux data.
++        char *text = arg;
++        if (ctx->is_converted || !ctx->ass_renderer || sd->opts->sub_clear_on_seek ||
++            !sd->opts->ass_enabled || ctx->clear_once ||
++            sd->shared_opts->ass_style_override[sd->order] == ASS_STYLE_OVERRIDE_STRIP)
++            return CONTROL_ERROR;
++        ASS_Track *replacement = ass_read_memory(ctx->ass_library, text, strlen(text), NULL);
++        if (!replacement)
++            return CONTROL_ERROR;
++        if (replacement->track_type != TRACK_TYPE_ASS || replacement->n_styles == 0) {
++            ass_free_track(replacement);
++            return CONTROL_ERROR;
++        }
++        // Parsing succeeds before replacing accepted render data. No library or
++        // renderer destruction: font caches survive, and mpv supplies frame PTS.
++        ass_free_track(ctx->ass_track);
++        ctx->ass_track = replacement;
++        ctx->ass_configured = false;
++        MP_VERBOSE(sd, "VSF preview replaced; renderer retained\n");
++        return CONTROL_OK;
++    }
+     case SD_CTRL_SUB_STEP: {
+         double *a = arg;
+         long long ts = llrint(a[0] * 1000.0);

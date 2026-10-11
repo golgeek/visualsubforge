@@ -1,0 +1,18 @@
+--- a/src/input/decoder.c
++++ b/src/input/decoder.c
+@@ -393,10 +393,14 @@
+      * prev-frame and resumed frames are in the fifo, it's ambiguous which
+      * frames should be flushed vs. retained during a flush operation. */
+     while (owner->frames_countdown == -1
++        && !owner->flushing && !owner->aborting
+         && !decoder_prevframe_IsActive(&owner->video.pf))
+         vlc_fifo_Wait(owner->p_fifo);
+ 
+-    if (decoder_prevframe_IsActive(&owner->video.pf))
++    /* The FIFO wait releases the decoder lock. A seek/stop may have
++     * invalidated this retained picture while the output was waiting. */
++    if (owner->flushing || owner->aborting ||
++        decoder_prevframe_IsActive(&owner->video.pf))
+     {
+         picture_Release(pic);
+         return NULL;

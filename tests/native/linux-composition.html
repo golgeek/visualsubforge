@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+/>
+<title>VSF Linux composition probe</title>
+<style>
+  body {
+    background: #17212c;
+    color: #e6edf3;
+    font: 15px system-ui;
+    margin: 16px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 10px;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+  button,
+  input {
+    font: inherit;
+    padding: 6px 10px;
+  }
+  canvas {
+    width: 100%;
+    height: 110px;
+    background: #101822;
+    display: block;
+  }
+  #status {
+    white-space: pre-wrap;
+    font: 12px monospace;
+  }
+</style>
+<h1>VisualSubForge · Linux composition experiment</h1>
+<nav>
+  <button data-action="toggle">Play / Pause</button>
+  <button data-action="seek:0">Seek 0 s</button>
+  <button data-action="seek:2">Seek 2 s</button>
+  <button data-action="seek:4">Seek 4 s</button>
+  <button data-action="edit">Edit paused subtitle</button>
+  <button data-action="unload">Unload</button>
+  <button data-action="reload">Reload</button>
+  <button data-action="modal">Open native modal</button>
+  <button data-action="close">Close probe</button>
+</nav>
+<label>Focus test <input placeholder="Type café 日本語 here" /></label>
+<p>
+  Decoded peaks from the six-second synthetic file. Click to seek; drag the
+  native divider to resize video.
+</p>
+<canvas id="wave"></canvas>
+<p id="status">Starting native player…</p>
+<script>
+  const peaks = __VSF_PEAKS__;
+  const canvas = document.querySelector('#wave');
+  let position = 0;
+  const post = (action) =>
+    window.webkit.messageHandlers.vsf.postMessage(action);
+  function draw() {
+    const scale = devicePixelRatio,
+      width = canvas.clientWidth,
+      height = canvas.clientHeight;
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const context = canvas.getContext('2d');
+    context.scale(scale, scale);
+    context.strokeStyle = '#68c9b5';
+    context.beginPath();
+    peaks.forEach(([low, high], index) => {
+      const x = (index * width) / peaks.length;
+      context.moveTo(x, height / 2 - high * height * 1.6);
+      context.lineTo(x, height / 2 - low * height * 1.6);
+    });
+    context.stroke();
+    context.strokeStyle = '#ffbc70';
+    context.beginPath();
+    context.moveTo((position / 6) * width, 0);
+    context.lineTo((position / 6) * width, height);
+    context.stroke();
+  }
+  document
+    .querySelectorAll('[data-action]')
+    .forEach((button) => (button.onclick = () => post(button.dataset.action)));
+  canvas.onclick = (event) =>
+    post(
+      `seek:${(6 * (event.clientX - canvas.getBoundingClientRect().left)) / canvas.clientWidth}`,
+    );
+  document.addEventListener('keydown', (event) => {
+    if (
+      event.code === 'Space' &&
+      !['INPUT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement.tagName)
+    ) {
+      event.preventDefault();
+      post('toggle');
+    }
+  });
+  window.updateState = (state) => {
+    position = state.position;
+    document.querySelector('#status').textContent = JSON.stringify(state);
+    draw();
+  };
+  addEventListener('resize', draw);
+  draw();
+</script>

@@ -1,0 +1,45 @@
+--- a/test/src/clock/clock.c
++++ b/test/src/clock/clock.c
+@@ -862,7 +862,42 @@
+     .stream_increment = increment_, \
+     .video_fps = video_fps_
+ 
++static void paused_reset_late_run(const struct clock_ctx *ctx)
++{
++    const vlc_tick_t pause_duration = VLC_TICK_FROM_MS(500);
++    vlc_clock_main_Lock(ctx->mainclk);
++    vlc_clock_main_ChangePause(ctx->mainclk, ctx->system_start, true);
++    vlc_clock_main_Reset(ctx->mainclk);
++    vlc_clock_main_SetFirstPcr(ctx->mainclk, ctx->system_start, ctx->stream_start);
++    vlc_clock_main_Unlock(ctx->mainclk);
++    vlc_clock_Lock(ctx->slave);
++    vlc_tick_t before = vlc_clock_ConvertToSystem(ctx->slave, ctx->system_start + VLC_TICK_FROM_MS(200),
++                                               ctx->stream_start, 1.f, NULL);
++    vlc_clock_Unlock(ctx->slave);
++    fprintf(stderr, "LATE_REFERENCE actual=%lld expected=%lld\n", (long long)before, (long long)ctx->system_start);
++    assert(before == ctx->system_start);
++    vlc_clock_main_Lock(ctx->mainclk);
++    vlc_clock_main_ChangePause(ctx->mainclk, ctx->system_start + pause_duration, false);
++    vlc_clock_main_Unlock(ctx->mainclk);
++    vlc_clock_Lock(ctx->slave);
++    vlc_tick_t after = vlc_clock_ConvertToSystem(ctx->slave, ctx->system_start + pause_duration,
++                                              ctx->stream_start, 1.f, NULL);
++    vlc_clock_Unlock(ctx->slave);
++    fprintf(stderr, "PAUSED_RESET before=%lld after=%lld expected=%lld\n",
++            (long long)before, (long long)after, (long long)(before + pause_duration));
++    assert(after == before + pause_duration);
++}
++
+ static struct clock_scenario clock_scenarios[] = {
++{
++    .name = "paused_reset_late",
++    .desc = "reset during pause preserves the duration applied on resume",
++    .type = CLOCK_SCENARIO_RUN,
++    .run = paused_reset_late_run,
++    .disable_jitter = true,
++    .system_start = VLC_TICK_FROM_MS(100),
++    .stream_start = VLC_TICK_FROM_MS(1000),
++},
+ {
+     .name = "normal",
+     .desc = "normal update has a coeff of 1.0f",

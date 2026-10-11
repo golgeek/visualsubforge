@@ -1,0 +1,38 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -127,6 +127,7 @@
+ # debug
+ option(GGML_ALL_WARNINGS           "ggml: enable all compiler warnings"                   ON)
+ option(GGML_ALL_WARNINGS_3RD_PARTY "ggml: enable all compiler warnings in 3rd party libs" OFF)
++option(GGML_EXCEPTION_BACKTRACE "ggml: install a process-wide C++ terminate handler" ON)
+ option(GGML_GPROF                  "ggml: enable gprof"                                   OFF)
+ 
+ # build
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -216,6 +216,9 @@
+ configure_file(ggml-version.h.in ${CMAKE_CURRENT_BINARY_DIR}/ggml-version.h @ONLY)
+ 
+ target_include_directories(ggml-base PRIVATE . ${CMAKE_CURRENT_BINARY_DIR})
++if (NOT GGML_EXCEPTION_BACKTRACE)
++    target_compile_definitions(ggml-base PRIVATE GGML_NO_EXCEPTION_BACKTRACE)
++endif()
+ if (GGML_BACKEND_DL)
+     target_compile_definitions(ggml-base PUBLIC GGML_BACKEND_DL)
+ endif()
+--- a/src/ggml.cpp
++++ b/src/ggml.cpp
+@@ -3,6 +3,7 @@
+ #include <cstdlib>
+ #include <exception>
+ 
++#ifndef GGML_NO_EXCEPTION_BACKTRACE
+ static std::terminate_handler previous_terminate_handler;
+ 
+ GGML_NORETURN static void ggml_uncaught_exception() {
+@@ -24,3 +25,5 @@
+     std::set_terminate(ggml_uncaught_exception);
+     return true;
+ }();
++
++#endif // GGML_NO_EXCEPTION_BACKTRACE

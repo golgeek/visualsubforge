@@ -1,0 +1,181 @@
+--- a/src/input/decoder.c
++++ b/src/input/decoder.c
+@@ -53,6 +53,7 @@
+ #include "decoder.h"
+ #include "resource.h"
+ #include "decoder_prevframe.h"
++#include "audio_preroll.h"
+ 
+ #include "../libvlc.h"
+ 
+@@ -221,6 +222,7 @@
+     /* -- Theses variables need locking on read *and* write -- */
+     /* Preroll */
+     vlc_tick_t i_preroll_end;
++    vlc_tick_t audio_preroll_target; /* FIFO lock; reset by decoder flush. */
+ 
+ #define PREROLL_NONE   VLC_TICK_MIN
+ #define PREROLL_FORCED VLC_TICK_MAX
+@@ -1661,6 +1663,13 @@
+         return VLC_SUCCESS;
+     }
+ 
++    if (!vlc_audio_preroll_Trim(p_audio, &p_dec->fmt_out.audio,
++                                p_owner->audio_preroll_target))
++    {
++        block_Release(p_audio);
++        return VLC_SUCCESS;
++    }
++
+     bool prerolled = p_owner->i_preroll_end != PREROLL_NONE;
+     if( prerolled && p_owner->i_preroll_end > p_audio->i_pts )
+     {
+@@ -1676,6 +1685,8 @@
+ 
+         vlc_aout_stream_Flush( p_astream );
+     }
++
++    p_owner->audio_preroll_target = VLC_TICK_INVALID;
+ 
+     int ret = DecoderWaitUnblock(p_owner, p_audio->i_pts);
+     if (ret != VLC_SUCCESS)
+@@ -1857,6 +1868,12 @@
+         if( frame->i_buffer <= 0 )
+             goto error;
+ 
++        if (p_owner->cat == AUDIO_ES)
++        {
++            struct vlc_ancillary *target = vlc_frame_GetAncillary(frame, VLC_INPUT_AUDIO_PREROLL);
++            if (target != NULL)
++                p_owner->audio_preroll_target = *(const vlc_tick_t *) vlc_ancillary_GetData(target);
++        }
+         DecoderUpdatePreroll( &p_owner->i_preroll_end, frame );
+         if( unlikely( frame->i_flags & BLOCK_FLAG_CORE_PRIVATE_RELOADED ) )
+         {
+@@ -2014,6 +2031,7 @@
+             p_owner->flushing = false;
+             p_owner->out_started = false;
+             p_owner->i_preroll_end = PREROLL_NONE;
++            p_owner->audio_preroll_target = VLC_TICK_INVALID;
+             continue;
+         }
+ 
+@@ -2181,6 +2199,7 @@
+     p_dec = &p_owner->dec;
+ 
+     p_owner->psz_id = cfg->str_id;
++    p_owner->audio_preroll_target = VLC_TICK_INVALID;
+     p_owner->p_clock = cfg->clock;
+     p_owner->i_preroll_end = PREROLL_NONE;
+     p_owner->p_resource = cfg->resource;
+@@ -2856,6 +2875,7 @@
+         vlc_fifo_Lock(p_owner->p_fifo);
+         p_owner->flushing = false;
+         p_owner->i_preroll_end = PREROLL_NONE;
++        p_owner->audio_preroll_target = VLC_TICK_INVALID;
+         vlc_fifo_Unlock(p_owner->p_fifo);
+     }
+ }
+--- a/src/input/es_out.c
++++ b/src/input/es_out.c
+@@ -49,6 +49,7 @@
+ #include "../clock/input_clock.h"
+ #include "../clock/clock.h"
+ #include "decoder.h"
++#include "audio_preroll.h"
+ #include "es_out.h"
+ #include "event.h"
+ #include "resource.h"
+@@ -3207,6 +3208,32 @@
+         block_Release( p_block );
+         vlc_mutex_unlock( &p_sys->lock );
+         return VLC_SUCCESS;
++    }
++
++    /* Preserve the exact audio target across the decoder FIFO. The decoder
++     * reads this before packetization, whose modules may discard ancillary data.
++     * The frame owns a reference; a flush releases it with the queued packet.
++     */
++    if (es->fmt.i_cat == AUDIO_ES && p_sys->i_preroll_end >= 0 && es->p_dec)
++    {
++        vlc_tick_t *target = malloc(sizeof(*target));
++        struct vlc_ancillary *ancillary = NULL;
++        if (target != NULL)
++        {
++            *target = p_sys->i_preroll_end;
++            ancillary = vlc_ancillary_Create(target, VLC_INPUT_AUDIO_PREROLL);
++            if (ancillary == NULL)
++                free(target);
++        }
++        int ret = ancillary ? vlc_frame_AttachAncillary(p_block, ancillary) : VLC_ENOMEM;
++        if (ancillary != NULL)
++            vlc_ancillary_Release(ancillary);
++        if (ret != VLC_SUCCESS)
++        {
++            block_Release(p_block);
++            vlc_mutex_unlock(&p_sys->lock);
++            return ret;
++        }
+     }
+ 
+     /* Mark preroll blocks */
+--- /dev/null
++++ b/src/input/audio_preroll.h
+@@ -0,0 +1,57 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later
++ * Experimental input-core audio preroll metadata and decoded PCM trimming.
++ */
++#ifndef VLC_INPUT_AUDIO_PREROLL_H
++#define VLC_INPUT_AUDIO_PREROLL_H
++#include <vlc_common.h>
++#include <vlc_aout.h>
++#include <vlc_frame.h>
++
++#define VLC_INPUT_AUDIO_PREROLL VLC_ANCILLARY_ID('v', 's', 'p', 'r')
++
++/* Return false when this entire PCM block is before the target or malformed.
++ * The caller retains ownership and releases a rejected block. Unsupported
++ * passthrough formats retain their existing behavior; no precision is claimed.
++ * Caller holds the decoder FIFO lock. Only the payload view is advanced;
++ * the frame's allocation/release callback remains unchanged.
++ */
++static inline bool
++vlc_audio_preroll_Trim(vlc_frame_t *frame, const audio_sample_format_t *fmt,
++                      vlc_tick_t target)
++{
++    if (target == VLC_TICK_INVALID || frame->i_pts >= target || !AOUT_FMT_LINEAR(fmt))
++        return true;
++    if (frame->i_pts == VLC_TICK_INVALID || fmt->i_rate == 0 ||
++        fmt->i_frame_length != 1 || fmt->i_bytes_per_frame == 0 ||
++        frame->i_nb_samples == 0 ||
++        frame->i_nb_samples > frame->i_buffer / fmt->i_bytes_per_frame)
++        return false;
++
++    /* Split before multiplying, including for hostile/extreme timestamps.
++     * Round to the nearest sample, with exact ties forward, matching the
++     * editor transport contract (at most half a sample of quantization).
++     */
++    const uint64_t delta = (uint64_t) target - (uint64_t) frame->i_pts;
++    const uint64_t seconds = delta / CLOCK_FREQ;
++    if (seconds > frame->i_nb_samples / fmt->i_rate)
++        return false;
++    const uint64_t samples = seconds * fmt->i_rate +
++        ((delta % CLOCK_FREQ) * fmt->i_rate + CLOCK_FREQ / 2) / CLOCK_FREQ;
++    if (samples >= frame->i_nb_samples || samples > frame->i_buffer / fmt->i_bytes_per_frame)
++        return false;
++
++    const size_t bytes = samples * fmt->i_bytes_per_frame;
++    const vlc_tick_t advance = vlc_tick_from_samples(samples, fmt->i_rate);
++    if (frame->i_pts > VLC_TICK_MAX - advance ||
++        (frame->i_dts != VLC_TICK_INVALID && frame->i_dts > VLC_TICK_MAX - advance))
++        return false;
++    frame->p_buffer += bytes;
++    frame->i_buffer -= bytes;
++    frame->i_nb_samples -= samples;
++    frame->i_pts += advance;
++    if (frame->i_dts != VLC_TICK_INVALID)
++        frame->i_dts += advance;
++    frame->i_length = vlc_tick_from_samples(frame->i_nb_samples, fmt->i_rate);
++    return true;
++}
++#endif

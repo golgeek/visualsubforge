@@ -1,0 +1,14 @@
+--- a/src/clock/clock.c
++++ b/src/clock/clock.c
+@@ -677,6 +677,11 @@
+      && ctx == main_clock->context
+      && main_clock->first_pcr.system != VLC_TICK_INVALID)
+     {
++        /* References built during pause use the frozen pause date, just
++         * like the input PCR reference. Resume will shift both together. */
++        if (main_clock->paused && main_clock->pause_date != VLC_TICK_INVALID)
++            now = main_clock->pause_date;
++
+         /* XXX: This input_delay calculation is needed until we (finally) get
+          * ride of the input clock. This code is adapted from input_clock.c and
+          * is used to introduce the same delay than the input clock (first PTS

@@ -1,0 +1,193 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>VSF Windows composition probe</title>
+<style>
+  html {
+    /* Changing diagnostic text must not toggle the video area's width. */
+    overflow-y: scroll;
+  }
+  body {
+    margin: 16px;
+    background: #17212c;
+    color: #e6edf3;
+    font: 15px system-ui;
+  }
+  h1 {
+    font-size: 19px;
+    margin: 0 0 10px;
+  }
+  #viewport {
+    height: min(42vh, 300px);
+    overflow: hidden;
+    background: black;
+  }
+  #video {
+    height: min(42vh, 300px);
+  }
+  #viewport.clipped {
+    height: 110px;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+  button,
+  input {
+    font: inherit;
+    padding: 6px 10px;
+  }
+  canvas {
+    width: 100%;
+    height: 110px;
+    background: #101822;
+    display: block;
+  }
+  #waveform {
+    position: relative;
+    overflow: hidden;
+  }
+  #playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #ffbc70;
+    pointer-events: none;
+  }
+  #status {
+    font: 12px monospace;
+    white-space: pre-wrap;
+  }
+  dialog {
+    background: #223244;
+    color: white;
+    border: 1px solid #6f8398;
+  }
+  dialog::backdrop {
+    background: #0009;
+  }
+</style>
+<h1>VisualSubForge · Windows composition experiment</h1>
+<div id="viewport"><div id="video"></div></div>
+<nav>
+  <button data-action="toggle">Play / Pause</button>
+  <button data-action="seek0">Seek 0 s</button>
+  <button data-action="seek2">Seek 2 s</button>
+  <button data-action="seek4">Seek 4 s</button>
+  <button data-action="edit">Edit paused subtitle</button>
+  <button data-action="unload">Unload</button>
+  <button data-action="reload">Reload</button>
+  <button id="clip">Toggle clipping</button>
+  <button id="modal">Open modal</button>
+  <button data-action="close">Close probe</button>
+</nav>
+<label>Focus test <input placeholder="Type café 日本語 here" /></label>
+<p>
+  Waveform: decoded peaks from the six-second synthetic media file. Click to
+  seek.
+</p>
+<div id="waveform">
+  <canvas id="wave"></canvas>
+  <div id="playhead"></div>
+</div>
+<p id="status">Starting native player…</p>
+<dialog id="dialog">
+  <p>WebView modal · native video is temporarily hidden.</p>
+  <input placeholder="Modal focus test" /><button id="dismiss">Dismiss</button>
+</dialog>
+<script>
+  const peaks = __VSF_PEAKS__;
+  const bridge = window.chrome.webview;
+  const video = document.querySelector('#video'),
+    viewport = document.querySelector('#viewport');
+  const canvas = document.querySelector('#wave'),
+    playhead = document.querySelector('#playhead'),
+    dialog = document.querySelector('#dialog');
+  let position = 0;
+  let rendered = '';
+  function post(action, extra = {}) {
+    bridge.postMessage({ action, ...extra });
+  }
+  function rectangle(r) {
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }
+  function layout() {
+    post('bounds', {
+      video: rectangle(video.getBoundingClientRect()),
+      clip: rectangle(viewport.getBoundingClientRect()),
+      hidden: dialog.open,
+    });
+    draw();
+  }
+  function draw() {
+    const scale = devicePixelRatio,
+      width = canvas.clientWidth,
+      height = canvas.clientHeight;
+    const signature = `${scale}:${width}:${height}`;
+    // Peaks are immutable in this fixture. The playhead is a separate element;
+    // only size/DPI changes invalidate the waveform canvas.
+    if (signature === rendered) return;
+    const pixelWidth = Math.round(width * scale),
+      pixelHeight = Math.round(height * scale);
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    const context = canvas.getContext('2d');
+    context.setTransform(scale, 0, 0, scale, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.strokeStyle = '#68c9b5';
+    context.beginPath();
+    peaks.forEach(([low, high], i) => {
+      const x = (i * width) / peaks.length;
+      context.moveTo(x, height / 2 - high * height * 1.6);
+      context.lineTo(x, height / 2 - low * height * 1.6);
+    });
+    context.stroke();
+    rendered = signature;
+  }
+  document
+    .querySelectorAll('[data-action]')
+    .forEach((button) =>
+      button.addEventListener('click', () => post(button.dataset.action)),
+    );
+  document.querySelector('#clip').onclick = () => {
+    viewport.classList.toggle('clipped');
+    layout();
+  };
+  document.querySelector('#modal').onclick = () => {
+    dialog.showModal();
+    layout();
+  };
+  document.querySelector('#dismiss').onclick = () => dialog.close();
+  dialog.onclose = layout;
+  canvas.onclick = (event) =>
+    post('seek', {
+      seconds:
+        (6 * (event.clientX - canvas.getBoundingClientRect().left)) /
+        canvas.clientWidth,
+    });
+  document.addEventListener('keydown', (event) => {
+    if (
+      event.code === 'Space' &&
+      !['INPUT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement.tagName)
+    ) {
+      event.preventDefault();
+      post('toggle');
+    }
+  });
+  bridge.addEventListener('message', (event) => {
+    const state = event.data;
+    if (state.position !== null && state.position !== undefined)
+      position = state.position;
+    playhead.style.left = `${(position / 6) * 100}%`;
+    const status = document.querySelector('#status'),
+      text = JSON.stringify(state);
+    if (status.textContent !== text) status.textContent = text;
+    draw();
+  });
+  new ResizeObserver(layout).observe(viewport);
+  addEventListener('resize', layout);
+  addEventListener('scroll', layout);
+  layout();
+</script>

@@ -1,0 +1,50 @@
+{
+  "upstream_commit": "c1529642089bfebfc928a1c1664638a7a5d219ba",
+  "patches": [
+    {
+      "file": "0001-queued-audio-timeline.patch",
+      "sha256": "ea4a31a61550054696a5bc3d3931245fef44c822cc1be71de5b7519c6bf5517f",
+      "description": "Map output delay through bounded queued source intervals, preserving loop discontinuities and unknown timestamps; includes unit coverage."
+    },
+    {
+      "file": "0002-pull-output-pause-and-drain.patch",
+      "sha256": "43c38a14212c89910e8d4968450305fbc9c26a6c2eaead96824c7b316d1e6f5e",
+      "description": "Account for pending device audio, freeze paused delay, preserve clock access during decoder restarts, and avoid draining on user pause."
+    },
+    {
+      "file": "0003-avfoundation-queued-restart.patch",
+      "sha256": "4f6dd5478eae2650fa67af8bef3dfa11ee41838cce3d810e83c2b71d4698eee0",
+      "description": "Preserve the AVFoundation queued sample timeline on source underrun; invalidate it only on flush."
+    },
+    {
+      "file": "0004-output-replacement-refresh.patch",
+      "sha256": "fc5ed9a677f4843ef791efe7c838e4e44b72f34d44d394ec1b97b05c2253c5bb",
+      "description": "Refresh seekable sources before replacing an output that discards queued samples; preserve pending user seeks."
+    },
+    {
+      "file": "0005-pcm-sample-boundaries.patch",
+      "sha256": "1297a797e652aaa1219a2d8a3b943869568ceb14c9ac963a402d3e438679cb94",
+      "description": "Round both PCM range endpoints to nearest samples, with forward half ties; includes boundary tests."
+    },
+    {
+      "file": "0006-local-capability-marker.patch",
+      "sha256": "8eac97777fe137411aff78488dfed0554152725d9379f63d6da6ac5f639c067c",
+      "description": "Local read-only capability for VSF opt-in integration; keep separate from potential upstream patches."
+    },
+    {
+      "file": "0007-preserve-exact-seek-loop-decision.patch",
+      "sha256": "ac21559ecc6655f0b5a7d1a1f7d8c2c8313854c7ac4c053ba6b76972388dba3f",
+      "description": "Preserve exact-seek loop eligibility through playback restart, where rounded audio endpoints may already have drained; keep resolved-position checks for approximate seeks."
+    },
+    {
+      "file": "0008-drain-wakeup.patch",
+      "sha256": "4e764eaec55cbc92d304f0b8450fa8c20f8cd92db02a98151bf83da422c043d3",
+      "description": "Schedule EOF wakeups only for consumed pull queues awaiting presentation; preserve push-output completion notifications instead of polling zero delay."
+    },
+    {
+      "file": "0009-coreaudio-channel-layout.patch",
+      "sha256": "f330837c74472e426fa937e6412c48b7ddafd60e41160bafe3a94b67efb6b788",
+      "description": "Pass AudioChannelLayout to the matching input-scope AudioUnit property; restore mono CoreAudio initialization and preserve stereo channel identity."
+    }
+  ]
+}

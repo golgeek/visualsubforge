@@ -1,0 +1,92 @@
+--- a/audio/out/ao_wasapi.c
++++ b/audio/out/ao_wasapi.c
+@@ -18,6 +18,7 @@
+  */
+ 
+ #include <math.h>
++#include "audio/format.h"
+ #include <inttypes.h>
+ #include <libavutil/mathematics.h>
+ 
+@@ -72,6 +73,11 @@
+                    "Ignoring it.\n", qpc_diff / 10000000.0);
+     }
+ 
++    MP_WARN(state, "VSF_DELAY now_ns=%"PRId64" written=%"PRIu64
++            " position=%"PRIu64" frequency=%"PRIu64" qpc_100ns=%"PRIu64
++            " qpc_diff_100ns=%"PRId64" delay_ns=%.3f\n",
++            mp_time_ns(), sample_count, position, state->clock_frequency,
++            qpc_position, qpc_diff, *delay_ns);
+     if (sample_count > 0 && *delay_ns <= 0) {
+         MP_WARN(state, "Under-run: Device delay: %g ns\n", *delay_ns);
+     } else {
+@@ -130,9 +136,35 @@
+ 
+     BYTE *data[1] = {pData};
+ 
++    int64_t predicted_end = mp_time_ns() + (int64_t)llrint(delay_ns);
+     ao_read_data_converted(ao, &state->convert_format,
+-                           (void **)data, frame_count,
+-                           mp_time_ns() + (int64_t)llrint(delay_ns));
++                           (void **)data, frame_count, predicted_end);
++    // External diagnostic only: classify the synthetic stereo float fixture
++    // immediately before handing this buffer to WASAPI. No clock correction.
++    if (ao->format == AF_FORMAT_FLOAT && state->format.Format.nChannels == 2 &&
++        state->format.Format.wBitsPerSample == 32) {
++        const float *probe = (const float *)pData;
++        double first = 0, last = 0, power = 0;
++        unsigned crossings = 0;
++        for (UINT32 i = 0; i < frame_count; i++) {
++            double value = probe[2 * i];
++            power += value * value;
++            if (i && probe[2 * (i - 1)] <= 0 && value > 0) {
++                double previous = probe[2 * (i - 1)];
++                double crossing = i - 1 - previous / (value - previous);
++                if (!crossings) first = crossing;
++                last = crossing;
++                crossings++;
++            }
++        }
++        double hz = crossings > 2 ? (crossings - 1) *
++            state->format.Format.nSamplesPerSec / (last - first) : 0;
++        MP_WARN(state, "VSF_FEED now_ns=%"PRId64" end_ns=%"PRId64
++                " written=%"PRIu64" frames=%"PRIu32" padding=%"PRIu32
++                " rms=%.9f hz=%.9f\n", mp_time_ns(), predicted_end,
++                (uint64_t)atomic_load(&state->sample_count), frame_count,
++                padding, sqrt(power / frame_count), hz);
++    }
+ 
+     // note, we can't use ao_read_data return value here since we already
+     // committed to frame_count above in the GetBuffer call
+@@ -272,8 +304,23 @@
+     return 0;
+ }
+ 
++static void vsf_clock_bracket(struct ao *ao, int phase)
++{
++    LARGE_INTEGER frequency, before, after;
++    if (!QueryPerformanceFrequency(&frequency)) return;
++    for (int i = 0; i < 8; i++) {
++        if (!QueryPerformanceCounter(&before)) return;
++        int64_t mp_ns = mp_time_ns();
++        if (!QueryPerformanceCounter(&after)) return;
++        MP_WARN(ao, "VSF_CLOCK_BRACKET phase=%d qpc_before=%lld qpc_after=%lld frequency=%lld mp_ns=%"PRId64"\n",
++                phase, (long long)before.QuadPart, (long long)after.QuadPart,
++                (long long)frequency.QuadPart, mp_ns);
++    }
++}
++
+ static void uninit(struct ao *ao)
+ {
++    vsf_clock_bracket(ao, 1);
+     MP_DBG(ao, "Uninit wasapi\n");
+     struct wasapi_state *state = ao->priv;
+     if (state->hWake && state->hUserWake)
+@@ -301,6 +348,7 @@
+ 
+ static int init(struct ao *ao)
+ {
++    vsf_clock_bracket(ao, 0);
+     MP_DBG(ao, "Init wasapi\n");
+     CoInitializeEx(NULL, COINIT_MULTITHREADED);
+ 

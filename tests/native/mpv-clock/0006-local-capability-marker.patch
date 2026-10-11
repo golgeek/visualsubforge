@@ -1,0 +1,43 @@
+diff --git a/player/command.c b/player/command.c
+index 91bf5cf..429ecaa 100644
+--- a/player/command.c
++++ b/player/command.c
+@@ -3743,6 +3743,13 @@ static int mp_property_version(void *ctx, struct m_property *prop,
+     return m_property_strdup_ro(action, arg, mpv_version);
+ }
+ 
++// Local experiment capability, not an upstream API or timing guarantee.
++static int mp_property_vsf_audio_clock(void *ctx, struct m_property *prop,
++                                      int action, void *arg)
++{
++    return m_property_strdup_ro(action, arg, "1");
++}
++
+ static int mp_property_configuration(void *ctx, struct m_property *prop,
+                                      int action, void *arg)
+ {
+@@ -4541,6 +4548,7 @@ static const struct m_property mp_properties_base[] = {
+     {"input-key-list", mp_property_keylist},
+ 
+     {"mpv-version", mp_property_version},
++    {"vsf-audio-clock-version", mp_property_vsf_audio_clock},
+     {"mpv-configuration", mp_property_configuration},
+     {"ffmpeg-version", mp_property_ffmpeg},
+     {"libass-version", mp_property_libass_version},
+diff --git a/test/libmpv_test_options.c b/test/libmpv_test_options.c
+index 8066638..5d9e067 100644
+--- a/test/libmpv_test_options.c
++++ b/test/libmpv_test_options.c
+@@ -72,6 +72,12 @@ static void set_options_and_properties(const char *options[], const char *proper
+ // have the expected values.
+ static void test_options_and_properties(void)
+ {
++    check_string("vsf-audio-clock-version", "1");
++    const char *clock_version = "2";
++    if (mpv_set_property(ctx, "vsf-audio-clock-version", MPV_FORMAT_STRING,
++                         &clock_version) >= 0)
++        fail("Experimental clock capability must be read-only\n");
++
+     // Order matters. string -> flag -> int -> double (repeat)
+     // One for set_option the other for set_property
+     const char *options[] = {

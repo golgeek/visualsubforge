@@ -1,0 +1,6 @@
+{
+  "upstream_commit": "41f6a645068483470267271e1d09966ca3b9f413",
+  "patch": "0001-preview-replacement.patch",
+  "sha256": "e91558006a329bff43dbc3c040c29ad19f2860bf2c5910406d2bfa5cc916f0c5",
+  "status": "experiment; not included in the audio-clock series"
+}
