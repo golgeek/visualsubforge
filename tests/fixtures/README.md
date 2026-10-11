@@ -1,5 +1,8 @@
 # Synthetic media fixtures — task 003a
 
+The [resynchronization corpus](resync/README.md) adds independently generated edit
+maps for matching programme blocks across ad edits, trims and frame-rate changes.
+
 Use [current status](../../docs/status.md) for today's implementation and validation
 limits. Task-numbered sections below retain dated experiments; links into local
 untracked research may be unavailable in a fresh checkout. Fixture generation
