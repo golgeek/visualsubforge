@@ -14,7 +14,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | The v4 verifier passes the 29-case combined synthetic corpus and both reference films on Mac, including periodic-motion coverage and ambiguous-edit controls. Latest Windows/Linux execution remains pending. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native interaction remains open. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | The v4 verifier passes the 29-case combined synthetic corpus and both reference films on Mac, including periodic-motion coverage and ambiguous-edit controls. The same 29 synthetic cases and shared-operation tests pass on Ubuntu/Windows ARM64. GUI proposal review/acceptance is implemented with modeled-browser checks; actual native interaction remains open. |
 | Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | Actual GUI/native integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow passes modeled-browser checks; native integration validation remains. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
@@ -34,8 +34,13 @@ Whole-cycle deletions in the first/last shot remain unresolved; same-duration
 (animated coverage 97.9%; live action 96.6%, worst accepted endpoint error 5.385 ms).
 The 165 ordinary workspace tests, strict Clippy and twelve explicitly invoked
 FFmpeg integrations pass. The new EOF tests cover short clips, nonzero origins
-and a longer audio track that supplies no video-edge evidence. Latest VM execution
-and the actual native GUI walkthrough remain pending. These sampled heuristics
+and a longer audio track that supplies no video-edge evidence. At `921181c`,
+Ubuntu/Windows ARM64 pass 167/160 ordinary tests, the same twelve integrations,
+all 29 combined cases, three evaluator-oracle tests and strict Clippy. All 369
+tracked files are hash-verified. Native v4 compilation and a separate local
+bundle are ready; the actual GUI walkthrough remains pending. The acceptance
+audit also retains the planned real-app automation lane and preparation IO
+failure injection as unfinished checks. These sampled heuristics
 do not guarantee detection of visually indistinguishable edits.
 
 The following results describe the preceding committed v3 implementation:

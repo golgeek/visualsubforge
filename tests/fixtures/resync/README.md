@@ -316,4 +316,9 @@ cargo run --locked -p media-analysis --example resync-evaluate -- tests/fixtures
 ```
 
 The evaluator and shared CLI/GUI operation use the same verifier and EOF observer.
-These Mac results do not claim Windows/Linux execution of v4 or native playback.
+At source `921181c`, the same 29 combined synthetic cases pass on Ubuntu ARM64
+with FFmpeg 8.0.1 and Windows ARM64 with FFmpeg 9.0.2. Periodic-motion coverage
+and the new abstention controls agree with the Mac results. Receipts and the
+linked, completed commands are in `resync/platform-validation-v4-fresh/` and
+`resync/platform-validation-v4-completion/`. Both reference-film evaluations
+remain Mac evidence; no native playback or hosted CI result is claimed.

@@ -410,4 +410,47 @@ short video, positive origins and audio that outlasts video. Exact command outpu
 is retained in `tests/fixtures/generated/resync/validation-v4-*.log`.
 All 29 combined extended/robustness cases and both reference-film corpora pass;
 see the corpus record for coverage, timing errors and abstention controls.
-Latest Windows/Linux and actual native GUI validation remain pending.
+The v4 source at `921181c` also passes on Ubuntu 26.04 ARM64 (167 ordinary
+tests) and Windows 11 ARM64 (160). Both run all twelve integrations, three
+evaluator-oracle tests, the 29-case combined corpus and strict workspace Clippy.
+The complete 369-file source manifest matches before execution. The first
+transfer retained epoch timestamps and caused stale Cargo reuse; refreshing
+changed-file mtimes fixed that harness issue. A separate driver output-name
+collision stopped before evaluation; only the remaining evaluation/Clippy steps
+were resumed after verifying the terminal process and unchanged source. Failed
+receipts are preserved, not counted as passing product checks.
+
+Exact completed commands are in ignored `resync/platform-validation-v4-fresh/`;
+its completed checks are linked by receipt SHA-256 from
+`resync/platform-validation-v4-completion/`, which holds final evaluation/Clippy
+results. Original harness failures remain in `resync/platform-validation-v4/`.
+Windows was restored to paused with idle pausing on; Ubuntu stayed running.
+The selected Mac native no-bundle build and ad-hoc local bundle verification pass.
+The new bundle is `/tmp/vsf-resync-v4-native/VisualSubForge.app`; the previous
+running bundle was preserved. These are build checks, not native interaction.
+
+## Remaining first-release acceptance checks
+
+- Add the planned default Tauri real-app automation lane: exercise actual IPC,
+  editing/Undo, failed save, successful save/reopen and recovery without command
+  mocks. Existing browser fixtures model IPC, while backend owner tests bypass
+  a live webview; neither proves that complete boundary.
+- Add focused preparation write/sync failure injection. Current persistence
+  tests cover abandoned temporaries, invalid paths, publication collisions and
+  crash boundaries, but do not force `write_all`/`sync_all` failures themselves.
+- Complete the actual native resync review, acceptance, Undo/Redo, protected Save
+  As and save-before-project/reopen walkthrough, checking fixture hashes and
+  resulting timestamps. The Mac remains locked at the latest interaction attempt.
+
+The WebdriverIO route was evaluated against the current
+[Tauri guide](https://v2.tauri.app/develop/tests/webdriver/) and
+[plugin setup](https://webdriver.io/docs/desktop-testing/tauri/plugin-setup).
+The published embedded plugin `tauri-plugin-wdio-webdriver` 1.5.0 supplies a
+loopback WebDriver server and standard script/element operations; the broader
+Tauri service adds separate plugins for logging/backend helpers and mocking.
+A compatibility trial must keep test instrumentation behind an explicit optional
+feature and out of normal builds, isolate test app data, and leave IPC unmocked.
+No driver dependency or test plugin has yet been adopted. File-selection seams
+would not establish native-dialog coverage, and virtual-display execution would
+not establish native GPU/audio performance. Hosted/x64 CI still requires an
+available remote/runner; no such execution is claimed here.
