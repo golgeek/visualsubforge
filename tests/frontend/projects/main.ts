@@ -21,10 +21,14 @@ let projectSaveError: string | null = null;
 let chosenPath: string | null = '/work.vsfproject';
 let occluded = false;
 let loadingPolls = 0;
+let holdSceneCompletion = false;
 const calls: string[] = [];
 const saves: Record<string, unknown>[] = [];
 const callbacks = new Map<number, (value: unknown) => void>();
 let eventHandler = 0;
+const observeAfterSceneCompletion = new URLSearchParams(location.search).has(
+  'observeAfterSceneCompletion',
+);
 // Delay the actual IPC registration response, independent of module loading.
 const registration = new URLSearchParams(location.search).has('delayListener')
   ? new Promise<void>((resolve) => {
@@ -73,6 +77,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction;
         handler?: number;
+        generation?: number;
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
       },
@@ -115,16 +120,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return 4;
         case 'scenes_view':
           return {
-            generation: 4,
-            mode: 'visual',
-            scanning: null,
-            running: false,
+            generation: args.generation,
+            mode: holdSceneCompletion ? null : 'visual',
+            scanning: holdSceneCompletion ? 'visual' : null,
+            running: holdSceneCompletion,
             error: null,
-            total: 2,
+            total: holdSceneCompletion ? 0 : 2,
             truncated: false,
-            cuts: [1, 20],
-            previous: 1,
-            next: 20,
+            cuts: holdSceneCompletion ? [] : [1, 20],
+            previous: holdSceneCompletion ? null : 1,
+            next: holdSceneCompletion ? null : 20,
           };
         case 'scenes_start':
           return 99;
@@ -227,6 +232,32 @@ async function run() {
       'dialog[aria-labelledby="project-save-failure-title"][open]',
     );
   }
+  async function restoreProject() {
+    const attachments = calls.filter(
+      (call) => call === 'project_attach',
+    ).length;
+    menuAction('openProject');
+    if (
+      observeAfterSceneCompletion &&
+      project.scenes?.mode === 'keyframes' &&
+      !holdSceneCompletion
+    ) {
+      // Model a busy event loop: the new scan can replace the restoration
+      // notice before the harness gets its next turn to observe the UI.
+      await until(
+        () =>
+          host.querySelector('footer [role="status"]')?.textContent ===
+          '2 visual cuts',
+      );
+    }
+    // Status notices can be replaced by background analysis. Attachment plus
+    // an idle workspace proves this open completed, even after that message.
+    await until(
+      () =>
+        calls.filter((call) => call === 'project_attach').length >
+          attachments && workspaceReady(),
+    );
+  }
   async function freshProject() {
     await unmount(app);
     menuState = undefined;
@@ -240,18 +271,11 @@ async function run() {
     saves.length = 0;
     app = mount(App, { target: host });
     await until(workspaceReady);
-    menuAction('openProject');
-    await until(
-      () =>
-        !!host.textContent?.includes('Project restored') ||
-        !!host.textContent?.includes('keyframe markers skipped'),
-    );
-    await until(() => !menuState?.busy);
+    await restoreProject();
   }
   try {
     await until(workspaceReady);
-    menuAction('openProject');
-    await until(() => !!host.textContent?.includes('Project restored'));
+    await restoreProject();
     await until(() => calls.includes('scenes_view'));
     assert(
       media.positionSeconds === 12.5 &&
@@ -311,9 +335,12 @@ async function run() {
     );
     failOpen = false;
     project.scenes!.mode = 'keyframes';
+    // Keep the new visual scan incomplete while asserting that old keyframes
+    // are hidden. Fast polling must not turn this into a check of fresh cuts.
+    holdSceneCompletion = true;
     const restores = calls.filter((c) => c === 'scenes_restore').length;
-    menuAction('openProject');
-    await until(() => !!host.textContent?.includes('keyframe markers skipped'));
+    await restoreProject();
+    await until(() => !!menuState?.scenesRunning);
     assert(
       calls.filter((c) => c === 'scenes_restore').length === restores &&
         calls.includes('scenes_start') &&
@@ -322,6 +349,7 @@ async function run() {
         doc.loaded,
       'Legacy project ignores cached keyframes and starts fresh visual analysis',
     );
+    holdSceneCompletion = false;
     callbacks.get(eventHandler)!({ payload: 'quit' });
     await until(() => calls.includes('finish_exit'));
     assert(
@@ -452,8 +480,7 @@ async function run() {
       );
       restoreFailure = null;
       await until(() => !menuState?.busy);
-      menuAction('openProject');
-      await until(() => !!host.textContent?.includes('Project restored'));
+      await restoreProject();
       assert(
         calls.includes('project_attach') &&
           media.positionSeconds === 12.5 &&

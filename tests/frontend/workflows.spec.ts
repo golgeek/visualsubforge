@@ -74,6 +74,14 @@ test('projects waits for delayed workspace listener registration', async ({
   });
 });
 
+test('projects remain ready after scene completion replaces the restore notice', async ({
+  page,
+}) => {
+  await verifyChecks(page, () =>
+    page.goto('/tests/frontend/projects/?observeAfterSceneCompletion'),
+  );
+});
+
 // Negative controls prove a green runner requires real, complete passing rows.
 test('runner rejects a FAIL row despite a passing heading', async ({
   page,

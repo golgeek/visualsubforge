@@ -3,6 +3,9 @@
 `v0.0.1-alpha` is in preparation and has not been published. Release builds are
 to run on GitHub Actions, including native media dependencies. The repository
 remains private; releases will initially be available to its collaborators.
+The user confirmed on 2026-10-11 that publication must wait for packages on all
+three platforms: macOS, Windows and Linux. Successful Mac validation artifacts
+do not authorize a macOS-only release.
 
 The intended macOS matrix has separate Apple Silicon and Intel artifacts. Aim
 for macOS 14 compatibility and audit every included Mach-O deployment target;
@@ -34,6 +37,19 @@ licenses. Distributable artifacts need notices and the corresponding source and
 build instructions for the actual bundled dependencies; a package-manager
 license name alone is not that inventory.
 
+## Remaining release work
+
+These are implementation and validation tasks, not unanswered credential or
+license-selection questions. The original-code license and Apple credentials
+are already settled.
+
+| Work | Required evidence before publication |
+| --- | --- |
+| Dependency inventory | Identify the actual bundled native, Rust and frontend dependencies; retain their versions, licenses, notices, matching sources, patches and build recipes alongside artifact hashes. Audit the package contents, not only the development dependency list. |
+| Windows and Linux packages | Build the native runtime and analysis tools on GitHub Actions, package their required dependencies, and declare the supported OS/architecture and installation flow. Current shell/CLI CI is not package support. |
+| Installation and runtime | Install the actual artifacts on clean supported environments, then check offline startup, media playback/seeking/audio, subtitle preview, waveform/scene analysis, GUI/CLI resync, save/reopen and shutdown. Record which tests use VMs and which use real GPU/audio devices. |
+| Publication | Require green checks for the release revision and archive the package/source/checksum evidence for all three platforms before publishing the private prerelease. |
+
 ## Validation so far (2026-10-11)
 
 - Hosted native contracts at [`a222eda`](https://github.com/golgeek/visualsubforge/actions/runs/38171415744): all six jobs passed, including all three
@@ -44,6 +60,15 @@ license name alone is not that inventory.
   Ubuntu, and all 30 modeled browser checks. Earlier browser-coordinate and
   Windows fixture-path failures are corrected; the earlier Mac artifact-upload
   DNS failure did not recur in this run.
+- At [`37b661b`](https://github.com/golgeek/visualsubforge/actions/runs/38173751167),
+  nine jobs pass but WebKit's project fixture times out (29/30 browser cases
+  pass). A completed automatic scene scan replaces the transient project-restored
+  notice before the test observes it. A controlled delayed-observation case
+  reproduces the failure; the fixture now waits for project attachment and an
+  idle workspace, and holds fresh scan completion while checking legacy marker
+  suppression. All six project cases and the full 32-case browser suite pass
+  locally in Chromium/WebKit, including the new control; type checking, lint
+  and formatting also pass. Hosted validation of the fix is pending.
 - The first hosted ARM64 package build stopped before compilation: the default
   Xcode 15.4 SDK was below pinned ANGLE's SDK requirement. Packaging now explicitly
   selects the runner's Xcode 16.2 (macOS 15.2 SDK), retaining the macOS 14 deployment
