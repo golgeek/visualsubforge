@@ -93,7 +93,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return '/work.vsfproject';
         case 'project_open':
           if (failOpen) throw new Error('Project media has changed');
-          return structuredClone(project);
+          return { ...structuredClone(project), token: 41 };
+        case 'project_attach':
+          return { path: '/work.vsfproject', token: 41 };
+        case 'project_detach':
+          return;
         case 'timing_preset_open':
           if (failOpen) throw new Error('Invalid timing preset');
           return {
@@ -109,7 +113,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return;
         case 'project_save':
           saves.push(args.request!);
-          return;
+          return { path: args.request!.path, token: 42 };
         case 'scenes_restore':
           return 4;
         case 'scenes_view':

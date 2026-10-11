@@ -15,6 +15,8 @@
   import { onMount, tick, untrack } from 'svelte';
   import {
     openProject,
+    attachProject,
+    detachProject,
     saveProject as writeProject,
     restoreScenes,
     emptyStatus,
@@ -379,6 +381,7 @@
   let notice = $state('');
   let mediaPath = $state('');
   let projectPath = $state<string | null>(null);
+  let projectToken = $state<number | null>(null);
   let restoredScenes = $state<{ session: number; generation: number } | null>(
     null,
   );
@@ -685,8 +688,9 @@
           )
         : projectPath;
     if (!path) return false;
-    await writeProject({
+    const saved = await writeProject({
       path,
+      token: projectToken,
       mediaPath,
       subtitlePath: doc.path,
       session: status.session,
@@ -700,7 +704,8 @@
         timing: timingSettings,
       },
     });
-    projectPath = path;
+    projectPath = saved.path;
+    projectToken = saved.token;
     notice = 'Project saved';
     return true;
   }
@@ -718,6 +723,7 @@
     mediaPath = project.mediaPath;
     // A failed restore must not leave the preceding project's autosave destination attached.
     projectPath = null;
+    projectToken = null;
     // loadfile acknowledges before native FILE_LOADED. The regular status poll
     // advances this state; seeking earlier can fail on a cold decoder startup.
     const openingSession = status.session;
@@ -771,7 +777,9 @@
         status.durationSeconds ?? project.positionSeconds,
       ),
     });
-    projectPath = path;
+    const attached = await attachProject(project.token);
+    projectPath = attached.path;
+    projectToken = attached.token;
     notice =
       project.scenes?.mode === 'keyframes'
         ? 'Project restored · playback paused · keyframe markers skipped; run a visual scan'
@@ -935,7 +943,9 @@
             start = 0;
             await act({ kind: 'open', path, hardware });
             mediaPath = path;
+            if (projectToken !== null) await detachProject();
             projectPath = null;
+            projectToken = null;
             restoredScenes = null;
             timingSettings = { ...preferences.timing };
           }
@@ -944,7 +954,9 @@
         case 'closeMedia':
           await act({ kind: 'close' });
           mediaPath = '';
+          if (projectToken !== null) await detachProject();
           projectPath = null;
+          projectToken = null;
           restoredScenes = null;
           wave = null;
           waveGeneration = null;

@@ -7,6 +7,9 @@ use std::{
     path::{Path, PathBuf},
 };
 use tauri::Manager;
+mod store;
+pub use store::{Attachment, Opened, Projects};
+
 type Result<T> = std::result::Result<T, String>;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,7 +123,7 @@ fn portable(base: &Path, path: &Path) -> String {
         .to_string_lossy()
         .into_owned()
 }
-fn read(path: &Path) -> Result<Project> {
+fn read_bytes(path: &Path) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     fs::File::open(path)
         .map_err(|e| format!("Cannot open project: {e}"))?
@@ -130,8 +133,11 @@ fn read(path: &Path) -> Result<Project> {
     if bytes.len() > 8 * 1024 * 1024 {
         return Err("Project exceeds 8 MiB limit".into());
     }
+    Ok(bytes)
+}
+fn resolve(path: &Path, bytes: &[u8]) -> Result<Project> {
     let mut project: Project =
-        serde_json::from_slice(&bytes).map_err(|e| format!("Invalid project: {e}"))?;
+        serde_json::from_slice(bytes).map_err(|e| format!("Invalid project: {e}"))?;
     project.validate()?;
     let base = path.parent().ok_or("Project has no parent directory")?;
     let media = absolute(base, &project.media_path)
@@ -150,18 +156,35 @@ fn read(path: &Path) -> Result<Project> {
             .map_err(|e| format!("Project subtitles are unavailable: {e}"))?;
         // Opening the project must not touch the active workspace until references validate.
         let bytes = crate::document::read_file(&subtitle)?;
-        subtitle_formats::srt::parse(
+        let parsed = subtitle_formats::srt::parse(
             std::str::from_utf8(&bytes)
                 .map_err(|e| format!("Project subtitles must be UTF-8: {e}"))?,
         )
         .map_err(|e| format!("Project subtitles: {e}"))?;
+        crate::srt_limits::validate_document(&parsed.document, &parsed.source)?;
         project.subtitle_path = Some(subtitle.to_string_lossy().into_owned());
     }
     Ok(project)
 }
+#[cfg(test)]
+fn read(path: &Path) -> Result<Project> {
+    resolve(path, &read_bytes(path)?)
+}
 #[tauri::command]
-pub async fn project_open(path: String) -> Result<Project> {
-    tauri::async_runtime::spawn_blocking(move || read(Path::new(&path)))
+pub async fn project_open(app: tauri::AppHandle, path: String) -> Result<Opened> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().open(Path::new(&path)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub async fn project_attach(app: tauri::AppHandle, token: u64) -> Result<Attachment> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().attach(token))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub async fn project_detach(app: tauri::AppHandle) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().detach())
         .await
         .map_err(|e| e.to_string())?
 }
@@ -169,6 +192,7 @@ pub async fn project_open(path: String) -> Result<Project> {
 #[serde(rename_all = "camelCase")]
 pub struct SaveRequest {
     path: String,
+    token: Option<u64>,
     media_path: String,
     subtitle_path: Option<String>,
     session: u64,
@@ -176,12 +200,12 @@ pub struct SaveRequest {
     options: Options,
 }
 #[tauri::command]
-pub async fn project_save(app: tauri::AppHandle, request: SaveRequest) -> Result<()> {
+pub async fn project_save(app: tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     tauri::async_runtime::spawn_blocking(move || save(&app, request))
         .await
         .map_err(|e| e.to_string())?
 }
-fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<()> {
+fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     let media = Path::new(&request.media_path)
         .canonicalize()
         .map_err(|e| e.to_string())?;
@@ -189,21 +213,16 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<()> {
     if path.extension().is_none_or(|s| s != "vsfproject") {
         return Err("Project filename must end in .vsfproject".into());
     }
-    let base = path
-        .parent()
-        .ok_or("Project path has no parent")?
-        .canonicalize()
-        .map_err(|e| e.to_string())?;
+    let destination = destination(path)?;
+    let base = destination.parent().ok_or("Project path has no parent")?;
     let identity = identify(&media)?;
     let scenes = app
         .state::<crate::scenes::Scenes>()
         .saved(request.session, &identity)?;
     let project = Project {
         version: 1,
-        media_path: portable(&base, &media),
-        subtitle_path: request
-            .subtitle_path
-            .map(|p| portable(&base, Path::new(&p))),
+        media_path: portable(base, &media),
+        subtitle_path: request.subtitle_path.map(|p| portable(base, Path::new(&p))),
         media_identity: identity,
         position_seconds: request.position_seconds,
         options: request.options,
@@ -213,23 +232,28 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<()> {
     if app.state::<crate::media::Media>().current_session() != request.session {
         return Err("Media changed before project save".into());
     }
-    write(path, &project)
+    app.state::<Projects>()
+        .save(&destination, request.token, &project)
 }
-fn write(path: &Path, project: &Project) -> Result<()> {
+fn destination(path: &Path) -> Result<PathBuf> {
+    let base = path.parent().ok_or("Project path has no parent")?;
+    if path.exists() {
+        path.canonicalize().map_err(|e| e.to_string())
+    } else {
+        Ok(base
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+            .join(path.file_name().ok_or("Choose a project filename")?))
+    }
+}
+fn serialize(path: &Path, project: &Project) -> Result<Vec<u8>> {
     project.validate()?;
     let base = path.parent().ok_or("Project path has no parent")?;
-    let destination = if path.exists() {
-        path.canonicalize().map_err(|e| e.to_string())?
-    } else {
-        base.canonicalize()
-            .map_err(|e| e.to_string())?
-            .join(path.file_name().ok_or("Choose a project filename")?)
-    };
     for reference in std::iter::once(&project.media_path).chain(project.subtitle_path.iter()) {
         let reference = absolute(base, reference)
             .canonicalize()
             .map_err(|e| e.to_string())?;
-        if reference == destination {
+        if reference == path {
             return Err("Project destination must differ from media and subtitle files".into());
         }
     }
@@ -237,13 +261,18 @@ fn write(path: &Path, project: &Project) -> Result<()> {
     if bytes.len() > 8 * 1024 * 1024 {
         return Err("Project exceeds 8 MiB limit".into());
     }
-    crate::atomic_file::write(&destination, &bytes)
+    Ok(bytes)
+}
+#[cfg(test)]
+fn write(path: &Path, project: &Project) -> Result<()> {
+    let path = destination(path)?;
+    crate::atomic_file::write(&path, &serialize(&path, project)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn fixture(root: &Path) -> Project {
+    pub(super) fn fixture(root: &Path) -> Project {
         let media = root.join("clip.mkv");
         fs::write(&media, b"synthetic media identity").unwrap();
         Project {

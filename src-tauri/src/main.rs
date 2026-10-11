@@ -87,6 +87,8 @@ fn main() {
             timing_preset::timing_preset_open,
             timing_preset::timing_preset_save,
             project::project_open,
+            project::project_attach,
+            project::project_detach,
             project::project_save,
             scenes::scenes_restore,
             scenes::scenes_start,
@@ -102,6 +104,7 @@ fn main() {
             let documents = document::Documents::default();
             documents.start_recovery(app.path().app_data_dir()?.join("recovery-v1"))?;
             app.manage(documents);
+            app.manage(project::Projects::default());
             app.manage(desktop::ExitGate::default());
             app.manage(waveform::Waveforms::default());
             app.manage(scenes::Scenes::default());

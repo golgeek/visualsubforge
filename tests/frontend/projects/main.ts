@@ -16,6 +16,8 @@ const host = document.querySelector('#test')!;
 let media = { ...emptyStatus, available: true };
 let doc = structuredClone(emptyDocument);
 let failOpen = false;
+let projectSaveError: string | null = null;
+let chosenPath = '/work.vsfproject';
 let loadingPolls = 0;
 const calls: string[] = [];
 const saves: Record<string, unknown>[] = [];
@@ -80,13 +82,18 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'choose_file':
-          return '/work.vsfproject';
+          return chosenPath;
         case 'project_open':
           if (failOpen) throw new Error('Project media has changed');
-          return structuredClone(project);
-        case 'project_save':
-          saves.push(args.request!);
+          return { ...structuredClone(project), token: 41 };
+        case 'project_attach':
+          return { path: '/work.vsfproject', token: 41 };
+        case 'project_detach':
           return;
+        case 'project_save':
+          if (projectSaveError) throw new Error(projectSaveError);
+          saves.push(args.request!);
+          return { path: args.request!.path, token: 42 };
         case 'scenes_restore':
           if (!media.loaded)
             throw new Error('Scene restore before video loaded');
@@ -199,14 +206,33 @@ async function run() {
     const saved = saves[0]!;
     assert(
       saved.path === '/work.vsfproject' &&
+        saved.token === 41 &&
         saved.positionSeconds === 12.5 &&
         saved.subtitlePath === '/captions.srt',
-      'Save uses attached path and current workspace',
+      'Save uses attached path, Rust token and current workspace',
     );
     assert(
       JSON.stringify(saved.options) === JSON.stringify(project.options),
       'Waveform and follow options roundtrip',
     );
+    projectSaveError =
+      'Project changed on disk. Reopen it or use Save Project As to preserve both versions';
+    menuAction('saveProject');
+    await until(() => !!host.textContent?.includes(projectSaveError!));
+    assert(
+      saves.length === 1 && doc.loaded,
+      'Conflicting project save reports failure without replacing the workspace',
+    );
+    await until(() => !menuState?.busy);
+    projectSaveError = null;
+    chosenPath = '/copy.vsfproject';
+    menuAction('saveProjectAs');
+    await until(() => saves.length === 2 && !menuState?.busy);
+    assert(
+      saves[1]?.path === chosenPath && saves[1]?.token === 42,
+      'Save As retains the current Rust save token after a conflict',
+    );
+    chosenPath = '/work.vsfproject';
     failOpen = true;
     const session = media.session;
     menuAction('openProject');
@@ -233,12 +259,12 @@ async function run() {
     callbacks.get(eventHandler)!({ payload: 'quit' });
     await until(() => calls.includes('finish_exit'));
     assert(
-      saves.length === 2 &&
+      saves.length === 3 &&
         calls.lastIndexOf('project_save') < calls.lastIndexOf('finish_exit'),
       'Normal exit saves project before shutdown',
     );
     document.querySelector('#result')!.textContent =
-      'PASS: all 7 project checks';
+      'PASS: all 9 project checks';
   } catch (e) {
     document.querySelector('#result')!.textContent = 'FAIL: ' + String(e);
   } finally {

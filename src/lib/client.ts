@@ -393,17 +393,31 @@ export interface ProjectData {
   options: ProjectOptions;
   scenes: SavedScenes | null;
 }
-export function openProject(path: string): Promise<ProjectData> {
+export interface ProjectAttachment {
+  path: string;
+  token: number;
+}
+export interface OpenedProject extends ProjectData {
+  token: number;
+}
+export function openProject(path: string): Promise<OpenedProject> {
   return invoke('project_open', { path });
+}
+export function attachProject(token: number): Promise<ProjectAttachment> {
+  return invoke('project_attach', { token });
+}
+export function detachProject(): Promise<void> {
+  return invoke('project_detach');
 }
 export function saveProject(request: {
   path: string;
+  token: number | null;
   mediaPath: string;
   subtitlePath: string | null;
   session: number;
   positionSeconds: number;
   options: ProjectOptions;
-}): Promise<void> {
+}): Promise<ProjectAttachment> {
   return invoke('project_save', { request });
 }
 export function restoreScenes(
