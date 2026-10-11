@@ -1,5 +1,37 @@
 use crate::{Cue, CueId, Document, Milliseconds, Result};
 
+/// Domain edits use validated times and identities, independently of any IPC or format.
+pub enum Edit {
+    Text {
+        id: CueId,
+        start: Milliseconds,
+        end: Milliseconds,
+        text: String,
+    },
+    Create {
+        after: Option<CueId>,
+        start: Milliseconds,
+        end: Milliseconds,
+        text: String,
+    },
+    Delete {
+        id: CueId,
+    },
+    Split {
+        id: CueId,
+        at: Milliseconds,
+    },
+    Merge {
+        first: CueId,
+        second: CueId,
+    },
+}
+
+pub struct EditOutcome {
+    pub changed: bool,
+    pub created: Option<CueId>,
+}
+
 struct Change {
     index: usize,
     before: Vec<Cue>,
@@ -70,34 +102,146 @@ impl Editor {
             Ok(())
         }
     }
-    pub fn edit(
+    /// Validate a proposed document before publishing history or allocating IDs.
+    /// The validator borrows the proposal synchronously and cannot mutate this editor.
+    /// A rejection restores the replaced range, including redo and saved-state identity.
+    pub fn apply_edit(
         &mut self,
         expected: u64,
-        id: CueId,
-        start: Milliseconds,
-        end: Milliseconds,
-        text: String,
-    ) -> Result<bool> {
+        edit: Edit,
+        validate: impl FnOnce(&Document) -> Result<()>,
+    ) -> Result<EditOutcome> {
         self.expect_revision(expected)?;
-        Cue::validate(start, end, &text)?;
-        let index = self
-            .document
-            .cues
-            .iter()
-            .position(|cue| cue.id == id)
-            .ok_or("Cue no longer exists")?;
-        let before = self.document.cues[index].clone();
-        let after = Cue {
-            start,
-            end,
-            text,
-            ..before.clone()
+        let mut created = None;
+        let (index, count, after) = match edit {
+            Edit::Text {
+                id,
+                start,
+                end,
+                text,
+            } => {
+                Cue::validate(start, end, &text)?;
+                let index = self.index(id)?;
+                (
+                    index,
+                    1,
+                    vec![Cue {
+                        id,
+                        start,
+                        end,
+                        text,
+                    }],
+                )
+            }
+            Edit::Create {
+                after,
+                start,
+                end,
+                text,
+            } => {
+                Cue::validate(start, end, &text)?;
+                let index = match after {
+                    Some(id) => self.index(id)? + 1,
+                    None => 0,
+                };
+                let id = self.available_id()?;
+                created = Some(id);
+                (
+                    index,
+                    0,
+                    vec![Cue {
+                        id,
+                        start,
+                        end,
+                        text,
+                    }],
+                )
+            }
+            Edit::Delete { id } => (self.index(id)?, 1, Vec::new()),
+            Edit::Split { id, at } => {
+                let index = self.index(id)?;
+                let original = &self.document.cues[index];
+                if at <= original.start || at >= original.end {
+                    return Err("Split time must be strictly inside the selected cue".into());
+                }
+                let new_id = self.available_id()?;
+                created = Some(new_id);
+                (
+                    index,
+                    1,
+                    vec![
+                        Cue {
+                            end: at,
+                            ..original.clone()
+                        },
+                        Cue {
+                            id: new_id,
+                            start: at,
+                            ..original.clone()
+                        },
+                    ],
+                )
+            }
+            Edit::Merge { first, second } => {
+                let index = self.index(first)?;
+                let left = &self.document.cues[index];
+                let right = self
+                    .document
+                    .cues
+                    .get(index + 1)
+                    .filter(|cue| cue.id == second)
+                    .ok_or("Merge requires two adjacent cues in document order")?;
+                let text = match (left.text.is_empty(), right.text.is_empty()) {
+                    (true, _) => right.text.clone(),
+                    (_, true) => left.text.clone(),
+                    _ => format!("{}\n{}", left.text, right.text),
+                };
+                (
+                    index,
+                    2,
+                    vec![Cue {
+                        id: first,
+                        start: left.start.min(right.start),
+                        end: left.end.max(right.end),
+                        text,
+                    }],
+                )
+            }
         };
-        if before == after {
-            return Ok(false);
+        if self.document.cues[index..index + count] == after {
+            return Ok(EditOutcome {
+                changed: false,
+                created: None,
+            });
         }
-        self.replace(index, 1, vec![after]);
-        Ok(true)
+        let before = self.document.cues[index..index + count].to_vec();
+        self.document
+            .cues
+            .splice(index..index + count, after.clone());
+        if let Err(error) = validate(&self.document) {
+            self.document
+                .cues
+                .splice(index..index + after.len(), before);
+            return Err(error);
+        }
+        self.undo.push(Change {
+            index,
+            before,
+            after,
+            before_state: self.state,
+            after_state: self.next_state,
+        });
+        self.state = self.next_state;
+        self.next_state += 1;
+        self.revision += 1;
+        self.redo.clear();
+        if let Some(id) = created {
+            self.next_cue = id.0.checked_add(1);
+        }
+        Ok(EditOutcome {
+            changed: true,
+            created,
+        })
     }
 
     fn index(&self, id: CueId) -> Result<usize> {
@@ -107,17 +251,34 @@ impl Editor {
             .position(|cue| cue.id == id)
             .ok_or_else(|| "Cue no longer exists".into())
     }
-
-    fn allocate_id(&mut self) -> Result<CueId> {
+    fn available_id(&self) -> Result<CueId> {
         let id = self.next_cue.ok_or("Cue identities exhausted")?;
         // IPC represents identities as exact JavaScript integers.
         if id > 9_007_199_254_740_991 {
             return Err("Cue identities exhausted".into());
         }
-        self.next_cue = id.checked_add(1);
         Ok(CueId(id))
     }
-
+    pub fn edit(
+        &mut self,
+        expected: u64,
+        id: CueId,
+        start: Milliseconds,
+        end: Milliseconds,
+        text: String,
+    ) -> Result<bool> {
+        self.apply_edit(
+            expected,
+            Edit::Text {
+                id,
+                start,
+                end,
+                text,
+            },
+            |_| Ok(()),
+        )
+        .map(|outcome| outcome.changed)
+    }
     /// Insert after an explicit cue, or at the start of an empty/unselected list.
     /// Existing document order is never silently sorted by timing.
     pub fn create(
@@ -128,99 +289,33 @@ impl Editor {
         end: Milliseconds,
         text: String,
     ) -> Result<CueId> {
-        self.expect_revision(expected)?;
-        Cue::validate(start, end, &text)?;
-        let index = match after {
-            Some(id) => self.index(id)? + 1,
-            None => 0,
-        };
-        let id = self.allocate_id()?;
-        self.replace(
-            index,
-            0,
-            vec![Cue {
-                id,
+        self.apply_edit(
+            expected,
+            Edit::Create {
+                after,
                 start,
                 end,
                 text,
-            }],
-        );
-        Ok(id)
+            },
+            |_| Ok(()),
+        )?
+        .created
+        .ok_or_else(|| "Create did not allocate a cue".into())
     }
-
     pub fn delete(&mut self, expected: u64, id: CueId) -> Result<()> {
-        self.expect_revision(expected)?;
-        let index = self.index(id)?;
-        self.replace(index, 1, Vec::new());
-        Ok(())
+        self.apply_edit(expected, Edit::Delete { id }, |_| Ok(()))
+            .map(|_| ())
     }
-
-    /// Split an accepted cue into adjacent half-open intervals. Both retain the
-    /// complete text; adjusting dialogue is a separate, explicit edit.
+    /// Both halves retain the complete text; dialogue changes are separate edits.
     pub fn split(&mut self, expected: u64, id: CueId, at: Milliseconds) -> Result<CueId> {
-        self.expect_revision(expected)?;
-        let index = self.index(id)?;
-        let original = self.document.cues[index].clone();
-        if at <= original.start || at >= original.end {
-            return Err("Split time must be strictly inside the selected cue".into());
-        }
-        let new_id = self.allocate_id()?;
-        let left = Cue {
-            end: at,
-            ..original.clone()
-        };
-        let right = Cue {
-            id: new_id,
-            start: at,
-            ..original
-        };
-        self.replace(index, 1, vec![left, right]);
-        Ok(new_id)
+        self.apply_edit(expected, Edit::Split { id, at }, |_| Ok(()))?
+            .created
+            .ok_or_else(|| "Split did not allocate a cue".into())
     }
-
-    /// Merge two explicitly named adjacent cues in document order. Requiring
-    /// both identities prevents a caller from accidentally merging a new neighbor.
+    /// Both identities are required so a stale caller cannot merge a new neighbor.
     pub fn merge(&mut self, expected: u64, first: CueId, second: CueId) -> Result<()> {
-        self.expect_revision(expected)?;
-        let index = self.index(first)?;
-        let left = &self.document.cues[index];
-        let right = self
-            .document
-            .cues
-            .get(index + 1)
-            .filter(|cue| cue.id == second)
-            .ok_or("Merge requires two adjacent cues in document order")?;
-        let text = match (left.text.is_empty(), right.text.is_empty()) {
-            (true, _) => right.text.clone(),
-            (_, true) => left.text.clone(),
-            _ => format!("{}\n{}", left.text, right.text),
-        };
-        let merged = Cue {
-            id: first,
-            start: left.start.min(right.start),
-            end: left.end.max(right.end),
-            text,
-        };
-        self.replace(index, 2, vec![merged]);
-        Ok(())
-    }
-
-    // All fallible validation happens before this atomic history transaction.
-    fn replace(&mut self, index: usize, count: usize, after: Vec<Cue>) {
-        let before = self.document.cues[index..index + count].to_vec();
-        let change = Change {
-            index,
-            before,
-            after: after.clone(),
-            before_state: self.state,
-            after_state: self.next_state,
-        };
-        self.document.cues.splice(index..index + count, after);
-        self.state = self.next_state;
-        self.next_state += 1;
-        self.revision += 1;
-        self.undo.push(change);
-        self.redo.clear();
+        self.apply_edit(expected, Edit::Merge { first, second }, |_| Ok(()))
+            .map(|_| ())
     }
     pub fn undo(&mut self, expected: u64) -> Result<bool> {
         self.expect_revision(expected)?;
@@ -255,6 +350,31 @@ impl Editor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rejected_policy_preserves_document_redo_saved_state_revision_and_next_identity() {
+        let mut editor = editor();
+        let at = Milliseconds::new(1500).unwrap();
+        assert_eq!(editor.split(0, CueId(1), at).unwrap(), CueId(2));
+        editor.undo(1).unwrap();
+        let original = editor.document().clone();
+        let result = editor.apply_edit(2, Edit::Split { id: CueId(1), at }, |proposal| {
+            assert_eq!(proposal.cues().len(), 2);
+            Err("Application policy rejected this proposal".into())
+        });
+        assert!(result.is_err());
+        assert_eq!(editor.document(), &original);
+        assert_eq!(editor.revision(), 2);
+        assert!(!editor.dirty());
+        assert!(!editor.can_undo());
+        assert!(editor.can_redo());
+        editor.redo(2).unwrap();
+        assert_eq!(editor.document().cues()[1].id(), CueId(2));
+        editor.undo(3).unwrap();
+        // The rejected split did not consume ID 3, and branching still clears redo.
+        assert_eq!(editor.split(4, CueId(1), at).unwrap(), CueId(3));
+        assert!(!editor.can_redo());
+    }
+
     fn editor() -> Editor {
         Editor::new(
             Document::new(vec![

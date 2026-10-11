@@ -9,7 +9,6 @@ use std::{
 };
 
 type Result<T> = std::result::Result<T, String>;
-const MAX_SRT: usize = 16 * 1024 * 1024;
 const MAX_RECORD: u64 = 200 * 1024 * 1024; // JSON escaping can expand both SRT strings.
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -62,10 +61,9 @@ impl Record {
             _ => {}
         }
         for text in [&self.saved_srt, &self.accepted_srt] {
-            if text.len() > MAX_SRT {
-                return Err("Recovery SRT exceeds 16 MiB".into());
-            }
-            subtitle_formats::srt::parse(text)?;
+            crate::srt_limits::validate_size(text.len())?;
+            let parsed = subtitle_formats::srt::parse(text)?;
+            crate::srt_limits::validate_document(&parsed.document, &parsed.source)?;
         }
         Ok(())
     }

@@ -122,39 +122,55 @@ fn parse_block(lines: &[&str], id: CueId) -> Result<(Cue, String)> {
     Ok((Cue::new(id, start, end, text)?, label.into()))
 }
 pub fn serialize(document: &Document, source: &Source) -> Result<String> {
-    // Preserve imported labels only while the original identity/order survives.
-    // Structural edits produce consecutive labels; Undo restores original labels
-    // without requiring format metadata inside domain history.
+    let mut text = String::new();
+    write_srt(document, source, |part| text.push_str(part))?;
+    Ok(text)
+}
+
+/// Exact UTF-8 output size without allocating a second copy of cue text.
+/// Uses the same writer as serialization, including labels, BOM and line endings.
+pub fn serialized_len(document: &Document, source: &Source) -> Result<usize> {
+    let mut length = 0_usize;
+    write_srt(document, source, |part| {
+        length = length.saturating_add(part.len())
+    })?;
+    Ok(length)
+}
+
+fn write_srt(document: &Document, source: &Source, mut write: impl FnMut(&str)) -> Result<()> {
+    // Structural edits renumber labels; Undo restores imported identity/order.
     let original_order = document.cues().len() == source.labels.len()
         && document
             .cues()
             .iter()
             .zip(&source.labels)
             .all(|(cue, (id, _))| cue.id() == *id);
-    let mut text = String::new();
+    let newline = if source.crlf { "\r\n" } else { "\n" };
     if source.bom {
-        text.push('\u{feff}');
+        write("\u{feff}");
     }
     for (index, cue) in document.cues().iter().enumerate() {
-        let label = if original_order {
-            source.labels[index].1.clone()
-        } else {
-            (index + 1).to_string()
-        };
         validate_text(cue.text())?;
-        text.push_str(&format!(
-            "{}\n{} --> {}\n{}\n\n",
-            label,
-            format_time(cue.start()),
-            format_time(cue.end()),
-            cue.text()
-        ));
+        if original_order {
+            write(&source.labels[index].1);
+        } else {
+            write(&(index + 1).to_string());
+        }
+        write(newline);
+        write(&format_time(cue.start()));
+        write(" --> ");
+        write(&format_time(cue.end()));
+        write(newline);
+        for (line, text) in cue.text().split('\n').enumerate() {
+            if line > 0 {
+                write(newline);
+            }
+            write(text);
+        }
+        write(newline);
+        write(newline);
     }
-    Ok(if source.crlf {
-        text.replace('\n', "\r\n")
-    } else {
-        text
-    })
+    Ok(())
 }
 #[cfg(test)]
 mod tests {
@@ -165,6 +181,10 @@ mod tests {
             "\u{feff}007\r\n00:00:01,250 --> 00:00:02,999\r\n <i>Héllo</i> \r\n世界\r\n\r\n";
         let doc = parse(input).unwrap();
         assert_eq!(serialize(&doc.document, &doc.source).unwrap(), input);
+        assert_eq!(
+            serialized_len(&doc.document, &doc.source).unwrap(),
+            input.len()
+        );
         assert_eq!(
             parse(&serialize(&doc.document, &doc.source).unwrap()).unwrap(),
             doc
@@ -184,6 +204,10 @@ mod tests {
             .split(0, CueId(1), Milliseconds::new(2000).unwrap())
             .unwrap();
         let output = serialize(editor.document(), &parsed.source).unwrap();
+        assert_eq!(
+            serialized_len(editor.document(), &parsed.source).unwrap(),
+            output.len()
+        );
         assert!(output.starts_with("\u{feff}1\r\n"));
         assert!(output.contains("\r\n\r\n2\r\n00:00:02,000"));
         assert!(output.contains("\r\n\r\n3\r\n00:00:04,000"));
@@ -201,6 +225,10 @@ mod tests {
         }
         editor.undo(1).unwrap();
         assert_eq!(serialize(editor.document(), &parsed.source).unwrap(), input);
+        assert_eq!(
+            serialized_len(editor.document(), &parsed.source).unwrap(),
+            input.len()
+        );
         editor.redo(2).unwrap();
         assert_eq!(
             serialize(editor.document(), &parsed.source).unwrap(),

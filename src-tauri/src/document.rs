@@ -7,14 +7,15 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
-use subtitle_core::{CueId, Editor, Milliseconds};
+use subtitle_core::{CueId, Edit, Editor, Milliseconds};
 use subtitle_formats::srt;
 
 mod autosave;
+#[cfg(test)]
+mod limits_tests;
 use autosave::RecoveryControl;
 
 type Result<T> = std::result::Result<T, String>;
-const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Clone, Default)]
 pub struct Documents(Arc<Mutex<Store>>, Arc<RecoveryControl>);
@@ -103,6 +104,16 @@ struct CueView {
     text: String,
 }
 
+impl Loaded {
+    fn apply_edit(&mut self, revision: u64, edit: Edit) -> Result<()> {
+        self.editor
+            .apply_edit(revision, edit, |document| {
+                crate::srt_limits::validate_document(document, &self.source)
+            })
+            .map(|_| ())
+    }
+}
+
 impl Store {
     fn snapshot(&self) -> Snapshot {
         let loaded = self.loaded.as_ref();
@@ -153,6 +164,7 @@ impl Store {
                     |_| "Subtitles must be UTF-8; convert this file's encoding before opening it",
                 )?;
                 let parsed = srt::parse(text)?;
+                crate::srt_limits::validate_document(&parsed.document, &parsed.source)?;
                 // Commit only after every read and parse operation succeeds.
                 self.loaded = Some(Loaded {
                     editor: Editor::new(parsed.document),
@@ -194,12 +206,14 @@ impl Store {
                 text,
             } => {
                 srt::validate_text(&text)?;
-                self.loaded_mut()?.editor.edit(
+                self.loaded_mut()?.apply_edit(
                     revision,
-                    CueId(cue_id),
-                    Milliseconds::new(start_ms)?,
-                    Milliseconds::new(end_ms)?,
-                    text,
+                    Edit::Text {
+                        id: CueId(cue_id),
+                        start: Milliseconds::new(start_ms)?,
+                        end: Milliseconds::new(end_ms)?,
+                        text,
+                    },
                 )?;
             }
             Action::Undo => {
@@ -230,12 +244,14 @@ impl Store {
                     Some(loaded) => loaded,
                     None => self.loaded_mut()?,
                 };
-                loaded.editor.create(
+                loaded.apply_edit(
                     revision,
-                    after_id.map(CueId),
-                    Milliseconds::new(start_ms)?,
-                    Milliseconds::new(end_ms)?,
-                    text,
+                    Edit::Create {
+                        after: after_id.map(CueId),
+                        start: Milliseconds::new(start_ms)?,
+                        end: Milliseconds::new(end_ms)?,
+                        text,
+                    },
                 )?;
                 if let Some(loaded) = untitled {
                     self.loaded = Some(loaded);
@@ -243,22 +259,29 @@ impl Store {
                 }
             }
             Action::Delete { cue_id } => {
-                self.loaded_mut()?.editor.delete(revision, CueId(cue_id))?;
+                self.loaded_mut()?
+                    .apply_edit(revision, Edit::Delete { id: CueId(cue_id) })?;
             }
             Action::Split { cue_id, at_ms } => {
-                self.loaded_mut()?.editor.split(
+                self.loaded_mut()?.apply_edit(
                     revision,
-                    CueId(cue_id),
-                    Milliseconds::new(at_ms)?,
+                    Edit::Split {
+                        id: CueId(cue_id),
+                        at: Milliseconds::new(at_ms)?,
+                    },
                 )?;
             }
             Action::Merge {
                 first_id,
                 second_id,
             } => {
-                self.loaded_mut()?
-                    .editor
-                    .merge(revision, CueId(first_id), CueId(second_id))?;
+                self.loaded_mut()?.apply_edit(
+                    revision,
+                    Edit::Merge {
+                        first: CueId(first_id),
+                        second: CueId(second_id),
+                    },
+                )?;
             }
             Action::Redo => {
                 self.loaded_mut()?.editor.redo(revision)?;
@@ -286,6 +309,7 @@ impl Store {
                     );
                 }
                 let bytes = srt::serialize(loaded.editor.document(), &loaded.source)?.into_bytes();
+                crate::srt_limits::validate_size(bytes.len())?;
                 crate::atomic_file::write(&target, &bytes)?;
                 // File replacement succeeded; only now update path and saved state.
                 loaded.editor.mark_saved(revision)?;
@@ -319,12 +343,10 @@ pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>> {
         return Err("Subtitles must be a regular file".into());
     }
     let mut bytes = Vec::new();
-    file.take(MAX_FILE_BYTES + 1)
+    file.take(crate::srt_limits::MAX_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|e| format!("Cannot read subtitles: {e}"))?;
-    if bytes.len() as u64 > MAX_FILE_BYTES {
-        return Err("Subtitle file exceeds the 16 MiB PoC limit".into());
-    }
+    crate::srt_limits::validate_size(bytes.len())?;
     Ok(bytes)
 }
 fn save_path(path: &Path) -> Result<PathBuf> {

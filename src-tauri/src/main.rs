@@ -45,6 +45,7 @@ mod preferences;
 mod project;
 mod recovery_store;
 mod scenes;
+mod srt_limits;
 #[cfg(any(
     test,
     all(
