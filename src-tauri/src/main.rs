@@ -9,6 +9,8 @@ mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
 mod file_lease;
+#[cfg(test)]
+mod ipc;
 #[cfg(target_os = "linux")]
 mod linux_dialog;
 #[cfg(all(feature = "media-prototype", target_os = "linux"))]

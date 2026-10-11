@@ -84,6 +84,7 @@ npm run format:check
 npm run lint
 npm test
 npm run build
+npm run ipc:check
 cargo fmt --all -- --check
 
 # Whole workspace; build frontend assets before compiling the desktop shell.
@@ -93,6 +94,12 @@ npm run tauri -- build --debug --no-bundle -- --locked
 ```
 
 `npm run build` includes strict Svelte/TypeScript checking; `npm run check` runs that step alone. `npm run format` and `cargo fmt --all` apply formatting. Prettier covers frontend and configuration files; existing planning Markdown is excluded to preserve its formatting.
+
+After changing a Rust IPC definition, run `npm run ipc:generate`, then `npm run
+check` and the relevant browser workflows. `ipc:check` generates into a temporary
+directory and fails on drift without writing repository files. Both commands
+compile the desktop test harness and require its platform prerequisites and
+frontend build assets. See the [IPC migration and contract checks](src/lib/README.md#generated-ipc).
 
 The domain crate now has edit/history tests. `cargo test --locked -p subtitle-formats` checks SRT round trips and invalid-input handling; the desktop crate has persistence failure/reopen tests. Zero-test doc-test harnesses are not feature validation. The separate media-analysis experiment now has unit/lifecycle tests and opt-in FFmpeg integration tests. See [fixture generation and analysis checks](tests/fixtures/README.md).
 

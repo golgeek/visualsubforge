@@ -17,7 +17,9 @@
     "format:check": "prettier --check .",
     "tauri": "tauri",
     "test": "node --experimental-strip-types --test src/lib/*.test.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "ipc:generate": "node scripts/generate-ipc.mjs",
+    "ipc:check": "node scripts/generate-ipc.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

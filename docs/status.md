@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-11 (America/New_York): shared application extraction in progress toward resync.
+Updated 2026-10-11 (America/New_York): headless resync is implemented; generated IPC and GUI integration are in progress.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
@@ -14,9 +14,10 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. Generated IPC migration and GUI resync are not yet implemented. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. Generated IPC migration is in progress; GUI resync is not yet implemented. |
 | Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. Original millisecond gaps within a supported block survive speed changes by adjusting preceding ends. | GUI caller is next. Broader matching, OS/process/filesystem and GUI lifecycle gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | GUI Save As protection, proposal acceptance and lifecycle integration are not implemented yet. |
+| Generated IPC | The first slice generates timing preset commands/DTOs from pinned Tauri Specta while preserving the client facade. Rust Serde samples are checked by TypeScript and desktop CI checks generation drift. | Remaining command/event families, checked wide numbers and full compatibility evaluation are in progress. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
 
@@ -77,6 +78,15 @@ After the CLI and exact-gap changes, `cargo test --locked --workspace` passed
 FFmpeg integrations opt-in; the three shared-operation and two CLI FFmpeg tests
 were run separately and passed. Formatting and diff checks passed. This is
 macOS default-build evidence, with no new native GPU/audio or other-OS claim.
+
+Generated IPC first slice: timing preset command/DTO generation passes with
+Tauri Specta/Specta 2.0.0-rc.25 and specta-typescript 0.0.12. The 70 desktop tests,
+strict desktop Clippy, 39 TypeScript tests, strict Svelte/TypeScript, lint,
+formatting and production build passed. All 28 Chromium/WebKit cases passed;
+the timing workflow additionally checks serialized string rejection and null
+success through the facade. Deterministic `npm run ipc:check` passes; a deliberate
+drift control fails without rewriting the modified file. This is a first-family
+trial, not completion of the remaining enum/event/project/numeric gates.
 
 ## Historical evidence and local context
 

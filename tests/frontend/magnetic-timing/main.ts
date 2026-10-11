@@ -99,7 +99,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'project_detach':
           return;
         case 'timing_preset_open':
-          if (failOpen) throw new Error('Invalid timing preset');
+          // Rust Result errors reject with their serialized string payload.
+          if (failOpen) return Promise.reject('Invalid timing preset');
           return {
             preset: {
               version: 1,
@@ -110,7 +111,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         case 'timing_preset_save':
           exported = args.preset;
-          return;
+          return null; // Rust () serializes to JSON null; the facade returns void.
         case 'project_save':
           saves.push(args.request!);
           return { path: args.request!.path, token: 42 };

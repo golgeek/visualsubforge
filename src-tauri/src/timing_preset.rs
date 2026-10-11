@@ -4,7 +4,8 @@ use std::{fs, io::Read, path::Path};
 type Result<T> = std::result::Result<T, String>;
 const MAX_BYTES: u64 = 256 * 1024;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename = "TimingSettings")]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
     pub enabled: bool,
@@ -40,7 +41,8 @@ impl Settings {
         Ok(())
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename = "TimingPreset")]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preset {
     version: u32,
@@ -61,7 +63,8 @@ impl Preset {
         self.timing.validate()
     }
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
+#[serde(rename = "ImportedTimingPreset")]
 pub struct Imported {
     preset: Preset,
     warnings: Vec<String>,
@@ -170,12 +173,14 @@ fn write(path: &Path, preset: &Preset) -> Result<()> {
     crate::atomic_file::write(path, &bytes)
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn timing_preset_open(path: String) -> Result<Imported> {
     tauri::async_runtime::spawn_blocking(move || read(Path::new(&path)))
         .await
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn timing_preset_save(path: String, preset: Preset) -> Result<()> {
     tauri::async_runtime::spawn_blocking(move || write(Path::new(&path), &preset))
         .await

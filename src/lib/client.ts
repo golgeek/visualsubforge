@@ -1,4 +1,11 @@
-import { defaultTiming, type TimingSettings } from './magnetic-timing';
+import { commands } from './generated/ipc';
+import type {
+  ImportedTimingPreset,
+  TimingPreset,
+  TimingSettings,
+} from './generated/ipc';
+export type { TimingPreset, TimingSettings } from './generated/ipc';
+import { defaultTiming } from './magnetic-timing';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
 // Read once; diagnostics never delay a document request or alter its result.
@@ -428,21 +435,16 @@ export function restoreScenes(
   return invoke('scenes_restore', { path, session, saved });
 }
 
-export interface TimingPreset {
-  version: number;
-  name: string;
-  timing: TimingSettings;
-}
 export function importTimingPreset(
   path: string,
-): Promise<{ preset: TimingPreset; warnings: string[] }> {
-  return invoke('timing_preset_open', { path });
+): Promise<ImportedTimingPreset> {
+  return commands.timingPresetOpen(path);
 }
-export function exportTimingPreset(
+export async function exportTimingPreset(
   path: string,
   preset: TimingPreset,
 ): Promise<void> {
-  return invoke('timing_preset_save', { path, preset });
+  await commands.timingPresetSave(path, preset);
 }
 
 export interface Preferences {

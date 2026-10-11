@@ -1,15 +1,7 @@
-import type { Cue } from './client';
+import type { Cue, TimingSettings } from './client';
+export type { TimingSettings } from './client';
 import type { CueBoundary } from './cue-timing';
 
-export interface TimingSettings {
-  enabled: boolean;
-  snapCues: boolean;
-  snapScenes: boolean;
-  cueGapMs: number;
-  sceneBeforeMs: number;
-  sceneAfterMs: number;
-  snapDistancePx: number;
-}
 // Optional editing aid, not an enforced delivery standard.
 export const defaultTiming: TimingSettings = {
   enabled: false,
