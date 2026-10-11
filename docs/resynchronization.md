@@ -5,6 +5,15 @@ documented in the [corpus guide](../tests/fixtures/resync/README.md). A headless
 now calls the shared operation. Desktop proposal review/acceptance is not yet
 implemented; wider matching/platform validation remains open.
 
+Requirement correction, 2026-10-11: the implemented exact-millisecond gap policy
+below is superseded for the intended release. Cue-gap and scene-buffer norms can
+differ with the selected frame-rate/profile variant (for example archived SW2
+uses 120/125 ms gaps and 80/83 ms scene buffers). The CLI still implements the
+older policy; frame-aware margin conversion is not implemented yet. Programme
+timing must still come from matched content, including when FPS changes without
+changing programme duration. Whether longer pauses should follow content or
+preserve their frame count is awaiting clarification.
+
 ## CLI workflow
 
 Build without Tauri, a webview, libmpv or Node:
@@ -105,7 +114,7 @@ without introducing inversions/overlaps between previously separated cues. No
 sorting, text changes or minimum-duration repairs occur. Positive rational
 arithmetic rounds once to milliseconds, with half-millisecond ties rounded up.
 
-Resync then preserves each original nonnegative inter-cue gap in milliseconds,
+The current implementation preserves each original nonnegative inter-cue gap in milliseconds,
 even when programme speed changes. Within one supported section, it keeps the
 next cue's content-matched start and sets the preceding end to that start minus
 the original gap. A 100 ms gap therefore stays 100 ms at 24/25 speed; the preceding
