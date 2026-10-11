@@ -84,3 +84,32 @@ fn extraction_cancellation_and_timeout_do_not_publish_partial_anchors() {
         Err(Error::Timeout)
     ));
 }
+
+#[test]
+#[ignore = "requires resync fixtures and FFmpeg"]
+fn sampled_frames_keep_actual_pts_and_zero_in_both_origins() {
+    let cancellation = Cancellation::default();
+    let source = visual::sample(
+        &tools(),
+        &fixture("source.mkv"),
+        &cancellation,
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    let vfr = visual::sample(
+        &tools(),
+        &fixture("vfr-origin.mkv"),
+        &cancellation,
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert_eq!(source.len(), 72);
+    assert_eq!(
+        source.iter().map(|s| s.time_us).collect::<Vec<_>>(),
+        (0..72).map(|i| i * 500_000).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        source.iter().map(|s| s.time_us).collect::<Vec<_>>(),
+        vfr.iter().map(|s| s.time_us).collect::<Vec<_>>()
+    );
+}

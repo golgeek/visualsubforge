@@ -130,9 +130,10 @@ leave these integrations ignored. They validate decoding/analysis and cancellati
 not native playback or presentation.
 
 The [resync experiment](tests/fixtures/resync/README.md) has a separate fixture
-generator, two visual-signature integrations and a ground-truth evaluator. CI
-also runs that synthetic corpus. The wider local reference-movie case still
-misses its coverage target; a passing synthetic job is not product acceptance.
+generator, three visual-signature integrations and a ground-truth evaluator. CI
+runs the extended synthetic corpus, including three ten-minute content blocks.
+The wider local reference-movie case meets its coverage target after sample
+verification; a passing corpus is not general matching or product acceptance.
 
 ### Native oracle controls
 

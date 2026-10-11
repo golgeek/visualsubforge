@@ -16,6 +16,7 @@ struct Case {
     expected: String,
     segments: Vec<Range>,
     boundary_tolerance_us: u64,
+    unsafe_after_us: Option<u64>,
 }
 #[derive(Deserialize)]
 struct Range {
@@ -53,6 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let cancellation = Cancellation::default();
     let mut signatures = BTreeMap::new();
+    let mut samples = BTreeMap::new();
     for case in &truth.cases {
         for name in [&case.source, &case.target] {
             if !signatures.contains_key(name) {
@@ -66,6 +68,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Duration::from_secs(180),
                     )?,
                 );
+                samples.insert(
+                    name.clone(),
+                    visual::sample(
+                        &tools,
+                        &path.join(name),
+                        &cancellation,
+                        Duration::from_secs(180),
+                    )?,
+                );
             }
         }
     }
@@ -73,7 +84,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for case in truth.cases {
         let source = &signatures[&case.source];
         let target = &signatures[&case.target];
-        let result = alignment::align(source, target, &cancellation, Duration::from_secs(30))?;
+        let mut result = alignment::align(source, target, &cancellation, Duration::from_secs(30))?;
+        alignment::verify::refine(
+            &mut result,
+            source,
+            target,
+            &samples[&case.source],
+            &samples[&case.target],
+            &cancellation,
+            Duration::from_secs(30),
+        )?;
         let mut total = 0;
         let mut errors = vec![];
         for expected in &case.segments {
@@ -115,6 +135,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let passed = match case.expected.as_str() {
             "abstain" => result.segments.is_empty(),
             "reject_reordered" => result.reordered && result.segments.is_empty(),
+            "reject_ambiguous_tail" => case
+                .unsafe_after_us
+                .is_some_and(|end| result.segments.iter().all(|s| s.source_end_us <= end)),
             "map_supported_interiors" => {
                 coverage >= 0.9
                     && !spans_unmatched_content

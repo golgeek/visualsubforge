@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y ffmpeg
       - run: python3 scripts/media-fixtures.py
       - run: python3 scripts/scene-fixtures.py
-      - run: python3 scripts/resync-fixtures.py
+      - run: python3 scripts/resync-fixtures.py --extended
       - run: cargo test --locked -p media-analysis
       - run: cargo test --locked -p media-analysis --test ffmpeg --test scenes --test visual -- --ignored --nocapture --test-threads=1
       - name: Evaluate synthetic resync ground truth

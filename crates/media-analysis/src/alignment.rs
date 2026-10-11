@@ -3,6 +3,7 @@
 //! Mutual distinctive appearance matches are anchors, not sufficient by
 //! themselves to infer a continuous map. Runs must preserve scene order and
 //! agree on local timing. Unmatched scene boundaries always break a run.
+pub mod verify;
 use crate::{
     Cancellation, Error, Result,
     scenes::visual::{Anchor, MAX_ANCHORS, distance, has_detail},

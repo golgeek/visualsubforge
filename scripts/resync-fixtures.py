@@ -45,7 +45,7 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False):
+def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False, still_tail=None):
     """Original spatial textures and moving objects; no embedded shot IDs.
 
     Every shot lasts two seconds deliberately: cut intervals alone cannot
@@ -57,6 +57,9 @@ def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False):
         for frame in range(seconds * fps):
             shot = frame // (2 * fps)
             identity = shot % 4 if repeat else shot
+            still = still_tail is not None and frame >= still_tail * fps
+            if still:
+                identity = still_tail // 2
             if flat:
                 identity = 0
             if identity not in backgrounds:
@@ -68,7 +71,7 @@ def synthetic(path, seconds=36, fps=24, seed=100, repeat=False, flat=False):
                     for y in range(height) for x in range(width) for _ in range(3)
                 )
             pixels = bytearray(backgrounds[identity])
-            if not flat:
+            if not flat and not still:
                 x = (frame % (2 * fps)) * 2 % (width - 8)
                 for y in range(24, 32):
                     offset = (y * width + x) * 3
@@ -139,6 +142,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", action="store_true",
                         help="also derive edits from the already fetched Blender reference movie")
+    parser.add_argument("--extended", action="store_true",
+                        help="add held-out seeds, ambiguous static edits and three ten-minute blocks")
     args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     source = OUT / "source.mkv"
@@ -166,6 +171,24 @@ def main():
     reordered = edited(source, "reordered", [(24, 36), (0, 12), (12, 24)])
     reordered["expected"] = "reject_reordered"
     cases.append(reordered)
+    if args.extended:
+        held_out = OUT / "held-out-source.mkv"
+        synthetic(held_out, seconds=72, fps=30, seed=424242)
+        cases.append(edited(held_out, "held-out-speed-ads", [2, (1, 23), 1,
+                            (Fraction(49, 2), Fraction(93, 2)), 3,
+                            (Fraction(99, 2), Fraction(143, 2))], scale=Fraction(24, 25), fps=25))
+        cases.append(edited(held_out, "held-out-resize", [(0, 72)], fps=25, vf="scale=192:128"))
+        cases.append(edited(source, "held-out-short-replacement",
+                            [(0, Fraction(25, 4)), Fraction(1, 4), (Fraction(13, 2), 36)]))
+        still = OUT / "held-out-still-source.mkv"
+        synthetic(still, seed=76123, still_tail=12)
+        ambiguous = edited(still, "held-out-static-deletion", [(0, 18), (20, 36)])
+        ambiguous.update(expected="reject_ambiguous_tail", unsafe_after_us=12_000_000)
+        cases.append(ambiguous)
+        long_source = OUT / "long-source.mkv"
+        synthetic(long_source, seconds=1860, seed=45678)
+        cases.append(edited(long_source, "long-speed-ads", [5, (4, 604), 3, (620, 1220), 7, (1240, 1840)],
+                            scale=Fraction(24, 25), fps=25))
     if args.reference:
         reference = ROOT / "tests/fixtures/generated/big-buck-bunny.mp4"
         if not reference.is_file():
