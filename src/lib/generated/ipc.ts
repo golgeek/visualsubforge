@@ -87,6 +87,30 @@ export const commands = {
     }),
   scenesCancel: (session: number) =>
     __TAURI_INVOKE<number>('scenes_cancel', { session }),
+  resyncStart: (
+    source: string,
+    session: number,
+    generation: number,
+    revision: number,
+  ) =>
+    __TAURI_INVOKE<number>('resync_start', {
+      source,
+      session,
+      generation,
+      revision,
+    }),
+  resyncView: (id: number, cueOffset: number, sectionOffset: number) =>
+    __TAURI_INVOKE<visualsubforge_resync_view_View>('resync_view', {
+      id,
+      cueOffset,
+      sectionOffset,
+    }),
+  resyncCancel: (id: number) => __TAURI_INVOKE<null>('resync_cancel', { id }),
+  resyncAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'resync_accept',
+      { id },
+    ),
   waveformStart: (path: string, audioOrdinal: number, session: number) =>
     __TAURI_INVOKE<number>('waveform_start', { path, audioOrdinal, session }),
   waveformView: (
@@ -482,6 +506,16 @@ export type visualsubforge_media_AudioTrack = {
   audioOrdinal: number;
 };
 
+export type visualsubforge_resync_view_CueRow = {
+  id: string;
+  text: string;
+  sourceStartMs: number;
+  sourceEndMs: number;
+  startMs: number | null;
+  endMs: number | null;
+  issue: string | null;
+};
+
 export type visualsubforge_document_CueView =
   | visualsubforge_document_CueView_Serialize
   | visualsubforge_document_CueView_Deserialize;
@@ -659,6 +693,15 @@ export type visualsubforge_project_Options_Serialize = {
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
 
+export type visualsubforge_resync_view_Phase =
+  | 'analyzing'
+  | 'cancelling'
+  | 'reviewing'
+  | 'accepting'
+  | 'accepted'
+  | 'cancelled'
+  | 'failed';
+
 export type visualsubforge_preferences_Preferences = {
   version: number;
   autoScanScenes: boolean;
@@ -790,6 +833,15 @@ export type visualsubforge_scenes_SceneView_Serialize = {
   note: string | null;
 };
 
+export type visualsubforge_resync_view_SectionRow = {
+  sourceStartUs: number;
+  sourceEndUs: number;
+  targetStartUs: number;
+  targetEndUs: number;
+  anchors: number;
+  maxResidualUs: number;
+};
+
 export type visualsubforge_timing_preset_Settings = {
   enabled: boolean;
   snapCues: boolean;
@@ -880,6 +932,21 @@ export type visualsubforge_media_Status_Serialize = {
   subtitlePreviewError: string | null;
   previewDocumentGeneration: number | null;
   previewDocumentRevision: number | null;
+};
+
+export type visualsubforge_resync_view_View = {
+  id: number;
+  phase: visualsubforge_resync_view_Phase;
+  stage: string;
+  error: string | null;
+  complete: boolean;
+  totalCues: number;
+  unresolvedCues: number;
+  totalSections: number;
+  cueOffset: number;
+  sectionOffset: number;
+  cues: visualsubforge_resync_view_CueRow[];
+  sections: visualsubforge_resync_view_SectionRow[];
 };
 
 export type visualsubforge_waveform_WaveformView =

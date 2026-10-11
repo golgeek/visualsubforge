@@ -18,6 +18,7 @@ export type MenuState = IPC.visualsubforge_desktop_MenuState;
 export type WaveformView = IPC.visualsubforge_waveform_WaveformView_Serialize;
 export type SceneMode = IPC.visualsubforge_scenes_Mode;
 export type SceneView = IPC.visualsubforge_scenes_SceneView_Serialize;
+export type ResyncView = Awaited<ReturnType<typeof commands.resyncView>>;
 export type ProjectOptions = IPC.visualsubforge_project_Options_Deserialize;
 export type ProjectData = IPC.visualsubforge_project_Project_Serialize;
 export type SavedScenes = IPC.visualsubforge_scenes_Saved_Deserialize;
@@ -199,6 +200,31 @@ export function scenesStart(
 }
 export function scenesCancel(session: number): Promise<number> {
   return commands.scenesCancel(session);
+}
+export function resyncStart(
+  source: string,
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+): Promise<number> {
+  return commands.resyncStart(
+    source,
+    session,
+    document.generation,
+    document.revision,
+  );
+}
+export function resyncView(
+  id: number,
+  cueOffset = 0,
+  sectionOffset = 0,
+): Promise<ResyncView> {
+  return commands.resyncView(id, cueOffset, sectionOffset);
+}
+export async function resyncCancel(id: number): Promise<void> {
+  await commands.resyncCancel(id);
+}
+export function resyncAccept(id: number): Promise<DocumentSnapshot> {
+  return commands.resyncAccept(id);
 }
 export function scenesView(
   generation: number,

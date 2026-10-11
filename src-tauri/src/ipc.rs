@@ -1,6 +1,7 @@
 //! One command/event registry for desktop dispatch and generated JSON contracts.
 use crate::{
-    desktop, document, media, preferences, project, scenes, timing_preset, waveform, workflow_trace,
+    desktop, document, media, preferences, project, resync, scenes, timing_preset, waveform,
+    workflow_trace,
 };
 
 pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
@@ -25,6 +26,10 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             scenes::scenes_start,
             scenes::scenes_view,
             scenes::scenes_cancel,
+            resync::resync_start,
+            resync::resync_view,
+            resync::resync_cancel,
+            resync::resync_accept,
             waveform::waveform_start,
             waveform::waveform_view,
             workflow_trace::workflow_trace_enabled,
@@ -60,7 +65,7 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
@@ -69,6 +74,7 @@ fn export_bindings() {
         ("openedProject", "OpenedProject", project::ipc_sample()),
         ("sceneView", "SceneView", scenes::ipc_sample()),
         ("waveformView", "WaveformView", waveform::ipc_sample()),
+        ("resyncView", "ResyncView", resync::ipc_sample()),
         (
             "workspaceActions",
             "WorkspaceAction[]",

@@ -16,7 +16,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
 | Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. GUI resync is not yet implemented. |
 | Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | GUI integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
-| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | GUI Save As protection, proposal acceptance and lifecycle integration are not implemented yet. |
+| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Desktop proposal ownership, one-edit acceptance and Save As/recovery protection are implemented and backend-tested. GUI workflow and native integration validation remain. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
@@ -169,3 +169,24 @@ application integration and broaden matching evidence; preserve conservative ref
 at ambiguous or missing content. Broader formats, plugin frameworks and cosmetic
 module rearrangements can wait. Packaging, licensing, physical-device/x64 and
 scale/display coverage remain prerequisites for corresponding release claims.
+
+Desktop resync backend validation (2026-10-11, development Mac, pinned Rust/Node,
+FFmpeg 9.0.2): `cargo test --locked --workspace` passed 153 tests, including
+91 desktop tests; zero-test harnesses are not feature evidence. The separately
+invoked `cargo test --locked -p visualsubforge resync::tests::actual_analysis --
+--ignored --nocapture --test-threads=1` passed, exercising actual FFmpeg, bounded
+review pages, acceptance and changed-input rejection with controlled media
+selection. `cargo test --locked -p media-analysis --test ffmpeg -- --ignored
+--nocapture --test-threads=1` passed all four waveform integrations after bounding
+its decode threads (two-hour fixture: 4.126 seconds). Strict Clippy for desktop
+and media-analysis, Rust formatting, frontend build, IPC drift, lint, 39 frontend
+unit tests and formatting passed. `cargo check --locked -p visualsubforge
+--features media-prototype` passed; this is compilation, not native execution.
+
+New deterministic tests cover drain/reuse/panic handling, no queued resync job,
+cancellation and shutdown ownership, media-selection serialization, stale
+captures, one-edit Undo/Redo, protected Save As, actual recovery publication,
+legacy recovery reads, project-reference rejection and retained scene polling.
+The CI desktop matrix now configures the actual-FFmpeg owner test on all three
+OSes. No remote is configured, so no hosted run is claimed. GUI interaction,
+real Tauri transport, wider corpus and remaining OS checks are still required.

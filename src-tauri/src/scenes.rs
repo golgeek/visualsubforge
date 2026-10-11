@@ -234,6 +234,24 @@ impl Scenes {
             job.note = None;
         }
     }
+    pub(crate) fn pause_for_resync(&self) -> Result<()> {
+        let mut worker = self.worker.lock().map_err(|_| "Scene worker unavailable")?;
+        worker.cancel();
+        {
+            let mut job = self.job.lock().map_err(|_| "Scene state unavailable")?;
+            job.cancellation.cancel();
+            if job.running {
+                job.running = false;
+                job.scanning = None;
+                job.error = None;
+                job.note = Some("Scene scanning paused for resynchronization".into());
+            }
+            // Keep the generation: existing frontend polls must observe this
+            // stop without a separate scene-command acknowledgment. Cancelled
+            // token/running checks reject callbacks from the drained worker.
+        }
+        worker.cancel_and_wait()
+    }
     fn stop(&self) -> Result<u64> {
         let mut worker = self.worker.lock().map_err(|_| "Scene worker unavailable")?;
         worker.cancel();
@@ -419,14 +437,20 @@ pub async fn scenes_start(
     mode: Mode,
     detail: Option<Detail>,
 ) -> Result<crate::ipc_number::SafeU64> {
-    let generation = app.state::<Scenes>().inner().clone().start(
-        app,
-        path,
-        session.get(),
-        mode,
-        detail.unwrap_or_default(),
-    )?;
-    Ok(crate::ipc_number::SafeU64::try_from(generation)?)
+    tauri::async_runtime::spawn_blocking(move || {
+        let generation = app.state::<crate::resync::Resync>().admit_scene(|| {
+            app.state::<Scenes>().inner().clone().start(
+                app.clone(),
+                path,
+                session.get(),
+                mode,
+                detail.unwrap_or_default(),
+            )
+        })?;
+        Ok(crate::ipc_number::SafeU64::try_from(generation)?)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 #[tauri::command]
 #[specta::specta]
@@ -518,6 +542,54 @@ mod tests {
         assert_eq!(dense.total, 5000);
         assert_eq!(dense.next, Some(4999.));
     }
+    #[test]
+    fn resync_pause_keeps_poll_identity_and_saved_cache_but_rejects_late_updates() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("clip");
+        std::fs::write(&path, b"fixture").unwrap();
+        let identity = crate::project::identify(&path).unwrap();
+        let scenes = Scenes::default();
+        let generation = scenes
+            .restore(
+                7,
+                Saved {
+                    version: 3,
+                    mode: Mode::Visual,
+                    cuts: vec![1., 2.],
+                    identity: identity.clone(),
+                },
+            )
+            .unwrap();
+        {
+            let mut job = scenes.job.lock().unwrap();
+            job.running = true;
+            job.partial = true;
+            job.scanning = Some(Mode::Visual);
+            job.completed = Some(job.cuts.clone());
+            job.cuts.push(3.);
+        }
+        scenes.pause_for_resync().unwrap();
+        let view = scenes.view(generation, 0., 4., 0.).unwrap();
+        assert!(!view.running && view.partial);
+        assert_eq!(view.cuts, vec![1., 2., 3.]);
+        assert_eq!(
+            scenes.saved(7, &identity).unwrap().unwrap().cuts,
+            vec![1., 2.]
+        );
+        assert!(
+            !scenes
+                .job
+                .lock()
+                .unwrap()
+                .finish(generation, 7, 7, Ok(vec![9.]))
+        );
+        assert_eq!(
+            scenes.view(generation, 0., 4., 0.).unwrap().cuts,
+            vec![1., 2., 3.]
+        );
+        scenes.shutdown();
+    }
+
     #[test]
     fn cancellation_and_failure_keep_last_completed_markers() {
         let scenes = Scenes::default();

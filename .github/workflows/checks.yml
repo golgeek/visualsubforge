@@ -156,6 +156,24 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.7'
+      - name: Install Linux FFmpeg for desktop resync owner tests
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y ffmpeg
+      - name: Install macOS FFmpeg for desktop resync owner tests
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install Windows FFmpeg for desktop resync owner tests
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
+      - name: Exercise desktop proposal ownership with actual FFmpeg (no native player)
+        run: |
+          ffmpeg -version
+          ffprobe -version
+          python scripts/resync-fixtures.py
+          cargo test --locked -p visualsubforge resync::tests::actual_analysis -- --ignored --nocapture --test-threads=1
       - run: npm run tauri -- build --debug --no-bundle -- --locked
       - name: Compile macOS GPU adapter (no runtime claim)
         if: runner.os == 'macOS'

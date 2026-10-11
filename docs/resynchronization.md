@@ -2,8 +2,9 @@
 
 The first release is under development. The current alignment experiment is
 documented in the [corpus guide](../tests/fixtures/resync/README.md). A headless CLI
-now calls the shared operation. Desktop proposal review/acceptance is not yet
-implemented; wider matching/platform validation remains open.
+now calls the shared operation. The desktop backend owns proposal review pages,
+acceptance and persistence protection; its GUI is still being connected. Wider
+matching/platform validation remains open.
 
 Timing policy: every cue start and end follows the measured content map. This
 scales short gaps and long pauses when programme speed changes, without deriving
@@ -69,6 +70,54 @@ so the environment is not hermetically pinned. Windows console-event delivery
 still needs direct evidence; portable cancellation-token tests do not prove it.
 Clap 4.6.7 and ctrlc 3.5.2 are exact direct dependency pins; Cargo.lock pins their
 transitive dependencies.
+
+## Desktop proposal ownership
+
+Four generated JSON commands start, inspect, cancel and accept one Rust-owned
+proposal. Start captures the current accepted document and loaded target video;
+the source video is read directly through FFmpeg. The frontend supplies a job ID
+for acceptance, never computed cue timings. Review returns at most 100 cue rows
+and 100 matched sections per request, including unresolved reasons and anchor
+residuals. The GUI controls are not implemented yet.
+
+`src-tauri/src/resync.rs` owns one analysis worker, with no pending queue. It
+cancels and drains scene scanning before decoding; the existing scene generation
+stays readable so frontend polling observes the stop. Completed scene caches and
+partial markers remain available. New scans are rejected while resync analysis
+or acceptance runs. Waveform may keep its one supervised child; both analyses
+request two decoder threads and one filter thread, with decode passes sequential
+inside each service. These are thread/process bounds, not a CPU-percentage limit.
+Native playback remains independent.
+
+Analysis and final input hashing run on background workers. Acceptance rechecks
+media content identities, then locks media selection, resync ownership and the
+document in that order. It checks job cancellation, media session and the full
+document capture identity immediately before the single domain edit. Document
+edits/Undo, replacement and Save As invalidate the old capture. Cancel remains
+available during input verification. Shutdown closes admission, signals
+cancellation, and waits for verification and worker cleanup off the UI thread.
+Blocking filesystem calls can still delay cleanup.
+
+Accepted retiming requires Save As to a different canonical path. That protection
+survives Undo, no-op proposals and failed writes. Only a successful distinct save
+clears it. Recovery format 3 retains the flag and accepted SRT; versions 1 and 2
+remain readable. Rust also checks project subtitle references under the document
+lock through publication, preventing a pending resync from attaching the original
+SRT as though it contained the target timings. The frontend's save-before-project
+continuation still needs resync workflow validation.
+
+```sh
+cargo test --locked -p visualsubforge
+python3 scripts/resync-fixtures.py
+cargo test --locked -p visualsubforge resync::tests::actual_analysis -- --ignored --nocapture --test-threads=1
+```
+
+The first command includes deterministic owner, cancellation, cleanup, document,
+recovery and source-protection checks. The opt-in test runs actual FFmpeg through
+the desktop owner, checks bounded review pages, acceptance and stale/changed-input
+rejection, and uses a controlled media selection. It does not exercise native
+playback, Tauri transport or GUI interactions. The desktop CI matrix configures
+that test on all three OS runners; local execution is currently macOS only.
 
 ## Shared application boundary
 

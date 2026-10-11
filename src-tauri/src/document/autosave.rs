@@ -55,7 +55,7 @@ impl Documents {
                     let (key, image) = {
                         let Ok(store) = shared.lock() else { return };
                         let key = store.checkpoint_key();
-                        let image = if Some(&key) != previous.as_ref() && key.2 {
+                        let image = if Some(&key) != previous.as_ref() && key.dirty {
                             store.loaded.as_ref().map(|d| {
                                 (
                                     d.editor.document().clone(),
@@ -77,13 +77,14 @@ impl Documents {
                                 Some((document, source, path, saved)) => {
                                     let saved =
                                         String::from_utf8(saved).map_err(|e| e.to_string())?;
-                                    let record = crate::recovery_store::Record::new(
+                                    let mut record = crate::recovery_store::Record::new(
                                         path.map(|path| path.to_string_lossy().into_owned()),
                                         saved,
                                         srt::serialize(&document, &source)?,
-                                        key.0,
-                                        key.1,
+                                        key.generation,
+                                        key.revision,
                                     )?;
+                                    record.resynced = key.resynced;
                                     session.prepare(&record).map(Some)
                                 }
                                 None => Ok(None),

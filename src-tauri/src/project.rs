@@ -237,6 +237,13 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     }
     let destination = destination(path)?;
     let base = destination.parent().ok_or("Project path has no parent")?;
+    let subtitle = request
+        .subtitle_path
+        .as_deref()
+        .map(Path::new)
+        .map(Path::canonicalize)
+        .transpose()
+        .map_err(|e| e.to_string())?;
     let identity = identify(&media)?;
     let scenes = app
         .state::<crate::scenes::Scenes>()
@@ -244,7 +251,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     let project = Project {
         version: 1,
         media_path: portable(base, &media),
-        subtitle_path: request.subtitle_path.map(|p| portable(base, Path::new(&p))),
+        subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
         media_identity: identity,
         position_seconds: request.position_seconds,
         options: request.options,
@@ -254,8 +261,11 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     if app.state::<crate::media::Media>().current_session() != request.session {
         return Err("Media changed before project save".into());
     }
-    app.state::<Projects>()
-        .save(&destination, request.token, &project)
+    app.state::<crate::document::Documents>()
+        .with_project_subtitle(subtitle.as_deref(), || {
+            app.state::<Projects>()
+                .save(&destination, request.token, &project)
+        })
 }
 fn destination(path: &Path) -> Result<PathBuf> {
     let base = path.parent().ok_or("Project path has no parent")?;

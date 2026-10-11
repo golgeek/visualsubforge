@@ -149,7 +149,8 @@ pub fn analyze(
         return Err(Error::Message("Non-finite container start time".into()));
     }
     let mut decode = Command::new(&tools.ffmpeg);
-    decode.args(["-v", "error", "-nostdin", "-copyts", "-i"]);
+    // Waveform may coexist with resync; bound its decoder/filter threads too.
+    decode.args(["-v", "error", "-nostdin", "-threads", "2", "-copyts", "-i"]);
     decode.arg(&path);
     decode.args([
         "-map",
@@ -159,10 +160,14 @@ pub fn analyze(
         "-dn",
         "-ac",
         "1",
+        "-filter_threads",
+        "1",
         "-af",
         &format!("asetpts=PTS-({origin})/TB,aresample={SAMPLE_RATE}:async=1:first_pts=0"),
         "-ar",
         "8000",
+        "-threads",
+        "1",
         "-f",
         "f32le",
         "pipe:1",

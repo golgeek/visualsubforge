@@ -21,6 +21,10 @@ pub(crate) struct Record {
     pub generation: u64,
     pub revision: u64,
     captured_ms: u64,
+    // Version 3 persists pending resync Save As protection. Legacy records
+    // default to ordinary recovery behavior, without changing their bytes.
+    #[serde(default)]
+    pub resynced: bool,
 }
 impl Record {
     pub fn new(
@@ -31,12 +35,13 @@ impl Record {
         revision: u64,
     ) -> Result<Self> {
         let record = Self {
-            version: 2,
+            version: 3,
             source_path: source_path.into(),
             saved_srt,
             accepted_srt,
             generation,
             revision,
+            resynced: false,
             captured_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
@@ -48,7 +53,7 @@ impl Record {
         Ok(record)
     }
     fn validate(&self) -> Result<()> {
-        if !matches!(self.version, 1 | 2) {
+        if !matches!(self.version, 1..=3) || (self.version < 3 && self.resynced) {
             return Err("Unsupported recovery format; record retained".into());
         }
         match &self.source_path {
@@ -315,9 +320,11 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let old = record(&directory.path().join("original.srt"));
         let mut json = serde_json::to_value(old).unwrap();
+        json.as_object_mut().unwrap().remove("resynced");
         json["version"] = 1.into();
         let legacy: Record = serde_json::from_value(json.clone()).unwrap();
         legacy.validate().unwrap();
+        assert!(!legacy.resynced);
         json["source_path"] = serde_json::Value::Null;
         assert!(
             serde_json::from_value::<Record>(json.clone())

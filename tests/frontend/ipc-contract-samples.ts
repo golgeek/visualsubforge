@@ -10,6 +10,7 @@ import type {
   WorkspaceAction,
   MediaStatus,
   Preferences,
+  ResyncView,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -198,6 +199,48 @@ export const waveformView = {
   secondsPerPeak: 0.01,
   startSeconds: 0.0,
 } satisfies WaveformView;
+export const resyncView = {
+  complete: false,
+  cueOffset: 0,
+  cues: [
+    {
+      endMs: 4000,
+      id: '1',
+      issue: null,
+      sourceEndMs: 2000,
+      sourceStartMs: 1000,
+      startMs: 3000,
+      text: 'Mapped',
+    },
+    {
+      endMs: null,
+      id: '2',
+      issue: 'No reliable matching content',
+      sourceEndMs: 7000,
+      sourceStartMs: 6000,
+      startMs: null,
+      text: 'Missing section',
+    },
+  ],
+  error: null,
+  id: 9007199254740991,
+  phase: 'reviewing',
+  sectionOffset: 0,
+  sections: [
+    {
+      anchors: 3,
+      maxResidualUs: 12.5,
+      sourceEndUs: 5000000,
+      sourceStartUs: 0,
+      targetEndUs: 7000000,
+      targetStartUs: 2000000,
+    },
+  ],
+  stage: 'Calculating subtitle timings',
+  totalCues: 2,
+  totalSections: 1,
+  unresolvedCues: 1,
+} satisfies ResyncView;
 export const workspaceActions = [
   'settings',
   'timingSettings',

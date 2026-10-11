@@ -29,6 +29,12 @@ impl<'de> Deserialize<'de> for FiniteF64 {
     }
 }
 
+impl Serialize for FiniteF64 {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
 impl specta::Type for FiniteF64 {
     fn definition(types: &mut specta::Types) -> specta::datatype::DataType {
         <specta_typescript::Number as specta::Type>::definition(types)

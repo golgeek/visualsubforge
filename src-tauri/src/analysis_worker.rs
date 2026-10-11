@@ -1,8 +1,8 @@
 //! One lazy worker and one replaceable pending request per analysis service.
 //! Replacement cancels active work but waits for it to return before starting
 //! the latest request. Ordinary blocking filesystem calls cannot be interrupted;
-//! this bounds admission, not shutdown latency. Only shutdown joins, off the UI
-//! thread. Drop is a cancellation fallback, never a blocking UI-thread join.
+//! this bounds admission, not shutdown latency. Drain and shutdown wait only on
+//! background threads. Drop is a cancellation fallback, never a blocking join.
 use media_analysis::Cancellation;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -31,6 +31,7 @@ impl Queue {
 struct Shared {
     queue: Mutex<Queue>,
     wake: Condvar,
+    idle: Condvar,
 }
 pub(crate) struct Worker {
     name: &'static str,
@@ -90,6 +91,34 @@ impl Worker {
             queue.cancel();
         }
     }
+    /// Cancel and reap active analysis without retiring the reusable worker.
+    /// Call only on a background thread while holding the service's worker lock.
+    pub fn cancel_and_wait(&mut self) -> Result<()> {
+        let mut queue = self
+            .shared
+            .queue
+            .lock()
+            .map_err(|_| "Analysis queue unavailable")?;
+        queue.cancel();
+        while queue.active.is_some() {
+            if self
+                .thread
+                .as_ref()
+                .is_some_and(|thread| thread.is_finished())
+            {
+                return Err("Analysis worker stopped before cleanup completed".into());
+            }
+            // A panicked closure cannot signal idle; periodically detect that
+            // terminal state instead of waiting forever on its stale active flag.
+            queue = self
+                .shared
+                .idle
+                .wait_timeout(queue, std::time::Duration::from_millis(100))
+                .map_err(|_| "Analysis queue unavailable")?
+                .0;
+        }
+        Ok(())
+    }
     fn close(&mut self) {
         if let Ok(mut queue) = self.shared.queue.lock() {
             queue.closing = true;
@@ -138,6 +167,7 @@ fn run_worker(shared: Arc<Shared>) {
             return;
         };
         queue.active = None;
+        shared.idle.notify_all();
     }
 }
 
@@ -146,6 +176,68 @@ mod tests {
     use super::*;
     use std::{sync::mpsc, time::Duration};
     const WAIT: Duration = Duration::from_secs(5);
+
+    #[test]
+    fn drain_waits_for_cleanup_drops_pending_and_keeps_worker_reusable() {
+        let mut worker = Worker::new("drain-analysis");
+        let active = Cancellation::default();
+        let (started, started_rx) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel();
+        worker
+            .replace(active.clone(), move || {
+                started.send(std::thread::current().id()).unwrap();
+                release_rx.recv_timeout(WAIT).unwrap();
+            })
+            .unwrap();
+        let original_thread = started_rx.recv_timeout(WAIT).unwrap();
+        let pending = Cancellation::default();
+        worker
+            .replace(pending.clone(), || panic!("Cancelled pending work ran"))
+            .unwrap();
+        let shared = worker.shared.clone();
+        let (drained, drained_rx) = mpsc::channel();
+        let drain = std::thread::spawn(move || {
+            worker.cancel_and_wait().unwrap();
+            drained.send(()).unwrap();
+            worker
+        });
+        let deadline = std::time::Instant::now() + WAIT;
+        while shared.queue.lock().unwrap().pending.is_some() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert!(active.is_cancelled() && pending.is_cancelled());
+        assert!(matches!(
+            drained_rx.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
+        release.send(()).unwrap();
+        drained_rx.recv_timeout(WAIT).unwrap();
+        let mut worker = drain.join().unwrap();
+        let (reused, reused_rx) = mpsc::channel();
+        worker
+            .replace(Cancellation::default(), move || {
+                reused.send(std::thread::current().id()).unwrap();
+            })
+            .unwrap();
+        assert_eq!(reused_rx.recv_timeout(WAIT).unwrap(), original_thread);
+        worker.shutdown();
+    }
+
+    #[test]
+    fn drain_reports_a_panicked_worker_instead_of_waiting_forever() {
+        let mut worker = Worker::new("panicked-analysis");
+        let (started, started_rx) = mpsc::channel();
+        worker
+            .replace(Cancellation::default(), move || {
+                started.send(()).unwrap();
+                panic!("Controlled worker failure");
+            })
+            .unwrap();
+        started_rx.recv_timeout(WAIT).unwrap();
+        assert!(worker.cancel_and_wait().is_err());
+        worker.shutdown();
+    }
 
     #[test]
     fn replacements_coalesce_while_cancelled_work_is_still_running() {

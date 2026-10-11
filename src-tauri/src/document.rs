@@ -11,6 +11,8 @@ use subtitle_core::{CueId, Edit, Editor, Milliseconds};
 use subtitle_formats::srt;
 
 mod autosave;
+mod resync;
+pub(crate) use resync::Capture;
 #[cfg(test)]
 pub(crate) mod ipc_tests;
 #[cfg(test)]
@@ -37,6 +39,9 @@ struct Loaded {
     // Used to reject overwriting a file changed outside this application.
     saved_bytes: Vec<u8>,
     recovered: bool,
+    // The current path is source provenance until a different file is saved.
+    // Independent of editor history: Undo must not remove this protection.
+    resynced: bool,
 }
 #[derive(Deserialize, specta::Type)]
 #[serde(
@@ -160,8 +165,8 @@ impl Store {
             path: loaded
                 .and_then(|d| d.path.as_ref())
                 .map(|p| p.to_string_lossy().into_owned()),
-            dirty: loaded.is_some_and(|d| d.editor.dirty() || d.recovered),
-            requires_save_as: loaded.is_some_and(|d| d.recovered || d.path.is_none()),
+            dirty: loaded.is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced),
+            requires_save_as: loaded.is_some_and(|d| d.recovered || d.resynced || d.path.is_none()),
             can_undo: loaded.is_some_and(|d| d.editor.can_undo()),
             can_redo: loaded.is_some_and(|d| d.editor.can_redo()),
             cues: loaded.map_or_else(Vec::new, |d| {
@@ -204,6 +209,7 @@ impl Store {
                     path: Some(path),
                     saved_bytes: bytes,
                     recovered: false,
+                    resynced: false,
                 });
                 self.generation += 1;
             }
@@ -223,6 +229,7 @@ impl Store {
                     }),
                     saved_bytes: record.saved_srt.into_bytes(),
                     recovered: true,
+                    resynced: record.resynced,
                 });
                 self.generation += 1;
             }
@@ -268,6 +275,7 @@ impl Store {
                         path: None,
                         saved_bytes: Vec::new(),
                         recovered: false,
+                        resynced: false,
                     })
                 } else {
                     None
@@ -320,6 +328,11 @@ impl Store {
             }
             Action::Save { path } => {
                 let loaded = self.loaded_mut()?;
+                if loaded.resynced && path.is_none() {
+                    return Err(
+                        "Resynchronized subtitles require Save As to a different file".into(),
+                    );
+                }
                 if loaded.recovered && path.is_none() {
                     return Err(
                         "Recovered subtitles require Save As to choose a destination".into(),
@@ -332,6 +345,9 @@ impl Store {
                         .clone()
                         .ok_or("Choose a filename with Save As for untitled subtitles")?,
                 };
+                if loaded.resynced && loaded.path.as_ref() == Some(&target) {
+                    return Err("Choose a different file to preserve the original subtitles".into());
+                }
                 let bytes = srt::serialize(loaded.editor.document(), &loaded.source)?.into_bytes();
                 crate::srt_limits::validate_size(bytes.len())?;
                 // Serialize before taking the lease, but compare disk bytes only
@@ -351,6 +367,7 @@ impl Store {
                 loaded.path = Some(target);
                 loaded.saved_bytes = bytes;
                 loaded.recovered = false;
+                loaded.resynced = false;
             }
         }
         Ok(self.snapshot())
@@ -365,7 +382,7 @@ impl Store {
             && self
                 .loaded
                 .as_ref()
-                .is_some_and(|d| d.editor.dirty() || d.recovered)
+                .is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced)
         {
             return Err("Save or explicitly discard subtitle changes first".into());
         }
@@ -443,17 +460,23 @@ impl Documents {
         Ok(())
     }
 
-    fn apply(&self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
+    pub(crate) fn apply(&self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
         self.0
             .lock()
             .map_err(|_| "Document worker state is unavailable")?
             .apply(action, generation, revision)
     }
 }
-// The checkpoint key includes clean/recovered state and path: Save As can change
-// these without changing the editor revision. Publishing rechecks this full key.
+// Save As and no-op resync acceptance can change persistence state without an
+// editor revision. Recovery publication and proposal acceptance recheck all fields.
 #[derive(Clone, PartialEq, Eq)]
-struct CheckpointKey(u64, u64, bool, Option<PathBuf>);
+struct CheckpointKey {
+    generation: u64,
+    revision: u64,
+    dirty: bool,
+    path: Option<PathBuf>,
+    resynced: bool,
+}
 impl Store {
     fn publish_checkpoint(
         &self,
@@ -471,14 +494,16 @@ impl Store {
         Ok(true)
     }
     fn checkpoint_key(&self) -> CheckpointKey {
-        CheckpointKey(
-            self.generation,
-            self.loaded.as_ref().map_or(0, |d| d.editor.revision()),
-            self.loaded
+        CheckpointKey {
+            generation: self.generation,
+            revision: self.loaded.as_ref().map_or(0, |d| d.editor.revision()),
+            dirty: self
+                .loaded
                 .as_ref()
-                .is_some_and(|d| d.editor.dirty() || d.recovered),
-            self.loaded.as_ref().and_then(|d| d.path.clone()),
-        )
+                .is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced),
+            path: self.loaded.as_ref().and_then(|d| d.path.clone()),
+            resynced: self.loaded.as_ref().is_some_and(|d| d.resynced),
+        }
     }
 }
 #[derive(Serialize, specta::Type)]
@@ -748,8 +773,8 @@ mod tests {
             path.to_string_lossy().into_owned(),
             ORIGINAL.into(),
             ORIGINAL.replace("Héllo", "snapshot"),
-            key.0,
-            key.1,
+            key.generation,
+            key.revision,
         )
         .unwrap();
         let pending = session.prepare(&record).unwrap();

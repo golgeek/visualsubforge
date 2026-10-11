@@ -166,6 +166,9 @@ struct Request {
 pub struct Media {
     sender: Option<mpsc::SyncSender<Request>>,
     latest: Arc<AtomicU64>,
+    // Serializes file-session replacement with resync capture/acceptance.
+    // Never held by the native worker or while waiting for a native reply.
+    selection: std::sync::Mutex<Option<std::path::PathBuf>>,
     stopping: Arc<AtomicBool>,
     shutdown_complete: AtomicBool,
     worker: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
@@ -175,6 +178,7 @@ impl Default for Media {
         Self {
             sender: None,
             latest: Arc::new(AtomicU64::new(0)),
+            selection: Default::default(),
             stopping: Arc::new(AtomicBool::new(false)),
             shutdown_complete: AtomicBool::new(false),
             worker: Default::default(),
@@ -182,6 +186,16 @@ impl Default for Media {
     }
 }
 impl Media {
+    // A selected-file identity for document/resync unit tests. No native player,
+    // command transport, decoder or playback validation is implied.
+    #[cfg(test)]
+    pub(crate) fn test_selection(path: &std::path::Path) -> Self {
+        Self {
+            latest: Arc::new(AtomicU64::new(1)),
+            selection: std::sync::Mutex::new(Some(path.into())),
+            ..Default::default()
+        }
+    }
     pub fn current_session(&self) -> u64 {
         self.latest.load(Ordering::Relaxed)
     }
@@ -204,7 +218,22 @@ impl Media {
             return Err("Player is shutting down".into());
         }
         let session = if matches!(action, Action::Open { .. } | Action::Close) {
-            self.latest.fetch_add(1, Ordering::Relaxed) + 1
+            let mut selection = self
+                .selection
+                .lock()
+                .map_err(|_| "Media selection unavailable")?;
+            let next = self
+                .latest
+                .load(Ordering::Relaxed)
+                .checked_add(1)
+                .filter(|id| *id <= crate::ipc_number::MAX_SAFE_INTEGER)
+                .ok_or("Media session identities exhausted")?;
+            *selection = match &action {
+                Action::Open { path, .. } => Some(path.into()),
+                _ => None,
+            };
+            self.latest.store(next, Ordering::Relaxed);
+            next
         } else {
             session
         };
@@ -220,6 +249,21 @@ impl Media {
             .recv()
             .map_err(|_| String::from("Player worker stopped"))?
     }
+    pub(crate) fn with_current<T>(
+        &self,
+        session: u64,
+        operation: impl FnOnce(&std::path::Path) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let selection = self
+            .selection
+            .lock()
+            .map_err(|_| "Media selection unavailable")?;
+        if self.stopping.load(Ordering::Relaxed) || self.current_session() != session {
+            return Err("Media changed or is shutting down".into());
+        }
+        operation(selection.as_deref().ok_or("Open the target video first")?)
+    }
+
     pub fn shutdown_complete(&self) -> bool {
         self.shutdown_complete.load(Ordering::Acquire)
     }
@@ -510,6 +554,7 @@ impl Media {
         Ok(Self {
             sender: Some(sender),
             latest,
+            selection: Default::default(),
             stopping,
             shutdown_complete: AtomicBool::new(false),
             worker: std::sync::Mutex::new(Some(worker)),
@@ -527,6 +572,9 @@ pub async fn media_action(
     use tauri::Manager;
     let session = session.get();
     tauri::async_runtime::spawn_blocking(move || {
+        if matches!(action, Action::Open { .. } | Action::Close) {
+            app.state::<crate::resync::Resync>().cancel_current();
+        }
         if matches!(
             action,
             Action::Open { .. } | Action::Close | Action::Track { .. }
@@ -556,6 +604,69 @@ mod tests {
         assert!(media.shutdown_complete());
         assert!(!media.begin_shutdown());
     }
+    #[test]
+    fn selection_guard_serializes_replacement_and_rejects_old_or_closed_sessions() {
+        use std::time::Duration;
+        let wait = Duration::from_secs(5);
+        let (sender, receiver) = mpsc::sync_channel::<Request>(2);
+        let media = Media {
+            sender: Some(sender),
+            ..Media::test_selection(std::path::Path::new("first.mkv"))
+        };
+        // Controlled command acknowledgments; this tests selection ownership,
+        // not native loading, rendering or audio.
+        let replies = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let request = receiver.recv_timeout(wait).unwrap();
+                request
+                    .reply
+                    .send(Ok(Status {
+                        session: request.session,
+                        ..Default::default()
+                    }))
+                    .unwrap();
+            }
+        });
+        std::thread::scope(|scope| {
+            let (locked, locked_rx) = mpsc::channel();
+            let (release, release_rx) = mpsc::channel();
+            let selected = &media;
+            let guard = scope.spawn(move || {
+                selected.with_current(1, |path| {
+                    assert_eq!(path, std::path::Path::new("first.mkv"));
+                    locked.send(()).unwrap();
+                    release_rx.recv_timeout(wait).unwrap();
+                    Ok(())
+                })
+            });
+            locked_rx.recv_timeout(wait).unwrap();
+            let replacement = scope.spawn(|| {
+                media.request(
+                    Action::Open {
+                        path: "second.mkv".into(),
+                        hardware: false,
+                    },
+                    1,
+                )
+            });
+            assert_eq!(media.current_session(), 1);
+            assert!(!replacement.is_finished());
+            release.send(()).unwrap();
+            guard.join().unwrap().unwrap();
+            assert_eq!(replacement.join().unwrap().unwrap().session, 2);
+        });
+        assert!(media.with_current(1, |_| Ok(())).is_err());
+        media
+            .with_current(2, |path| {
+                assert_eq!(path, std::path::Path::new("second.mkv"));
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(media.request(Action::Close, 2).unwrap().session, 3);
+        assert!(media.with_current(3, |_| Ok(())).is_err());
+        replies.join().unwrap();
+    }
+
     #[test]
     fn reject_invalid_times_and_tracks() {
         assert!(validate(&Action::Seek { seconds: f64::NAN }).is_err());

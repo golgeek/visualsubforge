@@ -48,6 +48,7 @@ mod playback_bench;
 mod preferences;
 mod project;
 mod recovery_store;
+mod resync;
 mod save_lease;
 mod scenes;
 mod srt_limits;
@@ -91,6 +92,7 @@ fn main() {
             app.manage(desktop::ExitGate::default());
             app.manage(waveform::Waveforms::default());
             app.manage(scenes::Scenes::default());
+            app.manage(resync::Resync::default());
             desktop::install(app)?;
             #[cfg(target_os = "windows")]
             {
@@ -221,6 +223,7 @@ fn diagnostic_exit(app: &tauri::AppHandle, success: bool) {
         app.state::<desktop::ExitGate>()
             .0
             .store(true, Ordering::Release);
+        app.state::<resync::Resync>().shutdown();
         app.state::<waveform::Waveforms>().shutdown();
         app.state::<scenes::Scenes>().shutdown();
         // Complete cleanup before asking to exit so failure codes are preserved.
