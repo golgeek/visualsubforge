@@ -1,6 +1,7 @@
 //! Hard-cut candidates, in seconds relative to the same container origin as audio.
 //! Blocks on supervised FFmpeg children; callers must use an analysis worker.
 mod quick;
+pub mod visual;
 
 use crate::{Cancellation, Error, Result, Tools, process};
 use serde::{Deserialize, Serialize};
@@ -84,8 +85,8 @@ pub fn detect(
         ])
         .arg(&path);
     let filter = format!(
-        "{},settb=expr=1/1000000,scdet=threshold=10:sc_pass=1,metadata=mode=print:key=lavfi.scd.time:file=-",
-        detail.scale()
+        "{},metadata=mode=print:key=lavfi.scd.time:file=-",
+        cut_filter(detail)
     );
     // Downscale every decoded image; no temporal sampling or keyframe filtering.
     // Keep original PTS and avoid upscaling small sources. This reduces analysis
@@ -117,6 +118,14 @@ pub fn detect(
     Ok(SceneCuts {
         seconds: parse(text, origin)?,
     })
+}
+
+// The timestamp and image passes must select exactly the same decoded frames.
+fn cut_filter(detail: Detail) -> String {
+    format!(
+        "{},settb=expr=1/1000000,scdet=threshold=10:sc_pass=1",
+        detail.scale()
+    )
 }
 /// Pipeline snapshots contain metadata only. The caller must reject stale jobs.
 #[derive(Clone, Copy, Debug, Serialize)]

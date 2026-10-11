@@ -129,6 +129,11 @@ CI runs both fixture generators and all integrations; ordinary workspace tests
 leave these integrations ignored. They validate decoding/analysis and cancellation,
 not native playback or presentation.
 
+The [resync experiment](tests/fixtures/resync/README.md) has a separate fixture
+generator, two visual-signature integrations and a ground-truth evaluator. CI
+also runs that synthetic corpus. The wider local reference-movie case still
+misses its coverage target; a passing synthetic job is not product acceptance.
+
 ### Native oracle controls
 
 The Python analysis tools have synthetic positive/negative controls that require

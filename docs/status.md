@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-11 UTC, after review remediation through `6617275`.
+Updated 2026-10-10 (America/New_York): review remediation and initial resync experiment.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
@@ -14,12 +14,13 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | Synthetic cases pass; the real-content case still misses its coverage target. No product CLI, shared application crate, generated IPC migration or GUI resync workflow exists yet. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
 
 ## Latest local evidence
 
-These are results from this remediation, not a fresh-machine installation or a
+The table records review-remediation results, not a fresh-machine installation or a
 claim that all platform gates passed. Commands are in [CONTRIBUTING](../CONTRIBUTING.md)
 and the [native contract](native-runtime.md).
 
@@ -33,6 +34,13 @@ and the [native contract](native-runtime.md).
 | Pinned mpv variants | Fresh render/baseline/candidate builds passed 37/39/39 upstream tests, without skips. Dependencies were recorded, not hermetically locked. |
 | Selected Mac application | Fresh Cargo target and bundle built; native-feature Clippy passed. Existing ANGLE libraries plus restored pinned headers were used. M3 Max visible video, GPU command smoke, expected loaded-library identities and normal quit passed; no fresh ANGLE library build or acoustic acceptance. |
 | Native compiler checks | Mac ANGLE, Windows 11 ARM64 MSVC and Ubuntu 26.04 ARM64 C++ checks passed with pinned mpv headers; Linux Rust native-boundary check also passed. These are compiler checks, not new Windows/Linux playback evidence or x64 CI execution. |
+
+Subsequent resync experiment checks on the development Mac: 17 media-analysis
+unit tests, all 13 opted-in FFmpeg integrations (four waveform, seven scene, two
+visual) and strict Clippy passed. The ten synthetic alignment cases meet their
+criteria; the edited Blender reference case measures 82.8% interior coverage,
+below the 90% evaluation target. Both sets have zero measured error in accepted
+intervals. This does not establish held-out quality or other-platform behavior.
 
 ## Historical evidence and local context
 
@@ -59,6 +67,9 @@ The native maintenance contract is established; native adoption is still blocked
 by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
-Broader formats, plugin frameworks, generated DTO infrastructure and cosmetic
+The active direction is shared Rust application operations for a headless CLI
+and desktop resynchronization, with generated JSON IPC bindings. First resolve
+the experiment's coverage/held-out evidence gaps; preserve conservative refusal
+at ambiguous or missing content. Broader formats, plugin frameworks and cosmetic
 module rearrangements can wait. Packaging, licensing, physical-device/x64 and
 scale/display coverage remain prerequisites for corresponding release claims.

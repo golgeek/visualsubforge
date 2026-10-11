@@ -1,5 +1,6 @@
 //! Bounded FFmpeg analysis experiment, independent of Tauri and subtitle-core.
 //! `analyze` blocks: call it on a worker, never on a UI/event-loop thread.
+pub mod alignment;
 mod process;
 pub mod scenes;
 
