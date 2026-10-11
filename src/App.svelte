@@ -75,6 +75,9 @@
   import Splitter from './lib/Splitter.svelte';
   import Waveform from './lib/Waveform.svelte';
   import SceneControls from './lib/SceneControls.svelte';
+  import ProjectSaveFailureDialog, {
+    type ProjectExitChoice,
+  } from './lib/ProjectSaveFailureDialog.svelte';
   import CueTiming from './lib/CueTiming.svelte';
   import {
     beginTimingEdit,
@@ -625,6 +628,8 @@
   let confirmResolve: ((value: 'save' | 'discard' | 'cancel') => void) | null =
     null;
   let confirming = $state(false);
+  let projectExitError = $state<string | null>(null);
+  let projectExitResolve: ((choice: ProjectExitChoice) => void) | null = null;
   let lastMenu = '';
   let revision = 0;
   let alive = true;
@@ -823,6 +828,38 @@
     if (choice === 'cancel') return false;
     if (choice === 'save') return save(false);
     return true;
+  }
+  async function projectSaveFailed(error: unknown): Promise<ProjectExitChoice> {
+    confirming = true;
+    try {
+      await occludeVideo(true);
+      if (!alive) {
+        confirming = false;
+        return 'cancel';
+      }
+      return new Promise((resolve) => {
+        projectExitResolve = resolve;
+        projectExitError = String(error);
+      });
+    } catch (error) {
+      confirming = false;
+      throw error;
+    }
+  }
+  async function answerProjectExit(choice: ProjectExitChoice) {
+    const resolve = projectExitResolve;
+    if (!resolve) return;
+    projectExitResolve = null;
+    projectExitError = null;
+    confirming = false;
+    await tick();
+    try {
+      await occludeVideo(diagnostics);
+      resolve(alive ? choice : 'cancel');
+    } catch (failure) {
+      error = String(failure);
+      resolve('cancel');
+    }
   }
   async function act(action: MediaAction) {
     cancelHeldTiming();
@@ -1032,8 +1069,21 @@
           break;
         case 'quit':
           if (await protect()) {
-            if (projectPath && status.loaded) await saveWorkspace(false, false);
-            await finishExit(doc, true);
+            if (projectPath && status.loaded) {
+              let saveAs = false;
+              while (alive) {
+                try {
+                  if (!(await saveWorkspace(saveAs, false))) return;
+                  break;
+                } catch (failure) {
+                  const choice = await projectSaveFailed(failure);
+                  if (choice === 'cancel') return;
+                  if (choice === 'quit') break;
+                  if (choice === 'saveAs') saveAs = true;
+                }
+              }
+            }
+            if (alive) await finishExit(doc, true);
           }
           break;
       }
@@ -1330,6 +1380,8 @@
     void poll();
     return () => {
       alive = false;
+      projectExitResolve?.('cancel');
+      projectExitResolve = null;
       void liveLoop.stop();
       revision++;
       waveRequest++;
@@ -1997,6 +2049,12 @@
       ><button onclick={() => answer('save')}>Save changes</button>
     </div>
   </dialog>
+  {#if projectExitError !== null}
+    <ProjectSaveFailureDialog
+      error={projectExitError}
+      onchoose={(choice) => void answerProjectExit(choice)}
+    />
+  {/if}
   {#if settingsOpen}
     <SettingsDialog
       {preferences}
