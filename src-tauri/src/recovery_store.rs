@@ -72,7 +72,7 @@ impl Record {
 pub(crate) struct Session {
     directory: PathBuf,
     // Held until this background owner is dropped. No UI/native affinity.
-    _lease: Option<File>,
+    _lease: Option<crate::file_lease::FileLease>,
 }
 impl Session {
     pub fn create(root: &Path) -> Result<Self> {
@@ -87,7 +87,7 @@ impl Session {
             .create_new(true)
             .open(directory.path().join("lease"))
             .map_err(|e| e.to_string())?;
-        lease.lock().map_err(|e| e.to_string())?;
+        let lease = crate::file_lease::FileLease::lock(lease).map_err(|e| e.to_string())?;
         Ok(Self {
             directory: directory.keep(),
             _lease: Some(lease),
@@ -158,7 +158,7 @@ fn directory(root: &Path, id: &str) -> Result<PathBuf> {
     }
     Ok(path)
 }
-fn lease(path: &Path) -> Result<Option<File>> {
+fn lease(path: &Path) -> Result<Option<crate::file_lease::FileLease>> {
     let lease_path = path.join("lease");
     if !fs::symlink_metadata(&lease_path)
         .map_err(|e| e.to_string())?
@@ -171,8 +171,8 @@ fn lease(path: &Path) -> Result<Option<File>> {
         .write(true)
         .open(lease_path)
         .map_err(|e| e.to_string())?;
-    match file.try_lock() {
-        Ok(()) => Ok(Some(file)),
+    match crate::file_lease::FileLease::try_lock(file) {
+        Ok(lease) => Ok(Some(lease)),
         Err(std::fs::TryLockError::WouldBlock) => Ok(None),
         Err(e) => Err(format!("Cannot acquire recovery lease: {e}")),
     }

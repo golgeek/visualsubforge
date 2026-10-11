@@ -13,6 +13,8 @@ use subtitle_formats::srt;
 mod autosave;
 #[cfg(test)]
 mod limits_tests;
+#[cfg(test)]
+mod save_tests;
 use autosave::RecoveryControl;
 
 type Result<T> = std::result::Result<T, String>;
@@ -300,6 +302,11 @@ impl Store {
                         .clone()
                         .ok_or("Choose a filename with Save As for untitled subtitles")?,
                 };
+                let bytes = srt::serialize(loaded.editor.document(), &loaded.source)?.into_bytes();
+                crate::srt_limits::validate_size(bytes.len())?;
+                // Serialize before taking the lease, but compare disk bytes only
+                // while holding it. Retain it through saved-state publication.
+                let _lease = crate::save_lease::acquire(&target)?;
                 if loaded.path.as_ref() == Some(&target)
                     && read_file(&target)? != loaded.saved_bytes
                 {
@@ -308,8 +315,6 @@ impl Store {
                             .into(),
                     );
                 }
-                let bytes = srt::serialize(loaded.editor.document(), &loaded.source)?.into_bytes();
-                crate::srt_limits::validate_size(bytes.len())?;
                 crate::atomic_file::write(&target, &bytes)?;
                 // File replacement succeeded; only now update path and saved state.
                 loaded.editor.mark_saved(revision)?;

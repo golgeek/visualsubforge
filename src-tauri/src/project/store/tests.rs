@@ -125,48 +125,6 @@ fn failed_write_and_external_deletion_preserve_the_attachment() {
     projects.save(&path, Some(token), &project).unwrap();
 }
 
-#[test]
-fn sidecar_lock_excludes_another_process_and_releases_after_owner_drop() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("shared.vsfproject");
-    let lease = save_lease(&path).unwrap();
-    let child = |expected| {
-        std::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "project::store::tests::project_save_lock_child",
-                "--ignored",
-            ])
-            .env("VSF_PROJECT_LOCK_TEST_PATH", &path)
-            .env("VSF_PROJECT_LOCK_TEST_EXPECT", expected)
-            .output()
-            .unwrap()
-    };
-    let locked = child("locked");
-    assert!(
-        locked.status.success(),
-        "{}",
-        String::from_utf8_lossy(&locked.stdout)
-    );
-    drop(lease);
-    let released = child("available");
-    assert!(
-        released.status.success(),
-        "{}",
-        String::from_utf8_lossy(&released.stdout)
-    );
-}
-
-#[test]
-#[ignore = "Subprocess entry point for sidecar lock ownership regression"]
-fn project_save_lock_child() {
-    let path = PathBuf::from(
-        std::env::var_os("VSF_PROJECT_LOCK_TEST_PATH").expect("parent supplies path"),
-    );
-    let expected = std::env::var("VSF_PROJECT_LOCK_TEST_EXPECT").unwrap();
-    assert_eq!(save_lease(&path).is_ok(), expected == "available");
-}
-
 #[cfg(unix)]
 #[test]
 fn symlink_aliases_share_the_canonical_save_identity() {

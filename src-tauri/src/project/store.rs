@@ -98,10 +98,7 @@ impl Projects {
         };
         let path = destination(path)?;
         let bytes = serialize(&path, project)?;
-        // A stable sidecar survives atomic destination replacement. Do not unlink
-        // it: deleting a lock file permits simultaneous owners of different inodes.
-        // These advisory locks coordinate VSF writers, not arbitrary external editors.
-        let _lease = save_lease(&path)?;
+        let _lease = crate::save_lease::acquire(&path)?;
         if let Some(saved) = active.filter(|saved| saved.path == path)
             && read_bytes(&path).ok().as_ref() != Some(&saved.bytes)
         {
@@ -118,21 +115,4 @@ impl Projects {
         store.pending = None;
         Ok(attachment)
     }
-}
-
-fn save_lease(path: &Path) -> Result<fs::File> {
-    let mut name = std::ffi::OsString::from(".");
-    name.push(path.file_name().ok_or("Project filename is missing")?);
-    name.push(".vsf-lock");
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(path.with_file_name(name))
-        .map_err(|e| format!("Cannot lock project for saving: {e}"))?;
-    file.try_lock().map_err(|e| {
-        format!("Project is being saved by another instance; retry when it finishes: {e}")
-    })?;
-    Ok(file)
 }

@@ -7,6 +7,7 @@ mod desktop;
 mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
+mod file_lease;
 #[cfg(target_os = "linux")]
 mod linux_dialog;
 #[cfg(all(feature = "media-prototype", target_os = "linux"))]
@@ -44,6 +45,7 @@ mod playback_bench;
 mod preferences;
 mod project;
 mod recovery_store;
+mod save_lease;
 mod scenes;
 mod srt_limits;
 #[cfg(any(
