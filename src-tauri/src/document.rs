@@ -1,9 +1,9 @@
 //! Accepted document state and file operations. The async handler delegates all
 //! work to blocking workers; the mutex serializes operations, never the UI thread.
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use std::fs;
 use std::{
-    fs,
-    io::Read,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -162,11 +162,7 @@ impl Store {
                     .canonicalize()
                     .map_err(|e| format!("Cannot open subtitles: {e}"))?;
                 let bytes = read_file(&path)?;
-                let text = std::str::from_utf8(&bytes).map_err(
-                    |_| "Subtitles must be UTF-8; convert this file's encoding before opening it",
-                )?;
-                let parsed = srt::parse(text)?;
-                crate::srt_limits::validate_document(&parsed.document, &parsed.source)?;
+                let parsed = vsf_application::subtitle_file::parse(&bytes)?;
                 // Commit only after every read and parse operation succeeds.
                 self.loaded = Some(Loaded {
                     editor: Editor::new(parsed.document),
@@ -342,18 +338,7 @@ impl Store {
         Ok(())
     }
 }
-pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>> {
-    let file = fs::File::open(path).map_err(|e| format!("Cannot read subtitles: {e}"))?;
-    if !file.metadata().map_err(|e| e.to_string())?.is_file() {
-        return Err("Subtitles must be a regular file".into());
-    }
-    let mut bytes = Vec::new();
-    file.take(crate::srt_limits::MAX_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("Cannot read subtitles: {e}"))?;
-    crate::srt_limits::validate_size(bytes.len())?;
-    Ok(bytes)
-}
+pub(crate) use vsf_application::subtitle_file::read as read_file;
 fn save_path(path: &Path) -> Result<PathBuf> {
     let name = path.file_name().ok_or("Choose a subtitle filename")?;
     let parent = path

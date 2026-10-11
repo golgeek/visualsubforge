@@ -49,8 +49,10 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   legacy INI migration.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
-handles SRT parsing/serialization without filesystem access. `src-tauri` coordinates
-application persistence and background services, while `media-analysis` and
+handles SRT parsing/serialization without filesystem access. `vsf-application`
+shares bounded SRT reads, size policy and atomic file persistence with headless
+callers. `src-tauri` coordinates accepted desktop state and background services,
+while `media-analysis` and
 `media-player` isolate FFmpeg analysis and native playback. All frontend/backend
 communication goes through `src/lib/client.ts`. Decoded video frames stay out of
 ordinary IPC.

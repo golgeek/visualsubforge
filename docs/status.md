@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-10 (America/New_York): review remediation and initial resync experiment.
+Updated 2026-10-11 (America/New_York): shared application extraction in progress toward resync.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
@@ -14,7 +14,8 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
-| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. No product CLI, shared application crate, generated IPC migration or GUI resync workflow exists yet. |
+| Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. No product CLI, generated IPC migration or GUI resync workflow exists yet. |
+| Shared application | `vsf-application` owns bounded SRT reads/acceptance, the size policy and file/save primitives used by the desktop. Dependency inspection confirms no desktop/native playback dependency. | Proposal generation and headless output policy are next; desktop document/project/recovery owners remain in place. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Application proposal, Save As protection and GUI/CLI integration are not implemented yet. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
@@ -44,6 +45,11 @@ to 95.2% through sampled verification, held-out speed/ad coverage is 99.2%, and
 the long-block case reaches 100%. Accepted intervals have zero measured timing
 error; static-deletion tails remain unresolved. These results do not establish
 general content/distortion quality or other-platform behavior.
+
+Shared extraction: `cargo test --locked -p vsf-application -p visualsubforge`
+passed 73 tests (70 desktop, three moved persistence/lease tests); the save-lock
+helper is invoked by its owner. Strict Clippy for both packages and rustfmt passed.
+This preserves existing behavior; it does not validate a product CLI yet.
 
 ## Historical evidence and local context
 

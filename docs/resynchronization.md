@@ -4,6 +4,25 @@ The first release is under development. The current alignment experiment is
 documented in the [corpus guide](../tests/fixtures/resync/README.md). There is no
 product CLI or desktop resync interface yet.
 
+## Shared application boundary
+
+`crates/vsf-application` contains the desktop's existing atomic sibling writes,
+file/save leases, SRT size policy and bounded SRT file reads. The desktop imports
+these implementations; their lifecycle tests run in the shared crate. SRT parsing
+and normalization validation use one entry point. The domain and format crates
+remain free of filesystem dependencies. The shared crate has no Tauri, webview,
+native playback or frontend types.
+
+These functions block and must run off the desktop UI thread. Document generation,
+history, recovery coordination and project attachment remain with the existing
+desktop owners. Extracting the demonstrated shared policies does not move those
+owners or change existing save/lease semantics.
+
+```sh
+cargo test --locked -p vsf-application -p visualsubforge
+cargo tree --locked -p vsf-application --edges normal
+```
+
 ## Atomic retiming in the subtitle domain
 
 `subtitle_core::Edit::Retime` accepts one `CueTiming` for every existing cue, in

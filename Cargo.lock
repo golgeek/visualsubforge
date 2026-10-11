@@ -4034,7 +4034,17 @@ dependencies = [
  "tauri-plugin-dialog",
  "tempfile",
  "url",
+ "vsf-application",
  "zbus",
+]
+
+[[package]]
+name = "vsf-application"
+version = "0.1.0"
+dependencies = [
+ "subtitle-core",
+ "subtitle-formats",
+ "tempfile",
 ]
 
 [[package]]
