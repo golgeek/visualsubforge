@@ -1,0 +1,3 @@
+# Native recipe driver tools. Media/system dependencies are recorded by Meson.
+meson==1.12.1
+ninja==1.13.2

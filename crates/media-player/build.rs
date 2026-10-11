@@ -31,6 +31,7 @@ fn main() {
         let sdk = std::path::PathBuf::from(std::env::var_os("VSF_MPV_SDK").expect(
             "Windows media-prototype requires VSF_MPV_SDK with include/mpv/client.h and lib/mpv.lib",
         ));
+        require_sdk_files(&sdk, &["include/mpv/client.h", "lib/mpv.lib"]);
         cc::Build::new()
             .cpp(true)
             .std("c++17")
@@ -64,6 +65,18 @@ fn main() {
             let sdk = std::path::PathBuf::from(std::env::var_os("VSF_ANGLE_SDK").expect(
                 "macos-angle requires VSF_ANGLE_SDK with include/ and out/Metal libraries",
             ));
+            require_sdk_files(
+                &sdk,
+                &[
+                    "include/EGL/egl.h",
+                    "include/EGL/eglext.h",
+                    "include/GLES2/gl2.h",
+                    "include/GLES2/gl2ext.h",
+                    "include/KHR/khrplatform.h",
+                    "out/Metal/libEGL.dylib",
+                    "out/Metal/libGLESv2.dylib",
+                ],
+            );
             build
                 .define("VSF_USE_ANGLE", None)
                 .include(sdk.join("include"));
@@ -83,5 +96,18 @@ fn main() {
         build.compile("vsf_media_surface");
         println!("cargo:rustc-link-lib=framework=AppKit");
         println!("cargo:rustc-link-lib=framework=QuartzCore");
+    }
+}
+
+fn require_sdk_files(sdk: &std::path::Path, files: &[&str]) {
+    for relative in files {
+        let path = sdk.join(relative);
+        // A removed/replaced SDK file must invalidate Cargo's build-script cache.
+        println!("cargo:rerun-if-changed={}", path.display());
+        assert!(
+            path.is_file(),
+            "Native SDK is incomplete: {} is missing. See docs/native-runtime.md",
+            path.display()
+        );
     }
 }

@@ -2,14 +2,22 @@
 
 This is the complete local Apple Silicon development path: native libraries,
 Rust/Svelte application, and launch with the selected audio runtime. It is not a
-redistributable package. Audio acceptance is still in progress under task 005.
+redistributable package. Audio/content acceptance remains open in the
+[native runtime contract](native-runtime.md#remaining-adoption-gates).
 The user-selected mpv source is pinned in `scripts/prepare-mpv-clock.py`; normal
 builds never follow a moving upstream branch.
 
-## Try the existing development build
+For repeatable validation, use the [native maintenance contract](native-runtime.md):
+it provides a fresh source-build driver, SDK preflight, build receipts, loaded
+binary identification and the upgrade/adoption gates. Existing libraries below
+are reusable development artifacts, not proof of a fresh dependency build.
 
-On the current Mac, the 2026-10-05 candidate and app are already built. From
-the repository root, this launches the exact runtime used by that checkpoint:
+## Historical local launch example (2026-10-05)
+
+The 2026-10-05 checkpoint used the paths below. They are not a current-build
+guarantee: later source builds can replace the application, and temporary SDK
+headers can disappear while libraries survive. Use this only when those exact
+artifacts are still present and their recorded identities match:
 
 ```sh
 export VSF_REPO="$PWD"
@@ -23,13 +31,13 @@ These generated/temporary files are local, not distributed with the repository.
 If they are missing, or after changing source, follow the build instructions
 below. Do not set diagnostic `VSF_*_SMOKE` or `VSF_DIAGNOSTIC_EXIT` variables
 when launching interactively. The app remains experimental; the audio acceptance
-limits are recorded in [task 005](tasks/005-audio-loop-timing.md#upstream-audio-integration-checkpoint--2026-10-05).
+limits are recorded in the [native runtime contract](native-runtime.md#remaining-adoption-gates).
 
 ## Prerequisites
 
 Use the Rust/Node versions and Xcode setup in [CONTRIBUTING](../CONTRIBUTING.md#commands-and-toolchains).
-On the current development Mac those tools, Homebrew media dependencies, and
-ANGLE are already installed. For another Mac, the native build needs:
+Install the native development dependencies; existing installations still need
+the completeness and identity checks below:
 
 ```sh
 brew install mpv pkg-config meson ninja
@@ -42,10 +50,10 @@ Full Xcode and its Metal Toolchain are needed to build ANGLE.
 
 ## ANGLE / Metal
 
-On this Mac, reuse the existing `/tmp/vsf-angle-source` build. It is pinned to
+The development ANGLE libraries were built from
 `0ed62f49b5e02cc5e6db4a175a98f545cc994715`, with depot_tools revision
 `8a5434051036b32412a2ecb10c213a72e3f3ccb9`. Temporary directories can disappear;
-for a fresh checkout, follow ANGLE's [official setup](https://chromium.googlesource.com/angle/angle/+/main/doc/DevSetup.md)
+the old `/tmp/vsf-angle-source` is currently incomplete. For a fresh checkout, follow ANGLE's [official setup](https://chromium.googlesource.com/angle/angle/+/main/doc/DevSetup.md)
 using those revisions. Our `.gclient` solution is:
 
 ```python
@@ -66,8 +74,10 @@ third_party/ninja/ninja -C out/Metal -j 6 libEGL libGLESv2
 ```
 
 The development evidence covers the existing pinned checkout/build, not a fresh
-installation on another machine. Both `out/Metal/libEGL.dylib` and
-`out/Metal/libGLESv2.dylib` must exist.
+installation on another machine. The public `include/` headers and both
+`out/Metal/libEGL.dylib` and `out/Metal/libGLESv2.dylib` must exist. A temporary
+directory can retain libraries after its source/header files disappear; run
+preflight instead of inferring SDK completeness from the library files alone.
 
 ## Prepare and build mpv
 
@@ -96,8 +106,9 @@ audio corrections; omit it for the ten-patch baseline. Both are experimental.
 The optional VapourSynth filter is disabled because the tested environment lacks
 its required header. No `meson install` or system-library replacement is needed.
 
-The existing isolated tools on this Mac can be selected, if needed, with
-`export PATH="/tmp/vsf-mpv-build-tools/bin:/opt/homebrew/bin:$PATH"`.
+For pinned Meson/Ninja versions and a retained build receipt, prefer the
+[automated recipe driver](native-runtime.md#repeatable-source-builds). The manual
+commands above show the same build options but do not produce that receipt.
 
 ## Build the application
 
@@ -106,16 +117,21 @@ Continue in the same shell, from the VSF repository root:
 ```sh
 nvm use
 npm ci
-export VSF_ANGLE_SDK=/tmp/vsf-angle-source
+export VSF_ANGLE_SDK=/absolute/path/to/complete-angle-sdk
 export PKG_CONFIG_PATH="$VSF_NATIVE/build/meson-uninstalled"
 export DYLD_LIBRARY_PATH="$VSF_NATIVE/build:$VSF_ANGLE_SDK/out/Metal"
-pkg-config --variable=prefix mpv
+python3 scripts/native-preflight.py --feature macos-angle --mpv-runtime "$VSF_NATIVE/build/libmpv.2.dylib" --output "$VSF_NATIVE/app-preflight.json"
+pkg-config --cflags --libs mpv
 cargo test --locked --workspace --features macos-angle
 npm run tauri -- build --debug --bundles app --features macos-angle -- --locked
 ```
 
-The printed pkg-config prefix must be the selected mpv build directory. This
-selects its headers/link library; `DYLD_LIBRARY_PATH` independently selects the
+Verify the printed include paths and `-L` library search directory select your
+prepared source/build. Meson's uninstalled pkg-config file can retain a future
+installation prefix, so `--variable=prefix` alone is insufficient. Preflight
+refuses to overwrite its receipt; choose a new output filename for a later run.
+For a clean rebuild, also choose an unused `CARGO_TARGET_DIR` as described in
+the native contract. These flags select headers/link inputs; `DYLD_LIBRARY_PATH` independently selects the
 runtime libraries for the launched process. Keep both settings. They do not
 change your installed libraries.
 
@@ -133,7 +149,7 @@ location on first Save. Scroll horizontally on the waveform to pan, vertically
 to zoom, and check **Follow playback** to resume following the playhead. Playback Diagnostics
 should identify the experimental queued timeline. Edit text/timing, use
 Apply/Undo/Redo, and save a copy of your subtitles. The native audio candidates
-still have the limitations recorded in [task 005](tasks/005-audio-loop-timing.md).
+still have the limitations recorded in the [native contract](native-runtime.md#remaining-adoption-gates).
 
 For frontend iteration, use the same environment with:
 
