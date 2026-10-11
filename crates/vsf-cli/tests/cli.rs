@@ -235,11 +235,11 @@ fn analysis_only_and_needs_review_do_not_create_subtitle_outputs() {
         if status == "analysis_only" {
             let report: serde_json::Value =
                 serde_json::from_slice(&fs::read(dir.path().join("report.json")).unwrap()).unwrap();
-            assert_eq!(report["cues"][0]["outcome"]["end_ms"], 2916);
+            assert_eq!(report["cues"][0]["outcome"]["end_ms"], 2920);
             assert_eq!(report["cues"][1]["outcome"]["start_ms"], 3016);
             assert_eq!(
-                report["cues"][0]["following_gap"]["outcome"]["adjustment_ms"],
-                -4
+                report["cues"][0]["following_gap"]["outcome"]["target_ms"],
+                96
             );
         }
         assert_eq!(

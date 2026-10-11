@@ -158,11 +158,11 @@ impl Analysis {
             publication: &'a str,
         }
         let report = Report {
-            schema_version: 1,
+            schema_version: 2,
             algorithm_version: ALGORITHM_VERSION,
             video_stream_selection: "first_video_stream",
             timestamp_origin: "container_start",
-            cue_gap_policy: "preserve_source_ms_within_section_by_adjusting_preceding_end_v1",
+            cue_gap_policy: "content_mapped_endpoints_v1",
             source_video: &self.source_video,
             target_video: &self.target_video,
             source_subtitle_file: &self.subtitle_file,

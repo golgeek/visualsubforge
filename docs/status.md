@@ -15,7 +15,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
 | Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. GUI resync is not yet implemented. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. The current gap implementation preserves milliseconds by adjusting preceding ends; the corrected requirement needs frame-rate/profile-dependent margins. | Frame-aware gap conversion is required before release; the policy for longer pauses awaits clarification. GUI integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
+| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. | GUI integration, broader matching and OS/process/filesystem gates remain. Bulk minimum-gap enforcement is a separate unimplemented editor action. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | GUI Save As protection, proposal acceptance and lifecycle integration are not implemented yet. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. | The pinned generator has documented naming limitations; native/cross-platform IPC execution still needs revalidation with GUI integration. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
@@ -66,12 +66,12 @@ output refusal, retry protection, actual SIGINT cancellation and active-child
 reaping on cancellation/timeout. Strict CLI Clippy passed. A headless OS matrix
 is configured but not run here; Windows console signals remain unverified.
 
-Exact-gap refinement: eight proposal tests pass, including 32-cue sequences at
+Historical exact-gap refinement (superseded by the content-timing correction below): eight proposal tests passed, including 32-cue sequences at
 46 speed scales, unsorted SRT order, Undo/Redo, ad-boundary exceptions and collapse
 refusal. Three application FFmpeg tests and two CLI FFmpeg tests pass with an
 actual 100 ms source gap preserved at 24/25 speed and a separate ad gap left to
-the section mapping. These validate the approved end adjustment, which can
-intentionally differ from the direct content-mapped cue end.
+the section mapping. These validated the then-approved end adjustment; current resync instead maps
+every endpoint directly, as documented below.
 
 After the CLI and exact-gap changes, `cargo test --locked --workspace` passed
 131 tests and strict workspace Clippy passed. The workspace command leaves
@@ -119,6 +119,24 @@ to a static import. The controls now hold the modeled registration response;
 cases, including the two formerly failing controls. `cargo tree --locked -p
 vsf-cli --edges normal` confirms no Specta/Tauri/native playback dependency.
 Cross-platform/native IPC execution remains part of final integration validation.
+
+Content-timing correction (2026-10-11): the user clarified that every cue start
+and end, including long pauses, should follow actual matched programme timing.
+The superseded fixed-ms end adjustment is removed. Reports use schema 2 and
+`content_mapped_endpoints_v1`, with original/resulting gaps and separate section
+boundaries. FPS-only conversion is not treated as a speed change. Preset/minimum
+gap enforcement and audio matching remain separate follow-ups.
+
+`cargo test --locked -p vsf-application -p vsf-cli` passed 22 tests, including
+nine proposal tests. Generated sequences cover 256 cues at 46 scales with
+independent endpoint expectations, short/long gaps, plus explicit 25→23.976
+speed examples and reverse mapping. An initial round-trip assertion compared
+un-normalized SRT trailing whitespace; it now compares parsed documents.
+All three shared-operation and two executable FFmpeg tests passed via the
+resync guide's opt-in commands. Strict application/CLI Clippy, rustfmt and diff
+checks passed. This changes proposal timing/report policy, not visual matching;
+the corpus need not be retuned. GUI integration and remaining platform/content
+gates stay active.
 
 ## Historical evidence and local context
 

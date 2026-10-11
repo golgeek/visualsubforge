@@ -5,14 +5,11 @@ documented in the [corpus guide](../tests/fixtures/resync/README.md). A headless
 now calls the shared operation. Desktop proposal review/acceptance is not yet
 implemented; wider matching/platform validation remains open.
 
-Requirement correction, 2026-10-11: the implemented exact-millisecond gap policy
-below is superseded for the intended release. Cue-gap and scene-buffer norms can
-differ with the selected frame-rate/profile variant (for example archived SW2
-uses 120/125 ms gaps and 80/83 ms scene buffers). The CLI still implements the
-older policy; frame-aware margin conversion is not implemented yet. Programme
-timing must still come from matched content, including when FPS changes without
-changing programme duration. Whether longer pauses should follow content or
-preserve their frame count is awaiting clarification.
+Timing policy: every cue start and end follows the measured content map. This
+scales short gaps and long pauses when programme speed changes, without deriving
+speed from the nominal FPS ratio. Timing profiles and their minimum gaps/scene
+buffers are separate constraints; resync does not silently enforce a preset.
+Audio matching remains a possible follow-up, not part of this release.
 
 ## CLI workflow
 
@@ -114,22 +111,32 @@ without introducing inversions/overlaps between previously separated cues. No
 sorting, text changes or minimum-duration repairs occur. Positive rational
 arithmetic rounds once to milliseconds, with half-millisecond ties rounded up.
 
-The current implementation preserves each original nonnegative inter-cue gap in milliseconds,
-even when programme speed changes. Within one supported section, it keeps the
-next cue's content-matched start and sets the preceding end to that start minus
-the original gap. A 100 ms gap therefore stays 100 ms at 24/25 speed; the preceding
-end moves 4 ms earlier than its direct content mapping. At slower speed it may
-move later. An adjustment that collapses a cue makes that cue unresolved. Cue
-starts remain unchanged; the last cue retains its mapped end.
+Every start and end maps independently from its original timestamp. Within a
+supported section this scales both cue durations and gaps with the content; no
+preceding end is moved to restore the old millisecond gap. For example, an actual
+25→23.976 playback slowdown scales a 120 ms gap to approximately 125 ms and a
+one-second pause to approximately 1.043 seconds. A conversion that merely drops
+or duplicates frames without changing programme duration keeps the timing scale
+at one. Matching establishes which case applies, including offsets after edits.
+
+Each endpoint rounds once, so subtracting two rounded endpoints can differ by a
+millisecond from rounding an isolated gap. Never accumulate rounded gaps to find
+later cues: that would introduce drift. A mapped cue that collapses to zero
+milliseconds remains unresolved.
 
 Neighbors are identified by source chronology without reordering the document.
-Existing overlaps are mapped with content and are not repaired. Corrections
-never cross supported-section boundaries (ads/edits or unverified continuity).
-The report records each gap's original size and whether it was preserved,
-crossed sections, had an unresolved neighbor or would collapse a cue. Preserved
-gaps include the mapped end and signed adjustment for review. This policy is
-independent of the editor's minimum-gap setting: resync does not normalize gaps
-to a preset. The separate bulk minimum-gap editor action is not implemented.
+Existing overlaps follow the same content map. Gaps across section boundaries
+(ads/edits or unverified continuity) are reported separately, with no interpolation
+or forced relationship to the original gap. Reports record the source gap and
+its mapped size, or indicate different sections/an unresolved neighbor. Report
+schema version 2 uses `content_mapped_endpoints_v1`; it replaces schema 1's
+superseded fixed-millisecond end correction. The CLI completion-summary schema
+remains version 1 because its shape is unchanged. Report import is not supported.
+
+Minimum-gap and scene-buffer norms depend on the chosen profile; their values
+cannot establish programme speed. Resync does not guess a profile from a gap or
+promise full SW quality compliance. The separate bulk minimum-gap editor action
+is not implemented.
 
 The complete candidate is validated through the existing batch domain operation
 and SRT size policy. An incomplete proposal has no exportable SRT.
@@ -172,8 +179,9 @@ python3 scripts/resync-fixtures.py
 cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
 ```
 
-Pure tests cover rounding, exact gaps across generated speed scales, unsorted
-source order, ad boundaries, collapse refusal, stale snapshots, history, output collisions,
+Pure tests cover independent endpoint rounding across generated speed scales,
+short/long gaps, reverse speed conversion, unsorted source order, ad boundaries,
+collapse refusal, stale snapshots, history, output collisions,
 aliases, changed input hashes and mid-hash cancellation. A subprocess exits
 between publications to verify crash/retry behavior. Actual FFmpeg integrations
 cover offset, FPS-only conversion, speed/ad edits, unresolved cues, changed inputs

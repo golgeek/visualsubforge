@@ -47,7 +47,6 @@ pub enum UnresolvedReason {
     UnsupportedCoverage,
     CrossesDiscontinuity,
     InvalidMappedRange,
-    GapWouldCollapseCue,
 }
 
 #[derive(Debug, Serialize)]
@@ -60,16 +59,9 @@ pub struct CueGap {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum GapOutcome {
-    Preserved {
-        mapped_end_ms: u64,
-        adjustment_ms: i64,
-    },
+    Mapped { target_ms: u64 },
     AcrossSections,
     UnresolvedNeighbor,
-    WouldCollapse {
-        mapped_end_ms: u64,
-        requested_end_ms: i64,
-    },
 }
 
 #[derive(Debug, Serialize)]
@@ -127,7 +119,7 @@ impl Proposal {
                 following_gap: None,
             });
         }
-        preserve_gaps(&mut cues, budget)?;
+        describe_gaps(&mut cues, budget)?;
         let mut timings = Vec::with_capacity(cues.len());
         for (cue, proposed) in snapshot.document.cues().iter().zip(&cues) {
             budget.check()?;
@@ -207,7 +199,7 @@ impl Proposal {
     }
 }
 
-fn preserve_gaps(cues: &mut [CueProposal], budget: &Budget<'_>) -> Result<()> {
+fn describe_gaps(cues: &mut [CueProposal], budget: &Budget<'_>) -> Result<()> {
     let mut order: Vec<_> = (0..cues.len()).collect();
     order.sort_unstable_by_key(|&i| (cues[i].source_start_ms, cues[i].source_end_ms, i));
     for pair in order.windows(2) {
@@ -223,9 +215,9 @@ fn preserve_gaps(cues: &mut [CueProposal], budget: &Budget<'_>) -> Result<()> {
         let outcome = match (&cues[previous].outcome, &cues[next].outcome) {
             (
                 CueOutcome::Mapped {
-                    start_ms,
                     end_ms,
                     section_index,
+                    ..
                 },
                 CueOutcome::Mapped {
                     start_ms: next_start,
@@ -236,30 +228,11 @@ fn preserve_gaps(cues: &mut [CueProposal], budget: &Budget<'_>) -> Result<()> {
                 if section_index != next_section {
                     GapOutcome::AcrossSections
                 } else {
-                    // All values are bounded by the domain clock (well below
-                    // i64::MAX). Keep each onset on matched content; preserve
-                    // the source gap by moving only the preceding cue's end.
-                    let requested = *next_start as i64 - gap_ms as i64;
-                    let mapped_end_ms = *end_ms;
-                    if requested <= *start_ms as i64 {
-                        cues[previous].outcome = CueOutcome::Unresolved {
-                            reason: UnresolvedReason::GapWouldCollapseCue,
-                        };
-                        GapOutcome::WouldCollapse {
-                            mapped_end_ms,
-                            requested_end_ms: requested,
-                        }
-                    } else {
-                        let adjustment_ms = requested - mapped_end_ms as i64;
-                        cues[previous].outcome = CueOutcome::Mapped {
-                            start_ms: *start_ms,
-                            end_ms: requested as u64,
-                            section_index: *section_index,
-                        };
-                        GapOutcome::Preserved {
-                            mapped_end_ms,
-                            adjustment_ms,
-                        }
+                    // Both endpoints come from the same monotonic content map.
+                    // Report their rounded difference; never reconstruct an end
+                    // from the next start or accumulate rounded gaps over time.
+                    GapOutcome::Mapped {
+                        target_ms: next_start - end_ms,
                     }
                 }
             }

@@ -26,7 +26,7 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
         ("fps-only.mkv", [(3000, 4000), (4100, 5000), (16000, 17000)]),
         (
             "speed-ads.mkv",
-            [(1960, 2916), (3016, 3880), (14520, 15480)],
+            [(1960, 2920), (3016, 3880), (14520, 15480)],
         ),
     ] {
         let dir = tempfile::tempdir().unwrap();
@@ -67,8 +67,9 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
         assert!(output.starts_with("7\n"));
         let report: serde_json::Value =
             serde_json::from_slice(&fs::read(paths.report()).unwrap()).unwrap();
-        assert_eq!(report["schema_version"], 1);
+        assert_eq!(report["schema_version"], 2);
         assert_eq!(report["complete"], true);
+        assert_eq!(report["cue_gap_policy"], "content_mapped_endpoints_v1");
         assert_eq!(
             report["proposed_srt_sha256"],
             result.proposal().srt_sha256().unwrap()
@@ -77,12 +78,12 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
         assert_eq!(report["cues"][0]["following_gap"]["source_ms"], 100);
         assert_eq!(
             report["cues"][0]["following_gap"]["outcome"]["status"],
-            "preserved"
+            "mapped"
         );
         if target == "speed-ads.mkv" {
             assert_eq!(
-                report["cues"][0]["following_gap"]["outcome"]["adjustment_ms"],
-                -4
+                report["cues"][0]["following_gap"]["outcome"]["target_ms"],
+                96
             );
             assert_eq!(
                 report["cues"][1]["following_gap"]["outcome"]["status"],
