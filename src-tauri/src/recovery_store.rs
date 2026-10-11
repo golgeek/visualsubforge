@@ -199,12 +199,16 @@ fn read(path: &Path) -> Result<Record> {
     record.validate()?;
     Ok(record)
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Entry {
     pub id: String,
     pub source_path: Option<String>,
+    #[serde(with = "crate::ipc_number::optional")]
+    #[specta(type = Option<crate::ipc_number::SafeU64>)]
     pub captured_ms: Option<u64>,
+    #[serde(with = "crate::ipc_number::optional")]
+    #[specta(type = Option<crate::ipc_number::SafeU64>)]
     pub revision: Option<u64>,
     pub error: Option<String>,
 }
@@ -257,8 +261,13 @@ pub(crate) fn list(root: &Path) -> Result<Vec<Entry>> {
         match inspected {
             Ok(Some(record)) => {
                 item.source_path = record.source_path;
-                item.captured_ms = Some(record.captured_ms);
-                item.revision = Some(record.revision);
+                // These fields are informational; recovery creates fresh editor
+                // history. Unrepresentable old metadata must not hide an otherwise
+                // recoverable SRT or make the entire listing fail serialization.
+                item.captured_ms = Some(record.captured_ms)
+                    .filter(|value| *value <= crate::ipc_number::MAX_SAFE_INTEGER);
+                item.revision = Some(record.revision)
+                    .filter(|value| *value <= crate::ipc_number::MAX_SAFE_INTEGER);
             }
             Ok(None) => continue,
             Err(error) => item.error = Some(error),
@@ -428,5 +437,41 @@ mod tests {
         drop(a);
         drop(b);
         assert_eq!(list(root.path()).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn wide_metadata_does_not_hide_recoverable_subtitles() {
+        let root = tempfile::tempdir().unwrap();
+        let normal = Session::create(root.path()).unwrap();
+        let unusual = Session::create(root.path()).unwrap();
+        let mut data = record(&root.path().join("source.srt"));
+        normal.write(Some(&data)).unwrap();
+        data.revision = crate::ipc_number::MAX_SAFE_INTEGER + 1;
+        data.captured_ms = crate::ipc_number::MAX_SAFE_INTEGER + 1;
+        unusual.write(Some(&data)).unwrap();
+        let id = unusual
+            .directory
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let snapshot_path = unusual.directory.join("snapshot.json");
+        let before = fs::read(&snapshot_path).unwrap();
+        drop(normal);
+        drop(unusual);
+
+        let entries = list(root.path()).unwrap();
+        assert_eq!(entries.len(), 2);
+        let entry = entries.iter().find(|entry| entry.id == id).unwrap();
+        assert!(entry.error.is_none());
+        assert_eq!(entry.captured_ms, None);
+        assert_eq!(entry.revision, None);
+        assert!(serde_json::to_value(&entries).is_ok());
+        assert_eq!(
+            recover(root.path(), &id).unwrap().accepted_srt,
+            data.accepted_srt
+        );
+        assert_eq!(fs::read(snapshot_path).unwrap(), before);
     }
 }

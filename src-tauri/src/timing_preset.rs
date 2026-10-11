@@ -5,7 +5,6 @@ type Result<T> = std::result::Result<T, String>;
 const MAX_BYTES: u64 = 256 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
-#[serde(rename = "TimingSettings")]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
     pub enabled: bool,
@@ -42,7 +41,6 @@ impl Settings {
     }
 }
 #[derive(Clone, Serialize, Deserialize, specta::Type)]
-#[serde(rename = "TimingPreset")]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preset {
     version: u32,
@@ -64,7 +62,6 @@ impl Preset {
     }
 }
 #[derive(Serialize, specta::Type)]
-#[serde(rename = "ImportedTimingPreset")]
 pub struct Imported {
     preset: Preset,
     warnings: Vec<String>,

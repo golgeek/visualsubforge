@@ -11,6 +11,7 @@ mod extended_playback;
 mod file_lease;
 #[cfg(test)]
 mod ipc;
+mod ipc_number;
 #[cfg(target_os = "linux")]
 mod linux_dialog;
 #[cfg(all(feature = "media-prototype", target_os = "linux"))]

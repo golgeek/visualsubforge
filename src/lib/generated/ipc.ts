@@ -5,24 +5,404 @@ import { invoke as __TAURI_INVOKE } from '@tauri-apps/api/core';
 /** Commands */
 export const commands = {
   timingPresetOpen: (path: string) =>
-    __TAURI_INVOKE<ImportedTimingPreset>('timing_preset_open', { path }),
-  timingPresetSave: (path: string, preset: TimingPreset) =>
-    __TAURI_INVOKE<null>('timing_preset_save', { path, preset }),
+    __TAURI_INVOKE<visualsubforge_timing_preset_Imported>(
+      'timing_preset_open',
+      { path },
+    ),
+  timingPresetSave: (
+    path: string,
+    preset: visualsubforge_timing_preset_Preset,
+  ) => __TAURI_INVOKE<null>('timing_preset_save', { path, preset }),
+  documentAction: (
+    action: visualsubforge_document_Action_Deserialize,
+    generation: number,
+    revision: number,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'document_action',
+      { action, generation, revision },
+    ),
+  recoveryStatus: () =>
+    __TAURI_INVOKE<visualsubforge_document_RecoveryStatus_Serialize>(
+      'recovery_status',
+    ),
+  recoveryDiscard: (id: string) =>
+    __TAURI_INVOKE<null>('recovery_discard', { id }),
+  finishExit: (generation: number, revision: number, discard: boolean) =>
+    __TAURI_INVOKE<null>('finish_exit', { generation, revision, discard }),
 };
 
 /* Types */
-export type ImportedTimingPreset = {
-  preset: TimingPreset;
+export type visualsubforge_document_Action =
+  | visualsubforge_document_Action_Serialize
+  | visualsubforge_document_Action_Deserialize;
+
+export type visualsubforge_document_Action_Deserialize =
+  | ({ kind: 'status' } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'recover'; id: string; discard: boolean } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      endMs?: never;
+      firstId?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'open'; path: string; discard: boolean } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'close'; discard: boolean } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({
+      kind: 'edit';
+      cueId: number;
+      startMs: number;
+      endMs: number;
+      text: string;
+    } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
+  | ({
+      kind: 'create';
+      afterId?: number | null;
+      startMs: number;
+      endMs: number;
+      text: string;
+    } & {
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
+  | ({ kind: 'delete'; cueId: number } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'split'; cueId: number; atMs: number } & {
+      afterId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'merge'; firstId: number; secondId: number } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      id?: never;
+      path?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'undo' } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'redo' } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'save'; path: string | null } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    });
+
+export type visualsubforge_document_Action_Serialize =
+  | ({ kind: 'status' } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'recover'; id: string; discard: boolean } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      endMs?: never;
+      firstId?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'open'; path: string; discard: boolean } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'close'; discard: boolean } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({
+      kind: 'edit';
+      cueId: number;
+      startMs: number;
+      endMs: number;
+      text: string;
+    } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
+  | ({
+      kind: 'create';
+      afterId: number | null;
+      startMs: number;
+      endMs: number;
+      text: string;
+    } & {
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
+  | ({ kind: 'delete'; cueId: number } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'split'; cueId: number; atMs: number } & {
+      afterId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'merge'; firstId: number; secondId: number } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      id?: never;
+      path?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'undo' } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'redo' } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    })
+  | ({ kind: 'save'; path: string | null } & {
+      afterId?: never;
+      atMs?: never;
+      cueId?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      secondId?: never;
+      startMs?: never;
+      text?: never;
+    });
+
+export type visualsubforge_document_CueView =
+  | visualsubforge_document_CueView_Serialize
+  | visualsubforge_document_CueView_Deserialize;
+
+export type visualsubforge_document_CueView_Deserialize = {
+  id: number;
+  startMs: number;
+  endMs: number;
+  text: string;
+};
+
+export type visualsubforge_document_CueView_Serialize = {
+  id: number;
+  startMs: number;
+  endMs: number;
+  text: string;
+};
+
+export type visualsubforge_recovery_store_Entry =
+  | visualsubforge_recovery_store_Entry_Serialize
+  | visualsubforge_recovery_store_Entry_Deserialize;
+
+export type visualsubforge_recovery_store_Entry_Deserialize = {
+  id: string;
+  sourcePath: string | null;
+  capturedMs: number | null;
+  revision: number | null;
+  error: string | null;
+};
+
+export type visualsubforge_recovery_store_Entry_Serialize = {
+  id: string;
+  sourcePath: string | null;
+  capturedMs: number | null;
+  revision: number | null;
+  error: string | null;
+};
+
+export type visualsubforge_timing_preset_Imported = {
+  preset: visualsubforge_timing_preset_Preset;
   warnings: string[];
 };
 
-export type TimingPreset = {
+export type visualsubforge_timing_preset_Preset = {
   version: number;
   name: string;
-  timing: TimingSettings;
+  timing: visualsubforge_timing_preset_Settings;
 };
 
-export type TimingSettings = {
+export type visualsubforge_document_RecoveryStatus =
+  | visualsubforge_document_RecoveryStatus_Serialize
+  | visualsubforge_document_RecoveryStatus_Deserialize;
+
+export type visualsubforge_document_RecoveryStatus_Deserialize = {
+  entries: visualsubforge_recovery_store_Entry_Deserialize[];
+  error: string | null;
+};
+
+export type visualsubforge_document_RecoveryStatus_Serialize = {
+  entries: visualsubforge_recovery_store_Entry_Serialize[];
+  error: string | null;
+};
+
+export type visualsubforge_timing_preset_Settings = {
   enabled: boolean;
   snapCues: boolean;
   snapScenes: boolean;
@@ -30,4 +410,32 @@ export type TimingSettings = {
   sceneBeforeMs: number;
   sceneAfterMs: number;
   snapDistancePx: number;
+};
+
+export type visualsubforge_document_Snapshot =
+  | visualsubforge_document_Snapshot_Serialize
+  | visualsubforge_document_Snapshot_Deserialize;
+
+export type visualsubforge_document_Snapshot_Deserialize = {
+  generation: number;
+  revision: number;
+  loaded: boolean;
+  path: string | null;
+  dirty: boolean;
+  requiresSaveAs: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  cues: visualsubforge_document_CueView_Deserialize[];
+};
+
+export type visualsubforge_document_Snapshot_Serialize = {
+  generation: number;
+  revision: number;
+  loaded: boolean;
+  path: string | null;
+  dirty: boolean;
+  requiresSaveAs: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  cues: visualsubforge_document_CueView_Serialize[];
 };

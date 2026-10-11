@@ -1,12 +1,16 @@
-//! Generated JSON contracts. This initial slice covers timing preset commands;
+//! Generated JSON contracts. Timing presets and document commands are migrated;
 //! the remaining command families still use the client facade's existing types.
-use crate::timing_preset;
+use crate::{desktop, document, timing_preset};
 
 fn bindings() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::new()
         .commands(tauri_specta::collect_commands![
             timing_preset::timing_preset_open,
-            timing_preset::timing_preset_save
+            timing_preset::timing_preset_save,
+            document::document_action,
+            document::recovery_status,
+            document::recovery_discard,
+            desktop::finish_exit
         ])
         // Preserve the existing facade's rejected-promise contract.
         .error_handling(tauri_specta::ErrorHandlingMode::Throw)
@@ -20,7 +24,8 @@ fn export_bindings() {
     );
     bindings()
         .export(
-            specta_typescript::Typescript::default(),
+            specta_typescript::Typescript::default()
+                .layout(specta_typescript::Layout::ModulePrefixedName),
             directory.join("ipc.ts"),
         )
         .unwrap();
@@ -33,11 +38,17 @@ fn export_bindings() {
         "timing": timing_preset::Settings::default(),
     }))
     .unwrap();
-    let sample = format!(
+    let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
+    for (name, ty, value) in document::ipc_tests::samples() {
+        sample.push_str(&format!(
+            "export const {name} = {} satisfies {ty};\n",
+            serde_json::to_string_pretty(&value).unwrap(),
+        ));
+    }
     std::fs::write(directory.join("ipc-contract-samples.ts"), sample).unwrap();
 }

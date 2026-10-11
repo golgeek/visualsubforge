@@ -12,6 +12,8 @@ use subtitle_formats::srt;
 
 mod autosave;
 #[cfg(test)]
+pub(crate) mod ipc_tests;
+#[cfg(test)]
 mod limits_tests;
 #[cfg(test)]
 mod save_tests;
@@ -36,7 +38,7 @@ struct Loaded {
     saved_bytes: Vec<u8>,
     recovered: bool,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -56,26 +58,48 @@ pub enum Action {
         discard: bool,
     },
     Edit {
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         cue_id: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         start_ms: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         end_ms: u64,
         text: String,
     },
     Create {
+        #[serde(default, with = "crate::ipc_number::optional")]
+        #[specta(type = Option<crate::ipc_number::SafeU64>)]
         after_id: Option<u64>,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         start_ms: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         end_ms: u64,
         text: String,
     },
     Delete {
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         cue_id: u64,
     },
     Split {
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         cue_id: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         at_ms: u64,
     },
     Merge {
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         first_id: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
         second_id: u64,
     },
     Undo,
@@ -84,10 +108,14 @@ pub enum Action {
         path: Option<String>,
     },
 }
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     generation: u64,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     revision: u64,
     loaded: bool,
     path: Option<String>,
@@ -97,11 +125,17 @@ pub struct Snapshot {
     can_redo: bool,
     cues: Vec<CueView>,
 }
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct CueView {
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     id: u64,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     start_ms: u64,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     end_ms: u64,
     text: String,
 }
@@ -447,13 +481,14 @@ impl Store {
         )
     }
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoveryStatus {
     entries: Vec<crate::recovery_store::Entry>,
     error: Option<String>,
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn recovery_status(documents: tauri::State<'_, Documents>) -> Result<RecoveryStatus> {
     let documents = documents.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -474,6 +509,7 @@ pub async fn recovery_status(documents: tauri::State<'_, Documents>) -> Result<R
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn recovery_discard(documents: tauri::State<'_, Documents>, id: String) -> Result<()> {
     let documents = documents.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -491,16 +527,19 @@ pub async fn recovery_discard(documents: tauri::State<'_, Documents>, id: String
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn document_action(
     documents: tauri::State<'_, Documents>,
     action: Action,
-    generation: u64,
-    revision: u64,
+    generation: crate::ipc_number::SafeU64,
+    revision: crate::ipc_number::SafeU64,
 ) -> Result<Snapshot> {
     let documents = documents.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || documents.apply(action, generation, revision))
-        .await
-        .map_err(|e| format!("Document worker failed: {e}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        documents.apply(action, generation.get(), revision.get())
+    })
+    .await
+    .map_err(|e| format!("Document worker failed: {e}"))?
 }
 
 #[cfg(test)]

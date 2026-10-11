@@ -278,15 +278,19 @@ pub async fn choose_file(
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn finish_exit(
     app: tauri::AppHandle,
-    generation: u64,
-    revision: u64,
+    generation: crate::ipc_number::SafeU64,
+    revision: crate::ipc_number::SafeU64,
     discard: bool,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<crate::document::Documents>()
-            .approve_exit(generation, revision, discard)?;
+        app.state::<crate::document::Documents>().approve_exit(
+            generation.get(),
+            revision.get(),
+            discard,
+        )?;
         app.state::<crate::waveform::Waveforms>().shutdown();
         app.state::<crate::scenes::Scenes>().shutdown();
         app.state::<ExitGate>().0.store(true, Ordering::Release);

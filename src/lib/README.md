@@ -38,25 +38,44 @@ do not establish native GPU/audio behavior.
 
 ## Generated IPC
 
-The first migration slice generates timing preset commands and DTOs from Rust
-through exactly pinned `tauri-specta`/`specta` 2.0.0-rc.25 and
+Timing preset, document, recovery and quit commands now generate their JSON
+contracts from Rust through exactly pinned `tauri-specta`/`specta` 2.0.0-rc.25 and
 `specta-typescript` 0.0.12. `client.ts` imports and re-exports these contracts;
 components and session owners keep using that facade. Other command families
 still have handwritten types while compatibility is evaluated. No protobuf or
 separate Rust service is involved.
 
 `npm run ipc:generate` invokes the explicit, ignored `ipc::export_bindings`
-exporter test, formats its output with the pinned Prettier and writes
+exporter test, formats its output with pinned Prettier and writes
 `generated/ipc.ts`. Normal tests and application startup never rewrite bindings.
 `npm run ipc:check` compares a temporary export with the checked-in files; the
-desktop CI matrix runs it. The exporter also serializes a real Rust preset into
-`tests/frontend/ipc-contract-samples.ts`, which strict TypeScript checks against
-the generated declaration. The existing magnetic-timing browser workflow
-exercises import/export success and failure through the client facade.
+desktop CI matrix runs it. The exporter also serializes actual Rust presets,
+document snapshots and recovery entries into `tests/frontend/ipc-contract-samples.ts`.
+The same file includes tagged command inputs accepted by Serde. Strict TypeScript
+checks these samples against the generated declarations. Existing browser
+workflows exercise the facade with controlled responses, including serialized
+string errors and null success values.
 
-Command wrappers retain rejected promises for Rust errors. Generator annotations
-do not replace Rust validation, revision guards or cancellation. This first
-slice has no wide integer fields; tagged enums, events, flattened/defaulted
-project fields and a checked number policy remain compatibility gates for the
-remaining migration. The generator is a pinned prerelease: review generated
-diffs, contract samples and browser regressions on upgrades.
+Generated names include Rust module paths; the facade supplies short aliases
+and chooses the deserialize shape for inputs and serialize shape for outputs.
+This avoids collisions between common module-local names such as Action and
+View. It also avoids a pinned-generator limitation found in the trial: combining
+a container-level Serde rename with split input/output phases causes duplicate
+export names. No dependency patch or application type renaming is needed.
+
+Document IDs, revisions and millisecond values stay Rust u64 internally. At the
+JSON boundary, `ipc_number::SafeU64` and field codecs permit only integers from
+0 through 9,007,199,254,740,991. Invalid input and unrepresentable output fail;
+there is no global lossy-number override or JSON bigint claim. Optional recovery
+timestamps/revisions outside that range are unavailable (null) in the listing;
+their stored bytes remain intact and the subtitles remain recoverable with fresh
+editor history. Boundary tests cover every numeric document action field and
+response category, including a recovery record with unusual metadata.
+
+Command wrappers retain rejected promises for Rust errors and adapt JSON null
+to void where appropriate. Generator annotations do not replace validation,
+revision guards or cancellation. Events, flattened/defaulted project fields and
+remaining command families are still compatibility gates. The generator is a
+pinned prerelease: review generated diffs, contract samples and browser
+regressions on upgrades. The command registration list will be unified when the
+remaining families have migrated.

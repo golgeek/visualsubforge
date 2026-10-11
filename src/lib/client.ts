@@ -1,10 +1,20 @@
 import { commands } from './generated/ipc';
 import type {
-  ImportedTimingPreset,
-  TimingPreset,
-  TimingSettings,
+  visualsubforge_document_Action_Deserialize as DocumentAction,
+  visualsubforge_document_Snapshot_Serialize as DocumentSnapshot,
+  visualsubforge_document_RecoveryStatus_Serialize as RecoveryStatus,
+  visualsubforge_timing_preset_Imported as ImportedTimingPreset,
+  visualsubforge_timing_preset_Preset as TimingPreset,
+  visualsubforge_timing_preset_Settings as TimingSettings,
 } from './generated/ipc';
-export type { TimingPreset, TimingSettings } from './generated/ipc';
+export type {
+  visualsubforge_document_Action_Deserialize as DocumentAction,
+  visualsubforge_document_Snapshot_Serialize as DocumentSnapshot,
+  visualsubforge_document_CueView_Serialize as Cue,
+  visualsubforge_document_RecoveryStatus_Serialize as RecoveryStatus,
+  visualsubforge_timing_preset_Preset as TimingPreset,
+  visualsubforge_timing_preset_Settings as TimingSettings,
+} from './generated/ipc';
 import { defaultTiming } from './magnetic-timing';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
@@ -121,23 +131,6 @@ export async function mediaAction(
   return invoke<MediaStatus>('media_action', { action, session });
 }
 
-export interface Cue {
-  id: number;
-  startMs: number;
-  endMs: number;
-  text: string;
-}
-export interface DocumentSnapshot {
-  generation: number;
-  revision: number;
-  loaded: boolean;
-  path: string | null;
-  dirty: boolean;
-  requiresSaveAs: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-  cues: Cue[];
-}
 export const emptyDocument: DocumentSnapshot = {
   generation: 0,
   revision: 0,
@@ -149,40 +142,17 @@ export const emptyDocument: DocumentSnapshot = {
   canRedo: false,
   cues: [],
 };
-export type DocumentAction =
-  | { kind: 'status' | 'undo' | 'redo' }
-  | { kind: 'open'; path: string; discard: boolean }
-  | { kind: 'close'; discard: boolean }
-  | { kind: 'recover'; id: string; discard: boolean }
-  | { kind: 'save'; path: string | null }
-  | {
-      kind: 'create';
-      afterId: number | null;
-      startMs: number;
-      endMs: number;
-      text: string;
-    }
-  | { kind: 'delete'; cueId: number }
-  | { kind: 'split'; cueId: number; atMs: number }
-  | { kind: 'merge'; firstId: number; secondId: number }
-  | {
-      kind: 'edit';
-      cueId: number;
-      startMs: number;
-      endMs: number;
-      text: string;
-    };
 export async function documentAction(
   action: DocumentAction,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
 ): Promise<DocumentSnapshot> {
   const started = traceWorkflow ? performance.now() : null;
   const startedUnixMs = traceWorkflow ? Date.now() : null;
-  const result = await invoke<DocumentSnapshot>('document_action', {
+  const result = await commands.documentAction(
     action,
-    generation: document.generation,
-    revision: document.revision,
-  });
+    document.generation,
+    document.revision,
+  );
   if (started !== null && action.kind !== 'status') {
     // Measure IPC through response decoding, before optional diagnostic IO.
     // Rendering the accepted UI and native subtitle presentation are separate.
@@ -275,15 +245,11 @@ export async function updateMenu(state: {
 }): Promise<void> {
   if (isTauri()) await invoke('update_menu', { state });
 }
-export function finishExit(
+export async function finishExit(
   document: DocumentSnapshot,
   discard: boolean,
 ): Promise<void> {
-  return invoke('finish_exit', {
-    generation: document.generation,
-    revision: document.revision,
-    discard,
-  });
+  await commands.finishExit(document.generation, document.revision, discard);
 }
 export interface WaveformView {
   generation: number;
@@ -317,21 +283,11 @@ export function waveformView(
   });
 }
 
-export interface RecoveryStatus {
-  entries: {
-    id: string;
-    sourcePath: string | null;
-    capturedMs: number | null;
-    revision: number | null;
-    error: string | null;
-  }[];
-  error: string | null;
-}
 export function recoveryStatus(): Promise<RecoveryStatus> {
-  return invoke('recovery_status');
+  return commands.recoveryStatus();
 }
-export function discardRecovery(id: string): Promise<void> {
-  return invoke('recovery_discard', { id });
+export async function discardRecovery(id: string): Promise<void> {
+  await commands.recoveryDiscard(id);
 }
 
 export type SceneMode = 'keyframes' | 'visual';
