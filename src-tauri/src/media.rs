@@ -13,16 +13,20 @@ use std::sync::{
     )),
     allow(dead_code)
 )]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Action {
     Occlude {
         occluded: bool,
     },
     Layout {
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         x: f64,
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         y: f64,
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         width: f64,
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         height: f64,
         visible: bool,
     },
@@ -36,6 +40,7 @@ pub enum Action {
         paused: bool,
     },
     Seek {
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         seconds: f64,
     },
     Step {
@@ -45,7 +50,9 @@ pub enum Action {
         id: u32,
     },
     Loop {
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         start: f64,
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
         end: f64,
     },
     ClearLoop,
@@ -53,9 +60,11 @@ pub enum Action {
         hardware: bool,
     },
 }
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     pub session: u64,
     pub available: bool,
     pub loaded: bool,
@@ -67,6 +76,8 @@ pub struct Status {
     pub audio_track: Option<f64>,
     pub audio_tracks: Vec<AudioTrack>,
     pub av_sync_seconds: Option<f64>,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     pub rendered_frames: u64,
     pub swap_counter_available: bool,
     pub video_output_configured: bool,
@@ -76,10 +87,14 @@ pub struct Status {
     pub output_drops: Option<f64>,
     pub error: Option<String>,
     pub subtitle_preview_error: Option<String>,
+    #[serde(default, with = "crate::ipc_number::optional")]
+    #[specta(type = Option<crate::ipc_number::SafeU64>)]
     pub preview_document_generation: Option<u64>,
+    #[serde(default, with = "crate::ipc_number::optional")]
+    #[specta(type = Option<crate::ipc_number::SafeU64>)]
     pub preview_document_revision: Option<u64>,
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioTrack {
     id: u32,
@@ -503,12 +518,14 @@ impl Media {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn media_action(
     app: tauri::AppHandle,
     action: Action,
-    session: u64,
+    session: crate::ipc_number::SafeU64,
 ) -> Result<Status, String> {
     use tauri::Manager;
+    let session = session.get();
     tauri::async_runtime::spawn_blocking(move || {
         if matches!(
             action,

@@ -13,7 +13,7 @@ use std::{
 };
 use tauri::Manager;
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum Mode {
     // Retained only to read projects written by the former keyframe experiment.
@@ -107,29 +107,39 @@ impl Job {
         true
     }
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct View {
+pub struct SceneView {
     mode: Option<Mode>,
     scanning: Option<Mode>,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     generation: u64,
     running: bool,
     error: Option<String>,
+    #[serde(serialize_with = "crate::ipc_number::serialize_usize")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     total: usize,
     truncated: bool,
+    #[serde(serialize_with = "crate::ipc_number::finite::serialize_cuts")]
+    #[specta(type = Vec<crate::ipc_number::finite::FiniteF64>)]
     cuts: Vec<f64>,
     previous: Option<f64>,
     next: Option<f64>,
     phase: Option<Phase>,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     progress: f64,
     partial: bool,
     note: Option<String>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Saved {
     version: u32,
     mode: Mode,
+    #[serde(serialize_with = "crate::ipc_number::finite::serialize_cuts")]
+    #[specta(type = Vec<crate::ipc_number::finite::FiniteF64>)]
     cuts: Vec<f64>,
     pub identity: crate::project::MediaIdentity,
 }
@@ -365,7 +375,7 @@ impl Scenes {
             })?;
         Ok(generation)
     }
-    fn view(&self, generation: u64, start: f64, end: f64, position: f64) -> Result<View> {
+    fn view(&self, generation: u64, start: f64, end: f64, position: f64) -> Result<SceneView> {
         if ![start, end, position].iter().all(|n| n.is_finite()) || start < 0.0 || end <= start {
             return Err("Invalid scene viewport".into());
         }
@@ -382,7 +392,7 @@ impl Scenes {
         let last = cuts.partition_point(|t| *t <= end);
         let before = cuts.partition_point(|t| *t < position - 0.001);
         let after = cuts.partition_point(|t| *t <= position + 0.001);
-        Ok(View {
+        Ok(SceneView {
             mode: job.mode.filter(|mode| *mode == Mode::Visual),
             scanning: job.scanning,
             generation,
@@ -401,45 +411,59 @@ impl Scenes {
     }
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn scenes_start(
     app: tauri::AppHandle,
     path: String,
-    session: u64,
+    session: crate::ipc_number::SafeU64,
     mode: Mode,
     detail: Option<Detail>,
-) -> Result<u64> {
-    app.state::<Scenes>().inner().clone().start(
+) -> Result<crate::ipc_number::SafeU64> {
+    let generation = app.state::<Scenes>().inner().clone().start(
         app,
         path,
-        session,
+        session.get(),
         mode,
         detail.unwrap_or_default(),
-    )
+    )?;
+    Ok(crate::ipc_number::SafeU64::try_from(generation)?)
 }
 #[tauri::command]
-pub async fn scenes_cancel(app: tauri::AppHandle, session: u64) -> Result<u64> {
-    if app.state::<crate::media::Media>().current_session() != session {
+#[specta::specta]
+pub async fn scenes_cancel(
+    app: tauri::AppHandle,
+    session: crate::ipc_number::SafeU64,
+) -> Result<crate::ipc_number::SafeU64> {
+    if app.state::<crate::media::Media>().current_session() != session.get() {
         return Err("Media changed".into());
     }
-    app.state::<Scenes>().stop()
+    Ok(crate::ipc_number::SafeU64::try_from(
+        app.state::<Scenes>().stop()?,
+    )?)
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn scenes_view(
     state: tauri::State<'_, Scenes>,
-    generation: u64,
-    start: f64,
-    end: f64,
-    position: f64,
-) -> Result<View> {
-    state.view(generation, start, end, position)
+    generation: crate::ipc_number::SafeU64,
+    start: crate::ipc_number::finite::FiniteF64,
+    end: crate::ipc_number::finite::FiniteF64,
+    position: crate::ipc_number::finite::FiniteF64,
+) -> Result<SceneView> {
+    let start = start.get();
+    let end = end.get();
+    let position = position.get();
+    state.view(generation.get(), start, end, position)
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn scenes_restore(
     app: tauri::AppHandle,
     path: String,
-    session: u64,
+    session: crate::ipc_number::SafeU64,
     saved: Saved,
-) -> Result<u64> {
+) -> Result<crate::ipc_number::SafeU64> {
+    let session = session.get();
     tauri::async_runtime::spawn_blocking(move || {
         saved.validate()?;
         if crate::project::identify(Path::new(&path))? != saved.identity {
@@ -448,7 +472,9 @@ pub async fn scenes_restore(
         if app.state::<crate::media::Media>().current_session() != session {
             return Err("Media changed".into());
         }
-        app.state::<Scenes>().restore(session, saved)
+        Ok(crate::ipc_number::SafeU64::try_from(
+            app.state::<Scenes>().restore(session, saved)?,
+        )?)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -721,4 +747,28 @@ mod tests {
         scenes.shutdown();
         assert!(scenes.worker.lock().unwrap().is_closing());
     }
+}
+
+#[cfg(test)]
+pub(crate) fn ipc_sample() -> serde_json::Value {
+    let scenes = Scenes::default();
+    {
+        let mut job = scenes.job.lock().unwrap();
+        job.mode = Some(Mode::Visual);
+        job.cuts = vec![1.25, 3.5];
+        job.phase = Some(Phase::Full);
+        job.progress = 0.5;
+    }
+    serde_json::to_value(scenes.view(0, 0., 10., 2.).unwrap()).unwrap()
+}
+
+#[test]
+fn ipc_scenes_reject_nonfinite_cuts_and_progress() {
+    let scenes = Scenes::default();
+    let mut view = scenes.view(0, 0., 10., 2.).unwrap();
+    view.cuts = vec![f64::NAN];
+    assert!(serde_json::to_value(&view).is_err());
+    view.cuts.clear();
+    view.progress = f64::INFINITY;
+    assert!(serde_json::to_value(&view).is_err());
 }

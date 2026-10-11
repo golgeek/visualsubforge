@@ -9,7 +9,6 @@ mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
 mod file_lease;
-#[cfg(test)]
 mod ipc;
 mod ipc_number;
 #[cfg(target_os = "linux")]
@@ -64,7 +63,8 @@ mod timing_preset;
 mod waveform;
 mod workflow_trace;
 use std::sync::atomic::Ordering;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
+use tauri_specta::Event;
 
 fn main() {
     #[cfg(all(feature = "media-prototype", target_os = "linux"))]
@@ -76,37 +76,14 @@ fn main() {
             std::process::exit(1);
         }
     }
+    let ipc = ipc::bindings();
     let builder = tauri::Builder::default();
     #[cfg(not(target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_dialog::init());
     let app = builder
-        .invoke_handler(tauri::generate_handler![
-            media::media_action,
-            document::document_action,
-            document::recovery_status,
-            document::recovery_discard,
-            desktop::choose_file,
-            desktop::update_menu,
-            preferences::preferences_get,
-            preferences::preferences_save,
-            desktop::finish_exit,
-            timing_preset::timing_preset_open,
-            timing_preset::timing_preset_save,
-            project::project_open,
-            project::project_attach,
-            project::project_detach,
-            project::project_save,
-            scenes::scenes_restore,
-            scenes::scenes_start,
-            scenes::scenes_view,
-            scenes::scenes_cancel,
-            waveform::waveform_start,
-            waveform::waveform_view,
-            workflow_trace::workflow_trace_enabled,
-            workflow_trace::workflow_trace_input,
-            workflow_trace::workflow_trace_acknowledgment
-        ])
-        .setup(|app| {
+        .invoke_handler(ipc.invoke_handler())
+        .setup(move |app| {
+            ipc.mount_events(app);
             let documents = document::Documents::default();
             documents.start_recovery(app.path().app_data_dir()?.join("recovery-v1"))?;
             app.manage(documents);
@@ -207,7 +184,7 @@ fn main() {
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     if !app.state::<desktop::ExitGate>().0.load(Ordering::Acquire) {
                         api.prevent_exit();
-                        let _ = app.emit("workspace-action", "quit");
+                        let _ = desktop::WorkspaceAction::Quit.emit(app);
                         return;
                     }
                     if !media.available() || media.shutdown_complete() {

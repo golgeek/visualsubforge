@@ -18,25 +18,35 @@ pub fn enabled() -> bool {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn workflow_trace_enabled() -> bool {
     enabled()
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct InputEvent {
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     generation: u64,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     before_revision: u64,
     event_type: InputType,
     trusted: bool,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     event_mono_ms: f64,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     time_origin_ms: f64,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     mono_before_ms: f64,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     wall_unix_ms: f64,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     mono_after_ms: f64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 enum InputType {
     Click,
@@ -60,6 +70,7 @@ impl InputEvent {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn workflow_trace_input(sample: InputEvent) {
     if !enabled() {
         return;
@@ -77,17 +88,23 @@ pub async fn workflow_trace_input(sample: InputEvent) {
     .await;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Acknowledgment {
     operation: Operation,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     generation: u64,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     revision: u64,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     elapsed_ms: f64,
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     started_unix_ms: f64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 enum Operation {
     Open,
@@ -104,6 +121,7 @@ enum Operation {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn workflow_trace_acknowledgment(sample: Acknowledgment) {
     if enabled()
         && sample.elapsed_ms.is_finite()

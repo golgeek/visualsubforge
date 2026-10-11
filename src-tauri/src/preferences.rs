@@ -7,7 +7,7 @@ use std::{fs, io::Read, path::Path};
 use tauri::Manager;
 type Result<T> = std::result::Result<T, String>;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     version: u32,
@@ -59,6 +59,7 @@ fn write(path: &Path, value: &Preferences) -> Result<()> {
     crate::atomic_file::write(path, &bytes)
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
     tauri::async_runtime::spawn_blocking(move || {
         read(
@@ -72,6 +73,7 @@ pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn preferences_save(app: tauri::AppHandle, preferences: Preferences) -> Result<()> {
     tauri::async_runtime::spawn_blocking(move || {
         write(

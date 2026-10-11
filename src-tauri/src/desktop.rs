@@ -1,12 +1,58 @@
 //! Native menus/dialogs route to the same frontend operation dispatcher as buttons.
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
-    Emitter, Manager,
+    Manager,
     menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder},
 };
 #[cfg(not(target_os = "linux"))]
 use tauri_plugin_dialog::DialogExt;
+use tauri_specta::Event;
+
+/// Shared native-menu/quit payload; the wire event name stays workspace-action.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub enum WorkspaceAction {
+    Settings,
+    TimingSettings,
+    ShowScenes,
+    ScanScenes,
+    CancelSceneScan,
+    PreviousScene,
+    NextScene,
+    OpenProject,
+    SaveProject,
+    SaveProjectAs,
+    CreateCue,
+    DeleteCue,
+    SplitCue,
+    MergePrevious,
+    MergeNext,
+    Apply,
+    OpenMedia,
+    OpenSubtitles,
+    Save,
+    SaveAs,
+    CloseMedia,
+    CloseSubtitles,
+    Undo,
+    Redo,
+    Play,
+    PreviousFrame,
+    NextFrame,
+    PlayRange,
+    ClearLoop,
+    ResetLayout,
+    Diagnostics,
+    Quit,
+}
+impl WorkspaceAction {
+    fn from_menu_id(id: &str) -> Option<Self> {
+        // Standard OS menu items are not application actions.
+        Self::deserialize(serde::de::value::StrDeserializer::<serde::de::value::Error>::new(id))
+            .ok()
+    }
+}
 
 #[derive(Default)]
 pub struct ExitGate(pub AtomicBool);
@@ -110,11 +156,13 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
     app.set_menu(menu)?;
     app.on_menu_event(|app, event| {
-        let _ = app.emit("workspace-action", event.id().as_ref());
+        if let Some(action) = WorkspaceAction::from_menu_id(event.id().as_ref()) {
+            let _ = action.emit(app);
+        }
     });
     Ok(())
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuState {
     diagnostics: bool,
@@ -137,6 +185,7 @@ pub struct MenuState {
     next_scene: bool,
 }
 #[tauri::command]
+#[specta::specta]
 pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String> {
     if let Some(menu) = app.menu() {
         for (id, enabled) in [
@@ -204,7 +253,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
     }
     Ok(())
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum FileChoice {
     Media,
@@ -216,6 +265,7 @@ pub enum FileChoice {
     SaveTimingPreset,
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn choose_file(
     app: tauri::AppHandle,
     kind: FileChoice,
@@ -299,4 +349,54 @@ pub async fn finish_exit(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+pub(crate) fn ipc_sample() -> serde_json::Value {
+    let values = serde_json::json!([
+        "settings",
+        "timingSettings",
+        "showScenes",
+        "scanScenes",
+        "cancelSceneScan",
+        "previousScene",
+        "nextScene",
+        "openProject",
+        "saveProject",
+        "saveProjectAs",
+        "createCue",
+        "deleteCue",
+        "splitCue",
+        "mergePrevious",
+        "mergeNext",
+        "apply",
+        "openMedia",
+        "openSubtitles",
+        "save",
+        "saveAs",
+        "closeMedia",
+        "closeSubtitles",
+        "undo",
+        "redo",
+        "play",
+        "previousFrame",
+        "nextFrame",
+        "playRange",
+        "clearLoop",
+        "resetLayout",
+        "diagnostics",
+        "quit"
+    ]);
+    let actions: Vec<WorkspaceAction> = serde_json::from_value(values.clone()).unwrap();
+    assert_eq!(serde_json::to_value(actions).unwrap(), values);
+    values
+}
+
+#[test]
+fn workspace_event_preserves_name_and_native_menu_payloads() {
+    assert_eq!(WorkspaceAction::NAME, "workspace-action");
+    for value in ipc_sample().as_array().unwrap() {
+        assert!(WorkspaceAction::from_menu_id(value.as_str().unwrap()).is_some());
+    }
+    assert!(WorkspaceAction::from_menu_id("os-unknown").is_none());
 }

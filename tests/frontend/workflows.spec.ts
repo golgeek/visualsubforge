@@ -56,33 +56,21 @@ for (const name of [
 test('projects waits for delayed workspace listener registration', async ({
   page,
 }) => {
-  let release = () => {};
-  let intercepted = false;
-  const registration = new Promise<void>((resolve) => (release = resolve));
-  await page.route(
-    '**/node_modules/.vite/deps/@tauri-apps_api_event.js*',
-    async (route) => {
-      intercepted = true;
-      await registration;
-      await route.continue();
-    },
-  );
-  try {
-    await verifyChecks(page, async () => {
-      await page.goto('/tests/frontend/projects/', {
-        waitUntil: 'domcontentloaded',
-      });
-      await expect.poll(() => intercepted).toBe(true);
-      // Document/menu readiness can precede the asynchronous event import.
-      // Hold it until the workspace is usable, without a timing-based sleep.
-      await expect(
-        page.getByRole('button', { name: 'Create cue', exact: true }),
-      ).toBeEnabled();
-      release();
-    });
-  } finally {
-    release();
-  }
+  await verifyChecks(page, async () => {
+    await page.goto('/tests/frontend/projects/?delayListener');
+    await expect(page.locator('body')).toHaveAttribute(
+      'data-workspace-listener',
+      'waiting',
+    );
+    // Document/menu readiness can precede listener registration. Hold the
+    // modeled IPC response until the workspace is usable, without a sleep.
+    await expect(
+      page.getByRole('button', { name: 'Create cue', exact: true }),
+    ).toBeEnabled();
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event('vsf-test-release-listener')),
+    );
+  });
 });
 
 // Negative controls prove a green runner requires real, complete passing rows.

@@ -1,28 +1,42 @@
-import { commands } from './generated/ipc';
-import type {
-  visualsubforge_document_Action_Deserialize as DocumentAction,
-  visualsubforge_document_Snapshot_Serialize as DocumentSnapshot,
-  visualsubforge_document_RecoveryStatus_Serialize as RecoveryStatus,
-  visualsubforge_timing_preset_Imported as ImportedTimingPreset,
-  visualsubforge_timing_preset_Preset as TimingPreset,
-  visualsubforge_timing_preset_Settings as TimingSettings,
-} from './generated/ipc';
-export type {
-  visualsubforge_document_Action_Deserialize as DocumentAction,
-  visualsubforge_document_Snapshot_Serialize as DocumentSnapshot,
-  visualsubforge_document_CueView_Serialize as Cue,
-  visualsubforge_document_RecoveryStatus_Serialize as RecoveryStatus,
-  visualsubforge_timing_preset_Preset as TimingPreset,
-  visualsubforge_timing_preset_Settings as TimingSettings,
-} from './generated/ipc';
+import { commands, events } from './generated/ipc';
+import type * as IPC from './generated/ipc';
+import { isTauri } from '@tauri-apps/api/core';
 import { defaultTiming } from './magnetic-timing';
-import { invoke, isTauri } from '@tauri-apps/api/core';
+
+export type DocumentAction = IPC.visualsubforge_document_Action_Deserialize;
+export type DocumentSnapshot = IPC.visualsubforge_document_Snapshot_Serialize;
+export type Cue = IPC.visualsubforge_document_CueView_Serialize;
+export type RecoveryStatus =
+  IPC.visualsubforge_document_RecoveryStatus_Serialize;
+export type TimingPreset = IPC.visualsubforge_timing_preset_Preset;
+export type TimingSettings = IPC.visualsubforge_timing_preset_Settings;
+export type MediaAction = IPC.visualsubforge_media_Action;
+export type MediaStatus = IPC.visualsubforge_media_Status_Serialize;
+export type WorkspaceAction = IPC.visualsubforge_desktop_WorkspaceAction;
+export type FileChoice = IPC.visualsubforge_desktop_FileChoice;
+export type MenuState = IPC.visualsubforge_desktop_MenuState;
+export type WaveformView = IPC.visualsubforge_waveform_WaveformView_Serialize;
+export type SceneMode = IPC.visualsubforge_scenes_Mode;
+export type SceneView = IPC.visualsubforge_scenes_SceneView_Serialize;
+export type ProjectOptions = IPC.visualsubforge_project_Options_Deserialize;
+export type ProjectData = IPC.visualsubforge_project_Project_Serialize;
+export type SavedScenes = IPC.visualsubforge_scenes_Saved_Deserialize;
+export type OpenedProject = IPC.visualsubforge_project_store_Opened_Serialize;
+export type ProjectAttachment =
+  IPC.visualsubforge_project_store_Attachment_Serialize;
+export type SaveProjectRequest =
+  IPC.visualsubforge_project_SaveRequest_Deserialize;
+export type Preferences = IPC.visualsubforge_preferences_Preferences;
+export type SceneDetail = IPC.media_analysis_scenes_Detail;
+type ImportedTimingPreset = IPC.visualsubforge_timing_preset_Imported;
+type TraceInput = IPC.visualsubforge_workflow_trace_InputEvent_Deserialize;
 
 // Read once; diagnostics never delay a document request or alter its result.
 // The native process explicitly opts in with VSF_WORKFLOW_TRACE=1.
 let traceWorkflow = false;
 if (isTauri()) {
-  void invoke<boolean>('workflow_trace_enabled')
+  void commands
+    .workflowTraceEnabled()
     .then((enabled) => (traceWorkflow = enabled))
     .catch(() => {});
 }
@@ -38,7 +52,7 @@ export function traceApplyInput(
   const monoBeforeMs = performance.now();
   const wallUnixMs = Date.now();
   const monoAfterMs = performance.now();
-  const sample = {
+  const sample: TraceInput = {
     generation: document.generation,
     beforeRevision: document.revision,
     eventType: event.type,
@@ -52,52 +66,10 @@ export function traceApplyInput(
   // Submit after the synchronous action handler has dispatched its real work.
   // Diagnostic failure must never change whether that edit succeeds.
   queueMicrotask(() => {
-    void invoke('workflow_trace_input', { sample }).catch(() => {});
+    void commands.workflowTraceInput(sample).catch(() => {});
   });
 }
 
-export type MediaAction =
-  | { kind: 'occlude'; occluded: boolean }
-  | { kind: 'decode'; hardware: boolean }
-  | {
-      kind: 'layout';
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      visible: boolean;
-    }
-  | { kind: 'open'; path: string; hardware: boolean }
-  | { kind: 'close' | 'status' | 'clearLoop' }
-  | { kind: 'pause'; paused: boolean }
-  | { kind: 'seek'; seconds: number }
-  | { kind: 'step'; backwards: boolean }
-  | { kind: 'track'; id: number }
-  | { kind: 'loop'; start: number; end: number };
-export interface MediaStatus {
-  session: number;
-  available: boolean;
-  loaded: boolean;
-  paused: boolean;
-  seeking: boolean;
-  queuedAudioClock: boolean;
-  positionSeconds: number | null;
-  durationSeconds: number | null;
-  audioTrack: number | null;
-  audioTracks: { id: number; title: string; audioOrdinal: number }[];
-  avSyncSeconds: number | null;
-  renderedFrames: number;
-  swapCounterAvailable: boolean;
-  videoOutputConfigured: boolean;
-  surfaceAboveWebview: boolean;
-  hardwareDecoder: string | null;
-  decoderDrops: number | null;
-  outputDrops: number | null;
-  error: string | null;
-  subtitlePreviewError: string | null;
-  previewDocumentGeneration: number | null;
-  previewDocumentRevision: number | null;
-}
 export const emptyStatus: MediaStatus = {
   session: 0,
   available: false,
@@ -122,13 +94,13 @@ export const emptyStatus: MediaStatus = {
   previewDocumentGeneration: null,
   previewDocumentRevision: null,
 };
-// Handwritten contract mirrors media::Action/Status; only this module invokes Tauri.
+// Browser preview stays inert; production calls use the generated JSON boundary.
 export async function mediaAction(
   action: MediaAction,
   session: number,
 ): Promise<MediaStatus> {
   if (!isTauri()) return emptyStatus;
-  return invoke<MediaStatus>('media_action', { action, session });
+  return commands.mediaAction(action, session);
 }
 
 export const emptyDocument: DocumentSnapshot = {
@@ -153,97 +125,35 @@ export async function documentAction(
     document.generation,
     document.revision,
   );
-  if (started !== null && action.kind !== 'status') {
+  if (started !== null && startedUnixMs !== null && action.kind !== 'status') {
     // Measure IPC through response decoding, before optional diagnostic IO.
     // Rendering the accepted UI and native subtitle presentation are separate.
-    void invoke('workflow_trace_acknowledgment', {
-      sample: {
+    void commands
+      .workflowTraceAcknowledgment({
         operation: action.kind,
         generation: result.generation,
         revision: result.revision,
         elapsedMs: performance.now() - started,
         startedUnixMs,
-      },
-    }).catch(() => {});
+      })
+      .catch(() => {});
   }
   return result;
 }
-export type WorkspaceAction =
-  | 'settings'
-  | 'timingSettings'
-  | 'showScenes'
-  | 'scanScenes'
-  | 'cancelSceneScan'
-  | 'previousScene'
-  | 'nextScene'
-  | 'openProject'
-  | 'saveProject'
-  | 'saveProjectAs'
-  | 'createCue'
-  | 'deleteCue'
-  | 'splitCue'
-  | 'mergePrevious'
-  | 'mergeNext'
-  | 'apply'
-  | 'openMedia'
-  | 'openSubtitles'
-  | 'save'
-  | 'saveAs'
-  | 'closeMedia'
-  | 'closeSubtitles'
-  | 'undo'
-  | 'redo'
-  | 'play'
-  | 'previousFrame'
-  | 'nextFrame'
-  | 'playRange'
-  | 'clearLoop'
-  | 'resetLayout'
-  | 'diagnostics'
-  | 'quit';
 export async function workspaceActions(
   callback: (action: WorkspaceAction) => void,
 ): Promise<() => void> {
   if (!isTauri()) return () => {};
-  const { listen } = await import('@tauri-apps/api/event');
-  return listen<WorkspaceAction>('workspace-action', (event) =>
-    callback(event.payload),
-  );
+  return events.workspaceAction.listen((event) => callback(event.payload));
 }
 export function chooseFile(
-  kind:
-    | 'media'
-    | 'subtitles'
-    | 'saveSubtitles'
-    | 'project'
-    | 'saveProject'
-    | 'timingPreset'
-    | 'saveTimingPreset',
+  kind: FileChoice,
   current: string | null = null,
 ): Promise<string | null> {
-  return invoke('choose_file', { kind, current });
+  return commands.chooseFile(kind, current);
 }
-export async function updateMenu(state: {
-  diagnostics: boolean;
-  showScenes: boolean;
-  scenesRunning: boolean;
-  scenesPending: boolean;
-  previousScene: boolean;
-  nextScene: boolean;
-  available: boolean;
-  media: boolean;
-  document: boolean;
-  undo: boolean;
-  redo: boolean;
-  range: boolean;
-  busy: boolean;
-  createCue: boolean;
-  deleteCue: boolean;
-  splitCue: boolean;
-  mergePrevious: boolean;
-  mergeNext: boolean;
-}): Promise<void> {
-  if (isTauri()) await invoke('update_menu', { state });
+export async function updateMenu(state: MenuState): Promise<void> {
+  if (isTauri()) await commands.updateMenu(state);
 }
 export async function finishExit(
   document: DocumentSnapshot,
@@ -251,23 +161,12 @@ export async function finishExit(
 ): Promise<void> {
   await commands.finishExit(document.generation, document.revision, discard);
 }
-export interface WaveformView {
-  generation: number;
-  running: boolean;
-  error: string | null;
-  durationSeconds: number;
-  containerOriginSeconds: number;
-  audioStreamIndex: number | null;
-  startSeconds: number;
-  secondsPerPeak: number;
-  peaks: [number, number][];
-}
 export function waveformStart(
   path: string,
   audioOrdinal: number,
   session: number,
 ): Promise<number> {
-  return invoke('waveform_start', { path, audioOrdinal, session });
+  return commands.waveformStart(path, audioOrdinal, session);
 }
 export function waveformView(
   generation: number,
@@ -275,12 +174,12 @@ export function waveformView(
   end: number,
   pixels: number,
 ): Promise<WaveformView> {
-  return invoke('waveform_view', {
+  return commands.waveformView(
     generation,
     start,
     end,
-    pixels: Math.min(4096, Math.max(1, Math.ceil(pixels))),
-  });
+    Math.min(4096, Math.max(1, Math.ceil(pixels))),
+  );
 }
 
 export function recoveryStatus(): Promise<RecoveryStatus> {
@@ -290,34 +189,16 @@ export async function discardRecovery(id: string): Promise<void> {
   await commands.recoveryDiscard(id);
 }
 
-export type SceneMode = 'keyframes' | 'visual';
-export type SceneDetail = 'standard' | 'reduced';
-export interface SceneView {
-  mode: SceneMode | null;
-  scanning: SceneMode | null;
-  phase: 'candidates' | 'verifying' | 'full' | null;
-  progress: number;
-  partial: boolean;
-  note: string | null;
-  truncated: boolean;
-  generation: number;
-  running: boolean;
-  error: string | null;
-  total: number;
-  cuts: number[];
-  previous: number | null;
-  next: number | null;
-}
 export function scenesStart(
   path: string,
   session: number,
   mode: SceneMode,
   detail: SceneDetail = 'standard',
 ): Promise<number> {
-  return invoke('scenes_start', { path, session, mode, detail });
+  return commands.scenesStart(path, session, mode, detail);
 }
 export function scenesCancel(session: number): Promise<number> {
-  return invoke('scenes_cancel', { session });
+  return commands.scenesCancel(session);
 }
 export function scenesView(
   generation: number,
@@ -325,70 +206,29 @@ export function scenesView(
   end: number,
   position: number,
 ): Promise<SceneView> {
-  return invoke('scenes_view', { generation, start, end, position });
+  return commands.scenesView(generation, start, end, position);
 }
 
-export interface ProjectOptions {
-  waveformStart: number;
-  waveformSpan: number;
-  followPlayback: boolean;
-  followSubtitle: boolean;
-  showScenes: boolean;
-  timing?: TimingSettings;
-}
-interface MediaIdentity {
-  size: number;
-  modified: string;
-  sampleHash: string;
-}
-export interface SavedScenes {
-  version: number;
-  mode: SceneMode;
-  cuts: number[];
-  identity: MediaIdentity;
-}
-export interface ProjectData {
-  version: number;
-  mediaPath: string;
-  subtitlePath: string | null;
-  mediaIdentity: MediaIdentity;
-  positionSeconds: number;
-  options: ProjectOptions;
-  scenes: SavedScenes | null;
-}
-export interface ProjectAttachment {
-  path: string;
-  token: number;
-}
-export interface OpenedProject extends ProjectData {
-  token: number;
-}
 export function openProject(path: string): Promise<OpenedProject> {
-  return invoke('project_open', { path });
+  return commands.projectOpen(path);
 }
 export function attachProject(token: number): Promise<ProjectAttachment> {
-  return invoke('project_attach', { token });
+  return commands.projectAttach(token);
 }
-export function detachProject(): Promise<void> {
-  return invoke('project_detach');
+export async function detachProject(): Promise<void> {
+  await commands.projectDetach();
 }
-export function saveProject(request: {
-  path: string;
-  token: number | null;
-  mediaPath: string;
-  subtitlePath: string | null;
-  session: number;
-  positionSeconds: number;
-  options: ProjectOptions;
-}): Promise<ProjectAttachment> {
-  return invoke('project_save', { request });
+export function saveProject(
+  request: SaveProjectRequest,
+): Promise<ProjectAttachment> {
+  return commands.projectSave(request);
 }
 export function restoreScenes(
   path: string,
   session: number,
   saved: SavedScenes,
 ): Promise<number> {
-  return invoke('scenes_restore', { path, session, saved });
+  return commands.scenesRestore(path, session, saved);
 }
 
 export function importTimingPreset(
@@ -403,12 +243,6 @@ export async function exportTimingPreset(
   await commands.timingPresetSave(path, preset);
 }
 
-export interface Preferences {
-  version: 1;
-  autoScanScenes: boolean;
-  sceneDetail: SceneDetail;
-  timing: TimingSettings;
-}
 export const defaultPreferences: Preferences = {
   version: 1,
   autoScanScenes: true,
@@ -416,8 +250,8 @@ export const defaultPreferences: Preferences = {
   timing: defaultTiming,
 };
 export function getPreferences(): Promise<Preferences> {
-  return invoke('preferences_get');
+  return commands.preferencesGet();
 }
-export function savePreferences(preferences: Preferences): Promise<void> {
-  return invoke('preferences_save', { preferences });
+export async function savePreferences(preferences: Preferences): Promise<void> {
+  await commands.preferencesSave(preferences);
 }

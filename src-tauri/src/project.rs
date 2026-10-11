@@ -11,9 +11,11 @@ mod store;
 pub use store::{Attachment, Opened, Projects};
 
 type Result<T> = std::result::Result<T, String>;
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaIdentity {
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     size: u64,
     modified: String,
     sample_hash: String,
@@ -27,6 +29,7 @@ pub fn identify(path: &Path) -> Result<MediaIdentity> {
     let modified = before.modified().map_err(|e| e.to_string())?;
     let mut hash = 0xcbf29ce484222325u64;
     let size = before.len();
+    crate::ipc_number::SafeU64::try_from(size)?;
     for offset in [0, size / 2, size.saturating_sub(65_536)] {
         file.seek(SeekFrom::Start(offset))
             .map_err(|e| e.to_string())?;
@@ -59,10 +62,14 @@ pub fn identify(path: &Path) -> Result<MediaIdentity> {
         sample_hash: format!("{hash:016x}"),
     })
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Options {
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub waveform_start: f64,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub waveform_span: f64,
     pub follow_playback: bool,
     pub follow_subtitle: bool,
@@ -70,13 +77,15 @@ pub struct Options {
     #[serde(default)]
     pub timing: crate::timing_preset::Settings,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Project {
     version: u32,
     pub media_path: String,
     pub subtitle_path: Option<String>,
     pub media_identity: MediaIdentity,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub position_seconds: f64,
     pub options: Options,
     pub scenes: Option<crate::scenes::Saved>,
@@ -171,35 +180,48 @@ fn read(path: &Path) -> Result<Project> {
     resolve(path, &read_bytes(path)?)
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn project_open(app: tauri::AppHandle, path: String) -> Result<Opened> {
     tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().open(Path::new(&path)))
         .await
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-pub async fn project_attach(app: tauri::AppHandle, token: u64) -> Result<Attachment> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().attach(token))
+#[specta::specta]
+pub async fn project_attach(
+    app: tauri::AppHandle,
+    token: crate::ipc_number::SafeU64,
+) -> Result<Attachment> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().attach(token.get()))
         .await
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn project_detach(app: tauri::AppHandle) -> Result<()> {
     tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().detach())
         .await
         .map_err(|e| e.to_string())?
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveRequest {
     path: String,
+    #[serde(default, with = "crate::ipc_number::optional")]
+    #[specta(type = Option<crate::ipc_number::SafeU64>)]
     token: Option<u64>,
     media_path: String,
     subtitle_path: Option<String>,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     session: u64,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     position_seconds: f64,
     options: Options,
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn project_save(app: tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     tauri::async_runtime::spawn_blocking(move || save(&app, request))
         .await
@@ -383,4 +405,42 @@ mod tests {
             assert!(saved.validate().is_err());
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn ipc_sample() -> serde_json::Value {
+    // This older on-disk form omits timing settings; the opened IPC output must
+    // include their defaults, with project fields flattened beside the token.
+    let project: Project = serde_json::from_value(serde_json::json!({
+        "version": 1,
+        "mediaPath": "target.mkv",
+        "subtitlePath": null,
+        "mediaIdentity": {"size": 123, "modified": "1.0", "sampleHash": "sample"},
+        "positionSeconds": 12.5,
+        "options": {"waveformStart": 0., "waveformSpan": 20.,
+            "followPlayback": true, "followSubtitle": false, "showScenes": true},
+        "scenes": null,
+    }))
+    .unwrap();
+    project.validate().unwrap();
+    store::ipc_sample(project)
+}
+
+#[test]
+fn ipc_project_defaults_flattening_and_numeric_bounds_match_json() {
+    let opened = ipc_sample();
+    assert!(opened.get("project").is_none());
+    assert_eq!(opened["token"], crate::ipc_number::MAX_SAFE_INTEGER);
+    assert_eq!(
+        opened["options"]["timing"],
+        serde_json::to_value(crate::timing_preset::Settings::default()).unwrap()
+    );
+    let mut project = opened.clone();
+    project.as_object_mut().unwrap().remove("token");
+    project["mediaIdentity"]["size"] = (crate::ipc_number::MAX_SAFE_INTEGER + 1).into();
+    assert!(serde_json::from_value::<Project>(project).is_err());
+    let mut identity: MediaIdentity =
+        serde_json::from_value(opened["mediaIdentity"].clone()).unwrap();
+    identity.size = crate::ipc_number::MAX_SAFE_INTEGER + 1;
+    assert!(serde_json::to_value(identity).is_err());
 }

@@ -38,44 +38,50 @@ do not establish native GPU/audio behavior.
 
 ## Generated IPC
 
-Timing preset, document, recovery and quit commands now generate their JSON
-contracts from Rust through exactly pinned `tauri-specta`/`specta` 2.0.0-rc.25 and
-`specta-typescript` 0.0.12. `client.ts` imports and re-exports these contracts;
-components and session owners keep using that facade. Other command families
-still have handwritten types while compatibility is evaluated. No protobuf or
-separate Rust service is involved.
+All commands, the workspace-action event and their JSON contracts are generated
+from Rust through exactly pinned `tauri-specta`/`specta` 2.0.0-rc.25 and
+`specta-typescript` 0.0.12. `src-tauri/src/ipc.rs` is the single command/event
+registry used by desktop dispatch and generation. `client.ts` supplies short
+type aliases, browser defaults and diagnostic hooks; components and session
+owners keep using that facade. No protobuf or separate Rust service is involved.
 
 `npm run ipc:generate` invokes the explicit, ignored `ipc::export_bindings`
 exporter test, formats its output with pinned Prettier and writes
 `generated/ipc.ts`. Normal tests and application startup never rewrite bindings.
 `npm run ipc:check` compares a temporary export with the checked-in files; the
 desktop CI matrix runs it. The exporter also serializes actual Rust presets,
-document snapshots and recovery entries into `tests/frontend/ipc-contract-samples.ts`.
-The same file includes tagged command inputs accepted by Serde. Strict TypeScript
-checks these samples against the generated declarations. Existing browser
-workflows exercise the facade with controlled responses, including serialized
-string errors and null success values.
+document/recovery snapshots, opened projects, scene/waveform views, preferences,
+media status and event payloads into `tests/frontend/ipc-contract-samples.ts`.
+Strict TypeScript checks these samples against the generated declarations.
+Browser workflows exercise the facade with controlled responses, including
+string errors and null success values. They do not prove native dispatch.
 
-Generated names include Rust module paths; the facade supplies short aliases
-and chooses the deserialize shape for inputs and serialize shape for outputs.
-This avoids collisions between common module-local names such as Action and
-View. It also avoids a pinned-generator limitation found in the trial: combining
-a container-level Serde rename with split input/output phases causes duplicate
-export names. No dependency patch or application type renaming is needed.
+Generated names include Rust module paths; the facade chooses deserialize shapes
+for inputs and serialize shapes for outputs. Old project inputs may omit timing
+settings; Rust defaults them, and opened projects always include them. Project
+fields remain flattened beside the token. The compatibility trial found a
+pinned-generator phase-splitting collision even with module-qualified names:
+two codec-bearing structs named View produced the same body. Their Rust DTOs now
+have distinct names, SceneView and WaveformView. Actual Serde samples guard these
+shapes. Avoid container Serde renames for cosmetic exported names; the facade
+provides aliases without changing wire data. No generator patches are carried.
 
-Document IDs, revisions and millisecond values stay Rust u64 internally. At the
-JSON boundary, `ipc_number::SafeU64` and field codecs permit only integers from
-0 through 9,007,199,254,740,991. Invalid input and unrepresentable output fail;
-there is no global lossy-number override or JSON bigint claim. Optional recovery
-timestamps/revisions outside that range are unavailable (null) in the listing;
-their stored bytes remain intact and the subtitles remain recoverable with fresh
-editor history. Boundary tests cover every numeric document action field and
-response category, including a recovery record with unusual metadata.
+Wide IDs, revisions, sizes, counters and millisecond values remain Rust u64
+internally. At the JSON boundary, `ipc_number::SafeU64` and field codecs permit
+only integers from 0 through 9,007,199,254,740,991. Invalid input and
+unrepresentable output fail; there is no global lossy-number override or JSON
+bigint claim. Optional recovery metadata outside that range is unavailable
+(null) in listings; stored records remain recoverable with fresh editor history.
+Required floating-point output uses finite-number serializers, since ordinary
+Serde would turn NaN/infinity into null. Optional native properties retain their
+number-or-null contract. Validation tests cover the numeric codecs and output
+collections. Generation never changes the underlying domain types.
 
 Command wrappers retain rejected promises for Rust errors and adapt JSON null
 to void where appropriate. Generator annotations do not replace validation,
-revision guards or cancellation. Events, flattened/defaulted project fields and
-remaining command families are still compatibility gates. The generator is a
-pinned prerelease: review generated diffs, contract samples and browser
-regressions on upgrades. The command registration list will be unified when the
-remaining families have migrated.
+revision guards or cancellation. The generator's runtime helpers are excluded
+from handwritten-code lint rules but remain under strict TypeScript and drift
+checks. The generator is a pinned prerelease: review generated diffs, actual
+Serde samples and browser/native regressions on upgrades. The optional schema
+feature in media-analysis is enabled only by the desktop; headless callers do
+not depend on Specta, Tauri or native playback.

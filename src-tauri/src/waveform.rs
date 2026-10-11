@@ -116,17 +116,29 @@ impl Pyramid {
         )
     }
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct View {
+pub struct WaveformView {
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     generation: u64,
     running: bool,
     error: Option<String>,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     duration_seconds: f64,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     container_origin_seconds: f64,
     audio_stream_index: Option<u32>,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     start_seconds: f64,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     seconds_per_peak: f64,
+    #[serde(serialize_with = "crate::ipc_number::finite::serialize_peaks")]
+    #[specta(type = Vec<[crate::ipc_number::finite::FiniteF64; 2]>)]
     peaks: Vec<[f32; 2]>,
 }
 impl Waveforms {
@@ -156,12 +168,14 @@ impl Waveforms {
     }
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn waveform_start(
     app: tauri::AppHandle,
     path: String,
     audio_ordinal: u32,
-    session: u64,
-) -> Result<u64> {
+    session: crate::ipc_number::SafeU64,
+) -> Result<crate::ipc_number::SafeU64> {
+    let session = session.get();
     if app.state::<crate::media::Media>().current_session() != session {
         return Err("Media changed before waveform analysis started".into());
     }
@@ -217,16 +231,20 @@ pub async fn waveform_start(
                 job.error = Some(error.clone());
             }
         })?;
-    Ok(generation)
+    Ok(crate::ipc_number::SafeU64::try_from(generation)?)
 }
 #[tauri::command]
+#[specta::specta]
 pub async fn waveform_view(
     state: tauri::State<'_, Waveforms>,
-    generation: u64,
-    start: f64,
-    end: f64,
-    pixels: usize,
-) -> Result<View> {
+    generation: crate::ipc_number::SafeU64,
+    start: crate::ipc_number::finite::FiniteF64,
+    end: crate::ipc_number::finite::FiniteF64,
+    pixels: u32,
+) -> Result<WaveformView> {
+    let start = start.get();
+    let end = end.get();
+    let generation = generation.get();
     if !start.is_finite()
         || !end.is_finite()
         || start < 0.0
@@ -236,6 +254,8 @@ pub async fn waveform_view(
     {
         return Err("Invalid waveform viewport".into());
     }
+    // The viewport check bounds this conversion on all supported targets.
+    let pixels = pixels as usize;
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (running, error, data) = {
@@ -245,7 +265,7 @@ pub async fn waveform_view(
             }
             (job.running, job.error.clone(), job.data.clone())
         };
-        let mut view = View {
+        let mut view = WaveformView {
             generation,
             running,
             error,
@@ -377,4 +397,34 @@ mod tests {
         assert!(done.load(std::sync::atomic::Ordering::Acquire));
         assert!(state.worker.lock().unwrap().is_closing());
     }
+}
+
+#[cfg(test)]
+fn ipc_view() -> WaveformView {
+    WaveformView {
+        generation: crate::ipc_number::MAX_SAFE_INTEGER,
+        running: false,
+        error: None,
+        duration_seconds: 10.,
+        container_origin_seconds: -0.25,
+        audio_stream_index: Some(1),
+        start_seconds: 0.,
+        seconds_per_peak: 0.01,
+        peaks: vec![[-0.5, 0.75], [0., 0.]],
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn ipc_sample() -> serde_json::Value {
+    serde_json::to_value(ipc_view()).unwrap()
+}
+
+#[test]
+fn ipc_waveform_rejects_nonfinite_samples_instead_of_null_peaks() {
+    let mut view = ipc_view();
+    view.peaks[0][1] = f32::INFINITY;
+    assert!(serde_json::to_value(&view).is_err());
+    view.peaks.clear();
+    view.duration_seconds = f64::NAN;
+    assert!(serde_json::to_value(&view).is_err());
 }

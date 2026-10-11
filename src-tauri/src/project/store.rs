@@ -21,15 +21,19 @@ struct Baseline {
     path: PathBuf,
     bytes: Vec<u8>,
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct Attachment {
     pub path: String,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     pub token: u64,
 }
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct Opened {
     #[serde(flatten)]
     project: Project,
+    #[serde(with = "crate::ipc_number")]
+    #[specta(type = crate::ipc_number::SafeU64)]
     pub token: u64,
 }
 impl Baseline {
@@ -45,7 +49,7 @@ impl Store {
         self.next_token = self
             .next_token
             .checked_add(1)
-            .filter(|token| *token <= 9_007_199_254_740_991)
+            .filter(|token| *token <= crate::ipc_number::MAX_SAFE_INTEGER)
             .ok_or("Project save identities exhausted")?;
         Ok(self.next_token)
     }
@@ -115,4 +119,13 @@ impl Projects {
         store.pending = None;
         Ok(attachment)
     }
+}
+
+#[cfg(test)]
+pub(super) fn ipc_sample(project: Project) -> serde_json::Value {
+    serde_json::to_value(Opened {
+        project,
+        token: crate::ipc_number::MAX_SAFE_INTEGER,
+    })
+    .unwrap()
 }

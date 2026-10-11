@@ -2,6 +2,8 @@
 //! adapter boundary; domain times, IDs and counters remain ordinary Rust types.
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+pub mod finite;
+
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const ERROR: &str = "Integer exceeds JavaScript's exact nonnegative number range";
 
@@ -56,6 +58,11 @@ pub fn serialize<S: Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::
 
 pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
     SafeU64::deserialize(deserializer).map(SafeU64::get)
+}
+
+pub fn serialize_usize<S: Serializer>(value: &usize, serializer: S) -> Result<S::Ok, S::Error> {
+    let value = u64::try_from(*value).map_err(serde::ser::Error::custom)?;
+    serialize(&value, serializer)
 }
 
 pub mod optional {

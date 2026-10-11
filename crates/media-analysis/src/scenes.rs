@@ -14,6 +14,7 @@ use std::{
 
 /// Each detail level identifies fixed resolution/threshold semantics in saved
 /// projects. Decoder thread count does not change those semantics.
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Detail {
@@ -139,6 +140,7 @@ fn cut_filter(detail: Detail) -> String {
     )
 }
 /// Pipeline snapshots contain metadata only. The caller must reject stale jobs.
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Phase {

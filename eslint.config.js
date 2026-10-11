@@ -12,6 +12,8 @@ export default ts.config(
       'target/**',
       'src-tauri/target/**',
       'src-tauri/gen/**',
+      // Generator-owned runtime helpers; strict TypeScript still checks them.
+      'src/lib/generated/**',
       'tests/fixtures/generated/**',
     ],
   },

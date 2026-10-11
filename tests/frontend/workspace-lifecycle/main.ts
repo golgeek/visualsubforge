@@ -1,3 +1,4 @@
+import { defaultTiming } from '../../../src/lib/magnetic-timing';
 import { DocumentSession } from '../../../src/lib/document-session.svelte';
 import { MediaSession } from '../../../src/lib/media-session.svelte';
 import { ProjectWorkflow } from '../../../src/lib/project-workflow.svelte';
@@ -332,7 +333,7 @@ const project: OpenedProject = {
   subtitlePath: '/one.srt',
   mediaIdentity: { size: 10, modified: '1', sampleHash: 'a' },
   positionSeconds: 12.5,
-  options,
+  options: { ...options, timing: defaultTiming },
   scenes: {
     version: 4,
     mode: 'visual',

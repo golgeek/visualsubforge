@@ -14,7 +14,7 @@ vsf-application = { path = "../crates/vsf-application" }
 subtitle-core = { path = "../crates/subtitle-core" }
 subtitle-formats = { path = "../crates/subtitle-formats" }
 tempfile = "3"
-media-analysis = { path = "../crates/media-analysis" }
+media-analysis = { path = "../crates/media-analysis", features = ["specta"] }
 tauri = { version = "2", features = [] }
 specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "=0.0.12"

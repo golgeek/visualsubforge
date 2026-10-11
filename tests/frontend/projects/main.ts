@@ -25,6 +25,14 @@ const calls: string[] = [];
 const saves: Record<string, unknown>[] = [];
 const callbacks = new Map<number, (value: unknown) => void>();
 let eventHandler = 0;
+// Delay the actual IPC registration response, independent of module loading.
+const registration = new URLSearchParams(location.search).has('delayListener')
+  ? new Promise<void>((resolve) => {
+      window.addEventListener('vsf-test-release-listener', () => resolve(), {
+        once: true,
+      });
+    })
+  : Promise.resolve();
 const project: ProjectData = {
   version: 1,
   mediaPath: '/clip.mkv',
@@ -74,6 +82,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         return structuredClone(defaultPreferences);
       switch (command) {
         case 'plugin:event|listen':
+          document.body.dataset.workspaceListener = 'waiting';
+          await registration;
+          document.body.dataset.workspaceListener = 'registered';
           eventHandler = args.handler!;
           return 1;
         case 'plugin:event|unlisten':
