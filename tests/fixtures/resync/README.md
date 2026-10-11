@@ -17,8 +17,10 @@ Truth is derived before matching, never from detector or alignment output.
 Use `--extended` for a held-out seed, resize/FPS and speed/ad cases, a 250 ms
 replacement, ambiguous deletion inside a static tail, and three ten-minute
 programme blocks. It also includes a deletion of one whole repeating-motion
-cycle in the final shot, which must remain unresolved. These cases were added after the initial cut matcher and its
-thresholds were fixed. CI runs this extended synthetic corpus.
+cycle in the first or final shot, which must remain unresolved. These cases were
+added after the initial cut matcher and its thresholds were fixed. CI runs
+`--robustness` on all headless OS runners and `--extended --robustness` in the
+analysis lane (24 and 29 synthetic cases respectively).
 
 Procedural spatial patterns and moving objects are original test material. The
 default shots last two seconds deliberately: equally spaced scene cuts are insufficient
@@ -264,3 +266,54 @@ the `--extended` CI corpus; it is not subject to the positive-case coverage gate
 The positive periodic-motion case remains an open gate, not silently reclassified
 as passing. Receipts are in `resync-robustness-v5/`; old failures remain intact.
 The same v3 sampler is used by the evaluator and shared CLI/GUI operation.
+
+
+## Observed video-edge verification (v4)
+
+`scene-visual-edges-v4` retains the v3 cut fits and dense neighborhood comparisons.
+It additionally observes final decoded frames through bounded, sequential EOF
+passes. First frames already belong to the whole-video sample set. A first/last
+shot with locally repeating motion can extend to an observed video edge only
+when the cut model predicts that edge within 1 ms, edge images match, and every
+intervening sample supports the model. Static images, missing samples, unmatched
+cuts or a materially better image at an alternative offset prevent extension.
+The last observed PTS is the limit, not container duration or a guessed final
+frame duration. Empty EOF video supplies no boundary; this can occur when audio
+outlasts video or a demuxer's duration includes a positive origin.
+
+This is additional content/timestamp evidence, not an assumption that matching
+end pictures prove unchanged footage. Equal-duration 120 ms replacements inside
+first/last shots and deleted 1,760 ms repeating cycles are explicit controls.
+The gap between different cut-derived models stays unresolved. Balanced edits
+that are visually indistinguishable between observations remain a limitation of
+sampled verification; no universal short-edit detection is claimed.
+
+Development Mac, FFmpeg 9.0.2, 2026-10-11:
+
+| Case | Interior coverage | Worst accepted error | Result |
+| --- | ---: | ---: | --- |
+| Periodic motion, 120 ms deletion | 93.3% | 0 ms | Pass, unchanged 90% target |
+| Periodic motion, 120 ms replacement near start | 94.0% | 0 ms | Pass; replacement not bridged |
+| Periodic motion, 120 ms replacement near end | 94.2% | 0 ms | Pass; replacement not bridged |
+| One repeating cycle deleted in first shot | 87.5% | 0 ms | Pass; ambiguous first shot unresolved |
+| One repeating cycle deleted in final shot | 95.6% | 0 ms | Pass; ambiguous final shot unresolved |
+| Nonrepeating pan, 120 ms deletion | 92.9% | 0 ms | Pass |
+| Nonrepeating pan, 120 ms tail deletion | 95.7% | 0 ms | Pass |
+
+All 24 robustness cases and all 29 combined extended/robustness cases pass.
+The original 16-case/reference and 11-case live-action corpora still pass, with
+97.9% and 96.6% reference coverage respectively; the latter's worst accepted
+endpoint error remains 5.385 ms. Earlier failing receipts remain unchanged.
+Current receipts are `resync-robustness-v6/evaluation-v4.json`,
+`resync-combined-v4/evaluation-v4.json`, and `evaluation-v4-edges-trial.json`
+in the original and live-action directories.
+
+Reproduce the complete synthetic check:
+
+```sh
+python3 scripts/resync-fixtures.py --extended --robustness --output tests/fixtures/generated/resync-combined-v4
+cargo run --locked -p media-analysis --example resync-evaluate -- tests/fixtures/generated/resync-combined-v4 > tests/fixtures/generated/resync-combined-v4/evaluation-v4.json
+```
+
+The evaluator and shared CLI/GUI operation use the same verifier and EOF observer.
+These Mac results do not claim Windows/Linux execution of v4 or native playback.

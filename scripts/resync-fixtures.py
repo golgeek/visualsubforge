@@ -216,6 +216,10 @@ def main():
                            [(0, 113), (Fraction(2869, 25), 120)], fps=25)
         ambiguous.update(expected="reject_ambiguous_tail", unsafe_after_us=110_000_000)
         cases.append(ambiguous)
+        ambiguous_head = edited(low_cut, "low-cut-head-cycle-deletion",
+                                [(0, 3), (Fraction(119, 25), 120)], fps=25)
+        ambiguous_head.update(expected="reject_ambiguous_head", unsafe_before_us=10_000_000)
+        cases.append(ambiguous_head)
     if args.extended:
         held_out = OUT / "held-out-source.mkv"
         synthetic(held_out, seconds=72, fps=30, seed=424242)
@@ -269,6 +273,11 @@ def main():
         # It still must not be hidden by visually similar half-second samples.
         cases.append(edited(low_cut, "low-cut-short-deletion",
                             [(0, Fraction(287, 5)), (Fraction(1438, 25), 120)], fps=25))
+        # The first/last frames and total duration still agree. Intervening
+        # replacements must prevent video-edge evidence from bridging an edit.
+        for name, start in [("low-cut-head-replacement", 3), ("low-cut-tail-replacement", 113)]:
+            cases.append(edited(low_cut, name,
+                                [(0, start), Fraction(3, 25), (start + Fraction(3, 25), 120)], fps=25))
         # A separate held-out low-cut control has a nonrepeating pan. Retain the
         # original periodic-motion failure above; do not change its truth/gate.
         pan = OUT / "low-cut-pan-source.mkv"

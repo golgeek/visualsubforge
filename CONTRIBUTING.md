@@ -137,8 +137,9 @@ leave these integrations ignored. They validate decoding/analysis and cancellati
 not native playback or presentation.
 
 The [resync experiment](tests/fixtures/resync/README.md) has a separate fixture
-generator, three visual-signature integrations and a ground-truth evaluator. CI
-runs the extended synthetic corpus, including three ten-minute content blocks.
+generator, six visual-signature/sampling integrations and a ground-truth evaluator.
+CI runs the robustness corpus in every headless OS lane; the analysis lane also
+includes the extended cases with three ten-minute content blocks.
 The wider local reference-movie case meets its coverage target after sample
 verification; a passing corpus is not general matching or product acceptance.
 

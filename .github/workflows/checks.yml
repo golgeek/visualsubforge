@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y ffmpeg
       - run: python3 scripts/media-fixtures.py
       - run: python3 scripts/scene-fixtures.py
-      - run: python3 scripts/resync-fixtures.py --extended
+      - run: python3 scripts/resync-fixtures.py --extended --robustness
       - run: cargo test --locked -p media-analysis -p vsf-application
       - run: cargo test --locked -p media-analysis --example resync-evaluate
       - run: cargo test --locked -p media-analysis --test ffmpeg --test scenes --test visual -- --ignored --nocapture --test-threads=1
@@ -75,7 +75,7 @@ jobs:
           python --version
           ffmpeg -version
           ffprobe -version
-      - run: python scripts/resync-fixtures.py
+      - run: python scripts/resync-fixtures.py --robustness
       - run: cargo test --locked -p vsf-application -p vsf-cli
       - name: Verify bounded frame sampling and filter-file portability
         run: cargo test --locked -p media-analysis --test visual -- --ignored --nocapture --test-threads=1
@@ -86,7 +86,7 @@ jobs:
           python tests/cli/windows-signals.py --vsf target/debug/vsf.exe
       - run: cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
       - run: cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
-      - name: Evaluate compact resync ground truth
+      - name: Evaluate resync robustness ground truth
         run: cargo run --locked -p media-analysis --example resync-evaluate > tests/fixtures/generated/resync/evaluation.json
       - run: cargo clippy --locked -p vsf-application -p vsf-cli --all-targets -- -D warnings
       - name: Inspect headless runtime dependencies

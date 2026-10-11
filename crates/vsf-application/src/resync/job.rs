@@ -6,7 +6,7 @@ use media_analysis::{Tools, alignment, scenes::visual, tools::Versions};
 use serde::Serialize;
 use std::{io::Write, path::PathBuf, time::Duration};
 
-pub const ALGORITHM_VERSION: &str = "scene-visual-neighborhoods-v3";
+pub const ALGORITHM_VERSION: &str = "scene-visual-edges-v4";
 pub const MAX_REPORT_BYTES: usize = 64 * 1024 * 1024;
 
 pub enum Subtitles {
@@ -115,14 +115,36 @@ pub fn analyze(
         cancel,
         budget.remaining()?,
     )?;
+    let (source_end, target_end) = if alignment.segments.is_empty() {
+        (None, None)
+    } else {
+        (
+            visual::last_frame(
+                tools,
+                &source_video.canonical_path,
+                cancel,
+                budget.remaining()?,
+            )?,
+            visual::last_frame(
+                tools,
+                &target_video.canonical_path,
+                cancel,
+                budget.remaining()?,
+            )?,
+        )
+    };
     alignment::verify::refine(
         &mut alignment,
         &source_cuts,
         &target_cuts,
-        &source_samples,
-        alignment::verify::TargetSamples {
-            coarse: &target_samples,
-            detailed: Some(&detailed),
+        alignment::verify::VerificationSamples {
+            source: &source_samples,
+            target: &target_samples,
+            target_windows: Some(&detailed),
+            ends: source_end
+                .as_ref()
+                .zip(target_end.as_ref())
+                .map(|(source, target)| alignment::verify::VideoEnds { source, target }),
         },
         cancel,
         budget.remaining()?,

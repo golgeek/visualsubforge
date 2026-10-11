@@ -1,6 +1,7 @@
 //! Verify additional intervals against decoded image samples. The timing model
 //! always comes from distinctive cut anchors; samples never infer a frame rate.
 use super::{Alignment, Segment, TIMING_TOLERANCE_US};
+mod edges;
 use crate::{
     Cancellation, Error, Result,
     scenes::visual::{Anchor, MAX_SAMPLES, SampleWindows, distance, has_detail},
@@ -13,13 +14,23 @@ use std::{
 const SAMPLE_RADIUS_US: u64 = 300_000;
 const MAX_SAMPLE_GAP_US: u64 = 650_000;
 const MAX_IMAGE_ERROR: f64 = 6.;
+const IMAGE_MARGIN: f64 = 0.5;
 const MIN_RUN_US: u64 = 2_000_000;
 pub const LOOKAROUND_US: u64 = 4_300_000;
 
 #[derive(Clone, Copy)]
-pub struct TargetSamples<'a> {
-    pub coarse: &'a [Anchor],
-    pub detailed: Option<&'a SampleWindows>,
+pub struct VerificationSamples<'a> {
+    pub source: &'a [Anchor],
+    pub target: &'a [Anchor],
+    pub target_windows: Option<&'a SampleWindows>,
+    pub ends: Option<VideoEnds<'a>>,
+}
+
+/// Final decoded frames from both videos; duration metadata is not a substitute.
+#[derive(Clone, Copy)]
+pub struct VideoEnds<'a> {
+    pub source: &'a Anchor,
+    pub target: &'a Anchor,
 }
 
 /// Additional target-frame observations for currently unsupported intervals.
@@ -130,8 +141,7 @@ pub fn refine(
     alignment: &mut Alignment,
     source_cuts: &[Anchor],
     target_cuts: &[Anchor],
-    source_samples: &[Anchor],
-    target_samples: TargetSamples<'_>,
+    samples: VerificationSamples<'_>,
     cancellation: &Cancellation,
     timeout: Duration,
 ) -> Result<()> {
@@ -146,11 +156,12 @@ pub fn refine(
         }
     };
     check()?;
+    let source_samples = samples.source;
     for (samples, limit) in [
         (source_samples, MAX_SAMPLES),
-        (target_samples.coarse, MAX_SAMPLES),
+        (samples.target, MAX_SAMPLES),
         (
-            target_samples.detailed.map_or(&[], SampleWindows::frames),
+            samples.target_windows.map_or(&[], SampleWindows::frames),
             MAX_SAMPLES,
         ),
         (source_cuts, MAX_SAMPLES),
@@ -165,6 +176,24 @@ pub fn refine(
             ));
         }
     }
+    if let Some(ends) = samples.ends {
+        for (end, coarse) in [(ends.source, samples.source), (ends.target, samples.target)] {
+            if end.time_us > 14_400_000_000
+                || coarse.last().is_some_and(|s| s.time_us > end.time_us)
+            {
+                return Err(Error::Message("Invalid decoded video end".into()));
+            }
+        }
+        if samples.target_windows.is_some_and(|w| {
+            w.frames()
+                .last()
+                .is_some_and(|s| s.time_us > ends.target.time_us)
+        }) {
+            return Err(Error::Message(
+                "Decoded end precedes observed target frames".into(),
+            ));
+        }
+    }
     if alignment.reordered || alignment.segments.is_empty() {
         return Ok(());
     }
@@ -174,17 +203,19 @@ pub fn refine(
     for (index, seed) in seeds.iter().enumerate() {
         check()?;
         let (lower, upper) = neighborhood(seeds, index);
-        let samples = &source_samples[source_samples.partition_point(|s| s.time_us < lower)
+        let local_samples = &source_samples[source_samples.partition_point(|s| s.time_us < lower)
             ..source_samples.partition_point(|s| s.time_us <= upper)];
         let mut run: Option<Run> = None;
-        for (sample_index, sample) in samples.iter().enumerate() {
+        for (sample_index, sample) in local_samples.iter().enumerate() {
             check()?;
             let source_time = sample.time_us;
             let predicted = project(seed, source_time);
             let mut evidence = predicted.map_or(ImageEvidence::Mismatch, |time| {
-                image_evidence(sample, target_samples, time)
+                image_evidence(sample, samples, time)
             });
-            if evidence == ImageEvidence::Distinct && !temporally_distinct(samples, sample_index) {
+            if evidence == ImageEvidence::Distinct
+                && !temporally_distinct(local_samples, sample_index)
+            {
                 evidence = ImageEvidence::Ambiguous;
             }
             let continuous = run.as_ref().is_none_or(|run| {
@@ -222,6 +253,13 @@ pub fn refine(
         }
         finish(seed, run, &mut additions);
     }
+    additions.extend(edges::verify(
+        seeds,
+        source_cuts,
+        target_cuts,
+        samples,
+        &check,
+    )?);
     check()?;
     // Work on a separate vector so failure/cancellation cannot publish half of a
     // refinement. Only merge overlapping intervals with the same timing model.
@@ -314,11 +352,15 @@ enum ImageEvidence {
     Distinct,
 }
 
-fn image_evidence(sample: &Anchor, target: TargetSamples<'_>, time: u64) -> ImageEvidence {
-    let dense = target
-        .detailed
-        .filter(|samples| samples.covers(time, LOOKAROUND_US));
-    let targets = dense.map_or(target.coarse, SampleWindows::frames);
+fn image_evidence(sample: &Anchor, samples: VerificationSamples<'_>, time: u64) -> ImageEvidence {
+    let end = time.saturating_add(LOOKAROUND_US).min(14_400_000_000);
+    let end = samples
+        .ends
+        .map_or(end, |ends| end.min(ends.target.time_us));
+    let dense = samples
+        .target_windows
+        .filter(|windows| windows.covers_interval(time.saturating_sub(LOOKAROUND_US), end));
+    let targets = dense.map_or(samples.target, SampleWindows::frames);
     // Never extrapolate beyond the observed presentation timestamps.
     if targets.first().is_none_or(|s| time < s.time_us)
         || targets.last().is_none_or(|s| time > s.time_us)
@@ -365,13 +407,15 @@ fn image_evidence(sample: &Anchor, target: TargetSamples<'_>, time: u64) -> Imag
         .map(best_near)
         .fold(f64::INFINITY, f64::min);
     let distinct = if dense.is_some() {
-        alternative - best >= 0.5
+        alternative - best >= IMAGE_MARGIN
     } else {
         // Coarse observations cannot rule out an equally plausible frame
         // between samples. Keep the stricter fallback until it is observed.
         alternative > MAX_IMAGE_ERROR
     };
-    if distinct {
+    if best - alternative > IMAGE_MARGIN {
+        ImageEvidence::Mismatch
+    } else if distinct {
         ImageEvidence::Distinct
     } else {
         ImageEvidence::Ambiguous
@@ -512,10 +556,11 @@ mod tests {
             alignment,
             &[],
             target_cuts,
-            source,
-            TargetSamples {
-                coarse: target,
-                detailed: None,
+            VerificationSamples {
+                source,
+                target,
+                target_windows: None,
+                ends: None,
             },
             &Cancellation::default(),
             Duration::from_secs(1),
@@ -781,10 +826,11 @@ mod tests {
                 &mut result,
                 &[],
                 &[],
-                &[],
-                TargetSamples {
-                    coarse: &[],
-                    detailed: None
+                VerificationSamples {
+                    source: &[],
+                    target: &[],
+                    target_windows: None,
+                    ends: None,
                 },
                 &cancellation,
                 Duration::from_secs(1)
@@ -798,10 +844,11 @@ mod tests {
                 &mut result,
                 &[],
                 &[],
-                &[],
-                TargetSamples {
-                    coarse: &[],
-                    detailed: None
+                VerificationSamples {
+                    source: &[],
+                    target: &[],
+                    target_windows: None,
+                    ends: None,
                 },
                 &Cancellation::default(),
                 Duration::from_secs(1)

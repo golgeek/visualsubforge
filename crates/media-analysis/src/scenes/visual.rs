@@ -14,7 +14,7 @@ use std::{
 pub const MAX_ANCHORS: usize = 20_000;
 const PIXELS: usize = 16 * 16;
 mod sampling;
-pub use sampling::{MAX_SAMPLES, SampleWindows, sample, sample_near};
+pub use sampling::{MAX_SAMPLES, SampleWindows, last_frame, sample, sample_near};
 
 #[derive(Clone, Debug)]
 pub struct Anchor {

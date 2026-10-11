@@ -116,6 +116,105 @@ fn sampled_frames_keep_actual_pts_and_zero_in_both_origins() {
 
 #[test]
 #[ignore = "requires resync fixtures and FFmpeg"]
+fn final_frame_uses_decoded_pts_including_the_container_origin() {
+    let cancellation = Cancellation::default();
+    let frame = visual::last_frame(
+        &tools(),
+        &fixture("source.mkv"),
+        &cancellation,
+        Duration::from_secs(30),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(frame.time_us, 35_958_000);
+    // Some demuxers include the positive origin in format.duration. If an
+    // end-relative seek misses the video, do not invent an end from metadata.
+    let vfr = visual::last_frame(
+        &tools(),
+        &fixture("vfr-origin.mkv"),
+        &cancellation,
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert!(vfr.is_none_or(|frame| frame.time_us == 35_875_000));
+}
+
+#[test]
+#[ignore = "requires FFmpeg"]
+fn final_frame_handles_short_video_and_does_not_guess_from_a_longer_audio_track() {
+    let directory = tempfile::tempdir().unwrap();
+    let tools = tools();
+    for audio in [false, true] {
+        let path = directory.path().join(if audio {
+            "long-audio.mkv"
+        } else {
+            "short-video.mkv"
+        });
+        let mut command = std::process::Command::new(&tools.ffmpeg);
+        command.args([
+            "-v",
+            "error",
+            "-nostdin",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=32x32:rate=10:duration=1",
+        ]);
+        if audio {
+            command.args([
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=8000:cl=mono",
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:a",
+                "pcm_s16le",
+                "-t",
+                "8",
+            ]);
+        }
+        let output = command
+            .args([
+                "-filter_threads",
+                "1",
+                "-c:v",
+                "ffv1",
+                "-threads",
+                "2",
+                "-fps_mode",
+                "passthrough",
+            ])
+            .arg(&path)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let frame = visual::last_frame(
+            &tools,
+            &path,
+            &Cancellation::default(),
+            Duration::from_secs(30),
+        )
+        .unwrap();
+        if audio {
+            assert!(
+                frame.is_none(),
+                "audio duration must not invent a video endpoint"
+            );
+        } else {
+            assert_eq!(frame.unwrap().time_us, 900_000);
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires resync fixtures and FFmpeg"]
 fn requested_neighborhoods_keep_actual_pts_coalesce_ranges_and_handle_eof() {
     let cancel = Cancellation::default();
     let tools = tools();

@@ -17,6 +17,7 @@ struct Case {
     segments: Vec<Range>,
     boundary_tolerance_us: u64,
     unsafe_after_us: Option<u64>,
+    unsafe_before_us: Option<u64>,
 }
 #[derive(Deserialize)]
 struct Range {
@@ -57,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let versions = tools.versions(&cancellation, Duration::from_secs(10))?;
     let mut signatures = BTreeMap::new();
     let mut samples = BTreeMap::new();
+    let mut final_frames = BTreeMap::new();
     for case in &truth.cases {
         for name in [&case.source, &case.target] {
             if !signatures.contains_key(name) {
@@ -87,6 +89,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let source = &signatures[&case.source];
         let target = &signatures[&case.target];
         let mut result = alignment::align(source, target, &cancellation, Duration::from_secs(30))?;
+        if !result.segments.is_empty() {
+            for name in [&case.source, &case.target] {
+                if !final_frames.contains_key(name) {
+                    final_frames.insert(
+                        name.clone(),
+                        visual::last_frame(
+                            &tools,
+                            &path.join(name),
+                            &cancellation,
+                            Duration::from_secs(30),
+                        )?,
+                    );
+                }
+            }
+        }
         let detailed = {
             let requests = alignment::verify::target_sample_times(
                 &result,
@@ -109,10 +126,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &mut result,
             source,
             target,
-            &samples[&case.source],
-            alignment::verify::TargetSamples {
-                coarse: &samples[&case.target],
-                detailed: Some(&detailed),
+            alignment::verify::VerificationSamples {
+                source: &samples[&case.source],
+                target: &samples[&case.target],
+                target_windows: Some(&detailed),
+                ends: final_frames
+                    .get(&case.source)
+                    .and_then(Option::as_ref)
+                    .zip(final_frames.get(&case.target).and_then(Option::as_ref))
+                    .map(|(source, target)| alignment::verify::VideoEnds { source, target }),
             },
             &cancellation,
             Duration::from_secs(30),
@@ -156,6 +178,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "reject_ambiguous_tail" => case
                     .unsafe_after_us
                     .is_some_and(|end| result.segments.iter().all(|s| s.source_end_us <= end)),
+                "reject_ambiguous_head" => case.unsafe_before_us.is_some_and(|start| {
+                    result.segments.iter().all(|s| s.source_start_us >= start)
+                }),
                 "map_supported_interiors" => coverage >= 0.9,
                 // Distortions characterize unpromised coverage, not a relaxed
                 // correctness gate. Every accepted interval must still agree with
@@ -247,6 +272,7 @@ mod tests {
             }],
             boundary_tolerance_us: 10_000,
             unsafe_after_us: None,
+            unsafe_before_us: None,
         }
     }
 

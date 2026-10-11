@@ -175,12 +175,18 @@ and actual-PTS samples sequentially, matches/verifies supported intervals, and
 builds an immutable `Proposal`. It never mutates accepted subtitles. The desktop
 adapter retains job/media/document generation and revision guards.
 
-The v3 verifier requests dense target frames around unsupported intervals, in
+The verifier requests dense target frames around unsupported intervals, in
 two additional sequential passes. It compares the frame nearest the predicted
 timestamp with alternative offsets; it does not slide a cue to the best-looking
 nearby image. Verified extents retain an original cut-derived fit when merged,
-so sampling cannot invent a new playback rate. Repeating or static evidence
-still leaves intervals unresolved. See the corpus record for measured limits.
+so sampling cannot invent a new playback rate. Algorithm `scene-visual-edges-v4`
+also observes the first and final decoded frames. An observed video edge can
+bound a locally repeating first/last shot only when its timestamp agrees with
+the cut model to 1 ms and the complete sampled interval supports that model.
+Mismatched images, static content, missing samples or unmatched cuts prevent
+that extension. Missing EOF evidence supplies no guessed boundary; equal
+duration or matching edge pictures alone are insufficient. This does not locate
+edits between different models. See the corpus record for measured limits.
 
 The operation selects the first video stream and normalizes times to the
 container origin. `Tools::discover` uses the same explicit `VSF_FFMPEG` and
@@ -233,6 +239,12 @@ anchors, 30,000 coarse image samples per video and 30,000 additional target
 frames, the existing pair-comparison caps, 16 MiB SRT and
 64 MiB reports. Blocking filesystem operations can delay cancellation. Decoded
 images remain inside the analysis library, never ordinary desktop IPC.
+The final-frame observer uses two sequential passes per video, seeking five
+seconds back from the container end (or decoding short clips from the start),
+under the same deadline, cancellation and 30,000-frame/8 MiB metadata bounds.
+It retains actual decoded PTS, not container duration or a nominal-FPS estimate.
+A seek beyond the selected video's end, for example when audio is longer,
+returns no edge evidence. No interval extends past its final observed frame PTS.
 Dense filter expressions use temporary files to avoid platform command-line
 limits. Their owner retains them until each supervised child has exited,
 including cancellation/failure. FFmpeg 7+ uses its filter-file option; the older
@@ -387,3 +399,15 @@ removed, unchanged inputs and no report/SRT output. The retained
 `resync-live-action-v1/cli-*-v3` receipts distinguish these checks from GUI or
 audible synchronization. Windows was restored to its initial paused state with
 idle pausing enabled; Ubuntu was left running as found.
+
+
+V4 Mac checks (2026-10-11): `cargo test --locked --workspace` passes 165 ordinary
+tests; 26 opt-in tests remain ignored in that command. Strict workspace Clippy,
+rustfmt, workflow Prettier and all three evaluator-oracle tests pass. Separately,
+the documented commands run six visual/sampling, three application, two CLI
+and one desktop-owner FFmpeg integrations: twelve pass. New EOF tests cover
+short video, positive origins and audio that outlasts video. Exact command output
+is retained in `tests/fixtures/generated/resync/validation-v4-*.log`.
+All 29 combined extended/robustness cases and both reference-film corpora pass;
+see the corpus record for coverage, timing errors and abstention controls.
+Latest Windows/Linux and actual native GUI validation remain pending.

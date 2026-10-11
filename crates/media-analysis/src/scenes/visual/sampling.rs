@@ -25,13 +25,14 @@ impl SampleWindows {
     pub fn frames(&self) -> &[Anchor] {
         &self.frames
     }
-    pub fn covers(&self, time_us: u64, radius_us: u64) -> bool {
-        let start = time_us.saturating_sub(radius_us);
-        let end = time_us.saturating_add(radius_us).min(14_400_000_000);
+    pub fn covers_interval(&self, start_us: u64, end_us: u64) -> bool {
+        if start_us > end_us {
+            return false;
+        }
         self.ranges
-            .partition_point(|r| r.0 <= start)
+            .partition_point(|r| r.0 <= start_us)
             .checked_sub(1)
-            .is_some_and(|i| self.ranges[i].1 >= end)
+            .is_some_and(|i| self.ranges[i].1 >= end_us)
     }
 }
 
@@ -47,7 +48,40 @@ pub fn sample(
     let remaining = || timeout.checked_sub(started.elapsed()).ok_or(Error::Timeout);
     let source = inspect(tools, path, cancellation, remaining()?)?;
     let filter = "settb=expr=1/1000000,select='isnan(prev_selected_t)+gt(floor(t*2),floor(prev_selected_t*2))'";
-    read_samples(tools, &source, filter, None, cancellation, remaining()?)
+    read_samples(
+        tools,
+        &source,
+        filter,
+        None,
+        DecodeStart::Beginning,
+        cancellation,
+        remaining()?,
+    )
+}
+
+/// Observe the final decoded video frame, keeping its actual presentation time.
+/// A short seek from the container end avoids another whole-file pixel pass.
+/// Empty video after the seek (for example, a longer audio track) gives no edge
+/// evidence. The decoded frame, never container duration, defines the boundary.
+pub fn last_frame(
+    tools: &Tools,
+    path: &Path,
+    cancellation: &Cancellation,
+    timeout: Duration,
+) -> Result<Option<Anchor>> {
+    let started = Instant::now();
+    let remaining = || timeout.checked_sub(started.elapsed()).ok_or(Error::Timeout);
+    let source = inspect(tools, path, cancellation, remaining()?)?;
+    let mut frames = read_samples(
+        tools,
+        &source,
+        "settb=expr=1/1000000",
+        None,
+        DecodeStart::NearEnd,
+        cancellation,
+        remaining()?,
+    )?;
+    Ok(frames.pop())
 }
 
 /// Decode all frames within the requested presentation-time neighborhoods.
@@ -120,6 +154,7 @@ pub fn sample_near(
         &source,
         &filter,
         Some(filter_file_option(ffmpeg_version)?),
+        DecodeStart::Beginning,
         cancellation,
         remaining()?,
     )?;
@@ -176,11 +211,18 @@ fn selection(ranges: &[(i64, i64)]) -> String {
     filter
 }
 
+#[derive(Clone, Copy)]
+enum DecodeStart {
+    Beginning,
+    NearEnd,
+}
+
 fn read_samples(
     tools: &Tools,
     source: &Source,
     filter: &str,
     file_option: Option<&str>,
+    start: DecodeStart,
     cancellation: &Cancellation,
     timeout: Duration,
 ) -> Result<Vec<Anchor>> {
@@ -206,18 +248,19 @@ fn read_samples(
     let images_file = prepare(images_suffix)?;
     let command = |suffix: &str, file: &Option<tempfile::NamedTempFile>, raw: bool| {
         let mut command = Command::new(&tools.ffmpeg);
-        command
-            .args(["-v", "error", "-nostdin", "-threads", "2", "-copyts", "-i"])
-            .arg(&source.path)
-            .args([
-                "-map",
-                &format!("0:{}", source.stream),
-                "-an",
-                "-sn",
-                "-dn",
-                "-filter_threads",
-                "1",
-            ]);
+        command.args(["-v", "error", "-nostdin", "-threads", "2", "-copyts"]);
+        if matches!(start, DecodeStart::NearEnd) && source.duration > 5. {
+            command.args(["-sseof", "-5"]);
+        }
+        command.arg("-i").arg(&source.path).args([
+            "-map",
+            &format!("0:{}", source.stream),
+            "-an",
+            "-sn",
+            "-dn",
+            "-filter_threads",
+            "1",
+        ]);
         if let (Some(option), Some(file)) = (file_option, file) {
             command.arg(option).arg(file.path());
         } else {
@@ -238,7 +281,7 @@ fn read_samples(
         |r| process::limited(r, 8 * 1024 * 1024),
     )?;
     let times = sample_times(&timestamps, source.origin)?;
-    if times.is_empty() && file_option.is_none() {
+    if times.is_empty() && file_option.is_none() && matches!(start, DecodeStart::Beginning) {
         return Err(Error::Message("No decoded video samples".into()));
     }
     let images = process::run(
@@ -327,11 +370,12 @@ mod tests {
             frames: vec![],
             ranges: vec![(0, 1_000_000), (2_000_000, 3_000_000)],
         };
-        assert!(windows.covers(0, 1_000_000));
-        assert!(windows.covers(2_500_000, 500_000));
-        assert!(!windows.covers(1_500_000, 0));
-        assert!(!windows.covers(1_500_000, 1_000_000));
-        assert!(!windows.covers(2_500_000, 500_001));
+        assert!(windows.covers_interval(0, 1_000_000));
+        assert!(windows.covers_interval(2_000_000, 3_000_000));
+        assert!(!windows.covers_interval(1_500_000, 1_500_000));
+        assert!(!windows.covers_interval(500_000, 2_500_000));
+        assert!(!windows.covers_interval(1_999_999, 3_000_001));
+        assert!(!windows.covers_interval(2_500_000, 2_000_000));
         // Requested coverage is separate from successful image correspondence;
         // an empty result at EOF must still fail image verification.
         assert!(windows.frames().is_empty());
