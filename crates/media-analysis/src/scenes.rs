@@ -64,6 +64,23 @@ pub fn detect(
     timeout: Duration,
     detail: Detail,
 ) -> Result<SceneCuts> {
+    // Frame dependencies can leave decoder workers waiting: allow two per available
+    // CPU, capped at 32 to bound buffering/thread overhead. This is a provisional
+    // portable heuristic, not per-file autotuning; see task 008 measurements.
+    let threads = std::thread::available_parallelism()
+        .map(|count| count.get().saturating_mul(2).min(32))
+        .unwrap_or(2);
+    detect_with_threads(tools, path, cancellation, timeout, detail, threads)
+}
+
+fn detect_with_threads(
+    tools: &Tools,
+    path: &Path,
+    cancellation: &Cancellation,
+    timeout: Duration,
+    detail: Detail,
+    threads: usize,
+) -> Result<SceneCuts> {
     let started = Instant::now();
     let Source {
         path,
@@ -72,13 +89,7 @@ pub fn detect(
         ..
     } = inspect(tools, path, cancellation, timeout)?;
     let mut decode = Command::new(&tools.ffmpeg);
-    // Frame dependencies can leave decoder workers waiting: allow two per available
-    // CPU, capped at 32 to bound buffering/thread overhead. This is a provisional
-    // portable heuristic, not per-file autotuning; see task 008 measurements.
-    let threads = std::thread::available_parallelism()
-        .map(|count| count.get().saturating_mul(2).min(32))
-        .unwrap_or(2)
-        .to_string();
+    let threads = threads.to_string();
     decode
         .args([
             "-v", "error", "-nostdin", "-threads", &threads, "-copyts", "-i",

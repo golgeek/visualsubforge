@@ -3,6 +3,7 @@
 pub mod alignment;
 mod process;
 pub mod scenes;
+pub mod tools;
 
 use serde::{Deserialize, Serialize};
 use std::{

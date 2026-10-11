@@ -15,8 +15,8 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
 | Resynchronization experiment | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). | All 16 current cases pass, including one real-content edit and long/held-out cases. Broader content/distortion evidence remains open. No product CLI, generated IPC migration or GUI resync workflow exists yet. |
-| Shared application | `vsf-application` owns bounded SRT reads/acceptance, the size policy and file/save primitives used by the desktop. Dependency inspection confirms no desktop/native playback dependency. | Proposal generation and headless output policy are next; desktop document/project/recovery owners remain in place. |
-| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | Application proposal, Save As protection and GUI/CLI integration are not implemented yet. |
+| Shared application | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. No desktop/native playback dependency. | Product CLI and GUI callers are next. Broader matching, OS/process/filesystem and GUI lifecycle gates remain. |
+| Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). | GUI Save As protection, proposal acceptance and lifecycle integration are not implemented yet. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
 | Automation and distribution | Two workflows configure locked application checks, browser workflows, FFmpeg integrations, synthetic controls, mpv source builds and native compiler lanes. | No GitHub run is claimed: this checkout has no configured remote. No installer, signing or release dependency/license inventory is complete. |
 
@@ -50,6 +50,14 @@ Shared extraction: `cargo test --locked -p vsf-application -p visualsubforge`
 passed 73 tests (70 desktop, three moved persistence/lease tests); the save-lock
 helper is invoked by its owner. Strict Clippy for both packages and rustfmt passed.
 This preserves existing behavior; it does not validate a product CLI yet.
+
+Shared resync operations: 15 application tests and all 70 desktop tests passed,
+including process-crash/report-only publication, collision preservation, rounding,
+hash changes and cancellation. Three additional actual-FFmpeg integrations passed
+(offset/FPS/speed-ad mapping, unresolved output, changed inputs and cancellation).
+The 23 media-analysis tests and strict Clippy for all three affected packages
+passed. Publication behavior is locally verified on macOS; OS CI execution and
+the product adapters remain outstanding.
 
 ## Historical evidence and local context
 

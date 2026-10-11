@@ -3,7 +3,7 @@
 //! Two sequential decode passes use the exact same cut filter: one retains PTS,
 //! the other retains only 16x16 grayscale images. No full-resolution frame is
 //! retained or published. The paired count is checked before returning results.
-use super::{Detail, cut_filter, detect, inspect};
+use super::{Detail, cut_filter, detect_with_threads, inspect};
 use crate::{Cancellation, Error, Result, Tools, process};
 use std::{
     path::Path,
@@ -137,12 +137,13 @@ pub fn extract(
     let started = Instant::now();
     let remaining = || timeout.checked_sub(started.elapsed()).ok_or(Error::Timeout);
     let source = inspect(tools, path, cancellation, remaining()?)?;
-    let cuts = detect(
+    let cuts = detect_with_threads(
         tools,
         &source.path,
         cancellation,
         remaining()?,
         Detail::Standard,
+        2,
     )?;
     if cuts.seconds.len() > MAX_ANCHORS {
         return Err(Error::Message("Visual anchor count exceeds 20,000".into()));

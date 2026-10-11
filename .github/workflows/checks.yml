@@ -29,8 +29,9 @@ jobs:
       - run: python3 scripts/media-fixtures.py
       - run: python3 scripts/scene-fixtures.py
       - run: python3 scripts/resync-fixtures.py --extended
-      - run: cargo test --locked -p media-analysis
+      - run: cargo test --locked -p media-analysis -p vsf-application
       - run: cargo test --locked -p media-analysis --test ffmpeg --test scenes --test visual -- --ignored --nocapture --test-threads=1
+      - run: cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
       - name: Evaluate synthetic resync ground truth
         run: cargo run --locked -p media-analysis --example resync-evaluate > tests/fixtures/generated/resync/evaluation.json
       - uses: actions/upload-artifact@v4
@@ -41,7 +42,7 @@ jobs:
             tests/fixtures/generated/resync/truth.json
             tests/fixtures/generated/resync/evaluation.json
           retention-days: 7
-      - run: cargo clippy --locked -p media-analysis --all-targets -- -D warnings
+      - run: cargo clippy --locked -p media-analysis -p vsf-application --all-targets -- -D warnings
   browser-workflows:
     name: Browser workflows (modeled IPC, Chromium and WebKit)
     runs-on: ubuntu-24.04

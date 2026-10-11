@@ -10,6 +10,20 @@ pub struct Prepared {
     path: PathBuf,
 }
 impl Prepared {
+    /// Publish complete bytes only if the destination is still absent. The
+    /// no-clobber operation, not a prior existence check, arbitrates writers.
+    /// Some filesystems can leave the temporary hard link after a crash; neither
+    /// this nor replacement promises directory durability across power loss.
+    pub fn commit_new(self) -> Result<()> {
+        self.temp.persist_noclobber(&self.path).map_err(|e| {
+            format!(
+                "Cannot publish new file {}: {}",
+                self.path.display(),
+                e.error
+            )
+        })?;
+        Ok(())
+    }
     pub fn commit(self) -> Result<()> {
         self.temp
             .persist(&self.path)

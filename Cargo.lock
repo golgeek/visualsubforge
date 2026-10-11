@@ -4042,6 +4042,10 @@ dependencies = [
 name = "vsf-application"
 version = "0.1.0"
 dependencies = [
+ "media-analysis",
+ "serde",
+ "serde_json",
+ "sha2",
  "subtitle-core",
  "subtitle-formats",
  "tempfile",

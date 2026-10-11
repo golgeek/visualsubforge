@@ -3,6 +3,7 @@
 //! No Tauri, webview, native playback or frontend DTO dependency belongs here.
 pub mod atomic_file;
 pub mod file_lease;
+pub mod resync;
 pub mod save_lease;
 pub mod srt_limits;
 pub mod subtitle_file;
