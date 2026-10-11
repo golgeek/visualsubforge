@@ -175,6 +175,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
   },
 });
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
+function workspaceReady() {
+  return (
+    callbacks.has(eventHandler) &&
+    !!menuState &&
+    !menuState.busy &&
+    menuState.available
+  );
+}
 function menuAction(action: string) {
   callbacks.get(eventHandler)!({ payload: action });
 }
@@ -211,6 +219,7 @@ async function run() {
   async function freshProject() {
     await unmount(app);
     menuState = undefined;
+    eventHandler = 0;
     media = { ...emptyStatus, available: true, surfaceAboveWebview: true };
     doc = structuredClone(emptyDocument);
     chosenPath = '/work.vsfproject';
@@ -219,7 +228,7 @@ async function run() {
     calls.length = 0;
     saves.length = 0;
     app = mount(App, { target: host });
-    await until(() => !!menuState && !menuState.busy && menuState.available);
+    await until(workspaceReady);
     menuAction('openProject');
     await until(
       () =>
@@ -229,7 +238,7 @@ async function run() {
     await until(() => !menuState?.busy);
   }
   try {
-    await until(() => !(!menuState || menuState.busy || !menuState.available));
+    await until(workspaceReady);
     menuAction('openProject');
     await until(() => !!host.textContent?.includes('Project restored'));
     await until(() => calls.includes('scenes_view'));
