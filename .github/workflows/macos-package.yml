@@ -47,9 +47,11 @@ jobs:
           brew install mpv pkg-config
           python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
           if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
+      - name: Check packaging controls before the native build
+        run: python -m unittest discover -s tests/release -p 'test_*.py'
       - name: Restore the pinned ANGLE SDK
         id: angle-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ${{ runner.temp }}/angle/sdk
@@ -58,6 +60,15 @@ jobs:
       - name: Build pinned ANGLE with Metal
         if: steps.angle-cache.outputs.cache-hit != 'true'
         run: python scripts/build-angle-macos.py --output "$RUNNER_TEMP/angle" --minimum-macos 14.0 --jobs 3
+      # Keep the completed SDK even if a later app/package validation fails.
+      - name: Cache the completed ANGLE SDK
+        if: steps.angle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ${{ runner.temp }}/angle/sdk
+            ${{ runner.temp }}/angle/build-receipt.json
+          key: ${{ steps.angle-cache.outputs.cache-primary-key }}
       - name: Build and test the pinned mpv audio candidate
         run: |
           git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
@@ -71,7 +82,6 @@ jobs:
           cargo build --locked --release -p vsf-cli --features bundled-tools
       - name: Assemble and audit the private dependency bundle
         run: |
-          python -m unittest discover -s tests/release -p 'test_*.py'
           python scripts/package-macos.py \
             --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
             --vsf "$CARGO_TARGET_DIR/release/vsf" \

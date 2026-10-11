@@ -156,7 +156,6 @@ def assemble(args):
             dependency = (copied.parent / name.removeprefix("@loader_path/")).resolve(strict=True)
             if not dependency.is_relative_to(destination):
                 raise ValueError(f"Dependency escapes app: {dependency}")
-        subprocess.run(["codesign", "--force", "--sign", "-", str(copied)], check=True)
         records.append({"file": str(relative), "source": str(original),
                         "minimum_macos": targets[original],
                         "source_sha256": digest(original)})
@@ -175,6 +174,13 @@ def assemble(args):
                 "signature": "ad-hoc; Developer ID signing and notarization pending",
                 "redistribution_inventory": "pending", "files": records}
     (resources / "native-runtime.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    # Sign nested code before the app. codesign treats even the main executable
+    # path as a bundle operation and rejects unsigned helpers (common on Intel).
+    # The outer signature seals the main executable and all finished resources.
+    for original, relative in destinations.items():
+        if original != main:
+            subprocess.run(["codesign", "--force", "--sign", "-",
+                            str(destination / relative)], check=True)
     subprocess.run(["codesign", "--force", "--sign", "-", str(destination)], check=True)
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(destination)], check=True)
     # Signing the outer bundle changes its main executable. Final hashes must

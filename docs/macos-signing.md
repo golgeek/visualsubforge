@@ -6,9 +6,10 @@ to run locally. The same identity can sign both Intel and Apple Silicon builds.
 
 Status, 2026-10-11: the six repository secrets are configured. The manual macOS
 packaging workflow now has a separate signing job that consumes them when
-`sign` is selected on `main`. Hosted signing/notarization has not yet passed;
-the build must first produce its validation artifact. This workflow does not
-publish a release. See [release preparation](releases.md).
+`sign` is selected on `main`. The [ARM64 run at `a222eda`](https://github.com/golgeek/visualsubforge/actions/runs/38171420846)
+passed signing, notarization, stapling and Gatekeeper assessment. Intel validation
+is pending. This workflow does not publish a release; dependency inventory and
+install/runtime checks remain. See [release preparation](releases.md).
 
 ## 1. Choose the certificate
 

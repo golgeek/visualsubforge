@@ -24,7 +24,8 @@ libraries live in `Contents/Frameworks`. `scripts/package-macos.py` copies input
 into a new app, rejects missing/ambiguous libraries, rewrites links to bundle
 paths, audits architecture/deployment targets, and applies an ad-hoc signature
 for validation. It never overwrites an SDK or an earlier artifact. Developer ID
-signing and notarization must follow assembly and the license/source inventory.
+signing and notarization follow assembly. Publishing also requires the completed
+license/source inventory and install/runtime checks below.
 Apple bundle version fields use numeric `0.0.1`; the application/CLI, artifact
 names and `VSFReleaseVersion` retain the full `0.0.1-alpha` version.
 
@@ -35,18 +36,28 @@ license name alone is not that inventory.
 
 ## Validation so far (2026-10-11)
 
-- Hosted native contracts at `ce43559` and `a565564`: all six jobs passed, including all three
+- Hosted native contracts at [`a222eda`](https://github.com/golgeek/visualsubforge/actions/runs/38171415744): all six jobs passed, including all three
   pinned mpv source variants and compilation of each native adapter. This is not
   GPU/audio or packaged-app acceptance.
-- The first hosted default-app workflow passes on macOS, Windows and Ubuntu at
-  `ce43559`. At `a565564`, the corrected browser fixture passes all 30 checks;
-  Windows found a new tool-discovery test directory with a trailing space, now
-  corrected, and the Mac artifact upload hit a storage DNS failure after its
-  application tests passed. Neither failure is treated as a green run.
+- All ten [application CI jobs at `a222eda`](https://github.com/golgeek/visualsubforge/actions/runs/38171415641)
+  pass, including the default-app and headless lanes on macOS, Windows and
+  Ubuntu, and all 30 modeled browser checks. Earlier browser-coordinate and
+  Windows fixture-path failures are corrected; the earlier Mac artifact-upload
+  DNS failure did not recur in this run.
 - The first hosted ARM64 package build stopped before compilation: the default
   Xcode 15.4 SDK was below pinned ANGLE's SDK requirement. Packaging now explicitly
   selects the runner's Xcode 16.2 (macOS 15.2 SDK), retaining the macOS 14 deployment
-  target. Intel's first native dependency build is still in progress.
+  target. The [subsequent ARM64 build](https://github.com/golgeek/visualsubforge/actions/runs/38171420846)
+  passes assembly, packaged CLI checks, Developer ID signing, Apple notarization,
+  stapling and Gatekeeper assessment. Its audited effective minimum is macOS
+  14.0. This does not establish clean-install or native playback acceptance.
+- The [first Intel build](https://github.com/golgeek/visualsubforge/actions/runs/38168830921)
+  compiled ANGLE, mpv, the GUI and CLI but failed assembly: signing the main
+  executable first implicitly tried to seal a bundle with unsigned helpers.
+  Assembly now signs the nested binaries first and the completed app last.
+  A real macOS regression forces unsigned inputs, reproduces the old failure
+  on Apple Silicon too, and passes after the fix; all eight release tests pass
+  locally. The corrected Intel package still needs hosted validation.
 - Local `cargo test --locked --workspace` and default/packaged strict Clippy pass.
   `cargo test --locked -p media-analysis --features bundled-tools --lib tools::tests`
   exercises relocated tool paths and incomplete-installation failure.
@@ -88,8 +99,9 @@ web assets/resources. The internal native inventory records source hashes;
 embedding the final executable hash in its own signed resources would create a
 hash cycle, since outer app signing changes that executable.
 
-Signing integration is implemented but hosted acceptance is pending. Signed
-validation artifacts remain separate from a published release: the dependency
+Hosted ARM64 signing/notarization passes at `a222eda`; its signing receipt and
+Apple's acceptance log are attached to the package run above. Signed validation
+artifacts remain separate from a published release: the dependency
 source/license inventory and install/runtime checks still need completion.
 Credentials and exported private keys must never enter source, logs or artifacts.
 
