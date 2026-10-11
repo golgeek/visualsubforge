@@ -435,9 +435,6 @@ running bundle was preserved. These are build checks, not native interaction.
   editing/Undo, failed save, successful save/reopen and recovery without command
   mocks. Existing browser fixtures model IPC, while backend owner tests bypass
   a live webview; neither proves that complete boundary.
-- Add focused preparation write/sync failure injection. Current persistence
-  tests cover abandoned temporaries, invalid paths, publication collisions and
-  crash boundaries, but do not force `write_all`/`sync_all` failures themselves.
 - Complete the actual native resync review, acceptance, Undo/Redo, protected Save
   As and save-before-project/reopen walkthrough, checking fixture hashes and
   resulting timestamps. The Mac remains locked at the latest interaction attempt.
@@ -454,3 +451,16 @@ No driver dependency or test plugin has yet been adopted. File-selection seams
 would not establish native-dialog coverage, and virtual-display execution would
 not establish native GPU/audio performance. Hosted/x64 CI still requires an
 available remote/runner; no such execution is claimed here.
+
+
+Preparation IO-failure validation (2026-10-11): a private `prepare_with_io` seam
+substitutes only the write and sync operations on an actual temporary file.
+The public persistence API and publication sequence are unchanged. Four cases
+force either a partial write error or a sync error after a complete write,
+against existing and absent destinations. They assert original bytes/absence,
+error propagation, no sync after a failed write and removal of owned temporaries.
+This tests preparation failure handling, not disk hardware or power-loss recovery.
+`cargo test --locked -p vsf-application -p visualsubforge` passes 111 ordinary
+tests; strict Clippy for both packages passes on Mac. Logs are retained as
+`resync/validation-io-failures*.log`. Other-OS execution of the new cases remains
+pending.

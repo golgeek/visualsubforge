@@ -39,8 +39,11 @@ Ubuntu/Windows ARM64 pass 167/160 ordinary tests, the same twelve integrations,
 all 29 combined cases, three evaluator-oracle tests and strict Clippy. All 369
 tracked files are hash-verified. Native v4 compilation and a separate local
 bundle are ready; the actual GUI walkthrough remains pending. The acceptance
-audit also retains the planned real-app automation lane and preparation IO
-failure injection as unfinished checks. These sampled heuristics
+audit also retains the planned real-app automation lane as unfinished. A new
+private IO seam now tests partial-write and sync failures on actual temporary
+files, preserving existing/absent destinations and cleaning temporaries; the
+111 application/desktop tests and strict Clippy pass on Mac. Other-OS checks
+of these new cases remain pending. These sampled heuristics
 do not guarantee detection of visually indistinguishable edits.
 
 The following results describe the preceding committed v3 implementation:
