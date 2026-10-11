@@ -92,6 +92,56 @@ npm run tauri -- build --debug --no-bundle -- --locked
 
 The domain crate now has edit/history tests. `cargo test --locked -p subtitle-formats` checks SRT round trips and invalid-input handling; the desktop crate has persistence failure/reopen tests. Zero-test doc-test harnesses are not feature validation. The separate media-analysis experiment now has unit/lifecycle tests and opt-in FFmpeg integration tests. See [fixture generation and analysis checks](tests/fixtures/README.md).
 
+### Browser and analysis regressions
+
+Run the component workflow pages automatically with the pinned Playwright package:
+
+```sh
+npx playwright install chromium webkit
+npm run test:browser
+```
+
+On Linux, use `npx playwright install --with-deps chromium webkit` to install
+browser prerequisites too. The runner starts its own Vite server on port 1421
+(override with `VSF_BROWSER_TEST_PORT`) and refuses to reuse an existing server.
+It checks all eight pages in `tests/frontend/` in Chromium and WebKit, including
+project save failures, recovery response ordering and gesture cancellation.
+FAIL rows, page errors, incomplete results, zero checks and inconsistent passing
+counts fail the run. Negative controls verify those runner failure modes. Reports,
+failure screenshots and traces are under ignored `playwright-report/` and
+`test-results/`; CI uploads them. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
+These are production components with modeled IPC and synthetic events, not native
+WebView, filesystem, keyboard, GPU or audio-device acceptance.
+
+Both waveform and scene integrations need actual FFmpeg and synthetic fixtures:
+
+```sh
+python3 scripts/media-fixtures.py
+python3 scripts/scene-fixtures.py
+cargo test --locked -p media-analysis --test ffmpeg --test scenes -- --ignored --nocapture --test-threads=1
+```
+
+CI runs both fixture generators and all integrations; ordinary workspace tests
+leave these integrations ignored. They validate decoding/analysis and cancellation,
+not native playback or presentation.
+
+### Native oracle controls
+
+The Python analysis tools have synthetic positive/negative controls that require
+no capture device or player. Use Python 3.14.7 (the CI pin) and an isolated environment:
+
+```sh
+python3 -m venv /tmp/vsf-native-controls
+/tmp/vsf-native-controls/bin/python -m pip install --only-binary=:all: -r tests/native/requirements.txt
+/tmp/vsf-native-controls/bin/python tests/native/check-controls.py
+```
+
+On Windows, choose a local virtual-environment directory and its `Scripts/python.exe`.
+The runner executes every `tests/native/*-test.py` suite, with a per-suite timeout,
+and fails for missing dependencies or any nonzero exit. CI runs it with the pinned
+NumPy version. Passing synthetic controls establishes the oracle's behavior on
+those inputs; it does not substitute for a new GPU/audio/process capture.
+
 When changing native mpv client policy, also compile and run
 `tests/native/mpv-client-test.cpp`. It supplies fake client calls to test queue
 ordering/bounds, render/media error precedence and unavailable signed properties;
@@ -108,7 +158,14 @@ uses the configured ARM64 MSVC developer environment, `/std:c++17 /EHsc /W4
 /WX /DMPV_STATIC` and the SDK include directory. Keep assertions enabled. Task
 003c records compiler and platform evidence separately from application checks.
 
-CI configures a domain-only Ubuntu job and native shell checks/builds on macOS 14, Windows 2022, and Ubuntu 24.04. It does not launch windows, test native media, create installers, sign artifacts, or establish release support. See task 002 for actual local results and whether CI has run.
+CI configures domain and FFmpeg jobs, Chromium/WebKit workflow checks, fake mpv and
+synthetic Python controls, and desktop shell checks/builds on macOS 14, Windows
+2022, and Ubuntu 24.04. It does not launch native application windows, test media
+devices, create installers, sign artifacts, or establish release support. The
+only native adapter compilation lane currently uses the legacy Mac feature;
+selected-runtime recipe and other adapter compilation lanes remain separate work.
+See task 002 for historical local results; configured jobs are not evidence of a
+GitHub run until their actual results exist.
 
 ### Shell walkthrough
 

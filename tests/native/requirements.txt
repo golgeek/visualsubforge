@@ -1,0 +1,2 @@
+# Synthetic oracle controls only; no native player or capture dependency.
+numpy==2.5.4

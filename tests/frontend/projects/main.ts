@@ -16,6 +16,7 @@ const host = document.querySelector('#test')!;
 let media = { ...emptyStatus, available: true };
 let doc = structuredClone(emptyDocument);
 let failOpen = false;
+let restoreFailure: 'readiness' | 'subtitles' | 'scenes' | 'seek' | null = null;
 let projectSaveError: string | null = null;
 let chosenPath: string | null = '/work.vsfproject';
 let occluded = false;
@@ -96,6 +97,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           saves.push(args.request!);
           return { path: args.request!.path, token: 42 };
         case 'scenes_restore':
+          if (restoreFailure === 'scenes')
+            throw new Error('Injected scenes failure');
           if (!media.loaded)
             throw new Error('Scene restore before video loaded');
           return 4;
@@ -124,6 +127,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               session: media.session + 1,
               loaded: false,
               paused: true,
+              error: null,
               durationSeconds: 100,
               positionSeconds: 0,
             };
@@ -132,9 +136,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             action.kind === 'status' &&
             media.session > 0 &&
             ++loadingPolls >= 2
-          )
-            media.loaded = true;
+          ) {
+            if (restoreFailure === 'readiness')
+              media.error = 'Injected readiness failure';
+            else media.loaded = true;
+          }
           if (action.kind === 'seek') {
+            if (restoreFailure === 'seek')
+              throw new Error('Injected seek failure');
             if (!media.loaded) throw new Error('Seek before video loaded');
             media.positionSeconds = action.seconds;
           }
@@ -142,7 +151,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         }
         case 'document_action': {
           const action = args.action as DocumentAction;
-          if (action.kind === 'open')
+          if (action.kind === 'open') {
+            if (restoreFailure === 'subtitles')
+              throw new Error('Injected subtitles failure');
             doc = {
               ...doc,
               loaded: true,
@@ -152,6 +163,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                 { id: 1, startMs: 1000, endMs: 2000, text: 'Project cue' },
               ],
             };
+          }
           return structuredClone(doc);
         }
         case 'finish_exit':
@@ -203,6 +215,7 @@ async function run() {
     doc = structuredClone(emptyDocument);
     chosenPath = '/work.vsfproject';
     projectSaveError = null;
+    restoreFailure = null;
     calls.length = 0;
     saves.length = 0;
     app = mount(App, { target: host });
@@ -398,8 +411,38 @@ async function run() {
       'Unmount cancels the pending quit decision',
     );
     app = mount(App, { target: host });
+    project.scenes!.mode = 'visual';
+    for (const stage of ['readiness', 'subtitles', 'scenes', 'seek'] as const) {
+      await freshProject();
+      const previousSession = media.session;
+      calls.length = 0;
+      restoreFailure = stage;
+      menuAction('openProject');
+      await until(
+        () => !!host.textContent?.includes(`Injected ${stage} failure`),
+      );
+      await until(() => !menuState?.busy);
+      menuAction('quit');
+      await until(() => calls.includes('finish_exit'));
+      assert(
+        media.session > previousSession &&
+          !calls.includes('project_attach') &&
+          !calls.includes('project_save'),
+        `Failed ${stage} restore leaves no attachment to autosave on quit`,
+      );
+      restoreFailure = null;
+      await until(() => !menuState?.busy);
+      menuAction('openProject');
+      await until(() => !!host.textContent?.includes('Project restored'));
+      assert(
+        calls.includes('project_attach') &&
+          media.positionSeconds === 12.5 &&
+          doc.loaded,
+        `Project restoration can retry after ${stage} failure`,
+      );
+    }
     document.querySelector('#result')!.textContent =
-      'PASS: all 18 project checks';
+      `PASS: all ${document.querySelectorAll('#checks li').length} project checks`;
   } catch (e) {
     document.querySelector('#result')!.textContent = 'FAIL: ' + String(e);
   } finally {

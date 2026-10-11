@@ -25,6 +25,7 @@
     "tests/frontend/**/*.ts",
     "tests/frontend/**/*.svelte",
     "vite.config.ts",
+    "playwright.config.ts",
     "svelte.config.js"
   ]
 }

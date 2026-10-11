@@ -7,6 +7,8 @@ export default ts.config(
   {
     ignores: [
       'dist/**',
+      'playwright-report/**',
+      'test-results/**',
       'target/**',
       'src-tauri/target/**',
       'src-tauri/gen/**',

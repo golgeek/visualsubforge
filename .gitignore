@@ -2,6 +2,8 @@
 /target/
 node_modules/
 /dist/
+/playwright-report/
+/test-results/
 /.svelte-kit/
 /src-tauri/target/
 /src-tauri/gen/

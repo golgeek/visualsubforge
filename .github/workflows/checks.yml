@@ -27,9 +27,51 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
       - run: python3 scripts/media-fixtures.py
+      - run: python3 scripts/scene-fixtures.py
       - run: cargo test --locked -p media-analysis
-      - run: cargo test --locked -p media-analysis --test ffmpeg -- --ignored --nocapture --test-threads=1
+      - run: cargo test --locked -p media-analysis --test ffmpeg --test scenes -- --ignored --nocapture --test-threads=1
       - run: cargo clippy --locked -p media-analysis --all-targets -- -D warnings
+  browser-workflows:
+    name: Browser workflows (modeled IPC, Chromium and WebKit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: browser-workflow-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+  native-controls:
+    name: Native policy and synthetic oracle controls (no device)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.7'
+          cache: pip
+          cache-dependency-path: tests/native/requirements.txt
+      - run: |
+          python -m pip install --only-binary=:all: -r tests/native/requirements.txt
+      - run: python tests/native/check-controls.py
+      - name: Install mpv headers for fake-client test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ libmpv-dev pkg-config
+      - name: Compile and run shared mpv client policy controls
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -DMPV_STATIC $(pkg-config --cflags mpv) tests/native/mpv-client-test.cpp -o /tmp/vsf-mpv-client-test
+          /tmp/vsf-mpv-client-test
   desktop:
     strategy:
       fail-fast: false
