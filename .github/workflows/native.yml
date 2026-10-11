@@ -13,8 +13,8 @@ jobs:
       matrix:
         variant: [render, baseline, candidates]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
       - run: brew install mpv pkg-config
@@ -23,7 +23,7 @@ jobs:
       - run: git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
       - run: python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/native-${{ matrix.variant }}" --variant "${{ matrix.variant }}"
       # Raw Meson testlog.json includes inherited environment; do not upload it.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: mpv-${{ matrix.variant }}-build-evidence
@@ -39,8 +39,8 @@ jobs:
       matrix:
         os: [macos-14, windows-2022, ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
       - name: Prepare pinned public mpv API headers
@@ -53,7 +53,7 @@ jobs:
         run: |
           python scripts/prepare-angle-headers.py --output "$RUNNER_TEMP/angle-headers"
           clang++ -std=c++17 -fobjc-arc -DVSF_USE_ANGLE -fsyntax-only -I"$RUNNER_TEMP/angle-headers/include" -I"$RUNNER_TEMP/mpv-headers/source/include" crates/media-player/native/player.mm
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         if: runner.os == 'Windows'
       - name: Compile the Windows adapter against pinned headers
         if: runner.os == 'Windows'

@@ -9,7 +9,7 @@ jobs:
     name: Domain without desktop dependencies
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install pinned Rust
         run: rustup show
       - run: cargo check --locked -p subtitle-core -p subtitle-formats
@@ -19,7 +19,7 @@ jobs:
     name: Synthetic media analysis (no desktop)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install pinned Rust
         run: rustup show
       - name: Install fixture tools
@@ -35,7 +35,7 @@ jobs:
       - run: cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
       - name: Evaluate synthetic resync ground truth
         run: cargo run --locked -p media-analysis --example resync-evaluate > tests/fixtures/generated/resync/evaluation.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: resync-experiment-results
@@ -52,8 +52,8 @@ jobs:
         os: [macos-14, windows-2022, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
       - name: Install pinned Rust
@@ -77,6 +77,10 @@ jobs:
           ffprobe -version
       - run: python scripts/resync-fixtures.py --robustness
       - run: cargo test --locked -p vsf-application -p vsf-cli
+      - name: Check packaged tool resolution separately from development overrides
+        run: |
+          cargo test --locked -p media-analysis --features bundled-tools --lib tools::tests
+          cargo clippy --locked -p vsf-cli --features bundled-tools --all-targets -- -D warnings
       - name: Verify bounded frame sampling and filter-file portability
         run: cargo test --locked -p media-analysis --test visual -- --ignored --nocapture --test-threads=1
       - name: Exercise Windows console cancellation and child cleanup
@@ -91,7 +95,7 @@ jobs:
       - run: cargo clippy --locked -p vsf-application -p vsf-cli --all-targets -- -D warnings
       - name: Inspect headless runtime dependencies
         run: cargo tree --locked -p vsf-cli --edges normal
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: headless-fixture-truth-${{ matrix.os }}
@@ -103,15 +107,15 @@ jobs:
     name: Browser workflows (modeled IPC, Chromium and WebKit)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:browser
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: browser-workflow-results
@@ -123,8 +127,8 @@ jobs:
     name: Native policy and synthetic oracle controls (no device)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
           cache: pip
@@ -147,8 +151,8 @@ jobs:
         os: [macos-14, windows-2022, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -168,7 +172,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
       - name: Install Linux FFmpeg for desktop resync owner tests
@@ -200,7 +204,7 @@ jobs:
         if: runner.os != 'Linux'
         timeout-minutes: 5
         run: npm run test:desktop
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: desktop-workflow-results-${{ matrix.os }}

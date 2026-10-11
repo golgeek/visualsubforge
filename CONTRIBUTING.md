@@ -211,12 +211,17 @@ uses the configured ARM64 MSVC developer environment, `/std:c++17 /EHsc /W4
 
 CI configures domain and FFmpeg jobs, Chromium/WebKit workflow checks, fake mpv and
 synthetic Python controls, and desktop shell checks/builds on macOS 14, Windows
-2022, and Ubuntu 24.04. It does not launch native application windows, test media
-devices, create installers, sign artifacts, or establish release support. The
+2022, and Ubuntu 24.04. Desktop jobs launch the real default application with
+the test-only WebDriver feature and exercise its ordinary IPC and persistence;
+they do not enable native playback or validate media devices. The
 additional [Native build contracts](.github/workflows/native.yml) workflow builds
 all three pinned mpv variants and compiles the Mac ANGLE, Windows and Linux
 adapters. See [its exact scope](docs/native-runtime.md#ci-scope); configured jobs
-are not evidence of a GitHub run until their actual results exist.
+are not evidence of a GitHub run until their actual results exist. Hosted results
+and packaging limits are recorded in [release preparation](docs/releases.md).
+The manual macOS package workflow assembles unsigned validation artifacts for
+Apple Silicon and Intel. Signing setup is documented [separately](docs/macos-signing.md);
+package creation alone does not establish release support.
 
 ### Shell walkthrough
 

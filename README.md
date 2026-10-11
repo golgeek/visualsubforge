@@ -42,6 +42,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   automated checks and platform prerequisites.
 - [Mac native build guide](docs/build-macos.md): SDKs, private libraries and
   explicit runtime selection.
+- [Preview release preparation](docs/releases.md) and [macOS signing setup](docs/macos-signing.md):
+  hosted packaging, certificate storage and GitHub Actions secrets.
 - [Native maintenance contract](docs/native-runtime.md): source-build and SDK
   receipts, loaded-library identity, update ownership and adoption gates.
 - [Frontend ownership walkthrough](src/lib/README.md): document/media/project

@@ -1,0 +1,7 @@
+{
+  "upstream_url": "https://chromium.googlesource.com/angle/angle.git",
+  "upstream_commit": "0ed62f49b5e02cc5e6db4a175a98f545cc994715",
+  "depot_tools_url": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+  "depot_tools_commit": "8a5434051036b32412a2ecb10c213a72e3f3ccb9",
+  "headers_tree_sha256": "6b76ddadf8b46950477a496e8d04ef98eeafd09cc8c0ccc3d42ce7c576f99685"
+}

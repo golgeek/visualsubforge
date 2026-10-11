@@ -1,0 +1,91 @@
+name: macOS preview packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macos-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    name: Native package (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: aarch64
+          - os: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      CARGO_TARGET_DIR: ${{ runner.temp }}/app-target
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - name: Install application and native build prerequisites
+        run: |
+          rustup show
+          npm ci
+          brew install mpv pkg-config
+          python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
+          if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
+      - name: Build pinned ANGLE with Metal
+        run: python scripts/build-angle-macos.py --output "$RUNNER_TEMP/angle" --minimum-macos 14.0 --jobs 3
+      - name: Build and test the pinned mpv audio candidate
+        run: |
+          git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
+          python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/mpv" --variant candidates --jobs 3
+      - name: Build release GUI and CLI without desktop test instrumentation
+        env:
+          VSF_ANGLE_SDK: ${{ runner.temp }}/angle/sdk
+          PKG_CONFIG_PATH: ${{ runner.temp }}/mpv/build/meson-uninstalled
+        run: |
+          npm run tauri -- build --bundles app --features macos-angle,bundled-tools -- --locked
+          cargo build --locked --release -p vsf-cli --features bundled-tools
+      - name: Assemble and audit the private dependency bundle
+        run: |
+          python -m unittest discover -s tests/release -p 'test_*.py'
+          python scripts/package-macos.py \
+            --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
+            --vsf "$CARGO_TARGET_DIR/release/vsf" \
+            --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
+            --library-dir "$RUNNER_TEMP/mpv/build" --library-dir "$RUNNER_TEMP/angle/sdk/out/Metal" \
+            --output "$RUNNER_TEMP/package/VisualSubForge.app"
+      - name: Exercise relocated packaged tools and failed-install behavior
+        run: |
+          python scripts/resync-fixtures.py
+          python tests/release/packaged-cli.py --bundle "$RUNNER_TEMP/package/VisualSubForge.app" --bin Contents/MacOS --output "$RUNNER_TEMP/packaged-cli-check"
+      - name: Archive the unsigned validation artifact
+        run: |
+          mkdir -p "$RUNNER_TEMP/artifacts"
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_0.0.1-alpha_${{ matrix.arch }}_macos-unsigned.zip"
+          cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
+          shasum -a 256 "$RUNNER_TEMP/artifacts/VisualSubForge_0.0.1-alpha_${{ matrix.arch }}_macos-unsigned.zip" > "$RUNNER_TEMP/artifacts/SHA256SUMS"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-unsigned-${{ matrix.arch }}
+          path: ${{ runner.temp }}/artifacts/
+          if-no-files-found: error
+          retention-days: 14
+      # Meson's raw logs include the inherited environment. Upload only the
+      # sanitized receipt/commands and the explicitly scoped CLI check.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: macos-package-evidence-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/angle/build-receipt.json
+            ${{ runner.temp }}/angle/sdk/dependency-revisions.txt
+            ${{ runner.temp }}/mpv/build-receipt.json
+            ${{ runner.temp }}/mpv/commands.log
+            ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
+          retention-days: 14

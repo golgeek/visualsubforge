@@ -9,9 +9,10 @@ from pathlib import Path, PurePosixPath
 import tarfile
 import urllib.request
 
-COMMIT = "0ed62f49b5e02cc5e6db4a175a98f545cc994715"
+PIN = json.loads((Path(__file__).resolve().parent.parent / "tests/native/angle/manifest.json").read_text())
+COMMIT = PIN["upstream_commit"]
 URL = f"https://chromium.googlesource.com/angle/angle/+archive/{COMMIT}/include.tar.gz"
-TREE_SHA256 = "6b76ddadf8b46950477a496e8d04ef98eeafd09cc8c0ccc3d42ce7c576f99685"
+TREE_SHA256 = PIN["headers_tree_sha256"]
 
 
 def contents(archive):
