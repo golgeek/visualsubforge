@@ -1,8 +1,9 @@
 # Preview candidate manual acceptance
 
 Use the candidate and `preview-acceptance-fixtures` artifact from the linked
-package run. The fixture artifact is configured in the Linux workflow for use
-on all platforms; its first hosted upload is pending. Installation/playback
+package run. The fixture artifact is produced by the Linux workflow for use
+on all platforms; [run 38203253891](https://github.com/golgeek/visualsubforge/actions/runs/38203253891)
+includes it. Installation/playback
 acceptance is still open. Do not infer support from a successful CI build.
 
 Record the package SHA-256, app revision, OS version/architecture, physical

@@ -135,6 +135,11 @@ from Homebrew. Linux retains its existing backend selection. The resulting local
 Mac build passes 14 tests with one explicit OpenGL device skip. This does not
 validate ANGLE playback or claim virtual-GPU support; hosted replacement evidence
 is still required.
+The pinned mpv Cocoa player also referenced its Vulkan-only `MetalLayer` without
+the corresponding compile guard. Both hosted architectures exposed that error
+once Vulkan was disabled. The checked render patch now supplies `HAVE_VULKAN`
+around that reference; a local OpenGL-only candidate build passes all 39 upstream
+tests, including the required lifetime and audio controls.
 
 ## Remaining release work
 

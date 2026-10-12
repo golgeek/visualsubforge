@@ -13,7 +13,7 @@ import subprocess
 
 UPSTREAM_COMMIT = "c1529642089bfebfc928a1c1664638a7a5d219ba"
 SERIES_SHA256 = "d7aed63acc8ba71d0eddc8c507e4a1c43d33ba0ef0403af6aa4d5f56a28878df"
-RENDER_SERIES_SHA256 = "287c958e7f1169f81b46b6b8debf8570a48895e81a93166dfd3315574de340ff"
+RENDER_SERIES_SHA256 = "a10c20df6e583efaf12f247976d0dab1e84201bcbbd69f977f3686d4201c378f"
 COREAUDIO_SERIES_SHA256 = "8111e33703c24bfb3a54040aeb86fe171552187e5a4b96a0b20c0e29a4a28c5f"
 
 CANDIDATE_SERIES_SHA256 = "48a4e0d2d753bf52cbaf6855a355a1fc31091fdf1aec1e0d409d74620c138971"
@@ -46,7 +46,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True,
                         help="New directory for source and provenance manifest")
     parser.add_argument("--render-only", action="store_true",
-                        help="Prepare the unmodified pinned upstream base, omitting local audio and CoreAudio patches")
+                        help="Prepare only rendering/build corrections, omitting local audio and CoreAudio patches")
     parser.add_argument("--audio-candidates", action="store_true",
                         help="Include the three unfinished audio corrections for explicit validation")
     args = parser.parse_args()

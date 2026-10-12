@@ -1,6 +1,12 @@
 {
   "upstream_commit": "c1529642089bfebfc928a1c1664638a7a5d219ba",
-  "patches": [],
+  "patches": [
+    {
+      "file": "0002-guard-vulkan-metal-layer.patch",
+      "sha256": "0506f20173d8cc1e594b53b18acb9bb8408fa574c48e480df9acc9b5c2627a44",
+      "description": "Guard the Vulkan-only MetalLayer reference in the shared Cocoa view."
+    }
+  ],
   "integrated_upstream": [
     {
       "file": "0001-upstream-render-fences.patch",

@@ -28,7 +28,7 @@ python3 tests/native/audio-boundary-probe.py --mpv /tmp/vsf-mpv-clock-prepared/b
 
 Build commands are macOS-specific and do not pin the entire transitive toolchain. Optional VapourSynth is disabled because the development environment lacks its required `VSScript4.h` header; this recipe does not validate that filter. Use the normal Cocoa/Swift configuration: the earlier minimal build omitted a utility required by enabled Mac audio backends. Compile the executable/test targets explicitly; the local optional manual-page tool is incompatible. No `meson install` step is intended.
 
-The pinned base already contains the [upstream rendering correction](../mpv-render/README.md). The manifest retains its provenance and the script verifies commit ancestry instead of applying a redundant backport. `--render-only` prepares the unmodified pinned upstream base without local patches.
+The pinned base already contains the [upstream rendering correction](../mpv-render/README.md). The manifest retains its provenance and the script verifies commit ancestry instead of applying a redundant backport. `--render-only` applies the shared Mac build guard described there while omitting the audio patches.
 
 The default recipe also applies the separate [CoreAudio cleanup series](../mpv-coreaudio-cleanup/README.md): a tested local handle-ownership follow-up, with its two prerequisite fixes already in the upstream base. These do not change the queued-clock capability marker or timing policy. `--render-only` excludes both audio-related series.
 

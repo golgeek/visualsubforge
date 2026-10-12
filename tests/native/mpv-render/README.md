@@ -9,10 +9,18 @@ presentation. It changes no VSF API, timing policy or renderer ownership.
 Modified upstream source retains its LGPL-2.1-or-later license; see the adjacent
 [audio experiment's upstream license copy](../mpv-clock/LICENSE.LGPL).
 
+The local `0002-guard-vulkan-metal-layer.patch` guards a Swift reference with
+the same `HAVE_VULKAN` condition that controls compilation of `MetalLayer`.
+Without it, the pinned source cannot compile its Cocoa player against a
+libplacebo build with Vulkan disabled (`cannot find type 'MetalLayer' in scope`).
+The Vulkan branch is unchanged; OpenGL views retain the existing opaque fallback.
+Mac preview packages select ANGLE/OpenGL, so this configuration must build.
+Recheck whether upstream contains the guard when updating the pinned revision.
+
 The preparation script verifies that this correction is in the pinned base. Its default
 also applies the nine experimental audio patches and the separate
 [CoreAudio cleanup series](../mpv-coreaudio-cleanup/README.md); `--render-only`
-omits both audio-related series and produces unmodified upstream source:
+omits both audio-related series and applies only the rendering/build correction:
 
 ```sh
 python3 scripts/prepare-mpv-clock.py --source /tmp/mpv-upstream --output /tmp/vsf-mpv-render --render-only

@@ -1,8 +1,9 @@
 # Native runtime maintenance and evidence
 
 VSF maintains a pinned mpv variant behind its existing native media boundary.
-The render-only base, ten-patch audio baseline and thirteen-patch audio candidate
-are distinct configurations. They remain experimental. An upstream unit-test pass,
+The shared render/build correction, ten-patch audio baseline and thirteen-patch
+audio candidate are distinct configurations. The audio configurations also
+include the shared correction. They remain experimental. An upstream unit-test pass,
 capability property or successful application build does not accept the runtime
 for daily use or establish platform support.
 
@@ -16,9 +17,12 @@ main-thread rendering and mpv-owned Windows rendering retain their necessary
 platform differences. A new patch needs a concrete failure and regression, not
 an attempt to make those native APIs identical.
 
-The three recipe manifests plus `scripts/prepare-mpv-clock.py` pin upstream
+The recipe manifests plus `scripts/prepare-mpv-clock.py` pin upstream
 `c1529642089bfebfc928a1c1664638a7a5d219ba` and patch bytes. The rendering fix and two
 CoreAudio cleanup prerequisites are already upstream; ancestry is checked.
+The render series also guards mpv's Swift `MetalLayer` reference with
+`HAVE_VULKAN`, matching its source-selection condition. This fixes compilation
+with the Mac preview's OpenGL-only libplacebo while retaining the Vulkan path.
 GGML unload, subtitle-renderer reuse, legacy VLC and WASAPI instrumentation are
 separate experiments, not additions to the selected audio recipe.
 
