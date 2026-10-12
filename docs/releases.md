@@ -71,6 +71,15 @@ unused/build/test inputs conservatively and does not claim a per-symbol link map
 Local ARM64 validation verified all 59 standard-library files and 77 source
 manifests; hosted captures for the four package architectures remain pending.
 
+Windows also captures Microsoft.Web.WebView2 SDK 1.0.3800.47: all nine prebuilt
+loader files in `webview2-com-sys` 0.39.1 match that exact SDK byte-for-byte.
+The x64 MSVC build selects `WebView2LoaderStatic.lib`. Its Microsoft SDK
+`LICENSE.txt` (BSD-3-Clause) and `NOTICE.txt` accompany the Rust binding's MIT
+notices. The collector pins the SDK hash and rejects changed crate versions or
+loader bytes. This preserves binary provenance; the SDK does not include the
+loader implementation source. The separately installed Evergreen WebView2
+Runtime and MSVC/Windows SDK runtime attribution remain separate inventory work.
+
 Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
 hashes, including nested gclient dependencies. The cache key excludes older SDKs
 without source archives. The Mac assembler now checks custom library/source

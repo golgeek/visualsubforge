@@ -19,6 +19,7 @@ import urllib.request
 
 from native_evidence import digest
 from source_archive import archive_source
+from source_notices import is_notice
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -32,7 +33,7 @@ REPOSITORY_OVERRIDES = {
 
 
 def capture(*args):
-    return subprocess.check_output(list(map(str, args)), cwd=ROOT, text=True).strip()
+    return subprocess.check_output(list(map(str, args)), cwd=ROOT, encoding="utf-8").strip()
 
 
 def non_dev_closure(metadata, names):
@@ -79,7 +80,7 @@ def source_notices(archive, destination, license_file=None):
                 raise ValueError(f"Unsafe source archive path: {member.name}")
             if not member.isfile():
                 continue
-            if not (re.match(r"^(LICENSE|LICENCE|COPYING|NOTICE|COPYRIGHT)([._-]|$)", relative.name, re.I)
+            if not (is_notice(member.name)
                     or (license_file and member.name.endswith("/" + license_file))):
                 continue
             target = destination / relative
@@ -144,7 +145,7 @@ def collect_rust(output, target, features):
                "--features", features]
     metadata = json.loads(capture(*command))
     packages, nodes = non_dev_closure(metadata, ["visualsubforge", "vsf-cli"])
-    locked = tomllib.loads((ROOT / "Cargo.lock").read_text())
+    locked = tomllib.loads((ROOT / "Cargo.lock").read_text(encoding="utf-8"))
     checksums = {(entry["name"], entry["version"], entry.get("source")): entry.get("checksum")
                  for entry in locked["package"]}
     sources = output / "sources/rust"
@@ -173,6 +174,9 @@ def collect_rust(output, target, features):
             record["notices"] = source_notices(archive, output / "notices/rust", package.get("license_file"))
             if not record["notices"]:
                 record["upstream_notices"] = upstream_notices(package, archive, output, upstream)
+            if name == "webview2-com-sys":
+                from webview2_sources import collect
+                record["prebuilt_sdk"] = collect(unpacked, version, target, output)
         records.append(record)
     return {"command": command, "target": target, "features": features,
             "scope": "Non-dev resolved GUI/CLI dependency closure, including compile-time inputs",
@@ -180,8 +184,8 @@ def collect_rust(output, target, features):
 
 
 def collect_frontend(output, frontend):
-    inventory = json.loads((frontend / "frontend-inventory.json").read_text())
-    lock = json.loads((ROOT / "package-lock.json").read_text())
+    inventory = json.loads((frontend / "frontend-inventory.json").read_text(encoding="utf-8"))
+    lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
     sources = output / "sources/npm"
     sources.mkdir(parents=True)
     for package in inventory["packages"]:
@@ -223,7 +227,7 @@ def collect_rust_runtime(output, target):
     """
     sysroot = Path(capture("rustc", "--print", "sysroot"))
     manifest_path = sysroot / "lib/rustlib/multirust-channel-manifest.toml"
-    manifest = tomllib.loads(manifest_path.read_text())
+    manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
     sources = output / "sources/rust-toolchain"
     sources.mkdir(parents=True)
     shutil.copy2(manifest_path, sources / "distribution-manifest.toml")

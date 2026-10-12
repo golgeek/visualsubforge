@@ -16,6 +16,10 @@ SPEC.loader.exec_module(SOURCES)
 
 
 class ApplicationSources(unittest.TestCase):
+    def test_cargo_text_boundary_uses_utf8_on_windows_too(self):
+        value = SOURCES.capture(sys.executable, "-c", "import sys; sys.stdout.buffer.write(bytes([0xc4, 0x81]))")
+        self.assertEqual(value, "ā")
+
     def test_standard_library_receipt_requires_matching_installed_link_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
