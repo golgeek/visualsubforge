@@ -25,14 +25,22 @@ mod vsf_allocator_control {
                     pointer.write_bytes(0x5a, size);
                     let grown = Heapalloc.realloc(pointer, layout, size + 513);
                     assert!(!grown.is_null());
-                    assert_eq!(grown as usize % alignment, 0);
+                    assert_eq!(
+                        grown as usize % alignment,
+                        0,
+                        "alignment={alignment}, size={size}, operation=grow"
+                    );
                     assert!(core::slice::from_raw_parts(grown, size)
                         .iter()
                         .all(|byte| *byte == 0x5a));
                     let grown_layout = Layout::from_size_align(size + 513, alignment).unwrap();
                     let shrunk = Heapalloc.realloc(grown, grown_layout, 1);
                     assert!(!shrunk.is_null());
-                    assert_eq!(shrunk as usize % alignment, 0);
+                    assert_eq!(
+                        shrunk as usize % alignment,
+                        0,
+                        "alignment={alignment}, size={size}, operation=shrink"
+                    );
                     assert_eq!(*shrunk, 0x5a);
                     Heapalloc.dealloc(shrunk, Layout::from_size_align(1, alignment).unwrap());
                 }

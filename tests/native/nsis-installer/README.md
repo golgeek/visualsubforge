@@ -31,7 +31,12 @@ eight-byte guarantee. Its control must fail against the original allocator,
 then pass alignment, zeroing, growth, shrinkage and preservation checks against
 the patched implementation. Original source, patch and control are all retained.
 VSF modifications/controls use the repository's GPL-3.0-or-later license; original
-upstream notices remain intact. Hosted validation of these patches is pending.
+upstream notices remain intact. [Run 38220455020](https://github.com/golgeek/visualsubforge/actions/runs/38220455020)
+reproduced the original alignment failure, then passed the 36-layout control,
+five process tests (including SID ownership) and one version-comparison test.
+It compiled the release DLL with only kernel32/user32/advapi32/shell32 imports.
+The job subsequently failed collecting platform metadata; complete inventory
+and actual installer verification remain pending.
 The tests run serially because the plugin API stores a global NSIS stack and
 the process-launch tests temporarily change the same process token's privileges.
 The earlier parallel run's failure remains evidence, not a passed check.

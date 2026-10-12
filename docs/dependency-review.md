@@ -166,7 +166,14 @@ and unchanged plugins from the pinned NSIS distribution. The native source archi
 includes NSIS sources, notices, matching Tauri templates and the build recipe.
 Local source capture verified four archives and all seven registry dependencies;
 unit controls reject missing/changed embedded plugins and a changed NSIS cache.
-Actual Windows helper tests, compilation and installer verification are pending.
+The i686 helper now has two retained VSF patches: honoring Rust allocation
+alignment and retaining the token-user buffer while comparing process ownership.
+[Run 38220455020](https://github.com/golgeek/visualsubforge/actions/runs/38220455020)
+reproduced the original allocator's alignment failure, passed all seven helper
+tests after patching (including 36 allocation layouts), and compiled the release
+DLL. It stopped later in platform metadata collection. The Windows environment
+key lookup and DLL export-definition parser are corrected; complete inventory
+and actual installer verification remain pending.
 See [the recipe and evidence scope](../tests/native/nsis-installer/README.md).
 Sources: [pinned Tauri bundler](https://github.com/tauri-apps/tauri/blob/447fa9f3f993fe77724189e355078b38ce20baea/crates/tauri-bundler/src/bundle/windows/nsis/mod.rs),
 [helper release source](https://github.com/tauri-apps/nsis-tauri-utils/tree/13d9edd27b69310e108d6fbd49f90992f8a05390)
