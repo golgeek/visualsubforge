@@ -159,8 +159,12 @@ def build(output):
         sysroot = Path(subprocess.check_output(['rustc', '+' + channel, '--print', 'sysroot'], encoding='utf-8').strip())
         receipt['rustc'] = subprocess.check_output(['rustc', '+' + channel, '-vV'], encoding='utf-8').strip()
         receipt['rust_runtime'] = collect_runtime(output / 'runtime', TARGET, sysroot)
-        compiler, sdk = (Path(env[name]).resolve(strict=True) for name in ['VCToolsInstallDir', 'WindowsSdkDir'])
-        receipt['platform_toolchain'] = {name: env[name] for name in ['VCToolsVersion', 'WindowsSDKVersion']}
+        # os.environ normalizes Windows keys to uppercase. The subprocess copy
+        # is an ordinary dict, so its lookups no longer normalize mixed case.
+        compiler, sdk = (Path(env[name.upper()]).resolve(strict=True)
+                         for name in ['VCToolsInstallDir', 'WindowsSdkDir'])
+        receipt['platform_toolchain'] = {name: env[name.upper()]
+                                        for name in ['VCToolsVersion', 'WindowsSDKVersion']}
         response = (output / 'helper.rsp').read_bytes()
         encoding = 'utf-16' if response.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
         receipt['link_inputs'] = []
