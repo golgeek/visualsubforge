@@ -12,7 +12,7 @@ remain separate gates in [releases.md](releases.md).
 | Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI passed. Cold null-sink diagnostics failed in 2/10 trials; [38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168) independently measured sink startup delay and passed 10/10 with sink readiness checked before VSF. Physical-device acceptance remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
-| Windows x64 | [38227273736](https://github.com/golgeek/visualsubforge/actions/runs/38227273736), commit `3410bd4` | Five artifact hashes; 44 native files; all 962 packaged files; 6,434 native source-evidence files and 912 application-source files; 6,044 logical notice records map to 911 byte-identical texts | Installation, offline resync/input preservation and DLL unload pass. GUI initializes software D3D11 but fails without a WASAPI playback device. CI-only virtual-device validation remains pending; physical/consumer-OS acceptance remains open. |
+| Windows x64 | [38227273736](https://github.com/golgeek/visualsubforge/actions/runs/38227273736), commit `3410bd4` | Five artifact hashes; 44 native files; all 962 packaged files; 6,434 native source-evidence files and 912 application-source files; 6,044 logical notice records map to 911 byte-identical texts | Installation, offline resync/input preservation and DLL unload pass. [Replacement 38233864612](https://github.com/golgeek/visualsubforge/actions/runs/38233864612) passes the unchanged GUI smoke with virtual WASAPI and software D3D11. Physical/consumer-OS acceptance remains open. |
 
 The Ubuntu `.deb` SHA-256 is
 `4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
@@ -53,7 +53,8 @@ entry, all source manifest files to their hashes and all 40 reviewed recipes to
 the actual archive. Windows application capture includes 289 Cargo packages,
 282 checksum-verified registry archives, four frontend packages and 45 Rust
 standard-library files. The installed 962 files match assembly byte-for-byte;
-GUI device acceptance remains separate.
+The unchanged GUI smoke subsequently passes in 38233864612 with virtual WASAPI
+and software D3D11; physical-device acceptance remains separate.
 
 ## Source and notice coverage
 
@@ -198,7 +199,9 @@ passes the complete helper inventory, with 45 standard-library files and ten
 linker inputs. Its final installer failed on a separate long notice path. Windows
 now stages byte-identical notices under short names, with an index preserving
 each original path and checksum. The pinned-NSIS path regression and completed
-installer verification remain pending.
+installer verification pass in 38227273736. The independently audited receipt
+compares 441 NSIS cache files and all five embedded plugins, including the exact
+source-built helper, with their pinned or built inputs.
 See [the recipe and evidence scope](../tests/native/nsis-installer/README.md).
 Sources: [pinned Tauri bundler](https://github.com/tauri-apps/tauri/blob/447fa9f3f993fe77724189e355078b38ce20baea/crates/tauri-bundler/src/bundle/windows/nsis/mod.rs),
 [helper release source](https://github.com/tauri-apps/nsis-tauri-utils/tree/13d9edd27b69310e108d6fbd49f90992f8a05390)
@@ -206,13 +209,15 @@ and [publication recipe](https://github.com/tauri-apps/nsis-tauri-utils/blob/13d
 
 ## Acceptance still required
 
-Finish the pending table entries, review their actual versions and compare the
-installed inventories/notices with the matching downloadable source archives.
-Windows installation must pass the private DLL load/unload controls and packaged
-GUI smoke test; Linux's audited package passes the isolated CLI and ready-device
-virtual playback controls, with cold physical-device startup still untested.
-The Mac signing/source audits above have passed. Update this
-review to the final Windows/Linux candidates when their checks complete.
+The candidate inventories and source/notice comparisons above are complete for
+their documented scope. Windows installation, private DLL load/unload, offline
+CLI and GUI smoke pass; the GUI uses software D3D11 and a virtual WASAPI endpoint.
+Linux passes isolated CLI and prepared virtual-device playback; the Mac
+signing/source audits pass for both architectures. These candidates use the same
+application implementation; the Mac revision predates only additional smoke-test
+observation logging. Their native libraries and package recipes remain separately
+identified by each archive. None is a claim of a reproducible rebuild of every
+vendor binary or recovery of the proprietary platform sources described above.
 
 The Ubuntu installed GUI evidence uses Xvfb, Mesa llvmpipe and a PulseAudio null
 sink. It establishes neither visible pixel correctness nor audible output.

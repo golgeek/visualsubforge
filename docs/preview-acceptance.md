@@ -6,6 +6,25 @@ on all platforms; [run 38208853449](https://github.com/golgeek/visualsubforge/ac
 includes it. Installation/playback
 acceptance is still open. Do not infer support from a successful CI build.
 
+The following candidates have audited source inventories. Windows and Ubuntu
+artifacts include their source archives; the Windows download is about 6.6 GB,
+although its installer is only about 25 MiB. Actions artifacts have limited
+retention; preserve the candidate, matching sources and checksums together.
+
+| Target | Candidate download | Source archives |
+| --- | --- | --- |
+| Apple Silicon, macOS 14+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11727984565) | [Matching ARM inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11727318961) |
+| Intel, macOS 15+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11728236399) | [Matching Intel inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11728039019) |
+| Windows x64 | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119) | Included in the same artifact |
+| Ubuntu 24.04 x64 | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11728388564) | Included in the same artifact |
+
+Use the shared [fixtures](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11729128569).
+[Dependency review](dependency-review.md) records package hashes and evidence.
+Windows installation/offline/native smoke passes with a virtual WASAPI device
+and software D3D11; Ubuntu smoke uses a prepared virtual PulseAudio sink. Neither
+establishes physical video/audio acceptance. The Mac signature checks likewise
+are separate from this manual checklist.
+
 Record the package SHA-256, app revision, OS version/architecture, physical
 machine or VM, GPU/driver, display scaling and audio device. Test on a clean OS
 without FFmpeg, mpv, developer SDKs or codec packs. Installation may download

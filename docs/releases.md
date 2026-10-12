@@ -15,7 +15,7 @@ replacing those dependencies and repeating validation; setting the application's
 deployment target alone is insufficient.
 An advertised minimum and an OS version actually tested are separate evidence.
 Linux has an audited Ubuntu 24.04 x64 package. Windows installation and offline
-CLI checks pass; its hosted GUI check needs an audio endpoint. Manual acceptance remains open on every target. None is accepted
+CLI checks pass; its hosted GUI check passes with a virtual WASAPI endpoint. Manual acceptance remains open on every target. None is accepted
 merely because an application or compiler lane passes.
 
 The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
@@ -27,7 +27,9 @@ produces an installer and matching source archives. Installation verifies all
 962 assembled files, offline resync passes, and the original DLL unload hazard
 is absent across three reload cycles. Its GUI check fails because the runner
 has no WASAPI playback device. Independent package/source/notice download audits
-pass; the virtual-audio replacement run is still required.
+pass. [Replacement 38233864612](https://github.com/golgeek/visualsubforge/actions/runs/38233864612)
+validates the same installer with a pinned virtual WASAPI device: installation,
+offline resync, native command/loop checks and ordered shutdown all pass.
 The earlier NSIS long-path failure is fixed by compact notice staging, retaining
 every original owner/path/checksum. Both the original-path negative control and
 actual compact installer pass on Windows.
@@ -91,7 +93,7 @@ component; `Cargo.lock` alone does not identify this code. The archive includes
 unused/build/test inputs conservatively and does not claim a per-symbol link map.
 Independent downloaded-archive audits verified 59 standard-library files per Mac
 architecture and 62 for Linux. Windows application capture has run, but its final
-package/source comparison remains pending.
+package/source comparison passes in run 38227273736 (45 standard-library files).
 
 Windows also captures Microsoft.Web.WebView2 SDK 1.0.3800.47: all nine prebuilt
 loader files in `webview2-com-sys` 0.39.1 match that exact SDK byte-for-byte.
@@ -116,7 +118,7 @@ remain reference evidence, while the C runtime end-user terms enter installed
 notices. These are distinct from VSF's GPL license. Run 38206642301 captured both
 publisher terms; independent verification checked their source documents,
 derived text and all 15 attribution records. Their inclusion in the completed
-Windows installer still requires verification.
+Windows installer is verified in run 38227273736 and its independent notice audit.
 
 Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
 hashes, including nested gclient dependencies. The cache key excludes older SDKs
@@ -174,7 +176,7 @@ tests, including the required lifetime and audio controls.
 Use the [manual acceptance checklist](preview-acceptance.md) with the separately
 downloadable synthetic fixture artifact. It specifies expected playback, editing,
 resync and persistence results and the environment evidence testers should record.
-The fixtures are available in [run 38198449535](https://github.com/golgeek/visualsubforge/actions/runs/38198449535)
+The current fixtures are available in [run 38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449)
 as `preview-acceptance-fixtures`; all 17 file hashes were independently checked.
 
 ### Linux candidate workflow
@@ -358,9 +360,15 @@ It verifies the driver signature, trusts its publisher only in the disposable
 hosted VM, retains normal kernel-signature enforcement, restricts synthetic audio
 to loopback, and checks the installed driver bytes and device health. Its receipt
 records source/version/license, hashes and device state. The MS-PL driver is a
-test-environment dependency and is not included in VSF packages. This setup still
-requires hosted validation. No application setting or smoke assertion changed;
-virtual sound cannot establish physical-device or acoustic acceptance.
+test-environment dependency and is not included in VSF packages.
+[Replacement run 38233864612](https://github.com/golgeek/visualsubforge/actions/runs/38233864612)
+passes against the exact original installer. Independent receipt verification
+binds its five candidate hashes and all 17 canonical fixture hashes, verifies
+40 loaded private DLLs, and confirms the GUI's executable/fixture identities.
+The log reports software D3D11, Scream through WASAPI, three selection-loop wraps,
+normal exit zero and native teardown before the child surface is removed.
+No application setting or smoke assertion changed; virtual sound cannot
+establish physical-device or acoustic acceptance.
 
 The updated Windows CLI check uses temporary, executable-specific outbound
 firewall blocks for the relocated `vsf`, `ffmpeg` and `ffprobe`. A Python TCP
@@ -383,9 +391,9 @@ Its unload probe links libc++, matching the runtime involved in the original
 GGML hazard. It retains the candidate/fixture identities, probe compiler and
 runtime evidence. A fresh hosted runner is still not a clean consumer OS.
 The hosted runner contains development software; those checks do not establish
-clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing,
-complete source/notices and that acceptance remain open. The initial workflow
-is not a claim that a Windows artifact has passed yet. First run 38190957247
+clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing
+and that manual acceptance remain open. Package/source inventory checks pass
+for the candidate above. First run 38190957247
 stopped at a source-archive control whose expected LF bytes disagreed with
 Windows text-mode CRLF output. The fixture now writes explicit CRLF bytes and
 requires the archive to preserve them exactly on every platform.
@@ -402,9 +410,10 @@ It preserves source payloads, patches, recipes and notices, including notices
 inside nested tarballs and pinned bare Git sources. Custom FFmpeg and patched
 mpv sources/build inputs accompany them in `native-sources.tar.gz`; inventories
 and notices enter the installer before bundling. Local controls and real LuaJIT/
-libplacebo source examples pass; hosted execution of this collector is pending.
-Static/header-only contributions and language/platform runtimes remain separate
-inventory work, so package-owner coverage alone is not final license acceptance.
+libplacebo source examples passed; complete hosted collection and downloaded
+archive/notice verification subsequently passed in run 38227273736.
+The dependency review additionally covers selected static/header-only inputs
+and language/platform runtimes; package-owner coverage alone is insufficient.
 Run 38206199337 isolated an upstream pacman 6.1.0-25 wrapper inconsistency:
 its verifier requires `lock-never`, but its initializer no longer writes that
 setting. The collector now calls GnuPG directly against the same keyring and
@@ -414,7 +423,8 @@ It then found an unsupported nested format in GNU gettext 1.0: `.tar.lz`.
 The collector now uses MSYS2 lzip to verify/decode that payload before scanning
 notices, with an early real compressed/truncated archive control. Local capture
 finds 17 gettext notices; four runtime license files independently match system
-libarchive extraction. Full replacement source collection remains required.
+libarchive extraction. Full replacement collection and source/notice comparison
+subsequently pass in run 38227273736.
 
 Run 38209801548 reached Rust 1.97 source capture and found two Insta binary
 snapshots whose `.tar.gz` filenames deliberately contain the four bytes `test`.
@@ -422,9 +432,9 @@ The collector now recognizes only the reviewed version/path and exact content,
 records their hashes as non-archive fixtures, and retains the complete source
 archive. Changed fixtures and other unreadable nested archives still fail.
 The exact Rust source archive yields 3,800 notices locally, with every recorded
-notice hash checked and both fixture exceptions recorded. The 48 release controls
-pass with one Linux-only skip on macOS. Hosted full collection and installer
-validation remain required.
+notice hash checked and both fixture exceptions recorded. The then-current 48 release controls
+passed with one Linux-only skip on macOS. Hosted full collection and installer
+validation subsequently pass in run 38227273736.
 
 The collector now follows a reviewed set of embedded inputs from each signed
 binary's `.BUILDINFO`: MinGW/compiler runtime inputs, libplacebo's generated/header
@@ -444,7 +454,8 @@ Run 38198445762 built the production GUI/CLI and captured application sources,
 then assembly identified `avicap32.dll` as absent from the explicit OS allowlist.
 It is the Windows [AVICap system library](https://learn.microsoft.com/en-us/windows/win32/api/vfw/nf-vfw-capcreatecapturewindowa).
 The allowlist now includes it; unknown libraries and compiler runtimes still
-require a private packaged dependency. A successful installer is still pending.
+require a private packaged dependency. The later 38227273736 installer passes
+this assembly and installation policy.
 Run 38200157752 next identified `bcryptprimitives.dll`, the documented Windows
 [ProcessPrng system library](https://learn.microsoft.com/en-us/windows/win32/seccng/processprng).
 The explicit list now includes it too. An unsuccessful graph audit reports all
@@ -471,7 +482,7 @@ pass at `3410bd4` on 2026-10-12. This includes the corrected uppercase `SYSTEMRO
 lookups after Windows environment variables are copied into ordinary Python
 dictionaries in the package-validation scripts. The separate Windows installer, offline
 CLI and unload checks pass in 38227273736; its GUI audio-device failure and
-replacement validation are described above.
+successful replacement validation are described above.
 
 Earlier evidence (2026-10-11):
 
