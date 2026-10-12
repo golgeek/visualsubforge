@@ -18,6 +18,21 @@ PACKAGER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PACKAGER)
 
 
+class LddGraph(unittest.TestCase):
+    def test_loader_without_arrow_is_part_of_the_graph(self):
+        actual = PACKAGER.parse_ldd("""
+        linux-vdso.so.1 (0x00007ffe8cdaa000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f18800d0000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007f18802e0000)
+        """)
+        self.assertEqual(actual, {
+            "libc.so.6": Path("/lib/x86_64-linux-gnu/libc.so.6"),
+            "ld-linux-x86-64.so.2": Path("/lib64/ld-linux-x86-64.so.2"),
+        })
+        with self.assertRaisesRegex(ValueError, "Unresolved ELF"):
+            PACKAGER.parse_ldd("libmedia.so => not found")
+
+
 @unittest.skipUnless(sys.platform == "linux", "Requires Linux ELF and Debian package tools")
 class LinuxAssembly(unittest.TestCase):
     def test_private_library_survives_sdk_removal_and_inputs_stay_unchanged(self):

@@ -20,7 +20,9 @@ class SourceArchive(unittest.TestCase):
             (source / "tracked.c").write_text("original\n")
             (source / ".gitignore").write_text("build/\n")
             subprocess.run(["git", "-C", str(source), "add", "tracked.c", ".gitignore"], check=True)
-            (source / "tracked.c").write_text("patched\n")
+            # Deliberate CRLF bytes on every platform: archives must preserve
+            # source bytes, rather than normalize using the host's text mode.
+            (source / "tracked.c").write_bytes(b"patched\r\n")
             (source / "added-test.c").write_text("new test\n")
             (source / "build").mkdir()
             (source / "build/private.log").write_text("not source\n")
@@ -28,7 +30,7 @@ class SourceArchive(unittest.TestCase):
                 output = root / f"{native}.tar.gz"
                 archive_source(source, output, include_untracked=native)
                 with tarfile.open(output) as archive:
-                    self.assertEqual(archive.extractfile("source/tracked.c").read(), b"patched\n")
+                    self.assertEqual(archive.extractfile("source/tracked.c").read(), b"patched\r\n")
                     self.assertEqual("source/added-test.c" in archive.getnames(), native)
                     self.assertFalse(any(".git/" in name or "private.log" in name for name in archive.getnames()))
                 with self.assertRaises(FileExistsError):

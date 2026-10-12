@@ -27,12 +27,22 @@ def capture(*command, env=None):
     return subprocess.check_output(list(map(str, command)), text=True, env=env).strip()
 
 
-def dependencies(path, env):
-    text = capture("ldd", path, env=env)
+def parse_ldd(text):
     if "not found" in text:
-        raise ValueError(f"Unresolved dependency of {path}:\n{text}")
-    return {match[1]: Path(match[2]).resolve(strict=True)
-            for match in re.finditer(r"^\s*(\S+) => (/[^\n]+?) \(0x[0-9a-f]+\)", text, re.M)}
+        raise ValueError(f"Unresolved ELF dependency:\n{text}")
+    # The dynamic loader appears as an absolute path without the usual SONAME
+    # arrow, and some libraries also name it in DT_NEEDED. Keep it in the OS
+    # closure instead of silently dropping it from ldd's observed graph.
+    result = {}
+    for match in re.finditer(r"^\s*(?:(\S+) => )?(/[^\n]+?) \(0x[0-9a-f]+\)", text, re.M):
+        path = Path(match[2])
+        result[match[1] or path.name] = path
+    return result
+
+
+def dependencies(path, env):
+    return {name: library.resolve(strict=True)
+            for name, library in parse_ldd(capture("ldd", path, env=env)).items()}
 
 
 def package_owner(path):

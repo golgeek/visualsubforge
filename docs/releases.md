@@ -65,7 +65,9 @@ tests skipped). mpv compiled and passed 39/40 tests, including the lifetime and
 audio-policy controls. Its encode test failed because `libavdevice-dev` was
 missing, so the `av://lavfi` input was unavailable. The workflow now installs
 that dependency; replacement run 38190727555 passes the native build/tests and
-is compiling the production application. No test was skipped
+compiled the production application. Assembly then exposed an `ldd` parser
+omission: the dynamic loader has no SONAME arrow in that output. The parser now
+retains it in the observed OS closure, with a regression control. No test was skipped
 or relaxed to accommodate the failure.
 
 ### Windows candidate workflow
@@ -87,7 +89,10 @@ PATH and unload libmpv three times while checking the C++ terminate handler.
 The hosted runner contains development software; those checks do not establish
 clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing,
 complete source/notices and that acceptance remain open. The initial workflow
-is not a claim that a Windows artifact has passed yet.
+is not a claim that a Windows artifact has passed yet. First run 38190957247
+stopped at a source-archive control whose expected LF bytes disagreed with
+Windows text-mode CRLF output. The fixture now writes explicit CRLF bytes and
+requires the archive to preserve them exactly on every platform.
 
 ### Publication gates
 
