@@ -26,7 +26,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(('VSF_', 'LD_', 'DYLD_', 'PKG_CONFIG_'))}
-    env['PATH'] = str(Path(env['SystemRoot']) / 'System32') if os.name == 'nt' else '/usr/bin:/bin'
+    env['PATH'] = str(Path(env['SYSTEMROOT']) / 'System32') if os.name == 'nt' else '/usr/bin:/bin'
     env['VSF_MEDIA_SMOKE'] = str(fixture)
     env['VSF_DIAGNOSTIC_EXIT'] = '1'
     evidence = {'status': 'incomplete', 'environment': args.environment,

@@ -33,7 +33,7 @@ def check(args):
     for key in list(env):
         if key.startswith(("DYLD_", "LD_", "PKG_CONFIG_", "VSF_")):
             env.pop(key)
-    env["PATH"] = str(Path(env["SystemRoot"]) / "System32") if os.name == "nt" else "/usr/bin:/bin"
+    env["PATH"] = str(Path(env["SYSTEMROOT"]) / "System32") if os.name == "nt" else "/usr/bin:/bin"
     env["VSF_FFMPEG"] = str(output / "must-not-use-development-ffmpeg")
     env["VSF_FFPROBE"] = str(output / "must-not-use-development-ffprobe")
     records = []

@@ -65,7 +65,7 @@ def main():
         raise ValueError(f"Expected one installed mpv DLL: {mpv}")
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("VSF_", "LD_", "DYLD_", "PKG_CONFIG_"))}
-    env["PATH"] = str(Path(env["SystemRoot"]) / "System32")
+    env["PATH"] = str(Path(env["SYSTEMROOT"]) / "System32")
     probe = subprocess.run([probe_bundle / "dll-reload-probe.exe", mpv[0], "reload", "unchanged"],
                            env=env, capture_output=True, text=True, timeout=60)
     (args.output / "dll-unload.log").write_text(probe.stdout + probe.stderr)
@@ -75,7 +75,7 @@ def main():
                for line in probe.stdout.splitlines() if line.startswith('loaded_module ')}
     if mpv[0].resolve() not in modules:
         raise ValueError('Loader module evidence does not include the packaged mpv')
-    system = Path(env['SystemRoot']).resolve(strict=True)
+    system = Path(env['SYSTEMROOT']).resolve(strict=True)
     expected = {item['path'].lower(): item['sha256'] for item in receipt['files']}
     loaded = []
     for path in sorted(modules):
