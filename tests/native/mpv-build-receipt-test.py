@@ -24,7 +24,7 @@ class ReceiptTests(unittest.TestCase):
             targets = [
                 {"name": "mpv", "type": "executable", "filename": [str(exe)]},
                 {"name": "mpv", "type": "shared library", "filename": [str(dll)]},
-                {"name": "mpv", "type": "custom", "filename": [str(root / "mpv.com")]},
+                {"name": "mpv", "type": "executable", "filename": [str(root / "mpv.com")]},
             ]
             receipt = build.binary_receipts(targets)
             self.assertEqual({item["path"] for item in receipt}, {str(exe), str(dll)})

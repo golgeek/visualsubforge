@@ -53,9 +53,13 @@ def validate_results(declared, results, variant):
 
 def binary_receipts(targets):
     # Match the two explicit meson compile targets above. Windows also declares
-    # an auxiliary custom target named mpv (mpv.com); it was not requested.
+    # an executable named mpv with name_suffix='com'. That console wrapper is
+    # not built by these commands or used by VSF (which embeds the library).
     selected = [target for target in targets if target["name"] == "mpv"
-                and target["type"] in {"executable", "shared library"}]
+                and target["type"] in {"executable", "shared library"}
+                and not (target["type"] == "executable"
+                         and len(target["filename"]) == 1
+                         and Path(target["filename"][0]).name.lower() == "mpv.com")]
     if ({target["type"] for target in selected} != {"executable", "shared library"}
             or not all(target["filename"] for target in selected)):
         raise ValueError("Missing selected mpv executable/shared-library target")
@@ -139,6 +143,8 @@ def main():
         if source_identity(checkout) != receipt["source"]:
             raise ValueError("Prepared source changed during the build")
         targets = json.loads((info / "intro-targets.json").read_text())
+        receipt["mpv_targets"] = [{key: target[key] for key in ["name", "type", "filename"]}
+                                  for target in targets if target["name"] == "mpv"]
         receipt["binaries"] = binary_receipts(targets)
         receipt["status"] = "passed"
         print(f"PASS: {receipt['counts']} — {output / 'build-receipt.json'}")
