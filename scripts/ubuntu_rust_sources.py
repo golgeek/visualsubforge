@@ -1,6 +1,8 @@
 """Capture Ubuntu's exact packaged Rust inputs to bundled native libraries.
 
 Ubuntu builds rav1e using patched librust-* packages, not its upstream Cargo.lock.
+Librsvg includes its crate sources in Debian's source payload, but uses a separate
+compiler/std build whose source must also be retained.
 The original binary's bytes bind the installed library to its Launchpad build;
 that buildinfo selects exact source packages, including the compiler/std source.
 All installed Rust build inputs are retained (a conservative superset, including
@@ -26,7 +28,7 @@ API = 'https://api.launchpad.net/1.0/ubuntu'
 ARCHIVE = API + '/+archive/primary'
 SERIES = API + '/noble'
 # Each newly bundled Rust native component needs a reviewed build-input policy.
-ROOTS = {'rust-rav1e'}
+ROOTS = {'rust-rav1e', 'librsvg'}
 
 
 def deb822(text):

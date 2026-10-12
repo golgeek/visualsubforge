@@ -122,7 +122,8 @@ does not appear in the dynamic-library graph. Both assemblers verify that header
 has not changed and capture its owning package's sources/notices.
 The shared recipe supplies the selected xxhash and dav1d include directories to
 upstream test targets too: their Meson dependency lists omitted them, causing
-hosted Mac builds to fail on those headers. The corrected recipe passes locally with all tests enabled
+hosted Mac builds to fail on those headers. The corrected recipe passes locally
+with all tests enabled
 (15 passed, one explicit skip); hosted replacement evidence is still required.
 
 ## Remaining release work
@@ -157,6 +158,11 @@ capture and a separate hash audit pass for 307 binary inputs, 276 source package
 1,692 evidence files and 2,141 notice records. Hosted integration remains pending.
 This is publisher HTTPS provenance with checksum verification, not a claim to
 have verified the Debian developers' source signatures or reproduced their build.
+Librsvg's vendored crate payload is already present in Debian's source archive;
+the collector also follows its exact compiler/std build. This differs from
+rav1e's compiler revision in the audited package. Separately linked static inputs
+to Ubuntu's shaderc and older libplacebo still require their build-specific
+glslang/SPIRV/header source capture before the native inventory is complete.
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI
