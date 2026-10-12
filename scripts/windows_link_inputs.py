@@ -10,7 +10,7 @@ def input_paths(text):
             continue
         # /LINKREPROFULLPATHRSP retains these options before their full paths.
         # Reject unknown options instead of silently losing a linker input.
-        for option in ['/defaultlib:', '/natvis:']:
+        for option in ['/defaultlib:', '/natvis:', '/def:']:
             if line.lower().startswith(option):
                 line = line[len(option):].strip('"')
                 break
