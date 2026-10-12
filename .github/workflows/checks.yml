@@ -136,11 +136,11 @@ jobs:
       - run: |
           python -m pip install --only-binary=:all: -r tests/native/requirements.txt
       - run: python tests/native/check-controls.py
-      - run: python -m unittest discover -s tests/release -p 'test_*.py'
-      - name: Install mpv headers for fake-client test
+      - name: Install native policy and package-control prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ libmpv-dev pkg-config
+          sudo apt-get install -y g++ libmpv-dev pkg-config patchelf
+      - run: python -m unittest discover -s tests/release -p 'test_*.py'
       - name: Compile and run shared mpv client policy controls
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -DMPV_STATIC $(pkg-config --cflags mpv) tests/native/mpv-client-test.cpp -o /tmp/vsf-mpv-client-test
