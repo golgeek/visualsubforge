@@ -10,6 +10,15 @@ import tempfile
 
 from native_evidence import digest
 
+# Rust 1.97 vendors these Insta tests. Their assert_binary_snapshot! stores the
+# literal bytes b"test" with a multipart extension; these are not tar archives.
+# Keep the version/path and bytes explicit so an unknown or changed payload
+# still fails archive verification. The complete source archive retains them.
+INSTA_EXTENSION_FIXTURES = tuple(
+    f'/vendor/insta-{version}/tests/snapshots/test_binary__multipart_extension.snap.tar.gz'
+    for version in ('1.43.0', '1.47.2')
+)
+
 
 def is_notice(name):
     path = PurePosixPath(name)
@@ -37,7 +46,7 @@ def source_tar(archive, lzip):
             yield source
 
 
-def source_notices(archive, destination, *, lzip='lzip'):
+def source_notices(archive, destination, *, lzip='lzip', non_archive_fixtures=None):
     """Read notices in tar payloads and pinned bare Git sources without running recipes."""
     destination.mkdir(parents=True, exist_ok=True)
     records = []
@@ -68,7 +77,18 @@ def source_notices(archive, destination, *, lzip='lzip'):
                     nested = Path(temporary) / ('nested' + ''.join(PurePosixPath(member.name).suffixes))
                     with source.extractfile(member) as stream, nested.open('wb') as output:
                         shutil.copyfileobj(stream, output)
-                    scan(nested, prefix + member.name + '.contents/', depth + 1)
+                    name = prefix + member.name
+                    if member.name.endswith(INSTA_EXTENSION_FIXTURES):
+                        if member.size != 4 or nested.read_bytes() != b'test':
+                            raise ValueError(f'Reviewed non-archive fixture changed: {name}')
+                        if non_archive_fixtures is not None:
+                            non_archive_fixtures.append({'path': name, 'sha256': digest(nested),
+                                'reason': 'Insta multipart-extension snapshot containing literal test bytes'})
+                        continue
+                    try:
+                        scan(nested, name + '.contents/', depth + 1)
+                    except tarfile.ReadError as error:
+                        raise ValueError(f'Cannot read nested source archive {name}: {error}') from error
             # makepkg source archives can store a bare repository instead of a
             # tarball. Only the commit declared in .SRCINFO supplies notices.
             info = next((m for m in members if m.name.endswith('/.SRCINFO')), None)

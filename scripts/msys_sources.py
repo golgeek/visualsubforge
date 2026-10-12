@@ -200,10 +200,14 @@ def collect(msys, shipped, output):
             source_url = 'https://repo.msys2.org/mingw/sources/' + source_name
             archive = signed_download(source_url, sources, msys)
             verify_recipe(archive, build['pkgbuild_sha256sum'][0])
-            found = source_notices(archive, notices / source_name, lzip=msys / 'usr/bin/lzip.exe')
+            non_archive_fixtures = []
+            found = source_notices(archive, notices / source_name, lzip=msys / 'usr/bin/lzip.exe',
+                                   non_archive_fixtures=non_archive_fixtures)
             if not found:
                 raise ValueError(f'No source license notices collected: {source_name}')
             captured[source_name] = {'file': source_name, 'url': source_url, 'sha256': digest(archive), 'notices': found}
+            if non_archive_fixtures:
+                captured[source_name]['non_archive_fixtures'] = non_archive_fixtures
             rust_directory = output / 'rust-dependencies' / source_name
             if rust := capture_native_rust(archive, base, rust_directory):
                 captured[source_name]['rust_dependencies'] = rust

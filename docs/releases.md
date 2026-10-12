@@ -21,7 +21,9 @@ The current Mac candidates from [run 38205417832](https://github.com/golgeek/vis
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
 for final archive hashes, download links and audit scope. Windows run 38209801548
-is the active Windows replacement. Linux run 38208853449 passed its package lane,
+failed source-notice collection on two deliberately non-archive Rust test fixtures;
+the focused correction has passed local checks and requires a replacement build.
+Linux run 38208853449 passed its package lane,
 but repeated playback diagnostics reproduced a failure; neither target is
 accepted from compilation alone. Earlier run notes below retain their original evidence scope.
 
@@ -355,6 +357,16 @@ The collector now uses MSYS2 lzip to verify/decode that payload before scanning
 notices, with an early real compressed/truncated archive control. Local capture
 finds 17 gettext notices; four runtime license files independently match system
 libarchive extraction. Full replacement source collection remains required.
+
+Run 38209801548 reached Rust 1.97 source capture and found two Insta binary
+snapshots whose `.tar.gz` filenames deliberately contain the four bytes `test`.
+The collector now recognizes only the reviewed version/path and exact content,
+records their hashes as non-archive fixtures, and retains the complete source
+archive. Changed fixtures and other unreadable nested archives still fail.
+The exact Rust source archive yields 3,800 notices locally, with every recorded
+notice hash checked and both fixture exceptions recorded. The 48 release controls
+pass with one Linux-only skip on macOS. Hosted full collection and installer
+validation remain required.
 
 The collector now follows a reviewed set of embedded inputs from each signed
 binary's `.BUILDINFO`: MinGW/compiler runtime inputs, libplacebo's generated/header

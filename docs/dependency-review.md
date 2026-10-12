@@ -12,7 +12,7 @@ remain separate gates in [releases.md](releases.md).
 | Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI and one GUI smoke passed. [Repeated diagnostics 38210869329](https://github.com/golgeek/visualsubforge/actions/runs/38210869329) reproduced the loop failure in 2/10 trials. Candidate readiness remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
-| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | Replacement [38209801548](https://github.com/golgeek/visualsubforge/actions/runs/38209801548) includes lzip support, legacy crate notices and Vulkan-loader headers. Full source collection and installer/runtime execution remain pending. |
+| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38209801548](https://github.com/golgeek/visualsubforge/actions/runs/38209801548) failed on deliberately non-archive Rust test fixtures. Exact fixture recognition passes local source capture; full hosted collection and installer/runtime execution remain pending. |
 
 The Ubuntu `.deb` SHA-256 is
 `4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
@@ -106,13 +106,22 @@ all 1,390/i686 and 1,419/x64 payload files against release commit
 archives. That source tree also retains definitions, Cargo build scripts and
 original MIT/Apache-2.0 notices; it does not document a tested regeneration
 recipe for the prebuilt imports. Full local capture passes; run 38209801548
-includes this fallback, with hosted validation still pending. Custom FFmpeg excludes
+passed this capture before failing later on Rust compiler-source fixtures. Custom FFmpeg excludes
 Whisper/GGML and preserves its source, patch and explicit configure recipe.
 The Vulkan loader also uses generated/header inputs from Vulkan-Headers
 1:1.4.363.0-1, newer than libplacebo’s 1:1.4.350.1-1. A local source/recipe
 comparison verified that additional archive and three notices; hosted capture
 of this new edge remains required. Successful full collection against the
 current Windows package is still required.
+
+The Rust 1.97.0-1 MSYS2 source archive
+(`1af86af91b610412b6d7c4bf958617dc85e15aa6d87c4a76411c581d5ebc41e1`)
+contains two Insta multipart-extension snapshots named `.tar.gz` but holding
+literal `test` bytes. Their upstream tests confirm that intended content. The
+collector records the two exact version/path/content exceptions rather than
+attempting decompression; unknown malformed archives still fail and no source
+bytes are removed. Local capture and independent hash checks cover all 3,800
+notices and both fixture records. Replacement hosted validation remains open.
 
 ## Platform components and source availability
 
