@@ -12,7 +12,7 @@ remain separate gates in [releases.md](releases.md).
 | Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI passed. Cold null-sink diagnostics failed in 2/10 trials; [38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168) independently measured sink startup delay and passed 10/10 with sink readiness checked before VSF. Physical-device acceptance remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
-| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38209801548](https://github.com/golgeek/visualsubforge/actions/runs/38209801548) failed on deliberately non-archive Rust test fixtures. Exact fixture recognition passes local source capture; full hosted collection and installer/runtime execution remain pending. |
+| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); platform attribution [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38213750998](https://github.com/golgeek/visualsubforge/actions/runs/38213750998) passed the Rust test-fixture source correction, then failed on equivalent MSYS2 epoch separators. Local identity controls pass; hosted collection and new installer-helper/runtime validation remain pending. |
 
 The Ubuntu `.deb` SHA-256 is
 `4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
@@ -148,6 +148,29 @@ Its archive is binary provenance, not recovered corresponding source. The
 Evergreen WebView2 Runtime is separately installed by the bootstrapper. Keep
 this source-availability limit visible during final redistribution review;
 do not describe the Windows archive as an entirely source-built native stack.
+
+The Windows installer adds a separate inventory requirement: the pinned Tauri
+CLI 2.12.0 selects NSIS 3.11 and `nsis_tauri_utils` 0.5.3. These are embedded
+installer code, outside the GUI/CLI dependency graph. The NSIS binary/source
+archives and helper release source are recovered, but the helper's release tree
+has no Cargo.lock and its publication
+command uses an unlocked Cargo build. Its binary hash therefore does not establish
+the versions of its embedded Rust dependencies. A newly generated lockfile must
+not be presented as evidence of those historical versions.
+
+The workflow now builds that helper from its pinned release source with VSF's
+pinned Rust toolchain and an explicit lockfile. It captures its sources, notices,
+standard-library inputs and SDK link identities. A generated template changes
+one plugin-directory directive; the final EXE must embed the exact built helper
+and unchanged plugins from the pinned NSIS distribution. The native source archive
+includes NSIS sources, notices, matching Tauri templates and the build recipe.
+Local source capture verified four archives and all seven registry dependencies;
+unit controls reject missing/changed embedded plugins and a changed NSIS cache.
+Actual Windows helper tests, compilation and installer verification are pending.
+See [the recipe and evidence scope](../tests/native/nsis-installer/README.md).
+Sources: [pinned Tauri bundler](https://github.com/tauri-apps/tauri/blob/447fa9f3f993fe77724189e355078b38ce20baea/crates/tauri-bundler/src/bundle/windows/nsis/mod.rs),
+[helper release source](https://github.com/tauri-apps/nsis-tauri-utils/tree/13d9edd27b69310e108d6fbd49f90992f8a05390)
+and [publication recipe](https://github.com/tauri-apps/nsis-tauri-utils/blob/13d9edd27b69310e108d6fbd49f90992f8a05390/.changes/config.json).
 
 ## Acceptance still required
 

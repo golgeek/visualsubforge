@@ -20,9 +20,14 @@ is accepted merely because an application or compiler lane passes.
 The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
-for final archive hashes, download links and audit scope. Windows replacement
+for final archive hashes, download links and audit scope. Windows run
 [38213750998](https://github.com/golgeek/visualsubforge/actions/runs/38213750998)
-includes the source-notice correction and is building. Linux run 38208853449
+passed production builds and Rust source capture, then failed on two equivalent
+MSYS2 epoch separators in Vulkan header metadata (`1~` versus `1:`). The collector
+now compares those representations without discarding the epoch, version,
+package name or architecture; changed-identity controls pass locally. A new
+hosted run must validate this correction and the newly inventoried NSIS helper.
+Linux run 38208853449
 passed its package lane; repeated diagnostics isolated a virtual-sink startup
 delay and passed with measured sink readiness, as detailed below. Native device
 acceptance remains open. Earlier run notes retain their original evidence scope.
@@ -345,8 +350,11 @@ control must connect before the block, fail under an equivalent program block,
 and reconnect after cleanup. The check reads the effective rules/profiles and
 restores the prior profile settings and all its own rules even after failure.
 This runs only on disposable GitHub Windows runners; it does not disconnect the
-runner agent or establish whole-machine network isolation. Hosted validation of
-this new control and actual-package offline resync remain pending.
+runner agent or establish whole-machine network isolation. The real control passed
+in [Checks 38214651457](https://github.com/golgeek/visualsubforge/actions/runs/38214651457):
+the blocked connection returned Windows error 10013 (permission denied), the
+connection recovered after cleanup, and no cleanup errors were recorded. Actual
+installed-package resync under these blocks remains pending.
 See Microsoft's [program-rule interface](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule)
 and [firewall profile interface](https://learn.microsoft.com/en-us/powershell/module/netsecurity/set-netfirewallprofile).
 
