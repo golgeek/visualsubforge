@@ -14,6 +14,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from native_evidence import digest
+from source_archive import archive_source
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -76,7 +77,7 @@ def main():
         "tools": tools, "commands": [],
         "script_sha256": digest(Path(__file__)),
         "support_scripts": {name: digest(ROOT / "scripts" / name)
-                            for name in ["prepare-mpv-clock.py", "native_evidence.py"]},
+                            for name in ["prepare-mpv-clock.py", "native_evidence.py", "source_archive.py"]},
         "scope": "Source build and upstream tests; no device/editor acceptance or installation",
     }
     build = output / "build"
@@ -101,6 +102,9 @@ def main():
             checkout = prepared / "source"
             receipt["recipe"] = json.loads((prepared / "manifest.json").read_text())
             receipt["source"] = source_identity(checkout)
+            # git apply also creates new, untracked source/test files.
+            archive_source(checkout, output / "source.tar.gz", include_untracked=True)
+            receipt["source_archive_sha256"] = digest(output / "source.tar.gz")
             options = ["-Dlibmpv=true", "-Dtests=true", "-Dmanpage-build=disabled",
                        "-Dvapoursynth=disabled"]
             if platform.system() == "Darwin":

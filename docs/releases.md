@@ -2,14 +2,17 @@
 
 `v0.0.1-alpha` is in preparation and has not been published. Release builds are
 to run on GitHub Actions, including native media dependencies. The repository
-remains private; releases will initially be available to its collaborators.
+became public on 2026-10-11; standard hosted Actions jobs now run successfully.
 The user confirmed on 2026-10-11 that publication must wait for packages on all
 three platforms: macOS, Windows and Linux. Successful Mac validation artifacts
 do not authorize a macOS-only release.
 
-The intended macOS matrix has separate Apple Silicon and Intel artifacts. Aim
-for macOS 14 compatibility and audit every included Mach-O deployment target;
-the effective minimum cannot be lower than any bundled dependency's minimum.
+The macOS matrix has separate Apple Silicon and Intel validation artifacts.
+Their audited minimums are macOS 14.0 and 15.0 respectively. The Intel Homebrew
+OpenSSL 3.6.3 (libssl/libcrypto), xz 5.8.3, Vulkan loader 1.4.357.0 and pcre2
+10.47_1 libraries require macOS 15. Lowering that floor requires rebuilding or
+replacing those dependencies and repeating validation; setting the application's
+deployment target alone is insufficient.
 An advertised minimum and an OS version actually tested are separate evidence.
 Windows and Linux packaging/validation are also pending. None of these targets
 is accepted merely because an application or compiler lane passes.
@@ -39,6 +42,25 @@ license name alone is not that inventory.
 
 ## Remaining release work
 
+### Linux candidate workflow
+
+`Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
+It builds pinned libplacebo and the patched mpv candidate, then production GUI
+and CLI binaries. The `.deb` installs private media binaries/libraries in
+`/usr/lib/visualsubforge`; `/usr/bin/visualsubforge` and `/usr/bin/vsf` launch
+them. Apt resolves GTK/WebKit, display/audio libraries and ordinary OS runtimes.
+Users install the downloaded package with `sudo apt install ./<package>.deb`.
+
+Assembly audits the ELF dependency closure, records hashes, and downloads exact
+Ubuntu source packages (including distribution patches) for bundled libraries.
+The workflow installs the package in a fresh Ubuntu container and runs relocated
+CLI/resync checks with networking disabled. This is the first hosted validation
+of the Linux packaging implementation; no successful package is claimed yet.
+Complete Rust/frontend provenance and actual GUI/GPU/audio validation are still
+required. A container CLI pass is not desktop installation acceptance.
+
+### Publication gates
+
 These are implementation and validation tasks, not unanswered credential or
 license-selection questions. The original-code license and Apple credentials
 are already settled.
@@ -48,10 +70,16 @@ are already settled.
 | Dependency inventory | Identify the actual bundled native, Rust and frontend dependencies; retain their versions, licenses, notices, matching sources, patches and build recipes alongside artifact hashes. Audit the package contents, not only the development dependency list. |
 | Windows and Linux packages | Build the native runtime and analysis tools on GitHub Actions, package their required dependencies, and declare the supported OS/architecture and installation flow. Current shell/CLI CI is not package support. |
 | Installation and runtime | Install the actual artifacts on clean supported environments, then check offline startup, media playback/seeking/audio, subtitle preview, waveform/scene analysis, GUI/CLI resync, save/reopen and shutdown. Record which tests use VMs and which use real GPU/audio devices. |
-| Publication | Require green checks for the release revision and archive the package/source/checksum evidence for all three platforms before publishing the private prerelease. |
+| Publication | Require green checks for the release revision and archive the package/source/checksum evidence for all three platforms before publishing the prerelease. |
 
 ## Validation so far (2026-10-11)
 
+- All ten [application checks](https://github.com/golgeek/visualsubforge/actions/runs/38177639367)
+  and all six [native build contracts](https://github.com/golgeek/visualsubforge/actions/runs/38177639286)
+  pass at `616a1921`, including all 32 Chromium/WebKit browser cases. These runs
+  initially could not start because of account billing limits; their retries
+  completed after the repository became public. No additional code fix or
+  weakened check was needed for these retries.
 - Hosted native contracts at [`a222eda`](https://github.com/golgeek/visualsubforge/actions/runs/38171415744): all six jobs passed, including all three
   pinned mpv source variants and compilation of each native adapter. This is not
   GPU/audio or packaged-app acceptance.
@@ -68,7 +96,8 @@ are already settled.
   idle workspace, and holds fresh scan completion while checking legacy marker
   suppression. All six project cases and the full 32-case browser suite pass
   locally in Chromium/WebKit, including the new control; type checking, lint
-  and formatting also pass. Hosted validation of the fix is pending.
+  and formatting also pass. Hosted validation of the fix now passes in the
+  32-case browser job linked above.
 - The first hosted ARM64 package build stopped before compilation: the default
   Xcode 15.4 SDK was below pinned ANGLE's SDK requirement. Packaging now explicitly
   selects the runner's Xcode 16.2 (macOS 15.2 SDK), retaining the macOS 14 deployment
@@ -82,7 +111,15 @@ are already settled.
   Assembly now signs the nested binaries first and the completed app last.
   A real macOS regression forces unsigned inputs, reproduces the old failure
   on Apple Silicon too, and passes after the fix; all eight release tests pass
-  locally. The corrected Intel package still needs hosted validation.
+  locally. The [corrected Intel run](https://github.com/golgeek/visualsubforge/actions/runs/38173750414)
+  now passes assembly, packaged CLI checks, signing, Apple notarization,
+  stapling and Gatekeeper assessment. Its signing job was initially blocked by
+  billing and succeeded when retried using the completed package.
+- The downloaded Intel ZIP checksum and all 50 signed native-file hashes match
+  the signing receipt. Local signature, stapling and Gatekeeper checks pass,
+  as does the packaged CLI test on Apple Silicon through Rosetta. This does not
+  establish physical Intel, clean-install, GPU or audio acceptance. Its audited
+  macOS minimum is 15.0, as described above.
 - Local `cargo test --locked --workspace` and default/packaged strict Clippy pass.
   `cargo test --locked -p media-analysis --features bundled-tools --lib tools::tests`
   exercises relocated tool paths and incomplete-installation failure.
@@ -124,8 +161,8 @@ web assets/resources. The internal native inventory records source hashes;
 embedding the final executable hash in its own signed resources would create a
 hash cycle, since outer app signing changes that executable.
 
-Hosted ARM64 signing/notarization passes at `a222eda`; its signing receipt and
-Apple's acceptance log are attached to the package run above. Signed validation
+Hosted ARM64 and Intel signing/notarization pass; their signing receipts and
+Apple's acceptance logs are attached to the package runs above. Signed validation
 artifacts remain separate from a published release: the dependency
 source/license inventory and install/runtime checks still need completion.
 Credentials and exported private keys must never enter source, logs or artifacts.

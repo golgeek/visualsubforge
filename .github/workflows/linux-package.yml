@@ -1,0 +1,108 @@
+name: Linux preview package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-preview-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    name: Ubuntu 24.04 amd64 package and isolated install
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - name: Install build tools and enable matching distro source downloads
+        run: |
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/app-target" >> "$GITHUB_ENV"
+          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config patchelf ffmpeg \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            libepoxy-dev libavcodec-dev libavfilter-dev libavformat-dev libavutil-dev \
+            libswresample-dev libswscale-dev libass-dev liblua5.2-dev \
+            liblcms2-dev libshaderc-dev libvulkan-dev libxxhash-dev \
+            libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
+          rustup show
+          npm ci
+          python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
+      - name: Check packaging controls
+        run: python -m unittest discover -s tests/release -p 'test_*.py'
+      - name: Build pinned libplacebo and collect its source tree
+        run: python scripts/build-placebo.py --output "$RUNNER_TEMP/placebo" --jobs 3
+      - name: Build and test the pinned mpv audio candidate
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/placebo/sdk/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ runner.temp }}/placebo/sdk/lib
+        run: |
+          git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
+          python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/mpv" --variant candidates --jobs 3
+      - name: Build production GUI and CLI
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/mpv/build/meson-uninstalled:${{ runner.temp }}/placebo/sdk/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ runner.temp }}/mpv/build:${{ runner.temp }}/placebo/sdk/lib
+        run: |
+          npm run tauri -- build --no-bundle --features media-prototype,bundled-tools -- --locked
+          cargo build --locked --release -p vsf-cli --features bundled-tools
+      - name: Assemble private runtime, notices and exact distro sources
+        run: |
+          python scripts/package-linux.py \
+            --visualsubforge "$CARGO_TARGET_DIR/release/visualsubforge" --vsf "$CARGO_TARGET_DIR/release/vsf" \
+            --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe \
+            --library-dir "$RUNNER_TEMP/mpv/build" --library-dir "$RUNNER_TEMP/placebo/sdk/lib" \
+            --native-source "mpv=$RUNNER_TEMP/mpv/source.tar.gz" \
+            --native-source "libplacebo=$RUNNER_TEMP/placebo/source.tar.gz" \
+            --native-notices "mpv=$RUNNER_TEMP/mpv/prepared/source" \
+            --native-notices "libplacebo=$RUNNER_TEMP/placebo/source" \
+            --output "$RUNNER_TEMP/package"
+      - name: Generate independent fixture inputs
+        run: python scripts/resync-fixtures.py
+      - name: Install into clean Ubuntu and test offline with no development SDK
+        run: |
+          mkdir -p "$RUNNER_TEMP/install-context"
+          cp "$RUNNER_TEMP/package/VisualSubForge_0.0.1-alpha_amd64_ubuntu24.04.deb" "$RUNNER_TEMP/install-context/preview.deb"
+          cp tests/release/linux-install.Dockerfile "$RUNNER_TEMP/install-context/Dockerfile"
+          docker build --pull -t vsf-preview-install "$RUNNER_TEMP/install-context"
+          docker image inspect vsf-preview-install > "$RUNNER_TEMP/package/install-image.json"
+          mkdir -p "$RUNNER_TEMP/install-check"
+          docker run --rm --network none \
+            -v "$PWD/tests/release/packaged-cli.py:/check.py:ro" \
+            -v "$PWD/tests/fixtures/generated/resync:/fixtures:ro" \
+            -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-install \
+            python3 /check.py --bundle /usr/lib/visualsubforge --bin . --fixtures /fixtures --output /evidence/cli
+      - name: Archive matching native dependency sources
+        run: |
+          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz
+          cd "$RUNNER_TEMP/package"
+          sha256sum ./*.deb native-sources.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-preview-amd64
+          path: |
+            ${{ runner.temp }}/package/*.deb
+            ${{ runner.temp }}/package/native-sources.tar.gz
+            ${{ runner.temp }}/package/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      # Do not upload raw Meson test logs, which contain inherited environments.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: linux-package-evidence-amd64
+          path: |
+            ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ runner.temp }}/package/install-image.json
+            ${{ runner.temp }}/placebo/build-receipt.json
+            ${{ runner.temp }}/placebo/commands.log
+            ${{ runner.temp }}/mpv/build-receipt.json
+            ${{ runner.temp }}/mpv/commands.log
+            ${{ runner.temp }}/install-check/cli/packaged-cli-check.json
+          retention-days: 14
