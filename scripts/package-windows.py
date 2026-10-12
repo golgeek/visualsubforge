@@ -17,14 +17,14 @@ from native_evidence import digest
 
 ROOT = Path(__file__).resolve().parent.parent
 OS_DLLS = set("""
-advapi32.dll avicap32.dll avrt.dll bcrypt.dll bcryptprimitives.dll cabinet.dll cfgmgr32.dll comctl32.dll comdlg32.dll
+advapi32.dll avicap32.dll avrt.dll bcrypt.dll bcryptprimitives.dll cabinet.dll cfgmgr32.dll combase.dll comctl32.dll comdlg32.dll
 crypt32.dll cryptbase.dll cryptnet.dll cryptsp.dll d2d1.dll d3d11.dll d3d12.dll
 d3d9.dll d3dcompiler_47.dll dbghelp.dll dnsapi.dll dsound.dll dwmapi.dll dwrite.dll
 dxgi.dll dxva2.dll gdi32.dll glu32.dll hid.dll imm32.dll iphlpapi.dll kernel32.dll
 kernelbase.dll ksuser.dll mf.dll mfplat.dll mfreadwrite.dll mfuuid.dll mpr.dll
 msacm32.dll msvcrt.dll ncrypt.dll netapi32.dll normaliz.dll ntdll.dll ole32.dll
 oleacc.dll oleaut32.dll opengl32.dll powrprof.dll propsys.dll psapi.dll rasapi32.dll
-rpcrt4.dll sechost.dll secur32.dll setupapi.dll shell32.dll shlwapi.dll srvcli.dll
+rpcrt4.dll sechost.dll secur32.dll setupapi.dll shcore.dll shell32.dll shlwapi.dll srvcli.dll
 ucrtbase.dll urlmon.dll user32.dll userenv.dll usp10.dll uxtheme.dll version.dll
 win32u.dll windowscodecs.dll winhttp.dll wininet.dll winmm.dll winscard.dll
 winspool.drv wintrust.dll wldap32.dll ws2_32.dll wtsapi32.dll

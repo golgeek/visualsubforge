@@ -73,11 +73,15 @@ jobs:
       - name: Build production GUI and CLI with the actual DLL import library
         env:
           VSF_MPV_SDK: ${{ runner.temp }}/mpv-sdk
+          VSF_WINDOWS_LINK_EVIDENCE: ${{ runner.temp }}/windows-link-inputs
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Path "$env:VSF_WINDOWS_LINK_EVIDENCE" | Out-Null
           python scripts/prepare-windows-sdk.py --mpv "$env:RUNNER_TEMP/mpv" --output "$env:VSF_MPV_SDK"
           npm run tauri -- build --no-bundle --features media-prototype,bundled-tools -- --locked
           cargo build --locked --release -p vsf-cli --features bundled-tools
+      - name: Record the shipped executables' MSVC and Windows SDK inputs
+        run: python scripts/windows-platform.py --inputs "$env:RUNNER_TEMP/windows-link-inputs" --binaries "$env:CARGO_TARGET_DIR/release" --output "$env:RUNNER_TEMP/platform-inventory"
       - name: Capture matching Rust/frontend sources and notices
         run: python scripts/application-sources.py --target x86_64-pc-windows-msvc --features visualsubforge/media-prototype,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$env:RUNNER_TEMP/application-sources"
       - name: Assemble and audit the private PE dependency graph
@@ -94,7 +98,7 @@ jobs:
       - name: Capture signed native packages, matching sources and notices
         env:
           VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
-        run: python scripts/windows-sources.py --package "$env:RUNNER_TEMP/package" --msys "$env:VSF_MSYS" --mpv "$env:RUNNER_TEMP/mpv" --ffmpeg "$env:RUNNER_TEMP/ffmpeg"
+        run: python scripts/windows-sources.py --package "$env:RUNNER_TEMP/package" --msys "$env:VSF_MSYS" --mpv "$env:RUNNER_TEMP/mpv" --ffmpeg "$env:RUNNER_TEMP/ffmpeg" --platform "$env:RUNNER_TEMP/platform-inventory"
       - name: Bundle the current-user installer with WebView2 setup
         run: npm run tauri -- bundle --bundles nsis --features media-prototype,bundled-tools --no-binary-patching --config "$env:RUNNER_TEMP/package/tauri.bundle.json"
       - name: Verify the installed package and DLL unload with no SDK on PATH
@@ -126,6 +130,8 @@ jobs:
           name: windows-package-evidence-x64
           path: |
             ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ runner.temp }}/platform-inventory/**
+            ${{ runner.temp }}/windows-link-inputs/*.rsp
             ${{ runner.temp }}/package/native-sources/native-inventory.json
             ${{ runner.temp }}/package/native-sources/msys2/msys-inventory.json
             ${{ runner.temp }}/package/native-sources/msys2/**/*.verification.txt

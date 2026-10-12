@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ['package', 'msys', 'mpv', 'ffmpeg']:
+    for name in ['package', 'msys', 'mpv', 'ffmpeg', 'platform']:
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
     package, msys, mpv, ffmpeg = (getattr(args, name).resolve(strict=True)
@@ -42,6 +42,15 @@ def main():
             raise ValueError(f'Unaccounted native file origin: {original}')
         bindings.append({'path': file['path'], 'sha256': file['sha256'], 'origin': origin})
     inventory = {'schema': 1, 'files': bindings, 'msys2': collect(msys, groups, output / 'msys2')}
+    platform = args.platform.resolve(strict=True)
+    platform_inventory = json.loads((platform / 'platform-inventory.json').read_text())
+    for executable in platform_inventory['executables']:
+        if digest(bundle / executable['file']) != executable['sha256']:
+            raise ValueError(f'Windows platform evidence identifies a different executable: {executable["file"]}')
+    shutil.copytree(platform, output / 'platform')
+    inventory['platform'] = {'inventory_sha256': digest(platform / 'platform-inventory.json'),
+                             'toolchain': platform_inventory['toolchain'],
+                             'review': platform_inventory['review']}
     custom = output / 'custom'
     custom.mkdir()
     shutil.copy2(mpv / 'source.tar.gz', custom / 'mpv-source.tar.gz')
@@ -71,6 +80,8 @@ def main():
     shutil.copy2(output / 'native-inventory.json', bundle)
     shutil.copytree(output / 'msys2/notices', bundle / 'third-party/native/msys2')
     shutil.copytree(custom_notices, bundle / 'third-party/native/custom')
+    if (platform / 'notices').is_dir():
+        shutil.copytree(platform / 'notices', bundle / 'third-party/native/platform')
     assembly['native_inventory_sha256'] = digest(bundle / 'native-inventory.json')
     for path in [package / 'assembly-receipt.json', bundle / 'native-runtime.json']:
         path.write_text(json.dumps(assembly, indent=2) + '\n')

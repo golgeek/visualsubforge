@@ -79,6 +79,13 @@ notices. The collector pins the SDK hash and rejects changed crate versions or
 loader bytes. This preserves binary provenance; the SDK does not include the
 loader implementation source. The separately installed Evergreen WebView2
 Runtime and MSVC/Windows SDK runtime attribution remain separate inventory work.
+The Windows package build now requests MSVC's
+[`/LINKREPROFULLPATHRSP`](https://learn.microsoft.com/en-us/cpp/build/reference/link-repro-full-path-rsp?view=msvc-170)
+diagnostic for both final executables. The collector hashes the selected compiler
+and SDK inputs, records versions and installed license texts, and binds the
+inventory to the packaged executable hashes. Compiler/SDK library payloads are
+not copied into the source archive. Hosted collection and review of the applicable
+platform-library terms remain pending.
 
 Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
 hashes, including nested gclient dependencies. The cache key excludes older SDKs
