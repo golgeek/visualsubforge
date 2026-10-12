@@ -59,8 +59,17 @@ hashes against npm's integrity-verified source archives and records final web
 asset hashes. Application source archives include tracked files only; local
 planning documents are excluded. Installed packages carry the inventory and
 notices; assembly receipts bind that inventory by SHA-256. Native inventories,
-language/platform runtime coverage and the final artifact audit remain separate
+platform runtime coverage and the final artifact audit remain separate
 work, so successful collection is not yet complete redistribution acceptance.
+
+The application collector also preserves rustup's target-specific `rust-std`
+binary component, its matching `rust-src` (including vendored libraries and
+native unwind sources), notices, package identities and distribution manifest.
+Every installed standard-library link input must match the manifest-checksummed
+component; `Cargo.lock` alone does not identify this code. The archive includes
+unused/build/test inputs conservatively and does not claim a per-symbol link map.
+Local ARM64 validation verified all 59 standard-library files and 77 source
+manifests; hosted captures for the four package architectures remain pending.
 
 Fresh macOS SDK builds also preserve ANGLE's resolved Git source checkouts and
 file hashes, including nested gclient dependencies. The workflow publishes them

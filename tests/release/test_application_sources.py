@@ -6,6 +6,7 @@ import sys
 import tempfile
 import tarfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -15,6 +16,34 @@ SPEC.loader.exec_module(SOURCES)
 
 
 class ApplicationSources(unittest.TestCase):
+    def test_standard_library_receipt_requires_matching_installed_link_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            installed = root / "lib/rustlib/example-target/lib/libstd.rlib"
+            installed.parent.mkdir(parents=True)
+            installed.write_bytes(b"standard library input")
+            def component(name, files):
+                path = root / (name + ".tar.xz")
+                with tarfile.open(path, "w:xz") as archive:
+                    for filename, contents in files.items():
+                        info = tarfile.TarInfo(filename)
+                        info.size = len(contents)
+                        archive.addfile(info, io.BytesIO(contents))
+                return f'available = true\nxz_url = "{path.as_uri()}"\nxz_hash = "{hashlib.sha256(path.read_bytes()).hexdigest()}"\n'
+            src = component("rust-src", {"rust-src/LICENSE-MIT": b"notice"})
+            std = component("rust-std", {"rust-std/LICENSE-MIT": b"notice",
+                "rust-std/rust-std-example-target/lib/rustlib/example-target/lib/libstd.rlib": installed.read_bytes()})
+            manifest = ('date = "2000-01-01"\n[pkg.rust-src]\nversion = "fixture"\n'
+                        '[pkg.rust-src.target."*"]\n' + src +
+                        '[pkg.rust-std]\nversion = "fixture"\n[pkg.rust-std.target.example-target]\n' + std)
+            (root / "lib/rustlib/multirust-channel-manifest.toml").write_text(manifest)
+            with patch.object(SOURCES, "capture", return_value=str(root)):
+                receipt = SOURCES.collect_rust_runtime(root / "first", "example-target")
+                self.assertEqual(len(receipt["installed_files_sha256"]), 1)
+                installed.write_bytes(b"modified standard library")
+                with self.assertRaisesRegex(ValueError, "Installed Rust link input differs"):
+                    SOURCES.collect_rust_runtime(root / "second", "example-target")
+
     def test_installed_crate_must_match_the_source_used_for_redistribution(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
