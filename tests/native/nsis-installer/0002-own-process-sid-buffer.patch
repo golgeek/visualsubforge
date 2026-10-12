@@ -1,0 +1,110 @@
+--- a/crates/nsis-process/src/lib.rs
++++ b/crates/nsis-process/src/lib.rs
+@@ -70,9 +70,9 @@
+
+     if let Some(user_sid) = get_sid(GetCurrentProcessId()) {
+         if processes
+             .into_iter()
+-            .any(|pid| belongs_to_user(user_sid, pid))
++            .any(|pid| belongs_to_user(&user_sid, pid))
+         {
+             push(ZERO)
+         } else {
+             push(ONE)
+@@ -136,9 +136,9 @@
+
+     let success = if let Some(user_sid) = get_sid(GetCurrentProcessId()) {
+         processes
+             .into_iter()
+-            .filter(|pid| belongs_to_user(user_sid, *pid))
++            .filter(|pid| belongs_to_user(&user_sid, *pid))
+             .all(kill)
+     } else {
+         processes.into_iter().all(kill)
+     };
+@@ -166,14 +166,14 @@
+         push(ONE)
+     }
+ }
+
+-unsafe fn belongs_to_user(user_sid: *mut c_void, pid: u32) -> bool {
++unsafe fn belongs_to_user(user_sid: &OwnedSid, pid: u32) -> bool {
+     let p_sid = get_sid(pid);
+     // Trying to get the sid of a process of another user will give us an "Access Denied" error.
+     // TODO: Consider checking for HRESULT(0x80070005) if we want to return true for other errors to try and kill those processes later.
+     p_sid
+-        .map(|p_sid| EqualSid(user_sid, p_sid) != FALSE)
++        .map(|p_sid| EqualSid(user_sid.as_ptr(), p_sid.as_ptr()) != FALSE)
+         .unwrap_or_default()
+ }
+
+ fn kill(pid: u32) -> bool {
+@@ -197,10 +197,22 @@
+         true
+     }
+ }
+
+-// Get the SID of a process. Returns None on error.
+-unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
++// TOKEN_USER contains a SID pointer into the same allocation. Keep that
++// allocation alive until the comparison finishes; a raw pointer alone dangles.
++struct OwnedSid(Vec<usize>);
++
++impl OwnedSid {
++    fn as_ptr(&self) -> *mut c_void {
++        // get_sid initializes this aligned buffer with GetTokenInformation.
++        // Moving the Vec does not move its allocation or invalidate the SID.
++        unsafe { (*(self.0.as_ptr() as *const TOKEN_USER)).User.Sid }
++    }
++}
++
++// Get an owned token-user buffer. Returns None on error.
++unsafe fn get_sid(pid: u32) -> Option<OwnedSid> {
+     let handle = OwnedHandle::new(OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid));
+     if handle.is_invalid() {
+         return None;
+     }
+@@ -222,9 +234,10 @@
+     if info_length == 0 {
+         return None;
+     }
+
+-    let mut buffer = vec![0u8; info_length as usize];
++    // TOKEN_USER has pointer alignment; Vec<usize> makes this explicit.
++    let mut buffer = vec![0usize; (info_length as usize).div_ceil(mem::size_of::<usize>())];
+     let info = buffer.as_mut_ptr() as *mut TOKEN_USER;
+     if GetTokenInformation(
+         *token_handle,
+         TokenUser,
+@@ -234,9 +247,9 @@
+     ) == FALSE
+     {
+         None
+     } else {
+-        Some((*info).User.Sid)
++        Some(OwnedSid(buffer))
+     }
+ }
+
+ fn get_processes(name: &str) -> Vec<u32> {
+@@ -500,8 +513,20 @@
+
+     use super::*;
+
+     #[test]
++    fn sid_ownership_survives_another_token_query() {
++        unsafe {
++            let pid = GetCurrentProcessId();
++            let first = get_sid(pid).expect("current token");
++            let second = get_sid(pid).expect("second token");
++            assert!(EqualSid(first.as_ptr(), second.as_ptr()) != FALSE);
++            assert!(belongs_to_user(&first, pid));
++            assert!(!belongs_to_user(&first, 0));
++        }
++    }
++
++    #[test]
+     fn find_process() {
+         let processes = get_processes("explorer.exe");
+         assert!(!processes.is_empty());
+     }

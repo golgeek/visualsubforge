@@ -31,12 +31,19 @@ eight-byte guarantee. Its control must fail against the original allocator,
 then pass alignment, zeroing, growth, shrinkage and preservation checks against
 the patched implementation. Original source, patch and control are all retained.
 VSF modifications/controls use the repository's GPL-3.0-or-later license; original
-upstream notices remain intact. Hosted validation of this patch is pending.
+upstream notices remain intact. Hosted validation of these patches is pending.
 The tests run serially because the plugin API stores a global NSIS stack and
 the process-launch tests temporarily change the same process token's privileges.
 The earlier parallel run's failure remains evidence, not a passed check.
 See [HeapAlloc alignment](https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc)
 and [Rust's allocator contract](https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html).
+
+The SID ownership patch keeps the `GetTokenInformation` allocation alive while
+process ownership is compared. Upstream returned a raw pointer into a local Vec
+that had already been dropped. The new owner holds an explicitly aligned buffer;
+its test compares two live queries, the current process and an invalid process.
+This is a separate source-confirmed lifetime defect, not a claimed explanation
+for the earlier test crash.
 
 The ordinary package workflow restores the x64 compiler environment for VSF. It
 attaches installer sources and notices before bundling, then sets
