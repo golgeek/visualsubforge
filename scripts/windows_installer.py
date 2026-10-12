@@ -95,7 +95,7 @@ def build(output):
     channel = tomllib.loads((ROOT / 'rust-toolchain.toml').read_text())['toolchain']['channel']
     env = dict(os.environ)
     env.pop('RUSTFLAGS', None)
-    flags = ['-C', 'target-feature=+crt-static', '-C', 'link-arg=/LINKREPROFULLPATHRSP:' + str(output / 'helper.rsp')]
+    flags = ['-C', 'target-feature=+crt-static']
     env['CARGO_ENCODED_RUSTFLAGS'] = '\x1f'.join(flags)
     receipt['rustflags'] = flags
     commands = []
@@ -110,8 +110,11 @@ def build(output):
             run('rustup', 'target', 'add', '--toolchain', channel, TARGET)
             run('cargo', '+' + channel, 'test', '--locked', '--workspace', '--features', 'test',
                 '--target', TARGET, '--target-dir', output / 'target')
-            run('cargo', '+' + channel, 'build', '--locked', '--release', '--target', TARGET,
-                '--target-dir', output / 'target', '-p', 'nsis-tauri-utils')
+            # Only the shipped DLL owns this receipt. Applying the option to
+            # workspace tests makes their concurrent linkers race for one file.
+            run('cargo', '+' + channel, 'rustc', '--locked', '--release', '--lib', '--target', TARGET,
+                '--target-dir', output / 'target', '-p', 'nsis-tauri-utils', '--', '-C',
+                'link-arg=/LINKREPROFULLPATHRSP:' + str(output / 'helper.rsp'))
         metadata = json.loads(subprocess.check_output(['cargo', '+' + channel, 'metadata', '--locked',
             '--format-version', '1', '--filter-platform', TARGET], cwd=source, env=env, encoding='utf-8'))
         for package in metadata['packages']:
