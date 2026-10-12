@@ -59,8 +59,12 @@ def prepare(output, cached=None):
     receipt['rust_dependencies'] = collect_locked((PINS / 'Cargo.lock').read_bytes(), output / 'rust')
     recipe = output / 'recipe'
     recipe.mkdir()
-    for name in ['sources.json', 'Cargo.lock', 'README.md']:
+    for name in ['sources.json', 'Cargo.lock', 'README.md', 'allocator-control.rs']:
         shutil.copy2(PINS / name, recipe)
+    receipt['patches'] = {}
+    for patch in sorted(PINS.glob('*.patch')):
+        shutil.copy2(patch, recipe)
+        receipt['patches'][patch.name] = digest(patch)
     for name in ['windows_installer.py', 'windows_bundle.py', 'windows_link_inputs.py',
                  'rust_runtime_sources.py', 'dependency_sources.py', 'locked_crate_sources.py',
                  'native_evidence.py', 'source_notices.py']:
@@ -92,6 +96,9 @@ def build(output):
         archive.extractall(work, filter='data')
     source = work / ('nsis-tauri-utils-' + receipt['pins']['plugin_commit'])
     shutil.copy2(PINS / 'Cargo.lock', source / 'Cargo.lock')
+    allocator = source / 'crates/nsis-plugin-api/src/lib.rs'
+    with allocator.open('a', encoding='utf-8') as file:
+        file.write('\n' + (PINS / 'allocator-control.rs').read_text(encoding='utf-8'))
     channel = tomllib.loads((ROOT / 'rust-toolchain.toml').read_text())['toolchain']['channel']
     env = dict(os.environ)
     env.pop('RUSTFLAGS', None)
@@ -107,17 +114,26 @@ def build(output):
                 args = list(map(str, args))
                 commands.append(args)
                 print('RUN', json.dumps(args), flush=True)
-                subprocess.run(args, cwd=source, env=env, stdout=log, stderr=subprocess.STDOUT, check=check)
+                return subprocess.run(args, cwd=source, env=env, stdout=log, stderr=subprocess.STDOUT, check=check)
             run('rustup', 'target', 'add', '--toolchain', channel, TARGET)
+            control = run('cargo', '+' + channel, 'test', '--locked', '-p', 'nsis-plugin-api',
+                '--target', TARGET, '--target-dir', output / 'target', 'vsf_allocator_control',
+                '--', '--nocapture', '--test-threads=1', check=False)
+            log.flush()
+            diagnostics = (output / 'commands.log').read_text(encoding='utf-8')
+            if control.returncode == 0 or 'alignment=' not in diagnostics or '1 failed' not in diagnostics:
+                raise ValueError('Unpatched allocator did not reproduce the expected alignment failure')
+            receipt['unpatched_allocator_control'] = {'exit': control.returncode,
+                'result': 'Requested alignment violated; expected failure before patch'}
+            for patch in sorted(PINS.glob('*.patch')):
+                run('git', 'apply', '--check', patch)
+                run('git', 'apply', patch)
             tests = ['cargo', '+' + channel, 'test', '--locked', '--workspace', '--features', 'test',
                      '--target', TARGET, '--target-dir', output / 'target', '--no-fail-fast']
-            try:
-                run(*tests, '--', '--nocapture')
-            except subprocess.CalledProcessError:
-                # Preserve the original failure. This control distinguishes
-                # test concurrency from a failure within an individual test.
-                run(*tests, '--', '--nocapture', '--test-threads=1', check=False)
-                raise
+            # NSIS calls these plugins serially. Their tests share a process
+            # token (temporary privileges) and the global NSIS stack adapter.
+            # Keep all assertions; separate test bodies must not race this state.
+            run(*tests, '--', '--nocapture', '--test-threads=1')
             # Only the shipped DLL owns this receipt. Applying the option to
             # workspace tests makes their concurrent linkers race for one file.
             run('cargo', '+' + channel, 'rustc', '--locked', '--release', '--lib', '--target', TARGET,

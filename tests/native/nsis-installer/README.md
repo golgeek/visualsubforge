@@ -26,6 +26,18 @@ the checkout. `installer-build.json` records source hashes, Rust/SDK versions,
 actual linker inputs and the helper's system imports. Its commands log separates
 test execution from compilation; zero-test harnesses are not feature coverage.
 
+The allocator patch handles Rust alignments greater than Win32 HeapAlloc's
+eight-byte guarantee. Its control must fail against the original allocator,
+then pass alignment, zeroing, growth, shrinkage and preservation checks against
+the patched implementation. Original source, patch and control are all retained.
+VSF modifications/controls use the repository's GPL-3.0-or-later license; original
+upstream notices remain intact. Hosted validation of this patch is pending.
+The tests run serially because the plugin API stores a global NSIS stack and
+the process-launch tests temporarily change the same process token's privileges.
+The earlier parallel run's failure remains evidence, not a passed check.
+See [HeapAlloc alignment](https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc)
+and [Rust's allocator contract](https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html).
+
 The ordinary package workflow restores the x64 compiler environment for VSF. It
 attaches installer sources and notices before bundling, then sets
 `VSF_NSIS_PLUGIN_DIR` to the private helper directory. The custom template is
