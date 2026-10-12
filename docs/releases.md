@@ -62,6 +62,13 @@ notices; assembly receipts bind that inventory by SHA-256. Native inventories,
 language/platform runtime coverage and the final artifact audit remain separate
 work, so successful collection is not yet complete redistribution acceptance.
 
+Fresh macOS SDK builds also preserve ANGLE's resolved Git source checkouts and
+file hashes, including nested gclient dependencies. The workflow publishes them
+with patched mpv source and both build receipts as `custom-native-sources.tar.gz`.
+This changes the cache key so old SDKs without source archives cannot be reused.
+It does not cover Homebrew sources; that inventory remains unfinished. Hosted
+execution of the new ANGLE source-capture step is still pending.
+
 ## Remaining release work
 
 ### Linux candidate workflow

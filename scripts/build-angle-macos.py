@@ -12,6 +12,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+from gclient_sources import archive_checkouts
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -76,10 +77,12 @@ def build(args):
             shutil.copy2(source / "out/Metal" / name, path)
             receipt["binaries"].append({"file": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                 "build_version": subprocess.check_output(["xcrun", "vtool", "-show-build", str(path)], text=True)})
-        # Retain the resolved dependency revisions without exporting the build
-        # environment. The full source remains available in the private job dir.
+        # Keep corresponding source inside the cached SDK. The ephemeral runner
+        # checkout alone cannot serve as source for a redistributed library.
         revisions = subprocess.check_output([str(depot / "gclient"), "revinfo"], cwd=source, env=env, text=True)
         (sdk / "dependency-revisions.txt").write_text(revisions)
+        source_manifest = archive_checkouts(source, revisions, sdk / "source.tar.gz")
+        receipt["source_archive_sha256"] = source_manifest["archive_sha256"]
         notices = sdk / "source-notices"
         for directory, children, names in os.walk(source):
             children[:] = [name for name in children if name not in {".git", "out", "__pycache__"}]

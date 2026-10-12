@@ -56,7 +56,7 @@ jobs:
           path: |
             ${{ runner.temp }}/angle/sdk
             ${{ runner.temp }}/angle/build-receipt.json
-          key: angle-${{ matrix.os }}-${{ matrix.arch }}-xcode16.2-macos14-${{ hashFiles('tests/native/angle/manifest.json', 'scripts/build-angle-macos.py') }}
+          key: angle-${{ matrix.os }}-${{ matrix.arch }}-xcode16.2-macos14-${{ hashFiles('tests/native/angle/manifest.json', 'scripts/build-angle-macos.py', 'scripts/gclient_sources.py', 'scripts/source_archive.py') }}
       - name: Build pinned ANGLE with Metal
         if: steps.angle-cache.outputs.cache-hit != 'true'
         run: python scripts/build-angle-macos.py --output "$RUNNER_TEMP/angle" --minimum-macos 14.0 --jobs 3
@@ -102,8 +102,15 @@ jobs:
           cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
           cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
           tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
+          mkdir -p "$RUNNER_TEMP/custom-native-sources"
+          cp "$RUNNER_TEMP/angle/sdk/source.tar.gz" "$RUNNER_TEMP/custom-native-sources/angle-source.tar.gz"
+          cp "$RUNNER_TEMP/angle/sdk/source.tar.gz.json" "$RUNNER_TEMP/custom-native-sources/angle-source.json"
+          cp "$RUNNER_TEMP/angle/build-receipt.json" "$RUNNER_TEMP/custom-native-sources/angle-build.json"
+          cp "$RUNNER_TEMP/mpv/source.tar.gz" "$RUNNER_TEMP/custom-native-sources/mpv-source.tar.gz"
+          cp "$RUNNER_TEMP/mpv/build-receipt.json" "$RUNNER_TEMP/custom-native-sources/mpv-build.json"
+          tar -czf "$RUNNER_TEMP/artifacts/custom-native-sources.tar.gz" -C "$RUNNER_TEMP/custom-native-sources" .
           cd "$RUNNER_TEMP/artifacts"
-          shasum -a 256 ./*.zip application-sources.tar.gz > SHA256SUMS
+          shasum -a 256 ./*.zip application-sources.tar.gz custom-native-sources.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-unsigned-${{ matrix.arch }}
