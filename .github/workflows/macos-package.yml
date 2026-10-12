@@ -83,6 +83,8 @@ jobs:
       - name: Capture matching Rust/frontend sources and notices
         run: python scripts/application-sources.py --target ${{ matrix.arch }}-apple-darwin --features visualsubforge/macos-angle,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
       - name: Assemble and audit the private dependency bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python scripts/package-macos.py \
             --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
@@ -90,6 +92,9 @@ jobs:
             --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
             --library-dir "$RUNNER_TEMP/mpv/build" --library-dir "$RUNNER_TEMP/angle/sdk/out/Metal" \
             --application-sources "$RUNNER_TEMP/application-sources" \
+            --native-sources "$RUNNER_TEMP/native-sources" --homebrew-cellar "$(brew --cellar)" \
+            --mpv-build "$RUNNER_TEMP/mpv" --angle-sdk "$RUNNER_TEMP/angle/sdk" \
+            --angle-receipt "$RUNNER_TEMP/angle/build-receipt.json" \
             --output "$RUNNER_TEMP/package/VisualSubForge.app"
       - name: Exercise relocated packaged tools and failed-install behavior
         run: |
@@ -102,15 +107,9 @@ jobs:
           cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
           cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
           tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
-          mkdir -p "$RUNNER_TEMP/custom-native-sources"
-          cp "$RUNNER_TEMP/angle/sdk/source.tar.gz" "$RUNNER_TEMP/custom-native-sources/angle-source.tar.gz"
-          cp "$RUNNER_TEMP/angle/sdk/source.tar.gz.json" "$RUNNER_TEMP/custom-native-sources/angle-source.json"
-          cp "$RUNNER_TEMP/angle/build-receipt.json" "$RUNNER_TEMP/custom-native-sources/angle-build.json"
-          cp "$RUNNER_TEMP/mpv/source.tar.gz" "$RUNNER_TEMP/custom-native-sources/mpv-source.tar.gz"
-          cp "$RUNNER_TEMP/mpv/build-receipt.json" "$RUNNER_TEMP/custom-native-sources/mpv-build.json"
-          tar -czf "$RUNNER_TEMP/artifacts/custom-native-sources.tar.gz" -C "$RUNNER_TEMP/custom-native-sources" .
+          tar -czf "$RUNNER_TEMP/artifacts/native-sources.tar.gz" -C "$RUNNER_TEMP/native-sources" .
           cd "$RUNNER_TEMP/artifacts"
-          shasum -a 256 ./*.zip application-sources.tar.gz custom-native-sources.tar.gz > SHA256SUMS
+          shasum -a 256 ./*.zip application-sources.tar.gz native-sources.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-unsigned-${{ matrix.arch }}

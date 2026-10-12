@@ -175,11 +175,17 @@ def assemble(args):
         application_inventory = digest(application / "application-inventory.json")
         shutil.copytree(application / "notices", resources / "third-party/application")
         shutil.copy2(application / "application-inventory.json", resources / "application-inventory.json")
+    native_inventory = None
+    if getattr(args, "native_sources", None):
+        from macos_sources import collect
+        native_inventory = collect(records, args.homebrew_cellar, args.mpv_build, args.angle_sdk,
+                                   args.angle_receipt, args.native_sources, resources)
     manifest = {"schema": 1, "version": version, "architecture": architecture[0],
                 "minimum_macos": info["LSMinimumSystemVersion"],
                 "signature": "ad-hoc; Developer ID signing and notarization pending",
                 "redistribution_inventory": "pending", "files": records,
-                "application_inventory_sha256": application_inventory}
+                "application_inventory_sha256": application_inventory,
+                "native_inventory_sha256": native_inventory}
     (resources / "native-runtime.json").write_text(json.dumps(manifest, indent=2) + "\n")
     # Sign nested code before the app. codesign treats even the main executable
     # path as a bundle operation and rejects unsigned helpers (common on Intel).
@@ -213,8 +219,13 @@ def main():
     parser.add_argument("--ffprobe", type=Path, required=True)
     parser.add_argument("--library-dir", type=Path, action="append", default=[])
     parser.add_argument("--application-sources", type=Path)
+    for name in ["native-sources", "homebrew-cellar", "mpv-build", "angle-sdk", "angle-receipt"]:
+        parser.add_argument("--" + name, type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    inventory_args = [args.native_sources, args.homebrew_cellar, args.mpv_build, args.angle_sdk, args.angle_receipt]
+    if any(inventory_args) and not all(inventory_args):
+        parser.error("Native sources require --native-sources, --homebrew-cellar, --mpv-build, --angle-sdk and --angle-receipt")
     try:
         assemble(args)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:

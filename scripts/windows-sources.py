@@ -6,7 +6,8 @@ from pathlib import Path
 import shutil
 import tarfile
 
-from msys_sources import collect, source_notices
+from msys_sources import collect
+from source_notices import source_notices
 from native_evidence import digest
 
 ROOT = Path(__file__).resolve().parent.parent

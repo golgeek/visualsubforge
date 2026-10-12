@@ -71,12 +71,21 @@ unused/build/test inputs conservatively and does not claim a per-symbol link map
 Local ARM64 validation verified all 59 standard-library files and 77 source
 manifests; hosted captures for the four package architectures remain pending.
 
-Fresh macOS SDK builds also preserve ANGLE's resolved Git source checkouts and
-file hashes, including nested gclient dependencies. The workflow publishes them
-with patched mpv source and both build receipts as `custom-native-sources.tar.gz`.
-This changes the cache key so old SDKs without source archives cannot be reused.
-It does not cover Homebrew sources; that inventory remains unfinished. Hosted
-execution of the new ANGLE source-capture step is still pending.
+Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
+hashes, including nested gclient dependencies. The cache key excludes older SDKs
+without source archives. The Mac assembler now checks custom library/source
+hashes against successful ANGLE/mpv build receipts and captures Homebrew sources
+from each actual input keg's installed formula, receipt and SBOM. It preserves
+resources and patches; missing local patches require a historical formula that
+matches exactly apart from Homebrew's omitted bottle metadata. Moving upstream
+recipes cannot substitute for installed ones.
+
+The workflow publishes these inputs together in `native-sources.tar.gz`.
+Native notices and an inventory enter the app before signing; the assembly
+receipt binds the inventory hash and the signing job verifies the whole bundle.
+Local collection covers 36 installed packages, including exact Git resources,
+embedded/local patches and SPDX `LICENSES/` texts. Hosted source capture on both
+architectures remains pending, as does the static/header-only contribution audit.
 
 ## Remaining release work
 
