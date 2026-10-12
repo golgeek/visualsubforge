@@ -13,7 +13,7 @@ exception in COPYING; the helper and Tauri retain MIT/Apache-2.0 notices. The
 collector includes all locked Rust source archives and the checksum-verified
 i686 standard-library component and its sources. SDK link inputs are hashed,
 not redistributed. The helper build/inventory passed in run 38221142186; the
-final installer receipt remains pending.
+final installer receipt and independent archive comparison pass in run 38227273736.
 
 On a Windows runner with Python 3.14.7, the pinned pefile requirement and an x86
 MSVC developer environment:
@@ -39,7 +39,8 @@ It compiled the release DLL with only kernel32/user32/advapi32/shell32 imports.
 The job subsequently failed collecting platform metadata. Replacement
 [38221142186](https://github.com/golgeek/visualsubforge/actions/runs/38221142186)
 passes the complete helper build/inventory, including 45 standard-library files
-and ten actual linker inputs. Actual installer verification remains pending.
+and ten actual linker inputs. Actual installer verification passes in run 38227273736, checking all 441 NSIS
+cache files and the five embedded plugins against their selected inputs.
 The tests run serially because the plugin API stores a global NSIS stack and
 the process-launch tests temporarily change the same process token's privileges.
 The earlier parallel run's failure remains evidence, not a passed check.
@@ -78,6 +79,6 @@ the assembly receipt bind the installed index. This changes only notice layout.
 Before compiling the helper or media libraries, the build now invokes the pinned
 NSIS compiler on a deliberately long source path, requires the known failure,
 then compiles and silently installs the compact layout and checks every byte.
-This real Windows control and the completed application installer still require
-hosted validation. The portable unit control covers distinct notices with the
+This real Windows control and the completed application installer both pass
+in run 38227273736; actual installation verifies all 962 assembled files. The portable unit control covers distinct notices with the
 same basename, shared identical notices, long paths and non-UTF-8/CRLF bytes.

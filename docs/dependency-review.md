@@ -12,7 +12,7 @@ remain separate gates in [releases.md](releases.md).
 | Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI passed. Cold null-sink diagnostics failed in 2/10 trials; [38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168) independently measured sink startup delay and passed 10/10 with sink readiness checked before VSF. Physical-device acceptance remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
-| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); platform attribution [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38221142186](https://github.com/golgeek/visualsubforge/actions/runs/38221142186) passes the complete native collection and source-built installer-helper inventory. NSIS then failed opening a long notice path; compact notice staging, final installer/runtime validation and independent archive audits remain pending. |
+| Windows x64 | [38227273736](https://github.com/golgeek/visualsubforge/actions/runs/38227273736), commit `3410bd4` | Five artifact hashes; 44 native files; all 962 packaged files; 6,434 native source-evidence files and 912 application-source files; 6,044 logical notice records map to 911 byte-identical texts | Installation, offline resync/input preservation and DLL unload pass. GUI initializes software D3D11 but fails without a WASAPI playback device. CI-only virtual-device validation remains pending; physical/consumer-OS acceptance remains open. |
 
 The Ubuntu `.deb` SHA-256 is
 `4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
@@ -39,6 +39,21 @@ local `codesign --verify --deep --strict`, `xcrun stapler validate` and
 signature/distribution checks on the development Mac, not playback or oldest-OS
 tests. The Intel native inventory SHA-256 is
 `ca5dc33e853293bacd5766a4787b54d2d4f14e571f0cbda1254755234ab4f036`.
+
+The Windows [candidate artifact](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119)
+contains the unsigned NSIS installer, portable ZIP, both source archives and
+checksums. Its installer SHA-256 is
+`657720d72e896c70d3b0308be3f4437f03a949eb31625f276a5778a7f1f3d4fb`;
+the portable ZIP is `5e653e7d301af5aed23c6f02a61057006c9fc455e6621fbf11976ae4e696db11`.
+Native/application source archive hashes are respectively
+`09790e19ab3a939426fdac50e9708cf9c19efed41bdff680a0697424f578e61a` and
+`55edc0f016bdf25119721b3e3e4be56202a72b8742df67581d9f034e68d693a9`.
+Independent audits bind every archived notice to its installed compact-index
+entry, all source manifest files to their hashes and all 40 reviewed recipes to
+the actual archive. Windows application capture includes 289 Cargo packages,
+282 checksum-verified registry archives, four frontend packages and 45 Rust
+standard-library files. The installed 962 files match assembly byte-for-byte;
+GUI device acceptance remains separate.
 
 ## Source and notice coverage
 
@@ -113,10 +128,10 @@ The Vulkan loader also uses generated/header inputs from Vulkan-Headers
 comparison verified that additional archive and three notices; hosted capture
 of this new edge passed in run 38221142186. Its complete collection covers 118
 package identities, 109 source packages and 5,110 native notice records, before
-the separately captured libdovi Rust notices. Thirty-eight independently reviewed
-source/recipe hashes match that hosted inventory. The final downloadable archive
-and installed-package comparison remain required: NSIS could not open one of
-the expanded Rust license paths.
+the separately captured libdovi Rust notices. Forty independently reviewed
+source/recipe hashes, including both historical SPIR-V versions, now match the
+downloaded 38227273736 archive. Compact notice staging resolves the NSIS path
+limit; the actual installer preserves every original notice byte and owner.
 
 The Rust 1.97.0-1 MSYS2 source archive
 (`1af86af91b610412b6d7c4bf958617dc85e15aa6d87c4a76411c581d5ebc41e1`)
@@ -127,7 +142,7 @@ attempting decompression; unknown malformed archives still fail and no source
 bytes are removed. Local capture and independent hash checks cover all 3,800
 notices and both fixture records. Run 38213750998 passed that source capture
 before encountering the later Vulkan-header epoch mismatch; the final Windows
-package audit remains open.
+source/notice package audit passes in 38227273736.
 
 ## Platform components and source availability
 
@@ -143,8 +158,8 @@ retains attribution/terms, without redistributing proprietary SDK library files.
 Pinned Microsoft developer distribution terms remain reference evidence;
 The hosted platform evidence from run 38206642301 independently verifies both
 publisher documents, their derived text, 15 attribution records and both
-linker-response hashes. C runtime end-user terms will accompany installed
-notices when bundling completes.
+linker-response hashes. C runtime end-user terms accompany the installed
+notices; their source and compact-index hashes match in 38227273736.
 
 The WebView2 loader is another explicit boundary: all nine prebuilt files in
 `webview2-com-sys` 0.39.1 were matched to Microsoft.Web.WebView2 SDK 1.0.3800.47.

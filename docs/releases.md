@@ -14,21 +14,23 @@ macOS 15. The current OpenGL-only package no longer includes Vulkan loader. Lowe
 replacing those dependencies and repeating validation; setting the application's
 deployment target alone is insufficient.
 An advertised minimum and an OS version actually tested are separate evidence.
-Linux has an audited Ubuntu 24.04 x64 package; Windows installer validation is
-still pending. Manual acceptance remains open on every target. None is accepted
+Linux has an audited Ubuntu 24.04 x64 package. Windows installation and offline
+CLI checks pass; its hosted GUI check needs an audio endpoint. Manual acceptance remains open on every target. None is accepted
 merely because an application or compiler lane passes.
 
 The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
-for final archive hashes, download links and audit scope. Windows run
-[38221142186](https://github.com/golgeek/visualsubforge/actions/runs/38221142186)
-passed production builds, application sources, the source-built NSIS helper and
-full native collection (118 package identities, 109 source packages). It then
-failed installer compilation on an expanded Rust license path longer than NSIS
-can open. Windows notice staging now uses short filenames with an index retaining
-every original path and checksum; source archives remain unchanged. An early
-real-NSIS compile/install control and the final installer require hosted validation.
+for final archive hashes, download links and audit scope. Windows
+[run 38227273736](https://github.com/golgeek/visualsubforge/actions/runs/38227273736)
+produces an installer and matching source archives. Installation verifies all
+962 assembled files, offline resync passes, and the original DLL unload hazard
+is absent across three reload cycles. Its GUI check fails because the runner
+has no WASAPI playback device. Independent package/source/notice download audits
+pass; the virtual-audio replacement run is still required.
+The earlier NSIS long-path failure is fixed by compact notice staging, retaining
+every original owner/path/checksum. Both the original-path negative control and
+actual compact installer pass on Windows.
 Linux run 38208853449
 passed its package lane; repeated diagnostics isolated a virtual-sink startup
 delay and passed with measured sink readiness, as detailed below. Native device
@@ -330,7 +332,7 @@ demuxers and filters remain enabled; the unused Whisper/GGML runtime is excluded
 to avoid its known unload hazard. The private DLL graph rejects GGML/Whisper,
 MSYS emulation DLLs, missing dependencies and ambiguous basenames, including
 delay imports. Run 38204616450 passed this assembly policy against the actual
-production binaries; installed runtime execution remains pending.
+production binaries; the installed package passes these controls in 38227273736.
 
 The installer places the analysis tools and native DLLs beside the application
 and installs WebView2 if needed (initial installation may require networking).
@@ -338,15 +340,27 @@ MSVC code uses its static C runtime; other compiler runtimes must appear in the
 private dependency graph. Package checks install into a new path, compare all
 native hashes, run relocation/resync/input-preservation controls with a scrubbed
 PATH and unload libmpv three times while checking the C++ terminate handler.
-The next installation check also compares every assembled resource, including
+The installation check also compares every assembled resource, including
 inventories and license notices, with its installed copy. The unload probe
 records loaded module paths/hashes and rejects modules
 outside the private package and Windows runtime. A subsequent check attempts the
 installed production GUI's native smoke sequence and ordered exit, preserving
-logs for the hosted runner's actual display/audio capabilities. Future runs retain
-the exact installer, portable archive and sources before these runtime checks;
-an artifact from a failed run remains an unaccepted diagnostic candidate. Both new runtime
-checks still require hosted execution.
+logs for the hosted runner's actual display/audio capabilities. Runs retain the
+exact installer, portable archive and sources before these runtime checks.
+Run 38227273736 verifies 44 native files, all 962 assembled resources and 84
+observed modules. The GUI initializes the software D3D11 adapter, but WASAPI
+reports no playback devices and deselects the requested audio track. The unchanged
+smoke assertion then times out. This is a recorded failure, not playback acceptance.
+
+The CI-only `tests/release/windows-audio.ps1` supplies a checksum-pinned Scream
+3.6 virtual WASAPI endpoint, following the [runner maintainers' setup](https://github.com/actions/runner-images/issues/2528).
+It verifies the driver signature, trusts its publisher only in the disposable
+hosted VM, retains normal kernel-signature enforcement, restricts synthetic audio
+to loopback, and checks the installed driver bytes and device health. Its receipt
+records source/version/license, hashes and device state. The MS-PL driver is a
+test-environment dependency and is not included in VSF packages. This setup still
+requires hosted validation. No application setting or smoke assertion changed;
+virtual sound cannot establish physical-device or acoustic acceptance.
 
 The updated Windows CLI check uses temporary, executable-specific outbound
 firewall blocks for the relocated `vsf`, `ffmpeg` and `ffprobe`. A Python TCP
@@ -358,7 +372,7 @@ runner agent or establish whole-machine network isolation. The real control pass
 in [Checks 38214651457](https://github.com/golgeek/visualsubforge/actions/runs/38214651457):
 the blocked connection returned Windows error 10013 (permission denied), the
 connection recovered after cleanup, and no cleanup errors were recorded. Actual
-installed-package resync under these blocks remains pending.
+installed-package resync under these blocks also passes in run 38227273736.
 See Microsoft's [program-rule interface](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule)
 and [firewall profile interface](https://learn.microsoft.com/en-us/powershell/module/netsecurity/set-netfirewallprofile).
 
@@ -451,12 +465,13 @@ are already settled.
 
 ## Application and native contract validation
 
-All ten [application checks](https://github.com/golgeek/visualsubforge/actions/runs/38222296959)
-and six [native build contracts](https://github.com/golgeek/visualsubforge/actions/runs/38222297065)
-pass at `9846f88` on 2026-10-12. That revision corrects uppercase `SYSTEMROOT`
+All ten [application checks](https://github.com/golgeek/visualsubforge/actions/runs/38227192860)
+and six [native build contracts](https://github.com/golgeek/visualsubforge/actions/runs/38227192776)
+pass at `3410bd4` on 2026-10-12. This includes the corrected uppercase `SYSTEMROOT`
 lookups after Windows environment variables are copied into ordinary Python
-dictionaries in the package-validation scripts. The separate Windows installer
-and runtime checks still need execution against a completed candidate.
+dictionaries in the package-validation scripts. The separate Windows installer, offline
+CLI and unload checks pass in 38227273736; its GUI audio-device failure and
+replacement validation are described above.
 
 Earlier evidence (2026-10-11):
 
