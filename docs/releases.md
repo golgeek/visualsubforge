@@ -146,33 +146,42 @@ as `preview-acceptance-fixtures`; all 17 file hashes were independently checked.
 
 ### Linux candidate workflow
 
-[Run 38201414600](https://github.com/golgeek/visualsubforge/actions/runs/38201414600)
+[Run 38203253891](https://github.com/golgeek/visualsubforge/actions/runs/38203253891)
 passes actual `.deb` installation, offline CLI relocation/resync/preservation
 checks and the installed GUI's native smoke/ordered shutdown. The GUI environment
 was an Ubuntu 24.04 container using Xvfb, Mesa llvmpipe software rendering and a
 PulseAudio null sink. Download verification matched all three artifact hashes,
 124 native package files and 120 observed private libraries to their receipts;
 the embedded application inventory also matches its source archive. Package SHA256:
-`e921c0f301ce5cfe829f0a032ce465e2c89cff9cb4c72172799a743efa936640`.
-This candidate includes the additional inline-header inventory. Native Rust
-code embedded in Ubuntu's rav1e remains under source review. It does not establish
+`56f3862eedd1dc5aaaeb0c4b03170e0321065f5524c5fdef12e1788da4d5416c`.
+This candidate includes the inline-header inventory and rav1e's native Rust
+build-input sources. It does not establish
 real GPU/audio, interactive desktop or oldest-supported-OS acceptance.
 
-The next package includes the native Rust build-input collector. It binds the
+The native build-input collector binds the
 pre-relocation rav1e library to Ubuntu's original `.deb`, verifies that binary
 and its buildinfo against the original build's checksums, and resolves exact
 `librust-*`, compiler and standard-library source versions from that buildinfo.
 It retains Ubuntu/Debian source descriptors, upstream archives, patches and
 notices, including a conservative superset of test/build dependencies. Local
 capture and a separate hash audit pass for 307 binary inputs, 276 source packages,
-1,692 evidence files and 2,141 notice records. Hosted integration remains pending.
+1,692 evidence files and 2,141 notice records. The downloaded hosted source archive
+and installed notices pass the same hash audit; the embedded inventory matches
+the assembly receipt and source archive.
 This is publisher HTTPS provenance with checksum verification, not a claim to
 have verified the Debian developers' source signatures or reproduced their build.
 Librsvg's vendored crate payload is already present in Debian's source archive;
 the collector also follows its exact compiler/std build. This differs from
-rav1e's compiler revision in the audited package. Separately linked static inputs
-to Ubuntu's shaderc and older libplacebo still require their build-specific
-glslang/SPIRV/header source capture before the native inventory is complete.
+rav1e's compiler revision in the audited package. The next package also follows
+reviewed C++ static/header inputs for FFmpeg, shaderc and the older distro
+libplacebo, recursively reading glslang and SPIRV Tools' own build records. Exact
+versions differ between those builds, so the capture retains both SPIRV versions.
+Local capture and an independent audit pass for five original builds, nine source
+packages, 79 evidence files and 28 notices. A separate FFmpeg capture binds its two
+executables to the original Ubuntu binary and confirms its exact glslang/SPIRV/
+Vulkan-header inputs. Legacy Debian `.diff.gz` payloads are retained with their
+packaging copyright text. The renamed `ubuntu-build-inputs.json` inventory is
+bound to the assembly receipt; hosted integration of these additions is pending.
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI

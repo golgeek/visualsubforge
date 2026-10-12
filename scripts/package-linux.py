@@ -13,7 +13,7 @@ import re
 import shutil
 import subprocess
 from native_evidence import digest, verified_headers
-from ubuntu_rust_sources import collect as collect_ubuntu_rust
+from ubuntu_native_sources import collect as collect_ubuntu_inputs
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -167,9 +167,9 @@ def assemble(args):
             header_inputs.append({**header, "distro": owner, "used_by": "libplacebo embedded header"})
         shutil.copy2(build_receipt, root / "libplacebo-build.json")
     collect_distro_sources(distro, root / "distro-sources", notices)
-    rust_sources = root / "distro-sources/native-rust"
-    collect_ubuntu_rust(records, rust_sources, notices / "native-rust")
-    shutil.copy2(rust_sources / "inventory.json", doc / "native-rust-inventory.json")
+    embedded_sources = root / "distro-sources/build-inputs"
+    collect_ubuntu_inputs(records, embedded_sources, notices / "build-inputs")
+    shutil.copy2(embedded_sources / "inventory.json", doc / "ubuntu-build-inputs.json")
     source_records = []
     for item in args.native_source:
         name, path = item.split("=", 1)
@@ -214,7 +214,7 @@ def assemble(args):
                "files": records, "header_inputs": header_inputs,
                "platform_dependencies": depends, "native_sources": source_records,
                "application_inventory_sha256": application_inventory,
-               "native_rust_inventory_sha256": digest(rust_sources / "inventory.json"),
+               "ubuntu_build_inputs_sha256": digest(embedded_sources / "inventory.json"),
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")

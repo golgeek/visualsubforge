@@ -1,15 +1,17 @@
-"""Capture Ubuntu's exact packaged Rust inputs to bundled native libraries.
+"""Capture exact Ubuntu build inputs embedded in bundled native libraries.
 
 Ubuntu builds rav1e using patched librust-* packages, not its upstream Cargo.lock.
 Librsvg includes its crate sources in Debian's source payload, but uses a separate
 compiler/std build whose source must also be retained.
 The original binary's bytes bind the installed library to its Launchpad build;
 that buildinfo selects exact source packages, including the compiler/std source.
-All installed Rust build inputs are retained (a conservative superset, including
-tests and build tools). This is HTTPS publisher provenance plus checksum checks,
+Rust builds retain all installed Rust inputs (a conservative superset, including
+tests/build tools). Shader libraries follow reviewed static/header dependencies
+recursively using each dependency's own build record. This is HTTPS publisher provenance plus checksum checks,
 not verification of Debian developer signatures or a per-symbol link map.
 """
 from concurrent.futures import ThreadPoolExecutor
+import gzip
 import hashlib
 import io
 import json
@@ -27,8 +29,17 @@ from source_notices import source_notices
 API = 'https://api.launchpad.net/1.0/ubuntu'
 ARCHIVE = API + '/+archive/primary'
 SERIES = API + '/noble'
-# Each newly bundled Rust native component needs a reviewed build-input policy.
-ROOTS = {'rust-rav1e', 'librsvg'}
+# Source package names, with exact versions supplied by original buildinfo files.
+RUST_ROOTS = {'rust-rav1e', 'librsvg'}
+EMBEDDED_INPUTS = {
+    'ffmpeg': {'glslang-dev', 'spirv-tools', 'libvulkan-dev'},
+    'shaderc': {'glslang-dev', 'spirv-tools', 'spirv-headers'},
+    'libplacebo': {'glslang-dev', 'spirv-tools', 'libvulkan-dev', 'libxxhash-dev',
+                  'python3-glad', 'python3-jinja2'},
+    'glslang': {'spirv-tools', 'spirv-headers'},
+    'spirv-tools': {'spirv-headers'},
+}
+ROOTS = RUST_ROOTS | EMBEDDED_INPUTS.keys()
 
 
 def deb822(text):
@@ -68,18 +79,33 @@ def checksums(fields):
     return records
 
 
-def rust_inputs(fields):
+def installed_inputs(fields):
     result = []
     for entry in fields['Installed-Build-Depends'].split(','):
         match = re.fullmatch(r'\s*([a-z0-9][a-z0-9+.-]*)(?::[a-z0-9-]+)? \(= ([^ )]+)\)\s*', entry)
         if not match:
             raise ValueError(f'Unreviewed build dependency: {entry}')
         name, version = match.groups()
-        if name.startswith('librust-') or name in {'rustc', 'libstd-rust-dev'}:
-            result.append((name, version))
+        result.append((name, version))
+    return sorted(set(result))
+
+
+def rust_inputs(fields):
+    result = [(name, version) for name, version in installed_inputs(fields)
+              if name.startswith('librust-') or name in {'rustc', 'libstd-rust-dev'}]
     if not result or not {'rustc', 'libstd-rust-dev'} <= {name for name, _ in result}:
         raise ValueError('Native Rust build lacks exact crate/compiler/std inputs')
     return sorted(set(result))
+
+
+def embedded_inputs(source, fields):
+    if source in RUST_ROOTS:
+        return rust_inputs(fields)
+    required = EMBEDDED_INPUTS[source]
+    result = [(name, version) for name, version in installed_inputs(fields) if name in required]
+    if missing := required - {name for name, _ in result}:
+        raise ValueError(f'Ubuntu build omits reviewed embedded inputs for {source}: {sorted(missing)}')
+    return result
 
 
 def fetch(url, path):
@@ -180,7 +206,23 @@ def capture_build(owner, files, output):
     binary_record = checked_file(urllib.parse.urljoin(build['buildinfo_url'], filename), binary, sums[filename])
     return {'owner': owner, 'bindings': bind_binary(binary, files), 'publication': publication_record,
             'build': build_record, 'changes': changes_record, 'buildinfo': buildinfo_record,
-            'binary': binary_record, 'inputs': rust_inputs(fields)}
+            'binary': binary_record, 'inputs': embedded_inputs(owner['source'], fields)}
+
+
+def payload_notices(archive, notices):
+    # Debian source format 1.0 stores packaging changes in a compressed diff,
+    # including debian/copyright. Keep that complete text alongside upstream
+    # notices rather than treating it as a tarball or discarding its notices.
+    if archive.name.endswith('.diff.gz'):
+        content = gzip.decompress(archive.read_bytes())
+        if not content.startswith(b'--- '):
+            raise ValueError(f'Invalid Debian source diff: {archive.name}')
+        notices.mkdir(parents=True, exist_ok=False)
+        path = notices / archive.stem
+        path.write_bytes(content)
+        return [{'path': path.name, 'sha256': digest(path),
+                 'kind': 'Complete Debian source patch, including packaging notices'}]
+    return source_notices(archive, notices)
 
 
 def capture_source(identity, output, notices):
@@ -213,7 +255,7 @@ def capture_source(identity, output, notices):
         archive = output / filename
         archives.append(checked_file(by_name[filename], archive, checksum))
         notice_records.extend({**item, 'path': (Path(filename) / item['path']).as_posix()}
-                              for item in source_notices(archive, notices / filename))
+                              for item in payload_notices(archive, notices / filename))
     if not notice_records:
         raise ValueError(f'No Ubuntu source license notices: {identity}')
     return {'name': name, 'version': version, 'publication': publication, 'urls': url_record,
@@ -226,17 +268,28 @@ def collect(files, output, notices):
     for record in files:
         owner = record.get('distro', {})
         if owner.get('source') in ROOTS:
-            key = (owner['package'], owner['version'])
+            key = (owner['package'].split(':')[0], owner['version'])
             groups.setdefault(key, []).append(record)
     inventory = {'schema': 1, 'scope': __doc__.strip(), 'builds': [], 'inputs': [], 'sources': []}
-    inputs = set()
-    for (name, version), records in sorted(groups.items()):
+    required_by, builds = {}, set()
+
+    def capture_input_build(owner, records, reason):
+        name, version = owner['package'].split(':')[0], owner['version']
+        key = (name, version)
+        if key in builds:
+            return
         directory = output / (name.replace(':', '_') + '_' + version.replace(':', '~'))
         directory.mkdir()
-        build = capture_build(records[0]['distro'], records, directory)
-        inputs.update(map(tuple, build['inputs']))
+        build = capture_build(owner, records, directory)
+        for dependency in build['inputs']:
+            required_by.setdefault(tuple(dependency), []).append(directory.name)
         build['directory'] = directory.name
+        build['reason'] = reason
         inventory['builds'].append(build)
+        builds.add(key)
+
+    for _, records in sorted(groups.items()):
+        capture_input_build(records[0]['distro'], records, 'Bundled shared library')
     metadata = output / 'input-publications'
     metadata.mkdir()
 
@@ -246,11 +299,23 @@ def collect(files, output, notices):
         _, source, publication = binary_publications(name, version, path)
         return {'name': name, 'version': version, 'source': source, 'publication': publication}
 
-    with ThreadPoolExecutor(max_workers=4) as workers:
-        for record in workers.map(resolve, sorted(inputs)):
-            inventory['inputs'].append(record)
-            if len(inventory['inputs']) % 50 == 0:
-                print(f'Ubuntu native Rust input identities: {len(inventory["inputs"])}/{len(inputs)}', flush=True)
+    resolved = set()
+    # Most inputs are leaf sources. Follow only reviewed libraries that embed
+    # other inputs themselves; do not recursively mirror compiler build tools.
+    while pending := sorted(set(required_by) - resolved):
+        with ThreadPoolExecutor(max_workers=4) as workers:
+            for record in workers.map(resolve, pending):
+                inventory['inputs'].append(record)
+                resolved.add((record['name'], record['version']))
+                if len(resolved) % 50 == 0:
+                    print(f'Ubuntu embedded input identities: {len(resolved)}', flush=True)
+        for record in inventory['inputs']:
+            if record['source'][0] in EMBEDDED_INPUTS:
+                owner = {'package': record['name'], 'version': record['version'],
+                         'source': record['source'][0], 'source_version': record['source'][1]}
+                capture_input_build(owner, [], 'Static/header input selected by a parent buildinfo')
+    for record in inventory['inputs']:
+        record['required_by'] = sorted(set(required_by[(record['name'], record['version'])]))
     identities = sorted({tuple(record['source']) for record in inventory['inputs']})
     sources = output / 'sources'
     sources.mkdir()
@@ -262,7 +327,7 @@ def collect(files, output, notices):
     with ThreadPoolExecutor(max_workers=4) as workers:
         for record in workers.map(capture, identities):
             inventory['sources'].append(record)
-            print(f'Ubuntu native Rust sources: {len(inventory["sources"])}/{len(identities)}', flush=True)
+            print(f'Ubuntu embedded sources: {len(inventory["sources"])}/{len(identities)}', flush=True)
     inventory['status'] = 'captured'
     inventory['evidence_files_sha256'] = {path.relative_to(output).as_posix(): digest(path)
                                          for path in sorted(output.rglob('*')) if path.is_file()}
