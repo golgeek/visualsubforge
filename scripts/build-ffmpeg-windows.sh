@@ -8,6 +8,9 @@ archive="$output/ffmpeg-8.1.2.tar.xz"
 curl --fail --location --retry 3 https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz -o "$archive"
 printf '%s  %s\n' 464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c "$archive" | sha256sum -c -
 tar -xf "$archive" --strip-components=1 -C "$output/source"
+# Windows resolves VERSION as <version> on its case-insensitive filesystem.
+# Match MSYS2's source recipe so C++20 WinRT capture uses libc++'s real header.
+mv "$output/source/VERSION" "$output/source/VERSION.txt"
 cd "$output/build"
 # Built-in codecs/demuxers/filters remain enabled. Explicit external libraries
 # cover AV1, VP8/9, Opus, H.264 encoding and compressed inputs. Whisper/GGML is
