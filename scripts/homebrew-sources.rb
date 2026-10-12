@@ -25,7 +25,8 @@ records = ARGV.map do |path|
     record[:directory] = patch.directory.to_s if patch.respond_to?(:directory)
     record
   end
-  { name: formula.name, version: formula.pkg_version.to_s, license: formula.license,
+  { name: formula.name, version: formula.pkg_version.to_s, stable_version: formula.stable.version.to_s,
+    license: formula.license,
     stable: resource_record(formula.stable), resources: formula.resources.map { |r| resource_record(r) },
     patches: patches }
 end

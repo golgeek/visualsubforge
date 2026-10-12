@@ -88,6 +88,11 @@ from each actual input keg's installed formula, receipt and SBOM. It preserves
 resources and patches; missing local patches require a historical formula that
 matches exactly apart from Homebrew's omitted bottle metadata. Moving upstream
 recipes cannot substitute for installed ones.
+Older bottles without an SBOM require an installed stable core-bottle receipt
+and an exact historical recipe match. Their inventory explicitly records that
+different provenance; it does not invent an SBOM or a bottle-signature check.
+The missing SBOM in the runner's uchardet 0.0.8 bottle exposed this case; a local
+copy without an SBOM passed collection and source-checksum verification.
 
 The workflow publishes these inputs together in `native-sources.tar.gz`.
 Native notices and an inventory enter the app before signing; the assembly
@@ -119,15 +124,15 @@ as `preview-acceptance-fixtures`; all 17 file hashes were independently checked.
 
 ### Linux candidate workflow
 
-[Run 38198449535](https://github.com/golgeek/visualsubforge/actions/runs/38198449535)
+[Run 38201414600](https://github.com/golgeek/visualsubforge/actions/runs/38201414600)
 passes actual `.deb` installation, offline CLI relocation/resync/preservation
 checks and the installed GUI's native smoke/ordered shutdown. The GUI environment
 was an Ubuntu 24.04 container using Xvfb, Mesa llvmpipe software rendering and a
 PulseAudio null sink. Download verification matched all three artifact hashes,
 124 native package files and 120 observed private libraries to their receipts;
 the embedded application inventory also matches its source archive. Package SHA256:
-`111edf2c45d7598e37bd9b61c7c826bcd72050673b8a3dc7930c1c57aea93ba0`.
-This candidate predates the additional inline-header inventory, and native Rust
+`e921c0f301ce5cfe829f0a032ce465e2c89cff9cb4c72172799a743efa936640`.
+This candidate includes the additional inline-header inventory. Native Rust
 code embedded in Ubuntu's rav1e remains under source review. It does not establish
 real GPU/audio, interactive desktop or oldest-supported-OS acceptance.
 

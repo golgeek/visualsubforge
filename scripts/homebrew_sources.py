@@ -105,6 +105,19 @@ def verify_source_identity(formula, sbom):
         raise ValueError(f'Installed SBOM and formula source differ: {formula["name"]}')
 
 
+def verify_legacy_receipt(formula, receipt):
+    """Older core bottles predate SBOMs; require their stable installation receipt.
+
+    This check supplements an exact historical recipe match, not an invented SBOM
+    or a claim that the original bottle's publisher signature was verified.
+    """
+    source = receipt.get('source', {})
+    if (source.get('tap') != 'homebrew/core' or source.get('spec') != 'stable'
+            or source.get('versions', {}).get('stable') != formula['stable_version']
+            or receipt.get('poured_from_bottle') is not True):
+        raise ValueError(f'Unverified legacy Homebrew receipt: {formula["name"]}')
+
+
 def collect(records, cellar, output):
     cellar = cellar.resolve(strict=True)
     output.mkdir(parents=True, exist_ok=False)
@@ -138,17 +151,24 @@ def collect(records, cellar, output):
             keg = group['keg']
             original = keg / '.brew' / (name + '.rb')
             shutil.copy2(original, directory / 'installed-formula.rb')
-            for filename in ['INSTALL_RECEIPT.json', 'sbom.spdx.json']:
-                shutil.copy2(keg / filename, directory / filename)
-            verify_source_identity(formula, json.loads((keg / 'sbom.spdx.json').read_text()))
+            shutil.copy2(keg / 'INSTALL_RECEIPT.json', directory / 'INSTALL_RECEIPT.json')
+            revision = None
+            if (keg / 'sbom.spdx.json').exists():
+                shutil.copy2(keg / 'sbom.spdx.json', directory / 'sbom.spdx.json')
+                verify_source_identity(formula, json.loads((keg / 'sbom.spdx.json').read_text()))
+                provenance = 'Installed SBOM source URL/checksum agrees with installed recipe'
+            else:
+                verify_legacy_receipt(formula, json.loads((keg / 'INSTALL_RECEIPT.json').read_text()))
+                revision = matching_recipe(original, directory)
+                provenance = ('Legacy bottle without SBOM: installed stable receipt and exact historical '
+                              'recipe match; source checksum/revision comes from that recipe')
             record = {'name': name, 'version': version, 'license': formula['license'], 'files': group['files'],
                       'formula_sha256': digest(original), 'source': capture_resource(formula['stable'], directory / 'source'),
-                      'resources': [], 'patches': []}
+                      'provenance': provenance, 'resources': [], 'patches': []}
             # Retain ancillary sources even when used only during the build.
             for index, resource in enumerate(formula['resources']):
                 record['resources'].append({'name': resource['name'],
                     **capture_resource(resource, directory / f'resource-{index}')})
-            revision = None
             for index, patch in enumerate(formula['patches']):
                 patch_path = directory / f'patch-{index}.diff'
                 captured = {key: value for key, value in patch.items() if key != 'contents'}

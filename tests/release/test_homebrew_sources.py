@@ -8,13 +8,26 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from homebrew_sources import verify_source_identity, without_bottle_metadata
+from homebrew_sources import verify_legacy_receipt, verify_source_identity, without_bottle_metadata
 from macos_sources import check_custom_file
 from native_evidence import digest, verified_headers
 from source_notices import source_notices
 
 
 class HomebrewSources(unittest.TestCase):
+    def test_legacy_receipt_cannot_identify_a_different_source_or_local_build(self):
+        formula = {'name': 'example', 'stable_version': '1.2.3'}
+        receipt = {'poured_from_bottle': True, 'source': {
+            'spec': 'stable', 'tap': 'homebrew/core', 'versions': {'stable': '1.2.3'}}}
+        verify_legacy_receipt(formula, receipt)
+        receipt['source']['versions']['stable'] = '1.2.4'
+        with self.assertRaisesRegex(ValueError, 'Unverified legacy'):
+            verify_legacy_receipt(formula, receipt)
+        receipt['source']['versions']['stable'] = '1.2.3'
+        receipt['poured_from_bottle'] = False
+        with self.assertRaisesRegex(ValueError, 'Unverified legacy'):
+            verify_legacy_receipt(formula, receipt)
+
     def test_changed_embedded_header_cannot_supply_source_provenance(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
