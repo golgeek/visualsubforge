@@ -143,3 +143,18 @@ def upstream_notices(package, crate, output, captured):
         captured[name].setdefault('verified_legacy_payloads', {})[package['name']] = {
             'crate_sha256': legacy['sha256'], 'directory': legacy['directory'], 'matched_files': matched}
     return name
+
+
+def verify_unpacked_crate(archive, unpacked):
+    with tarfile.open(archive) as published:
+        for member in published:
+            if not member.isfile():
+                continue
+            parts = Path(member.name).parts
+            if len(parts) < 2 or ".." in parts or Path(member.name).is_absolute():
+                raise ValueError(f"Unsafe crate path: {member.name}")
+            actual = unpacked.joinpath(*parts[1:])
+            with published.extractfile(member) as stream:
+                expected = hashlib.file_digest(stream, "sha256").hexdigest()
+            if digest(actual) != expected:
+                raise ValueError(f"Compiler input differs from published crate: {member.name}")

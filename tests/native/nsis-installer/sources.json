@@ -1,0 +1,23 @@
+{
+  "tauri_cli": "2.12.0",
+  "plugin_commit": "13d9edd27b69310e108d6fbd49f90992f8a05390",
+  "tauri_commit": "447fa9f3f993fe77724189e355078b38ce20baea",
+  "archives": {
+    "nsis-3.11.zip": {
+      "url": "https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.11/nsis-3.11.zip",
+      "sha256": "c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1"
+    },
+    "nsis-3.11-src.tar.bz2": {
+      "url": "https://prdownloads.sourceforge.net/nsis/nsis-3.11-src.tar.bz2",
+      "sha256": "19e72062676ebdc67c11dc032ba80b979cdbffd3886c60b04bb442cdd401ff4b"
+    },
+    "nsis-tauri-utils-source.tar.gz": {
+      "url": "https://codeload.github.com/tauri-apps/nsis-tauri-utils/tar.gz/13d9edd27b69310e108d6fbd49f90992f8a05390",
+      "sha256": "9b277f7cdec4277b48d319c32e10b5dc4303e9efce8c3b44f1db77f86a8131c7"
+    },
+    "tauri-cli-source.tar.gz": {
+      "url": "https://codeload.github.com/tauri-apps/tauri/tar.gz/447fa9f3f993fe77724189e355078b38ce20baea",
+      "sha256": "d9acd81de549b49eae1cce3cbec87b4852742c4fdd9d08293fd33298538e913f"
+    }
+  }
+}

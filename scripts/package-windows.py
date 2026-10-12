@@ -14,6 +14,7 @@ import subprocess
 import sys
 
 from native_evidence import digest
+from windows_bundle import write_config
 
 ROOT = Path(__file__).resolve().parent.parent
 OS_DLLS = set("""
@@ -118,13 +119,7 @@ def main():
     (bundle / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
     # Tauri's NSIS backend installs private resources beside the main binary and
     # installs WebView2 when absent. The GUI is supplied by its normal build path.
-    resources = {str(path): path.relative_to(bundle).as_posix() for path in bundle.rglob("*")
-                 if path.is_file() and path.name != "visualsubforge.exe"}
-    config = {"bundle": {"active": True, "targets": ["nsis"], "resources": resources,
-                         "license": "GPL-3.0-or-later", "shortDescription": "Subtitle editor and resync CLI",
-                         "windows": {"webviewInstallMode": {"type": "downloadBootstrapper", "silent": True},
-                                     "nsis": {"installMode": "currentUser"}}}}
-    (root / "tauri.bundle.json").write_text(json.dumps(config, indent=2) + "\n")
+    write_config(root)
     (root / "assembly-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(f"Assembled {len(records)} native files: {bundle}")
 

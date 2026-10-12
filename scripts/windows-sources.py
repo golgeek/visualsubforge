@@ -9,6 +9,7 @@ import tarfile
 from msys_sources import collect
 from source_notices import source_notices
 from native_evidence import digest
+from windows_bundle import write_config
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -87,11 +88,7 @@ def main():
         path.write_text(json.dumps(assembly, indent=2) + '\n')
     # Complete the resource map before Tauri creates the installer. This does
     # not change already-audited native executables or DLLs.
-    config_path = package / 'tauri.bundle.json'
-    config = json.loads(config_path.read_text())
-    config['bundle']['resources'] = {str(path): path.relative_to(bundle).as_posix()
-        for path in bundle.rglob('*') if path.is_file() and path.name != 'visualsubforge.exe'}
-    config_path.write_text(json.dumps(config, indent=2) + '\n')
+    write_config(package)
 
 
 if __name__ == '__main__':

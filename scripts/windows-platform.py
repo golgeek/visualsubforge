@@ -8,7 +8,7 @@ SDK/library payloads are hashed, never copied into a source distribution.
 import argparse
 import json
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import shutil
 import subprocess
 import urllib.request
@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from native_evidence import digest
+from windows_link_inputs import input_paths
 
 
 MICROSOFT_TERMS = [
@@ -55,27 +56,6 @@ def capture_terms(output):
                         'sha256': checksum, 'scope': scope,
                         'text_file': readable.relative_to(output).as_posix(), 'text_sha256': digest(readable)})
     return records
-
-
-def input_paths(text):
-    paths = []
-    for line in text.splitlines():
-        line = line.strip().strip('"')
-        if not line:
-            continue
-        # /LINKREPROFULLPATHRSP retains these options before their full paths.
-        # Reject unknown options instead of silently losing a linker input.
-        for option in ['/defaultlib:', '/natvis:']:
-            if line.lower().startswith(option):
-                line = line[len(option):].strip('"')
-                break
-        path = PureWindowsPath(line)
-        if not path.is_absolute():
-            raise ValueError(f'Invalid MSVC linker input: {line}')
-        paths.append(path)
-    if not paths:
-        raise ValueError('Empty MSVC linker input record')
-    return sorted(set(paths))
 
 
 def main():

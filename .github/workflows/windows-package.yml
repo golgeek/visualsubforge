@@ -32,6 +32,14 @@ jobs:
           python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
           python -m pip install --only-binary=:all: --require-hashes -r tests/release/windows-requirements.txt
           python -m unittest discover -s tests/release -p 'test_*.py'
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x86
+      - name: Build and inventory the pinned NSIS helper before native compilation
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python scripts/windows-installer.py build --build "$env:RUNNER_TEMP/installer"
+          "VSF_NSIS_PLUGIN_DIR=$env:RUNNER_TEMP/installer/plugin" >> $env:GITHUB_ENV
       - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         id: msys
         with:
@@ -108,15 +116,20 @@ jobs:
           VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
         run: python scripts/windows-sources.py --package "$env:RUNNER_TEMP/package" --msys "$env:VSF_MSYS" --mpv "$env:RUNNER_TEMP/mpv" --ffmpeg "$env:RUNNER_TEMP/ffmpeg" --platform "$env:RUNNER_TEMP/platform-inventory"
       - name: Bundle the current-user installer with WebView2 setup
-        run: npm run tauri -- bundle --bundles nsis --features media-prototype,bundled-tools --no-binary-patching --config "$env:RUNNER_TEMP/package/tauri.bundle.json"
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python scripts/windows-installer.py attach --build "$env:RUNNER_TEMP/installer" --package "$env:RUNNER_TEMP/package"
+          npm run tauri -- bundle --bundles nsis --features media-prototype,bundled-tools --no-binary-patching --config "$env:RUNNER_TEMP/package/tauri.bundle.json"
+          python scripts/windows-installer.py verify --build "$env:RUNNER_TEMP/installer" --installers "$env:CARGO_TARGET_DIR/release/bundle/nsis"
       # Keep the exact installer and sources available if a runtime check fails.
       - name: Archive candidate and record checksums
         run: |
           Copy-Item "$env:CARGO_TARGET_DIR/release/bundle/nsis/*.exe" "$env:RUNNER_TEMP/package/"
+          Copy-Item "$env:CARGO_TARGET_DIR/release/bundle/nsis/installer-receipt.json" "$env:RUNNER_TEMP/package/"
           Compress-Archive -Path "$env:RUNNER_TEMP/package/VisualSubForge" -DestinationPath "$env:RUNNER_TEMP/package/VisualSubForge_0.0.1-alpha_x64_windows.zip"
           tar -czf "$env:RUNNER_TEMP/package/application-sources.tar.gz" -C "$env:RUNNER_TEMP/application-sources" .
           tar -czf "$env:RUNNER_TEMP/package/native-sources.tar.gz" -C "$env:RUNNER_TEMP/package/native-sources" .
-          Get-ChildItem "$env:RUNNER_TEMP/package" -File | Where-Object { $_.Extension -in '.zip','.exe','.gz' } | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content "$env:RUNNER_TEMP/package/SHA256SUMS"
+          Get-ChildItem "$env:RUNNER_TEMP/package" -File | Where-Object { $_.Extension -in '.zip','.exe','.gz' -or $_.Name -eq 'installer-receipt.json' } | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content "$env:RUNNER_TEMP/package/SHA256SUMS"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-preview-x64
@@ -126,6 +139,7 @@ jobs:
             ${{ runner.temp }}/package/application-sources.tar.gz
             ${{ runner.temp }}/package/native-sources.tar.gz
             ${{ runner.temp }}/package/SHA256SUMS
+            ${{ runner.temp }}/package/installer-receipt.json
           if-no-files-found: error
           retention-days: 14
       - name: Verify the installed package and DLL unload with no SDK on PATH
@@ -139,6 +153,10 @@ jobs:
           name: windows-package-evidence-x64
           path: |
             ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ runner.temp }}/installer/installer-build.json
+            ${{ runner.temp }}/installer/commands.log
+            ${{ runner.temp }}/installer/helper.rsp
+            ${{ runner.temp }}/package/installer-receipt.json
             ${{ runner.temp }}/msys-signature-check/*.verification.txt
             ${{ runner.temp }}/platform-inventory/**
             ${{ runner.temp }}/windows-link-inputs/*.rsp
