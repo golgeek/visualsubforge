@@ -188,6 +188,15 @@ compare its default null sink with the explicit `norewinds=true` control.
 uses different maximum buffer lengths for these configurations. The default
 package check and two-wrap/two-second assertion remain unchanged. A pass with a
 different virtual sink cannot by itself establish a fix or real-device support.
+The logged [default comparison 38211883635](https://github.com/golgeek/visualsubforge/actions/runs/38211883635)
+and [no-rewinds comparison 38211885685](https://github.com/golgeek/visualsubforge/actions/runs/38211885685)
+both pass ten trials. First progress beyond 1.04 seconds occurs 0.560–0.937
+seconds after unpause with the default sink and 0.064–0.097 seconds with the
+control. Every trial's executable, fixture and 120 private-library hashes match
+the candidate. These passes do not erase the earlier reproduced failure.
+The `ready-default` diagnostic retains rewind behavior and uses a separate silent
+client to establish a bounded virtual-device clock before launching VSF. Its
+readiness observations and cleanup are retained; this comparison is still pending.
 
 Earlier candidate evidence:
 

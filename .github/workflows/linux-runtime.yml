@@ -7,9 +7,9 @@ on:
         type: string
         required: true
       null_sink:
-        description: PulseAudio sink control; no-rewinds changes the virtual device, not application assertions
+        description: PulseAudio sink control; changes device setup, not application assertions
         type: choice
-        options: [default, no-rewinds]
+        options: [default, no-rewinds, ready-default]
         default: default
 permissions:
   contents: read
