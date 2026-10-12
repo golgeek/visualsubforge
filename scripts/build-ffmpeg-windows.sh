@@ -30,7 +30,7 @@ printf '%s\n' "${options[@]}" > "$output/configure-options.txt"
 "$output/source/configure" "${options[@]}" > "$output/configure.log" 2>&1
 make -j 3 > "$output/build.log" 2>&1
 make install > "$output/install.log" 2>&1
-cp config.h config_components.h config.log "$output/"
+cp config.h config_components.h ffbuild/config.log "$output/"
 pacman -Q > "$output/build-packages.txt"
 "$output/sdk/bin/ffmpeg.exe" -version > "$output/ffmpeg-version.txt" 2>&1
 "$output/sdk/bin/ffmpeg.exe" -decoders > "$output/decoders.txt" 2>&1
