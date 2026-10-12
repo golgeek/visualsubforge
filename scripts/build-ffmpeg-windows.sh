@@ -2,6 +2,7 @@
 # Run in MSYS2 CLANG64. Build outside the checkout; never modify its toolchain.
 set -euo pipefail
 output=$(cygpath -u "$1")
+recipe_root=$(cd "$(dirname "$0")/.." && pwd)
 test ! -e "$output"
 mkdir -p "$output/source" "$output/build" "$output/sdk"
 archive="$output/ffmpeg-8.1.2.tar.xz"
@@ -11,6 +12,7 @@ tar -xf "$archive" --strip-components=1 -C "$output/source"
 # Windows resolves VERSION as <version> on its case-insensitive filesystem.
 # Match MSYS2's source recipe so C++20 WinRT capture uses libc++'s real header.
 mv "$output/source/VERSION" "$output/source/VERSION.txt"
+patch --batch --fuzz=0 -p1 -d "$output/source" < "$recipe_root/tests/native/ffmpeg-windows/0001-gfxcapture-include-system-error.patch"
 cd "$output/build"
 # Built-in codecs/demuxers/filters remain enabled. Explicit external libraries
 # cover AV1, VP8/9, Opus, H.264 encoding and compressed inputs. Whisper/GGML is

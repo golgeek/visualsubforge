@@ -1,0 +1,18 @@
+From: VisualSubForge contributors
+Subject: [PATCH] avfilter/gfxcapture: include the header declaring std::system_error
+
+The exception handler uses std::system_error. libc++ does not guarantee that
+the other C++ headers include <system_error> transitively. FFmpeg 8.1.2 fails
+to compile this file with the selected MSYS2 CLANG64 toolchain without it.
+
+SPDX-License-Identifier: LGPL-2.1-or-later
+--- a/libavfilter/vsrc_gfxcapture_winrt.cpp
++++ b/libavfilter/vsrc_gfxcapture_winrt.cpp
+@@ -54,6 +54,7 @@
+ #include <mutex>
+ #include <regex>
+ #include <string>
++#include <system_error>
+ #include <thread>
+ #include <type_traits>
+ 
