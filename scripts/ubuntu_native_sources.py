@@ -33,6 +33,8 @@ SERIES = API + '/noble'
 RUST_ROOTS = {'rust-rav1e', 'librsvg'}
 EMBEDDED_INPUTS = {
     'ffmpeg': {'glslang-dev', 'spirv-tools', 'libvulkan-dev'},
+    'jpeg-xl': {'libhwy-dev'},
+    'libsdl2': {'libvulkan-dev'},
     'shaderc': {'glslang-dev', 'spirv-tools', 'spirv-headers'},
     'libplacebo': {'glslang-dev', 'spirv-tools', 'libvulkan-dev', 'libxxhash-dev',
                   'python3-glad', 'python3-jinja2'},

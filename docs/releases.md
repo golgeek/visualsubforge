@@ -187,6 +187,11 @@ executables to the original Ubuntu binary and confirms its exact glslang/SPIRV/
 Vulkan-header inputs. Legacy Debian `.diff.gz` payloads are retained with their
 packaging copyright text. The renamed `ubuntu-build-inputs.json` inventory is
 bound to the assembly receipt; hosted integration of these additions is pending.
+Review of the archived Debian recipes also identified JPEG XL's Highway inline
+code and SDL2's Vulkan headers. Their original build records select Highway
+1.0.7-8.1build1 and Vulkan loader/headers 1.3.275.0-1build1. Local capture and a
+separate audit verify 22 evidence files and nine notices for these two inputs;
+their hosted integration is pending.
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI
