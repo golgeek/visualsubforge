@@ -95,6 +95,7 @@ def build(output):
     channel = tomllib.loads((ROOT / 'rust-toolchain.toml').read_text())['toolchain']['channel']
     env = dict(os.environ)
     env.pop('RUSTFLAGS', None)
+    env['RUST_BACKTRACE'] = '1'
     flags = ['-C', 'target-feature=+crt-static']
     env['CARGO_ENCODED_RUSTFLAGS'] = '\x1f'.join(flags)
     receipt['rustflags'] = flags
@@ -102,14 +103,21 @@ def build(output):
     receipt['commands'] = commands
     try:
         with (output / 'commands.log').open('w', encoding='utf-8') as log:
-            def run(*args):
+            def run(*args, check=True):
                 args = list(map(str, args))
                 commands.append(args)
                 print('RUN', json.dumps(args), flush=True)
-                subprocess.run(args, cwd=source, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
+                subprocess.run(args, cwd=source, env=env, stdout=log, stderr=subprocess.STDOUT, check=check)
             run('rustup', 'target', 'add', '--toolchain', channel, TARGET)
-            run('cargo', '+' + channel, 'test', '--locked', '--workspace', '--features', 'test',
-                '--target', TARGET, '--target-dir', output / 'target')
+            tests = ['cargo', '+' + channel, 'test', '--locked', '--workspace', '--features', 'test',
+                     '--target', TARGET, '--target-dir', output / 'target', '--no-fail-fast']
+            try:
+                run(*tests, '--', '--nocapture')
+            except subprocess.CalledProcessError:
+                # Preserve the original failure. This control distinguishes
+                # test concurrency from a failure within an individual test.
+                run(*tests, '--', '--nocapture', '--test-threads=1', check=False)
+                raise
             # Only the shipped DLL owns this receipt. Applying the option to
             # workspace tests makes their concurrent linkers race for one file.
             run('cargo', '+' + channel, 'rustc', '--locked', '--release', '--lib', '--target', TARGET,
