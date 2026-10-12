@@ -51,6 +51,18 @@ def validate_results(declared, results, variant):
     return {result: list(actual.values()).count(result) for result in ["OK", "SKIP"]}
 
 
+def binary_receipts(targets):
+    # Match the two explicit meson compile targets above. Windows also declares
+    # an auxiliary custom target named mpv (mpv.com); it was not requested.
+    selected = [target for target in targets if target["name"] == "mpv"
+                and target["type"] in {"executable", "shared library"}]
+    if ({target["type"] for target in selected} != {"executable", "shared library"}
+            or not all(target["filename"] for target in selected)):
+        raise ValueError("Missing selected mpv executable/shared-library target")
+    return [{"path": path, "sha256": digest(Path(path)), "type": target["type"]}
+            for target in selected for path in target["filename"]]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True, help="Existing upstream Git clone")
@@ -127,13 +139,7 @@ def main():
         if source_identity(checkout) != receipt["source"]:
             raise ValueError("Prepared source changed during the build")
         targets = json.loads((info / "intro-targets.json").read_text())
-        receipt["binaries"] = [
-            {"path": path, "sha256": digest(Path(path)), "type": target["type"]}
-            for target in targets if target["name"] == "mpv"
-            for path in target["filename"]
-        ]
-        if not any(binary["type"] == "shared library" for binary in receipt["binaries"]):
-            raise ValueError("The selected build did not produce a libmpv shared library")
+        receipt["binaries"] = binary_receipts(targets)
         receipt["status"] = "passed"
         print(f"PASS: {receipt['counts']} — {output / 'build-receipt.json'}")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:

@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 import sys
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
@@ -14,6 +15,25 @@ spec.loader.exec_module(build)
 
 
 class ReceiptTests(unittest.TestCase):
+    def test_only_requested_binaries_are_required_and_hashed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exe, dll = root / "mpv.exe", root / "mpv-2.dll"
+            exe.write_bytes(b"built executable")
+            dll.write_bytes(b"built library")
+            targets = [
+                {"name": "mpv", "type": "executable", "filename": [str(exe)]},
+                {"name": "mpv", "type": "shared library", "filename": [str(dll)]},
+                {"name": "mpv", "type": "custom", "filename": [str(root / "mpv.com")]},
+            ]
+            receipt = build.binary_receipts(targets)
+            self.assertEqual({item["path"] for item in receipt}, {str(exe), str(dll)})
+            with self.assertRaisesRegex(ValueError, "Missing selected"):
+                build.binary_receipts(targets[:1])
+            dll.unlink()
+            with self.assertRaises(FileNotFoundError):
+                build.binary_receipts(targets)
+
     def setUp(self):
         self.declared = [{"name": name} for name in ["libmpv-lifetime", "queued-pts", "aframe-clip"]]
         self.results = [
