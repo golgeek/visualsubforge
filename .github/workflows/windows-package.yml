@@ -1,0 +1,126 @@
+name: Windows preview package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-preview-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    name: Windows x64 native runtime and installer
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      RUSTFLAGS: -C target-feature=+crt-static
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - name: Install pinned build tools and check packaging controls
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          "CARGO_TARGET_DIR=$env:RUNNER_TEMP/app-target" >> $env:GITHUB_ENV
+          rustup show
+          npm ci
+          python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
+          python -m pip install --only-binary=:all: --require-hashes -r tests/release/windows-requirements.txt
+          python -m unittest discover -s tests/release -p 'test_*.py'
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        id: msys
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            git make diffutils patch curl tar
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-pkgconf
+            mingw-w64-clang-x86_64-nasm
+            mingw-w64-clang-x86_64-libplacebo
+            mingw-w64-clang-x86_64-libass
+            mingw-w64-clang-x86_64-lua52
+            mingw-w64-clang-x86_64-libjpeg-turbo
+            mingw-w64-clang-x86_64-lcms2
+            mingw-w64-clang-x86_64-dav1d
+            mingw-w64-clang-x86_64-opus
+            mingw-w64-clang-x86_64-libvpx
+            mingw-w64-clang-x86_64-libx264
+            mingw-w64-clang-x86_64-zlib
+            mingw-w64-clang-x86_64-bzip2
+            mingw-w64-clang-x86_64-xz
+      - name: Build pinned FFmpeg without the unused Whisper/GGML runtime
+        shell: msys2 {0}
+        run: bash scripts/build-ffmpeg-windows.sh "$RUNNER_TEMP/ffmpeg"
+      - name: Build and test pinned mpv against the selected FFmpeg
+        shell: msys2 {0}
+        run: |
+          tool_python=$(cygpath -u "$pythonLocation")
+          ffmpeg_sdk=$(cygpath -u "$RUNNER_TEMP")/ffmpeg/sdk
+          export PATH="$tool_python:$tool_python/Scripts:$ffmpeg_sdk/bin:$PATH"
+          export PKG_CONFIG_PATH="$ffmpeg_sdk/lib/pkgconfig"
+          git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
+          python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/mpv" --variant candidates --jobs 3
+          clang++ -std=c++17 -Wall -Wextra -Werror -municode tests/native/windows-dll-reload-probe.cpp -o "$RUNNER_TEMP/dll-reload-probe.exe"
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+      - name: Build production GUI and CLI with the actual DLL import library
+        env:
+          VSF_MPV_SDK: ${{ runner.temp }}/mpv-sdk
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python scripts/prepare-windows-sdk.py --mpv "$env:RUNNER_TEMP/mpv" --output "$env:VSF_MPV_SDK"
+          npm run tauri -- build --no-bundle --features media-prototype,bundled-tools -- --locked
+          cargo build --locked --release -p vsf-cli --features bundled-tools
+      - name: Assemble and audit the private PE dependency graph
+        env:
+          VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
+        run: |
+          python scripts/package-windows.py --visualsubforge "$env:CARGO_TARGET_DIR/release/visualsubforge.exe" --vsf "$env:CARGO_TARGET_DIR/release/vsf.exe" --ffmpeg "$env:RUNNER_TEMP/ffmpeg/sdk/bin/ffmpeg.exe" --ffprobe "$env:RUNNER_TEMP/ffmpeg/sdk/bin/ffprobe.exe" --library-dir "$env:RUNNER_TEMP/mpv/build" --library-dir "$env:RUNNER_TEMP/ffmpeg/sdk/bin" --library-dir "$env:VSF_MSYS/clang64/bin" --output "$env:RUNNER_TEMP/package"
+      - name: Generate fixture truth with the selected FFmpeg
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $env:PATH = "$env:RUNNER_TEMP/ffmpeg/sdk/bin;${{ steps.msys.outputs.msys2-location }}/clang64/bin;$env:PATH"
+          python scripts/resync-fixtures.py
+          python scripts/media-fixtures.py
+      - name: Bundle the current-user installer with WebView2 setup
+        run: npm run tauri -- bundle --bundles nsis --features media-prototype,bundled-tools --no-binary-patching --config "$env:RUNNER_TEMP/package/tauri.bundle.json"
+      - name: Verify the installed package and DLL unload with no SDK on PATH
+        run: |
+          python tests/release/windows-install.py --package "$env:RUNNER_TEMP/package" --installer-dir "$env:CARGO_TARGET_DIR/release/bundle/nsis" --probe "$env:RUNNER_TEMP/dll-reload-probe.exe" --output "$env:RUNNER_TEMP/install-check"
+      - name: Archive candidate and record checksums
+        run: |
+          Copy-Item "$env:CARGO_TARGET_DIR/release/bundle/nsis/*.exe" "$env:RUNNER_TEMP/package/"
+          Compress-Archive -Path "$env:RUNNER_TEMP/package/VisualSubForge" -DestinationPath "$env:RUNNER_TEMP/package/VisualSubForge_0.0.1-alpha_x64_windows.zip"
+          Get-ChildItem "$env:RUNNER_TEMP/package" -File | Where-Object { $_.Extension -in '.zip','.exe' } | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content "$env:RUNNER_TEMP/package/SHA256SUMS"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-preview-x64
+          path: |
+            ${{ runner.temp }}/package/*.exe
+            ${{ runner.temp }}/package/*.zip
+            ${{ runner.temp }}/package/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: windows-package-evidence-x64
+          path: |
+            ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ runner.temp }}/ffmpeg/*.txt
+            ${{ runner.temp }}/ffmpeg/configure.log
+            ${{ runner.temp }}/ffmpeg/build.log
+            ${{ runner.temp }}/ffmpeg/config.h
+            ${{ runner.temp }}/ffmpeg/config_components.h
+            ${{ runner.temp }}/mpv/build-receipt.json
+            ${{ runner.temp }}/mpv/commands.log
+            ${{ runner.temp }}/install-check/*.json
+            ${{ runner.temp }}/install-check/*.log
+            ${{ runner.temp }}/install-check/cli/packaged-cli-check.json
+          retention-days: 14

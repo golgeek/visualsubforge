@@ -59,6 +59,36 @@ of the Linux packaging implementation; no successful package is claimed yet.
 Complete Rust/frontend provenance and actual GUI/GPU/audio validation are still
 required. A container CLI pass is not desktop installation acceptance.
 
+The first hosted Linux run, [38190349153](https://github.com/golgeek/visualsubforge/actions/runs/38190349153),
+passed the ELF relocation control and built libplacebo (13 tests passed, two GPU
+tests skipped). mpv compiled and passed 39/40 tests, including the lifetime and
+audio-policy controls. Its encode test failed because `libavdevice-dev` was
+missing, so the `av://lavfi` input was unavailable. The workflow now installs
+that dependency; replacement run 38190727555 passes the native build/tests and
+is compiling the production application. No test was skipped
+or relaxed to accommodate the failure.
+
+### Windows candidate workflow
+
+`Windows preview package` builds an x64 production GUI/CLI and a current-user
+NSIS installer on Windows Server 2022. FFmpeg 8.1.2 is built from a checksum-pinned
+source archive with an explicit external-dependency list. Built-in decoders,
+demuxers and filters remain enabled; the unused Whisper/GGML runtime is excluded
+to avoid its known unload hazard. The private DLL graph rejects GGML/Whisper,
+MSYS emulation DLLs, missing dependencies and ambiguous basenames, including
+delay imports. This policy still needs hosted execution evidence.
+
+The installer places the analysis tools and native DLLs beside the application
+and installs WebView2 if needed (initial installation may require networking).
+MSVC code uses its static C runtime; other compiler runtimes must appear in the
+private dependency graph. Package checks install into a new path, compare all
+native hashes, run relocation/resync/input-preservation controls with a scrubbed
+PATH and unload libmpv three times while checking the C++ terminate handler.
+The hosted runner contains development software; those checks do not establish
+clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing,
+complete source/notices and that acceptance remain open. The initial workflow
+is not a claim that a Windows artifact has passed yet.
+
 ### Publication gates
 
 These are implementation and validation tasks, not unanswered credential or
