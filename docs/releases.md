@@ -21,8 +21,9 @@ The current Mac candidates from [run 38205417832](https://github.com/golgeek/vis
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
 for final archive hashes, download links and audit scope. Windows run 38209801548
-and Linux run 38208853449 are the active replacements; neither is accepted from
-compilation alone. Earlier run notes below retain their original evidence scope.
+is the active Windows replacement. Linux run 38208853449 passed its package lane,
+but repeated playback diagnostics reproduced a failure; neither target is
+accepted from compilation alone. Earlier run notes below retain their original evidence scope.
 
 ## Shared package layout
 
@@ -167,6 +168,29 @@ as `preview-acceptance-fixtures`; all 17 file hashes were independently checked.
 
 ### Linux candidate workflow
 
+The latest [candidate 38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449)
+is downloadable as [linux-preview-amd64](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11728388564),
+including its native/application source archives. Its `.deb` SHA-256 is
+`4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
+Independent download verification checked three artifact hashes, 124 native
+files, 120 observed private GUI libraries, 1,063 application-source files and
+1,850 native build-input evidence files. All 3,271 installed build-input notice
+records match their inventory. Clean-container installation and offline CLI
+checks pass.
+
+The package lane's GUI smoke passed, but [ten-trial diagnostics 38210869329](https://github.com/golgeek/visualsubforge/actions/runs/38210869329)
+reproduced the loop failure twice against the exact same candidate and fixture.
+The two failures remained at position 1.04 until about 1.1 seconds after unpause;
+subsequent wraps were about 0.5 seconds apart. This is measured startup behavior,
+not proof of its cause. Further diagnostics retain PulseAudio server logs and
+compare its default null sink with the explicit `norewinds=true` control.
+[PulseAudio 16.1's implementation](https://github.com/pulseaudio/pulseaudio/blob/v16.1/src/modules/module-null-sink.c)
+uses different maximum buffer lengths for these configurations. The default
+package check and two-wrap/two-second assertion remain unchanged. A pass with a
+different virtual sink cannot by itself establish a fix or real-device support.
+
+Earlier candidate evidence:
+
 [Run 38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997)
 passes actual `.deb` installation, offline CLI relocation/resync/preservation
 checks and the installed GUI's native smoke/ordered shutdown. The GUI environment
@@ -280,7 +304,9 @@ MSVC code uses its static C runtime; other compiler runtimes must appear in the
 private dependency graph. Package checks install into a new path, compare all
 native hashes, run relocation/resync/input-preservation controls with a scrubbed
 PATH and unload libmpv three times while checking the C++ terminate handler.
-The unload probe now also records loaded module paths/hashes and rejects modules
+The next installation check also compares every assembled resource, including
+inventories and license notices, with its installed copy. The unload probe
+records loaded module paths/hashes and rejects modules
 outside the private package and Windows runtime. A subsequent check attempts the
 installed production GUI's native smoke sequence and ordered exit, preserving
 logs for the hosted runner's actual display/audio capabilities. Future runs retain

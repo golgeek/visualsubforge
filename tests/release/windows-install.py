@@ -37,6 +37,19 @@ def main():
         actual = hashlib.sha256((installed / item["path"]).read_bytes()).hexdigest()
         if actual != item["sha256"]:
             raise ValueError(f"Installer changed or omitted {item['path']}")
+    # Native closure checks alone cannot detect missing source inventories or
+    # license resources. Compare every assembled file with its installed copy.
+    assembled = args.package / "VisualSubForge"
+    installed_files = 0
+    for source in sorted(assembled.rglob("*")):
+        if not source.is_file():
+            continue
+        relative = source.relative_to(assembled)
+        expected = hashlib.sha256(source.read_bytes()).digest()
+        actual = hashlib.sha256((installed / relative).read_bytes()).digest()
+        if actual != expected:
+            raise ValueError(f"Installer changed or omitted resource {relative}")
+        installed_files += 1
     subprocess.run([sys.executable, ROOT / "tests/release/packaged-cli.py", "--bundle", installed,
                     "--bin", ".", "--output", args.output / "cli"], check=True, timeout=450)
     probe_bundle = args.output / "Unload Control"
@@ -74,6 +87,7 @@ def main():
     evidence = {"status": "passed", "scope": "Hosted Windows Server 2022 runner; no clean-OS or GPU/audio claim",
                 "installer_sha256": hashlib.sha256(installers[0].read_bytes()).hexdigest(),
                 "installed_native_files_verified": len(receipt["files"]),
+                "installed_files_verified": installed_files,
                 "dll_unload_cycles": 3, "ggml_loaded": False,
                 "observed_modules": loaded,
                 "cli": "cli/packaged-cli-check.json"}

@@ -137,4 +137,5 @@ jobs:
             ${{ runner.temp }}/install-check/cli/packaged-cli-check.json
             ${{ runner.temp }}/install-check/gui/*
             ${{ runner.temp }}/install-check/*.txt
+            ${{ runner.temp }}/install-check/pulseaudio.log
           retention-days: 14

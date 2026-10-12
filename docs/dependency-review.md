@@ -9,15 +9,15 @@ remain separate gates in [releases.md](releases.md).
 
 | Target | Candidate evidence | Independent verification | Remaining work |
 | --- | --- | --- | --- |
-| Ubuntu 24.04 x64 | [38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997), commit `f57e353` | Three download hashes; 124 native files; 120 private libraries observed in the installed GUI; application inventory; 1,828 native build-input evidence files and 3,262 installed notice records | Replacement 38206295864 captured the JPEG XL/SDL2 inputs and passed installation/CLI, but failed the GUI loop-wrap assertion. Ten unchanged trials passed in diagnostic run 38208265216; replacement 38208853449 records timing samples. The earlier failure remains unexplained. |
+| Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI and one GUI smoke passed. [Repeated diagnostics 38210869329](https://github.com/golgeek/visualsubforge/actions/runs/38210869329) reproduced the loop failure in 2/10 trials. Candidate readiness remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
 | Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | Replacement [38209801548](https://github.com/golgeek/visualsubforge/actions/runs/38209801548) includes lzip support, legacy crate notices and Vulkan-loader headers. Full source collection and installer/runtime execution remain pending. |
 
 The Ubuntu `.deb` SHA-256 is
-`3935adebba2da88a4aaedc27f615bac5a01b18b1dcd14b947e96c8bb55d385b8`.
+`4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
 Its embedded Ubuntu build-input inventory SHA-256 is
-`b2906220cb32a39c8fd15d0fe3770ce02ae5bb1d68853c58eb4d9ff6a796fb3f`.
+`7bbd4cbd940effc8e355ca4c547101d008c03c638d6e3c8be88a74752bd7b166`.
 The ARM Mac native inventory SHA-256 is
 `a8c85c75b433e7b2066c72c578d4a17e37e0263476939ce911b49a0ab998c8e2`.
 Signing changes Mac native file hashes; use the later signing receipt to verify
@@ -68,8 +68,10 @@ resolves exact historical versions, including rav1e/librsvg Rust inputs and
 FFmpeg/shaderc/libplacebo/glslang/SPIR-V embedded inputs. Different builds used
 different SPIR-V and Rust revisions; retaining today's development package alone
 would not identify them. Reviewed Debian recipes additionally select Highway
-headers for JPEG XL and Vulkan headers for SDL2. Their replacement source capture
-passed, but its runtime failure prevents a final candidate audit. The supplementary collector verifies publisher HTTPS
+headers for JPEG XL and Vulkan headers for SDL2. The replacement inventory audit
+verifies 18 original builds, 320 exact binary inputs and 288 source packages. Its
+reproduced runtime failure remains a separate acceptance issue. The supplementary
+collector verifies publisher HTTPS
 provenance and hashes; it does not verify Debian developer PGP signatures or
 reproduce the distributor's original build.
 
