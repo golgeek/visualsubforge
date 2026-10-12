@@ -287,7 +287,12 @@ Run 38206199337 isolated an upstream pacman 6.1.0-25 wrapper inconsistency:
 its verifier requires `lock-never`, but its initializer no longer writes that
 setting. The collector now calls GnuPG directly against the same keyring and
 retains locking. A real signed/tampered package control runs before compilation;
-replacement hosted verification remains pending.
+run 38206642301 passed that control and verified the first eight source packages.
+It then found an unsupported nested format in GNU gettext 1.0: `.tar.lz`.
+The collector now uses MSYS2 lzip to verify/decode that payload before scanning
+notices, with an early real compressed/truncated archive control. Local capture
+finds 17 gettext notices; four runtime license files independently match system
+libarchive extraction. Full replacement source collection remains required.
 
 The collector now follows a reviewed set of embedded inputs from each signed
 binary's `.BUILDINFO`: MinGW/compiler runtime inputs, libplacebo's generated/header

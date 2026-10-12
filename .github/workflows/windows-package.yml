@@ -38,7 +38,7 @@ jobs:
           msystem: CLANG64
           update: true
           install: >-
-            git make diffutils patch curl tar
+            git make diffutils patch curl tar lzip
             mingw-w64-clang-x86_64-clang
             mingw-w64-clang-x86_64-pkgconf
             mingw-w64-clang-x86_64-nasm
@@ -57,7 +57,11 @@ jobs:
       - name: Check source-signature verification before native compilation
         env:
           VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
-        run: python tests/release/msys-signature.py --msys "$env:VSF_MSYS" --output "$env:RUNNER_TEMP/msys-signature-check"
+          VSF_LZIP: ${{ steps.msys.outputs.msys2-location }}/usr/bin/lzip.exe
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python tests/release/msys-signature.py --msys "$env:VSF_MSYS" --output "$env:RUNNER_TEMP/msys-signature-check"
+          python -m unittest discover -s tests/release -p test_source_notices.py
       - name: Build pinned FFmpeg without the unused Whisper/GGML runtime
         shell: msys2 {0}
         run: bash scripts/build-ffmpeg-windows.sh "$RUNNER_TEMP/ffmpeg"

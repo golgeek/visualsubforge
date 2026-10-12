@@ -199,7 +199,7 @@ def collect(msys, shipped, output):
             source_url = 'https://repo.msys2.org/mingw/sources/' + source_name
             archive = signed_download(source_url, sources, msys)
             verify_recipe(archive, build['pkgbuild_sha256sum'][0])
-            found = source_notices(archive, notices / source_name)
+            found = source_notices(archive, notices / source_name, lzip=msys / 'usr/bin/lzip.exe')
             if not found:
                 raise ValueError(f'No source license notices collected: {source_name}')
             captured[source_name] = {'file': source_name, 'url': source_url, 'sha256': digest(archive), 'notices': found}

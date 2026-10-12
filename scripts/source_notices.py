@@ -1,5 +1,6 @@
 """Read notices from native source archives without executing build recipes."""
 import io
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -17,7 +18,26 @@ def is_notice(name):
                              path.name, re.I)))
 
 
-def source_notices(archive, destination):
+@contextmanager
+def source_tar(archive, lzip):
+    # Python's tarfile handles the other source formats directly, but not
+    # lzip (used by GNU gettext). Decode to a temporary file so lzip verifies
+    # its checksum before any notices are accepted; never extract recipes.
+    with tempfile.TemporaryDirectory() as temporary:
+        path = archive
+        if archive.suffix == '.lz':
+            path = Path(temporary) / 'source.tar'
+            with path.open('wb') as output:
+                result = subprocess.run([lzip, '--decompress', '--stdout', str(archive)],
+                                        stdout=output, stderr=subprocess.PIPE)
+            if result.returncode:
+                raise ValueError(f'Cannot decode lzip source {archive}: '
+                                 + result.stderr.decode(errors='replace'))
+        with tarfile.open(path) as source:
+            yield source
+
+
+def source_notices(archive, destination, *, lzip='lzip'):
     """Read notices in tar payloads and pinned bare Git sources without running recipes."""
     destination.mkdir(parents=True, exist_ok=True)
     records = []
@@ -35,7 +55,7 @@ def source_notices(archive, destination):
     def scan(path, prefix='', depth=0):
         if depth > 3:
             raise ValueError(f'Source nesting requires review: {path}')
-        with tarfile.open(path) as source, tempfile.TemporaryDirectory() as temporary:
+        with source_tar(path, lzip) as source, tempfile.TemporaryDirectory() as temporary:
             members = source.getmembers()
             names = {member.name for member in members}
             for member in members:
@@ -44,8 +64,8 @@ def source_notices(archive, destination):
                 if is_notice(member.name):
                     with source.extractfile(member) as stream:
                         save(prefix + member.name, stream)
-                elif re.search(r'\.(tar\.(gz|xz|bz2|zst)|tgz)$', member.name):
-                    nested = Path(temporary) / 'nested.tar'
+                elif re.search(r'\.(tar\.(gz|xz|bz2|zst|lz)|tgz)$', member.name):
+                    nested = Path(temporary) / ('nested' + ''.join(PurePosixPath(member.name).suffixes))
                     with source.extractfile(member) as stream, nested.open('wb') as output:
                         shutil.copyfileobj(stream, output)
                     scan(nested, prefix + member.name + '.contents/', depth + 1)
