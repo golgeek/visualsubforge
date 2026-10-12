@@ -227,6 +227,10 @@ then assembly identified `avicap32.dll` as absent from the explicit OS allowlist
 It is the Windows [AVICap system library](https://learn.microsoft.com/en-us/windows/win32/api/vfw/nf-vfw-capcreatecapturewindowa).
 The allowlist now includes it; unknown libraries and compiler runtimes still
 require a private packaged dependency. A successful installer is still pending.
+Run 38200157752 next identified `bcryptprimitives.dll`, the documented Windows
+[ProcessPrng system library](https://learn.microsoft.com/en-us/windows/win32/seccng/processprng).
+The explicit list now includes it too. An unsuccessful graph audit reports all
+unresolved imports together and still refuses assembly.
 
 ### Publication gates
 

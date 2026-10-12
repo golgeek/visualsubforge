@@ -17,7 +17,7 @@ from native_evidence import digest
 
 ROOT = Path(__file__).resolve().parent.parent
 OS_DLLS = set("""
-advapi32.dll avicap32.dll avrt.dll bcrypt.dll cabinet.dll cfgmgr32.dll comctl32.dll comdlg32.dll
+advapi32.dll avicap32.dll avrt.dll bcrypt.dll bcryptprimitives.dll cabinet.dll cfgmgr32.dll comctl32.dll comdlg32.dll
 crypt32.dll cryptbase.dll cryptnet.dll cryptsp.dll d2d1.dll d3d11.dll d3d12.dll
 d3d9.dll d3dcompiler_47.dll dbghelp.dll dnsapi.dll dsound.dll dwmapi.dll dwrite.dll
 dxgi.dll dxva2.dll gdi32.dll glu32.dll hid.dll imm32.dll iphlpapi.dll kernel32.dll
@@ -57,20 +57,24 @@ def resolve_graph(roots, directories, inspect=inspect_pe):
             if path.is_file() and path.suffix.lower() == ".dll":
                 available.setdefault(path.name.lower(), []).append(path.resolve())
     graph = {path.name.lower(): path.resolve() for path in roots}
-    queue, imports = list(graph), {}
+    queue, imports, errors = list(graph), {}, []
     while queue:
         name = queue.pop()
         imports[name] = inspect(graph[name])
         for dependency in imports[name]:
             if any(part in dependency for part in ("ggml", "whisper", "msys-2.0", "cygwin")):
-                raise ValueError(f"Unexpected runtime dependency: {name} -> {dependency}")
+                errors.append(f"Unexpected runtime dependency: {name} -> {dependency}")
+                continue
             if is_platform(dependency) or dependency in graph:
                 continue
             candidates = set(available.get(dependency, []))
             if len(candidates) != 1:
-                raise ValueError(f"Missing or ambiguous DLL: {name} -> {dependency}: {candidates}")
+                errors.append(f"Missing or ambiguous DLL: {name} -> {dependency}: {candidates}")
+                continue
             graph[dependency] = candidates.pop()
             queue.append(dependency)
+    if errors:
+        raise ValueError("\n".join(errors))
     return graph, imports
 
 

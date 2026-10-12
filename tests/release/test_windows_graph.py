@@ -40,3 +40,14 @@ class WindowsGraph(unittest.TestCase):
         self.assertFalse(PACKAGER.is_platform("libc++.dll"))
         self.assertTrue(PACKAGER.is_platform("api-ms-win-crt-runtime-l1-1-0.dll"))
         self.assertTrue(PACKAGER.is_platform("avicap32.dll"))
+        self.assertTrue(PACKAGER.is_platform("bcryptprimitives.dll"))
+
+    def test_one_failed_audit_reports_all_unresolved_imports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / "vsf.exe"
+            app.touch()
+            with self.assertRaises(ValueError) as error:
+                PACKAGER.resolve_graph([app], [root], lambda _: ["missing-a.dll", "missing-b.dll"])
+            self.assertIn("missing-a.dll", str(error.exception))
+            self.assertIn("missing-b.dll", str(error.exception))
