@@ -70,6 +70,14 @@ jobs:
         run: |
           python scripts/resync-fixtures.py
           python scripts/media-fixtures.py
+          python scripts/playback-fixtures.py
+          python scripts/package-release-fixtures.py --output "$RUNNER_TEMP/preview-fixtures"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: preview-acceptance-fixtures
+          path: ${{ runner.temp }}/preview-fixtures
+          if-no-files-found: error
+          retention-days: 14
       - name: Install into clean Ubuntu and test offline with no development SDK
         run: |
           mkdir -p "$RUNNER_TEMP/install-context"

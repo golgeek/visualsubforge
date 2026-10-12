@@ -80,6 +80,11 @@ execution of the new ANGLE source-capture step is still pending.
 
 ## Remaining release work
 
+Use the [manual acceptance checklist](preview-acceptance.md) with the separately
+downloadable synthetic fixture artifact. It specifies expected playback, editing,
+resync and persistence results and the environment evidence testers should record.
+The first hosted fixture upload is still pending.
+
 ### Linux candidate workflow
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
