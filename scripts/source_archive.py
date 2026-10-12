@@ -9,15 +9,24 @@ import subprocess
 import tarfile
 
 
-def tracked_files(root, include_untracked=False):
+def tracked_files(root, include_untracked=False, gitlinks=None):
+    """List source files, or report Git links for a separate checkout manager.
+
+    Ordinary Git archives recurse strictly. gclient instead supplies its own
+    resolved checkout set, so it receives link identities without initializing
+    dependencies that its build configuration deliberately excluded.
+    """
     entries = subprocess.check_output(["git", "ls-files", "--stage", "-z"], cwd=root)
     for entry in filter(None, entries.split(b"\0")):
         metadata, name = entry.split(b"\t", 1)
-        mode, _, stage = metadata.split()
+        mode, commit, stage = metadata.split()
         if stage != b"0":
             raise ValueError("Cannot archive an unresolved source tree")
         path = Path(name.decode("utf-8"))
         if mode == b"160000":
+            if gitlinks is not None:
+                gitlinks[path.as_posix()] = commit.decode("ascii")
+                continue
             child = root / path
             if not (child / ".git").exists():
                 raise ValueError(f"Uninitialized submodule: {child}")

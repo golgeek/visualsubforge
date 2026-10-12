@@ -24,13 +24,22 @@ class GclientSources(unittest.TestCase):
                 return subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
             checkout(root, "angle.cc")
             commit = checkout(root / "third_party/libcxx", "LICENSE.TXT")
+            # ANGLE declares Git links for both enabled and disabled DEPS.
+            # gclient initializes only the resolved set for this build.
+            for path in ("third_party/libcxx", "third_party/disabled"):
+                subprocess.run(["git", "-C", str(root), "update-index", "--add", "--cacheinfo",
+                                f"160000,{commit},{path}"], check=True)
             (root / "private.log").write_text("not part of the source")
             revisions = f"third_party/libcxx: https://example.invalid/libcxx@{commit}\n"
             archive = Path(directory) / "source.tar.gz"
             receipt = archive_checkouts(root, revisions, archive)
             self.assertEqual(len(receipt["checkouts"]), 2)
+            self.assertEqual(receipt["checkouts"][0]["gitlinks"]["third_party/disabled"], commit)
             with tarfile.open(archive) as source:
                 self.assertEqual(set(source.getnames()), {"source/angle.cc", "source/third_party/libcxx/LICENSE.TXT"})
             bad = revisions.replace(commit, "0" * 40)
             with self.assertRaisesRegex(ValueError, "revision mismatch"):
                 archive_checkouts(root, bad, Path(directory) / "bad.tar.gz")
+            missing = revisions + f"third_party/disabled: https://example.invalid/disabled@{commit}\n"
+            with self.assertRaisesRegex(ValueError, "Missing gclient Git checkout"):
+                archive_checkouts(root, missing, Path(directory) / "missing.tar.gz")
