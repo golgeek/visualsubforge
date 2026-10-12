@@ -197,7 +197,13 @@ Review of the archived Debian recipes also identified JPEG XL's Highway inline
 code and SDL2's Vulkan headers. Their original build records select Highway
 1.0.7-8.1build1 and Vulkan loader/headers 1.3.275.0-1build1. Local capture and a
 separate audit verify 22 evidence files and nine notices for these two inputs;
-their hosted integration is pending.
+their capture passed in run 38206295864, as did clean installation and offline
+CLI checks. Its GUI selection-loop assertion failed. Diagnostic run 38208265216
+then passed the unchanged checks in ten fresh containers using the previous
+candidate; this does not explain the failure. The next build records timed
+playback samples and retains exact candidate/source artifacts before runtime
+checks so a failing binary can be reproduced without rebuilding it. The existing
+two-wrap/two-second requirement is unchanged.
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI

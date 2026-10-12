@@ -67,6 +67,23 @@ jobs:
             --placebo-build "$RUNNER_TEMP/placebo" \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --output "$RUNNER_TEMP/package"
+      # Retain exact candidate bytes even if a later runtime assertion fails.
+      - name: Archive matching native dependency sources
+        run: |
+          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json
+          tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
+          cd "$RUNNER_TEMP/package"
+          sha256sum ./*.deb native-sources.tar.gz application-sources.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-preview-amd64
+          path: |
+            ${{ runner.temp }}/package/*.deb
+            ${{ runner.temp }}/package/native-sources.tar.gz
+            ${{ runner.temp }}/package/application-sources.tar.gz
+            ${{ runner.temp }}/package/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
       - name: Generate independent fixture inputs
         run: |
           python scripts/resync-fixtures.py
@@ -104,22 +121,6 @@ jobs:
             -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-gui \
             timeout --signal=TERM --kill-after=10s 180s \
             xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh
-      - name: Archive matching native dependency sources
-        run: |
-          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json
-          tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
-          cd "$RUNNER_TEMP/package"
-          sha256sum ./*.deb native-sources.tar.gz application-sources.tar.gz > SHA256SUMS
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: linux-preview-amd64
-          path: |
-            ${{ runner.temp }}/package/*.deb
-            ${{ runner.temp }}/package/native-sources.tar.gz
-            ${{ runner.temp }}/package/application-sources.tar.gz
-            ${{ runner.temp }}/package/SHA256SUMS
-          if-no-files-found: error
-          retention-days: 14
       # Do not upload raw Meson test logs, which contain inherited environments.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}

@@ -106,6 +106,7 @@ fn run(media: &Media, path: &str) -> Result<(), String> {
     let start = Instant::now();
     let mut previous = 0.0;
     let mut wraps = 0;
+    let mut observations = Vec::new();
     while start.elapsed() < Duration::from_secs(2) {
         let status = media.request(Action::Status, session)?;
         if let Some(position) = status.position_seconds {
@@ -114,7 +115,21 @@ fn run(media: &Media, path: &str) -> Result<(), String> {
             }
             previous = position;
         }
+        observations.push((start.elapsed().as_secs_f64(), status));
         std::thread::sleep(Duration::from_millis(30));
+    }
+    // Print after the measurement window so diagnostic IO cannot delay polling.
+    // Retain the same count/deadline while exposing startup, seek and A/V stalls.
+    eprintln!("VSF GPU SMOKE: selection-loop wraps={wraps}");
+    for (elapsed, status) in observations {
+        eprintln!(
+            "VSF GPU SMOKE: loop t={elapsed:.3} position={:?} paused={} seeking={} av-sync={:?} error={:?}",
+            status.position_seconds,
+            status.paused,
+            status.seeking,
+            status.av_sync_seconds,
+            status.error
+        );
     }
     require(wraps >= 2, "Selection loop did not wrap twice")?;
     media.request(Action::Pause { paused: true }, session)?;
