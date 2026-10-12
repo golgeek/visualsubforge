@@ -115,6 +115,7 @@ jobs:
           docker image inspect vsf-preview-gui > "$RUNNER_TEMP/package/gui-image.json"
           chmod a+rwx "$RUNNER_TEMP/install-check"
           docker run --rm --network none \
+            --env VSF_NULL_SINK=ready-default \
             -v "$PWD/tests/release/packaged-gui.py:/check-gui.py:ro" \
             -v "$PWD/tests/release/linux-gui.sh:/gui.sh:ro" \
             -v "$PWD/tests/fixtures/generated:/fixtures:ro" \
@@ -138,4 +139,6 @@ jobs:
             ${{ runner.temp }}/install-check/gui/*
             ${{ runner.temp }}/install-check/*.txt
             ${{ runner.temp }}/install-check/pulseaudio.log
+            ${{ runner.temp }}/install-check/sink-readiness.json
+            ${{ runner.temp }}/install-check/silent-client.log
           retention-days: 14

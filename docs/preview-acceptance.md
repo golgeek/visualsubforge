@@ -2,7 +2,7 @@
 
 Use the candidate and `preview-acceptance-fixtures` artifact from the linked
 package run. The fixture artifact is produced by the Linux workflow for use
-on all platforms; [run 38203253891](https://github.com/golgeek/visualsubforge/actions/runs/38203253891)
+on all platforms; [run 38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449)
 includes it. Installation/playback
 acceptance is still open. Do not infer support from a successful CI build.
 
@@ -22,6 +22,7 @@ pass does not establish the oldest-version gate.
 | --- | --- | --- |
 | Offline launch | Start from the normal application launcher. | Editor opens without missing-library/tool errors or PATH changes. |
 | Video and sound | Open `h264-1080p.mp4`, then `hevc-4k.mp4`. | Twelve seconds of moving test patterns and a continuous 440 Hz tone; colours invert at six seconds. Seek before/after six seconds and near the end. No stale frame, crash or stuck playback. Record the decoder actually reported and any dropped frames; these clips alone cannot measure A/V latency. |
+| First playback and idle resume | Start playback immediately after opening VSF, then pause long enough for the audio device to idle and resume. Repeat the short selection loop. | Responsive video and sound without a long initial stall or truncated loop. Record observed delay and audio-device/backend details separately from later steady playback; CI uses a virtual sink whose clock is prepared before VSF starts. |
 | Subtitle preview | Open `playback.srt` with either MP4. Pause inside each cue. | Text, accents and italic markup render; the second cue starts at the colour inversion. Edit/apply, Undo and Redo update the paused preview. |
 | Variable rate and tracks | Open `vfr-offset.mkv`. Step forward from two seconds; switch audio tracks. | The next frame is at 2.1 seconds. Two tracks are selectable; brief impulses occur at 1.25 and 2.0 seconds respectively. A 1.0–1.5 second selection loops and clearing it restores normal playback. |
 | Analysis | Allow waveform and scene detection to complete on an MP4. | Waveform appears, scene detection finds the six-second visual cut, and seeking a marker shows the corresponding frame. Record selected detection detail and any additional/missing cuts. |

@@ -9,7 +9,7 @@ remain separate gates in [releases.md](releases.md).
 
 | Target | Candidate evidence | Independent verification | Remaining work |
 | --- | --- | --- | --- |
-| Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI and one GUI smoke passed. [Repeated diagnostics 38210869329](https://github.com/golgeek/visualsubforge/actions/runs/38210869329) reproduced the loop failure in 2/10 trials. Candidate readiness remains open. |
+| Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI passed. Cold null-sink diagnostics failed in 2/10 trials; [38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168) independently measured sink startup delay and passed 10/10 with sink readiness checked before VSF. Physical-device acceptance remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
 | Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38209801548](https://github.com/golgeek/visualsubforge/actions/runs/38209801548) failed on deliberately non-archive Rust test fixtures. Exact fixture recognition passes local source capture; full hosted collection and installer/runtime execution remain pending. |
@@ -154,8 +154,9 @@ do not describe the Windows archive as an entirely source-built native stack.
 Finish the pending table entries, review their actual versions and compare the
 installed inventories/notices with the matching downloadable source archives.
 Windows installation must pass the private DLL load/unload controls and packaged
-GUI smoke test; Linux needs its replacement inventory/runtime audit and loop
-investigation. The Mac signing/source audits above have passed. Update this
+GUI smoke test; Linux's audited package passes the isolated CLI and ready-device
+virtual playback controls, with cold physical-device startup still untested.
+The Mac signing/source audits above have passed. Update this
 review to the final Windows/Linux candidates when their checks complete.
 
 The Ubuntu installed GUI evidence uses Xvfb, Mesa llvmpipe and a PulseAudio null

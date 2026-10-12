@@ -66,4 +66,4 @@ PY
 fi
 python3 /check-gui.py --executable /usr/lib/visualsubforge/visualsubforge \
   --fixture /fixtures/vfr-offset.mkv --output /evidence/gui \
-  --environment 'Ubuntu 24.04 container, network disabled, Xvfb/Mesa software renderer, PulseAudio null sink'
+  --environment "Ubuntu 24.04 container, network disabled, Xvfb/Mesa software renderer, PulseAudio ${VSF_NULL_SINK:-default} null sink"

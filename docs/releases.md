@@ -20,12 +20,12 @@ is accepted merely because an application or compiler lane passes.
 The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
-for final archive hashes, download links and audit scope. Windows run 38209801548
-failed source-notice collection on two deliberately non-archive Rust test fixtures;
-the focused correction has passed local checks and requires a replacement build.
-Linux run 38208853449 passed its package lane,
-but repeated playback diagnostics reproduced a failure; neither target is
-accepted from compilation alone. Earlier run notes below retain their original evidence scope.
+for final archive hashes, download links and audit scope. Windows replacement
+[38213750998](https://github.com/golgeek/visualsubforge/actions/runs/38213750998)
+includes the source-notice correction and is building. Linux run 38208853449
+passed its package lane; repeated diagnostics isolated a virtual-sink startup
+delay and passed with measured sink readiness, as detailed below. Native device
+acceptance remains open. Earlier run notes retain their original evidence scope.
 
 ## Shared package layout
 
@@ -185,10 +185,10 @@ reproduced the loop failure twice against the exact same candidate and fixture.
 The two failures remained at position 1.04 until about 1.1 seconds after unpause;
 subsequent wraps were about 0.5 seconds apart. This is measured startup behavior,
 not proof of its cause. Further diagnostics retain PulseAudio server logs and
-compare its default null sink with the explicit `norewinds=true` control.
+compare its cold default null sink with the explicit `norewinds=true` control.
 [PulseAudio 16.1's implementation](https://github.com/pulseaudio/pulseaudio/blob/v16.1/src/modules/module-null-sink.c)
 uses different maximum buffer lengths for these configurations. The default
-package check and two-wrap/two-second assertion remain unchanged. A pass with a
+sink's rewind behavior and the two-wrap/two-second assertion remain unchanged. A pass with a
 different virtual sink cannot by itself establish a fix or real-device support.
 The logged [default comparison 38211883635](https://github.com/golgeek/visualsubforge/actions/runs/38211883635)
 and [no-rewinds comparison 38211885685](https://github.com/golgeek/visualsubforge/actions/runs/38211885685)
@@ -196,9 +196,23 @@ both pass ten trials. First progress beyond 1.04 seconds occurs 0.560–0.937
 seconds after unpause with the default sink and 0.064–0.097 seconds with the
 control. Every trial's executable, fixture and 120 private-library hashes match
 the candidate. These passes do not erase the earlier reproduced failure.
-The `ready-default` diagnostic retains rewind behavior and uses a separate silent
-client to establish a bounded virtual-device clock before launching VSF. Its
-readiness observations and cleanup are retained; this comparison is still pending.
+The [ready-default comparison 38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168)
+also passes ten trials with the same package and fixture hashes and all 120
+private-library hashes verified. Before VSF starts, its separate silent `pacat`
+client observes 1,808–1,815 ms of actual sink latency despite a 60 ms configured
+latency. That clock settles after 1.934–1.983 seconds; VSF then first progresses
+after 63–94 ms and wraps at least three times per sampling window. This supplies
+independent evidence of the virtual sink's startup delay without changing mpv.
+
+The package workflow now explicitly selects this measured-readiness setup,
+retaining rewind behavior. It requires five consecutive RUNNING observations
+with both actual and configured sink latency at most 100 ms, within a five-second
+deadline, before launching VSF. It preserves readiness/server logs and owns the
+silent client's cleanup. Application assertions and their measurement window are
+unchanged. Cold default and no-rewinds modes remain selectable in the diagnostic
+workflow, and the earlier two failures remain part of the evidence. This verifies
+playback against a ready virtual device; cold start, audible content and latency
+on physical devices still require manual acceptance.
 
 Earlier candidate evidence:
 
