@@ -18,7 +18,9 @@ if (-not $ControlOnly -and (-not $Bundle -or -not $Fixtures)) {
 }
 $Output = [IO.Path]::GetFullPath($Output)
 New-Item -ItemType Directory -Path $Output | Out-Null
-$python = (Get-Command python -CommandType Application).Source
+# Hosted runners expose several Python installations; use PATH's first match,
+# selected by setup-python, rather than passing the entire discovery result.
+$python = (Get-Command python -CommandType Application | Select-Object -First 1).Source
 $probe = Join-Path $PSScriptRoot 'windows-network-probe.py'
 $cliOutput = Join-Path $Output 'cli'
 $relocated = Join-Path $cliOutput 'Relocated VSF Preview'
