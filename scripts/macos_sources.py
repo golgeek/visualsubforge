@@ -8,7 +8,7 @@ from pathlib import Path
 import shutil
 
 from homebrew_sources import collect as collect_homebrew
-from native_evidence import digest
+from native_evidence import digest, verified_headers
 from source_notices import source_notices
 
 
@@ -19,13 +19,18 @@ def check_custom_file(path, checksum, receipt):
         raise ValueError(f'Custom binary differs from its build receipt: {path}')
 
 
-def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources):
+def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources, placebo=None):
     cellar, mpv, angle_sdk = (path.resolve(strict=True) for path in [cellar, mpv, angle_sdk])
     output.mkdir(parents=True, exist_ok=False)
     receipts = {'mpv': json.loads((mpv / 'build-receipt.json').read_text()),
                 'angle': json.loads(angle_receipt.read_text())}
     if receipts['mpv']['status'] != 'passed' or receipts['angle']['status'] != 'built':
         raise ValueError('Native sources require successful mpv and ANGLE build receipts')
+    if placebo:
+        placebo = placebo.resolve(strict=True)
+        receipts['libplacebo'] = json.loads((placebo / 'build-receipt.json').read_text())
+        if receipts['libplacebo']['status'] != 'passed':
+            raise ValueError('libplacebo requires a successful build receipt')
     bindings = []
     for item in records:
         original = Path(item['source']).resolve(strict=True)
@@ -37,6 +42,8 @@ def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources):
             origin = 'mpv'
         elif original.is_relative_to(angle_sdk / 'out/Metal'):
             origin = 'angle'
+        elif placebo and original.is_relative_to(placebo / 'sdk/lib'):
+            origin = 'libplacebo'
         elif item['file'] in ['Contents/MacOS/vsf', 'Contents/MacOS/visualsubforge']:
             origin = 'application-inventory.json'
         else:
@@ -44,13 +51,27 @@ def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources):
         if origin in receipts:
             check_custom_file(original, item['source_sha256'], receipts[origin])
         bindings.append({'path': item['file'], 'source_sha256': item['source_sha256'], 'origin': origin})
-    homebrew = collect_homebrew(records, cellar, output / 'homebrew')
+    header_inputs = []
+    if placebo:
+        for header in verified_headers(placebo / 'build-receipt.json'):
+            if not Path(header['path']).resolve(strict=True).is_relative_to(cellar):
+                raise ValueError(f'Native header is outside the selected Homebrew Cellar: {header["path"]}')
+            header_inputs.append({'source': header['path'], 'source_sha256': header['sha256'],
+                                  'used_by': 'libplacebo embedded header'})
+    homebrew = collect_homebrew([*records, *header_inputs], cellar, output / 'homebrew')
     custom = output / 'custom'
     custom.mkdir()
-    inventory = {'schema': 1, 'files': bindings, 'homebrew': homebrew, 'custom': {}}
-    for name, archive, receipt_file in [('mpv', mpv / 'source.tar.gz', mpv / 'build-receipt.json'),
-                                         ('angle', angle_sdk / 'source.tar.gz', angle_receipt)]:
-        if digest(archive) != receipts[name]['source_archive_sha256']:
+    inventory = {'schema': 1, 'files': bindings, 'header_inputs': header_inputs,
+                 'homebrew': homebrew, 'custom': {}}
+    captures = [('mpv', mpv / 'source.tar.gz', mpv / 'build-receipt.json'),
+                ('angle', angle_sdk / 'source.tar.gz', angle_receipt)]
+    if placebo:
+        if not any(item['origin'] == 'libplacebo' for item in bindings):
+            raise ValueError('The supplied libplacebo build is not used by this bundle')
+        captures.append(('libplacebo', placebo / 'source.tar.gz', placebo / 'build-receipt.json'))
+    for name, archive, receipt_file in captures:
+        expected = receipts[name].get('source_archive_sha256', receipts[name].get('source_sha256'))
+        if digest(archive) != expected:
             raise ValueError(f'Custom source differs from its build receipt: {name}')
         shutil.copy2(archive, custom / f'{name}-source.tar.gz')
         shutil.copy2(receipt_file, custom / f'{name}-build.json')

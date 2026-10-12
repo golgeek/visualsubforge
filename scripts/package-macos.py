@@ -179,7 +179,8 @@ def assemble(args):
     if getattr(args, "native_sources", None):
         from macos_sources import collect
         native_inventory = collect(records, args.homebrew_cellar, args.mpv_build, args.angle_sdk,
-                                   args.angle_receipt, args.native_sources, resources)
+                                   args.angle_receipt, args.native_sources, resources,
+                                   placebo=getattr(args, "placebo_build", None))
     manifest = {"schema": 1, "version": version, "architecture": architecture[0],
                 "minimum_macos": info["LSMinimumSystemVersion"],
                 "signature": "ad-hoc; Developer ID signing and notarization pending",
@@ -219,6 +220,7 @@ def main():
     parser.add_argument("--ffprobe", type=Path, required=True)
     parser.add_argument("--library-dir", type=Path, action="append", default=[])
     parser.add_argument("--application-sources", type=Path)
+    parser.add_argument("--placebo-build", type=Path)
     for name in ["native-sources", "homebrew-cellar", "mpv-build", "angle-sdk", "angle-receipt"]:
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--output", type=Path, required=True)

@@ -44,7 +44,7 @@ jobs:
           xcrun --sdk macosx --show-sdk-version
           rustup show
           npm ci
-          brew install mpv pkg-config
+          brew install mpv pkg-config xxhash
           python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
           if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
       - name: Check packaging controls before the native build
@@ -69,14 +69,21 @@ jobs:
             ${{ runner.temp }}/angle/sdk
             ${{ runner.temp }}/angle/build-receipt.json
           key: ${{ steps.angle-cache.outputs.cache-primary-key }}
+      - name: Build pinned libplacebo with its recorded header sources
+        run: |
+          PKG_CONFIG_PATH="$(brew --prefix xxhash)/lib/pkgconfig"
+          export PKG_CONFIG_PATH
+          python scripts/build-placebo.py --output "$RUNNER_TEMP/placebo" --jobs 3
       - name: Build and test the pinned mpv audio candidate
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/placebo/sdk/lib/pkgconfig
         run: |
           git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
           python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/mpv" --variant candidates --jobs 3
       - name: Build release GUI and CLI without desktop test instrumentation
         env:
           VSF_ANGLE_SDK: ${{ runner.temp }}/angle/sdk
-          PKG_CONFIG_PATH: ${{ runner.temp }}/mpv/build/meson-uninstalled
+          PKG_CONFIG_PATH: ${{ runner.temp }}/mpv/build/meson-uninstalled:${{ runner.temp }}/placebo/sdk/lib/pkgconfig
         run: |
           npm run tauri -- build --bundles app --features macos-angle,bundled-tools -- --locked
           cargo build --locked --release -p vsf-cli --features bundled-tools
@@ -91,6 +98,7 @@ jobs:
             --vsf "$CARGO_TARGET_DIR/release/vsf" \
             --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
             --library-dir "$RUNNER_TEMP/mpv/build" --library-dir "$RUNNER_TEMP/angle/sdk/out/Metal" \
+            --library-dir "$RUNNER_TEMP/placebo/sdk/lib" --placebo-build "$RUNNER_TEMP/placebo" \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --native-sources "$RUNNER_TEMP/native-sources" --homebrew-cellar "$(brew --cellar)" \
             --mpv-build "$RUNNER_TEMP/mpv" --angle-sdk "$RUNNER_TEMP/angle/sdk" \
@@ -127,6 +135,8 @@ jobs:
             ${{ runner.temp }}/angle/sdk/dependency-revisions.txt
             ${{ runner.temp }}/mpv/build-receipt.json
             ${{ runner.temp }}/mpv/commands.log
+            ${{ runner.temp }}/placebo/build-receipt.json
+            ${{ runner.temp }}/placebo/commands.log
             ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
           retention-days: 14
   sign:

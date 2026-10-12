@@ -118,7 +118,8 @@ def collect(records, cellar, output):
         relative = source.relative_to(cellar)
         name, version = relative.parts[:2]
         group = groups.setdefault((name, version), {'keg': cellar / name / version, 'files': []})
-        group['files'].append({'bundled_path': item['file'], 'keg_path': Path(*relative.parts[2:]).as_posix(),
+        group['files'].append({'bundled_path': item.get('file'), 'used_by': item.get('used_by'),
+                               'keg_path': Path(*relative.parts[2:]).as_posix(),
                                'source_sha256': item['source_sha256']})
     if not groups:
         raise ValueError('No Homebrew native inputs found in the package')

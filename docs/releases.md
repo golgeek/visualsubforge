@@ -96,14 +96,40 @@ Local collection covers 36 installed packages, including exact Git resources,
 embedded/local patches and SPDX `LICENSES/` texts. Hosted source capture on both
 architectures remains pending, as does the static/header-only contribution audit.
 
+macOS now uses the same pinned libplacebo source-build recipe as Linux. Homebrew's
+libplacebo bottle metadata omitted the exact `fast_float` build input; an archive
+of today's headers could not establish its source provenance. The shared recipe
+instead captures libplacebo's pinned submodules, including `fast_float`, Vulkan
+headers and code generators, with Meson options/dependencies and the installed
+library hash. The Mac assembler requires the supplied custom library to appear
+in the actual bundle and checks it against the successful build receipt.
+A local Mac build passed 15 upstream tests with one explicit skip; both hosted
+architectures and packaged playback still require validation.
+The build receipt also identifies the actual inline `xxhash.h` input, which
+does not appear in the dynamic-library graph. Both assemblers verify that header
+has not changed and capture its owning package's sources/notices.
+
 ## Remaining release work
 
 Use the [manual acceptance checklist](preview-acceptance.md) with the separately
 downloadable synthetic fixture artifact. It specifies expected playback, editing,
 resync and persistence results and the environment evidence testers should record.
-The first hosted fixture upload is still pending.
+The fixtures are available in [run 38198449535](https://github.com/golgeek/visualsubforge/actions/runs/38198449535)
+as `preview-acceptance-fixtures`; all 17 file hashes were independently checked.
 
 ### Linux candidate workflow
+
+[Run 38198449535](https://github.com/golgeek/visualsubforge/actions/runs/38198449535)
+passes actual `.deb` installation, offline CLI relocation/resync/preservation
+checks and the installed GUI's native smoke/ordered shutdown. The GUI environment
+was an Ubuntu 24.04 container using Xvfb, Mesa llvmpipe software rendering and a
+PulseAudio null sink. Download verification matched all three artifact hashes,
+124 native package files and 120 observed private libraries to their receipts;
+the embedded application inventory also matches its source archive. Package SHA256:
+`111edf2c45d7598e37bd9b61c7c826bcd72050673b8a3dc7930c1c57aea93ba0`.
+This candidate predates the additional inline-header inventory, and native Rust
+code embedded in Ubuntu's rav1e remains under source review. It does not establish
+real GPU/audio, interactive desktop or oldest-supported-OS acceptance.
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI

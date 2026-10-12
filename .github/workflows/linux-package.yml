@@ -64,6 +64,7 @@ jobs:
             --native-source "libplacebo=$RUNNER_TEMP/placebo/source.tar.gz" \
             --native-notices "mpv=$RUNNER_TEMP/mpv/prepared/source" \
             --native-notices "libplacebo=$RUNNER_TEMP/placebo/source" \
+            --placebo-build "$RUNNER_TEMP/placebo" \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --output "$RUNNER_TEMP/package"
       - name: Generate independent fixture inputs
@@ -105,7 +106,7 @@ jobs:
             xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh
       - name: Archive matching native dependency sources
         run: |
-          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz
+          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json
           tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
           cd "$RUNNER_TEMP/package"
           sha256sum ./*.deb native-sources.tar.gz application-sources.tar.gz > SHA256SUMS

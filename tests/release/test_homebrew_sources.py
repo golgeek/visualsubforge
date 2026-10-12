@@ -1,4 +1,5 @@
 import io
+import json
 from pathlib import Path
 import sys
 import tarfile
@@ -9,10 +10,24 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from homebrew_sources import verify_source_identity, without_bottle_metadata
 from macos_sources import check_custom_file
+from native_evidence import digest, verified_headers
 from source_notices import source_notices
 
 
 class HomebrewSources(unittest.TestCase):
+    def test_changed_embedded_header_cannot_supply_source_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            header = root / 'xxhash.h'
+            header.write_bytes(b'original header')
+            receipt = root / 'build.json'
+            receipt.write_text(json.dumps({'status': 'passed', 'header_inputs': [
+                {'path': str(header), 'sha256': digest(header)}]}))
+            self.assertEqual(len(verified_headers(receipt)), 1)
+            header.write_bytes(b'replaced after compilation')
+            with self.assertRaisesRegex(ValueError, 'Header changed since'):
+                verified_headers(receipt)
+
     def test_recipe_matching_ignores_only_bottle_metadata(self):
         recipe = 'class Example < Formula\n  url "https://example.org/v1.tar.gz"\n'
         end = '  def install\n    system "make", "install"\n  end\nend\n'

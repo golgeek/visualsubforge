@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from native_evidence import digest
+from native_evidence import digest, verified_headers
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -157,6 +157,14 @@ def assemble(args):
         for name, path in dependencies(private / relative, env).items():
             if path not in platform and not path.is_relative_to(private):
                 raise ValueError(f"Package still resolves outside its runtime: {relative}: {name} -> {path}")
+    header_inputs = []
+    if getattr(args, "placebo_build", None):
+        build_receipt = args.placebo_build / "build-receipt.json"
+        for header in verified_headers(build_receipt):
+            owner = package_owner(Path(header["path"]))
+            distro[owner["package"]] = owner
+            header_inputs.append({**header, "distro": owner, "used_by": "libplacebo embedded header"})
+        shutil.copy2(build_receipt, root / "libplacebo-build.json")
     collect_distro_sources(distro, root / "distro-sources", notices)
     source_records = []
     for item in args.native_source:
@@ -199,7 +207,8 @@ def assemble(args):
                        "Description: VisualSubForge subtitle editor and resync CLI (preview)\n")
     receipt = {"schema": 1, "version": "0.0.1-alpha", "architecture": "amd64", "os": "Ubuntu 24.04",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
-               "files": records, "platform_dependencies": depends, "native_sources": source_records,
+               "files": records, "header_inputs": header_inputs,
+               "platform_dependencies": depends, "native_sources": source_records,
                "application_inventory_sha256": application_inventory,
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
@@ -221,6 +230,7 @@ if __name__ == "__main__":
     parser.add_argument("--native-source", action="append", default=[], help="name=source.tar.gz")
     parser.add_argument("--native-notices", action="append", default=[], help="name=source-directory")
     parser.add_argument("--application-sources", type=Path)
+    parser.add_argument("--placebo-build", type=Path)
     try:
         assemble(parser.parse_args())
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:

@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import platform
 import subprocess
 from native_evidence import digest
 from source_archive import archive_source
@@ -23,7 +24,8 @@ def main():
     root.mkdir(parents=True, exist_ok=False)
     source, build, sdk = root / "source", root / "build", root / "sdk"
     commands = []
-    receipt = {"status": "incomplete", "url": URL, "commit": COMMIT, "commands": commands}
+    receipt = {"status": "incomplete", "url": URL, "commit": COMMIT, "commands": commands,
+               "host": {"system": platform.system(), "architecture": platform.machine()}}
     try:
         with (root / "commands.log").open("w") as log:
             def run(*command):
@@ -44,6 +46,16 @@ def main():
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
                 "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled")
+            receipt["dependencies"] = json.loads((build / "meson-info/intro-dependencies.json").read_text())
+            receipt["build_options"] = json.loads((build / "meson-info/intro-buildoptions.json").read_text())
+            # libplacebo embeds xxhash's inline header, so no linked DLL/dylib
+            # identifies this dependency. Record the actual selected input.
+            receipt["header_inputs"] = []
+            if any(dep["name"] == "libxxhash" for dep in receipt["dependencies"]):
+                include = subprocess.check_output(["pkg-config", "--variable=includedir", "libxxhash"],
+                                                  text=True).strip()
+                header = (Path(include) / "xxhash.h").resolve(strict=True)
+                receipt["header_inputs"].append({"path": str(header), "sha256": digest(header)})
             run("meson", "compile", "-C", build, "-j", args.jobs)
             # Upstream's GPU tests may skip without a device; retain that fact.
             run("meson", "test", "-C", build, "--print-errorlogs", "-j", args.jobs)
@@ -51,6 +63,12 @@ def main():
             receipt["tests"] = [{key: test[key] for key in ("name", "result", "returncode")}
                                 for test in tests]
             run("meson", "install", "-C", build)
+            libraries = [path for path in (sdk / "lib").iterdir()
+                         if path.is_file() and not path.is_symlink()
+                         and (path.name.endswith(".dylib") or ".so" in path.name)]
+            if len(libraries) != 1 or not libraries[0].name.startswith("libplacebo."):
+                raise ValueError(f"Expected one installed shared libplacebo: {libraries}")
+            receipt["binaries"] = [{"path": str(path), "sha256": digest(path)} for path in libraries]
             receipt["status"] = "passed"
     finally:
         (root / "build-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
