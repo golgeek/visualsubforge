@@ -101,6 +101,7 @@ jobs:
             -v "$PWD/tests/release/linux-gui.sh:/gui.sh:ro" \
             -v "$PWD/tests/fixtures/generated:/fixtures:ro" \
             -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-gui \
+            timeout --signal=TERM --kill-after=10s 180s \
             xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh
       - name: Archive matching native dependency sources
         run: |

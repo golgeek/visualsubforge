@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euxo pipefail
 export XDG_RUNTIME_DIR=/tmp/vsf-gui-runtime
 mkdir -m 700 "$XDG_RUNTIME_DIR"
 pulseaudio --start --exit-idle-time=-1
