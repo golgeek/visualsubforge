@@ -123,6 +123,20 @@ async function launch(choices) {
     connectionRetryTimeout: 10_000,
   });
   await browser.setTimeout({ script: 10_000, implicit: 0 });
+  // /status establishes a window, not completion of its initial navigation.
+  // The embedded driver's execute/sync polls a page-global result; navigation
+  // between those evaluations loses the result. getTitle is a single native
+  // evaluation and safely observes the actual document before that first script.
+  await until(
+    'application document',
+    async () => (await browser.getTitle()) === 'VisualSubForge',
+  );
+  await record({
+    step: 'application document loaded',
+    launch: launchCount,
+    title: await browser.getTitle(),
+    url: await browser.getUrl(),
+  });
   await until('Tauri APIs and rendered editor', async () =>
     browser.execute(
       () =>

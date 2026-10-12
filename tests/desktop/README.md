@@ -40,6 +40,15 @@ has bounded waits and terminates only processes it spawned. CI additionally caps
 the run step at five minutes. Recovery after process termination does not prove
 power-loss durability.
 
+Startup waits for the actual application's document title before the first
+script evaluation, then separately requires Tauri APIs, the editor and completed
+workspace initialization. The embedded driver's window-ready status can precede
+initial navigation; its multi-evaluation script result can be lost across that
+navigation. Document title/URL evidence is retained for each launch. This avoids
+starting a script in the initial blank document without retries or longer script
+deadlines. The real Mac workflow passes locally with this readiness check;
+the recurring hosted second-launch timeout still needs replacement-run evidence.
+
 ## The test boundary
 
 The explicit `desktop-e2e` Cargo feature enables pinned
