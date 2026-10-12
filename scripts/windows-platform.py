@@ -8,7 +8,7 @@ SDK/library payloads are hashed, never copied into a source distribution.
 import argparse
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
 
@@ -21,11 +21,16 @@ def input_paths(text):
         line = line.strip().strip('"')
         if not line:
             continue
-        # The MSVC diagnostic writes one fully-qualified input per line.
-        path = Path(line)
+        # /LINKREPROFULLPATHRSP retains these options before their full paths.
+        # Reject unknown options instead of silently losing a linker input.
+        for option in ['/defaultlib:', '/natvis:']:
+            if line.lower().startswith(option):
+                line = line[len(option):].strip('"')
+                break
+        path = PureWindowsPath(line)
         if not path.is_absolute():
             raise ValueError(f'Invalid MSVC linker input: {line}')
-        paths.append(path.resolve())
+        paths.append(path)
     if not paths:
         raise ValueError('Empty MSVC linker input record')
     return sorted(set(paths))
@@ -48,7 +53,8 @@ def main():
         records = []
         contents = response.read_bytes()
         encoding = 'utf-16' if contents.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
-        for path in input_paths(contents.decode(encoding)):
+        for input_path in input_paths(contents.decode(encoding)):
+            path = Path(input_path).resolve()
             origin = ('MSVC' if path.is_relative_to(compiler) else
                       'Windows SDK' if path.is_relative_to(sdk) else 'Application/Rust/native build')
             # Rust removes temporary object/import files after linking. Their

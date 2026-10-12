@@ -85,7 +85,11 @@ diagnostic for both final executables. The collector hashes the selected compile
 and SDK inputs, records versions and installed license texts, and binds the
 inventory to the packaged executable hashes. Compiler/SDK library payloads are
 not copied into the source archive. Hosted collection and review of the applicable
-platform-library terms remain pending.
+platform-library terms remain pending. Run 38203252403 produced both executables'
+linker response files but exposed retained `/defaultlib:` and `/natvis:` prefixes
+in that diagnostic. The collector now parses those explicit forms and rejects
+unknown options. Both saved hosted response files pass local parsing (198 GUI
+and 70 CLI unique inputs); hosted hashing/attribution remains to complete.
 
 Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
 hashes, including nested gclient dependencies. The cache key excludes older SDKs
