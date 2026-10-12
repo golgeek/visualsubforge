@@ -10,7 +10,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from msys_sources import archive_version, embedded_inputs, owned_files, source_notices, verify_binary, verify_recipe, verify_signature
+from msys_sources import archive_version, embedded_inputs, owned_files, source_notices, verify_binary, verify_recipe, verify_signature, verify_identity
 
 
 def archive(path, files):
@@ -22,6 +22,16 @@ def archive(path, files):
 
 
 class MsysSources(unittest.TestCase):
+    def test_epoch_representation_preserves_exact_package_identity(self):
+        name = 'mingw-w64-clang-x86_64-vulkan-headers'
+        package = {'pkgname': [name], 'pkgver': ['1~1.4.350.1-1'], 'arch': ['any']}
+        verify_identity(package, name, '1:1.4.350.1-1', 'any')
+        for field, value in [('pkgver', '2:1.4.350.1-1'), ('pkgver', '1:1.4.350.2-1'),
+                             ('pkgver', '1.4.350.1-1'), ('pkgname', 'other'), ('arch', 'x86_64')]:
+            with self.subTest(field=field, value=value):
+                with self.assertRaisesRegex(ValueError, 'Package metadata differs'):
+                    verify_identity({**package, field: [value]}, name, '1:1.4.350.1-1', 'any')
+
     def test_signature_requires_validity_and_keyring_trust(self):
         cases = [('[GNUPG:] VALIDSIG fingerprint\n[GNUPG:] TRUST_FULLY 0 pgp\n', 0, True),
                  ('[GNUPG:] VALIDSIG fingerprint\n[GNUPG:] TRUST_ULTIMATE 0 pgp\n', 0, True),

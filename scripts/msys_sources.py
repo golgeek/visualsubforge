@@ -154,6 +154,15 @@ def archive_version(version):
     return version.replace(':', '~')
 
 
+def verify_identity(package, name, version, arch):
+    # MSYS2 also stores the filename-safe epoch separator in some .PKGINFO
+    # records. Compare that representation without dropping the epoch/version.
+    versions = [archive_version(value) for value in package.get('pkgver', [])]
+    if (package.get('pkgname') != [name] or versions != [archive_version(version)]
+            or package.get('arch') != [arch]):
+        raise ValueError(f'Package metadata differs from installation: {name}')
+
+
 def collect(msys, shipped, output):
     output.mkdir(parents=True, exist_ok=False)
     binaries, sources, notices = (output / name for name in ['binary-packages', 'source-packages', 'notices'])
@@ -192,8 +201,7 @@ def collect(msys, shipped, output):
         print(f'Capture signed MSYS2 package: {filename}', flush=True)
         binary = signed_download(url, binaries, msys)
         package, build = verify_binary(binary, group['files'])
-        if package['pkgname'] != [name] or package['pkgver'] != [version] or package['arch'] != [arch]:
-            raise ValueError(f'Package metadata differs from installation: {name}')
+        verify_identity(package, name, version, arch)
         base = package['pkgbase'][0]
         source_name = f'{base}-{archive_version(version)}.src.tar.zst'
         if source_name not in captured:
