@@ -17,7 +17,7 @@ from native_evidence import digest
 
 ROOT = Path(__file__).resolve().parent.parent
 OS_DLLS = set("""
-advapi32.dll avrt.dll bcrypt.dll cabinet.dll cfgmgr32.dll comctl32.dll comdlg32.dll
+advapi32.dll avicap32.dll avrt.dll bcrypt.dll cabinet.dll cfgmgr32.dll comctl32.dll comdlg32.dll
 crypt32.dll cryptbase.dll cryptnet.dll cryptsp.dll d2d1.dll d3d11.dll d3d12.dll
 d3d9.dll d3dcompiler_47.dll dbghelp.dll dnsapi.dll dsound.dll dwmapi.dll dwrite.dll
 dxgi.dll dxva2.dll gdi32.dll glu32.dll hid.dll imm32.dll iphlpapi.dll kernel32.dll

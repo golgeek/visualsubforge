@@ -10,26 +10,16 @@ import base64
 import hashlib
 import json
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import tarfile
 import tomllib
-import urllib.request
 
 from native_evidence import digest
 from source_archive import archive_source
-from source_notices import is_notice
+from dependency_sources import source_notices, upstream_notices, verified_download
 
 ROOT = Path(__file__).resolve().parent.parent
-
-# This release omitted repository and notice files. Its original manifest and
-# every source file were compared with sys/ at this exact upstream commit.
-# Version/revision matching makes dependency upgrades require a new review.
-REPOSITORY_OVERRIDES = {
-    ("libappindicator-sys", "0.9.0", "eafd1e3682a1247f595410266091e9684021cb6f"):
-        "https://github.com/tauri-apps/libappindicator-rs",
-}
 
 
 def capture(*args):
@@ -53,76 +43,6 @@ def non_dev_closure(metadata, names):
             if any(kind["kind"] != "dev" for kind in edge["dep_kinds"]):
                 pending.append(edge["pkg"])
     return [packages[key] for key in sorted(seen)], nodes
-
-
-def verified_download(url, destination, algorithm, expected, cached=None):
-    if destination.exists():
-        raise ValueError(f"Refusing to overwrite {destination}")
-    if cached and cached.is_file():
-        shutil.copy2(cached, destination)
-    else:
-        with urllib.request.urlopen(url, timeout=120) as response, destination.open("xb") as target:
-            shutil.copyfileobj(response, target)
-    with destination.open("rb") as stream:
-        actual = hashlib.file_digest(stream, algorithm).digest()
-    if actual != expected:
-        raise ValueError(f"Source checksum mismatch: {url}")
-    return {"url": url, "file": destination.name, "sha256": digest(destination)}
-
-
-def source_notices(archive, destination, license_file=None):
-    """Copy notices only, without extracting executable sources or symlinks."""
-    notices = []
-    with tarfile.open(archive) as source:
-        for member in source:
-            relative = Path(member.name)
-            if relative.is_absolute() or ".." in relative.parts:
-                raise ValueError(f"Unsafe source archive path: {member.name}")
-            if not member.isfile():
-                continue
-            if not (is_notice(member.name)
-                    or (license_file and member.name.endswith("/" + license_file))):
-                continue
-            target = destination / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with source.extractfile(member) as original, target.open("xb") as copied:
-                shutil.copyfileobj(original, copied)
-            notices.append({"path": relative.as_posix(), "sha256": digest(target)})
-    return notices
-
-
-def upstream_notices(package, crate, output, captured):
-    # Cargo packages can omit their monorepo's root LICENSE. The locked .crate
-    # identifies its exact Git revision; retain that additional source archive
-    # and its notices instead of substituting today's license or a generic text.
-    with tarfile.open(crate) as source:
-        member = f"{package['name']}-{package['version']}/.cargo_vcs_info.json"
-        try:
-            vcs = json.load(source.extractfile(member))
-        except KeyError as error:
-            raise ValueError(f"No notices or pinned upstream revision: {package['name']}") from error
-    commit = vcs["git"]["sha1"]
-    override = REPOSITORY_OVERRIDES.get((package["name"], package["version"], commit))
-    repository = (package.get("repository") or override or "").removesuffix(".git")
-    match = re.fullmatch(r"https://github.com/([\w.-]+/[\w.-]+)", repository)
-    if not match or not re.fullmatch(r"[0-9a-f]{40}", commit) or vcs["git"].get("dirty"):
-        raise ValueError(f"Unreviewed upstream notice source: {package['name']}: {repository}")
-    name = match[1].replace("/", "-") + "-" + commit
-    if name not in captured:
-        directory = output / "sources/upstream"
-        directory.mkdir(exist_ok=True)
-        archive = directory / (name + ".tar.gz")
-        url = f"https://codeload.github.com/{match[1]}/tar.gz/{commit}"
-        with urllib.request.urlopen(url, timeout=120) as response, archive.open("xb") as stream:
-            shutil.copyfileobj(response, stream)
-        notices = source_notices(archive, output / "notices/upstream" / name)
-        if not notices:
-            raise ValueError(f"Pinned upstream has no notices: {name}")
-        captured[name] = {"file": archive.name, "url": url, "commit": commit,
-                          "sha256": digest(archive), "notices": notices,
-                          "provenance": "Git revision from the checksum-verified published crate",
-                          "repository_origin": "Reviewed version-specific override" if override else "Cargo metadata"}
-    return name
 
 
 def verify_unpacked_crate(archive, unpacked):

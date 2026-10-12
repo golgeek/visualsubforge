@@ -188,6 +188,20 @@ libplacebo source examples pass; hosted execution of this collector is pending.
 Static/header-only contributions and language/platform runtimes remain separate
 inventory work, so package-owner coverage alone is not final license acceptance.
 
+The collector now follows a reviewed set of embedded inputs from each signed
+binary's `.BUILDINFO`: MinGW/compiler runtime inputs, libplacebo's generated/header
+inputs and shaderc's glslang/SPIR-V inputs. It retains their historical versions,
+including MSYS2 package epochs. Libdovi's nested `dolby_vision/Cargo.lock` supplies
+its own registry sources/notices; the application's Cargo graph does not cover
+those native Rust dependencies. All 84 entries were captured in a local source
+check; hosted signature verification and full recipe coverage remain required.
+
+Run 38198445762 built the production GUI/CLI and captured application sources,
+then assembly identified `avicap32.dll` as absent from the explicit OS allowlist.
+It is the Windows [AVICap system library](https://learn.microsoft.com/en-us/windows/win32/api/vfw/nf-vfw-capcreatecapturewindowa).
+The allowlist now includes it; unknown libraries and compiler runtimes still
+require a private packaged dependency. A successful installer is still pending.
+
 ### Publication gates
 
 These are implementation and validation tasks, not unanswered credential or

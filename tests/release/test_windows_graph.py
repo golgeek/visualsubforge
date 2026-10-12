@@ -39,3 +39,4 @@ class WindowsGraph(unittest.TestCase):
         self.assertFalse(PACKAGER.is_platform("vcruntime140.dll"))
         self.assertFalse(PACKAGER.is_platform("libc++.dll"))
         self.assertTrue(PACKAGER.is_platform("api-ms-win-crt-runtime-l1-1-0.dll"))
+        self.assertTrue(PACKAGER.is_platform("avicap32.dll"))

@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from msys_sources import owned_files, source_notices, verify_binary, verify_recipe
+from msys_sources import archive_version, embedded_inputs, owned_files, source_notices, verify_binary, verify_recipe
 
 
 def archive(path, files):
@@ -20,6 +20,19 @@ def archive(path, files):
 
 
 class MsysSources(unittest.TestCase):
+    def test_embedded_inputs_use_the_binary_build_versions_and_exact_names(self):
+        prefix = 'mingw-w64-clang-x86_64-'
+        build = {'installed': [prefix + 'crt-14.0.0.r190-1-any', prefix + 'headers-14.0.0.r190-1-any',
+                               prefix + 'rust-1~1.87.0-2-any', prefix + 'rust-analyzer-2025.05.01-1-any']}
+        selected = embedded_inputs(prefix + 'libdovi', build)
+        self.assertIn((prefix + 'rust', '1:1.87.0-2', 'any'), selected)
+        self.assertIn((prefix + 'crt', '14.0.0.r190-1', 'any'), selected)
+        self.assertEqual(len(selected), 3)
+        self.assertEqual(archive_version(selected[0][1]), '14.0.0.r190-1')
+        self.assertEqual(archive_version('3:1.4.363.0-1'), '3~1.4.363.0-1')
+        with self.assertRaisesRegex(ValueError, 'omits reviewed code inputs'):
+            embedded_inputs(prefix + 'libdovi', {'installed': []})
+
     def test_binary_bytes_and_source_recipe_must_match_build_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
