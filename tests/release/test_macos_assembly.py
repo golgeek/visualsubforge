@@ -40,10 +40,13 @@ class MacOSAssembly(unittest.TestCase):
                                       'int main(void) { printf("%d\\n", answer()); return 0; }\n')
             main = executables / "visualsubforge"
             subprocess.run(["xcrun", "clang", str(program_source), str(library),
-                            "-o", str(main)], check=True)
+                            "-Wl,-no_adhoc_codesign", "-o", str(main)], check=True)
             # ARM linkers insert ad-hoc signatures, which masked the failure
-            # seen with Intel's unsigned ffmpeg. Force that input on either CPU.
-            subprocess.run(["codesign", "--remove-signature", str(main)], check=True)
+            # seen with Intel's unsigned ffmpeg. Link an unsigned fixture on
+            # either CPU: stripping with macOS 14 codesign can leave LINKEDIT
+            # padding that Xcode 16.2 install_name_tool cannot process.
+            unsigned = subprocess.run(["codesign", "--display", str(main)], capture_output=True)
+            self.assertNotEqual(unsigned.returncode, 0, "Fixture must be unsigned before assembly")
             tools = {}
             for name in ["vsf", "ffmpeg", "ffprobe"]:
                 tools[name] = root / name
