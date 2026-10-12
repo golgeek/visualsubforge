@@ -43,9 +43,19 @@ def main():
                 ["git", "-C", str(source), "submodule", "status", "--recursive"], text=True)
             archive_source(source, root / "source.tar.gz")
             receipt["source_sha256"] = digest(root / "source.tar.gz")
+            # Upstream's GPU test sources include src/hash.h, but their Meson
+            # dependency list omits xxhash's include directory. Supply that same
+            # selected header to all targets (not just the shared library).
+            header_options = []
+            xxhash = subprocess.run(["pkg-config", "--variable=includedir", "libxxhash"],
+                                    text=True, capture_output=True)
+            if xxhash.returncode == 0:
+                include = Path(xxhash.stdout.strip()).resolve(strict=True)
+                header_options = [f"-Dc_args={json.dumps(['-I' + str(include)])}",
+                                  f"-Dcpp_args={json.dumps(['-I' + str(include)])}"]
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
-                "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled")
+                "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *header_options)
             receipt["dependencies"] = json.loads((build / "meson-info/intro-dependencies.json").read_text())
             receipt["build_options"] = json.loads((build / "meson-info/intro-buildoptions.json").read_text())
             # libplacebo embeds xxhash's inline header, so no linked DLL/dylib
