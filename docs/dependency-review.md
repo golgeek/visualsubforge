@@ -12,7 +12,7 @@ remain separate gates in [releases.md](releases.md).
 | Ubuntu 24.04 x64 | [38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997), commit `f57e353` | Three download hashes; 124 native files; 120 private libraries observed in the installed GUI; application inventory; 1,828 native build-input evidence files and 3,262 installed notice records | Replacement 38206295864 captured the JPEG XL/SDL2 inputs and passed installation/CLI, but failed the GUI loop-wrap assertion. Ten unchanged trials passed in diagnostic run 38208265216; replacement 38208853449 records timing samples. The earlier failure remains unexplained. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
-| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | Replacement passed signed/tampered controls and Microsoft terms capture, then stopped at unsupported gettext lzip notices. Format support and a corruption control are added; replacement 38208851267 is running. The next inventory must also capture Vulkan-loader’s own header revision; full source collection and installer/runtime execution remain pending. |
+| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | Replacement [38209801548](https://github.com/golgeek/visualsubforge/actions/runs/38209801548) includes lzip support, legacy crate notices and Vulkan-loader headers. Full source collection and installer/runtime execution remain pending. |
 
 The Ubuntu `.deb` SHA-256 is
 `3935adebba2da88a4aaedc27f615bac5a01b18b1dcd14b947e96c8bb55d385b8`.
@@ -103,8 +103,8 @@ all 1,390/i686 and 1,419/x64 payload files against release commit
 `9497609ef44cc9bcd16cd2411c0ee6ccaf5483aa`, including their prebuilt import
 archives. That source tree also retains definitions, Cargo build scripts and
 original MIT/Apache-2.0 notices; it does not document a tested regeneration
-recipe for the prebuilt imports. Full local capture passes; the current hosted
-run predates this fallback, so replacement validation remains necessary. Custom FFmpeg excludes
+recipe for the prebuilt imports. Full local capture passes; run 38209801548
+includes this fallback, with hosted validation still pending. Custom FFmpeg excludes
 Whisper/GGML and preserves its source, patch and explicit configure recipe.
 The Vulkan loader also uses generated/header inputs from Vulkan-Headers
 1:1.4.363.0-1, newer than libplacebo’s 1:1.4.350.1-1. A local source/recipe

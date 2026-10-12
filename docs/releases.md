@@ -20,7 +20,7 @@ is accepted merely because an application or compiler lane passes.
 The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
-for final archive hashes, download links and audit scope. Windows run 38208851267
+for final archive hashes, download links and audit scope. Windows run 38209801548
 and Linux run 38208853449 are the active replacements; neither is accepted from
 compilation alone. Earlier run notes below retain their original evidence scope.
 
@@ -77,8 +77,9 @@ native unwind sources), notices, package identities and distribution manifest.
 Every installed standard-library link input must match the manifest-checksummed
 component; `Cargo.lock` alone does not identify this code. The archive includes
 unused/build/test inputs conservatively and does not claim a per-symbol link map.
-Local ARM64 validation verified all 59 standard-library files and 77 source
-manifests; hosted captures for the four package architectures remain pending.
+Independent downloaded-archive audits verified 59 standard-library files per Mac
+architecture and 62 for Linux. Windows application capture has run, but its final
+package/source comparison remains pending.
 
 Windows also captures Microsoft.Web.WebView2 SDK 1.0.3800.47: all nine prebuilt
 loader files in `webview2-com-sys` 0.39.1 match that exact SDK byte-for-byte.
@@ -87,7 +88,8 @@ The x64 MSVC build selects `WebView2LoaderStatic.lib`. Its Microsoft SDK
 notices. The collector pins the SDK hash and rejects changed crate versions or
 loader bytes. This preserves binary provenance; the SDK does not include the
 loader implementation source. The separately installed Evergreen WebView2
-Runtime and MSVC/Windows SDK runtime attribution remain separate inventory work.
+Runtime is outside that loader archive. MSVC/Windows SDK attribution is captured
+separately as described below.
 The Windows package build now requests MSVC's
 [`/LINKREPROFULLPATHRSP`](https://learn.microsoft.com/en-us/cpp/build/reference/link-repro-full-path-rsp?view=msvc-170)
 diagnostic for both final executables. The collector hashes the selected compiler
@@ -99,8 +101,10 @@ in the GUI. All 14 installed attribution texts and both linker response files
 passed an independent download hash audit. The collector also retains pinned
 Microsoft publisher terms: Visual Studio 2022's developer distribution terms
 remain reference evidence, while the C runtime end-user terms enter installed
-notices. These are distinct from VSF's GPL license. Hosted integration of those
-additional terms and final package redistribution review remain pending.
+notices. These are distinct from VSF's GPL license. Run 38206642301 captured both
+publisher terms; independent verification checked their source documents,
+derived text and all 15 attribution records. Their inclusion in the completed
+Windows installer still requires verification.
 
 Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
 hashes, including nested gclient dependencies. The cache key excludes older SDKs
@@ -119,9 +123,10 @@ copy without an SBOM passed collection and source-checksum verification.
 The workflow publishes these inputs together in `native-sources.tar.gz`.
 Native notices and an inventory enter the app before signing; the assembly
 receipt binds the inventory hash and the signing job verifies the whole bundle.
-Local collection covers 36 installed packages, including exact Git resources,
-embedded/local patches and SPDX `LICENSES/` texts. Hosted source capture on both
-architectures remains pending, as does the static/header-only contribution audit.
+The current hosted Mac archives cover 35 Homebrew packages per architecture,
+including exact Git resources, embedded/local patches and SPDX `LICENSES/`
+texts, plus the custom native builds. Independent source/notice hash audits and
+review of their actual recipes have passed; see the dependency review for scope.
 
 macOS now uses the same pinned libplacebo source-build recipe as Linux. Homebrew's
 libplacebo bottle metadata omitted the exact `fast_float` build input; an archive
@@ -130,8 +135,8 @@ instead captures libplacebo's pinned submodules, including `fast_float`, Vulkan
 headers and code generators, with Meson options/dependencies and the installed
 library hash. The Mac assembler requires the supplied custom library to appear
 in the actual bundle and checks it against the successful build receipt.
-A local Mac build passed its applicable upstream tests; both hosted
-architectures and packaged playback still require validation.
+Both hosted architectures now build and pass their packaged CLI controls.
+Native playback and manual device acceptance remain separate gates.
 The build receipt also identifies the actual inline `xxhash.h` input, which
 does not appear in the dynamic-library graph. Both assemblers verify that header
 has not changed and capture its owning package's sources/notices.
@@ -144,8 +149,8 @@ The Mac library now explicitly selects the adapter's OpenGL backend and disables
 the unused Vulkan backend for the shipped build, rather than autodetecting it
 from Homebrew. Linux retains its existing backend selection. The resulting local
 Mac build passes 14 tests with one explicit OpenGL device skip. This does not
-validate ANGLE playback or claim virtual-GPU support; hosted replacement evidence
-is still required.
+validate ANGLE playback or claim virtual-GPU support. Replacement run 38205417832
+passes both hosted build lanes and signing/notarization.
 The pinned mpv Cocoa player also referenced its Vulkan-only `MetalLayer` without
 the corresponding compile guard. Both hosted architectures exposed that error
 once Vulkan was disabled. The checked render patch now supplies `HAVE_VULKAN`
@@ -211,6 +216,13 @@ candidate; this does not explain the failure. The next build records timed
 playback samples and retains exact candidate/source artifacts before runtime
 checks so a failing binary can be reproduced without rebuilding it. The existing
 two-wrap/two-second requirement is unchanged.
+An independent comparison of the failing run's fixture with the ten-trial
+control verified identical contents and timestamps for all 132 encoded packets
+and all decoded video/audio frames. The container-file hashes differ, but this
+does not represent different stimulus or timing. Local Mac mpv controls with
+video retained and null video/audio outputs observed three wraps in two seconds
+for both the candidate and render-only control; that environment does not
+reproduce the Linux PulseAudio case or clear its failure.
 
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI
@@ -271,7 +283,9 @@ PATH and unload libmpv three times while checking the C++ terminate handler.
 The unload probe now also records loaded module paths/hashes and rejects modules
 outside the private package and Windows runtime. A subsequent check attempts the
 installed production GUI's native smoke sequence and ordered exit, preserving
-logs for the hosted runner's actual display/audio capabilities. Both new runtime
+logs for the hosted runner's actual display/audio capabilities. Future runs retain
+the exact installer, portable archive and sources before these runtime checks;
+an artifact from a failed run remains an unaccepted diagnostic candidate. Both new runtime
 checks still require hosted execution.
 The hosted runner contains development software; those checks do not establish
 clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing,

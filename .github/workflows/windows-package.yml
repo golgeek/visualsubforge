@@ -109,11 +109,7 @@ jobs:
         run: python scripts/windows-sources.py --package "$env:RUNNER_TEMP/package" --msys "$env:VSF_MSYS" --mpv "$env:RUNNER_TEMP/mpv" --ffmpeg "$env:RUNNER_TEMP/ffmpeg" --platform "$env:RUNNER_TEMP/platform-inventory"
       - name: Bundle the current-user installer with WebView2 setup
         run: npm run tauri -- bundle --bundles nsis --features media-prototype,bundled-tools --no-binary-patching --config "$env:RUNNER_TEMP/package/tauri.bundle.json"
-      - name: Verify the installed package and DLL unload with no SDK on PATH
-        run: |
-          python tests/release/windows-install.py --package "$env:RUNNER_TEMP/package" --installer-dir "$env:CARGO_TARGET_DIR/release/bundle/nsis" --probe "$env:RUNNER_TEMP/dll-reload-probe.exe" --output "$env:RUNNER_TEMP/install-check"
-      - name: Exercise the installed production GUI and ordered native teardown
-        run: python tests/release/packaged-gui.py --executable "$env:RUNNER_TEMP/install-check/Installed Preview/visualsubforge.exe" --fixture tests/fixtures/generated/vfr-offset.mkv --output "$env:RUNNER_TEMP/install-check/gui" --environment "Windows Server 2022 hosted runner; device/display capability must be read from logs"
+      # Keep the exact installer and sources available if a runtime check fails.
       - name: Archive candidate and record checksums
         run: |
           Copy-Item "$env:CARGO_TARGET_DIR/release/bundle/nsis/*.exe" "$env:RUNNER_TEMP/package/"
@@ -132,6 +128,11 @@ jobs:
             ${{ runner.temp }}/package/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
+      - name: Verify the installed package and DLL unload with no SDK on PATH
+        run: |
+          python tests/release/windows-install.py --package "$env:RUNNER_TEMP/package" --installer-dir "$env:CARGO_TARGET_DIR/release/bundle/nsis" --probe "$env:RUNNER_TEMP/dll-reload-probe.exe" --output "$env:RUNNER_TEMP/install-check"
+      - name: Exercise the installed production GUI and ordered native teardown
+        run: python tests/release/packaged-gui.py --executable "$env:RUNNER_TEMP/install-check/Installed Preview/visualsubforge.exe" --fixture tests/fixtures/generated/vfr-offset.mkv --output "$env:RUNNER_TEMP/install-check/gui" --environment "Windows Server 2022 hosted runner; device/display capability must be read from logs"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
