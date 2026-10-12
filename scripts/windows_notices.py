@@ -84,7 +84,9 @@ def check_nsis(output, executable, log):
         return installer, result.returncode, diagnostic
 
     _, original_exit, diagnostic = compile_installer('original', [(source, Path('LICENSE.txt'))])
-    if original_exit == 0 or 'failed opening file' not in diagnostic:
+    path_errors = ('failed opening file', '-> no files found.')
+    if (original_exit == 0 or str(source) not in diagnostic
+            or not any(message in diagnostic for message in path_errors)):
         raise ValueError('Pinned NSIS did not reproduce the expanded notice-path failure')
     index = compact(bundle)
     files = [(p, p.relative_to(bundle)) for p in sorted(bundle.rglob('*')) if p.is_file()]
