@@ -324,6 +324,24 @@ logs for the hosted runner's actual display/audio capabilities. Future runs reta
 the exact installer, portable archive and sources before these runtime checks;
 an artifact from a failed run remains an unaccepted diagnostic candidate. Both new runtime
 checks still require hosted execution.
+
+The updated Windows CLI check uses temporary, executable-specific outbound
+firewall blocks for the relocated `vsf`, `ffmpeg` and `ffprobe`. A Python TCP
+control must connect before the block, fail under an equivalent program block,
+and reconnect after cleanup. The check reads the effective rules/profiles and
+restores the prior profile settings and all its own rules even after failure.
+This runs only on disposable GitHub Windows runners; it does not disconnect the
+runner agent or establish whole-machine network isolation. Hosted validation of
+this new control and actual-package offline resync remain pending.
+See Microsoft's [program-rule interface](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule)
+and [firewall profile interface](https://learn.microsoft.com/en-us/powershell/module/netsecurity/set-netfirewallprofile).
+
+`Windows installed candidate validation` can consume an existing candidate and
+fixture run, verify their download hashes, and repeat actual installation,
+resource comparison, offline CLI and native controls without rebuilding VSF.
+Its unload probe links libc++, matching the runtime involved in the original
+GGML hazard. It retains the candidate/fixture identities, probe compiler and
+runtime evidence. A fresh hosted runner is still not a clean consumer OS.
 The hosted runner contains development software; those checks do not establish
 clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing,
 complete source/notices and that acceptance remain open. The initial workflow

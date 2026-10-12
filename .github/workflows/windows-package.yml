@@ -156,6 +156,7 @@ jobs:
             ${{ runner.temp }}/mpv/commands.log
             ${{ runner.temp }}/install-check/*.json
             ${{ runner.temp }}/install-check/*.log
-            ${{ runner.temp }}/install-check/cli/packaged-cli-check.json
+            ${{ runner.temp }}/install-check/offline/network-isolation.json
+            ${{ runner.temp }}/install-check/offline/cli/packaged-cli-check.json
             ${{ runner.temp }}/install-check/gui/*
           retention-days: 14

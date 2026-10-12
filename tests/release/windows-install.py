@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("package", "installer-dir", "probe", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--fixtures", type=Path, default=ROOT / "tests/fixtures/generated/resync")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     installed = args.output.resolve() / "Installed Preview"
@@ -50,8 +50,13 @@ def main():
         if actual != expected:
             raise ValueError(f"Installer changed or omitted resource {relative}")
         installed_files += 1
-    subprocess.run([sys.executable, ROOT / "tests/release/packaged-cli.py", "--bundle", installed,
-                    "--bin", ".", "--output", args.output / "cli"], check=True, timeout=450)
+    # The PowerShell owner verifies and restores its temporary firewall rules.
+    # Each CLI child has its own timeout; killing this owner prematurely would
+    # bypass that cleanup. The hosted job still has an overall deadline.
+    subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-File",
+                    ROOT / "tests/release/windows-offline.ps1", "-Bundle", installed,
+                    "-Fixtures", args.fixtures.resolve(strict=True),
+                    "-Output", args.output / "offline"], check=True)
     probe_bundle = args.output / "Unload Control"
     shutil.copytree(installed, probe_bundle)
     shutil.copy2(args.probe, probe_bundle / "dll-reload-probe.exe")
@@ -90,7 +95,8 @@ def main():
                 "installed_files_verified": installed_files,
                 "dll_unload_cycles": 3, "ggml_loaded": False,
                 "observed_modules": loaded,
-                "cli": "cli/packaged-cli-check.json"}
+                "cli": "offline/cli/packaged-cli-check.json",
+                "network_isolation": "offline/network-isolation.json"}
     (args.output / "install-check.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 
