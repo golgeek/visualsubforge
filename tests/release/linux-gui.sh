@@ -10,6 +10,9 @@ mkdir -m 700 "$XDG_RUNTIME_DIR"
 pulseaudio --start --exit-idle-time=-1 --log-level=debug \
   --log-time=yes --log-target=file:/evidence/pulseaudio.log
 trap 'pulseaudio --kill' EXIT
+# PulseAudio creates this dedicated diagnostic file with mode 0600. The host
+# artifact uploader has a different UID from this container's preview user.
+chmod 644 /evidence/pulseaudio.log
 pactl load-module module-null-sink sink_name=vsf_ci "${sink_options[@]}" > /evidence/null-sink.txt
 pactl set-default-sink vsf_ci
 glxinfo -B > /evidence/glxinfo.txt
