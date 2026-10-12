@@ -22,7 +22,9 @@ class PackagedGuiControls(unittest.TestCase):
                 ('exit 0', False),
                 ('echo "VSF GPU SMOKE: PASS" >&2; exit 1', False),
                 ('echo "VSF GPU SMOKE: FAIL" >&2; echo "VSF GPU SMOKE: PASS" >&2', False),
-                ('echo "VSF GPU SMOKE: PASS" >&2', True),
+                # Linux additionally requires observing the packaged mpv in
+                # procfs. A shell claiming PASS must fail that independent gate.
+                ('echo "VSF GPU SMOKE: PASS" >&2', not sys.platform.startswith('linux')),
             ]):
                 executable.write_text('#!/bin/sh\n' + body + '\n')
                 executable.chmod(0o755)

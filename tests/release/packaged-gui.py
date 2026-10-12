@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import time
 
 
@@ -55,7 +56,7 @@ def main():
             raise ValueError(f'Packaged native smoke failed (exit {process.returncode}); inspect stderr.log')
         if hashlib.sha256(fixture.read_bytes()).hexdigest() != evidence['fixture_sha256']:
             raise ValueError('Native smoke changed its input fixture')
-        if mapped:
+        if sys.platform.startswith('linux'):
             private = executable.parent / 'lib'
             mpv = [Path(path) for path in mapped if Path(path).name.startswith('libmpv.so')]
             if len(mpv) != 1 or not mpv[0].is_relative_to(private):
