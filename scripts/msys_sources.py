@@ -64,12 +64,19 @@ def signed_download(url, directory, msys):
     for remote, target in [(url, archive), (url + '.sig', signature)]:
         with urllib.request.urlopen(remote, timeout=120) as response, target.open('xb') as output:
             shutil.copyfileobj(response, output)
+    verify_signature(archive, signature, msys)
+    return archive
+
+
+def verify_signature(archive, signature, msys):
     command = [msys / 'usr/bin/bash.exe', '--login', '-c',
                '/usr/bin/pacman-key --verify "$(cygpath -u "$1")" "$(cygpath -u "$2")"',
                'verify-source', str(signature), str(archive)]
-    verified = subprocess.run(command, capture_output=True, text=True, check=True)
-    Path(str(archive) + '.verification.txt').write_text(verified.stdout + verified.stderr)
-    return archive
+    verified = subprocess.run(command, capture_output=True, text=True)
+    diagnostic = verified.stdout + verified.stderr
+    Path(str(archive) + '.verification.txt').write_text(diagnostic, encoding='utf-8')
+    if verified.returncode:
+        raise ValueError(f'MSYS2 signature verification failed for {archive.name}:\n{diagnostic}')
 
 
 def verify_binary(archive, installed):

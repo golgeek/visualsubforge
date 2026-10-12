@@ -54,6 +54,10 @@ jobs:
             mingw-w64-clang-x86_64-zlib
             mingw-w64-clang-x86_64-bzip2
             mingw-w64-clang-x86_64-xz
+      - name: Check source-signature verification before native compilation
+        env:
+          VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
+        run: python tests/release/msys-signature.py --msys "$env:VSF_MSYS" --output "$env:RUNNER_TEMP/msys-signature-check"
       - name: Build pinned FFmpeg without the unused Whisper/GGML runtime
         shell: msys2 {0}
         run: bash scripts/build-ffmpeg-windows.sh "$RUNNER_TEMP/ffmpeg"
@@ -130,6 +134,7 @@ jobs:
           name: windows-package-evidence-x64
           path: |
             ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ runner.temp }}/msys-signature-check/*.verification.txt
             ${{ runner.temp }}/platform-inventory/**
             ${{ runner.temp }}/windows-link-inputs/*.rsp
             ${{ runner.temp }}/package/native-sources/native-inventory.json

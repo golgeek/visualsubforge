@@ -5,10 +5,12 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from msys_sources import archive_version, embedded_inputs, owned_files, source_notices, verify_binary, verify_recipe
+from msys_sources import archive_version, embedded_inputs, owned_files, source_notices, verify_binary, verify_recipe, verify_signature
 
 
 def archive(path, files):
@@ -20,6 +22,17 @@ def archive(path, files):
 
 
 class MsysSources(unittest.TestCase):
+    def test_signature_failure_retains_the_verifier_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / 'package.pkg.tar.zst'
+            result = subprocess.CompletedProcess([], 1, 'Checking package\n', 'gpg: BAD signature\n')
+            with patch('msys_sources.subprocess.run', return_value=result):
+                with self.assertRaisesRegex(ValueError, 'gpg: BAD signature'):
+                    verify_signature(package, root / 'package.sig', root)
+            self.assertEqual(Path(str(package) + '.verification.txt').read_text(),
+                             'Checking package\ngpg: BAD signature\n')
+
     def test_embedded_inputs_use_the_binary_build_versions_and_exact_names(self):
         prefix = 'mingw-w64-clang-x86_64-'
         build = {'installed': [prefix + 'crt-14.0.0.r190-1-any', prefix + 'headers-14.0.0.r190-1-any',
