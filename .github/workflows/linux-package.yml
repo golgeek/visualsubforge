@@ -52,6 +52,8 @@ jobs:
         run: |
           npm run tauri -- build --no-bundle --features media-prototype,bundled-tools -- --locked
           cargo build --locked --release -p vsf-cli --features bundled-tools
+      - name: Capture matching Rust/frontend sources and notices
+        run: python scripts/application-sources.py --target x86_64-unknown-linux-gnu --features visualsubforge/media-prototype,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
       - name: Assemble private runtime, notices and exact distro sources
         run: |
           python scripts/package-linux.py \
@@ -62,6 +64,7 @@ jobs:
             --native-source "libplacebo=$RUNNER_TEMP/placebo/source.tar.gz" \
             --native-notices "mpv=$RUNNER_TEMP/mpv/prepared/source" \
             --native-notices "libplacebo=$RUNNER_TEMP/placebo/source" \
+            --application-sources "$RUNNER_TEMP/application-sources" \
             --output "$RUNNER_TEMP/package"
       - name: Generate independent fixture inputs
         run: python scripts/resync-fixtures.py
@@ -81,14 +84,16 @@ jobs:
       - name: Archive matching native dependency sources
         run: |
           tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz
+          tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
           cd "$RUNNER_TEMP/package"
-          sha256sum ./*.deb native-sources.tar.gz > SHA256SUMS
+          sha256sum ./*.deb native-sources.tar.gz application-sources.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux-preview-amd64
           path: |
             ${{ runner.temp }}/package/*.deb
             ${{ runner.temp }}/package/native-sources.tar.gz
+            ${{ runner.temp }}/package/application-sources.tar.gz
             ${{ runner.temp }}/package/SHA256SUMS
           if-no-files-found: error
           retention-days: 14

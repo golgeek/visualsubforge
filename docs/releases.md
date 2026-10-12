@@ -40,6 +40,25 @@ licenses. Distributable artifacts need notices and the corresponding source and
 build instructions for the actual bundled dependencies; a package-manager
 license name alone is not that inventory.
 
+Release workflows now capture `application-sources.tar.gz` alongside the native
+artifacts. `scripts/application-sources.py` resolves the non-development Cargo
+graph for each target and the production GUI/CLI features, preserves checksum-
+verified published crates, and compares their extracted source against the
+compiler inputs. Build dependencies and procedural macros are included and are
+not mislabelled as necessarily linked runtime code. When a crate omits its
+monorepo's license files, its checksum-verified `.cargo_vcs_info.json` selects the
+exact additional upstream source/notices archive.
+
+The Vite build emits `frontend-inventory.json` and `THIRD-PARTY-NOTICES.txt` from
+modules contributing to the production chunks. Vite/Rolldown are also retained
+as generators of embedded runtime helpers. The collector checks bundled module
+hashes against npm's integrity-verified source archives and records final web
+asset hashes. Application source archives include tracked files only; local
+planning documents are excluded. Installed packages carry the inventory and
+notices; assembly receipts bind that inventory by SHA-256. Native inventories,
+language/platform runtime coverage and the final artifact audit remain separate
+work, so successful collection is not yet complete redistribution acceptance.
+
 ## Remaining release work
 
 ### Linux candidate workflow
@@ -93,6 +112,9 @@ is not a claim that a Windows artifact has passed yet. First run 38190957247
 stopped at a source-archive control whose expected LF bytes disagreed with
 Windows text-mode CRLF output. The fixture now writes explicit CRLF bytes and
 requires the archive to preserve them exactly on every platform.
+Run 38191189515 then found that CLANG64 has no `lua52` package. The workflow now
+uses the available LuaJIT package, which the pinned mpv build supports; this is
+a build dependency correction, not a player-policy change.
 
 ### Publication gates
 

@@ -105,6 +105,12 @@ def assemble(args):
     doc = tree / "usr/share/doc/visualsubforge"
     notices = doc / "third-party"
     notices.mkdir(parents=True)
+    application_inventory = None
+    if getattr(args, "application_sources", None):
+        application = args.application_sources.resolve(strict=True)
+        application_inventory = digest(application / "application-inventory.json")
+        shutil.copytree(application / "notices", notices / "application")
+        shutil.copy2(application / "application-inventory.json", doc / "application-inventory.json")
     env = {key: value for key, value in os.environ.items() if not key.startswith(("LD_", "DYLD_"))}
     env["LC_ALL"] = "C"
     platform, platform_packages = platform_runtime(env)
@@ -194,6 +200,7 @@ def assemble(args):
     receipt = {"schema": 1, "version": "0.0.1-alpha", "architecture": "amd64", "os": "Ubuntu 24.04",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
                "files": records, "platform_dependencies": depends, "native_sources": source_records,
+               "application_inventory_sha256": application_inventory,
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
@@ -213,6 +220,7 @@ if __name__ == "__main__":
     parser.add_argument("--library-dir", type=Path, action="append", default=[])
     parser.add_argument("--native-source", action="append", default=[], help="name=source.tar.gz")
     parser.add_argument("--native-notices", action="append", default=[], help="name=source-directory")
+    parser.add_argument("--application-sources", type=Path)
     try:
         assemble(parser.parse_args())
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:

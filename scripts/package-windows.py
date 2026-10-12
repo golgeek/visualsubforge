@@ -79,6 +79,7 @@ def main():
     for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--library-dir", type=Path, action="append", required=True)
+    parser.add_argument("--application-sources", type=Path)
     args = parser.parse_args()
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -98,15 +99,23 @@ def main():
     if set(copied) != set(graph) or copied_imports != imports:
         raise ValueError("Assembled PE graph changed")
     shutil.copy2(ROOT / "LICENSE", bundle / "LICENSE.txt")
+    application_inventory = None
+    if args.application_sources:
+        application = args.application_sources.resolve(strict=True)
+        application_inventory = digest(application / "application-inventory.json")
+        shutil.copytree(application / "notices", bundle / "third-party/application")
+        shutil.copy2(application / "application-inventory.json", bundle / "application-inventory.json")
     receipt = {"schema": 1, "architecture": "x86_64", "version": "0.0.1-alpha",
                "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                "files": records, "ggml_policy": "No Whisper/GGML imports allowed, including delay imports",
+               "application_inventory_sha256": application_inventory,
                "scope": "Static PE graph only; runtime loading and installation are separate checks",
                "redistribution": "Full source/license inventory still required before release"}
     (bundle / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
     # Tauri's NSIS backend installs private resources beside the main binary and
     # installs WebView2 when absent. The GUI is supplied by its normal build path.
-    resources = {str(path): path.name for path in bundle.iterdir() if path.name != "visualsubforge.exe"}
+    resources = {str(path): path.relative_to(bundle).as_posix() for path in bundle.rglob("*")
+                 if path.is_file() and path.name != "visualsubforge.exe"}
     config = {"bundle": {"active": True, "targets": ["nsis"], "resources": resources,
                          "license": "GPL-3.0-or-later", "shortDescription": "Subtitle editor and resync CLI",
                          "windows": {"webviewInstallMode": {"type": "downloadBootstrapper", "silent": True},
