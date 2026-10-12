@@ -48,6 +48,9 @@ compiler inputs. Build dependencies and procedural macros are included and are
 not mislabelled as necessarily linked runtime code. When a crate omits its
 monorepo's license files, its checksum-verified `.cargo_vcs_info.json` selects the
 exact additional upstream source/notices archive.
+`libappindicator-sys` 0.9.0 also omits repository metadata; a version/revision-
+specific mapping points to its upstream repository after comparing every source
+file and the original manifest with that commit. Upgrades require another review.
 
 The Vite build emits `frontend-inventory.json` and `THIRD-PARTY-NOTICES.txt` from
 modules contributing to the production chunks. Vite/Rolldown are also retained
@@ -73,10 +76,15 @@ Users install the downloaded package with `sudo apt install ./<package>.deb`.
 Assembly audits the ELF dependency closure, records hashes, and downloads exact
 Ubuntu source packages (including distribution patches) for bundled libraries.
 The workflow installs the package in a fresh Ubuntu container and runs relocated
-CLI/resync checks with networking disabled. This is the first hosted validation
-of the Linux packaging implementation; no successful package is claimed yet.
-Complete Rust/frontend provenance and actual GUI/GPU/audio validation are still
-required. A container CLI pass is not desktop installation acceptance.
+CLI/resync checks with networking disabled. [Run 38191188205](https://github.com/golgeek/visualsubforge/actions/runs/38191188205)
+passed production assembly, installation and those controls. Independent download
+verification matched both artifact checksums, all 124 packaged native-file hashes,
+the two custom source archives and all 201 source payloads referenced by 91 distro
+source manifests. This first artifact predates the application source collector.
+Its replacement stopped at missing `libappindicator-sys` provenance, now corrected
+and verified by a full local Linux-target capture (360 Rust packages, four frontend
+inputs). Hosted artifact binding and actual GUI/GPU/audio validation remain open.
+A container CLI pass is not desktop installation acceptance.
 
 The first hosted Linux run, [38190349153](https://github.com/golgeek/visualsubforge/actions/runs/38190349153),
 passed the ELF relocation control and built libplacebo (13 tests passed, two GPU

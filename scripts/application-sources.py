@@ -22,6 +22,14 @@ from source_archive import archive_source
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# This release omitted repository and notice files. Its original manifest and
+# every source file were compared with sys/ at this exact upstream commit.
+# Version/revision matching makes dependency upgrades require a new review.
+REPOSITORY_OVERRIDES = {
+    ("libappindicator-sys", "0.9.0", "eafd1e3682a1247f595410266091e9684021cb6f"):
+        "https://github.com/tauri-apps/libappindicator-rs",
+}
+
 
 def capture(*args):
     return subprocess.check_output(list(map(str, args)), cwd=ROOT, text=True).strip()
@@ -92,9 +100,10 @@ def upstream_notices(package, crate, output, captured):
             vcs = json.load(source.extractfile(member))
         except KeyError as error:
             raise ValueError(f"No notices or pinned upstream revision: {package['name']}") from error
-    repository = (package.get("repository") or "").removesuffix(".git")
-    match = re.fullmatch(r"https://github.com/([\w.-]+/[\w.-]+)", repository)
     commit = vcs["git"]["sha1"]
+    override = REPOSITORY_OVERRIDES.get((package["name"], package["version"], commit))
+    repository = (package.get("repository") or override or "").removesuffix(".git")
+    match = re.fullmatch(r"https://github.com/([\w.-]+/[\w.-]+)", repository)
     if not match or not re.fullmatch(r"[0-9a-f]{40}", commit) or vcs["git"].get("dirty"):
         raise ValueError(f"Unreviewed upstream notice source: {package['name']}: {repository}")
     name = match[1].replace("/", "-") + "-" + commit
@@ -110,7 +119,8 @@ def upstream_notices(package, crate, output, captured):
             raise ValueError(f"Pinned upstream has no notices: {name}")
         captured[name] = {"file": archive.name, "url": url, "commit": commit,
                           "sha256": digest(archive), "notices": notices,
-                          "provenance": "Git revision from the checksum-verified published crate"}
+                          "provenance": "Git revision from the checksum-verified published crate",
+                          "repository_origin": "Reviewed version-specific override" if override else "Cargo metadata"}
     return name
 
 

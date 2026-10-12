@@ -68,7 +68,7 @@ jobs:
         run: brew install ffmpeg
       - name: Install Windows FFmpeg
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        run: ./scripts/install-ci-ffmpeg.ps1
       - name: Record tool and architecture evidence
         run: |
           rustc -vV
@@ -184,7 +184,7 @@ jobs:
         run: brew install ffmpeg
       - name: Install Windows FFmpeg for desktop resync owner tests
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        run: ./scripts/install-ci-ffmpeg.ps1
       - name: Exercise desktop proposal ownership with actual FFmpeg (no native player)
         run: |
           ffmpeg -version
