@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 from native_evidence import digest, verified_headers
+from ubuntu_rust_sources import collect as collect_ubuntu_rust
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -166,6 +167,9 @@ def assemble(args):
             header_inputs.append({**header, "distro": owner, "used_by": "libplacebo embedded header"})
         shutil.copy2(build_receipt, root / "libplacebo-build.json")
     collect_distro_sources(distro, root / "distro-sources", notices)
+    rust_sources = root / "distro-sources/native-rust"
+    collect_ubuntu_rust(records, rust_sources, notices / "native-rust")
+    shutil.copy2(rust_sources / "inventory.json", doc / "native-rust-inventory.json")
     source_records = []
     for item in args.native_source:
         name, path = item.split("=", 1)
@@ -210,6 +214,7 @@ def assemble(args):
                "files": records, "header_inputs": header_inputs,
                "platform_dependencies": depends, "native_sources": source_records,
                "application_inventory_sha256": application_inventory,
+               "native_rust_inventory_sha256": digest(rust_sources / "inventory.json"),
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
@@ -217,7 +222,7 @@ def assemble(args):
     subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(tree), str(artifact)], check=True)
     receipt["artifact"] = {"file": artifact.name, "sha256": digest(artifact)}
     (root / "assembly-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    source_files = [path for path in (root / "distro-sources").iterdir() if path.is_file()]
+    source_files = [path for path in (root / "distro-sources").rglob("*") if path.is_file()]
     source_files += list(root.glob("*-source.tar.gz"))
     (root / "SHA256SUMS").write_text("".join(f"{digest(path)}  {path.relative_to(root)}\n" for path in [artifact, *sorted(source_files)]))
 

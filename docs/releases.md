@@ -147,6 +147,17 @@ This candidate includes the additional inline-header inventory. Native Rust
 code embedded in Ubuntu's rav1e remains under source review. It does not establish
 real GPU/audio, interactive desktop or oldest-supported-OS acceptance.
 
+The next package includes the native Rust build-input collector. It binds the
+pre-relocation rav1e library to Ubuntu's original `.deb`, verifies that binary
+and its buildinfo against the original build's checksums, and resolves exact
+`librust-*`, compiler and standard-library source versions from that buildinfo.
+It retains Ubuntu/Debian source descriptors, upstream archives, patches and
+notices, including a conservative superset of test/build dependencies. Local
+capture and a separate hash audit pass for 307 binary inputs, 276 source packages,
+1,692 evidence files and 2,141 notice records. Hosted integration remains pending.
+This is publisher HTTPS provenance with checksum verification, not a claim to
+have verified the Debian developers' source signatures or reproduced their build.
+
 `Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI
 and CLI binaries. The `.deb` installs private media binaries/libraries in
