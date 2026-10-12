@@ -9,13 +9,20 @@ do not authorize a macOS-only release.
 
 The macOS matrix has separate Apple Silicon and Intel validation artifacts.
 Their audited minimums are macOS 14.0 and 15.0 respectively. The Intel Homebrew
-OpenSSL 3.6.3 (libssl/libcrypto), xz 5.8.3, Vulkan loader 1.4.357.0 and pcre2
-10.47_1 libraries require macOS 15. Lowering that floor requires rebuilding or
+OpenSSL 3.6.3 (libssl/libcrypto), xz 5.8.3 and pcre2 10.47_1 libraries require
+macOS 15. The current OpenGL-only package no longer includes Vulkan loader. Lowering that floor requires rebuilding or
 replacing those dependencies and repeating validation; setting the application's
 deployment target alone is insufficient.
 An advertised minimum and an OS version actually tested are separate evidence.
 Windows and Linux packaging/validation are also pending. None of these targets
 is accepted merely because an application or compiler lane passes.
+
+The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
+have matching source inventories, accepted notarization and independently
+verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
+for final archive hashes, download links and audit scope. Windows run 38208851267
+and Linux run 38208853449 are the active replacements; neither is accepted from
+compilation alone. Earlier run notes below retain their original evidence scope.
 
 ## Shared package layout
 
@@ -302,11 +309,17 @@ libarchive extraction. Full replacement source collection remains required.
 
 The collector now follows a reviewed set of embedded inputs from each signed
 binary's `.BUILDINFO`: MinGW/compiler runtime inputs, libplacebo's generated/header
-inputs and shaderc's glslang/SPIR-V inputs. It retains their historical versions,
+inputs, shaderc's glslang/SPIR-V inputs and the Vulkan loader's exact headers. It retains their historical versions,
 including MSYS2 package epochs. Libdovi's nested `dolby_vision/Cargo.lock` supplies
 its own registry sources/notices; the application's Cargo graph does not cover
-those native Rust dependencies. All 84 entries were captured in a local source
-check; hosted signature verification and full recipe coverage remain required.
+those native Rust dependencies. The older libdovi 3.3.2 lockfile had 84 entries;
+the currently selected 3.4.0 has 90. Its local capture passes after recovering
+notices for two legacy winapi import-library crates: every published payload
+(including prebuilt archives) matches the reviewed upstream release commit.
+The fallback requires the exact crate checksum and retains the matching source,
+definitions, Cargo build scripts and license texts. Regeneration of those
+prebuilt import libraries was not tested. Hosted integration remains
+required; unrelated crates without provenance still fail.
 
 Run 38198445762 built the production GUI/CLI and captured application sources,
 then assembly identified `avicap32.dll` as absent from the explicit OS allowlist.

@@ -22,6 +22,48 @@ REPOSITORY_OVERRIDES = {
         "https://github.com/tauri-apps/libappindicator-rs",
 }
 
+# These 2018 releases predate Cargo's VCS receipt and omitted their licenses.
+# The published payloads (including import archives) match this release commit,
+# which also preserves the definition files and Cargo build scripts. Match every
+# payload again when collecting; a version string alone is not provenance.
+LEGACY_NOTICE_SOURCES = {
+    ("winapi-i686-pc-windows-gnu", "0.4.0"): {
+        "sha256": "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6",
+        "commit": "9497609ef44cc9bcd16cd2411c0ee6ccaf5483aa", "directory": "i686"},
+    ("winapi-x86_64-pc-windows-gnu", "0.4.0"): {
+        "sha256": "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f",
+        "commit": "9497609ef44cc9bcd16cd2411c0ee6ccaf5483aa", "directory": "x86_64"},
+}
+
+
+def verify_legacy_payload(crate, repository, directory):
+    """Bind an old crate's sources and prebuilt inputs to a reviewed Git tree."""
+    matched = 0
+    with tarfile.open(crate) as published, tarfile.open(repository) as source:
+        root = source.getnames()[0].split('/')[0]
+        for member in published:
+            if not member.isfile():
+                continue
+            relative = Path(member.name)
+            if relative.is_absolute() or '..' in relative.parts or len(relative.parts) < 2:
+                raise ValueError(f'Unsafe legacy crate path: {member.name}')
+            name = Path(*relative.parts[1:]).as_posix()
+            if name == 'Cargo.toml':
+                continue  # Cargo's generated registry manifest; compare its original below.
+            if name == 'Cargo.toml.orig':
+                name = 'Cargo.toml'
+            try:
+                original = source.extractfile(f'{root}/{directory}/{name}')
+            except KeyError as error:
+                raise ValueError(f'Legacy crate payload missing from source: {name}') from error
+            with published.extractfile(member) as payload, original:
+                if hashlib.file_digest(payload, 'sha256').digest() != hashlib.file_digest(original, 'sha256').digest():
+                    raise ValueError(f'Legacy crate payload differs from source: {name}')
+            matched += 1
+    if not matched:
+        raise ValueError('Empty legacy crate payload')
+    return matched
+
 
 def verified_download(url, destination, algorithm, expected, cached=None):
     if destination.exists():
@@ -63,12 +105,16 @@ def upstream_notices(package, crate, output, captured):
     # Cargo packages can omit their monorepo's root LICENSE. The locked .crate
     # identifies its exact Git revision; retain that additional source archive
     # and its notices instead of substituting today's license or a generic text.
+    legacy = None
     with tarfile.open(crate) as source:
         member = f"{package['name']}-{package['version']}/.cargo_vcs_info.json"
         try:
             vcs = json.load(source.extractfile(member))
         except KeyError as error:
-            raise ValueError(f"No notices or pinned upstream revision: {package['name']}") from error
+            legacy = LEGACY_NOTICE_SOURCES.get((package['name'], package['version']))
+            if not legacy or digest(crate) != legacy['sha256']:
+                raise ValueError(f"No notices or pinned upstream revision: {package['name']}") from error
+            vcs = {'git': {'sha1': legacy['commit']}}
     commit = vcs["git"]["sha1"]
     override = REPOSITORY_OVERRIDES.get((package["name"], package["version"], commit))
     repository = (package.get("repository") or override or "").removesuffix(".git")
@@ -88,7 +134,12 @@ def upstream_notices(package, crate, output, captured):
             raise ValueError(f"Pinned upstream has no notices: {name}")
         captured[name] = {"file": archive.name, "url": url, "commit": commit,
                           "sha256": digest(archive), "notices": notices,
-                          "provenance": "Git revision from the checksum-verified published crate",
+                          "provenance": ("Reviewed legacy revision with exact published payload comparison" if legacy
+                                         else "Git revision from the checksum-verified published crate"),
                           "repository_origin": "Reviewed version-specific override" if override else "Cargo metadata"}
+    if legacy:
+        matched = verify_legacy_payload(crate, output / 'sources/upstream' / captured[name]['file'],
+                                        legacy['directory'])
+        captured[name].setdefault('verified_legacy_payloads', {})[package['name']] = {
+            'crate_sha256': legacy['sha256'], 'directory': legacy['directory'], 'matched_files': matched}
     return name
-

@@ -24,6 +24,7 @@ LIBRARY_INPUTS = {
     'shaderc': {'glslang', 'spirv-tools', 'spirv-headers'},
     'glslang': {'spirv-tools'},
     'spirv-tools': {'spirv-headers'},
+    'vulkan-loader': {'vulkan-headers'},
 }
 PREFIX = 'mingw-w64-clang-x86_64-'
 

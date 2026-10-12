@@ -9,10 +9,10 @@ remain separate gates in [releases.md](releases.md).
 
 | Target | Candidate evidence | Independent verification | Remaining work |
 | --- | --- | --- | --- |
-| Ubuntu 24.04 x64 | [38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997), commit `f57e353` | Three download hashes; 124 native files; 120 private libraries observed in the installed GUI; application inventory; 1,828 native build-input evidence files and 3,262 installed notice records | Replacement 38206295864 captured the JPEG XL/SDL2 inputs and passed installation/CLI, but failed the GUI loop-wrap assertion. Playback investigation is open. |
-| macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signing/notarization waits for the Intel package job. |
-| macOS Intel | Same matrix run, second attempt | Native compilation/tests passed in the first attempt; source capture subsequently lost network access | Complete source assembly, download audit and notarization. No successful package from this attempt yet. |
-| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes and 14 installed attribution texts verified | Replacement passed signed/tampered controls and Microsoft terms capture, then stopped at unsupported gettext lzip notices. Format support and a corruption control are added; full source collection and installer/runtime execution remain pending. |
+| Ubuntu 24.04 x64 | [38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997), commit `f57e353` | Three download hashes; 124 native files; 120 private libraries observed in the installed GUI; application inventory; 1,828 native build-input evidence files and 3,262 installed notice records | Replacement 38206295864 captured the JPEG XL/SDL2 inputs and passed installation/CLI, but failed the GUI loop-wrap assertion. Ten unchanged trials passed in diagnostic run 38208265216; replacement 38208853449 records timing samples. The earlier failure remains unexplained. |
+| macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
+| macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
+| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | Replacement passed signed/tampered controls and Microsoft terms capture, then stopped at unsupported gettext lzip notices. Format support and a corruption control are added; replacement 38208851267 is running. The next inventory must also capture Vulkan-loader’s own header revision; full source collection and installer/runtime execution remain pending. |
 
 The Ubuntu `.deb` SHA-256 is
 `3935adebba2da88a4aaedc27f615bac5a01b18b1dcd14b947e96c8bb55d385b8`.
@@ -23,6 +23,23 @@ The ARM Mac native inventory SHA-256 is
 Signing changes Mac native file hashes; use the later signing receipt to verify
 the distributed signed app, not the unsigned file hashes above.
 
+The signed Mac downloads are from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832):
+
+| Architecture | Signed app artifact | Final ZIP SHA-256 |
+| --- | --- | --- |
+| Apple Silicon, macOS 14+ build floor | [macos-notarized-aarch64](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11727984565) | `91a6a7910387316fb6760095606c8d82dce098841f70b197c9545332061c3af2` |
+| Intel, macOS 15+ build floor | [macos-notarized-x86_64](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11728236399) | `c2869dc0a02aa270238e86c8d82df7f807d8288e9d65841bf75fb640fb19cd5c` |
+
+The corresponding `macos-unsigned-*` artifacts contain the matching native and
+application source archives. Independent download checks verified each final
+ZIP, all 49 signed native hashes, and 1,558 unchanged inventoried resources per
+architecture against its unsigned assembly. Apple accepted both submissions;
+local `codesign --verify --deep --strict`, `xcrun stapler validate` and
+`spctl --assess --type execute` passed for both extracted apps. These are
+signature/distribution checks on the development Mac, not playback or oldest-OS
+tests. The Intel native inventory SHA-256 is
+`ca5dc33e853293bacd5766a4787b54d2d4f14e571f0cbda1254755234ab4f036`.
+
 ## Source and notice coverage
 
 Application inventories describe the target-specific production Cargo graph,
@@ -30,7 +47,10 @@ including build dependencies and procedural macros. They preserve registry
 checksums, missing upstream license files, tracked VSF source, Cargo lockfiles,
 the Rust distribution manifest, matching `rust-src` and target `rust-std` inputs.
 The audited Linux archive contains 360 Cargo packages and 62 standard-library
-files; the ARM Mac archive contains 282 packages and 59 standard-library files.
+files; each Mac archive contains 282 packages and 59 standard-library files.
+Independent checks verified all 1,063 application-source/notice files on Linux
+and 889 per Mac archive, including published crate hashes against the archived
+Cargo.lock, compiler component hashes, frontend sources and original notices.
 These counts include build inputs and are not claims that every crate is linked.
 
 Both audited frontend inventories identify `@tauri-apps/api` 2.12.0
@@ -53,14 +73,17 @@ passed, but its runtime failure prevents a final candidate audit. The supplement
 provenance and hashes; it does not verify Debian developer PGP signatures or
 reproduce the distributor's original build.
 
-The ARM Mac graph contains 35 Homebrew packages plus custom mpv, ANGLE and
+Each Mac graph contains 35 Homebrew packages plus custom mpv, ANGLE and
 libplacebo builds. Installed recipes/SBOMs or verified legacy receipts identify
 the source archives, resources and patches. Shaderc's own pinned glslang/SPIR-V
 resources are included. Custom libplacebo preserves its pinned generated/header
 inputs, and the inventory separately identifies the exact external `xxhash.h`.
 The selected OpenGL build has no Vulkan-loader runtime dependency. Review of
 these installed recipes found no further external static/header input beyond
-those captured. This conclusion applies to this graph, not future upgrades.
+those captured. The Intel recipes were compared separately: its older libvpx,
+x265, MuJS, Little CMS and HarfBuzz releases have their own matching archives;
+the recipe differences introduced no additional external code inputs. This
+conclusion applies to these graphs, not future upgrades.
 
 One legacy metadata exception needs an explicit reading: uchardet 0.0.8's
 installed formula has `license: null`. Its source archive SHA-256 is
@@ -73,9 +96,21 @@ the GPL alternative is the relevant selection for this GPL distribution.
 
 Windows native collection follows actual MSYS2 DLL owners and reviewed
 static/header/compiler inputs from signed package `.BUILDINFO` records. It must
-also retain libdovi's own locked Rust dependencies. Custom FFmpeg excludes
+also retain libdovi's own locked Rust dependencies. The current libdovi 3.4.0
+lockfile contains 90 packages. Two old winapi import-library crates omitted
+licenses and Cargo revision metadata; their checksum-bound fallback verifies
+all 1,390/i686 and 1,419/x64 payload files against release commit
+`9497609ef44cc9bcd16cd2411c0ee6ccaf5483aa`, including their prebuilt import
+archives. That source tree also retains definitions, Cargo build scripts and
+original MIT/Apache-2.0 notices; it does not document a tested regeneration
+recipe for the prebuilt imports. Full local capture passes; the current hosted
+run predates this fallback, so replacement validation remains necessary. Custom FFmpeg excludes
 Whisper/GGML and preserves its source, patch and explicit configure recipe.
-Successful full collection against the current Windows package is still required.
+The Vulkan loader also uses generated/header inputs from Vulkan-Headers
+1:1.4.363.0-1, newer than libplacebo’s 1:1.4.350.1-1. A local source/recipe
+comparison verified that additional archive and three notices; hosted capture
+of this new edge remains required. Successful full collection against the
+current Windows package is still required.
 
 ## Platform components and source availability
 
@@ -89,7 +124,10 @@ Windows final-link evidence identifies MSVC 14.44.35207 and Windows SDK
 also contributes to the GUI. The inventory hashes these selected inputs and
 retains attribution/terms, without redistributing proprietary SDK library files.
 Pinned Microsoft developer distribution terms remain reference evidence;
-C runtime end-user terms accompany installed notices in the replacement build.
+The hosted platform evidence from run 38206642301 independently verifies both
+publisher documents, their derived text, 15 attribution records and both
+linker-response hashes. C runtime end-user terms will accompany installed
+notices when bundling completes.
 
 The WebView2 loader is another explicit boundary: all nine prebuilt files in
 `webview2-com-sys` 0.39.1 were matched to Microsoft.Web.WebView2 SDK 1.0.3800.47.
@@ -105,8 +143,9 @@ do not describe the Windows archive as an entirely source-built native stack.
 Finish the pending table entries, review their actual versions and compare the
 installed inventories/notices with the matching downloadable source archives.
 Windows installation must pass the private DLL load/unload controls and packaged
-GUI smoke test; Mac signatures, notarization receipts and final checksums must
-pass their separate audit. Then update this review to the final candidates.
+GUI smoke test; Linux needs its replacement inventory/runtime audit and loop
+investigation. The Mac signing/source audits above have passed. Update this
+review to the final Windows/Linux candidates when their checks complete.
 
 The Ubuntu installed GUI evidence uses Xvfb, Mesa llvmpipe and a PulseAudio null
 sink. It establishes neither visible pixel correctness nor audible output.
