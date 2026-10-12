@@ -120,9 +120,9 @@ architectures and packaged playback still require validation.
 The build receipt also identifies the actual inline `xxhash.h` input, which
 does not appear in the dynamic-library graph. Both assemblers verify that header
 has not changed and capture its owning package's sources/notices.
-The shared recipe supplies that include directory to upstream test targets too:
-their Meson dependency list omitted it, causing the first hosted Mac build to
-fail on `xxhash.h`. The corrected recipe passes locally with all tests enabled
+The shared recipe supplies the selected xxhash and dav1d include directories to
+upstream test targets too: their Meson dependency lists omitted them, causing
+hosted Mac builds to fail on those headers. The corrected recipe passes locally with all tests enabled
 (15 passed, one explicit skip); hosted replacement evidence is still required.
 
 ## Remaining release work

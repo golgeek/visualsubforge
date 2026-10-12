@@ -43,16 +43,18 @@ def main():
                 ["git", "-C", str(source), "submodule", "status", "--recursive"], text=True)
             archive_source(source, root / "source.tar.gz")
             receipt["source_sha256"] = digest(root / "source.tar.gz")
-            # Upstream's GPU test sources include src/hash.h, but their Meson
-            # dependency list omits xxhash's include directory. Supply that same
-            # selected header to all targets (not just the shared library).
-            header_options = []
-            xxhash = subprocess.run(["pkg-config", "--variable=includedir", "libxxhash"],
-                                    text=True, capture_output=True)
-            if xxhash.returncode == 0:
-                include = Path(xxhash.stdout.strip()).resolve(strict=True)
-                header_options = [f"-Dc_args={json.dumps(['-I' + str(include)])}",
-                                  f"-Dcpp_args={json.dumps(['-I' + str(include)])}"]
+            # Upstream's GPU tests omit xxhash's include directory; its header
+            # self-containment target similarly omits dav1d. Use the same
+            # selected packages for all test/library targets, retaining tests.
+            test_includes = []
+            for dependency in ["libxxhash", "dav1d"]:
+                selected = subprocess.run(["pkg-config", "--variable=includedir", dependency],
+                                          text=True, capture_output=True)
+                if selected.returncode == 0:
+                    include = Path(selected.stdout.strip()).resolve(strict=True)
+                    test_includes.append("-I" + str(include))
+            header_options = [f"-Dc_args={json.dumps(test_includes)}",
+                              f"-Dcpp_args={json.dumps(test_includes)}"] if test_includes else []
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
                 "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *header_options)
