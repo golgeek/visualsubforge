@@ -12,7 +12,7 @@ remain separate gates in [releases.md](releases.md).
 | Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI passed. Cold null-sink diagnostics failed in 2/10 trials; [38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168) independently measured sink startup delay and passed 10/10 with sink readiness checked before VSF. Physical-device acceptance remains open. |
 | macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
 | macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
-| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); platform attribution [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38213750998](https://github.com/golgeek/visualsubforge/actions/runs/38213750998) passed the Rust test-fixture source correction, then failed on equivalent MSYS2 epoch separators. Local identity controls pass; hosted collection and new installer-helper/runtime validation remain pending. |
+| Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); platform attribution [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes, 15 attribution records and two publisher terms verified | [38221142186](https://github.com/golgeek/visualsubforge/actions/runs/38221142186) passes the complete native collection and source-built installer-helper inventory. NSIS then failed opening a long notice path; compact notice staging, final installer/runtime validation and independent archive audits remain pending. |
 
 The Ubuntu `.deb` SHA-256 is
 `4ed408d688ff09fa0a2f14db6927b58aea36a8addc85bef8d3c785f539865849`.
@@ -111,8 +111,12 @@ Whisper/GGML and preserves its source, patch and explicit configure recipe.
 The Vulkan loader also uses generated/header inputs from Vulkan-Headers
 1:1.4.363.0-1, newer than libplacebo’s 1:1.4.350.1-1. A local source/recipe
 comparison verified that additional archive and three notices; hosted capture
-of this new edge remains required. Successful full collection against the
-current Windows package is still required.
+of this new edge passed in run 38221142186. Its complete collection covers 118
+package identities, 109 source packages and 5,110 native notice records, before
+the separately captured libdovi Rust notices. Thirty-eight independently reviewed
+source/recipe hashes match that hosted inventory. The final downloadable archive
+and installed-package comparison remain required: NSIS could not open one of
+the expanded Rust license paths.
 
 The Rust 1.97.0-1 MSYS2 source archive
 (`1af86af91b610412b6d7c4bf958617dc85e15aa6d87c4a76411c581d5ebc41e1`)
@@ -121,7 +125,9 @@ literal `test` bytes. Their upstream tests confirm that intended content. The
 collector records the two exact version/path/content exceptions rather than
 attempting decompression; unknown malformed archives still fail and no source
 bytes are removed. Local capture and independent hash checks cover all 3,800
-notices and both fixture records. Replacement hosted validation remains open.
+notices and both fixture records. Run 38213750998 passed that source capture
+before encountering the later Vulkan-header epoch mismatch; the final Windows
+package audit remains open.
 
 ## Platform components and source availability
 
@@ -172,8 +178,12 @@ alignment and retaining the token-user buffer while comparing process ownership.
 reproduced the original allocator's alignment failure, passed all seven helper
 tests after patching (including 36 allocation layouts), and compiled the release
 DLL. It stopped later in platform metadata collection. The Windows environment
-key lookup and DLL export-definition parser are corrected; complete inventory
-and actual installer verification remain pending.
+key lookup and DLL export-definition parser are corrected. Replacement 38221142186
+passes the complete helper inventory, with 45 standard-library files and ten
+linker inputs. Its final installer failed on a separate long notice path. Windows
+now stages byte-identical notices under short names, with an index preserving
+each original path and checksum. The pinned-NSIS path regression and completed
+installer verification remain pending.
 See [the recipe and evidence scope](../tests/native/nsis-installer/README.md).
 Sources: [pinned Tauri bundler](https://github.com/tauri-apps/tauri/blob/447fa9f3f993fe77724189e355078b38ce20baea/crates/tauri-bundler/src/bundle/windows/nsis/mod.rs),
 [helper release source](https://github.com/tauri-apps/nsis-tauri-utils/tree/13d9edd27b69310e108d6fbd49f90992f8a05390)

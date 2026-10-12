@@ -12,7 +12,8 @@ Tauri source. NSIS retains its original licenses, including the LZMA linking
 exception in COPYING; the helper and Tauri retain MIT/Apache-2.0 notices. The
 collector includes all locked Rust source archives and the checksum-verified
 i686 standard-library component and its sources. SDK link inputs are hashed,
-not redistributed. A complete installer receipt still requires a hosted build.
+not redistributed. The helper build/inventory passed in run 38221142186; the
+final installer receipt remains pending.
 
 On a Windows runner with Python 3.14.7, the pinned pefile requirement and an x86
 MSVC developer environment:
@@ -35,8 +36,10 @@ upstream notices remain intact. [Run 38220455020](https://github.com/golgeek/vis
 reproduced the original alignment failure, then passed the 36-layout control,
 five process tests (including SID ownership) and one version-comparison test.
 It compiled the release DLL with only kernel32/user32/advapi32/shell32 imports.
-The job subsequently failed collecting platform metadata; complete inventory
-and actual installer verification remain pending.
+The job subsequently failed collecting platform metadata. Replacement
+[38221142186](https://github.com/golgeek/visualsubforge/actions/runs/38221142186)
+passes the complete helper build/inventory, including 45 standard-library files
+and ten actual linker inputs. Actual installer verification remains pending.
 The tests run serially because the plugin API stores a global NSIS stack and
 the process-launch tests temporarily change the same process token's privileges.
 The earlier parallel run's failure remains evidence, not a passed check.
@@ -63,3 +66,18 @@ must match the source build; other embedded plugins must match NSIS 3.11.
 `installer-receipt.json` binds those hashes to the final installer. Successful
 actual installation, resource comparisons and runtime checks remain separate
 requirements; native display/audio acceptance is manual.
+
+The first full native-source capture exposed a separate NSIS limitation: an
+expanded Rust license path exceeded its file API's path limit. Windows assembly
+now copies notice bytes into short `third-party/files/<sha256>.txt` names.
+`third-party/index.json` retains every original notice path and checksum;
+identical texts can share a file without losing their owners. Source archives
+retain their original paths, and `native-sources/installed-notices.json` plus
+the assembly receipt bind the installed index. This changes only notice layout.
+
+Before compiling the helper or media libraries, the build now invokes the pinned
+NSIS compiler on a deliberately long source path, requires the known failure,
+then compiles and silently installs the compact layout and checks every byte.
+This real Windows control and the completed application installer still require
+hosted validation. The portable unit control covers distinct notices with the
+same basename, shared identical notices, long paths and non-UTF-8/CRLF bytes.

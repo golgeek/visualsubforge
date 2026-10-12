@@ -9,9 +9,33 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 from windows_installer import verify
+from windows_notices import compact
 
 
 class InstallerProvenance(unittest.TestCase):
+    def test_long_notice_paths_keep_every_owner_and_original_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory)
+            parent = bundle / 'third-party/native'
+            while len(str(parent / 'LICENSE.txt')) <= 280:
+                parent /= 'nested-source-notices'
+            parent.mkdir(parents=True)
+            payloads = {parent / 'LICENSE.txt': b'Original notice\r\n\xff',
+                        bundle / 'third-party/native/OTHER.txt': b'Distinct notice\n',
+                        bundle / 'third-party/application/LICENSE.txt': b'Original notice\r\n\xff'}
+            for path, data in payloads.items():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            index = compact(bundle)
+            self.assertEqual(len(index['files']), 3)
+            self.assertEqual(len(list((bundle / 'third-party/files').iterdir())), 2)
+            for record in index['files']:
+                self.assertEqual((bundle / record['path']).read_bytes(), payloads[bundle / record['source_path']])
+                self.assertLess(len(record['path']), 100)
+            self.assertEqual(json.loads((bundle / 'third-party/index.json').read_text()), index)
+            with self.assertRaisesRegex(ValueError, 'already been compacted'):
+                compact(bundle)
+
     def test_actual_embedded_plugin_bytes_and_toolset_must_match(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

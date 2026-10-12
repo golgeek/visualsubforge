@@ -20,6 +20,7 @@ from native_evidence import digest
 from rust_runtime_sources import collect as collect_runtime
 from windows_bundle import write_config
 from windows_link_inputs import input_paths
+from windows_notices import check_nsis, compact
 
 ROOT = Path(__file__).resolve().parent.parent
 PINS = ROOT / 'tests/native/nsis-installer'
@@ -65,7 +66,7 @@ def prepare(output, cached=None):
     for patch in sorted(PINS.glob('*.patch')):
         shutil.copy2(patch, recipe)
         receipt['patches'][patch.name] = digest(patch)
-    for name in ['windows_installer.py', 'windows_bundle.py', 'windows_link_inputs.py',
+    for name in ['windows_installer.py', 'windows_bundle.py', 'windows_link_inputs.py', 'windows_notices.py',
                  'rust_runtime_sources.py', 'dependency_sources.py', 'locked_crate_sources.py',
                  'native_evidence.py', 'source_notices.py']:
         shutil.copy2(ROOT / 'scripts' / name, recipe)
@@ -110,6 +111,10 @@ def build(output):
     receipt['commands'] = commands
     try:
         with (output / 'commands.log').open('w', encoding='utf-8') as log:
+            with zipfile.ZipFile(output / 'archives/nsis-3.11.zip') as archive:
+                archive.extractall(output / 'nsis-control')
+            receipt['notice_layout_control'] = check_nsis(
+                output, output / 'nsis-control/nsis-3.11/makensis.exe', log)
             def run(*args, check=True):
                 args = list(map(str, args))
                 commands.append(args)
@@ -195,15 +200,21 @@ def attach(output, package):
     for directory in ['notices', 'rust/notices', 'runtime/notices']:
         shutil.copytree(target / directory, notices / directory)
     shutil.copy2(target / 'installer-build.json', bundle / 'installer-inventory.json')
+    compact(bundle)
+    notice_index = bundle / 'third-party/index.json'
+    shutil.copy2(notice_index, package / 'native-sources/installed-notices.json')
     inventory_path = package / 'native-sources/native-inventory.json'
     inventory = json.loads(inventory_path.read_text())
     inventory['installer'] = {'inventory': 'installer/installer-build.json',
                                'sha256': digest(target / 'installer-build.json')}
+    inventory['installed_notices'] = {'inventory': 'installed-notices.json',
+                                      'sha256': digest(notice_index)}
     inventory_path.write_text(json.dumps(inventory, indent=2) + '\n')
     shutil.copy2(inventory_path, bundle / 'native-inventory.json')
     assembly = json.loads((package / 'assembly-receipt.json').read_text())
     assembly['native_inventory_sha256'] = digest(bundle / 'native-inventory.json')
     assembly['installer_inventory_sha256'] = digest(bundle / 'installer-inventory.json')
+    assembly['notice_index_sha256'] = digest(notice_index)
     for path in [package / 'assembly-receipt.json', bundle / 'native-runtime.json']:
         path.write_text(json.dumps(assembly, indent=2) + '\n')
     native = package / 'native-sources'

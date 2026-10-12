@@ -14,19 +14,21 @@ macOS 15. The current OpenGL-only package no longer includes Vulkan loader. Lowe
 replacing those dependencies and repeating validation; setting the application's
 deployment target alone is insufficient.
 An advertised minimum and an OS version actually tested are separate evidence.
-Windows and Linux packaging/validation are also pending. None of these targets
-is accepted merely because an application or compiler lane passes.
+Linux has an audited Ubuntu 24.04 x64 package; Windows installer validation is
+still pending. Manual acceptance remains open on every target. None is accepted
+merely because an application or compiler lane passes.
 
 The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
 have matching source inventories, accepted notarization and independently
 verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
 for final archive hashes, download links and audit scope. Windows run
-[38213750998](https://github.com/golgeek/visualsubforge/actions/runs/38213750998)
-passed production builds and Rust source capture, then failed on two equivalent
-MSYS2 epoch separators in Vulkan header metadata (`1~` versus `1:`). The collector
-now compares those representations without discarding the epoch, version,
-package name or architecture; changed-identity controls pass locally. A new
-hosted run must validate this correction and the newly inventoried NSIS helper.
+[38221142186](https://github.com/golgeek/visualsubforge/actions/runs/38221142186)
+passed production builds, application sources, the source-built NSIS helper and
+full native collection (118 package identities, 109 source packages). It then
+failed installer compilation on an expanded Rust license path longer than NSIS
+can open. Windows notice staging now uses short filenames with an index retaining
+every original path and checksum; source archives remain unchanged. An early
+real-NSIS compile/install control and the final installer require hosted validation.
 Linux run 38208853449
 passed its package lane; repeated diagnostics isolated a virtual-sink startup
 delay and passed with measured sink readiness, as detailed below. Native device
@@ -293,18 +295,20 @@ passed production assembly, installation and those controls. Independent downloa
 verification matched both artifact checksums, all 124 packaged native-file hashes,
 the two custom source archives and all 201 source payloads referenced by 91 distro
 source manifests. This first artifact predates the application source collector.
-Its replacement stopped at missing `libappindicator-sys` provenance, now corrected
-and verified by a full local Linux-target capture (360 Rust packages, four frontend
-inputs). Hosted artifact binding and actual GUI/GPU/audio validation remain open.
+Its replacement stopped at missing `libappindicator-sys` provenance, subsequently
+corrected and verified by a full Linux-target capture (360 Rust packages, four
+frontend inputs). The current candidate above passes hosted artifact binding and
+bounded GUI smoke checks; physical GPU/audio acceptance remains open.
 A container CLI pass is not desktop installation acceptance.
 
-The next workflow revision also runs the installed production GUI's existing
+The subsequent workflow revision added the installed production GUI's existing
 native smoke diagnostic in a second, unprivileged container with Xvfb, Mesa
 software rendering and a PulseAudio null sink. It checks seeking, frame steps,
 track selection, loop/replacement behavior and ordered shutdown, and records
 observed library hashes. It requires both a successful exit and the diagnostic
-PASS marker. This lane is configured but has not passed yet; even a pass cannot
-establish visible pixels, audible output or physical GPU behavior.
+PASS marker. It passed on the candidates above; the repeated virtual-sink
+diagnostics and readiness requirement qualify that evidence. It cannot establish
+visible pixels, audible output or physical GPU behavior.
 
 The first hosted Linux run, [38190349153](https://github.com/golgeek/visualsubforge/actions/runs/38190349153),
 passed the ELF relocation control and built libplacebo (13 tests passed, two GPU
@@ -445,7 +449,16 @@ are already settled.
 | Installation and runtime | Install the actual artifacts on clean supported environments, then check offline startup, media playback/seeking/audio, subtitle preview, waveform/scene analysis, GUI/CLI resync, save/reopen and shutdown. Record which tests use VMs and which use real GPU/audio devices. |
 | Publication | Require green checks for the release revision and archive the package/source/checksum evidence for all three platforms before publishing the prerelease. |
 
-## Validation so far (2026-10-11)
+## Application and native contract validation
+
+All ten [application checks](https://github.com/golgeek/visualsubforge/actions/runs/38222296959)
+and six [native build contracts](https://github.com/golgeek/visualsubforge/actions/runs/38222297065)
+pass at `9846f88` on 2026-10-12. That revision corrects uppercase `SYSTEMROOT`
+lookups after Windows environment variables are copied into ordinary Python
+dictionaries in the package-validation scripts. The separate Windows installer
+and runtime checks still need execution against a completed candidate.
+
+Earlier evidence (2026-10-11):
 
 - All ten [application checks](https://github.com/golgeek/visualsubforge/actions/runs/38177639367)
   and all six [native build contracts](https://github.com/golgeek/visualsubforge/actions/runs/38177639286)
