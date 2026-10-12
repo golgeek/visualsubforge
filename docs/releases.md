@@ -131,6 +131,18 @@ Run 38191189515 then found that CLANG64 has no `lua52` package. The workflow now
 uses the available LuaJIT package, which the pinned mpv build supports; this is
 a build dependency correction, not a player-policy change.
 
+The Windows source collector uses the assembled DLL paths to identify their
+MSYS2 package owners. It verifies the downloaded binary/source archive signatures
+with the runner's MSYS2 keyring, compares shipped DLL bytes with the signed
+package, and checks the source PKGBUILD against the binary's `.BUILDINFO` hash.
+It preserves source payloads, patches, recipes and notices, including notices
+inside nested tarballs and pinned bare Git sources. Custom FFmpeg and patched
+mpv sources/build inputs accompany them in `native-sources.tar.gz`; inventories
+and notices enter the installer before bundling. Local controls and real LuaJIT/
+libplacebo source examples pass; hosted execution of this collector is pending.
+Static/header-only contributions and language/platform runtimes remain separate
+inventory work, so package-owner coverage alone is not final license acceptance.
+
 ### Publication gates
 
 These are implementation and validation tasks, not unanswered credential or

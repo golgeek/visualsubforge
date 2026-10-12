@@ -90,6 +90,10 @@ jobs:
           $env:PATH = "$env:RUNNER_TEMP/ffmpeg/sdk/bin;${{ steps.msys.outputs.msys2-location }}/clang64/bin;$env:PATH"
           python scripts/resync-fixtures.py
           python scripts/media-fixtures.py
+      - name: Capture signed native packages, matching sources and notices
+        env:
+          VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
+        run: python scripts/windows-sources.py --package "$env:RUNNER_TEMP/package" --msys "$env:VSF_MSYS" --mpv "$env:RUNNER_TEMP/mpv" --ffmpeg "$env:RUNNER_TEMP/ffmpeg"
       - name: Bundle the current-user installer with WebView2 setup
         run: npm run tauri -- bundle --bundles nsis --features media-prototype,bundled-tools --no-binary-patching --config "$env:RUNNER_TEMP/package/tauri.bundle.json"
       - name: Verify the installed package and DLL unload with no SDK on PATH
@@ -100,6 +104,7 @@ jobs:
           Copy-Item "$env:CARGO_TARGET_DIR/release/bundle/nsis/*.exe" "$env:RUNNER_TEMP/package/"
           Compress-Archive -Path "$env:RUNNER_TEMP/package/VisualSubForge" -DestinationPath "$env:RUNNER_TEMP/package/VisualSubForge_0.0.1-alpha_x64_windows.zip"
           tar -czf "$env:RUNNER_TEMP/package/application-sources.tar.gz" -C "$env:RUNNER_TEMP/application-sources" .
+          tar -czf "$env:RUNNER_TEMP/package/native-sources.tar.gz" -C "$env:RUNNER_TEMP/package/native-sources" .
           Get-ChildItem "$env:RUNNER_TEMP/package" -File | Where-Object { $_.Extension -in '.zip','.exe','.gz' } | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content "$env:RUNNER_TEMP/package/SHA256SUMS"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -108,6 +113,7 @@ jobs:
             ${{ runner.temp }}/package/*.exe
             ${{ runner.temp }}/package/*.zip
             ${{ runner.temp }}/package/application-sources.tar.gz
+            ${{ runner.temp }}/package/native-sources.tar.gz
             ${{ runner.temp }}/package/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
@@ -117,6 +123,9 @@ jobs:
           name: windows-package-evidence-x64
           path: |
             ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ runner.temp }}/package/native-sources/native-inventory.json
+            ${{ runner.temp }}/package/native-sources/msys2/msys-inventory.json
+            ${{ runner.temp }}/package/native-sources/msys2/**/*.verification.txt
             ${{ runner.temp }}/ffmpeg/*.txt
             ${{ runner.temp }}/ffmpeg/configure.log
             ${{ runner.temp }}/ffmpeg/build.log
