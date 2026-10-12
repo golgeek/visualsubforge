@@ -1,0 +1,76 @@
+name: Linux packaged playback diagnostics
+on:
+  workflow_dispatch:
+    inputs:
+      package_run:
+        description: Linux preview package run containing the candidate and fixtures
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  playback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: linux-preview-amd64
+          run-id: ${{ inputs.package_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/candidate
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: preview-acceptance-fixtures
+          run-id: ${{ inputs.package_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/fixtures
+      - name: Verify downloaded bytes and install the actual candidate
+        env:
+          PACKAGE_RUN: ${{ inputs.package_run }}
+        run: |
+          (cd "$RUNNER_TEMP/candidate" && sha256sum --check SHA256SUMS)
+          (cd "$RUNNER_TEMP/fixtures" && sha256sum --check SHA256SUMS)
+          mkdir -p "$RUNNER_TEMP/install-context" "$RUNNER_TEMP/evidence"
+          cp "$RUNNER_TEMP/candidate/VisualSubForge_0.0.1-alpha_amd64_ubuntu24.04.deb" "$RUNNER_TEMP/install-context/preview.deb"
+          cp tests/release/linux-install.Dockerfile "$RUNNER_TEMP/install-context/Dockerfile"
+          docker build --pull -t vsf-preview-install "$RUNNER_TEMP/install-context"
+          docker build -t vsf-preview-gui -f tests/release/linux-gui.Dockerfile tests/release
+          docker image inspect vsf-preview-gui > "$RUNNER_TEMP/evidence/gui-image.json"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          binary = root / 'install-context/preview.deb'
+          context = {'package_run': os.environ['PACKAGE_RUN'], 'diagnostic_commit': os.environ['GITHUB_SHA'],
+                     'deb_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+                     'scope': 'Ten fresh containers; unchanged production smoke assertions; virtual display/null audio'}
+          (root / 'evidence/context.json').write_text(json.dumps(context, indent=2) + '\n')
+          PY
+      - name: Repeat unchanged playback assertions in ten fresh containers
+        run: |
+          failed=0
+          for trial in $(seq 1 10); do
+            evidence="$RUNNER_TEMP/evidence/trial-$trial"
+            mkdir -m 777 "$evidence"
+            if ! docker run --rm --network none \
+              -v "$PWD/tests/release/packaged-gui.py:/check-gui.py:ro" \
+              -v "$PWD/tests/release/linux-gui.sh:/gui.sh:ro" \
+              -v "$RUNNER_TEMP/fixtures:/fixtures:ro" \
+              -v "$evidence:/evidence" vsf-preview-gui \
+              timeout --signal=TERM --kill-after=10s 180s \
+              xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh \
+              > "$evidence/container.log" 2>&1; then
+              failed=1
+            fi
+          done
+          exit "$failed"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: linux-playback-diagnostics
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: error
+          retention-days: 14

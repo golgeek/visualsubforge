@@ -9,8 +9,8 @@ remain separate gates in [releases.md](releases.md).
 
 | Target | Candidate evidence | Independent verification | Remaining work |
 | --- | --- | --- | --- |
-| Ubuntu 24.04 x64 | [38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997), commit `f57e353` | Three download hashes; 124 native files; 120 private libraries observed in the installed GUI; application inventory; 1,828 native build-input evidence files and 3,262 installed notice records | Replacement 38206295864 adds the reviewed JPEG XL/SDL2 header-input edges. |
-| macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 app files; 1,325 native source-evidence files and 959 installed native notices | Signing/notarization waits for the Intel package job. |
+| Ubuntu 24.04 x64 | [38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997), commit `f57e353` | Three download hashes; 124 native files; 120 private libraries observed in the installed GUI; application inventory; 1,828 native build-input evidence files and 3,262 installed notice records | Replacement 38206295864 captured the JPEG XL/SDL2 inputs and passed installation/CLI, but failed the GUI loop-wrap assertion. Playback investigation is open. |
+| macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signing/notarization waits for the Intel package job. |
 | macOS Intel | Same matrix run, second attempt | Native compilation/tests passed in the first attempt; source capture subsequently lost network access | Complete source assembly, download audit and notarization. No successful package from this attempt yet. |
 | Windows x64 | [38204616450](https://github.com/golgeek/visualsubforge/actions/runs/38204616450); replacement [38206642301](https://github.com/golgeek/visualsubforge/actions/runs/38206642301) | Production executables and PE closure built; 198 GUI/70 CLI linker inputs captured; both response hashes and 14 installed attribution texts verified | Replacement passed real signed/tampered archive controls. Full native source collection, installer execution and download audit remain pending. |
 
@@ -48,8 +48,8 @@ resolves exact historical versions, including rav1e/librsvg Rust inputs and
 FFmpeg/shaderc/libplacebo/glslang/SPIR-V embedded inputs. Different builds used
 different SPIR-V and Rust revisions; retaining today's development package alone
 would not identify them. Reviewed Debian recipes additionally select Highway
-headers for JPEG XL and Vulkan headers for SDL2. Their replacement capture is
-pending in the table above. The supplementary collector verifies publisher HTTPS
+headers for JPEG XL and Vulkan headers for SDL2. Their replacement source capture
+passed, but its runtime failure prevents a final candidate audit. The supplementary collector verifies publisher HTTPS
 provenance and hashes; it does not verify Debian developer PGP signatures or
 reproduce the distributor's original build.
 
