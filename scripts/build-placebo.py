@@ -55,9 +55,13 @@ def main():
                     test_includes.append("-I" + str(include))
             header_options = [f"-Dc_args={json.dumps(test_includes)}",
                               f"-Dcpp_args={json.dumps(test_includes)}"] if test_includes else []
+            # The Mac adapter renders exclusively through ANGLE/OpenGL. Do not
+            # autodetect an unused Vulkan/MoltenVK backend from the build host.
+            # Linux retains its existing Vulkan support and upstream tests.
+            backend_options = ["-Dvulkan=disabled"] if platform.system() == "Darwin" else []
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
-                "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *header_options)
+                "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *backend_options, *header_options)
             receipt["dependencies"] = json.loads((build / "meson-info/intro-dependencies.json").read_text())
             receipt["build_options"] = json.loads((build / "meson-info/intro-buildoptions.json").read_text())
             # libplacebo embeds xxhash's inline header, so no linked DLL/dylib

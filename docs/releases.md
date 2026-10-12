@@ -119,7 +119,7 @@ instead captures libplacebo's pinned submodules, including `fast_float`, Vulkan
 headers and code generators, with Meson options/dependencies and the installed
 library hash. The Mac assembler requires the supplied custom library to appear
 in the actual bundle and checks it against the successful build receipt.
-A local Mac build passed 15 upstream tests with one explicit skip; both hosted
+A local Mac build passed its applicable upstream tests; both hosted
 architectures and packaged playback still require validation.
 The build receipt also identifies the actual inline `xxhash.h` input, which
 does not appear in the dynamic-library graph. Both assemblers verify that header
@@ -127,8 +127,14 @@ has not changed and capture its owning package's sources/notices.
 The shared recipe supplies the selected xxhash and dav1d include directories to
 upstream test targets too: their Meson dependency lists omitted them, causing
 hosted Mac builds to fail on those headers. The corrected recipe passes locally
-with all tests enabled
-(15 passed, one explicit skip); hosted replacement evidence is still required.
+with all tests enabled. The next hosted run exposed a separate Vulkan test abort:
+MoltenVK calls an unsupported Metal selector on the runner's paravirtual GPU.
+The Mac library now explicitly selects the adapter's OpenGL backend and disables
+the unused Vulkan backend for the shipped build, rather than autodetecting it
+from Homebrew. Linux retains its existing backend selection. The resulting local
+Mac build passes 14 tests with one explicit OpenGL device skip. This does not
+validate ANGLE playback or claim virtual-GPU support; hosted replacement evidence
+is still required.
 
 ## Remaining release work
 
