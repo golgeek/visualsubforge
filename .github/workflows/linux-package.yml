@@ -67,7 +67,9 @@ jobs:
             --application-sources "$RUNNER_TEMP/application-sources" \
             --output "$RUNNER_TEMP/package"
       - name: Generate independent fixture inputs
-        run: python scripts/resync-fixtures.py
+        run: |
+          python scripts/resync-fixtures.py
+          python scripts/media-fixtures.py
       - name: Install into clean Ubuntu and test offline with no development SDK
         run: |
           mkdir -p "$RUNNER_TEMP/install-context"
@@ -81,6 +83,17 @@ jobs:
             -v "$PWD/tests/fixtures/generated/resync:/fixtures:ro" \
             -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-install \
             python3 /check.py --bundle /usr/lib/visualsubforge --bin . --fixtures /fixtures --output /evidence/cli
+      - name: Exercise installed native GUI with a software display and null audio sink
+        run: |
+          docker build -t vsf-preview-gui -f tests/release/linux-gui.Dockerfile tests/release
+          docker image inspect vsf-preview-gui > "$RUNNER_TEMP/package/gui-image.json"
+          chmod a+rwx "$RUNNER_TEMP/install-check"
+          docker run --rm --network none \
+            -v "$PWD/tests/release/packaged-gui.py:/check-gui.py:ro" \
+            -v "$PWD/tests/release/linux-gui.sh:/gui.sh:ro" \
+            -v "$PWD/tests/fixtures/generated:/fixtures:ro" \
+            -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-gui \
+            xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh
       - name: Archive matching native dependency sources
         run: |
           tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz
@@ -105,9 +118,12 @@ jobs:
           path: |
             ${{ runner.temp }}/package/assembly-receipt.json
             ${{ runner.temp }}/package/install-image.json
+            ${{ runner.temp }}/package/gui-image.json
             ${{ runner.temp }}/placebo/build-receipt.json
             ${{ runner.temp }}/placebo/commands.log
             ${{ runner.temp }}/mpv/build-receipt.json
             ${{ runner.temp }}/mpv/commands.log
             ${{ runner.temp }}/install-check/cli/packaged-cli-check.json
+            ${{ runner.temp }}/install-check/gui/*
+            ${{ runner.temp }}/install-check/*.txt
           retention-days: 14

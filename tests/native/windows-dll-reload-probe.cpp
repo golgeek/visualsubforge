@@ -5,9 +5,26 @@
 // Exit 3 reports a handler without a loaded owning module; a dependency may
 // itself abort first. Never invoke the potentially dangling handler.
 #include <windows.h>
+#include <tlhelp32.h>
 #include <cstdio>
 #include <cwchar>
 #include <exception>
+
+static bool report_modules(int iteration) {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
+    MODULEENTRY32W module{};
+    module.dwSize = sizeof(module);
+    bool found = Module32FirstW(snapshot, &module) != FALSE;
+    if (found) {
+        do {
+            std::printf("loaded_module %d %ls\n", iteration, module.szExePath);
+        } while (Module32NextW(snapshot, &module));
+    }
+    DWORD error = GetLastError();
+    CloseHandle(snapshot);
+    return found && error == ERROR_NO_MORE_FILES;
+}
 
 static bool report_handler(const char *stage, int iteration,
                            std::terminate_handler expected = nullptr) {
@@ -50,6 +67,7 @@ int wmain(int argc, wchar_t **argv) {
             return 1;
         }
         stale |= !report_handler("loaded", i, expected);
+        if (!report_modules(i)) return 1;
         if (!keep) {
             if (!FreeLibrary(library)) return 1;
             library = nullptr;

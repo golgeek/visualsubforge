@@ -102,6 +102,14 @@ and verified by a full local Linux-target capture (360 Rust packages, four front
 inputs). Hosted artifact binding and actual GUI/GPU/audio validation remain open.
 A container CLI pass is not desktop installation acceptance.
 
+The next workflow revision also runs the installed production GUI's existing
+native smoke diagnostic in a second, unprivileged container with Xvfb, Mesa
+software rendering and a PulseAudio null sink. It checks seeking, frame steps,
+track selection, loop/replacement behavior and ordered shutdown, and records
+observed library hashes. It requires both a successful exit and the diagnostic
+PASS marker. This lane is configured but has not passed yet; even a pass cannot
+establish visible pixels, audible output or physical GPU behavior.
+
 The first hosted Linux run, [38190349153](https://github.com/golgeek/visualsubforge/actions/runs/38190349153),
 passed the ELF relocation control and built libplacebo (13 tests passed, two GPU
 tests skipped). mpv compiled and passed 39/40 tests, including the lifetime and
@@ -129,6 +137,11 @@ MSVC code uses its static C runtime; other compiler runtimes must appear in the
 private dependency graph. Package checks install into a new path, compare all
 native hashes, run relocation/resync/input-preservation controls with a scrubbed
 PATH and unload libmpv three times while checking the C++ terminate handler.
+The unload probe now also records loaded module paths/hashes and rejects modules
+outside the private package and Windows runtime. A subsequent check attempts the
+installed production GUI's native smoke sequence and ordered exit, preserving
+logs for the hosted runner's actual display/audio capabilities. Both new runtime
+checks still require hosted execution.
 The hosted runner contains development software; those checks do not establish
 clean consumer-Windows, GPU, audio or oldest-OS acceptance. Windows signing,
 complete source/notices and that acceptance remain open. The initial workflow
