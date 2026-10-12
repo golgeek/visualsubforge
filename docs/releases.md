@@ -84,12 +84,14 @@ The Windows package build now requests MSVC's
 diagnostic for both final executables. The collector hashes the selected compiler
 and SDK inputs, records versions and installed license texts, and binds the
 inventory to the packaged executable hashes. Compiler/SDK library payloads are
-not copied into the source archive. Hosted collection and review of the applicable
-platform-library terms remain pending. Run 38203252403 produced both executables'
-linker response files but exposed retained `/defaultlib:` and `/natvis:` prefixes
-in that diagnostic. The collector now parses those explicit forms and rejects
-unknown options. Both saved hosted response files pass local parsing (198 GUI
-and 70 CLI unique inputs); hosted hashing/attribution remains to complete.
+not copied into the source archive. Run 38204616450 captured and hashed 198 GUI
+and 70 CLI inputs, including `libcmt.lib` in both executables and `libvcruntime.lib`
+in the GUI. All 14 installed attribution texts and both linker response files
+passed an independent download hash audit. The collector also retains pinned
+Microsoft publisher terms: Visual Studio 2022's developer distribution terms
+remain reference evidence, while the C runtime end-user terms enter installed
+notices. These are distinct from VSF's GPL license. Hosted integration of those
+additional terms and final package redistribution review remain pending.
 
 Fresh macOS SDK builds preserve ANGLE's resolved Git source checkouts and file
 hashes, including nested gclient dependencies. The cache key excludes older SDKs
@@ -151,16 +153,16 @@ as `preview-acceptance-fixtures`; all 17 file hashes were independently checked.
 
 ### Linux candidate workflow
 
-[Run 38203253891](https://github.com/golgeek/visualsubforge/actions/runs/38203253891)
+[Run 38204884997](https://github.com/golgeek/visualsubforge/actions/runs/38204884997)
 passes actual `.deb` installation, offline CLI relocation/resync/preservation
 checks and the installed GUI's native smoke/ordered shutdown. The GUI environment
 was an Ubuntu 24.04 container using Xvfb, Mesa llvmpipe software rendering and a
 PulseAudio null sink. Download verification matched all three artifact hashes,
 124 native package files and 120 observed private libraries to their receipts;
 the embedded application inventory also matches its source archive. Package SHA256:
-`56f3862eedd1dc5aaaeb0c4b03170e0321065f5524c5fdef12e1788da4d5416c`.
-This candidate includes the inline-header inventory and rav1e's native Rust
-build-input sources. It does not establish
+`3935adebba2da88a4aaedc27f615bac5a01b18b1dcd14b947e96c8bb55d385b8`.
+This candidate includes native Rust and reviewed shader/header build-input
+sources. It does not establish
 real GPU/audio, interactive desktop or oldest-supported-OS acceptance.
 
 The native build-input collector binds the
@@ -186,7 +188,9 @@ packages, 79 evidence files and 28 notices. A separate FFmpeg capture binds its 
 executables to the original Ubuntu binary and confirms its exact glslang/SPIRV/
 Vulkan-header inputs. Legacy Debian `.diff.gz` payloads are retained with their
 packaging copyright text. The renamed `ubuntu-build-inputs.json` inventory is
-bound to the assembly receipt; hosted integration of these additions is pending.
+bound to the assembly receipt. Run 38204884997 passed hosted integration;
+independent download verification checked 16 original builds, 318 exact binary
+inputs, 286 source packages, 1,828 evidence files and 3,262 installed notice records.
 Review of the archived Debian recipes also identified JPEG XL's Highway inline
 code and SDL2's Vulkan headers. Their original build records select Highway
 1.0.7-8.1build1 and Vulkan loader/headers 1.3.275.0-1build1. Local capture and a
@@ -240,7 +244,8 @@ source archive with an explicit external-dependency list. Built-in decoders,
 demuxers and filters remain enabled; the unused Whisper/GGML runtime is excluded
 to avoid its known unload hazard. The private DLL graph rejects GGML/Whisper,
 MSYS emulation DLLs, missing dependencies and ambiguous basenames, including
-delay imports. This policy still needs hosted execution evidence.
+delay imports. Run 38204616450 passed this assembly policy against the actual
+production binaries; installed runtime execution remains pending.
 
 The installer places the analysis tools and native DLLs beside the application
 and installs WebView2 if needed (initial installation may require networking).
@@ -266,7 +271,8 @@ a build dependency correction, not a player-policy change.
 
 The Windows source collector uses the assembled DLL paths to identify their
 MSYS2 package owners. It verifies the downloaded binary/source archive signatures
-with the runner's MSYS2 keyring, compares shipped DLL bytes with the signed
+with GnuPG and the runner's MSYS2 keyring, requiring both a valid signature and
+full/ultimate signer trust, compares shipped DLL bytes with the signed
 package, and checks the source PKGBUILD against the binary's `.BUILDINFO` hash.
 It preserves source payloads, patches, recipes and notices, including notices
 inside nested tarballs and pinned bare Git sources. Custom FFmpeg and patched
@@ -275,6 +281,11 @@ and notices enter the installer before bundling. Local controls and real LuaJIT/
 libplacebo source examples pass; hosted execution of this collector is pending.
 Static/header-only contributions and language/platform runtimes remain separate
 inventory work, so package-owner coverage alone is not final license acceptance.
+Run 38206199337 isolated an upstream pacman 6.1.0-25 wrapper inconsistency:
+its verifier requires `lock-never`, but its initializer no longer writes that
+setting. The collector now calls GnuPG directly against the same keyring and
+retains locking. A real signed/tampered package control runs before compilation;
+replacement hosted verification remains pending.
 
 The collector now follows a reviewed set of embedded inputs from each signed
 binary's `.BUILDINFO`: MinGW/compiler runtime inputs, libplacebo's generated/header

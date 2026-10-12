@@ -11,8 +11,50 @@ import os
 from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
+import urllib.request
+import xml.etree.ElementTree as ET
+import zipfile
 
 from native_evidence import digest
+
+
+MICROSOFT_TERMS = [
+    ('Visual-Studio-2022-Enterprise-Professional-License-EN.docx',
+     'https://visualstudio.microsoft.com/wp-content/uploads/2021/11/',
+     '9c0cd52b20db9d081854c75bd1b50c75514b8f8cb09c8cad15e89d90b97b5bf3',
+     'Developer distribution terms; reference evidence, not the application license'),
+    ('Visual-C-Runtime-2015-2022-License-1.docx',
+     'https://visualstudio.microsoft.com/wp-content/uploads/2021/09/',
+     'f1e3d56ceb2ad68aae0711b910375009e651ac5530fa0760f0dea6e81e54fae1',
+     'Microsoft C runtime end-user terms; separate from original VSF code'),
+]
+
+
+def capture_terms(output):
+    """Preserve reviewed publisher documents and readable text, with both hashes."""
+    directory = output / 'publisher-terms'
+    directory.mkdir()
+    records = []
+    for filename, base, checksum, scope in MICROSOFT_TERMS:
+        url = base + filename
+        request = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://visualstudio.microsoft.com/license-terms/vs2022-ga-proenterprise/'})
+        document = directory / filename
+        with urllib.request.urlopen(request, timeout=90) as response, document.open('xb') as target:
+            shutil.copyfileobj(response, target)
+        if digest(document) != checksum:
+            raise ValueError(f'Microsoft terms changed; review the new document: {url}')
+        with zipfile.ZipFile(document) as archive:
+            root = ET.fromstring(archive.read('word/document.xml'))
+        paragraphs = root.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p')
+        text = '\n'.join(''.join(paragraph.itertext()) for paragraph in paragraphs) + '\n'
+        readable = document.with_suffix('.txt')
+        readable.write_text(text, encoding='utf-8')
+        records.append({'url': url, 'file': document.relative_to(output).as_posix(),
+                        'sha256': checksum, 'scope': scope,
+                        'text_file': readable.relative_to(output).as_posix(), 'text_sha256': digest(readable)})
+    return records
 
 
 def input_paths(text):
@@ -81,6 +123,15 @@ def main():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, target)
                 receipt['license_documents'].append({'source': str(path), 'file': relative.as_posix(), 'sha256': digest(target)})
+    receipt['publisher_terms'] = capture_terms(args.output)
+    # Developer terms remain reference evidence in the source archive. Only
+    # the end-user runtime terms accompany installed third-party notices.
+    runtime = receipt['publisher_terms'][1]
+    runtime_notice = Path('notices/Microsoft-C-Runtime.txt')
+    (args.output / runtime_notice.parent).mkdir(parents=True, exist_ok=True)
+    shutil.copy2(args.output / runtime['text_file'], args.output / runtime_notice)
+    receipt['license_documents'].append({'source': runtime['url'], 'file': runtime_notice.as_posix(),
+                                         'sha256': digest(args.output / runtime_notice)})
     receipt['visual_studio'] = json.loads(subprocess.check_output([
         str(Path(os.environ['ProgramFiles(x86)']) / 'Microsoft Visual Studio/Installer/vswhere.exe'),
         '-latest', '-products', '*', '-format', 'json'], text=True))

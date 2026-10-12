@@ -22,6 +22,24 @@ def archive(path, files):
 
 
 class MsysSources(unittest.TestCase):
+    def test_signature_requires_validity_and_keyring_trust(self):
+        cases = [('[GNUPG:] VALIDSIG fingerprint\n[GNUPG:] TRUST_FULLY 0 pgp\n', 0, True),
+                 ('[GNUPG:] VALIDSIG fingerprint\n[GNUPG:] TRUST_ULTIMATE 0 pgp\n', 0, True),
+                 ('[GNUPG:] VALIDSIG fingerprint\n[GNUPG:] TRUST_UNDEFINED 0 pgp\n', 0, False),
+                 ('[GNUPG:] GOODSIG keyid user\n[GNUPG:] TRUST_FULLY 0 pgp\n', 0, False),
+                 ('[GNUPG:] VALIDSIG fingerprint\n[GNUPG:] TRUST_FULLY 0 pgp\n', 1, False)]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for diagnostic, status, accepted in cases:
+                with self.subTest(diagnostic=diagnostic, status=status):
+                    result = subprocess.CompletedProcess([], status, diagnostic, '')
+                    with patch('msys_sources.subprocess.run', return_value=result):
+                        if accepted:
+                            verify_signature(root / 'package', root / 'package.sig', root)
+                        else:
+                            with self.assertRaisesRegex(ValueError, 'signature verification failed'):
+                                verify_signature(root / 'package', root / 'package.sig', root)
+
     def test_signature_failure_retains_the_verifier_diagnostic(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

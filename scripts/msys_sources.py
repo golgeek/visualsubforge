@@ -69,13 +69,22 @@ def signed_download(url, directory, msys):
 
 
 def verify_signature(archive, signature, msys):
+    # pacman 6.1.0-25's MSYS2 wrapper requires lock-never even though its
+    # initializer no longer sets it. Keep GnuPG locking enabled and use the
+    # same configured keyring directly, requiring cryptographic validity and
+    # the FULLY/ULTIMATE trust status that pacman-key itself checks.
     command = [msys / 'usr/bin/bash.exe', '--login', '-c',
-               '/usr/bin/pacman-key --verify "$(cygpath -u "$1")" "$(cygpath -u "$2")"',
+               '/usr/bin/gpg --homedir "$(/usr/bin/pacman-conf --config /etc/pacman.conf gpgdir)" '
+               '--batch --no-auto-key-retrieve --no-permission-warning --status-fd 1 '
+               '--verify "$(/usr/bin/cygpath -u "$1")" "$(/usr/bin/cygpath -u "$2")"',
                'verify-source', str(signature), str(archive)]
     verified = subprocess.run(command, capture_output=True, text=True)
     diagnostic = verified.stdout + verified.stderr
     Path(str(archive) + '.verification.txt').write_text(diagnostic, encoding='utf-8')
-    if verified.returncode:
+    statuses = [line.removeprefix('[GNUPG:] ').split()[0]
+                for line in verified.stdout.splitlines() if line.startswith('[GNUPG:] ')]
+    if (verified.returncode or 'VALIDSIG' not in statuses
+            or not {'TRUST_FULLY', 'TRUST_ULTIMATE'}.intersection(statuses)):
         raise ValueError(f'MSYS2 signature verification failed for {archive.name}:\n{diagnostic}')
 
 
