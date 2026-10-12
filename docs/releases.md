@@ -39,6 +39,8 @@ Original VSF code is GPL-3.0-or-later. Existing third-party patches retain their
 licenses. Distributable artifacts need notices and the corresponding source and
 build instructions for the actual bundled dependencies; a package-manager
 license name alone is not that inventory.
+The [artifact dependency review](dependency-review.md) records the independently
+audited candidates, source coverage and explicit vendor-source limitations.
 
 Release workflows now capture `application-sources.tar.gz` alongside the native
 artifacts. `scripts/application-sources.py` resolves the non-development Cargo
