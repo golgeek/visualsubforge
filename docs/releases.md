@@ -573,7 +573,21 @@ web assets/resources. The internal native inventory records source hashes;
 embedding the final executable hash in its own signed resources would create a
 hash cycle, since outer app signing changes that executable.
 
-Hosted ARM64 and Intel signing/notarization pass; their signing receipts and
+The original signed Mac candidates have a confirmed startup regression on
+macOS 27 ARM64: mpv's unused built-in scripts execute LuaJIT-generated code,
+which the hardened runtime rejects. It reproduces with a synthetic video and
+without loading a project. VSF now disables automatic and built-in scripts
+before initializing mpv through the shared native client policy. No JIT exception
+or signature weakening is added. Replacement signed candidates remain pending.
+
+The signing workflow now runs a separate, hardened-signed native initialization
+probe against the packaged library on a matching-architecture Mac before
+notarization. Its input/signed hashes, library hash and result enter the signing
+receipt. The probe shares VSF's script policy, exercises initialization and
+teardown without a media file, and is not shipped inside the app. It provides no
+GPU/audio or project-workflow acceptance; those still need the actual signed GUI.
+
+Hosted ARM64 and Intel signing/notarization previously passed; their signing receipts and
 Apple's acceptance logs are attached to the package runs above. Signed validation
 artifacts remain separate from a published release: the dependency
 source/license inventory and install/runtime checks still need completion.

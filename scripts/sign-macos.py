@@ -74,6 +74,7 @@ def validate_bundle_hashes(app, receipt):
 
 def sign(args):
     source = args.app.resolve(strict=True)
+    startup_probe = args.startup_probe.resolve(strict=True)
     output = args.output.resolve()
     if output.exists() or output.is_relative_to(source):
         raise ValueError("Choose a new output directory outside the source app")
@@ -170,6 +171,22 @@ def sign(args):
                 run(["codesign", "--force", "--options", "runtime", "--timestamp", "--sign",
                      identity, "--keychain", keychain, app])
                 run(["codesign", "--verify", "--deep", "--strict", app])
+                # Signature verification alone cannot exercise dynamically
+                # generated code. Run the packaged core with VSF's shared script
+                # policy under the same hardened signature, before notarizing.
+                probe = output / "macos-player-init"
+                run(["ditto", startup_probe, probe])
+                run(["codesign", "--force", "--options", "runtime", "--timestamp",
+                     "--sign", identity, "--keychain", keychain, probe])
+                probe_log = run([probe], timeout=30)
+                if "PASS: hardened packaged mpv initialization and teardown" not in probe_log:
+                    raise ValueError("Signed native initialization did not report success")
+                receipt["native_initialization"] = {
+                    "status": "passed", "scope": "Packaged libmpv initialization/teardown; no GPU/audio",
+                    "probe_input_sha256": digest(startup_probe), "signed_probe_sha256": digest(probe),
+                    "mpv_sha256": digest(app / "Contents/Frameworks/libmpv.2.dylib"),
+                    "output": probe_log,
+                }
                 submission = private / "submission.zip"
                 run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, submission])
                 auth = ["--keychain-profile", profile, "--keychain", keychain]
@@ -214,6 +231,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True)
+    parser.add_argument("--startup-probe", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     try:
         sign(parser.parse_args())

@@ -8,6 +8,21 @@
 // functions borrow the live core; they neither retain it nor touch a surface.
 namespace vsf_mpv {
 
+inline int disable_scripts(mpv_handle *core) {
+    // VSF owns the UI and opens local files. mpv's built-in UI/network scripts
+    // are independent of config=no and load-scripts=no. Disable them before
+    // initialize: otherwise LuaJIT can execute unsigned code inside the signed
+    // macOS app. Keep this list aligned with our pinned mpv scripting.c.
+    const char *options[] = {"load-scripts", "osc", "ytdl", "load-stats-overlay",
+        "load-console", "load-auto-profiles", "load-select", "load-positioning",
+        "load-commands", "load-context-menu"};
+    for (const char *option : options) {
+        const int result = mpv_set_option_string(core, option, "no");
+        if (result < 0) return result;
+    }
+    return 0;
+}
+
 inline int discard_events(mpv_handle *core) {
     // Only after stop reaches idle, before loading the next logical session.
     for (int i = 0; i < 1024; ++i) {

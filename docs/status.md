@@ -7,6 +7,14 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
+**Mac preview regression (2026-10-12):** the original signed candidates from
+38205417832 are withdrawn from manual testing pending replacement. Opening media
+reproduces `CODESIGNING / Invalid Page` in mpv's built-in LuaJIT `stats` script on
+macOS 27 ARM64. A synthetic fixture reproduces it without a project. The reported
+version-1 project with version-3 scene cache passes the current Rust reader;
+project, video and subtitle inputs remain byte-identical. Shared native script
+disabling and a hardened-signing initialization check are being validated.
+
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
 | Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |

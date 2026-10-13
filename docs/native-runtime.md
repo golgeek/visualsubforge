@@ -7,6 +7,16 @@ include the shared correction. They remain experimental. An upstream unit-test p
 capability property or successful application build does not accept the runtime
 for daily use or establish platform support.
 
+VSF initializes mpv with automatic and built-in scripting disabled through
+`mpv_client.hpp` on every platform. `config=no` alone does not disable mpv's
+built-in scripts. VSF supplies its own controls and opens local files; these
+scripts are unused, and LuaJIT execution caused a hardened-signature termination
+in the Mac preview. The control owner applies this policy before `mpv_initialize`
+and propagates option errors. Review the complete built-in list in upstream
+`player/scripting.c` when updating mpv. Mac signing now exercises the packaged
+core through a separately signed initialization probe, without JIT exceptions;
+actual signed GUI playback remains a separate acceptance check.
+
 ## Maintenance ownership
 
 The maintainer approving a dependency update owns its source provenance,

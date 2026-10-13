@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -16,6 +17,8 @@ std::vector<mpv_event> events;
 size_t next_event = 0;
 int wait_calls = 0;
 mpv_event none{};
+std::vector<std::string> disabled_scripts;
+const char *rejected_option = nullptr;
 
 mpv_event event(mpv_event_id id, void *data = nullptr) {
     mpv_event value{};
@@ -30,6 +33,13 @@ void queue(std::vector<mpv_event> values) {
     wait_calls = 0;
 }
 } // namespace
+
+extern "C" int mpv_set_option_string(mpv_handle *, const char *name, const char *value) {
+    assert(std::strcmp(value, "no") == 0);
+    disabled_scripts.emplace_back(name);
+    return rejected_option && std::strcmp(name, rejected_option) == 0
+        ? MPV_ERROR_OPTION_NOT_FOUND : 0;
+}
 
 extern "C" mpv_event *mpv_wait_event(mpv_handle *, double timeout) {
     assert(timeout == 0); // The common policy must never block its owner.
@@ -53,6 +63,15 @@ extern "C" int mpv_get_property(mpv_handle *, const char *name,
 }
 
 int main() {
+    assert(vsf_mpv::disable_scripts(nullptr) == 0);
+    assert((disabled_scripts == std::vector<std::string>{"load-scripts", "osc", "ytdl",
+        "load-stats-overlay", "load-console", "load-auto-profiles", "load-select",
+        "load-positioning", "load-commands", "load-context-menu"}));
+    disabled_scripts.clear();
+    rejected_option = "load-stats-overlay";
+    assert(vsf_mpv::disable_scripts(nullptr) == MPV_ERROR_OPTION_NOT_FOUND);
+    assert(disabled_scripts.back() == rejected_option && disabled_scripts.size() == 4);
+
     assert(vsf_mpv::number(nullptr, "signed") == -1);
     assert(std::isnan(vsf_mpv::number(nullptr, "missing")));
     assert(vsf_mpv::flag(nullptr, "enabled") == 1);

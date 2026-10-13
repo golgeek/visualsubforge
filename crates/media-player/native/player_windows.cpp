@@ -155,7 +155,7 @@ extern "C" void *vsf_player_create(void *raw, int *error) try {
         {"vo", "gpu"}, {"gpu-api", "d3d11"}, {"gpu-context", "d3d11"},
         {"clipboard-backends", ""}, {"hwdec", "auto-copy"}, {"vd-lavc-threads", "4"},
         {"hr-seek-demuxer-offset", "1"}, {"pause", "yes"}, {"keep-open", "yes"},
-        {"idle", "yes"}, {"osc", "no"}, {"input-default-bindings", "no"},
+        {"idle", "yes"}, {"input-default-bindings", "no"},
         {"input-vo-keyboard", "no"}};
     for (const auto &option : options) {
         *error = mpv_set_option_string(core.get(), option[0], option[1]);
@@ -165,6 +165,8 @@ extern "C" void *vsf_player_create(void *raw, int *error) try {
     *error = mpv_set_option(core.get(), "wid", MPV_FORMAT_INT64, &wid);
     if (*error < 0) return nullptr;
     if (std::getenv("VSF_MEDIA_SMOKE")) mpv_request_log_messages(core.get(), "v");
+    *error = vsf_mpv::disable_scripts(core.get());
+    if (*error < 0) return nullptr;
     *error = mpv_initialize(core.get());
     if (*error < 0) return nullptr;
     player->core = core.release();

@@ -111,13 +111,18 @@ jobs:
       - name: Archive the unsigned validation artifact
         run: |
           mkdir -p "$RUNNER_TEMP/artifacts"
+          c++ -std=c++17 -Wall -Wextra -Werror -fobjc-arc \
+            -I"$(pkg-config --variable=includedir mpv)" tests/release/macos-player-init.mm \
+            -L"$RUNNER_TEMP/package/VisualSubForge.app/Contents/Frameworks" -lmpv.2 \
+            -framework AppKit -Wl,-rpath,@executable_path/VisualSubForge.app/Contents/Frameworks \
+            -o "$RUNNER_TEMP/artifacts/macos-player-init"
           ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_0.0.1-alpha_${{ matrix.arch }}_macos-unsigned.zip"
           cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
           cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
           tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
           tar -czf "$RUNNER_TEMP/artifacts/native-sources.tar.gz" -C "$RUNNER_TEMP/native-sources" .
           cd "$RUNNER_TEMP/artifacts"
-          shasum -a 256 ./*.zip application-sources.tar.gz native-sources.tar.gz > SHA256SUMS
+          shasum -a 256 ./*.zip application-sources.tar.gz native-sources.tar.gz macos-player-init > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-unsigned-${{ matrix.arch }}
@@ -143,7 +148,7 @@ jobs:
     name: Sign and notarize (${{ matrix.arch }})
     needs: package
     if: ${{ inputs.sign && github.ref == 'refs/heads/main' }}
-    runs-on: macos-14
+    runs-on: ${{ matrix.arch == 'aarch64' && 'macos-14' || 'macos-15-intel' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -171,7 +176,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: python scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --output "$RUNNER_TEMP/signed"
+        run: python scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --startup-probe "$RUNNER_TEMP/unsigned/macos-player-init" --output "$RUNNER_TEMP/signed"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-notarized-${{ matrix.arch }}

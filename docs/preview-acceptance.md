@@ -1,5 +1,12 @@
 # Preview candidate manual acceptance
 
+**macOS candidate withdrawn from testing:** the signed apps from run
+38205417832 can be killed by hardened-runtime enforcement when media opens.
+The failure was reproduced on macOS 27 Apple Silicon with a synthetic fixture,
+independent of project loading: mpv's built-in `stats` LuaJIT script executes an
+unsigned page. Replacement packages with scripting disabled are being validated.
+The Mac links below retain the original evidence, not a recommended download.
+
 Use the candidate and `preview-acceptance-fixtures` artifact from the linked
 package run. The fixture artifact is produced by the Linux workflow for use
 on all platforms; [run 38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449)

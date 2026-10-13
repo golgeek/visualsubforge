@@ -243,12 +243,14 @@ extern "C" void *vsf_player_create(void *raw, int *error) try {
     const char *options[][2] = {{"config","no"},{"terminal","no"},{"vo","libmpv"},
         {"clipboard-backends",""},{"hwdec","auto-copy"},{"vd-lavc-threads","4"},
         {"hr-seek-demuxer-offset","1"},{"pause","yes"},{"keep-open","yes"},
-        {"idle","yes"},{"osc","no"},{"input-default-bindings","no"},{"input-vo-keyboard","no"}};
+        {"idle","yes"},{"input-default-bindings","no"},{"input-vo-keyboard","no"}};
     for (const auto &option: options) {
         *error=mpv_set_option_string(core.get(),option[0],option[1]);
         if (*error<0) return nullptr;
     }
     if (std::getenv("VSF_MEDIA_SMOKE")) mpv_request_log_messages(core.get(),"v");
+    *error=vsf_mpv::disable_scripts(core.get());
+    if (*error<0) return nullptr;
     *error=mpv_initialize(core.get());
     if (*error<0) return nullptr;
     auto &s=*player->surface;

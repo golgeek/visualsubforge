@@ -259,11 +259,13 @@ extern "C" void *vsf_player_create(void *rawSurface, int *error) try {
     const char *options[][2] = {{"config", "no"}, {"terminal", "no"}, {"vo", "libmpv"},
         {"clipboard-backends", ""},
         {"hwdec", "auto-copy"}, {"vd-lavc-threads", "4"}, {"hr-seek-demuxer-offset", "1"}, {"pause", "yes"}, {"keep-open", "yes"}, {"idle", "yes"},
-        {"osc", "no"}, {"input-default-bindings", "no"}, {"input-vo-keyboard", "no"}};
+        {"input-default-bindings", "no"}, {"input-vo-keyboard", "no"}};
     for (auto &option : options) {
         *error = mpv_set_option_string(player->core, option[0], option[1]);
         if (*error < 0) { return nullptr; }
     }
+    *error = vsf_mpv::disable_scripts(player->core);
+    if (*error < 0) return nullptr;
     *error = mpv_initialize(player->core);
     if (*error < 0) { return nullptr; }
     std::promise<int> ready;

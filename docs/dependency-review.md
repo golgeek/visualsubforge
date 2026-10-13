@@ -1,5 +1,11 @@
 # Preview dependency review
 
+Runtime correction, 2026-10-12: the original notarized Mac candidates below
+reproduce a hardened-runtime `CODESIGNING / Invalid Page` termination in mpv's
+LuaJIT `stats` thread. Source/signature audit results remain evidence, but do not
+establish runtime acceptance. Replacement candidates are pending; see
+[manual acceptance](preview-acceptance.md).
+
 This review concerns the actual candidate artifacts below. A completed collector
 means that its declared inputs were captured; it is not, by itself, a review of
 all code embedded in a binary. Release publication and manual runtime acceptance
