@@ -1,10 +1,11 @@
 # Preview dependency review
 
-Runtime correction, 2026-10-12: the original notarized Mac candidates below
-reproduce a hardened-runtime `CODESIGNING / Invalid Page` termination in mpv's
-LuaJIT `stats` thread. Source/signature audit results remain evidence, but do not
-establish runtime acceptance. Replacement candidates are pending; see
-[manual acceptance](preview-acceptance.md).
+Runtime correction, 2026-10-12: the original Mac candidates from 38205417832
+are withdrawn after reproducing a hardened-runtime termination in mpv's unused
+LuaJIT `stats` script. The audited replacements below disable those scripts;
+both pass hardened initialization and Apple notarization. The exact ARM download
+also passes native smoke and older-project restoration on macOS 27. See
+[manual acceptance](preview-acceptance.md) for the remaining device/install gates.
 
 This review concerns the actual candidate artifacts below. A completed collector
 means that its declared inputs were captured; it is not, by itself, a review of
@@ -16,8 +17,8 @@ remain separate gates in [releases.md](releases.md).
 | Target | Candidate evidence | Independent verification | Remaining work |
 | --- | --- | --- | --- |
 | Ubuntu 24.04 x64 | [38208853449](https://github.com/golgeek/visualsubforge/actions/runs/38208853449), commit `3c13449` | Three download hashes; 124 native files; 120 observed private GUI libraries; 1,063 application-source files; 1,850 native build-input evidence files and 3,271 installed notices | Installation/offline CLI passed. Cold null-sink diagnostics failed in 2/10 trials; [38212585168](https://github.com/golgeek/visualsubforge/actions/runs/38212585168) independently measured sink startup delay and passed 10/10 with sink readiness checked before VSF. Physical-device acceptance remains open. |
-| macOS ARM64 | [38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832), commit `6706d90`, `macos-unsigned-aarch64` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
-| macOS Intel | Same matrix run, second attempt; commit `6706d90` | Three download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
+| macOS ARM64 | [38331848710](https://github.com/golgeek/visualsubforge/actions/runs/38331848710), commit `339e51e`, `macos-unsigned-aarch64` | Four download hashes; 49 native files; all 1,609 inventoried app files; 1,325 native source-evidence files and 959 installed native notices | Signed/notarized artifact verified separately; manual device/oldest-OS acceptance remains open. |
+| macOS Intel | Same package matrix run; commit `339e51e` | Four download hashes; 49 native files; all 1,609 inventoried app files; 1,324 native source-evidence files and 959 installed notices; signed/notarized archive independently verified | Manual device/oldest-OS acceptance remains open. |
 | Windows x64 | [38227273736](https://github.com/golgeek/visualsubforge/actions/runs/38227273736), commit `3410bd4` | Five artifact hashes; 44 native files; all 962 packaged files; 6,434 native source-evidence files and 912 application-source files; 6,044 logical notice records map to 911 byte-identical texts | Installation, offline resync/input preservation and DLL unload pass. [Replacement 38233864612](https://github.com/golgeek/visualsubforge/actions/runs/38233864612) passes the unchanged GUI smoke with virtual WASAPI and software D3D11. Physical/consumer-OS acceptance remains open. |
 
 The Ubuntu `.deb` SHA-256 is
@@ -25,26 +26,35 @@ The Ubuntu `.deb` SHA-256 is
 Its embedded Ubuntu build-input inventory SHA-256 is
 `7bbd4cbd940effc8e355ca4c547101d008c03c638d6e3c8be88a74752bd7b166`.
 The ARM Mac native inventory SHA-256 is
-`a8c85c75b433e7b2066c72c578d4a17e37e0263476939ce911b49a0ab998c8e2`.
+`2751a023c6319bf6eadda7ec4f3c96849f7d6977b24cf73d4b327d518bad7fe0`.
 Signing changes Mac native file hashes; use the later signing receipt to verify
 the distributed signed app, not the unsigned file hashes above.
 
-The signed Mac downloads are from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832):
+The replacement signed Mac downloads reuse those exact unsigned packages:
 
 | Architecture | Signed app artifact | Final ZIP SHA-256 |
 | --- | --- | --- |
-| Apple Silicon, macOS 14+ build floor | [macos-notarized-aarch64](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11727984565) | `91a6a7910387316fb6760095606c8d82dce098841f70b197c9545332061c3af2` |
-| Intel, macOS 15+ build floor | [macos-notarized-x86_64](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11728236399) | `c2869dc0a02aa270238e86c8d82df7f807d8288e9d65841bf75fb640fb19cd5c` |
+| Apple Silicon, macOS 14+ build floor | [macos-notarized-aarch64](https://github.com/golgeek/visualsubforge/actions/runs/38334674579/artifacts/11784371040) | `42a236cb4b00f533e694a4ff0b4a7ccc07eb9273e066db7aef4f551058f610a7` |
+| Intel, macOS 15+ build floor | [macos-notarized-x86_64](https://github.com/golgeek/visualsubforge/actions/runs/38335057462/artifacts/11784079472) | `0b4a28600e42b785e2d81ec4a9e1db41fac70d716e28c5865525fbf14d3c2f01` |
 
 The corresponding `macos-unsigned-*` artifacts contain the matching native and
-application source archives. Independent download checks verified each final
+application source archives ([ARM](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11782814984), [Intel](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11783364443)).
+All 37 captured recipe texts and both native build-option sets match the
+previously reviewed baseline. Six source archives changed compressed hashes;
+independent comparison found identical file/link payloads. Homebrew receipt and
+SBOM differences are capture timestamps. Application archives bind the source
+commit above and all 889 source/notice files per architecture.
+Independent download checks verified each final
 ZIP, all 49 signed native hashes, and 1,558 unchanged inventoried resources per
 architecture against its unsigned assembly. Apple accepted both submissions;
 local `codesign --verify --deep --strict`, `xcrun stapler validate` and
 `spctl --assess --type execute` passed for both extracted apps. These are
 signature/distribution checks on the development Mac, not playback or oldest-OS
-tests. The Intel native inventory SHA-256 is
-`ca5dc33e853293bacd5766a4787b54d2d4f14e571f0cbda1254755234ab4f036`.
+tests. Each signing receipt also binds the successful hardened initialization
+probe to its unsigned input and the signed packaged libmpv hash. ARM native
+smoke and project restoration are recorded separately in [releases.md](releases.md).
+The Intel native inventory SHA-256 is
+`2692aa49a41081966cf5177c17dc49e639e6701a272b12de2073a681f3d6a69d`.
 
 The Windows [candidate artifact](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119)
 contains the unsigned NSIS installer, portable ZIP, both source archives and

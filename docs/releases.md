@@ -18,9 +18,13 @@ Linux has an audited Ubuntu 24.04 x64 package. Windows installation and offline
 CLI checks pass; its hosted GUI check passes with a virtual WASAPI endpoint. Manual acceptance remains open on every target. None is accepted
 merely because an application or compiler lane passes.
 
-The current Mac candidates from [run 38205417832](https://github.com/golgeek/visualsubforge/actions/runs/38205417832)
-have matching source inventories, accepted notarization and independently
-verified signed downloads for both architectures. See the [dependency review](dependency-review.md)
+The replacement Mac candidates use application commit `339e51e` from
+[package run 38331848710](https://github.com/golgeek/visualsubforge/actions/runs/38331848710).
+They were signed separately in [ARM run 38334674579](https://github.com/golgeek/visualsubforge/actions/runs/38334674579)
+and [Intel run 38335057462](https://github.com/golgeek/visualsubforge/actions/runs/38335057462).
+Both have matching source inventories, accepted notarization, passing hardened
+native initialization and independently verified signed downloads. The previous
+38205417832 candidates are withdrawn after a reproduced startup crash. See the [dependency review](dependency-review.md)
 for final archive hashes, download links and audit scope. Windows
 [run 38227273736](https://github.com/golgeek/visualsubforge/actions/runs/38227273736)
 produces an installer and matching source archives. Installation verifies all
@@ -583,7 +587,12 @@ macOS 27 ARM64: mpv's unused built-in scripts execute LuaJIT-generated code,
 which the hardened runtime rejects. It reproduces with a synthetic video and
 without loading a project. VSF now disables automatic and built-in scripts
 before initializing mpv through the shared native client policy. No JIT exception
-or signature weakening is added. Replacement signed candidates remain pending.
+or signature weakening is added. Both replacement signed candidates pass.
+The initial replacement signing failed because a loose Actions artifact lost
+execute permission; `dfbaef6` restores it on a private probe copy. The first Intel
+signing retry passed initialization and Apple acceptance, then lost its network
+connection during stapling (error 68). The subsequent Intel-only retry succeeded;
+these failed attempts remain part of the evidence.
 
 The signing workflow now runs a separate, hardened-signed native initialization
 probe against the packaged library on a matching-architecture Mac before
@@ -592,10 +601,25 @@ receipt. The probe shares VSF's script policy, exercises initialization and
 teardown without a media file, and is not shipped inside the app. It provides no
 GPU/audio or project-workflow acceptance; those still need the actual signed GUI.
 
+The exact ARM download passed `python3 tests/release/packaged-gui.py` on a physical
+Mac15,10 with macOS 27.0, using the shared `vfr-offset.mkv` fixture with SHA-256
+`8430fd0a81417d79b60ceaa90861b51020958dd91b6e85d80dc6d9dd7be9b5aa`.
+The final executable SHA-256 is
+`357aa9d2a807afe30b01947e447c979d3cdc66951bfbbf462f36924b439fec10`.
+The unchanged smoke assertions cover seeks, frame stepping, tracks, loops, media
+replacement, expected failures, occlusion and ordered shutdown. Separately,
+opening a private copy of the reported old project restored 750 seconds and
+five cues; actual video and waveform were visible, and normal quit succeeded.
+Original project, SRT and video hashes stayed unchanged. A temporary read-only
+control also passed the actual Rust project reader and was then removed. These
+checks require no project schema migration. Audio listening, clean consumer
+installation, physical Intel playback and oldest-OS acceptance remain open.
+
 Hosted ARM64 and Intel signing/notarization previously passed; their signing receipts and
 Apple's acceptance logs are attached to the package runs above. Signed validation
-artifacts remain separate from a published release: the dependency
-source/license inventory and install/runtime checks still need completion.
+artifacts remain separate from a published release. Matching dependency
+source/license inventories are audited; the remaining manual install/runtime
+checks are listed in [preview acceptance](preview-acceptance.md).
 Credentials and exported private keys must never enter source, logs or artifacts.
 
 Windows Authenticode signing is recommended but is not required on ordinary

@@ -7,13 +7,16 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
-**Mac preview regression (2026-10-12):** the original signed candidates from
-38205417832 are withdrawn from manual testing pending replacement. Opening media
-reproduces `CODESIGNING / Invalid Page` in mpv's built-in LuaJIT `stats` script on
-macOS 27 ARM64. A synthetic fixture reproduces it without a project. The reported
-version-1 project with version-3 scene cache passes the current Rust reader;
-project, video and subtitle inputs remain byte-identical. Shared native script
-disabling and a hardened-signing initialization check are being validated.
+**Mac preview regression fixed (2026-10-12):** the original signed candidates
+from 38205417832 are withdrawn. A synthetic video reproduced `CODESIGNING /
+Invalid Page` in mpv's unused LuaJIT `stats` script without a project. Shared
+native initialization now disables these scripts without JIT entitlements.
+Both replacement architectures pass hardened initialization, notarization and
+independent signature/source audits. The exact signed ARM download passes the
+native smoke and restores the reported version-1 project/version-3 scene cache
+on macOS 27, showing video, waveform and five cues at the saved position. Normal
+quit succeeds; original project/media/subtitle hashes remain unchanged. No
+migration is needed. [Replacement downloads and remaining manual gates](preview-acceptance.md).
 
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
@@ -27,7 +30,7 @@ disabling and a hardened-signing initialization check are being validated.
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). Rust and modeled-browser tests cover proposal ownership, Save As/recovery and project references. The actual Mac native workflow passes review/accept/Undo/Redo, source-path rejection, save-before-project and reopen. | Native resync dialogs were exercised on Mac only. Recovery tests do not imply power-loss guarantees or restoration of unapplied drafts/history. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. Real default-app IPC passes on all three local ARM64 OSes; Mac native resync transport also passes. | The pinned generator has documented naming limitations; upgrades require contract and runtime regression checks. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
-| Automation and distribution | All ten [application CI jobs](https://github.com/golgeek/visualsubforge/actions/runs/38227192860) and six [native build-contract jobs](https://github.com/golgeek/visualsubforge/actions/runs/38227192776) pass at `3410bd4`, including the corrected 32-case browser suite. ARM64 and Intel macOS candidates pass bundled CLI checks, Developer ID signing and Apple notarization; their audited minimums are macOS 14.0 and 15.0 respectively. Their downloaded native/application sources and signed packages are hash-verified. The Ubuntu 24.04 x64 candidate passes clean-container installation, offline CLI and native smoke with measured virtual-audio readiness; its matching source/inventory audit is complete. GPL-3.0-or-later is selected for original code. | `v0.0.1-alpha` is not published and must include macOS, Windows and Linux packages. Windows installer, offline CLI, DLL unload and downloaded source/notice audits pass; the original hosted GUI run failed without an audio device. [Replacement validation](https://github.com/golgeek/visualsubforge/actions/runs/38233864612) passes the same package with a virtual WASAPI endpoint and software D3D11. A reproduced Linux cold-null-sink startup delay and its readiness control are documented in the release evidence. CI success does not establish GPU/audio or clean-install acceptance. See [release evidence](releases.md). |
+| Automation and distribution | All ten [application CI jobs](https://github.com/golgeek/visualsubforge/actions/runs/38331827755) and six [native build-contract jobs](https://github.com/golgeek/visualsubforge/actions/runs/38331827700) pass at `339e51e`, including the corrected 32-case browser suite. ARM64 and Intel macOS candidates pass bundled CLI checks, Developer ID signing and Apple notarization; their audited minimums are macOS 14.0 and 15.0 respectively. Their downloaded native/application sources and signed packages are hash-verified. The Ubuntu 24.04 x64 candidate passes clean-container installation, offline CLI and native smoke with measured virtual-audio readiness; its matching source/inventory audit is complete. GPL-3.0-or-later is selected for original code. | `v0.0.1-alpha` is not published and must include macOS, Windows and Linux packages. Windows installer, offline CLI, DLL unload and downloaded source/notice audits pass; the original hosted GUI run failed without an audio device. [Replacement validation](https://github.com/golgeek/visualsubforge/actions/runs/38233864612) passes the same package with a virtual WASAPI endpoint and software D3D11. A reproduced Linux cold-null-sink startup delay and its readiness control are documented in the release evidence. CI success does not establish GPU/audio or clean-install acceptance. See [release evidence](releases.md). |
 
 ## Latest resync evidence
 

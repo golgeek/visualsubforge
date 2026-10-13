@@ -1,11 +1,11 @@
 # Preview candidate manual acceptance
 
-**macOS candidate withdrawn from testing:** the signed apps from run
-38205417832 can be killed by hardened-runtime enforcement when media opens.
-The failure was reproduced on macOS 27 Apple Silicon with a synthetic fixture,
-independent of project loading: mpv's built-in `stats` LuaJIT script executes an
-unsigned page. Replacement packages with scripting disabled are being validated.
-The Mac links below retain the original evidence, not a recommended download.
+**macOS replacement candidates (2026-10-12):** the links below replace the
+withdrawn apps from run 38205417832. Disabling unused mpv scripts fixes their
+hardened-runtime startup termination. Both replacements pass a hardened native
+initialization check. The exact notarized ARM download also passes the native
+smoke and restores an older project on a physical macOS 27 Mac, with video and
+waveform visible. This does not complete audio, clean-install or oldest-OS gates.
 
 Use the candidate and `preview-acceptance-fixtures` artifact from the linked
 package run. The fixture artifact is produced by the Linux workflow for use
@@ -20,8 +20,8 @@ retention; preserve the candidate, matching sources and checksums together.
 
 | Target | Candidate download | Source archives |
 | --- | --- | --- |
-| Apple Silicon, macOS 14+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11727984565) | [Matching ARM inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11727318961) |
-| Intel, macOS 15+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11728236399) | [Matching Intel inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38205417832/artifacts/11728039019) |
+| Apple Silicon, macOS 14+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38334674579/artifacts/11784371040) | [Matching ARM inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11782814984) |
+| Intel, macOS 15+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38335057462/artifacts/11784079472) | [Matching Intel inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11783364443) |
 | Windows x64 | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119) | Included in the same artifact |
 | Ubuntu 24.04 x64 | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11728388564) | Included in the same artifact |
 
