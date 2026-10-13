@@ -561,7 +561,12 @@ names are verified on GitHub, and the user configured local profile
 `visualsubforge-notary`. No private credential values were read for that check.
 
 The manual workflow accepts `architecture` (`both`, `aarch64`, `x86_64`) and
-`sign` (default true). Its separate signing job runs on `main` after packaging,
+`sign` (default true). Optional `unsigned_run_id` retries signing existing
+packages without rebuilding: the workflow requires successful package jobs from
+this workflow on `main` and checks their application source commit. Leave it
+empty for a new build. Loose artifact downloads lose executable permissions;
+the signing script restores them on its private copy of the initialization probe.
+Its separate signing job runs on `main` after packaging,
 with secrets scoped only to the signing step. It validates the assembly hashes,
 uses a temporary Keychain, signs all native code with hardened runtime and a
 timestamp, submits to Apple, requires acceptance, staples and verifies the app,

@@ -14,6 +14,7 @@ from pathlib import Path
 import plistlib
 import secrets
 import shlex
+import shutil
 import subprocess
 import tempfile
 
@@ -31,6 +32,13 @@ MACHO_MAGIC = {bytes.fromhex(value) for value in (
 def digest(path):
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def copy_startup_probe(source, destination):
+    # actions/download-artifact restores loose files with mode 0644. Restore
+    # execution on our private copy; preserve the downloaded artifact itself.
+    shutil.copyfile(source, destination)
+    destination.chmod(0o755)
 
 
 def validated_files(app, manifest):
@@ -175,7 +183,7 @@ def sign(args):
                 # generated code. Run the packaged core with VSF's shared script
                 # policy under the same hardened signature, before notarizing.
                 probe = output / "macos-player-init"
-                run(["ditto", startup_probe, probe])
+                copy_startup_probe(startup_probe, probe)
                 run(["codesign", "--force", "--options", "runtime", "--timestamp",
                      "--sign", identity, "--keychain", keychain, probe])
                 probe_log = run([probe], timeout=30)

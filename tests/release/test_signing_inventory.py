@@ -1,5 +1,6 @@
 """Signing must reject code that differs from the tested assembly artifact."""
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -27,6 +28,17 @@ class SigningInventory(unittest.TestCase):
 
     def test_complete_unchanged_inventory(self):
         self.assertEqual(len(SIGNER.validated_files(self.app, self.manifest)), 4)
+
+    @unittest.skipIf(os.name == 'nt', 'Requires POSIX execute permissions')
+    def test_downloaded_probe_gets_executable_copy_without_changing_input(self):
+        source = Path(self.temporary.name) / 'downloaded-probe'
+        destination = Path(self.temporary.name) / 'probe-to-sign'
+        source.write_bytes(b'compiled probe bytes')
+        source.chmod(0o644)
+        SIGNER.copy_startup_probe(source, destination)
+        self.assertEqual(destination.read_bytes(), source.read_bytes())
+        self.assertEqual(destination.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(source.stat().st_mode & 0o777, 0o644)
 
     def test_final_receipt_also_protects_non_native_resources(self):
         resource = self.app / "Contents/Resources"
