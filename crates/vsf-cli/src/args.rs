@@ -16,6 +16,8 @@ pub struct Cli {
 pub enum Command {
     /// Check subtitle authoring rules without changing the file.
     Check(Check),
+    /// Summarize accepted subtitle metrics without changing the file.
+    Stats(Stats),
     /// Transfer SRT timings between versions of the same programme.
     Resync(Resync),
 }
@@ -68,6 +70,30 @@ pub struct Resync {
     #[arg(long, default_value_t = 1800, value_parser = clap::value_parser!(u64).range(1..=14_400))]
     pub timeout_seconds: u64,
     /// Emit one JSON completion summary to stdout; progress stays on stderr.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args)]
+#[command(
+    after_help = "Scope uses one-based source cue positions, not SRT labels. Metrics keep full-document reading context.\nExcluded/unavailable values have explicit counts and denominators. No media decoding or desktop settings.\nExit codes: 0 report with complete quality coverage, 3 partial coverage, 2 invalid input/limit, 5 IO, 130 cancelled. Findings do not change these codes."
+)]
+pub struct Stats {
+    #[arg(long, value_name = "FILE")]
+    pub subtitles: PathBuf,
+    /// Built-in ID or version-2 .vsfpreset path.
+    #[arg(long, value_name = "ID_OR_FILE")]
+    pub profile: String,
+    /// Inclusive first source cue position; requires --to-cue.
+    #[arg(long, requires = "to_cue")]
+    pub from_cue: Option<u32>,
+    /// Inclusive last source cue position; requires --from-cue.
+    #[arg(long, requires = "from_cue")]
+    pub to_cue: Option<u32>,
+    /// Excluded source cue positions within the scope; may be repeated or comma-separated.
+    #[arg(long, value_delimiter = ',')]
+    pub exclude: Vec<u32>,
+    /// Stream the versioned summary and all scoped findings as JSON.
     #[arg(long)]
     pub json: bool,
 }

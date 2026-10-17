@@ -6,6 +6,7 @@ pub mod gap;
 pub mod metrics;
 pub mod profile;
 pub mod scene;
+pub mod statistics;
 mod timing_validation;
 pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_with_scenes};
 pub use profile::Profile;

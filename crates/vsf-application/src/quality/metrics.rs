@@ -33,6 +33,17 @@ pub enum Rating {
 }
 
 impl Rating {
+    pub const ALL: [Self; 9] = [
+        Self::TooSlow,
+        Self::SlowAcceptable,
+        Self::ABitSlow,
+        Self::GoodSlow,
+        Self::Perfect,
+        Self::GoodFast,
+        Self::ABitFast,
+        Self::FastAcceptable,
+        Self::TooFast,
+    ];
     pub fn label(self) -> &'static str {
         match self {
             Self::TooSlow => "TOO SLOW",

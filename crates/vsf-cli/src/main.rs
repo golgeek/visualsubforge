@@ -2,6 +2,7 @@
 //! validation and file publication; this process never loads desktop settings.
 mod args;
 mod check;
+mod stats;
 use args::{Cli, Command, Resync};
 use clap::Parser;
 use media_analysis::Tools;
@@ -45,6 +46,8 @@ fn main() -> ExitCode {
             };
             (code, error.to_string())
         }),
+        Command::Stats(args) => stats::run(args, &cancel)
+            .map_err(|error| (check::error_code(&error), error.to_string())),
         Command::Check(args) => check::run(args, &cancel)
             .map_err(|error| (check::error_code(&error), error.to_string())),
     };
