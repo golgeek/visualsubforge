@@ -1,14 +1,33 @@
 //! Accepted-document preview, serialized on the existing media control worker.
 //! mpv owns subtitle timing/composition. No UI clock or decoded frames cross IPC.
+mod ass;
 mod text;
-pub(crate) use text::serialize;
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct Source {
+    pub url: String,
+    styled: bool,
+}
+
+pub(crate) fn serialize(document: &subtitle_core::Document) -> Result<Option<Source>, String> {
+    let styled = document
+        .cues()
+        .iter()
+        .any(|cue| ass::has_markup(cue.text()));
+    let url = if styled {
+        ass::serialize(document)?
+    } else {
+        text::serialize(document)?.map(|text| format!("memory://{text}"))
+    };
+    Ok(url.map(|url| Source { url, styled }))
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Revision(pub u64, pub u64);
 
 pub struct Snapshot {
     pub revision: Revision,
-    pub content: Result<Option<String>, String>,
+    pub content: Result<Option<Source>, String>,
 }
 
 // Local seam for testing failures at the native command boundary.
@@ -58,13 +77,13 @@ impl Renderer {
                 output.command(&["sub-remove", &id.to_string()])?;
                 self.track = None;
             }
-            if let Some(text) = snapshot.content? {
+            if let Some(source) = snapshot.content? {
                 output.command(&[
-                    "sub-add",
-                    &format!("memory://{text}"),
-                    "select",
-                    "VSF accepted subtitles",
+                    "set",
+                    "sub-ass-override",
+                    if source.styled { "no" } else { "yes" },
                 ])?;
+                output.command(&["sub-add", &source.url, "select", "VSF accepted subtitles"])?;
                 self.track = output.selected_subtitle();
                 if self.track.is_none() {
                     self.unknown_track = true;
@@ -153,7 +172,10 @@ mod tests {
     fn snapshot(revision: u64, text: Option<&str>) -> Snapshot {
         Snapshot {
             revision: Revision(1, revision),
-            content: Ok(text.map(str::to_owned)),
+            content: Ok(text.map(|text| Source {
+                url: format!("memory://{text}"),
+                styled: false,
+            })),
         }
     }
     #[test]
@@ -164,7 +186,7 @@ mod tests {
         r.replace(&mut p, snapshot(0, Some("original")));
         r.replace(&mut p, snapshot(1, Some("accepted")));
         assert_eq!(r.track, Some(2));
-        assert_eq!(p.commands[3], ["sub-remove", "1"]);
+        assert!(p.commands.iter().any(|c| c == &["sub-remove", "1"]));
         let count = p.commands.len();
         r.replace(&mut p, snapshot(1, Some("stale duplicate")));
         assert_eq!(p.commands.len(), count);
@@ -187,7 +209,7 @@ mod tests {
         r.replace(&mut p, snapshot(2, None));
         assert!(r.error.is_none());
         assert_eq!(r.track, None);
-        assert_eq!(p.commands[2], ["set", "sid", "no"]);
+        assert_eq!(p.commands[3], ["set", "sid", "no"]);
     }
     #[test]
     fn new_media_never_removes_an_id_from_previous_session() {
@@ -201,5 +223,48 @@ mod tests {
         p.commands.clear();
         r.replace(&mut p, snapshot(0, Some("original")));
         assert!(!p.commands.iter().any(|c| c[0] == "sub-remove"));
+    }
+
+    #[test]
+    fn style_mode_switches_and_failed_configuration_never_publishes_old_text() {
+        let parsed =
+            subtitle_formats::srt::parse("1\n00:00:01,001 --> 00:00:02,999\n{\\an8}Top\n\n")
+                .unwrap();
+        let mut r = Renderer::default();
+        let mut p = Fake::default();
+        r.replace(
+            &mut p,
+            Snapshot {
+                revision: Revision(1, 1),
+                content: serialize(&parsed.document),
+            },
+        );
+        assert!(
+            p.commands
+                .iter()
+                .any(|c| c == &["set", "sub-ass-override", "no"])
+        );
+        assert!(
+            p.commands
+                .iter()
+                .any(|c| c[0] == "sub-add" && c[1].starts_with("hex://"))
+        );
+        r.replace(&mut p, snapshot(2, Some("WEBVTT\n\nplain")));
+        assert!(
+            p.commands
+                .iter()
+                .any(|c| c == &["set", "sub-ass-override", "yes"])
+        );
+        assert_eq!(r.track, Some(2));
+        r.replace(
+            &mut p,
+            Snapshot {
+                revision: Revision(1, 3),
+                content: Err("oversize".into()),
+            },
+        );
+        assert!(r.track.is_none());
+        assert!(r.error.as_deref().unwrap().contains("oversize"));
+        assert_eq!(p.commands.last().unwrap(), &["sub-remove", "2"]);
     }
 }

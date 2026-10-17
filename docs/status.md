@@ -10,8 +10,10 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 **Quality workflow in progress (2026-10-17):** shared pure Rust metrics/rules,
 strict version-2 data-only profiles, default/partial archived SW profiles, and
 `vsf check` now have tests. The desktop profile/settings/project owner, Problems
-UI, navigation, gap proposals and newly requested ASS/SSA tag support remain
-pending. The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
+UI, navigation and gap proposals remain pending. Inline ASS/SSA tag preservation
+and native preview are implemented, with exact millisecond demux and software
+composition checks; full ASS/SSA files/styles remain separate. See the
+[tag contract and validation limits](subtitle-tags.md). The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
 budgets; full-buffer benchmark memory failed and remains recorded. See the
 [quality contract and commands](subtitle-quality.md). This is an implementation
 increment, not milestone or native-platform acceptance.

@@ -1202,7 +1202,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(split.revision, Revision(1, 1));
-        let text = split.content.unwrap().unwrap();
+        let text = split.content.unwrap().unwrap().url;
         assert!(text.contains("00:00:01.000 --> 00:00:01.500"));
         assert!(text.contains("00:00:01.500 --> 00:00:02.000"));
         assert_eq!(text.matches("Héllo").count(), 2);
@@ -1221,7 +1221,16 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(merged.revision, Revision(1, 2));
-        assert_eq!(merged.content.unwrap().unwrap().matches(" --> ").count(), 1);
+        assert_eq!(
+            merged
+                .content
+                .unwrap()
+                .unwrap()
+                .url
+                .matches(" --> ")
+                .count(),
+            1
+        );
         documents.apply(Action::Delete { cue_id: 1 }, 1, 2).unwrap();
         assert!(
             documents
@@ -1238,7 +1247,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(restored.revision, Revision(1, 4));
-        assert!(restored.content.unwrap().unwrap().contains("Héllo"));
+        assert!(restored.content.unwrap().unwrap().url.contains("Héllo"));
     }
     #[test]
     fn structural_operations_save_reopen_and_reject_old_documents_atomically() {
@@ -1374,8 +1383,8 @@ mod tests {
         let first = documents.preview_since(None).unwrap().unwrap();
         assert_eq!(first.revision, Revision(1, 0));
         assert_eq!(
-            first.content.unwrap().unwrap(),
-            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
+            first.content.unwrap().unwrap().url,
+            "memory://WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
         );
         {
             let mut store = documents.0.lock().unwrap();
@@ -1385,7 +1394,14 @@ mod tests {
             .preview_since(Some(Revision(1, 0)))
             .unwrap()
             .unwrap();
-        assert!(edited.content.unwrap().unwrap().contains("Changed\n世界"));
+        assert!(
+            edited
+                .content
+                .unwrap()
+                .unwrap()
+                .url
+                .contains("Changed\n世界")
+        );
         documents.apply(Action::Undo, 1, 1).unwrap();
         let undo = documents
             .preview_since(Some(Revision(1, 1)))
@@ -1393,8 +1409,8 @@ mod tests {
             .unwrap();
         assert_eq!(undo.revision, Revision(1, 2));
         assert_eq!(
-            undo.content.unwrap().unwrap(),
-            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
+            undo.content.unwrap().unwrap().url,
+            "memory://WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
         );
         assert!(
             documents
@@ -1418,6 +1434,79 @@ mod tests {
             .unwrap();
         assert_eq!(closed.revision, Revision(2, 0));
         assert!(closed.content.unwrap().is_none());
+    }
+
+    #[test]
+    fn ass_preview_edit_undo_redo_and_save_preserve_original_markup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tagged.srt");
+        let original = "\u{feff}7\r\n00:00:01,001 --> 00:00:02,999\r\n{\\an8\\c&H0000FF&}<i>Original</i>\\N日本語\r\n\r\n";
+        fs::write(&path, original).unwrap();
+        let documents = Documents::default();
+        documents
+            .apply(
+                Action::Open {
+                    path: path.to_string_lossy().into_owned(),
+                    discard: false,
+                },
+                0,
+                0,
+            )
+            .unwrap();
+        let before = documents
+            .preview_since(None)
+            .unwrap()
+            .unwrap()
+            .content
+            .unwrap();
+        assert!(before.as_ref().unwrap().url.starts_with("hex://"));
+        let edited = r"{\a6\t(0,800,\fs40)}Edited <b>bold</b>";
+        documents
+            .apply(
+                Action::Edit {
+                    cue_id: 1,
+                    start_ms: 1001,
+                    end_ms: 2999,
+                    text: edited.into(),
+                },
+                1,
+                0,
+            )
+            .unwrap();
+        let after = documents
+            .preview_since(None)
+            .unwrap()
+            .unwrap()
+            .content
+            .unwrap();
+        assert_ne!(before, after);
+        documents.apply(Action::Undo, 1, 1).unwrap();
+        assert_eq!(
+            documents
+                .preview_since(None)
+                .unwrap()
+                .unwrap()
+                .content
+                .unwrap(),
+            before
+        );
+        documents.apply(Action::Save { path: None }, 1, 2).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        documents.apply(Action::Redo, 1, 2).unwrap();
+        assert_eq!(
+            documents
+                .preview_since(None)
+                .unwrap()
+                .unwrap()
+                .content
+                .unwrap(),
+            after
+        );
+        documents.apply(Action::Save { path: None }, 1, 3).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            original.replace(r"{\an8\c&H0000FF&}<i>Original</i>\N日本語", edited)
+        );
     }
 
     #[test]

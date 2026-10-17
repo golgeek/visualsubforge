@@ -238,7 +238,7 @@ fn check_cue(row: &CueMetrics, text: &TextMetrics, profile: &Profile, out: &mut 
             row,
             Rule::Empty,
             Some(0.0),
-            "Nonempty visible text".into(),
+            "Nonempty text under the selected counting policy".into(),
             "The counted text is empty or whitespace only.",
         ));
     }

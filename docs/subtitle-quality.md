@@ -19,14 +19,15 @@ combining marks separately. Per-line lengths exclude newline units. No Unicode
 normalization or entity decoding occurs. These are behavioral specifications,
 not a claim of exhaustive executed VSS equivalence.
 
-Counting and rendering are separate. Current SRT video preview renders balanced
-bold/italic/underline tags; other syntax is displayed literally. The VSS counting
-policy can exclude syntax which VSF's preview renders literally. Its name and
-details must remain visible with metrics. SRT preserves tags on save. The user
-added ASS/SSA tag support to Task 011 on 2026-10-17; preservation, native preview
-and counting are now required follow-ups. Full ASS/SSA file-level styles/metadata
-scope is awaiting clarification. The current implementation does not render
-ASS/SSA overrides, and source-compatible counting is not rendering support.
+Counting and rendering are separate. SRT video preview renders balanced
+bold/italic/underline tags and now passes complete ASS/SSA override blocks to
+libass without rounding cue times. See the [tag contract](subtitle-tags.md) for
+cue opt-in, literal/malformed handling and fixed SRT preview defaults. The VSS
+counting policy can exclude syntax which preview renders literally; it counts
+ASS text escapes and drawing instructions outside blocks as source characters,
+not rendered layout. Its name/details must remain visible with metrics. SRT
+preserves original tags on save. Full ASS/SSA files/styles/metadata remain a
+separate scope choice; inline tag support is included in this milestone.
 
 For count N and effective duration D milliseconds, CPS = N*1000/D and
 RS = N*1000/(D-500). Empty/whitespace-only text, invalid duration and RS durations

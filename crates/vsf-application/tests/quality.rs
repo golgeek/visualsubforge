@@ -34,6 +34,10 @@ fn pinned_host_text_policy_handles_unicode_tags_entities_and_newlines() {
         ("<i>A</i>\rB", 4, vec![1, 1], false),
         ("A {note} B", 10, vec![10], false),
         ("A{\\an8}B", 2, vec![2], false),
+        (r"A{\a6\fs32\t(0,800,\c&H0000FF&)\k20}B", 2, vec![2], false),
+        // The named historical policy counts text escapes literally; rendering
+        // interprets them. A visual-line metric would require a different policy.
+        (r"A\NB\hC", 7, vec![7], false),
         ("&amp;", 5, vec![5], false),
         ("<font color=red>X</font>", 1, vec![1], false),
         ("A<broken", 8, vec![8], false),

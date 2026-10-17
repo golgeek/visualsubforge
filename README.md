@@ -56,6 +56,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   operation, output protections and current matching/validation limits.
 - [Subtitle quality](docs/subtitle-quality.md): implemented headless checks and
   profiles, metric semantics, and the desktop workflow still in progress.
+- [Subtitle tags](docs/subtitle-tags.md): SRT preservation, inline ASS/SSA native
+  preview, millisecond timing, defaults and counting limitations.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT parsing/serialization without filesystem access. `vsf-application`
