@@ -4603,6 +4603,7 @@ name = "vsf-application"
 version = "0.0.1-alpha"
 dependencies = [
  "media-analysis",
+ "regex",
  "serde",
  "serde_json",
  "sha2",

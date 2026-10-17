@@ -9,8 +9,18 @@ pub struct CueTiming {
     pub end: Milliseconds,
 }
 
+/// Replacement text for one existing cue; timing is deliberately absent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CueText {
+    pub id: CueId,
+    pub text: String,
+}
+
 /// Domain edits use validated times and identities, independently of any IPC or format.
 pub enum Edit {
+    TextBatch {
+        texts: Vec<CueText>,
+    },
     Retime {
         timings: Vec<CueTiming>,
     },
@@ -126,6 +136,25 @@ impl Editor {
         self.expect_revision(expected)?;
         let mut created = None;
         let (index, count, after) = match edit {
+            Edit::TextBatch { texts } => {
+                if texts.len() != self.document.cues.len() {
+                    return Err("Text batch must include every cue once in document order".into());
+                }
+                let mut after = Vec::with_capacity(texts.len());
+                for (original, replacement) in self.document.cues.iter().zip(texts) {
+                    if original.id != replacement.id {
+                        return Err(
+                            "Text batch must include every cue once in document order".into()
+                        );
+                    }
+                    Cue::validate(original.start, original.end, &replacement.text)?;
+                    after.push(Cue {
+                        text: replacement.text,
+                        ..original.clone()
+                    });
+                }
+                (0, self.document.cues.len(), after)
+            }
             Edit::Retime { timings } => {
                 if timings.len() != self.document.cues.len() {
                     return Err("Retiming must include every cue once in document order".into());
