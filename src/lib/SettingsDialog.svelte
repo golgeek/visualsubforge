@@ -185,6 +185,13 @@
         </fieldset>
       </section>
       {#if ready}
+        <label
+          ><input
+            type="checkbox"
+            bind:checked={draft.showQualityMetrics}
+            disabled={busy}
+          /> Show cue metrics by default</label
+        >
         <QualitySettings
           value={draft.quality}
           {builtins}

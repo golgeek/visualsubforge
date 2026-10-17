@@ -42,6 +42,7 @@ for (const name of [
   'workspace-lifecycle',
   'resync',
   'quality-settings',
+  'quality-checking',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

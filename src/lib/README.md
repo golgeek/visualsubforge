@@ -10,6 +10,7 @@ mount and are disposed on unmount; they are not global stores.
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
+| `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
@@ -57,6 +58,25 @@ or own accepted state. Built-in values come from Rust-generated
 ProjectWorkflow restores timing/view projections after Rust accepts the staged
 project profile; the profile itself remains Rust-owned and is captured there on
 project save. See the [quality guide](../../docs/subtitle-quality.md).
+
+## Quality checking
+
+`QualitySession` debounces changed inputs, fetches at most 100 findings/200 metric
+rows and cancels late worker admissions when closed/disposed. It never evaluates
+rules in TypeScript. App supplies visible rows, selection and the unapplied cue
+draft; accepted and draft metrics remain visibly separate. Profile epochs force
+unchanged drafts to be resubmitted after Rust invalidates them. F4 and Problems
+buttons use the same protected Apply/Discard/Cancel navigation before calling
+existing cue selection. Failed Apply cannot discard a draft or move selection.
+
+Rust captures immutable domain/profile inputs under the document mutex, then
+evaluates outside it on one CPU worker. No queued document snapshots accumulate.
+One latest draft replaces older draft work, with accepted checks taking priority.
+Generation, revision and policy epoch guard publication and cancellation; running
+work is cancelled on invalidation and reaped before replacement. Shutdown joins
+outside the document lock. Read projections bound individual line-length arrays
+to 20 while preserving full line counts/maximum lengths. The full shared report
+stays in Rust and never travels through ordinary polling IPC.
 
 ## Generated IPC
 

@@ -1,8 +1,8 @@
 # Subtitle quality
 
 Implementation in progress (2026-10-17). This contract describes Task 011;
-the shared checker, CLI and desktop profile Settings are implemented. Live cue
-metrics, Problems review and gap acceptance are still in progress. Checking is
+the shared checker, CLI, desktop profile Settings, live cue metrics and Problems
+review are implemented. Gap acceptance is still in progress. Checking is
 read-only and never makes a subtitle document unsavable.
 
 ## Metrics and source evidence
@@ -93,6 +93,37 @@ nested overlaps against the preceding cue with the furthest endpoint, avoiding
 quadratic all-pairs expansion. Each later overlapping cue gets a representative
 pair finding. Reports retain stable cue IDs and document-order indices; related
 cues are explicit. Profile snapshots and their canonical SHA-256 identify results.
+
+## Desktop checking
+
+Enable **Cue metrics** above the subtitle list for accepted CPS/RS columns and a
+selected-cue readout: duration, speed/rating, UTF-16 count, line lengths and next
+gap. Settings controls the startup default. Unapplied text/time edits get a
+separate **Draft · not applied** readout; invalid drafts show an explanation.
+Draft calculations use the same full-document overlap policy, but never replace
+accepted findings or enter Undo history. Line details show at most 20 lengths;
+the total line count and longest line still cover the whole cue.
+
+**Problems** opens beside the cue list. It shows measured/expected values,
+explanations, profile coverage and separate finding/affected-cue counts. Filter
+by rule or severity; results page 100 findings at a time. **Next cue / Previous
+cue** (F4 / Shift+F4) visit distinct affected cues in document order, including
+related cues in overlap/gap pairs, and wrap at the ends. Navigation selects the
+cue and seeks only when media is loaded. An unapplied draft requires an explicit
+Apply, Discard or Cancel choice; failed Apply keeps the draft and selection.
+
+Checks run on one cancellable Rust worker. Document edits, Undo/Redo and policy
+or workspace replacement retire old results; late replies cannot publish into a
+new context. Checking does not occupy the UI thread. **Pause checking** retains
+valid accepted results and stops new work until **Check again**. Hiding both
+metrics and Problems releases checking; reopening requests a fresh check.
+No profile or check action changes subtitle history, dirty state or save policy.
+
+The desktop and CLI share the same engine and profile snapshot/hash. Executable
+parity is checked by the real desktop workflow using an exported accepted
+profile and the same SRT input, comparing every metric and finding. The desktop
+projects bounded pages; the CLI streams the complete report. Partial-profile
+limitations remain visible even when there are no findings.
 
 ## Planned explicit gap action
 

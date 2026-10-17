@@ -45,6 +45,7 @@ impl Documents {
         // a new destination, but does not manufacture an undo entry.
         loaded.apply_edit(capture.key.revision, edit)?;
         loaded.resynced = true;
+        store.invalidate_checks();
         Ok(store.snapshot())
     }
 

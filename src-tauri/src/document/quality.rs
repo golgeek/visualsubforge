@@ -11,6 +11,9 @@ pub(super) struct State {
     current: Policy,
 }
 impl State {
+    pub(super) fn epoch(&self) -> u64 {
+        self.epoch
+    }
     fn next_epoch(&self) -> Result<u64> {
         self.epoch
             .checked_add(1)
@@ -42,6 +45,7 @@ impl Documents {
             store.quality.current = policy.clone();
             store.quality.defaults = policy;
             store.quality.initialized = true;
+            store.invalidate_checks();
         }
         Ok(())
     }
@@ -66,6 +70,7 @@ impl Documents {
         store.quality.current = policy;
         store.quality.epoch = next;
         store.quality.initialized = true;
+        store.invalidate_checks();
         Ok(())
     }
     pub(crate) fn reset_quality(&self) -> Result<()> {
@@ -73,6 +78,7 @@ impl Documents {
         let next = store.quality.next_epoch()?;
         store.quality.current = store.quality.defaults.clone();
         store.quality.epoch = next;
+        store.invalidate_checks();
         Ok(())
     }
     pub(crate) fn attach_quality_project(
@@ -92,10 +98,12 @@ impl Documents {
         let next = store.quality.next_epoch()?;
         // Existing publication order is document -> project. The callback only
         // assigns validated staged data and cannot fail after attachment changes.
-        projects.attach_with(token, Some(media_path), |policy| {
+        let attached = projects.attach_with(token, Some(media_path), |policy| {
             store.quality.current = policy.clone();
             store.quality.epoch = next;
-        })
+        })?;
+        store.invalidate_checks();
+        Ok(attached)
     }
     pub(crate) fn detach_quality_project(&self, projects: &crate::project::Projects) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
@@ -103,6 +111,7 @@ impl Documents {
         projects.detach()?;
         store.quality.current = store.quality.defaults.clone();
         store.quality.epoch = next;
+        store.invalidate_checks();
         Ok(())
     }
 }

@@ -23,6 +23,8 @@ GDK_BACKEND=x11 xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-se
 instrumented executable. The default is `target/debug/visualsubforge` (`.exe` on
 Windows). The test build replaces that debug executable; rebuild normally before
 using it as an ordinary editor.
+It also builds `vsf-cli` for the executable parity check. `--cli /absolute/path/to/vsf`
+selects a matching CLI; by default the runner uses `target/debug/vsf` (`.exe` on Windows).
 
 ## What it verifies
 
@@ -38,6 +40,15 @@ through the real Settings UI. An actual failed settings-file replacement preserv
 accepted rules; retry persists them, a stale dialog is rejected, and a second
 process restores the exact saved profile. All these operations must leave the
 loaded subtitle document and Undo history unchanged.
+
+The quality workflow then enables accepted/draft metrics and Problems without
+media, verifies protected Cancel/Discard navigation, and checks that the list
+and editor retain usable space. It exports Rust's accepted profile, executes
+`vsf check` on the same SRT, and compares the profile/hash, every metric/finding
+and affected-cue count. The partial profile must remain explicitly incomplete.
+Screenshots cover both the panel controls and scrolled findings; the JSON parity
+receipt preserves both actual outputs. Neither checking nor draft metrics may
+change the accepted document, history or save eligibility.
 
 Each run retains `test-results/desktop-*`: its inputs/outputs, isolated recovery
 data, per-process logs, receipt and screenshot (plus DOM on failure). The runner
@@ -90,12 +101,12 @@ incorrectly expected ordinary recovery to prohibit any reuse of its unchanged
 source; the corrected scenario tests the actual external-edit conflict guarantee.
 Resync's stricter distinct-file rule is covered separately.
 
-The expanded quality Settings/restart workflow passes on macOS ARM64 on
+The expanded quality Settings/checker/CLI-parity/restart workflow passes on macOS ARM64 on
 2026-10-17; this addition has not yet been executed on Windows/Linux. The pinned
 embedded driver uses JavaScript clicks, so select options require explicit DOM
 input/change events in this harness. This verifies the real component/IPC path,
 not physical keyboard or pointer delivery. Retained current evidence is copied
-under `tests/fixtures/generated/quality/profiles-desktop-final/`.
+under `tests/fixtures/generated/quality/checks-desktop-final/`.
 
 The first Windows run reached the save-failure check, then failed because Rust's
 canonical path had the Windows extended-length prefix. The runner now normalizes

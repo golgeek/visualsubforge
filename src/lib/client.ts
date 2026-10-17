@@ -30,6 +30,11 @@ export type SaveProjectRequest =
   IPC.visualsubforge_project_SaveRequest_Deserialize;
 export type Preferences = IPC.visualsubforge_preferences_Preferences;
 export type QualityProfile = IPC.vsf_application_quality_profile_Profile;
+export type QualityView = IPC.visualsubforge_quality_check_View;
+export type QualityRequest = IPC.visualsubforge_quality_check_Request;
+export type QualityMetric = QualityView['metrics'][number];
+export type QualityDraft = IPC.visualsubforge_quality_check_Draft;
+export type QualityRule = NonNullable<QualityRequest['rule']>;
 export type QualitySettingsData = Awaited<
   ReturnType<typeof commands.qualitySettings>
 >;
@@ -302,6 +307,12 @@ export async function savePreferences(
 }
 export function getQualitySettings(): Promise<QualitySettingsData> {
   return commands.qualitySettings();
+}
+export function readQuality(request: QualityRequest): Promise<QualityView> {
+  return commands.qualityRead(request);
+}
+export async function cancelQuality(id: number): Promise<void> {
+  await commands.qualityCancel(id);
 }
 export function importQualityProfile(path: string): Promise<QualityProfile> {
   return commands.qualityProfileOpen(path);

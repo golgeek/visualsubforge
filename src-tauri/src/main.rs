@@ -48,6 +48,7 @@ mod native_surface;
 mod playback_bench;
 mod preferences;
 mod project;
+mod quality_check;
 mod quality_profile;
 mod recovery_store;
 mod resync;
@@ -242,6 +243,7 @@ fn diagnostic_exit(app: &tauri::AppHandle, success: bool) {
             .0
             .store(true, Ordering::Release);
         app.state::<resync::Resync>().shutdown();
+        let _ = app.state::<document::Documents>().shutdown_quality();
         app.state::<waveform::Waveforms>().shutdown();
         app.state::<scenes::Scenes>().shutdown();
         // Complete cleanup before asking to exit so failure codes are preserved.

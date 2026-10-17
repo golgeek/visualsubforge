@@ -41,6 +41,11 @@ export const commands = {
     __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
       'quality_settings',
     ),
+  qualityRead: (request: visualsubforge_quality_check_Request) =>
+    __TAURI_INVOKE<visualsubforge_quality_check_View>('quality_read', {
+      request,
+    }),
+  qualityCancel: (id: number) => __TAURI_INVOKE<null>('quality_cancel', { id }),
   qualityProfileOpen: (path: string) =>
     __TAURI_INVOKE<vsf_application_quality_profile_Profile>(
       'quality_profile_open',
@@ -542,6 +547,24 @@ export type visualsubforge_quality_profile_Context_Serialize = {
   timing: visualsubforge_timing_preset_Settings;
 };
 
+export type vsf_application_quality_check_CueMetrics = {
+  cueId: string;
+  cueIndex: number;
+  startMs: number | null;
+  endMs: number | null;
+  durationMs: number | null;
+  readingStartMs: number | null;
+  effectiveDurationMs: number | null;
+  characters: number;
+  lineCharacters: number[];
+  empty: boolean;
+  cps: vsf_application_quality_metrics_Rate;
+  rs: vsf_application_quality_metrics_Rate;
+  rating: vsf_application_quality_metrics_Rating | null;
+  nextCueId: string | null;
+  gapMs: number | null;
+};
+
 export type visualsubforge_resync_view_CueRow = {
   id: string;
   text: string;
@@ -575,6 +598,17 @@ export type visualsubforge_document_CueView_Serialize = {
  *  projects. Decoder thread count does not change those semantics.
  */
 export type media_analysis_scenes_Detail = 'standard' | 'reduced';
+
+export type visualsubforge_quality_check_Draft = {
+  cueId: number;
+  startMs: number;
+  endMs: number;
+  text: string;
+};
+
+export type visualsubforge_quality_check_DraftChange =
+  | { kind: 'clear' }
+  | { kind: 'update'; value: visualsubforge_quality_check_Draft };
 
 export type vsf_application_quality_profile_DurationRule = {
   enabled: boolean;
@@ -613,6 +647,18 @@ export type visualsubforge_desktop_FileChoice =
   | 'qualityPreset'
   | 'saveQualityPreset';
 
+export type vsf_application_quality_check_Finding = {
+  rule: vsf_application_quality_check_Rule;
+  /**  Decimal identity strings avoid JSON/JavaScript integer precision loss. */
+  cueId: string;
+  cueIndex: number;
+  relatedCueId: string | null;
+  severity: vsf_application_quality_check_Severity;
+  measured: number | null;
+  expected: string;
+  explanation: string;
+};
+
 export type visualsubforge_timing_preset_Imported = {
   preset: visualsubforge_timing_preset_Preset;
   warnings: string[];
@@ -647,6 +693,13 @@ export type visualsubforge_workflow_trace_InputEvent_Serialize = {
 };
 
 export type visualsubforge_workflow_trace_InputType = 'click' | 'keydown';
+
+export type visualsubforge_quality_check_Key = {
+  generation: number;
+  revision: number;
+  epoch: number;
+  loaded: boolean;
+};
 
 export type vsf_application_quality_profile_Kind = 'quality';
 
@@ -693,6 +746,13 @@ export type visualsubforge_desktop_MenuState = {
   scenesPending: boolean;
   previousScene: boolean;
   nextScene: boolean;
+};
+
+export type visualsubforge_quality_check_Metric = {
+  data: vsf_application_quality_check_CueMetrics;
+  lineCount: number;
+  longestLine: number;
+  linesTruncated: boolean;
 };
 
 export type visualsubforge_scenes_Mode = 'keyframes' | 'visual';
@@ -748,6 +808,15 @@ export type visualsubforge_project_Options_Serialize = {
 
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
+
+export type visualsubforge_quality_check_Phase =
+  | 'idle'
+  | 'checking'
+  | 'ready'
+  | 'cancelling'
+  | 'cancelled'
+  | 'failed'
+  | 'closed';
 
 export type visualsubforge_resync_view_Phase =
   | 'analyzing'
@@ -817,6 +886,24 @@ export type visualsubforge_project_Project_Serialize = {
   scenes: visualsubforge_scenes_Saved_Serialize | null;
 };
 
+export type vsf_application_quality_metrics_Rate =
+  | { status: 'finite'; value: number | null }
+  | {
+      status: 'unavailable';
+      reason: vsf_application_quality_metrics_Unavailable;
+    };
+
+export type vsf_application_quality_metrics_Rating =
+  | 'too_slow'
+  | 'slow_acceptable'
+  | 'a_bit_slow'
+  | 'good_slow'
+  | 'perfect'
+  | 'good_fast'
+  | 'a_bit_fast'
+  | 'fast_acceptable'
+  | 'too_fast';
+
 export type visualsubforge_document_RecoveryStatus =
   | visualsubforge_document_RecoveryStatus_Serialize
   | visualsubforge_document_RecoveryStatus_Deserialize;
@@ -830,6 +917,35 @@ export type visualsubforge_document_RecoveryStatus_Serialize = {
   entries: visualsubforge_recovery_store_Entry_Serialize[];
   error: string | null;
 };
+
+export type visualsubforge_quality_check_Request = {
+  generation: number;
+  revision: number;
+  run: boolean;
+  restart: boolean;
+  offset: number;
+  limit: number;
+  metricsOffset: number;
+  metricsLimit: number;
+  selected: number | null;
+  rule: vsf_application_quality_check_Rule | null;
+  severity: vsf_application_quality_check_Severity | null;
+  draft: visualsubforge_quality_check_DraftChange | null;
+};
+
+export type vsf_application_quality_check_Rule =
+  | 'empty'
+  | 'duration_short'
+  | 'duration_long'
+  | 'cps_low'
+  | 'cps_high'
+  | 'rs_low'
+  | 'rs_high'
+  | 'speed_unavailable'
+  | 'line_count'
+  | 'line_length'
+  | 'overlap'
+  | 'gap';
 
 export type vsf_application_quality_profile_Rules = {
   duration: vsf_application_quality_profile_DurationRule;
@@ -952,6 +1068,8 @@ export type visualsubforge_quality_profile_SettingsData_Serialize = {
   builtins: vsf_application_quality_profile_Profile[];
 };
 
+export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
+
 export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Serialize
   | visualsubforge_document_Snapshot_Deserialize;
@@ -1051,6 +1169,31 @@ export type vsf_application_quality_profile_Timing = {
   cueGapMs: number;
   sceneBeforeMs: number;
   sceneAfterMs: number;
+};
+
+export type vsf_application_quality_metrics_Unavailable =
+  'empty_text' | 'invalid_duration' | 'reading_allowance';
+
+export type visualsubforge_quality_check_View = {
+  key: visualsubforge_quality_check_Key;
+  id: number;
+  phase: visualsubforge_quality_check_Phase;
+  profile: vsf_application_quality_profile_Profile;
+  profileHash: string | null;
+  error: string | null;
+  findingsCount: number;
+  affectedCues: number;
+  filteredCount: number;
+  filteredCues: number;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+  metrics: visualsubforge_quality_check_Metric[];
+  selected: visualsubforge_quality_check_Metric | null;
+  previousCue: string | null;
+  nextCue: string | null;
+  draft: visualsubforge_quality_check_Metric | null;
+  draftChecking: boolean;
+  draftError: string | null;
 };
 
 export type visualsubforge_resync_view_View = {

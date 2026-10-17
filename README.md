@@ -31,6 +31,9 @@ The editor provides:
 - Persistent settings, portable timing and quality profiles, and native menus.
   Settings drafts are committed with Apply; projects retain their effective
   quality rules and timing options independently of workspace defaults.
+- Optional accepted/draft cue metrics and a paged Problems panel with filters,
+  protected cue navigation and the same checker as `vsf check`. Review works
+  without media and never changes subtitles or save eligibility.
 
 Native Mac ANGLE/Metal, Windows D3D11 and Linux GTK playback remain opt-in
 experiments. The maintained mpv recipes have pinned sources and recorded build
@@ -55,8 +58,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   legacy INI migration.
 - [Headless resynchronization](docs/resynchronization.md): CLI commands, shared
   operation, output protections and current matching/validation limits.
-- [Subtitle quality](docs/subtitle-quality.md): implemented headless checks and
-  profiles, metric semantics, and the desktop workflow still in progress.
+- [Subtitle quality](docs/subtitle-quality.md): profiles, desktop/CLI checking,
+  metric semantics and the gap-repair workflow still in progress.
 - [Subtitle tags](docs/subtitle-tags.md): SRT preservation, inline ASS/SSA native
   preview, millisecond timing, defaults and counting limitations.
 

@@ -1,7 +1,7 @@
 //! One command/event registry for desktop dispatch and generated JSON contracts.
 use crate::{
-    desktop, document, media, preferences, project, quality_profile, resync, scenes, timing_preset,
-    waveform, workflow_trace,
+    desktop, document, media, preferences, project, quality_check, quality_profile, resync, scenes,
+    timing_preset, waveform, workflow_trace,
 };
 
 pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
@@ -16,6 +16,8 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             preferences::preferences_get,
             preferences::preferences_save,
             quality_profile::quality_settings,
+            quality_check::quality_read,
+            quality_check::quality_cancel,
             quality_profile::quality_profile_open,
             quality_profile::quality_profile_save,
             desktop::finish_exit,
@@ -68,12 +70,13 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
     let mut samples = document::ipc_tests::samples();
     samples.extend([
+        ("qualityView", "QualityView", document::quality_ipc_sample()),
         ("openedProject", "OpenedProject", project::ipc_sample()),
         ("sceneView", "SceneView", scenes::ipc_sample()),
         ("waveformView", "WaveformView", waveform::ipc_sample()),

@@ -18,8 +18,14 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
 import { qualitySettings } from './quality.mjs';
+import { qualityChecking } from './checks.mjs';
 
-const { values } = parseArgs({ options: { binary: { type: 'string' } } });
+const { values } = parseArgs({
+  options: { binary: { type: 'string' }, cli: { type: 'string' } },
+});
+const cli = resolve(
+  values.cli ?? `target/debug/vsf${process.platform === 'win32' ? '.exe' : ''}`,
+);
 const binary = resolve(
   values.binary ??
     `target/debug/visualsubforge${process.platform === 'win32' ? '.exe' : ''}`,
@@ -274,6 +280,17 @@ try {
     root,
     evidence,
     record,
+  });
+  await qualityChecking({
+    browser,
+    invoke,
+    status,
+    until,
+    root,
+    evidence,
+    record,
+    source,
+    cli,
   });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);

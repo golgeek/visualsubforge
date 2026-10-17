@@ -363,6 +363,8 @@ pub async fn finish_exit(
             discard,
         )?;
         app.state::<crate::resync::Resync>().shutdown();
+        app.state::<crate::document::Documents>()
+            .shutdown_quality()?;
         app.state::<crate::waveform::Waveforms>().shutdown();
         app.state::<crate::scenes::Scenes>().shutdown();
         app.state::<ExitGate>().0.store(true, Ordering::Release);

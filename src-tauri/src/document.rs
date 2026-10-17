@@ -11,6 +11,9 @@ use subtitle_core::{CueId, Edit, Editor, Milliseconds};
 use subtitle_formats::srt;
 
 mod autosave;
+mod checks;
+#[cfg(test)]
+pub(crate) use checks::ipc_sample as quality_ipc_sample;
 mod quality;
 mod resync;
 pub(crate) use resync::Capture;
@@ -33,6 +36,7 @@ struct Store {
     recovery_root: Option<PathBuf>,
     recovery_error: Option<String>,
     quality: quality::State,
+    checks: checks::Checks,
 }
 struct Loaded {
     editor: Editor,
@@ -463,10 +467,13 @@ impl Documents {
     }
 
     pub(crate) fn apply(&self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
-        self.0
+        let mut store = self
+            .0
             .lock()
-            .map_err(|_| "Document worker state is unavailable")?
-            .apply(action, generation, revision)
+            .map_err(|_| "Document worker state is unavailable")?;
+        let result = store.apply(action, generation, revision);
+        store.invalidate_checks();
+        result
     }
 }
 // Save As and no-op resync acceptance can change persistence state without an
