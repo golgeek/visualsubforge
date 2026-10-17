@@ -60,6 +60,49 @@ export const commands = {
       id,
       acknowledgeNoMedia,
     }),
+  textStart: (
+    generation: number,
+    revision: number,
+    operation: vsf_application_text_Operation,
+  ) =>
+    __TAURI_INVOKE<number>('text_start', { generation, revision, operation }),
+  textView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_text_review_TextView>('text_view', {
+      id,
+      offset,
+      limit,
+    }),
+  textMatches: (id: number, cueIndex: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_text_review_Match[]>('text_matches', {
+      id,
+      cueIndex,
+      offset,
+      limit,
+    }),
+  textCancel: (id: number) => __TAURI_INVOKE<null>('text_cancel', { id }),
+  textAccept: (
+    id: number,
+    target: {
+      cueIndex: number;
+      matchIndex: number;
+    } | null,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('text_accept', {
+      id,
+      target,
+    }),
+  textFormat: (
+    text: string,
+    start: number,
+    end: number,
+    style: vsf_application_text_formatting_Format,
+  ) =>
+    __TAURI_INVOKE<vsf_application_text_formatting_Formatted>('text_format', {
+      text,
+      start,
+      end,
+      style,
+    }),
   qualityProfileOpen: (path: string) =>
     __TAURI_INVOKE<vsf_application_quality_profile_Profile>(
       'quality_profile_open',
@@ -673,6 +716,15 @@ export type vsf_application_quality_check_Finding = {
   explanation: string;
 };
 
+export type vsf_application_text_formatting_Format =
+  'bold' | 'italic' | 'underline';
+
+export type vsf_application_text_formatting_Formatted = {
+  text: string;
+  start: number;
+  end: number;
+};
+
 export type visualsubforge_gap_review_GapView = {
   id: number;
   key: visualsubforge_quality_check_Key;
@@ -740,6 +792,12 @@ export type vsf_application_quality_profile_LineRule = {
   maximumLines: number;
   singleLinePreferred: number;
   maximumCharacters: number;
+};
+
+export type visualsubforge_text_review_Match = {
+  start: number;
+  end: number;
+  skipped: string | null;
 };
 
 export type visualsubforge_project_MediaIdentity =
@@ -814,6 +872,17 @@ export type visualsubforge_workflow_trace_Operation =
   | 'undo'
   | 'redo';
 
+export type vsf_application_text_Operation =
+  | { kind: 'find'; query: string; caseSensitive: boolean }
+  | {
+      kind: 'replace';
+      query: string;
+      replacement: string;
+      caseSensitive: boolean;
+    }
+  | { kind: 'joinLines' }
+  | { kind: 'reflow' };
+
 export type visualsubforge_project_Options =
   | visualsubforge_project_Options_Serialize
   | visualsubforge_project_Options_Deserialize;
@@ -868,6 +937,16 @@ export type visualsubforge_resync_view_Phase =
   | 'accepted'
   | 'cancelled'
   | 'failed';
+
+export type visualsubforge_text_review_Phase =
+  | 'preparing'
+  | 'reviewing'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'accepted'
+  | 'closed';
 
 export type visualsubforge_preferences_Preferences = {
   version: number;
@@ -986,6 +1065,16 @@ export type visualsubforge_gap_review_Row = {
   after: visualsubforge_quality_check_Metric;
   nextBefore: visualsubforge_quality_check_Metric;
   nextAfter: visualsubforge_quality_check_Metric;
+};
+
+export type visualsubforge_text_review_Row = {
+  cueId: number;
+  cueIndex: number;
+  before: string;
+  after: string | null;
+  skipped: string | null;
+  matches: visualsubforge_text_review_Match[];
+  matchCount: number;
 };
 
 export type vsf_application_quality_check_Rule =
@@ -1229,7 +1318,29 @@ export type visualsubforge_media_Status_Serialize = {
   previewDocumentRevision: number | null;
 };
 
+export type visualsubforge_text_review_Target = {
+  cueIndex: number;
+  matchIndex: number;
+};
+
 export type vsf_application_quality_profile_TextAlgorithm = 'vss_utf16_v1';
+
+export type visualsubforge_text_review_TextView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  profileName: string;
+  profileHash: string;
+  operation: vsf_application_text_Operation;
+  error: string | null;
+  total: number;
+  changed: number;
+  matches: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_text_review_Row[];
+};
 
 export type vsf_application_quality_profile_Timing = {
   cueGapMs: number;

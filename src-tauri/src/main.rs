@@ -64,6 +64,7 @@ mod srt_limits;
     )
 ))]
 mod subtitle_preview;
+mod text_review;
 mod timing_preset;
 mod waveform;
 mod workflow_trace;

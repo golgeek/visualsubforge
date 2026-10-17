@@ -13,6 +13,7 @@ import type {
   ResyncView,
   QualityView,
   GapView,
+  TextView,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -710,6 +711,69 @@ export const gapView = {
   skipped: 0,
   total: 2,
 } satisfies GapView;
+export const textView = {
+  afterFindings: 1,
+  beforeFindings: 1,
+  changed: 2,
+  error: null,
+  id: 1,
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+  matches: 3,
+  offset: 0,
+  operation: {
+    caseSensitive: false,
+    kind: 'replace',
+    query: 'été',
+    replacement: 'summer',
+  },
+  phase: 'reviewing',
+  profileHash:
+    'b3142b9ca7fcc4bfe20675eb0fb344f252adec1847deae31349c8fde9a18d2ba',
+  profileName: 'VSF authoring defaults',
+  rows: [
+    {
+      after: '{\\an8}<i>summer 😀 summer</i>',
+      before: '{\\an8}<i>ÉTÉ 😀 été</i>',
+      cueId: 1,
+      cueIndex: 0,
+      matchCount: 2,
+      matches: [
+        {
+          end: 12,
+          skipped: null,
+          start: 9,
+        },
+        {
+          end: 19,
+          skipped: null,
+          start: 16,
+        },
+      ],
+      skipped: null,
+    },
+    {
+      after: 'summer',
+      before: 'été',
+      cueId: 2,
+      cueIndex: 1,
+      matchCount: 1,
+      matches: [
+        {
+          end: 3,
+          skipped: null,
+          start: 0,
+        },
+      ],
+      skipped: null,
+    },
+  ],
+  total: 2,
+} satisfies TextView;
 export const openedProject = {
   mediaIdentity: {
     modified: '1.0',

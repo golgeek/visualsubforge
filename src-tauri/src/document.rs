@@ -13,10 +13,13 @@ use subtitle_formats::srt;
 mod autosave;
 mod checks;
 mod gaps;
+mod texts;
 #[cfg(test)]
 pub(crate) use checks::ipc_sample as quality_ipc_sample;
 #[cfg(test)]
 pub(crate) use gaps::ipc_sample as gap_ipc_sample;
+#[cfg(test)]
+pub(crate) use texts::ipc_sample as text_ipc_sample;
 mod quality;
 mod resync;
 pub(crate) use resync::Capture;
@@ -41,6 +44,7 @@ struct Store {
     quality: quality::State,
     checks: checks::Checks,
     gaps: gaps::State,
+    texts: texts::State,
 }
 struct Loaded {
     editor: Editor,

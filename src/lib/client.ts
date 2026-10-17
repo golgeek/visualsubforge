@@ -21,6 +21,34 @@ export type SceneMode = IPC.visualsubforge_scenes_Mode;
 export type SceneView = IPC.visualsubforge_scenes_SceneView_Serialize;
 export type ResyncView = Awaited<ReturnType<typeof commands.resyncView>>;
 export type GapView = Awaited<ReturnType<typeof commands.gapView>>;
+export type TextView = Awaited<ReturnType<typeof commands.textView>>;
+export type TextOperation = Parameters<typeof commands.textStart>[2];
+export type TextTarget = Parameters<typeof commands.textAccept>[1];
+export type TextFormat = Parameters<typeof commands.textFormat>[3];
+
+export const textStart = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  operation: TextOperation,
+) => commands.textStart(document.generation, document.revision, operation);
+export const textView = (id: number, offset = 0, limit = 100) =>
+  commands.textView(id, offset, limit);
+export const textMatches = (
+  id: number,
+  cueIndex: number,
+  offset = 0,
+  limit = 100,
+) => commands.textMatches(id, cueIndex, offset, limit);
+export async function textCancel(id: number): Promise<void> {
+  await commands.textCancel(id);
+}
+export const textAccept = (id: number, target: TextTarget = null) =>
+  commands.textAccept(id, target);
+export const textFormat = (
+  text: string,
+  start: number,
+  end: number,
+  style: TextFormat,
+) => commands.textFormat(text, start, end, style);
 export type ProjectOptions = IPC.visualsubforge_project_Options_Deserialize;
 export type ProjectData = IPC.visualsubforge_project_Project_Serialize;
 export type SavedScenes = IPC.visualsubforge_scenes_Saved_Deserialize;

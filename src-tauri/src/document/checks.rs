@@ -182,6 +182,7 @@ impl Store {
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
             self.gaps.invalidate(key);
+            self.texts.invalidate(key);
         } else {
             self.checks.cancel_worker();
             self.checks.report = None;
@@ -280,7 +281,8 @@ impl Documents {
             store.checks.worker.take()
         };
         drop(worker); // joins outside the document lock
-        self.shutdown_gaps()
+        self.shutdown_gaps()?;
+        self.shutdown_texts()
     }
 }
 fn project_view(
