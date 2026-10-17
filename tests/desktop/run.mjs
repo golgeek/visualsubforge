@@ -23,12 +23,14 @@ import { gapReview } from './gaps.mjs';
 import { textEditing } from './text.mjs';
 import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
+import { sceneQuality } from './scene-quality.mjs';
 
 const { values } = parseArgs({
   options: {
     binary: { type: 'string' },
     cli: { type: 'string' },
     performance: { type: 'boolean', default: false },
+    scenes: { type: 'boolean', default: false },
   },
 });
 const cli = resolve(
@@ -81,7 +83,9 @@ let browser;
 let log;
 let exit;
 let launchCount = 0;
-const runDeadline = Date.now() + (values.performance ? 300_000 : 180_000);
+const runDeadline =
+  Date.now() +
+  (values.scenes ? 480_000 : values.performance ? 300_000 : 180_000);
 
 async function record(step) {
   receipt.steps.push(step);
@@ -404,6 +408,14 @@ try {
     ...(values.performance
       ? [{ kind: 'subtitles', path: join(root, 'quality-10000.srt') }]
       : []),
+    ...(values.scenes
+      ? [
+          { kind: 'project', path: join(root, 'scene-small.vsfproject') },
+          { kind: 'saveSubtitles', path: join(root, 'scene-copy.srt') },
+          { kind: 'subtitles', path: join(root, 'scene-copy.srt') },
+          { kind: 'project', path: join(root, 'scene-large.vsfproject') },
+        ]
+      : []),
   ]);
   const recover = await browser.$('button=Recover');
   assert.deepEqual(
@@ -457,6 +469,18 @@ try {
       pid: app.pid,
     });
     await textPerformance({ browser, status, until, evidence, record });
+  }
+  if (values.scenes) {
+    await sceneQuality({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+    });
   }
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([

@@ -13,11 +13,14 @@ use subtitle_formats::srt;
 mod autosave;
 mod checks;
 mod gaps;
+mod scene_repairs;
 mod texts;
 #[cfg(test)]
 pub(crate) use checks::ipc_sample as quality_ipc_sample;
 #[cfg(test)]
 pub(crate) use gaps::ipc_sample as gap_ipc_sample;
+#[cfg(test)]
+pub(crate) use scene_repairs::ipc_sample as scene_repair_ipc_sample;
 #[cfg(test)]
 pub(crate) use texts::ipc_sample as text_ipc_sample;
 mod quality;
@@ -44,6 +47,7 @@ struct Store {
     quality: quality::State,
     checks: checks::Checks,
     gaps: gaps::State,
+    scene_repairs: scene_repairs::State,
     texts: texts::State,
 }
 struct Loaded {

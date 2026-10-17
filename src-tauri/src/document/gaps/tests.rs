@@ -23,7 +23,7 @@ pub(super) fn start(docs: &Documents) -> u64 {
     docs.gap_start(
         before.generation,
         before.revision,
-        Scenes::default().capture_gap(0, false).unwrap(),
+        Scenes::default().capture_quality(0, false).unwrap(),
     )
     .unwrap()
 }
@@ -48,6 +48,7 @@ fn checked(docs: &Documents) -> crate::quality_check::View {
         let current = docs.apply(Action::Status, 0, 0).unwrap();
         let report = docs
             .quality_read(crate::quality_check::Request {
+                session: 0.try_into().unwrap(),
                 generation: current.generation.try_into().unwrap(),
                 revision: current.revision.try_into().unwrap(),
                 run: true,
@@ -104,6 +105,7 @@ fn bounded_preview_is_read_only_and_acceptance_is_one_undo_redo_with_recheck() {
     assert!(docs.gap_accept(id, true).is_err());
     let invalidated = docs
         .quality_read(crate::quality_check::Request {
+            session: 0.try_into().unwrap(),
             generation: accepted.generation.try_into().unwrap(),
             revision: accepted.revision.try_into().unwrap(),
             run: false,
@@ -183,7 +185,7 @@ fn profile_history_and_document_replacement_retire_proposals_without_mutation() 
     .unwrap();
     assert!(docs.gap_accept(id, true).is_err());
     assert!(
-        docs.gap_start(1, 0, Scenes::default().capture_gap(0, false).unwrap())
+        docs.gap_start(1, 0, Scenes::default().capture_quality(0, false).unwrap())
             .is_err()
     );
 }
@@ -228,7 +230,7 @@ fn stale_worker_is_cancelled_cannot_publish_or_overlap_and_shutdown_joins() {
     let id = {
         let mut store = docs.0.lock().unwrap();
         let key = store.quality_key().unwrap();
-        let scene = Scenes::default().capture_gap(0, false).unwrap().key;
+        let scene = Scenes::default().capture_quality(0, false).unwrap().key;
         let profile = store.quality.context().profile;
         store
             .gaps
@@ -253,7 +255,7 @@ fn stale_worker_is_cancelled_cannot_publish_or_overlap_and_shutdown_joins() {
     .unwrap();
     assert!(cancel.load(Ordering::Relaxed));
     assert!(
-        docs.gap_start(1, 1, Scenes::default().capture_gap(0, false).unwrap())
+        docs.gap_start(1, 1, Scenes::default().capture_quality(0, false).unwrap())
             .is_err()
     );
     release.send(()).unwrap();
@@ -293,7 +295,7 @@ fn stale_worker_is_cancelled_cannot_publish_or_overlap_and_shutdown_joins() {
     {
         let mut store = docs.0.lock().unwrap();
         let key = store.quality_key().unwrap();
-        let scene = Scenes::default().capture_gap(0, false).unwrap().key;
+        let scene = Scenes::default().capture_quality(0, false).unwrap().key;
         let profile = store.quality.context().profile;
         store
             .gaps
@@ -312,7 +314,7 @@ fn stale_worker_is_cancelled_cannot_publish_or_overlap_and_shutdown_joins() {
     docs.shutdown_quality().unwrap();
     assert!(stopped.load(Ordering::Acquire));
     assert!(
-        docs.gap_start(1, 1, Scenes::default().capture_gap(0, false).unwrap())
+        docs.gap_start(1, 1, Scenes::default().capture_quality(0, false).unwrap())
             .is_err()
     );
     assert!(docs.0.lock().unwrap().gaps.job.is_none());

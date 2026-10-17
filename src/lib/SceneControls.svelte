@@ -29,6 +29,7 @@
     autoScan?: boolean;
     detail?: SceneDetail;
     onstate?: (state: {
+      qualityKey: string;
       running: boolean;
       pending: boolean;
       previous: boolean;
@@ -120,6 +121,7 @@
   });
   $effect(() => {
     onstate({
+      qualityKey: `${generation}/${view?.running}/${view?.partial}/${view?.mode}/${view?.error}`,
       running: !!view?.running,
       pending,
       previous: view?.previous != null,

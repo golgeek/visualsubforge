@@ -101,8 +101,8 @@ There are no mock document replies, test-only document commands or alternate
 accepted-state owners. The optional driver lives for the app process; the runner
 owns process cleanup and retains evidence even on failure.
 
-This lane does **not** exercise native menu clicks, native file dialogs, media
-playback, GPU/audio output or the resync proposal walkthrough. Those have separate
+The default lane does **not** exercise native menu clicks, native file dialogs,
+media playback, GPU/audio output or the resync proposal walkthrough. Those have separate
 backend/browser tests and native acceptance checks. Do not distribute the
 instrumented executable as a production app.
 
@@ -166,3 +166,37 @@ same real-app checks on each OS. See the
 [v10 changes](https://github.com/webdriverio/webdriverio/releases/tag/v10.0.0),
 [archive advisory](https://github.com/advisories/GHSA-jmr9-qjv8-65gv) and
 [source-map advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
+
+## Scene quality workflow and scale
+
+Build the instrumented native-media app with the platform prerequisites; on the
+development Mac the recorded run uses Homebrew mpv through the OpenGL adapter:
+
+```sh
+npm run tauri -- build --debug --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
+cargo build --locked -p vsf-cli
+npm run test:desktop -- --scenes
+```
+
+FFmpeg/FFprobe must resolve through the normal development tool policy. The
+runner generates two tiny videos, SRTs and project caches with independently
+known cut times and real file identities. It restores these caches through the
+ordinary project path, then runs actual FFmpeg analysis on the small video.
+The ordinary Settings/text/history/save/recovery workflow runs first.
+
+The scene extension verifies Problems filtering and protected navigation,
+read-only previews, static-tag preservation and a timed-tag skip, exact saved
+bytes and unchanged source, failed saves, one Undo/Redo, rescan/media rejection,
+and no-media coverage after detach. Its 10,000-cue section checks 10,000 findings,
+100-row review pages, full acceptance from page two, exact Undo, typing,
+cancellation and stale-revision invalidation against the predeclared one-second
+interaction budget. It runs even without `--performance`.
+
+The 2026-10-17 Mac run passes: preview 413 ms, acceptance 110 ms, generated draft
+interaction 1 ms, cancellation 3 ms and invalidation 13 ms. It records
+`scene-performance.json` and preview screenshots alongside the ordinary receipt.
+The reproducible synthetic caches test project restoration and large-document
+work; they do not measure large-video cut-detection accuracy. Webview events and
+queued file choices do not establish physical input, native dialogs or GPU/audio
+presentation. No new Windows/Linux execution is claimed. See
+[scene quality](../../docs/scene-quality.md) for the retained evidence and limits.

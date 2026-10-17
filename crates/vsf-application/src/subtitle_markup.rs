@@ -1,6 +1,17 @@
 //! Editable source mapping, deliberately separate from historical quality counting.
 use std::ops::Range;
 
+pub(crate) const MAX_CUE_BYTES: usize = 64 * 1024;
+
+/// Timing changes cannot safely reinterpret cue-relative effects or unknown tags.
+pub(crate) fn retiming_is_ambiguous(source: &str) -> bool {
+    if source.len() > MAX_CUE_BYTES {
+        return true;
+    }
+    let projection = Projection::new(source);
+    projection.timed || projection.ambiguous.is_some()
+}
+
 #[derive(Debug)]
 pub(super) struct Unit {
     pub visible: Range<usize>,
@@ -13,6 +24,7 @@ pub(super) struct Projection {
     pub ambiguous: Option<&'static str>,
     pub layout: bool,
     pub escapes: bool,
+    pub timed: bool,
     unbalanced: bool,
 }
 
@@ -33,6 +45,7 @@ impl Projection {
             ambiguous: None,
             layout: false,
             escapes: false,
+            timed: false,
             unbalanced: false,
         };
         let mut at = 0;
@@ -143,6 +156,10 @@ impl Projection {
                 .chars()
                 .take_while(|c| c.is_ascii_alphabetic())
                 .collect::<String>();
+            self.timed |= matches!(
+                name.as_str(),
+                "t" | "k" | "K" | "kf" | "ko" | "kt" | "move" | "fad" | "fade"
+            );
             match name.as_str() {
                 "b" | "i" | "u" | "s" | "fs" | "fscx" | "fscy" | "fsp" | "c" | "a" | "alpha"
                 | "bord" | "xbord" | "ybord" | "shad" | "xshad" | "yshad" | "blur" | "be" | "r" => {

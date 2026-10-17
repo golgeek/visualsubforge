@@ -15,8 +15,10 @@ use vsf_application::quality::{self as engine, Report};
 #[derive(Default)]
 pub(super) struct Checks {
     key: Option<Key>,
+    scenes: Option<crate::scenes::SceneKey>,
     id: u64,
     id_key: Option<Key>,
+    id_scenes: Option<crate::scenes::SceneKey>,
     worker: Option<Worker>,
     report: Option<Report>,
     error: Option<String>,
@@ -96,6 +98,7 @@ impl Checks {
         document: subtitle_core::Document,
         profile: engine::Profile,
         draft: Option<Draft>,
+        scenes: engine::scene::Scenes,
     ) -> Result<()> {
         self.launch_with(key, draft.clone(), move |cancel| {
             let began = Instant::now();
@@ -111,7 +114,7 @@ impl Checks {
                 )?;
                 document = editor.document().clone();
             }
-            let report = engine::evaluate(&document, &profile, |_, _| {
+            let report = engine::evaluate_with_scenes(&document, &profile, &scenes, |_, _| {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(engine::Error::Cancelled);
                 }
@@ -162,6 +165,7 @@ impl Checks {
         });
         self.id = id;
         self.id_key = Some(key);
+        self.id_scenes = self.scenes;
         Ok(())
     }
 }
@@ -182,6 +186,7 @@ impl Store {
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
             self.gaps.invalidate(key);
+            self.scene_repairs.invalidate(key);
             self.texts.invalidate(key);
         } else {
             self.checks.cancel_worker();
@@ -190,7 +195,17 @@ impl Store {
     }
 }
 impl Documents {
-    pub(crate) fn quality_read(&self, mut request: Request) -> Result<View> {
+    #[cfg(test)]
+    pub(crate) fn quality_read(&self, request: Request) -> Result<View> {
+        let capture =
+            crate::scenes::Scenes::default().capture_quality(request.session.get(), false)?;
+        self.quality_read_scenes(request, capture)
+    }
+    pub(crate) fn quality_read_scenes(
+        &self,
+        mut request: Request,
+        scenes: crate::scenes::SceneCapture,
+    ) -> Result<View> {
         if request.limit > 200 || request.metrics_limit > 200 {
             return Err("Quality pages are limited to 200 rows".into());
         }
@@ -200,6 +215,16 @@ impl Documents {
             return Err("Subtitles changed before quality read".into());
         }
         store.checks.synchronize(key);
+        if store.checks.scenes != Some(scenes.key) {
+            store.checks.cancel_worker();
+            store.checks.scenes = Some(scenes.key);
+            store.checks.report = None;
+            store.checks.error = None;
+            store.checks.draft_metric = None;
+            store.checks.draft_error = None;
+            store.checks.cancelled = false;
+            // Retain the latest draft; the frontend may not resend identical text.
+        }
         store.checks.refresh();
         let profile = store.quality.context().profile;
         if request.restart {
@@ -259,14 +284,19 @@ impl Documents {
                     .editor
                     .document()
                     .clone();
-                store.checks.launch(key, document, profile.clone(), draft)?;
+                store
+                    .checks
+                    .launch(key, document, profile.clone(), draft, scenes.data)?;
             }
         }
         project_view(&store.checks, key, profile, &request)
     }
     pub(crate) fn quality_cancel(&self, id: u64) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
-        if store.checks.id == id && store.checks.id_key == store.checks.key {
+        if store.checks.id == id
+            && store.checks.id_key == store.checks.key
+            && store.checks.id_scenes == store.checks.scenes
+        {
             store.checks.cancel_worker();
             store.checks.cancelled = true;
             store.checks.draft_metric = None;
@@ -282,6 +312,7 @@ impl Documents {
         };
         drop(worker); // joins outside the document lock
         self.shutdown_gaps()?;
+        self.shutdown_scene_repairs()?;
         self.shutdown_texts()
     }
 }
@@ -316,6 +347,7 @@ fn project_view(
         phase,
         profile,
         profile_hash: None,
+        scene_coverage: None,
         error: checks.error.clone(),
         findings_count: 0,
         affected_cues: 0,
@@ -338,6 +370,7 @@ fn project_view(
         return Ok(view);
     };
     view.profile_hash = Some(report.profile_hash.clone());
+    view.scene_coverage = Some(report.scene_coverage);
     view.findings_count = report.findings.len() as u32;
     view.affected_cues = report.affected_cues;
     let filtered: Vec<_> = report

@@ -21,6 +21,9 @@ export type SceneMode = IPC.visualsubforge_scenes_Mode;
 export type SceneView = IPC.visualsubforge_scenes_SceneView_Serialize;
 export type ResyncView = Awaited<ReturnType<typeof commands.resyncView>>;
 export type GapView = Awaited<ReturnType<typeof commands.gapView>>;
+export type SceneRepairView = Awaited<
+  ReturnType<typeof commands.sceneRepairView>
+>;
 export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];
@@ -270,6 +273,25 @@ export function gapStart(
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
 ) {
   return commands.gapStart(session, document.generation, document.revision);
+}
+export function sceneRepairStart(
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+) {
+  return commands.sceneRepairStart(
+    session,
+    document.generation,
+    document.revision,
+  );
+}
+export function sceneRepairView(id: number, offset = 0, limit = 100) {
+  return commands.sceneRepairView(id, offset, limit);
+}
+export async function sceneRepairCancel(id: number): Promise<void> {
+  await commands.sceneRepairCancel(id);
+}
+export function sceneRepairAccept(id: number): Promise<DocumentSnapshot> {
+  return commands.sceneRepairAccept(id);
 }
 export function gapView(id: number, offset = 0, limit = 100) {
   return commands.gapView(id, offset, limit);

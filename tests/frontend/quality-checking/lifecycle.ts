@@ -12,6 +12,7 @@ export async function lifecycle(
     if (!value) throw new Error(message);
   }
   const input: QualityInput = {
+    session: 0,
     enabled: true,
     generation: sample.key.generation,
     revision: sample.key.revision,
@@ -108,5 +109,40 @@ export async function lifecycle(
   profile.dispose();
   passed(
     'Profile epoch changes resubmit draft metrics without changing the draft',
+  );
+
+  let releaseScene!: (view: QualityView) => void;
+  let sceneReply: Promise<QualityView> | null = new Promise((resolve) => {
+    releaseScene = resolve;
+  });
+  const scene = new QualitySession({
+    readQuality: async () => sceneReply ?? result,
+    cancelQuality: async () => {},
+  });
+  const sceneInput = {
+    ...input,
+    revision: result.key.revision,
+    context: 'scene-a',
+  };
+  scene.configure(sceneInput);
+  const oldScene = scene.poll();
+  scene.configure({ ...sceneInput, context: 'scene-b' });
+  sceneReply = null;
+  releaseScene(result);
+  await oldScene;
+  assert(
+    scene.view === null && scene.stale,
+    'Retired scene report became visible',
+  );
+  await scene.poll();
+  assert(scene.view?.id === result.id, 'Current scene report did not recover');
+  scene.configure({ ...sceneInput, session: 8, context: 'scene-b' });
+  assert(
+    scene.view === null && scene.stale,
+    'Media replacement retained scene results',
+  );
+  scene.dispose();
+  passed(
+    'Scene and media changes retire quality replies without a subtitle revision change',
   );
 }

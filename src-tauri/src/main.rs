@@ -54,6 +54,7 @@ mod quality_profile;
 mod recovery_store;
 mod resync;
 mod save_lease;
+mod scene_review;
 mod scenes;
 mod srt_limits;
 #[cfg(any(

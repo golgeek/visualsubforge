@@ -1,7 +1,8 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): tag-aware text editing and the first
-subtitle-quality milestone are complete, including protected Find/Replace,
+Updated 2026-10-17 (America/New_York): scene-aware quality and timing repair,
+tag-aware text editing and the first subtitle-quality milestone are complete,
+including protected Find/Replace,
 formatting, line repairs, inline ASS/SSA preview, quality profiles, cue metrics,
 Problems review, the shared CLI and minimum-gap preview/acceptance. The first CLI/GUI resync milestone was completed
 on October 12, including local three-OS checks and the Mac native workflow.
@@ -10,6 +11,29 @@ evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
+
+**Scene-quality milestone complete (2026-10-17):** shared Rust endpoint checks
+use active profile buffers and current completed scenes. Exact outer buffer
+boundaries are allowed; crossing a cut alone is valid. Problems distinguishes
+missing, partial and heuristic coverage. Immutable previews show inward repairs,
+before/after metrics and explicit skips. Whole-document validation protects
+duration, speed, overlap, gap and scene constraints; text/tags, cue identities,
+order and save/recovery protections are preserved. Each accepted batch is one
+Undo/Redo. Media/scene changes invalidate checks and proposals independently of
+document revisions; bounded workers reject stale/late work.
+
+Validation passes 236 Rust tests, 39 frontend unit tests, 42 Chromium/WebKit cases,
+strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
+media-enabled Mac workflow verifies Problems, static/timed tag handling,
+preview/acceptance, failed saves, exact save/reopen, Undo/Redo, rescan/media
+invalidation and the existing restart/recovery workflow. With 10,000 cues/cuts,
+preview takes 413 ms, acceptance 110 ms, draft interaction 1 ms, cancellation
+3 ms and invalidation 13 ms. Release check/repair p95 is 7.124/22.531 ms, with
+37,257,216 additional sampled RSS bytes; declared budgets pass. Quality report
+schema 2 adds scene coverage: the CLI returns incomplete coverage for nonzero
+scene buffers because it supplies no scene data. See [scene quality](scene-quality.md)
+for exact commands, retained evidence and the Mac OpenGL runtime scope. New
+Windows/Linux feature execution and physical GPU/audio acceptance are unverified.
 
 **Text editing milestone complete (2026-10-17):** literal Unicode Find/Replace
 maps matches back to original source; supported tags/escapes stay protected and
@@ -76,6 +100,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
 | Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |
+| Scene quality | Shared endpoint checks, explicit coverage and paged inward-repair previews use current completed scenes. Safe whole batches preserve text/tags and use one Undo/Redo. Real Mac and 10,000-cue workflows pass. | Heuristic detection can miss cuts. Missing/partial data cannot authorize repair; timed/ambiguous markup stays manual. No new Windows/Linux execution. |
 | Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity and use one Undo/Redo operation. Real Mac and 10,000-cue workflows pass. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. No full ASS/SSA file editing. |
 | Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
@@ -313,11 +338,11 @@ The native maintenance contract is established; native adoption is still blocked
 by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
-The shared application, resync, quality and text-editing milestones are complete
-within their recorded scope. The next feature candidate is scene-aware quality
-checking and previewable scene-related timing repairs, building on the existing
-scene cache and profile rules. Full ASS/SSA document/style editing is a separate
-format milestone. Broader matching evidence remains useful; retain conservative
+The shared application, resync, quality, text-editing and scene-quality milestones
+are complete within their recorded scope. The next feature candidate is reviewed
+duration and reading-speed repair using the existing metrics, minimum-gap and
+scene constraints. Document statistics can follow using the same metrics. Full
+ASS/SSA document/style editing is a separate format milestone. Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.
 

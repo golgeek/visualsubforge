@@ -102,6 +102,9 @@ failed/cancelled saves, reopen and crash recovery. Run `npm run build:desktop-te
 then `npm run test:desktop`; headless Linux needs the documented Xvfb/session-bus
 wrapper. This supplies file selections and excludes native dialogs and playback.
 Normal builds do not include the WebDriver server.
+The optional `npm run test:desktop -- --scenes` needs a build with both
+`desktop-e2e,media-prototype` and FFmpeg. It exercises real scene restore/rescan,
+review, acceptance and 10,000-cue interaction; see the desktop lane's instructions.
 The optional `npm run test:desktop -- --performance` extends that lane with the
 declared 10,000-cue quality and text-tool responsiveness checks; its RSS sampler
 uses Unix `ps`. The ordinary lane also checks protected Find/Replace, formatting

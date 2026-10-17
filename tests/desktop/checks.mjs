@@ -27,6 +27,7 @@ export async function qualityChecking({
     await browser.$('//button[starts-with(normalize-space(.), "Problems")]')
   ).click();
   const request = {
+    session: 0,
     generation: before.generation,
     revision: before.revision,
     run: true,

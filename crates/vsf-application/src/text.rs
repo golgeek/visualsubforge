@@ -1,16 +1,15 @@
 //! Pure, bounded text proposals. Accepted source is never replaced with stripped
 //! quality text. An immutable baseline plus source offsets protects tags/history.
 mod formatting;
-mod projection;
 mod reflow;
 use crate::quality::{self, Error, Profile, Result};
+use crate::subtitle_markup::Projection;
 pub use formatting::{Format, Formatted, format_selection};
-use projection::Projection;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use subtitle_core::{Cue, CueText, Document, Edit};
 
-pub const MAX_CUE_BYTES: usize = 64 * 1024;
+pub const MAX_CUE_BYTES: usize = crate::subtitle_markup::MAX_CUE_BYTES;
 pub const MAX_MATCHES: usize = 100_000;
 pub const MAX_INPUT_BYTES: usize = 4096;
 

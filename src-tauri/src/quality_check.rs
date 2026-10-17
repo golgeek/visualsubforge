@@ -28,6 +28,7 @@ pub(crate) enum DraftChange {
 #[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Request {
+    pub session: crate::ipc_number::SafeU64,
     pub generation: crate::ipc_number::SafeU64,
     pub revision: crate::ipc_number::SafeU64,
     pub run: bool,
@@ -85,6 +86,7 @@ pub(crate) struct View {
     pub phase: Phase,
     pub profile: Profile,
     pub profile_hash: Option<String>,
+    pub scene_coverage: Option<vsf_application::quality::scene::SceneCoverage>,
     pub error: Option<String>,
     pub findings_count: u32,
     pub affected_cues: u32,
@@ -116,8 +118,15 @@ pub(crate) enum Phase {
 #[specta::specta]
 pub(crate) async fn quality_read(app: tauri::AppHandle, request: Request) -> Result<View, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<crate::document::Documents>()
-            .quality_read(request)
+        app.state::<crate::media::Media>()
+            .with_context(request.session.get(), |path| {
+                let scenes = app.state::<crate::scenes::Scenes>();
+                let capture = scenes.capture_quality(request.session.get(), path.is_some())?;
+                scenes.with_quality_current(capture.key, || {
+                    app.state::<crate::document::Documents>()
+                        .quality_read_scenes(request, capture)
+                })
+            })
     })
     .await
     .map_err(|e| e.to_string())?

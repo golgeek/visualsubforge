@@ -58,8 +58,14 @@ pub fn run(args: Check, cancel: &Cancellation) -> quality::Result<u8> {
             if report.complete {
                 "all requested rules checked"
             } else {
-                "partial — unsupported source rules remain"
+                "partial — unsupported rules or missing scene data"
             }
+        )
+        .map_err(|e| Error::Io(e.to_string()))?;
+        writeln!(
+            stdout,
+            "Scene coverage: {:?} (completed visual detection remains heuristic)",
+            report.scene_coverage
         )
         .map_err(|e| Error::Io(e.to_string()))?;
         for limitation in &profile.limitations {

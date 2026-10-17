@@ -21,6 +21,8 @@ pub enum Rule {
     LineLength,
     Overlap,
     Gap,
+    SceneStart,
+    SceneEnd,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -72,6 +74,7 @@ pub struct Report {
     pub profile: Profile,
     pub profile_hash: String,
     pub complete: bool,
+    pub scene_coverage: super::scene::SceneCoverage,
     pub affected_cues: u32,
     pub metrics: Vec<CueMetrics>,
     pub findings: Vec<Finding>,
@@ -83,9 +86,24 @@ pub struct Report {
 pub fn evaluate(
     document: &Document,
     profile: &Profile,
+    checkpoint: impl FnMut(usize, usize) -> Result<()>,
+) -> Result<Report> {
+    evaluate_with_scenes(
+        document,
+        profile,
+        &super::scene::Scenes::NoMedia,
+        checkpoint,
+    )
+}
+
+pub fn evaluate_with_scenes(
+    document: &Document,
+    profile: &Profile,
+    scenes: &super::scene::Scenes,
     mut checkpoint: impl FnMut(usize, usize) -> Result<()>,
 ) -> Result<Report> {
     profile.validate()?;
+    let windows = super::scene::Windows::new(profile, scenes, || checkpoint(0, 0))?;
     let cues = document.cues();
     let total = cues.len();
     if total > MAX_CUES {
@@ -137,10 +155,11 @@ pub fn evaluate(
         }
     }
     let mut report = Report {
-        schema_version: 1,
+        schema_version: 2,
         profile: profile.clone(),
         profile_hash: profile.fingerprint()?,
-        complete: profile.limitations.is_empty(),
+        complete: profile.limitations.is_empty() && windows.coverage().available(),
+        scene_coverage: windows.coverage(),
         affected_cues: 0,
         metrics: Vec::with_capacity(total),
         findings: Vec::new(),
@@ -169,6 +188,7 @@ pub fn evaluate(
             gap_ms: next[i].map(|j| (cues[j].start().get() as i64 - cue.end().get() as i64) as f64),
         };
         check_cue(&row, text, profile, &mut report.findings);
+        windows.check(&row, &mut report.findings);
         if profile.rules.gaps {
             if let Some(prior) = overlaps[i] {
                 report.findings.push(Finding {

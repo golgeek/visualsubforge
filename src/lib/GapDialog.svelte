@@ -3,7 +3,7 @@
   import type { DocumentSession } from './document-session.svelte';
   import { GapSession } from './gap-session.svelte';
   import { formatTime } from './timeline';
-  import { rate } from './quality-display';
+  import { rate, sceneCoverage } from './quality-display';
   let {
     subtitles,
     mediaSession,
@@ -139,16 +139,7 @@
           /> I accept this partial plan without scene checks.</label
         >
       </div>
-    {:else if view.coverage === 'unavailable'}<p class="coverage">
-        Current complete scene data is unavailable. Candidates requiring scene
-        checks are skipped; run a complete scene scan and preview again.
-      </p>
-    {:else if view.coverage === 'checked'}<p>
-        Scene constraints checked against the current completed scan.
-      </p>
-    {:else}<p>
-        Scene checks are not required because both scene buffers are zero.
-      </p>{/if}
+    {:else}<p class="coverage">{sceneCoverage(view.coverage)}</p>{/if}
     {#if !view.total}<p>No minimum-gap changes are needed.</p>
     {:else if !view.changed}<p>
         No candidate can be changed safely under this profile.

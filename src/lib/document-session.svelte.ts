@@ -3,6 +3,7 @@ import {
   documentAction,
   resyncAccept,
   gapAccept,
+  sceneRepairAccept,
   textAccept,
   type TextTarget,
   emptyDocument,
@@ -21,10 +22,11 @@ const client = {
   documentAction,
   resyncAccept,
   gapAccept,
+  sceneRepairAccept,
   textAccept,
 };
-type Client = Omit<typeof client, 'textAccept'> &
-  Partial<Pick<typeof client, 'textAccept'>>;
+type Client = Omit<typeof client, 'textAccept' | 'sceneRepairAccept'> &
+  Partial<Pick<typeof client, 'textAccept' | 'sceneRepairAccept'>>;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
 type CommandOptions = {
   plan?: CueOperationPlan;
@@ -117,6 +119,15 @@ export class DocumentSession {
       );
     return this.update(() =>
       (this.client.textAccept ?? textAccept)(id, target),
+    );
+  }
+  acceptSceneRepair(id: number, expected: DocumentSnapshot): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() =>
+      (this.client.sceneRepairAccept ?? sceneRepairAccept)(id),
     );
   }
   private async update(

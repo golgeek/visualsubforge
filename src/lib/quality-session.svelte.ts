@@ -7,6 +7,7 @@ import {
 } from './client';
 
 export interface QualityInput {
+  session: number;
   enabled: boolean;
   generation: number;
   revision: number;
@@ -50,7 +51,7 @@ export class QualitySession {
       this.offset,
     ]);
     if (signature === this.signature) return;
-    const version = `${input.generation}/${input.revision}/${input.context}`;
+    const version = `${input.session}/${input.generation}/${input.revision}/${input.context}`;
     if (version !== this.version) {
       this.version = version;
       this.view = null;
@@ -88,6 +89,7 @@ export class QualitySession {
     const version = this.version;
     const draftSignature = JSON.stringify(input.draft);
     const request: QualityRequest = {
+      session: input.session,
       generation: input.generation,
       revision: input.revision,
       run: !this.paused,

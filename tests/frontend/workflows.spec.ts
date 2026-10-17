@@ -44,6 +44,7 @@ for (const name of [
   'quality-settings',
   'quality-checking',
   'gap-review',
+  'scene-quality',
   'text-editing',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {

@@ -70,7 +70,7 @@ pub(crate) async fn gap_start(
             .with_context(session.get(), |path| {
                 let scenes = app
                     .state::<crate::scenes::Scenes>()
-                    .capture_gap(session.get(), path.is_some())?;
+                    .capture_quality(session.get(), path.is_some())?;
                 Ok(app
                     .state::<Documents>()
                     .gap_start(generation.get(), revision.get(), scenes)?
@@ -94,7 +94,7 @@ fn with_current<T>(
                 return Err("Media changed after gap preview".into());
             }
             app.state::<crate::scenes::Scenes>()
-                .with_gap_current(key, || Ok(operation(&documents)))
+                .with_quality_current(key, || Ok(operation(&documents)))
         });
     match result {
         Ok(result) => result,

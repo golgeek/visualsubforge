@@ -1,27 +1,12 @@
 //! Conservative, immutable minimum-gap proposals. No IO, desktop or native state.
 //! Connected overlap groups bound coupled speed effects without a document check
 //! for each candidate. At most three full shared evaluations are required.
-use super::{Error, Profile, Report, Result, Rule, evaluate};
+pub use super::scene::{SceneCoverage, Scenes};
+use super::{Error, Profile, Report, Result, Rule, evaluate_with_scenes};
 use serde::Serialize;
 use std::collections::HashMap;
 use subtitle_core::{Cue, CueTiming, Document, Edit, Milliseconds};
 
-/// Adapters round scene timestamps to nearest milliseconds once at capture.
-/// Missing/partial data with media is distinct from an intentional no-media plan.
-pub enum Scenes {
-    NoMedia,
-    Unavailable,
-    Complete(Vec<Milliseconds>),
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub enum SceneCoverage {
-    NotRequired,
-    Checked,
-    NoMedia,
-    Unavailable,
-}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
@@ -126,23 +111,9 @@ pub fn propose(
     scenes: &Scenes,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
-    let before = evaluate(&document, profile, |_, _| checkpoint())?;
-    let coverage = if profile.timing.scene_before_ms == 0 && profile.timing.scene_after_ms == 0 {
-        SceneCoverage::NotRequired
-    } else {
-        match scenes {
-            Scenes::NoMedia => SceneCoverage::NoMedia,
-            Scenes::Unavailable => SceneCoverage::Unavailable,
-            Scenes::Complete(cuts) => {
-                if cuts.len() > 100_000 || cuts.windows(2).any(|p| p[0] >= p[1]) {
-                    return Err(Error::Invalid(
-                        "Gap review requires at most 100000 strictly ordered scene times".into(),
-                    ));
-                }
-                SceneCoverage::Checked
-            }
-        }
-    };
+    let before = evaluate_with_scenes(&document, profile, scenes, |_, _| checkpoint())?;
+    let windows = super::scene::Windows::new(profile, scenes, &mut checkpoint)?;
+    let coverage = windows.coverage();
     let cues = document.cues();
     let mut order: Vec<usize> = (0..cues.len()).collect();
     order.sort_by_key(|&i| (cues[i].start(), i));
@@ -169,11 +140,12 @@ pub fn propose(
             })
         {
             Some(Skip::MinimumDuration)
-        } else if coverage == SceneCoverage::Unavailable {
+        } else if matches!(
+            coverage,
+            SceneCoverage::Unavailable | SceneCoverage::Partial
+        ) {
             Some(Skip::SceneDataUnavailable)
-        } else if coverage == SceneCoverage::Checked
-            && end.is_some_and(|end| excluded(end, profile, scenes))
-        {
+        } else if end.is_some_and(|end| windows.containing(end).is_some()) {
             Some(Skip::SceneExclusion)
         } else {
             None
@@ -200,7 +172,7 @@ pub fn propose(
     let mut after = None;
     if rows.iter().any(|r| r.new_end.is_some()) {
         let candidate = retimed(&document, &rows, &mut checkpoint)?;
-        let report = evaluate(&candidate, profile, |_, _| checkpoint())?;
+        let report = evaluate_with_scenes(&candidate, profile, scenes, |_, _| checkpoint())?;
         let mut rejected = vec![false; ambiguous.len()];
         let old = speed_findings(&before);
         for finding in &report.findings {
@@ -225,7 +197,7 @@ pub fn propose(
             // overlap with another group. Recheck the actual retained plan.
             drop(report);
             let candidate = retimed(&document, &rows, &mut checkpoint)?;
-            let report = evaluate(&candidate, profile, |_, _| checkpoint())?;
+            let report = evaluate_with_scenes(&candidate, profile, scenes, |_, _| checkpoint())?;
             if report
                 .findings
                 .iter()
@@ -249,7 +221,7 @@ pub fn propose(
     })
 }
 
-fn overlap_groups(
+pub(super) fn overlap_groups(
     document: &Document,
     order: &[usize],
     checkpoint: &mut impl FnMut() -> Result<()>,
@@ -274,16 +246,6 @@ fn overlap_groups(
         last_start = Some(cue.start());
     }
     Ok((groups, ambiguous))
-}
-fn excluded(end: u64, profile: &Profile, scenes: &Scenes) -> bool {
-    let Scenes::Complete(cuts) = scenes else {
-        return false;
-    };
-    let before = u64::from(profile.timing.scene_before_ms);
-    let after = u64::from(profile.timing.scene_after_ms);
-    let at = cuts.partition_point(|cut| cut.get() + after <= end);
-    cuts.get(at)
-        .is_some_and(|cut| end > cut.get().saturating_sub(before))
 }
 fn retimed(
     document: &Document,

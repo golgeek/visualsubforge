@@ -36,6 +36,8 @@ The editor provides:
   without media and never changes subtitles or save eligibility.
 - Explicit minimum-gap previews show safe endpoint changes, skipped reasons and
   before/after metrics. Accept commits the whole plan as one Undo/Redo operation.
+- Scene endpoint findings use completed scene results and show coverage limits.
+  Previewable inward timing repairs preserve text/tags and apply as one Undo step.
 - Tag-aware Find/Replace, selection formatting and previewable line joining/reflow
   preserve subtitle markup. Reviewed text batches use one Undo/Redo operation.
 
@@ -68,6 +70,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   preview, millisecond timing, defaults and counting limitations.
 - [Text tools](docs/text-editing.md): protected search/replace, formatting drafts,
   conservative line repairs, ownership, limits and validation.
+- [Scene-aware quality](docs/scene-quality.md): endpoint buffers, explicit scene
+  coverage, safe timing previews and measured desktop responsiveness.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT parsing/serialization without filesystem access. `vsf-application`

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { QualitySession } from './quality-session.svelte';
   import type { QualityRequest } from './client';
-  import { qualityRules } from './quality-display';
+  import { qualityRules, sceneCoverage } from './quality-display';
   let {
     session,
     disabled,
@@ -52,6 +52,7 @@
       {view.profile.name} · {view.profile.textAlgorithm} · {view.profile
         .speedBasis}
     </p>
+    <p class="policy">{sceneCoverage(view.sceneCoverage)}</p>
     {#if view.profile.limitations.length}<details>
         <summary>Partial coverage — unsupported rules are not checked</summary>
         <ul>

@@ -31,6 +31,7 @@ pub(super) fn fixture() -> Documents {
 fn request(docs: &Documents) -> Request {
     let key = docs.0.lock().unwrap().quality_key().unwrap();
     Request {
+        session: 0.try_into().unwrap(),
         generation: key.generation,
         revision: key.revision,
         run: true,
@@ -44,6 +45,76 @@ fn request(docs: &Documents) -> Request {
         severity: None,
         draft: None,
     }
+}
+
+#[test]
+fn scene_replacement_invalidates_reports_and_ignores_retired_worker_cancellation() {
+    use std::sync::mpsc;
+    let docs = fixture();
+    let scenes = crate::scenes::Scenes::default();
+    scenes.test_completed(7, vec![1.], false);
+    let read = || {
+        let mut input = request(&docs);
+        input.session = 7.try_into().unwrap();
+        docs.quality_read_scenes(input, scenes.capture_quality(7, true).unwrap())
+            .unwrap()
+    };
+    let ready = || {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let view = read();
+            if view.phase == Phase::Ready {
+                break view;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    };
+    let before = ready();
+    assert!(
+        before
+            .findings
+            .iter()
+            .any(|f| f.rule == engine::Rule::SceneStart)
+    );
+    let (entered, started) = mpsc::channel();
+    let (release, waiting) = mpsc::channel();
+    let id = {
+        let mut store = docs.0.lock().unwrap();
+        let key = store.quality_key().unwrap();
+        store
+            .checks
+            .launch_with(key, None, move |cancel| {
+                entered.send(cancel).unwrap();
+                waiting.recv_timeout(Duration::from_secs(5)).unwrap();
+                Err("retired scene failure".into())
+            })
+            .unwrap();
+        store.checks.id
+    };
+    let token = started.recv_timeout(Duration::from_secs(5)).unwrap();
+    scenes.test_completed(7, vec![99.], true);
+    let pending = read();
+    assert_eq!(pending.phase, Phase::Cancelling);
+    assert!(pending.profile_hash.is_none() && pending.findings.is_empty());
+    assert!(token.load(Ordering::Relaxed));
+    docs.quality_cancel(id).unwrap();
+    assert!(!docs.0.lock().unwrap().checks.cancelled);
+    release.send(()).unwrap();
+    let after = ready();
+    assert_eq!(after.key, before.key);
+    assert!(after.id.get() > id);
+    assert_eq!(
+        after.scene_coverage,
+        Some(engine::scene::SceneCoverage::Reduced)
+    );
+    assert!(
+        !after
+            .findings
+            .iter()
+            .any(|f| matches!(f.rule, engine::Rule::SceneStart | engine::Rule::SceneEnd))
+    );
+    assert!(after.error.is_none());
 }
 pub(super) fn ready(docs: &Documents) -> View {
     let deadline = Instant::now() + Duration::from_secs(5);

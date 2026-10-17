@@ -4,7 +4,7 @@ use super::*;
 use crate::{
     gap_review::{GapView, Phase, Row},
     quality_check::Key,
-    scenes::{GapCapture, GapKey},
+    scenes::{SceneCapture, SceneKey},
 };
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -22,7 +22,7 @@ pub(super) struct State {
 struct Job {
     id: u64,
     key: Key,
-    scenes: GapKey,
+    scenes: SceneKey,
     profile: Profile,
     hash: String,
     cancel: Arc<AtomicBool>,
@@ -85,7 +85,7 @@ impl State {
     fn launch(
         &mut self,
         key: Key,
-        scenes: GapKey,
+        scenes: SceneKey,
         profile: Profile,
         run: impl FnOnce(Arc<AtomicBool>) -> Result<Proposal> + Send + 'static,
     ) -> Result<u64> {
@@ -124,7 +124,7 @@ impl Documents {
         &self,
         generation: u64,
         revision: u64,
-        scenes: GapCapture,
+        scenes: SceneCapture,
     ) -> Result<u64> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
@@ -158,7 +158,7 @@ impl Documents {
             .map_err(|e| e.to_string())
         })
     }
-    pub(crate) fn gap_context(&self, id: u64) -> Result<GapKey> {
+    pub(crate) fn gap_context(&self, id: u64) -> Result<SceneKey> {
         let store = self.0.lock().map_err(|_| "Document state unavailable")?;
         Ok(store
             .gaps

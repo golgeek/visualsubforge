@@ -4,6 +4,7 @@
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
+  import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
   import TextDialog from './lib/TextDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { rate } from './lib/quality-display';
@@ -400,6 +401,10 @@
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
   let gapOpen = $state(false);
+  let timingReview = $state<'gap' | 'scene'>('gap');
+  const TimingDialog = $derived(
+    timingReview === 'scene' ? SceneRepairDialog : GapDialog,
+  );
   let gapReturn: HTMLElement | null = null;
   let textOpen = $state(false);
   let textReturn: HTMLElement | null = null;
@@ -417,6 +422,7 @@
     navigate: (backwards: boolean) => void;
   };
   let sceneState = $state({
+    qualityKey: '',
     running: false,
     pending: false,
     previous: false,
@@ -458,7 +464,7 @@
       if (alive) confirming = false;
     }
   }
-  async function openGap() {
+  async function openTimingReview(kind: 'gap' | 'scene') {
     if (
       busy ||
       confirming ||
@@ -478,6 +484,7 @@
       await occludeVideo(true);
       if (alive) {
         confirming = true;
+        timingReview = kind;
         gapOpen = true;
       }
     } catch (e) {
@@ -600,7 +607,7 @@
   async function closeGap(accepted = false) {
     gapOpen = false;
     if (accepted) {
-      notice = 'Gap timings accepted. Undo restores the whole change.';
+      notice = `${timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
       quality.restart();
     }
     try {
@@ -826,10 +833,11 @@
   );
   $effect(() => {
     quality.configure({
+      session: status.session,
       enabled: ready && doc.loaded && (problemsOpen || showQualityMetrics),
       generation: doc.generation,
       revision: doc.revision,
-      context: `${status.session}/${qualityContext}`,
+      context: `${status.session}/${qualityContext}/${sceneState.qualityKey}`,
       selected,
       metricsOffset: firstRow,
       metricsLimit: showQualityMetrics ? visibleCues.length : 0,
@@ -1956,7 +1964,13 @@
         >
         <button
           disabled={busy || confirming || !doc.cues.length}
-          onclick={() => void openGap()}>Enforce minimum gaps…</button
+          onclick={() => void openTimingReview('gap')}
+          >Enforce minimum gaps…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('scene')}
+          >Repair scene timing…</button
         >
         <button
           aria-expanded={problemsOpen}
@@ -2353,7 +2367,7 @@
     />
   {/if}
   {#if gapOpen}
-    <GapDialog
+    <TimingDialog
       {subtitles}
       mediaSession={() => status.session}
       onclose={() => void closeGap()}

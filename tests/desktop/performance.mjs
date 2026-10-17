@@ -114,6 +114,7 @@ export async function qualityPerformance({
   })();
   try {
     const request = {
+      session: 0,
       generation: before.generation,
       revision: before.revision,
       run: true,

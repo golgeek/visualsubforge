@@ -78,6 +78,10 @@ work is cancelled on invalidation and reaped before replacement. Shutdown joins
 outside the document lock. Read projections bound individual line-length arrays
 to 20 while preserving full line counts/maximum lengths. The full shared report
 stays in Rust and never travels through ordinary polling IPC.
+Media session and scene generation/readiness also guard results. App supplies a
+scene-context key independently of viewport changes; Rust captures the actual
+completed cuts. A rescan cancels obsolete checks even without a document edit.
+Missing, partial and completed heuristic coverage remain distinct in Problems.
 
 ## Generated IPC
 
@@ -146,6 +150,21 @@ It checks the captured scene generation/readiness, media session and document
 revision/profile epoch before applying the immutable plan as one history entry.
 All capture/projection/commit commands run on blocking workers. Evaluation owns
 an immutable clone outside those locks; shutdown cancels and joins outside them.
+
+## Scene timing review
+
+`SceneRepairDialog` and `SceneRepairSession` follow the same draft, paging,
+disposal and acceptance flow as gap review. They display immutable Rust proposals;
+no timing arithmetic is repeated in the frontend. `DocumentSession.acceptSceneRepair()`
+serializes the accepted reply with other document actions. Completed previews
+continue polling so profile/scene changes disable acceptance promptly.
+
+The shared Rust operation trims inward, preserves text/tags and verifies the
+complete candidate against timing constraints. The desktop retains one proposal
+worker with no queue and a ten-second deadline. Media → scenes → document locks
+guard capture and acceptance; evaluation and shutdown joins happen outside the
+document lock. The existing `Edit::Retime` supplies one atomic Undo/Redo entry.
+See the [scene contract](../../docs/scene-quality.md) for skips and coverage.
 
 ## Text tools
 

@@ -8,4 +8,5 @@ pub mod resync;
 pub mod save_lease;
 pub mod srt_limits;
 pub mod subtitle_file;
+mod subtitle_markup;
 pub mod text;

@@ -60,6 +60,24 @@ export const commands = {
       id,
       acknowledgeNoMedia,
     }),
+  sceneRepairStart: (session: number, generation: number, revision: number) =>
+    __TAURI_INVOKE<number>('scene_repair_start', {
+      session,
+      generation,
+      revision,
+    }),
+  sceneRepairView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_scene_review_SceneRepairView>(
+      'scene_repair_view',
+      { id, offset, limit },
+    ),
+  sceneRepairCancel: (id: number) =>
+    __TAURI_INVOKE<null>('scene_repair_cancel', { id }),
+  sceneRepairAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'scene_repair_accept',
+      { id },
+    ),
   textStart: (
     generation: number,
     revision: number,
@@ -733,7 +751,7 @@ export type visualsubforge_gap_review_GapView = {
   profile: vsf_application_quality_profile_Profile;
   profileHash: string;
   error: string | null;
-  coverage: vsf_application_quality_gap_SceneCoverage | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
   skipped: number;
@@ -1040,6 +1058,7 @@ export type visualsubforge_document_RecoveryStatus_Serialize = {
 };
 
 export type visualsubforge_quality_check_Request = {
+  session: number;
   generation: number;
   revision: number;
   run: boolean;
@@ -1067,6 +1086,17 @@ export type visualsubforge_gap_review_Row = {
   nextAfter: visualsubforge_quality_check_Metric;
 };
 
+export type visualsubforge_scene_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  newStartMs: number | null;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_scene_repair_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
+};
+
 export type visualsubforge_text_review_Row = {
   cueId: number;
   cueIndex: number;
@@ -1089,7 +1119,9 @@ export type vsf_application_quality_check_Rule =
   | 'line_count'
   | 'line_length'
   | 'overlap'
-  | 'gap';
+  | 'gap'
+  | 'scene_start'
+  | 'scene_end';
 
 export type vsf_application_quality_profile_Rules = {
   duration: vsf_application_quality_profile_DurationRule;
@@ -1141,8 +1173,26 @@ export type visualsubforge_scenes_Saved_Serialize = {
   identity: visualsubforge_project_MediaIdentity_Serialize;
 };
 
-export type vsf_application_quality_gap_SceneCoverage =
-  'notRequired' | 'checked' | 'noMedia' | 'unavailable';
+export type vsf_application_quality_scene_SceneCoverage =
+  'notRequired' | 'checked' | 'reduced' | 'noMedia' | 'unavailable' | 'partial';
+
+export type visualsubforge_scene_review_SceneRepairView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_scene_review_Row[];
+};
 
 export type visualsubforge_scenes_SceneView =
   | visualsubforge_scenes_SceneView_Serialize
@@ -1224,6 +1274,13 @@ export type vsf_application_quality_gap_Skip =
   | 'sceneDataUnavailable'
   | 'sceneExclusion'
   | 'speedWouldWorsen';
+
+export type vsf_application_quality_scene_repair_Skip =
+  | 'ambiguousOverlap'
+  | 'markupNeedsReview'
+  | 'wouldCollapse'
+  | 'durationConstraint'
+  | 'timingWouldWorsen';
 
 export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Serialize
@@ -1357,6 +1414,7 @@ export type visualsubforge_quality_check_View = {
   phase: visualsubforge_quality_check_Phase;
   profile: vsf_application_quality_profile_Profile;
   profileHash: string | null;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
   error: string | null;
   findingsCount: number;
   affectedCues: number;

@@ -4,6 +4,8 @@ The first quality milestone is implemented and validated (2026-10-17): shared
 checker, CLI, desktop profile Settings, live cue metrics, Problems review and
 explicit gap proposal acceptance. Checking is
 read-only and never makes a subtitle document unsavable.
+The subsequent [scene-quality milestone](scene-quality.md) adds endpoint findings,
+explicit scene coverage and previewable inward timing repairs.
 
 ## Metrics and source evidence
 
@@ -63,6 +65,8 @@ speed and explicitly lacks full duration exemptions, scene/filter/sticky/sequenc
 typography/case/dialogue/tag and linguistic line rules. Its coverage stays partial
 even when implemented checks find nothing. No SW1 is synthesized. Built-ins are
 immutable identities; customization produces a separate named profile.
+The new VSF scene endpoint policy does not establish complete equivalence to the
+archived scene/filter family; existing profile identities and limitations remain.
 
 Settings → Subtitle quality selects a built-in or imports a version-2 profile.
 Its unsupported rules and source/counting policy remain visible. **Customize a
@@ -113,7 +117,7 @@ cue and seeks only when media is loaded. An unapplied draft requires an explicit
 Apply, Discard or Cancel choice; failed Apply keeps the draft and selection.
 
 Checks run on one cancellable Rust worker. Document edits, Undo/Redo and policy
-or workspace replacement retire old results; late replies cannot publish into a
+or workspace/scene replacement retire old results; late replies cannot publish into a
 new context. Checking does not occupy the UI thread. **Pause checking** retains
 valid accepted results and stops new work until **Check again**. Hiding both
 metrics and Problems releases checking; reopening requests a fresh check.
@@ -142,6 +146,8 @@ a late reply or an old dialog cannot apply it. One explicit proposal worker runs
 beside the automatic checker, with no queue and a ten-second deadline. Closing
 the dialog cancels it; application shutdown joins both workers outside the
 document lock. Full proposals/reports stay in Rust; review IPC caps at 200 rows.
+Text and scene review each have another independently bounded owner; there are
+at most four CPU workers across checking and these three explicit reviews.
 
 The shared proposal keeps every cue start fixed and only
 shortens an earlier cue's end to next-start minus the effective minimum gap.
@@ -179,7 +185,8 @@ vsf check --subtitles episode.srt --profile sw3-uk-vo-subset --json
 vsf check --subtitles episode.srt --profile ./publisher.vsfpreset --json
 ```
 
-JSON schema 1 contains the effective profile/hash, complete-policy-coverage flag,
+JSON schema 2 contains the effective profile/hash, complete-coverage flag,
+explicit `sceneCoverage`,
 accepted cue metrics, findings and distinct affected-cue count. Cue identities
 are decimal strings; indices are zero-based, while human output uses cue numbers
 starting at one. Numeric times are exact millisecond projections of the domain's
@@ -189,6 +196,11 @@ Exit 0 means no findings with complete requested coverage; 1 means findings;
 3 means incomplete coverage, possibly with findings; 2 invalid input/limits;
 5 file/output IO failure; 130 cancellation. Unsupported historical rules remain
 listed even with zero findings. There is no implicit repair or output SRT.
+Nonzero scene buffers require completed scene input for complete coverage.
+The CLI does not collect scenes, so these profiles (including `vsf-default`)
+report `noMedia` and exit 3 even without findings. For deliberately text-only
+checks, use a custom profile with both scene buffers zero. Shared Rust callers
+can provide immutable scenes to `evaluate_with_scenes`.
 
 Pure/CLI checks: `cargo test --locked -p vsf-application -p vsf-cli`.
 The 10,000-cue benchmark declares p95 <500 ms over 20 warm release runs,

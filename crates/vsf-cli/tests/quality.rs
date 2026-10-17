@@ -34,7 +34,7 @@ fn check_cli_matches_shared_report_preserves_inputs_and_distinguishes_partial_co
     ]);
     assert_eq!(
         output.status.code(),
-        Some(0),
+        Some(3),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
@@ -57,6 +57,35 @@ fn check_cli_matches_shared_report_preserves_inputs_and_distinguishes_partial_co
     assert!(human.contains("Not checked:"));
     assert_eq!(fs::read(&path).unwrap(), source.as_bytes());
     assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    assert!(!expected.complete);
+    assert_eq!(
+        expected.scene_coverage,
+        quality::scene::SceneCoverage::NoMedia
+    );
+    // Text-only checking must be explicit; missing media cannot silently pass
+    // a policy whose nonzero scene buffers request endpoint checks.
+    let mut text_only = Profile::default().custom("text-only".into(), "Text only".into());
+    text_only.timing.scene_before_ms = 0;
+    text_only.timing.scene_after_ms = 0;
+    let preset = dir.path().join("text-only.vsfpreset");
+    quality::write_profile(&preset, &text_only).unwrap();
+    let output = run(&[
+        "check",
+        "--subtitles",
+        path.to_str().unwrap(),
+        "--profile",
+        preset.to_str().unwrap(),
+        "--json",
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    let report: quality::Report = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report.schema_version, 2);
+    assert!(report.complete);
+    assert_eq!(
+        report.scene_coverage,
+        quality::scene::SceneCoverage::NotRequired
+    );
+    assert_eq!(fs::read(&path).unwrap(), source.as_bytes());
 }
 
 #[test]
@@ -68,6 +97,8 @@ fn imported_profiles_and_errors_have_documented_exit_codes_without_file_changes(
     let profile_path = dir.path().join("custom.vsfpreset");
     let mut p = Profile::default().custom("custom".into(), "Custom example".into());
     p.rules.speed.enabled = false;
+    p.timing.scene_before_ms = 0;
+    p.timing.scene_after_ms = 0;
     quality::write_profile(&profile_path, &p).unwrap();
     let preset = fs::read(&profile_path).unwrap();
     let args = [

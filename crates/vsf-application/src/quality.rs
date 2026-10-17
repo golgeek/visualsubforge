@@ -4,7 +4,8 @@ mod check;
 pub mod gap;
 pub mod metrics;
 pub mod profile;
-pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate};
+pub mod scene;
+pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_with_scenes};
 pub use profile::Profile;
 use std::{fmt, fs, io::Read, path::Path};
 
