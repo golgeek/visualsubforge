@@ -1,6 +1,7 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): scene-aware quality and timing repair,
+Updated 2026-10-17 (America/New_York): duration/reading-speed repairs, scene-aware
+quality and timing repair,
 tag-aware text editing and the first subtitle-quality milestone are complete,
 including protected Find/Replace,
 formatting, line repairs, inline ASS/SSA preview, quality profiles, cue metrics,
@@ -11,6 +12,27 @@ evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
+
+**Duration/speed milestone complete (2026-10-17):** selected-cue and whole-document
+previews keep starts fixed and choose the nearest integer-ms end satisfying the
+active duration/CPS/RS limits. Shared whole-document checking protects neighboring
+cues, overlap, gap and scene constraints. Unavailable scenes, ambiguous overlaps,
+timing-sensitive markup and impossible/coupled plans have explicit skips. Static
+text/tags, cue identities/order and save/recovery protections are preserved; each
+accepted batch is one Undo/Redo. Scene and duration review share one bounded
+worker with purpose guards, cancellation and document/profile/media/scene checks.
+
+Validation passes 255 Rust tests, 39 frontend unit tests, 44 Chromium/WebKit cases,
+strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
+Mac workflow passes selected/all review, exact save/reopen, failed saves, history,
+scene/media invalidation and the existing scene/text/recovery regression. With
+10,000 cues/cuts, duration preview takes 418 ms, acceptance 113 ms, draft interaction
+1 ms, cancellation 3 ms and invalidation 13 ms. Release extension/trim p95 is
+23.209/20.371 ms with 40,255,488 additional sampled RSS bytes. The initial RSS
+failure and allocator investigation remain recorded; the unchanged budgets pass.
+See [duration repairs](duration-repairs.md) for policy, ownership and exact evidence.
+Windows/Linux feature execution, installations and physical GPU/audio acceptance
+remain unverified; full ASS/SSA documents/styles remain separate.
 
 **Scene-quality milestone complete (2026-10-17):** shared Rust endpoint checks
 use active profile buffers and current completed scenes. Exact outer buffer
@@ -100,6 +122,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
 | Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |
+| Duration/speed repair | Selected/all fixed-start previews, exact shared metric bounds, whole-document validation, explicit skips and atomic Undo/Redo. Actual Mac and 10,000-cue workflows pass. | Conservative plan, not a joint optimizer or dialogue synchronization. Completed scenes required with buffers enabled; timed/unknown markup stays manual. |
 | Scene quality | Shared endpoint checks, explicit coverage and paged inward-repair previews use current completed scenes. Safe whole batches preserve text/tags and use one Undo/Redo. Real Mac and 10,000-cue workflows pass. | Heuristic detection can miss cuts. Missing/partial data cannot authorize repair; timed/ambiguous markup stays manual. No new Windows/Linux execution. |
 | Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity and use one Undo/Redo operation. Real Mac and 10,000-cue workflows pass. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. No full ASS/SSA file editing. |
 | Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
@@ -338,10 +361,10 @@ The native maintenance contract is established; native adoption is still blocked
 by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
-The shared application, resync, quality, text-editing and scene-quality milestones
-are complete within their recorded scope. The next feature candidate is reviewed
-duration and reading-speed repair using the existing metrics, minimum-gap and
-scene constraints. Document statistics can follow using the same metrics. Full
+The shared application, resync, quality, text-editing, scene-quality and
+duration/speed-repair milestones are complete within their recorded scope. The
+next feature candidate is document statistics using the same shared metrics,
+with explicit scope, exclusions and denominators. Full
 ASS/SSA document/style editing is a separate format milestone. Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.

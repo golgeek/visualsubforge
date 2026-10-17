@@ -1,91 +1,17 @@
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
 // prepared project caches exercise restoration separately from the live rescan.
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-const run = promisify(execFile);
-const time = (ms) =>
-  `${[Math.floor(ms / 3600000), Math.floor(ms / 60000) % 60, Math.floor(ms / 1000) % 60].map((n) => String(n).padStart(2, '0')).join(':')},${String(ms % 1000).padStart(3, '0')}`;
-async function identity(path) {
-  const bytes = await readFile(path);
-  const info = await stat(path, { bigint: true });
-  let hash = 0xcbf29ce484222325n;
-  for (const offset of [
-    0,
-    Math.floor(bytes.length / 2),
-    Math.max(0, bytes.length - 65536),
-  ]) {
-    for (const byte of bytes.subarray(offset, offset + 65536))
-      hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
-  }
-  return {
-    size: bytes.length,
-    modified: `${info.mtimeNs / 1000000000n}.${String(info.mtimeNs % 1000000000n).padStart(9, '0')}`,
-    sampleHash: hash.toString(16).padStart(16, '0'),
-  };
-}
+import { time, identity, makeVideos } from './timing-fixtures.mjs';
 async function prepare(root, context) {
-  const small = join(root, 'scene-small.mkv'),
-    large = join(root, 'scene-large.mkv');
-  const inputs = [
+  const { small, large } = await makeVideos(root, 'scene', [
     ['black', 1],
     ['red', 3],
     ['green', 2],
     ['blue', 2],
     ['white', 4],
-  ].flatMap(([color, duration]) => [
-    '-f',
-    'lavfi',
-    '-i',
-    `color=c=${color}:s=160x90:r=24:d=${duration}`,
   ]);
-  await run(
-    process.env.VSF_FFMPEG ?? 'ffmpeg',
-    [
-      '-v',
-      'error',
-      '-nostdin',
-      ...inputs,
-      '-filter_complex',
-      '[0:v][1:v][2:v][3:v][4:v]concat=n=5:v=1:a=0[out]',
-      '-map',
-      '[out]',
-      '-c:v',
-      'libx264',
-      '-preset',
-      'ultrafast',
-      '-threads',
-      '1',
-      small,
-    ],
-    { timeout: 30000 },
-  );
-  await run(
-    process.env.VSF_FFMPEG ?? 'ffmpeg',
-    [
-      '-v',
-      'error',
-      '-nostdin',
-      '-f',
-      'lavfi',
-      '-i',
-      "nullsrc=s=64x64:r=5/7,geq=lum='16+219*mod(N,2)':cb=128:cr=128",
-      '-frames:v',
-      '10001',
-      '-c:v',
-      'libx264',
-      '-preset',
-      'ultrafast',
-      '-g',
-      '1',
-      '-threads',
-      '1',
-      large,
-    ],
-    { timeout: 60000 },
-  );
   const source =
     '\uFEFF1\r\n00:00:01,000 --> 00:00:03,000\r\n{\\i1}First é 😀\r\n\r\n2\r\n00:00:04,050 --> 00:00:06,050\r\nSecond\r\n\r\n3\r\n00:00:08,000 --> 00:00:10,000\r\n{\\k20}Timed\r\n\r\n';
   await writeFile(join(root, 'scene-small.srt'), source);

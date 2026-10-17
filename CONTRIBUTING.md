@@ -105,6 +105,10 @@ Normal builds do not include the WebDriver server.
 The optional `npm run test:desktop -- --scenes` needs a build with both
 `desktop-e2e,media-prototype` and FFmpeg. It exercises real scene restore/rescan,
 review, acceptance and 10,000-cue interaction; see the desktop lane's instructions.
+Add `--duration` to exercise selected/all duration-speed repairs, exact saves,
+history and 10,000 mixed extensions/trims. The two options can run together.
+The [duration guide](docs/duration-repairs.md) also records the release CPU/RSS
+benchmark and unchanged acceptance budgets.
 The optional `npm run test:desktop -- --performance` extends that lane with the
 declared 10,000-cue quality and text-tool responsiveness checks; its RSS sampler
 uses Unix `ps`. The ordinary lane also checks protected Find/Replace, formatting

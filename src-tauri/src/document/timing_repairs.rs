@@ -3,15 +3,41 @@
 use super::*;
 use crate::{
     quality_check::Key,
-    scene_review::{Phase, Row, SceneRepairView},
     scenes::{SceneCapture, SceneKey},
+    timing_review::{DurationRepairView, DurationRow, Phase, Purpose, Row, SceneRepairView},
 };
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle,
     time::{Duration, Instant},
 };
-use vsf_application::quality::{self as engine, Profile, scene::Proposal};
+use vsf_application::quality::{self as engine, Profile, duration::Scope};
+
+#[derive(Clone, Copy)]
+enum Operation {
+    Scene,
+    Duration(Scope),
+}
+impl Operation {
+    fn purpose(self) -> Purpose {
+        match self {
+            Self::Scene => Purpose::Scene,
+            Self::Duration(_) => Purpose::Duration,
+        }
+    }
+}
+enum Proposal {
+    Scene(engine::scene::Proposal),
+    Duration(engine::duration::Proposal),
+}
+impl Proposal {
+    fn edit(&self, document: &subtitle_core::Document) -> engine::Result<Edit> {
+        match self {
+            Self::Scene(p) => p.edit(document),
+            Self::Duration(p) => p.edit(document),
+        }
+    }
+}
 
 #[derive(Default)]
 pub(super) struct State {
@@ -22,6 +48,7 @@ pub(super) struct State {
 struct Job {
     id: u64,
     key: Key,
+    operation: Operation,
     scenes: SceneKey,
     profile: Profile,
     hash: String,
@@ -41,7 +68,7 @@ impl Job {
         if let Some(worker) = self.worker.take_if(|w| w.is_finished()) {
             let result = worker
                 .join()
-                .unwrap_or_else(|_| Err("Scene proposal worker stopped unexpectedly".into()));
+                .unwrap_or_else(|_| Err("Timing proposal worker stopped unexpectedly".into()));
             if !self.cancel.load(Ordering::Relaxed) {
                 match result {
                     Ok(proposal) => self.proposal = Some(proposal),
@@ -75,10 +102,10 @@ impl State {
             job.refresh();
         }
         if self.closed {
-            return Err("Scene preview is shutting down".into());
+            return Err("Timing preview is shutting down".into());
         }
         if self.job.as_ref().is_some_and(|j| j.worker.is_some()) {
-            return Err("Wait for the current scene proposal to finish cancelling".into());
+            return Err("Wait for the current timing proposal to finish cancelling".into());
         }
         Ok(())
     }
@@ -86,6 +113,7 @@ impl State {
         &mut self,
         key: Key,
         scenes: SceneKey,
+        operation: Operation,
         profile: Profile,
         run: impl FnOnce(Arc<AtomicBool>) -> Result<Proposal> + Send + 'static,
     ) -> Result<u64> {
@@ -94,17 +122,18 @@ impl State {
             .next_id
             .checked_add(1)
             .filter(|i| *i <= crate::ipc_number::MAX_SAFE_INTEGER)
-            .ok_or("Scene identities exhausted")?;
+            .ok_or("Timing identities exhausted")?;
         let hash = profile.fingerprint().map_err(|e| e.to_string())?;
         let cancel = Arc::new(AtomicBool::new(false));
         let token = cancel.clone();
         let worker = std::thread::Builder::new()
-            .name("scene-proposal".into())
+            .name("timing-proposal".into())
             .spawn(move || run(token))
-            .map_err(|e| format!("Cannot start scene proposal: {e}"))?;
+            .map_err(|e| format!("Cannot start timing proposal: {e}"))?;
         self.job = Some(Job {
             id,
             key,
+            operation,
             scenes,
             profile,
             hash,
@@ -126,13 +155,31 @@ impl Documents {
         revision: u64,
         scenes: SceneCapture,
     ) -> Result<u64> {
+        self.timing_repair_start(generation, revision, scenes, Operation::Scene)
+    }
+    pub(crate) fn duration_repair_start(
+        &self,
+        generation: u64,
+        revision: u64,
+        scenes: SceneCapture,
+        scope: Scope,
+    ) -> Result<u64> {
+        self.timing_repair_start(generation, revision, scenes, Operation::Duration(scope))
+    }
+    fn timing_repair_start(
+        &self,
+        generation: u64,
+        revision: u64,
+        scenes: SceneCapture,
+        operation: Operation,
+    ) -> Result<u64> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
         if !key.loaded || key.generation.get() != generation || key.revision.get() != revision {
-            return Err("Subtitles changed before scene preview; try again".into());
+            return Err("Subtitles changed before timing preview; try again".into());
         }
         // Reject busy admission before cloning another document snapshot.
-        store.scene_repairs.ensure_idle()?;
+        store.timing_repairs.ensure_idle()?;
         let document = store
             .loaded
             .as_ref()
@@ -143,31 +190,49 @@ impl Documents {
         let profile = store.quality.context().profile;
         let captured = profile.clone();
         store
-            .scene_repairs
-            .launch(key, scenes.key, profile, move |cancel| {
+            .timing_repairs
+            .launch(key, scenes.key, operation, profile, move |cancel| {
                 let start = Instant::now();
-                engine::scene::propose(document, &captured, &scenes.data, || {
+                let checkpoint = || {
                     if cancel.load(Ordering::Relaxed) {
                         return Err(engine::Error::Cancelled);
                     }
                     if start.elapsed() > Duration::from_secs(10) {
                         return Err(engine::Error::Limit(
-                            "Scene preview exceeded its 10 second deadline".into(),
+                            "Timing preview exceeded its 10 second deadline".into(),
                         ));
                     }
                     Ok(())
-                })
+                };
+                match operation {
+                    Operation::Scene => {
+                        engine::scene::propose(document, &captured, &scenes.data, checkpoint)
+                            .map(Proposal::Scene)
+                    }
+                    Operation::Duration(scope) => engine::duration::propose(
+                        document,
+                        &captured,
+                        &scenes.data,
+                        scope,
+                        checkpoint,
+                    )
+                    .map(Proposal::Duration),
+                }
                 .map_err(|e| e.to_string())
             })
     }
+    #[cfg(test)]
     pub(crate) fn scene_repair_context(&self, id: u64) -> Result<SceneKey> {
+        self.timing_repair_context(id, Purpose::Scene)
+    }
+    pub(crate) fn timing_repair_context(&self, id: u64, purpose: Purpose) -> Result<SceneKey> {
         let store = self.0.lock().map_err(|_| "Document state unavailable")?;
         Ok(store
-            .scene_repairs
+            .timing_repairs
             .job
             .as_ref()
-            .filter(|j| j.id == id)
-            .ok_or("Scene proposal was replaced")?
+            .filter(|j| j.id == id && j.operation.purpose() == purpose)
+            .ok_or("Timing proposal was replaced or has a different kind")?
             .scenes)
     }
     pub(crate) fn scene_repair_view(
@@ -181,10 +246,10 @@ impl Documents {
         }
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
-        store.scene_repairs.invalidate(key);
-        let closed = store.scene_repairs.closed;
+        store.timing_repairs.invalidate(key);
+        let closed = store.timing_repairs.closed;
         let job = store
-            .scene_repairs
+            .timing_repairs
             .job
             .as_mut()
             .filter(|j| j.id == id)
@@ -192,37 +257,71 @@ impl Documents {
         job.refresh();
         project(job, closed, offset, limit)
     }
-    pub(crate) fn scene_repair_cancel(&self, id: u64) -> Result<()> {
+    pub(crate) fn duration_repair_view(
+        &self,
+        id: u64,
+        offset: u32,
+        limit: u32,
+    ) -> Result<DurationRepairView> {
+        if limit > 200 {
+            return Err("Duration pages are limited to 200 rows".into());
+        }
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
-        if let Some(job) = store.scene_repairs.job.as_mut().filter(|j| j.id == id) {
+        let key = store.quality_key()?;
+        store.timing_repairs.invalidate(key);
+        let closed = store.timing_repairs.closed;
+        let job = store
+            .timing_repairs
+            .job
+            .as_mut()
+            .filter(|j| j.id == id)
+            .ok_or("Timing proposal was replaced")?;
+        job.refresh();
+        project_duration(job, closed, offset, limit)
+    }
+    pub(crate) fn scene_repair_cancel(&self, id: u64) -> Result<()> {
+        self.timing_repair_cancel(id, Purpose::Scene)
+    }
+    pub(crate) fn timing_repair_cancel(&self, id: u64, purpose: Purpose) -> Result<()> {
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        if let Some(job) = store.timing_repairs.job.as_mut().filter(|j| j.id == id) {
+            if job.operation.purpose() != purpose {
+                return Err("Timing proposal has a different kind".into());
+            }
             job.cancel();
         }
         Ok(())
     }
     /// Called while media selection and scene state remain locked and current.
     pub(crate) fn scene_repair_accept(&self, id: u64) -> Result<Snapshot> {
+        self.timing_repair_accept(id, Purpose::Scene)
+    }
+    pub(crate) fn duration_repair_accept(&self, id: u64) -> Result<Snapshot> {
+        self.timing_repair_accept(id, Purpose::Duration)
+    }
+    fn timing_repair_accept(&self, id: u64, purpose: Purpose) -> Result<Snapshot> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
-        store.scene_repairs.invalidate(key);
-        if store.scene_repairs.closed {
-            return Err("Scene preview is shutting down".into());
+        store.timing_repairs.invalidate(key);
+        if store.timing_repairs.closed {
+            return Err("Timing preview is shutting down".into());
         }
         let job = store
-            .scene_repairs
+            .timing_repairs
             .job
             .as_mut()
-            .filter(|j| j.id == id)
-            .ok_or("Scene proposal was replaced")?;
+            .filter(|j| j.id == id && j.operation.purpose() == purpose)
+            .ok_or("Timing proposal was replaced or has a different kind")?;
         job.refresh();
         if job.key != key || job.stale || job.cancel.load(Ordering::Relaxed) || job.accepted {
-            return Err("Scene proposal is no longer current; create a new preview".into());
+            return Err("Timing proposal is no longer current; create a new preview".into());
         }
         let proposal = store
-            .scene_repairs
+            .timing_repairs
             .job
             .as_ref()
             .and_then(|j| j.proposal.as_ref())
-            .ok_or("Wait for a completed scene preview")?;
+            .ok_or("Wait for a completed timing preview")?;
         let edit = proposal
             .edit(
                 store
@@ -234,28 +333,28 @@ impl Documents {
             )
             .map_err(|e| e.to_string())?;
         store.loaded_mut()?.apply_edit(key.revision.get(), edit)?;
-        if let Some(job) = &mut store.scene_repairs.job {
+        if let Some(job) = &mut store.timing_repairs.job {
             job.accepted = true;
             job.proposal = None;
         }
         store.invalidate_checks();
         Ok(store.snapshot())
     }
-    pub(super) fn shutdown_scene_repairs(&self) -> Result<()> {
+    pub(super) fn shutdown_timing_repairs(&self) -> Result<()> {
         let job = {
             let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
-            store.scene_repairs.closed = true;
-            if let Some(job) = &mut store.scene_repairs.job {
+            store.timing_repairs.closed = true;
+            if let Some(job) = &mut store.timing_repairs.job {
                 job.cancel();
             }
-            store.scene_repairs.job.take()
+            store.timing_repairs.job.take()
         };
         drop(job); // cancellation and join outside the document mutex
         Ok(())
     }
 }
-fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<SceneRepairView> {
-    let phase = if closed {
+fn phase(job: &Job, closed: bool) -> Phase {
+    if closed {
         Phase::Closed
     } else if job.accepted {
         Phase::Accepted
@@ -273,7 +372,13 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<SceneRepa
         Phase::Reviewing
     } else {
         Phase::Preparing
-    };
+    }
+}
+fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<SceneRepairView> {
+    if job.operation.purpose() != Purpose::Scene {
+        return Err("Timing proposal has a different kind".into());
+    }
+    let phase = phase(job, closed);
     let mut view = SceneRepairView {
         id: job.id.try_into()?,
         key: job.key,
@@ -291,7 +396,7 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<SceneRepa
         offset,
         rows: vec![],
     };
-    if let Some(p) = &job.proposal {
+    if let Some(Proposal::Scene(p)) = &job.proposal {
         view.coverage = Some(p.coverage());
         view.total = p.rows().len() as u32;
         view.changed = p.changed() as u32;
@@ -320,6 +425,65 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<SceneRepa
     Ok(view)
 }
 
+fn project_duration(
+    job: &Job,
+    closed: bool,
+    offset: u32,
+    limit: u32,
+) -> Result<DurationRepairView> {
+    if job.operation.purpose() != Purpose::Duration {
+        return Err("Timing proposal has a different kind".into());
+    }
+    let phase = phase(job, closed);
+    let mut view = DurationRepairView {
+        selected_cue_id: match job.operation {
+            Operation::Duration(Scope::Cue(id)) => Some(id.0.to_string()),
+            _ => None,
+        },
+        id: job.id.try_into()?,
+        key: job.key,
+        session: job.scenes.session.try_into()?,
+        phase,
+        profile: job.profile.clone(),
+        profile_hash: job.hash.clone(),
+        error: job.error.clone(),
+        coverage: None,
+        total: 0,
+        changed: 0,
+        skipped: 0,
+        before_findings: 0,
+        after_findings: 0,
+        offset,
+        rows: vec![],
+    };
+    if let Some(Proposal::Duration(p)) = &job.proposal {
+        view.coverage = Some(p.coverage());
+        view.total = p.rows().len() as u32;
+        view.changed = p.changed() as u32;
+        view.skipped = view.total - view.changed;
+        view.before_findings = p.before().findings.len() as u32;
+        view.after_findings = p.after().findings.len() as u32;
+        view.offset = offset.min(view.total.saturating_sub(1) / limit.max(1) * limit.max(1));
+        for row in p
+            .rows()
+            .iter()
+            .skip(view.offset as usize)
+            .take(limit as usize)
+        {
+            view.rows.push(DurationRow {
+                cue_id: p.before().metrics[row.cue_index].cue_id.clone(),
+                cue_index: row.cue_index as u32,
+                new_end_ms: row.new_end.map(|e| e.get().try_into()).transpose()?,
+                skipped: row.skipped,
+                explanation: row.skipped.map(|s| s.explanation().into()),
+                before: (&p.before().metrics[row.cue_index]).into(),
+                after: (&p.after().metrics[row.cue_index]).into(),
+            });
+        }
+    }
+    Ok(view)
+}
+
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -327,4 +491,13 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
     let (_directory, docs, scenes) = tests::fixture();
     let id = tests::start(&docs, &scenes);
     serde_json::to_value(tests::ready(&docs, id)).unwrap()
+}
+
+#[cfg(test)]
+mod duration_tests;
+#[cfg(test)]
+pub(crate) fn duration_ipc_sample() -> serde_json::Value {
+    let (_directory, docs, scenes) = duration_tests::fixture();
+    let id = duration_tests::start(&docs, &scenes, Scope::Document);
+    serde_json::to_value(duration_tests::ready(&docs, id)).unwrap()
 }

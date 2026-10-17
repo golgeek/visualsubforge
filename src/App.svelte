@@ -5,6 +5,7 @@
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
+  import DurationRepairDialog from './lib/DurationRepairDialog.svelte';
   import TextDialog from './lib/TextDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { rate } from './lib/quality-display';
@@ -400,12 +401,16 @@
   });
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
-  let gapOpen = $state(false);
-  let timingReview = $state<'gap' | 'scene'>('gap');
+  let timingOpen = $state(false);
+  let timingReview = $state<'gap' | 'scene' | 'duration'>('gap');
   const TimingDialog = $derived(
-    timingReview === 'scene' ? SceneRepairDialog : GapDialog,
+    timingReview === 'duration'
+      ? DurationRepairDialog
+      : timingReview === 'scene'
+        ? SceneRepairDialog
+        : GapDialog,
   );
-  let gapReturn: HTMLElement | null = null;
+  let timingReturn: HTMLElement | null = null;
   let textOpen = $state(false);
   let textReturn: HTMLElement | null = null;
   let textOperation = $state<TextOperation>({
@@ -464,7 +469,7 @@
       if (alive) confirming = false;
     }
   }
-  async function openTimingReview(kind: 'gap' | 'scene') {
+  async function openTimingReview(kind: 'gap' | 'scene' | 'duration') {
     if (
       busy ||
       confirming ||
@@ -476,7 +481,7 @@
       return;
     busy = true;
     error = '';
-    gapReturn =
+    timingReturn =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
@@ -485,7 +490,7 @@
       if (alive) {
         confirming = true;
         timingReview = kind;
-        gapOpen = true;
+        timingOpen = true;
       }
     } catch (e) {
       if (alive) error = String(e);
@@ -604,17 +609,17 @@
       if (alive) busy = false;
     }
   }
-  async function closeGap(accepted = false) {
-    gapOpen = false;
+  async function closeTimingReview(accepted = false) {
+    timingOpen = false;
     if (accepted) {
-      notice = `${timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
+      notice = `${timingReview === 'duration' ? 'Duration and speed' : timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
       quality.restart();
     }
     try {
       await tick();
       if (!alive) return;
       await occludeVideo(diagnostics);
-      if (gapReturn?.isConnected) gapReturn.focus();
+      if (timingReturn?.isConnected) timingReturn.focus();
     } catch (e) {
       if (alive) error = String(e);
     } finally {
@@ -1973,6 +1978,12 @@
           >Repair scene timing…</button
         >
         <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('duration')}
+          >Repair duration / speed…</button
+        >
+
+        <button
           aria-expanded={problemsOpen}
           onclick={() => {
             problemsOpen = !problemsOpen;
@@ -2366,12 +2377,12 @@
       onaccepted={() => void closeResync(true)}
     />
   {/if}
-  {#if gapOpen}
+  {#if timingOpen}
     <TimingDialog
       {subtitles}
       mediaSession={() => status.session}
-      onclose={() => void closeGap()}
-      onaccepted={() => void closeGap(true)}
+      onclose={() => void closeTimingReview()}
+      onaccepted={() => void closeTimingReview(true)}
     />
   {/if}
   {#if textOpen}

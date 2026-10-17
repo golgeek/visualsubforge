@@ -54,7 +54,6 @@ mod quality_profile;
 mod recovery_store;
 mod resync;
 mod save_lease;
-mod scene_review;
 mod scenes;
 mod srt_limits;
 #[cfg(any(
@@ -67,6 +66,7 @@ mod srt_limits;
 mod subtitle_preview;
 mod text_review;
 mod timing_preset;
+mod timing_review;
 mod waveform;
 mod workflow_trace;
 use std::sync::atomic::Ordering;

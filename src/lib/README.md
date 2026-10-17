@@ -151,20 +151,26 @@ revision/profile epoch before applying the immutable plan as one history entry.
 All capture/projection/commit commands run on blocking workers. Evaluation owns
 an immutable clone outside those locks; shutdown cancels and joins outside them.
 
-## Scene timing review
+## Scene and duration timing review
 
-`SceneRepairDialog` and `SceneRepairSession` follow the same draft, paging,
-disposal and acceptance flow as gap review. They display immutable Rust proposals;
-no timing arithmetic is repeated in the frontend. `DocumentSession.acceptSceneRepair()`
-serializes the accepted reply with other document actions. Completed previews
-continue polling so profile/scene changes disable acceptance promptly.
+`SceneRepairDialog`/`DurationRepairDialog` are thin purpose wrappers around
+`TimingRepairDialog`. Their session wrappers share `TimingRepairSession` for
+draft handling, paging, disposal and late-admission cancellation. They display
+immutable Rust proposals; no timing arithmetic is repeated in the frontend.
+Duration review captures a stable selected cue ID or whole-document scope;
+changing scope immediately disables acceptance. `DocumentSession` serializes
+both acceptance methods with other document actions. Completed previews continue
+polling so profile/scene changes disable acceptance promptly.
 
-The shared Rust operation trims inward, preserves text/tags and verifies the
-complete candidate against timing constraints. The desktop retains one proposal
-worker with no queue and a ten-second deadline. Media → scenes → document locks
+Shared Rust scene proposals trim inward; duration proposals keep starts fixed
+and choose the nearest safe end. Both preserve text/tags and verify the complete
+candidate against timing constraints. The desktop shares one timing-proposal
+worker, global job IDs and purpose guards, with no queue and a ten-second deadline.
+Media → scenes → document locks
 guard capture and acceptance; evaluation and shutdown joins happen outside the
 document lock. The existing `Edit::Retime` supplies one atomic Undo/Redo entry.
-See the [scene contract](../../docs/scene-quality.md) for skips and coverage.
+See the [scene contract](../../docs/scene-quality.md) and
+[duration policy](../../docs/duration-repairs.md) for skips and coverage.
 
 ## Text tools
 

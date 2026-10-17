@@ -4,6 +4,7 @@ import {
   resyncAccept,
   gapAccept,
   sceneRepairAccept,
+  durationRepairAccept,
   textAccept,
   type TextTarget,
   emptyDocument,
@@ -23,10 +24,19 @@ const client = {
   resyncAccept,
   gapAccept,
   sceneRepairAccept,
+  durationRepairAccept,
   textAccept,
 };
-type Client = Omit<typeof client, 'textAccept' | 'sceneRepairAccept'> &
-  Partial<Pick<typeof client, 'textAccept' | 'sceneRepairAccept'>>;
+type Client = Omit<
+  typeof client,
+  'textAccept' | 'sceneRepairAccept' | 'durationRepairAccept'
+> &
+  Partial<
+    Pick<
+      typeof client,
+      'textAccept' | 'sceneRepairAccept' | 'durationRepairAccept'
+    >
+  >;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
 type CommandOptions = {
   plan?: CueOperationPlan;
@@ -128,6 +138,18 @@ export class DocumentSession {
       );
     return this.update(() =>
       (this.client.sceneRepairAccept ?? sceneRepairAccept)(id),
+    );
+  }
+  acceptDurationRepair(
+    id: number,
+    expected: DocumentSnapshot,
+  ): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() =>
+      (this.client.durationRepairAccept ?? durationRepairAccept)(id),
     );
   }
   private async update(

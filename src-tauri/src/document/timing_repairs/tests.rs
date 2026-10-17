@@ -201,10 +201,11 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
         let key = store.quality_key().unwrap();
         let profile = store.quality.context().profile;
         store
-            .scene_repairs
+            .timing_repairs
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
+                Operation::Scene,
                 profile,
                 move |cancel| {
                     entered.send(cancel).unwrap();
@@ -242,10 +243,11 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
         let key = store.quality_key().unwrap();
         let profile = store.quality.context().profile;
         store
-            .scene_repairs
+            .timing_repairs
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
+                Operation::Scene,
                 profile,
                 move |cancel| {
                     entered.send(()).unwrap();
@@ -262,7 +264,7 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
     }
     started.recv_timeout(Duration::from_secs(5)).unwrap();
     docs.shutdown_quality().unwrap();
-    assert!(docs.0.lock().unwrap().scene_repairs.job.is_none());
+    assert!(docs.0.lock().unwrap().timing_repairs.job.is_none());
     assert!(
         docs.scene_repair_start(1, 0, scenes.capture_quality(7, true).unwrap())
             .is_err()
@@ -277,10 +279,11 @@ fn worker_failure_is_visible_and_a_new_preview_can_recover() {
         let key = store.quality_key().unwrap();
         let profile = store.quality.context().profile;
         store
-            .scene_repairs
+            .timing_repairs
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
+                Operation::Scene,
                 profile,
                 |_| Err("Injected failure".into()),
             )

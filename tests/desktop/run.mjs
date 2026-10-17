@@ -24,6 +24,7 @@ import { textEditing } from './text.mjs';
 import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
 import { sceneQuality } from './scene-quality.mjs';
+import { durationQuality } from './duration-quality.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -31,6 +32,7 @@ const { values } = parseArgs({
     cli: { type: 'string' },
     performance: { type: 'boolean', default: false },
     scenes: { type: 'boolean', default: false },
+    duration: { type: 'boolean', default: false },
   },
 });
 const cli = resolve(
@@ -85,7 +87,11 @@ let exit;
 let launchCount = 0;
 const runDeadline =
   Date.now() +
-  (values.scenes ? 480_000 : values.performance ? 300_000 : 180_000);
+  (values.scenes || values.duration
+    ? 480_000
+    : values.performance
+      ? 300_000
+      : 180_000);
 
 async function record(step) {
   receipt.steps.push(step);
@@ -416,6 +422,14 @@ try {
           { kind: 'project', path: join(root, 'scene-large.vsfproject') },
         ]
       : []),
+    ...(values.duration
+      ? [
+          { kind: 'project', path: join(root, 'duration-small.vsfproject') },
+          { kind: 'saveSubtitles', path: join(root, 'duration-copy.srt') },
+          { kind: 'subtitles', path: join(root, 'duration-copy.srt') },
+          { kind: 'project', path: join(root, 'duration-large.vsfproject') },
+        ]
+      : []),
   ]);
   const recover = await browser.$('button=Recover');
   assert.deepEqual(
@@ -482,6 +496,17 @@ try {
       record,
     });
   }
+  if (values.duration)
+    await durationQuality({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+    });
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([
     exit,

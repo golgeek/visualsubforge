@@ -24,6 +24,10 @@ export type GapView = Awaited<ReturnType<typeof commands.gapView>>;
 export type SceneRepairView = Awaited<
   ReturnType<typeof commands.sceneRepairView>
 >;
+export type DurationRepairView = Awaited<
+  ReturnType<typeof commands.durationRepairView>
+>;
+
 export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];
@@ -273,6 +277,27 @@ export function gapStart(
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
 ) {
   return commands.gapStart(session, document.generation, document.revision);
+}
+export function durationRepairStart(
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  selectedCueId: string | null,
+) {
+  return commands.durationRepairStart(
+    session,
+    document.generation,
+    document.revision,
+    selectedCueId,
+  );
+}
+export function durationRepairView(id: number, offset = 0, limit = 100) {
+  return commands.durationRepairView(id, offset, limit);
+}
+export async function durationRepairCancel(id: number): Promise<void> {
+  await commands.durationRepairCancel(id);
+}
+export function durationRepairAccept(id: number): Promise<DocumentSnapshot> {
+  return commands.durationRepairAccept(id);
 }
 export function sceneRepairStart(
   session: number,

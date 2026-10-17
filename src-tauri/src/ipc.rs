@@ -1,7 +1,7 @@
 //! One command/event registry for desktop dispatch and generated JSON contracts.
 use crate::{
     desktop, document, gap_review, media, preferences, project, quality_check, quality_profile,
-    resync, scene_review, scenes, text_review, timing_preset, waveform, workflow_trace,
+    resync, scenes, text_review, timing_preset, timing_review, waveform, workflow_trace,
 };
 
 pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
@@ -22,10 +22,14 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             gap_review::gap_view,
             gap_review::gap_cancel,
             gap_review::gap_accept,
-            scene_review::scene_repair_start,
-            scene_review::scene_repair_view,
-            scene_review::scene_repair_cancel,
-            scene_review::scene_repair_accept,
+            timing_review::scene_repair_start,
+            timing_review::scene_repair_view,
+            timing_review::scene_repair_cancel,
+            timing_review::scene_repair_accept,
+            timing_review::duration_repair_start,
+            timing_review::duration_repair_view,
+            timing_review::duration_repair_cancel,
+            timing_review::duration_repair_accept,
             text_review::text_start,
             text_review::text_view,
             text_review::text_matches,
@@ -84,7 +88,7 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, TextView }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, TextView }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
@@ -96,6 +100,11 @@ fn export_bindings() {
             "sceneRepairView",
             "SceneRepairView",
             document::scene_repair_ipc_sample(),
+        ),
+        (
+            "durationRepairView",
+            "DurationRepairView",
+            document::duration_repair_ipc_sample(),
         ),
         ("textView", "TextView", document::text_ipc_sample()),
         ("openedProject", "OpenedProject", project::ipc_sample()),

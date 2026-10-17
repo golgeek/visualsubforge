@@ -200,3 +200,30 @@ work; they do not measure large-video cut-detection accuracy. Webview events and
 queued file choices do not establish physical input, native dialogs or GPU/audio
 presentation. No new Windows/Linux execution is claimed. See
 [scene quality](../../docs/scene-quality.md) for the retained evidence and limits.
+
+## Duration and reading-speed workflow
+
+Use the same `desktop-e2e,media-prototype` build and run
+`npm run test:desktop -- --duration`, or combine it with scene regression using
+`npm run test:desktop -- --scenes --duration`. `timing-fixtures.mjs` shares media
+generation and bounded file identity between the two extensions. Both generate
+known-cut caches and independently exercise actual FFmpeg rescanning.
+
+Duration review verifies protected drafts, selected-cue and whole-document scope,
+extensions/trims with fixed starts and exact static-tag preservation, a timed-tag
+skip, failed-save preservation, exact BOM/CRLF save/reopen, one Undo/Redo, and stale
+scene/media rejection. The scale fixture has 10,000 cues and cuts, 940,000 source
+text bytes and alternating too-short/too-long durations. It checks every proposed
+duration (880/1116 ms), 100-row paging, whole-batch acceptance from page two, exact
+Undo, typing, cancellation and edit invalidation against the predeclared one-second
+interaction budget.
+
+The combined Mac run on 2026-10-17 passes: duration preview 418 ms, acceptance
+113 ms, generated draft interaction 1 ms, cancellation 3 ms and invalidation
+13 ms. Scene regression also passes (418 ms preview, 115 ms acceptance).
+`duration-performance.json`, screenshots and the ordinary receipt are retained
+in `tests/fixtures/generated/duration-quality/desktop-final/`. These are debug
+webview/IPC measurements with Homebrew mpv/OpenGL, not release CPU benchmarks or
+physical input/GPU/audio acceptance. See the
+[duration contract](../../docs/duration-repairs.md) for the separate release
+benchmark and conservative repair policy. Windows/Linux execution remains open.

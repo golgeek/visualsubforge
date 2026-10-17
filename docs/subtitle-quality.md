@@ -6,6 +6,9 @@ explicit gap proposal acceptance. Checking is
 read-only and never makes a subtitle document unsavable.
 The subsequent [scene-quality milestone](scene-quality.md) adds endpoint findings,
 explicit scene coverage and previewable inward timing repairs.
+[Duration and reading-speed repairs](duration-repairs.md) add selected/all
+previews that keep starts fixed and choose the nearest safe end, with shared
+whole-document checking and one atomic Undo/Redo operation.
 
 ## Metrics and source evidence
 
@@ -146,8 +149,9 @@ a late reply or an old dialog cannot apply it. One explicit proposal worker runs
 beside the automatic checker, with no queue and a ten-second deadline. Closing
 the dialog cancels it; application shutdown joins both workers outside the
 document lock. Full proposals/reports stay in Rust; review IPC caps at 200 rows.
-Text and scene review each have another independently bounded owner; there are
-at most four CPU workers across checking and these three explicit reviews.
+Text review and shared scene/duration review each have another independently
+bounded owner; there are at most four CPU workers across checking and explicit
+gap, text and timing reviews.
 
 The shared proposal keeps every cue start fixed and only
 shortens an earlier cue's end to next-start minus the effective minimum gap.

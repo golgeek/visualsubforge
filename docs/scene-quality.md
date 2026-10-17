@@ -65,7 +65,9 @@ Proposal reads/acceptance recheck the document revision, profile epoch, media
 session and scene generation/readiness. Lock order is media selection, scenes,
 then document. Scene scan/restore inputs must match the selected media path.
 
-The scene review owner has one worker, no pending queue and a ten-second deadline.
+Scene and [duration review](duration-repairs.md) now share one timing-proposal
+owner, global IDs and purpose guards. It has one worker, no pending queue and a
+ten-second deadline.
 Cancellation is cooperative throughout checks and proposals; shutdown joins
 outside the document mutex. It joins the existing independently bounded quality,
 gap and text workers (at most four CPU workers). All work is bounded by 100,000

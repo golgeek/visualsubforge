@@ -186,7 +186,7 @@ impl Store {
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
             self.gaps.invalidate(key);
-            self.scene_repairs.invalidate(key);
+            self.timing_repairs.invalidate(key);
             self.texts.invalidate(key);
         } else {
             self.checks.cancel_worker();
@@ -312,7 +312,7 @@ impl Documents {
         };
         drop(worker); // joins outside the document lock
         self.shutdown_gaps()?;
-        self.shutdown_scene_repairs()?;
+        self.shutdown_timing_repairs()?;
         self.shutdown_texts()
     }
 }

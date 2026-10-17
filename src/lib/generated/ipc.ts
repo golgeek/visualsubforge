@@ -67,7 +67,7 @@ export const commands = {
       revision,
     }),
   sceneRepairView: (id: number, offset: number, limit: number) =>
-    __TAURI_INVOKE<visualsubforge_scene_review_SceneRepairView>(
+    __TAURI_INVOKE<visualsubforge_timing_review_SceneRepairView>(
       'scene_repair_view',
       { id, offset, limit },
     ),
@@ -76,6 +76,30 @@ export const commands = {
   sceneRepairAccept: (id: number) =>
     __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
       'scene_repair_accept',
+      { id },
+    ),
+  durationRepairStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    selectedCueId: string | null,
+  ) =>
+    __TAURI_INVOKE<number>('duration_repair_start', {
+      session,
+      generation,
+      revision,
+      selectedCueId,
+    }),
+  durationRepairView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_timing_review_DurationRepairView>(
+      'duration_repair_view',
+      { id, offset, limit },
+    ),
+  durationRepairCancel: (id: number) =>
+    __TAURI_INVOKE<null>('duration_repair_cancel', { id }),
+  durationRepairAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'duration_repair_accept',
       { id },
     ),
   textStart: (
@@ -685,6 +709,35 @@ export type visualsubforge_quality_check_DraftChange =
   | { kind: 'clear' }
   | { kind: 'update'; value: visualsubforge_quality_check_Draft };
 
+export type visualsubforge_timing_review_DurationRepairView = {
+  id: number;
+  selectedCueId: string | null;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_DurationRow[];
+};
+
+export type visualsubforge_timing_review_DurationRow = {
+  cueId: string;
+  cueIndex: number;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_duration_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
+};
+
 export type vsf_application_quality_profile_DurationRule = {
   enabled: boolean;
   minimumMs: number;
@@ -1086,17 +1139,6 @@ export type visualsubforge_gap_review_Row = {
   nextAfter: visualsubforge_quality_check_Metric;
 };
 
-export type visualsubforge_scene_review_Row = {
-  cueId: string;
-  cueIndex: number;
-  newStartMs: number | null;
-  newEndMs: number | null;
-  skipped: vsf_application_quality_scene_repair_Skip | null;
-  explanation: string | null;
-  before: visualsubforge_quality_check_Metric;
-  after: visualsubforge_quality_check_Metric;
-};
-
 export type visualsubforge_text_review_Row = {
   cueId: number;
   cueIndex: number;
@@ -1105,6 +1147,17 @@ export type visualsubforge_text_review_Row = {
   skipped: string | null;
   matches: visualsubforge_text_review_Match[];
   matchCount: number;
+};
+
+export type visualsubforge_timing_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  newStartMs: number | null;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_scene_repair_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
 };
 
 export type vsf_application_quality_check_Rule =
@@ -1176,7 +1229,7 @@ export type visualsubforge_scenes_Saved_Serialize = {
 export type vsf_application_quality_scene_SceneCoverage =
   'notRequired' | 'checked' | 'reduced' | 'noMedia' | 'unavailable' | 'partial';
 
-export type visualsubforge_scene_review_SceneRepairView = {
+export type visualsubforge_timing_review_SceneRepairView = {
   id: number;
   key: visualsubforge_quality_check_Key;
   session: number;
@@ -1191,7 +1244,7 @@ export type visualsubforge_scene_review_SceneRepairView = {
   beforeFindings: number;
   afterFindings: number;
   offset: number;
-  rows: visualsubforge_scene_review_Row[];
+  rows: visualsubforge_timing_review_Row[];
 };
 
 export type visualsubforge_scenes_SceneView =
@@ -1266,6 +1319,16 @@ export type visualsubforge_quality_profile_SettingsData_Serialize = {
 };
 
 export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
+
+export type vsf_application_quality_duration_Skip =
+  | 'sceneDataUnavailable'
+  | 'ambiguousOverlap'
+  | 'markupNeedsReview'
+  | 'conflictingBounds'
+  | 'neighborConstraint'
+  | 'sceneExclusion'
+  | 'coupledConstraints'
+  | 'noDirectChange';
 
 export type vsf_application_quality_gap_Skip =
   | 'ambiguousOverlap'
