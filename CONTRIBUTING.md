@@ -127,7 +127,8 @@ project save failures, recovery response ordering and gesture cancellation.
 FAIL rows, page errors, incomplete results, zero checks and inconsistent passing
 counts fail the run. Negative controls verify those runner failure modes. Reports,
 failure screenshots and traces are under ignored `playwright-report/` and
-`test-results/`; CI uploads them. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
+`test-results/browser/`; CI uploads them. Browser cleanup leaves real-desktop
+receipts in `test-results/desktop-*` intact. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
 These are production components with modeled IPC and synthetic events, not native
 WebView, filesystem, keyboard, GPU or audio-device acceptance.
 

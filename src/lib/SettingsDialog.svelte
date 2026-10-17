@@ -1,11 +1,17 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import TimingSettingsPanel from './TimingSettings.svelte';
+  import QualitySettings from './QualitySettings.svelte';
+  import { copyProfile, profileTiming, withTiming } from './quality-profile';
   import {
     chooseFile,
     importTimingPreset,
     exportTimingPreset,
     savePreferences,
+    getQualitySettings,
+    importQualityProfile,
+    exportQualityProfile,
+    type QualityProfile,
     type Preferences,
   } from './client';
   import type { TimingSettings } from './magnetic-timing';
@@ -22,28 +28,62 @@
   } = $props();
   // Dialog-local draft. Cancel never alters current timing or persisted defaults.
   let draft = $state<Preferences>(
-    untrack(() => ({ ...preferences, timing: { ...timing } })),
+    untrack(() => ({
+      ...preferences,
+      timing: { ...timing },
+      quality: copyProfile(preferences.quality),
+    })),
   );
   let dialog: HTMLDialogElement;
   let busy = $state(false);
   let error = $state('');
   let notice = $state('');
-  onMount(() => dialog.showModal());
+  let ready = $state(false);
+  let epoch: number | null = null;
+  let builtins = $state<QualityProfile[]>([]);
+  let alive = true;
+  onMount(() => {
+    dialog.showModal();
+    void getQualitySettings()
+      .then((data) => {
+        if (!alive) return;
+        draft.quality = copyProfile(data.current.profile);
+        draft.timing = { ...data.current.timing };
+        builtins = data.builtins;
+        epoch = data.current.epoch;
+        ready = true;
+      })
+      .catch((e) => {
+        if (alive) error = String(e);
+      });
+    return () => {
+      alive = false;
+    };
+  });
+  function quality(profile: QualityProfile) {
+    draft.quality = profile;
+    draft.timing = profileTiming(profile, draft.timing);
+  }
+  function updateTiming(timing: TimingSettings) {
+    draft.quality = withTiming(draft.quality, timing);
+    draft.timing = timing;
+  }
   async function save() {
-    if (busy) return;
+    if (busy || !ready || epoch === null) return;
     busy = true;
     error = '';
     try {
-      await savePreferences(draft);
-      onapply(draft);
+      const accepted = $state.snapshot(draft);
+      await savePreferences(accepted, epoch);
+      if (alive) onapply(accepted);
     } catch (e) {
-      error = String(e);
+      if (alive) error = String(e);
     } finally {
-      busy = false;
+      if (alive) busy = false;
     }
   }
   async function preset(importing: boolean) {
-    if (busy) return;
+    if (busy || !ready) return;
     busy = true;
     error = '';
     notice = '';
@@ -52,10 +92,11 @@
         importing ? 'timingPreset' : 'saveTimingPreset',
         importing ? null : 'timing.vsfpreset',
       );
-      if (!path) return;
+      if (!path || !alive) return;
       if (importing) {
         const result = await importTimingPreset(path);
-        draft.timing = { ...result.preset.timing };
+        if (!alive) return;
+        updateTiming({ ...result.preset.timing });
         notice = `Imported ${result.preset.name}${result.warnings.length ? ' · ' + result.warnings.join(' · ') : ''}. Apply to use these values.`;
       } else {
         await exportTimingPreset(path, {
@@ -63,12 +104,38 @@
           name: 'Custom timing',
           timing: draft.timing,
         });
-        notice = 'Timing preset exported';
+        if (alive) notice = 'Timing preset exported';
       }
     } catch (e) {
-      error = String(e);
+      if (alive) error = String(e);
     } finally {
-      busy = false;
+      if (alive) busy = false;
+    }
+  }
+  async function qualityPreset(importing: boolean) {
+    if (busy || !ready) return;
+    busy = true;
+    error = '';
+    notice = '';
+    try {
+      const path = await chooseFile(
+        importing ? 'qualityPreset' : 'saveQualityPreset',
+        importing ? null : `${draft.quality.id}.vsfpreset`,
+      );
+      if (!path || !alive) return;
+      if (importing) {
+        const profile = await importQualityProfile(path);
+        if (!alive) return;
+        quality(copyProfile(profile));
+        notice = `Imported ${profile.name}. Review its rules and coverage, then Apply to use it.`;
+      } else {
+        await exportQualityProfile(path, $state.snapshot(draft.quality));
+        if (alive) notice = 'Quality profile exported';
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
     }
   }
 </script>
@@ -89,9 +156,12 @@
   >
     <h2 id="settings-title">Settings</h2>
     <div class="body">
+      {#if !ready && !error}<p role="status">
+          Loading current workspace rules…
+        </p>{/if}
       <section aria-labelledby="scenes-settings-title">
         <h3 id="scenes-settings-title">Scene changes</h3>
-        <fieldset disabled={busy}>
+        <fieldset disabled={busy || !ready}>
           <label
             ><input type="checkbox" bind:checked={draft.autoScanScenes} /> Scan when
             opening a video or project</label
@@ -114,25 +184,34 @@
           </p>
         </fieldset>
       </section>
+      {#if ready}
+        <QualitySettings
+          value={draft.quality}
+          {builtins}
+          disabled={busy}
+          onchange={quality}
+          onimport={() => void qualityPreset(true)}
+          onexport={() => void qualityPreset(false)}
+        />
+      {/if}
       <TimingSettingsPanel
         value={draft.timing}
-        disabled={busy}
-        onchange={(value) => {
-          draft.timing = value;
-        }}
+        disabled={busy || !ready}
+        onchange={updateTiming}
         onimport={() => void preset(true)}
         onexport={() => void preset(false)}
       />
       <p>
         Apply updates this workspace and saves defaults for future videos. A
-        project's saved timing settings take precedence when it opens.
+        project's saved quality profile and timing settings take precedence when
+        it opens.
       </p>
       {#if error}<p class="error" role="alert">{error}</p>{/if}
       {#if notice}<p role="status">{notice}</p>{/if}
     </div>
     <footer>
       <button type="button" disabled={busy} onclick={onclose}>Cancel</button>
-      <button type="submit" disabled={busy}
+      <button type="submit" disabled={busy || !ready}
         >{busy ? 'Saving…' : 'Apply settings'}</button
       >
     </footer>
@@ -141,7 +220,7 @@
 
 <style>
   dialog {
-    width: min(620px, calc(100vw - 32px));
+    width: min(760px, calc(100vw - 32px));
     max-height: calc(100dvh - 48px);
     overflow: hidden;
     border: 1px solid #49616f;

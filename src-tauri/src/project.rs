@@ -76,6 +76,8 @@ pub struct Options {
     pub show_scenes: bool,
     #[serde(default)]
     pub timing: crate::timing_preset::Settings,
+    #[serde(default)]
+    pub quality: Option<crate::quality_profile::Profile>,
 }
 #[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -93,6 +95,9 @@ pub struct Project {
 impl Project {
     fn validate(&self) -> Result<()> {
         self.options.timing.validate()?;
+        if let Some(profile) = &self.options.quality {
+            crate::quality_profile::Policy::new(profile.clone(), self.options.timing.clone())?;
+        }
         if self.version != 1 {
             return Err("Unsupported VSF project version".into());
         }
@@ -148,6 +153,12 @@ fn resolve(path: &Path, bytes: &[u8]) -> Result<Project> {
     let mut project: Project =
         serde_json::from_slice(bytes).map_err(|e| format!("Invalid project: {e}"))?;
     project.validate()?;
+    if project.options.quality.is_none() {
+        project.options.quality = Some(
+            crate::quality_profile::Policy::legacy(project.options.timing.clone(), "project")?
+                .profile,
+        );
+    }
     let base = path.parent().ok_or("Project has no parent directory")?;
     let media = absolute(base, &project.media_path)
         .canonicalize()
@@ -191,17 +202,36 @@ pub async fn project_open(app: tauri::AppHandle, path: String) -> Result<Opened>
 pub async fn project_attach(
     app: tauri::AppHandle,
     token: crate::ipc_number::SafeU64,
+    session: crate::ipc_number::SafeU64,
+    generation: crate::ipc_number::SafeU64,
+    revision: crate::ipc_number::SafeU64,
 ) -> Result<Attachment> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().attach(token.get()))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<crate::media::Media>()
+            .with_current(session.get(), |path| {
+                let path = path.canonicalize().map_err(|e| e.to_string())?;
+                app.state::<crate::document::Documents>()
+                    .attach_quality_project(
+                        &app.state::<Projects>(),
+                        token.get(),
+                        generation.get(),
+                        revision.get(),
+                        &path,
+                    )
+            })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 #[specta::specta]
 pub async fn project_detach(app: tauri::AppHandle) -> Result<()> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Projects>().detach())
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<crate::document::Documents>()
+            .detach_quality_project(&app.state::<Projects>())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -248,7 +278,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     let scenes = app
         .state::<crate::scenes::Scenes>()
         .saved(request.session, &identity)?;
-    let project = Project {
+    let mut project = Project {
         version: 1,
         media_path: portable(base, &media),
         subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
@@ -258,13 +288,23 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         scenes,
     };
 
-    if app.state::<crate::media::Media>().current_session() != request.session {
-        return Err("Media changed before project save".into());
-    }
-    app.state::<crate::document::Documents>()
-        .with_project_subtitle(subtitle.as_deref(), || {
-            app.state::<Projects>()
-                .save(&destination, request.token, &project)
+    // Keep media selection -> document -> project locked through publication,
+    // matching attach. A new media selection cannot reset the policy between
+    // capturing its snapshot and writing this project's references.
+    app.state::<crate::media::Media>()
+        .with_current(request.session, |selected| {
+            if selected.canonicalize().map_err(|e| e.to_string())? != media {
+                return Err("Project references differ from the selected media".into());
+            }
+            app.state::<crate::document::Documents>()
+                .with_project_subtitle(subtitle.as_deref(), |context| {
+                    // Only Rust's accepted effective rules may be persisted.
+                    // Ignore optional frontend profile and stale timing fields.
+                    project.options.quality = Some(context.profile.clone());
+                    project.options.timing = context.timing.clone();
+                    app.state::<Projects>()
+                        .save(&destination, request.token, &project)
+                })
         })
 }
 fn destination(path: &Path) -> Result<PathBuf> {
@@ -320,6 +360,7 @@ mod tests {
                 follow_subtitle: true,
                 show_scenes: false,
                 timing: crate::timing_preset::Settings::default(),
+                quality: None,
             },
             scenes: None,
         }

@@ -121,7 +121,6 @@ export class ProjectWorkflow {
       this.check(operation, session);
       this.workspace.restoreScenes(session, generation);
     }
-    this.workspace.restoreOptions(project.options);
     if (
       !(await this.media.command({
         kind: 'seek',
@@ -133,9 +132,14 @@ export class ProjectWorkflow {
     )
       return;
     this.check(operation, session);
-    const attached = await this.client.attachProject(project.token);
+    const attached = await this.client.attachProject(
+      project.token,
+      session,
+      this.document.snapshot,
+    );
     this.check(operation, session);
     this.attachment = attached;
+    this.workspace.restoreOptions(project.options);
     this.workspace.notify(
       project.scenes?.mode === 'keyframes'
         ? 'Project restored · playback paused · keyframe markers skipped; run a visual scan'

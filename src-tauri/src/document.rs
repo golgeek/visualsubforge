@@ -11,6 +11,7 @@ use subtitle_core::{CueId, Edit, Editor, Milliseconds};
 use subtitle_formats::srt;
 
 mod autosave;
+mod quality;
 mod resync;
 pub(crate) use resync::Capture;
 #[cfg(test)]
@@ -31,6 +32,7 @@ struct Store {
     loaded: Option<Loaded>,
     recovery_root: Option<PathBuf>,
     recovery_error: Option<String>,
+    quality: quality::State,
 }
 struct Loaded {
     editor: Editor,

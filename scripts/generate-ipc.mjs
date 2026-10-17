@@ -38,6 +38,7 @@ try {
   for (const [name, destination] of [
     ['ipc.ts', 'src/lib/generated/ipc.ts'],
     ['ipc-contract-samples.ts', 'tests/frontend/ipc-contract-samples.ts'],
+    ['quality-defaults.ts', 'src/lib/generated/quality-defaults.ts'],
   ]) {
     const path = join(root, destination);
     const text = await format(await readFile(join(temporary, name), 'utf8'), {

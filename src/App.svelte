@@ -662,6 +662,9 @@
     },
     mediaOpened: (path) => {
       mediaPath = path;
+      // Rust resets the policy on media replacement; keep the projection on
+      // defaults until project attachment accepts its saved policy.
+      timingSettings = { ...preferences.timing };
     },
     restoreOptions: (options) => {
       follow = options.followPlayback;
@@ -889,6 +892,7 @@
           await act({ kind: 'close' });
           mediaPath = '';
           await projects.detach();
+          timingSettings = { ...preferences.timing };
           restoredScenes = null;
           wave = null;
           waveGeneration = null;

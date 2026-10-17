@@ -1,7 +1,7 @@
 //! One command/event registry for desktop dispatch and generated JSON contracts.
 use crate::{
-    desktop, document, media, preferences, project, resync, scenes, timing_preset, waveform,
-    workflow_trace,
+    desktop, document, media, preferences, project, quality_profile, resync, scenes, timing_preset,
+    waveform, workflow_trace,
 };
 
 pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
@@ -15,6 +15,9 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             desktop::update_menu,
             preferences::preferences_get,
             preferences::preferences_save,
+            quality_profile::quality_settings,
+            quality_profile::quality_profile_open,
+            quality_profile::quality_profile_save,
             desktop::finish_exit,
             timing_preset::timing_preset_open,
             timing_preset::timing_preset_save,
@@ -98,4 +101,8 @@ fn export_bindings() {
         ));
     }
     std::fs::write(directory.join("ipc-contract-samples.ts"), sample).unwrap();
+    std::fs::write(directory.join("quality-defaults.ts"), format!(
+        "// Generated from Rust profiles; do not edit.\nimport type {{ QualityProfile }} from '../client';\nexport const builtinQualityProfiles = {} satisfies QualityProfile[];\n",
+        serde_json::to_string_pretty(&quality_profile::Profile::builtins()).unwrap(),
+    )).unwrap();
 }

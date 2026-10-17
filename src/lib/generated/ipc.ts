@@ -33,8 +33,23 @@ export const commands = {
     __TAURI_INVOKE<null>('update_menu', { state }),
   preferencesGet: () =>
     __TAURI_INVOKE<visualsubforge_preferences_Preferences>('preferences_get'),
-  preferencesSave: (preferences: visualsubforge_preferences_Preferences) =>
-    __TAURI_INVOKE<null>('preferences_save', { preferences }),
+  preferencesSave: (
+    preferences: visualsubforge_preferences_Preferences,
+    epoch: number,
+  ) => __TAURI_INVOKE<null>('preferences_save', { preferences, epoch }),
+  qualitySettings: () =>
+    __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
+      'quality_settings',
+    ),
+  qualityProfileOpen: (path: string) =>
+    __TAURI_INVOKE<vsf_application_quality_profile_Profile>(
+      'quality_profile_open',
+      { path },
+    ),
+  qualityProfileSave: (
+    path: string,
+    profile: vsf_application_quality_profile_Profile,
+  ) => __TAURI_INVOKE<null>('quality_profile_save', { path, profile }),
   finishExit: (generation: number, revision: number, discard: boolean) =>
     __TAURI_INVOKE<null>('finish_exit', { generation, revision, discard }),
   timingPresetOpen: (path: string) =>
@@ -51,10 +66,15 @@ export const commands = {
       'project_open',
       { path },
     ),
-  projectAttach: (token: number) =>
+  projectAttach: (
+    token: number,
+    session: number,
+    generation: number,
+    revision: number,
+  ) =>
     __TAURI_INVOKE<visualsubforge_project_store_Attachment_Serialize>(
       'project_attach',
-      { token },
+      { token, session, generation, revision },
     ),
   projectDetach: () => __TAURI_INVOKE<null>('project_detach'),
   projectSave: (request: visualsubforge_project_SaveRequest_Deserialize) =>
@@ -506,6 +526,22 @@ export type visualsubforge_media_AudioTrack = {
   audioOrdinal: number;
 };
 
+export type visualsubforge_quality_profile_Context =
+  | visualsubforge_quality_profile_Context_Serialize
+  | visualsubforge_quality_profile_Context_Deserialize;
+
+export type visualsubforge_quality_profile_Context_Deserialize = {
+  epoch: number;
+  profile: vsf_application_quality_profile_Profile;
+  timing: visualsubforge_timing_preset_Settings;
+};
+
+export type visualsubforge_quality_profile_Context_Serialize = {
+  epoch: number;
+  profile: vsf_application_quality_profile_Profile;
+  timing: visualsubforge_timing_preset_Settings;
+};
+
 export type visualsubforge_resync_view_CueRow = {
   id: string;
   text: string;
@@ -540,6 +576,12 @@ export type visualsubforge_document_CueView_Serialize = {
  */
 export type media_analysis_scenes_Detail = 'standard' | 'reduced';
 
+export type vsf_application_quality_profile_DurationRule = {
+  enabled: boolean;
+  minimumMs: number;
+  maximumMs: number;
+};
+
 export type visualsubforge_recovery_store_Entry =
   | visualsubforge_recovery_store_Entry_Serialize
   | visualsubforge_recovery_store_Entry_Deserialize;
@@ -567,7 +609,9 @@ export type visualsubforge_desktop_FileChoice =
   | 'project'
   | 'saveProject'
   | 'timingPreset'
-  | 'saveTimingPreset';
+  | 'saveTimingPreset'
+  | 'qualityPreset'
+  | 'saveQualityPreset';
 
 export type visualsubforge_timing_preset_Imported = {
   preset: visualsubforge_timing_preset_Preset;
@@ -603,6 +647,15 @@ export type visualsubforge_workflow_trace_InputEvent_Serialize = {
 };
 
 export type visualsubforge_workflow_trace_InputType = 'click' | 'keydown';
+
+export type vsf_application_quality_profile_Kind = 'quality';
+
+export type vsf_application_quality_profile_LineRule = {
+  enabled: boolean;
+  maximumLines: number;
+  singleLinePreferred: number;
+  maximumCharacters: number;
+};
 
 export type visualsubforge_project_MediaIdentity =
   | visualsubforge_project_MediaIdentity_Serialize
@@ -680,6 +733,7 @@ export type visualsubforge_project_Options_Deserialize = {
   followSubtitle: boolean;
   showScenes: boolean;
   timing?: visualsubforge_timing_preset_Settings;
+  quality?: vsf_application_quality_profile_Profile | null;
 };
 
 export type visualsubforge_project_Options_Serialize = {
@@ -689,6 +743,7 @@ export type visualsubforge_project_Options_Serialize = {
   followSubtitle: boolean;
   showScenes: boolean;
   timing: visualsubforge_timing_preset_Settings;
+  quality: vsf_application_quality_profile_Profile | null;
 };
 
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
@@ -708,12 +763,34 @@ export type visualsubforge_preferences_Preferences = {
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
+  quality: vsf_application_quality_profile_Profile;
+  showQualityMetrics: boolean;
 };
 
 export type visualsubforge_timing_preset_Preset = {
   version: number;
   name: string;
   timing: visualsubforge_timing_preset_Settings;
+};
+
+export type vsf_application_quality_profile_Profile = {
+  version: number;
+  kind: vsf_application_quality_profile_Kind;
+  id: string;
+  name: string;
+  revision: number;
+  publisher: string;
+  source: string;
+  language: string;
+  textAlgorithm: vsf_application_quality_profile_TextAlgorithm;
+  speedBasis: vsf_application_quality_profile_SpeedBasis;
+  timing: vsf_application_quality_profile_Timing;
+  rules: vsf_application_quality_profile_Rules;
+  /**
+   *  Unsupported source semantics. Nonempty means incomplete policy coverage,
+   *  independently of whether supported rules found any problems.
+   */
+  limitations: string[];
 };
 
 export type visualsubforge_project_Project =
@@ -752,6 +829,14 @@ export type visualsubforge_document_RecoveryStatus_Deserialize = {
 export type visualsubforge_document_RecoveryStatus_Serialize = {
   entries: visualsubforge_recovery_store_Entry_Serialize[];
   error: string | null;
+};
+
+export type vsf_application_quality_profile_Rules = {
+  duration: vsf_application_quality_profile_DurationRule;
+  speed: vsf_application_quality_profile_SpeedRule;
+  lines: vsf_application_quality_profile_LineRule;
+  gaps: boolean;
+  empty: boolean;
 };
 
 export type visualsubforge_project_SaveRequest =
@@ -853,6 +938,20 @@ export type visualsubforge_timing_preset_Settings = {
   snapDistancePx: number;
 };
 
+export type visualsubforge_quality_profile_SettingsData =
+  | visualsubforge_quality_profile_SettingsData_Serialize
+  | visualsubforge_quality_profile_SettingsData_Deserialize;
+
+export type visualsubforge_quality_profile_SettingsData_Deserialize = {
+  current: visualsubforge_quality_profile_Context_Deserialize;
+  builtins: vsf_application_quality_profile_Profile[];
+};
+
+export type visualsubforge_quality_profile_SettingsData_Serialize = {
+  current: visualsubforge_quality_profile_Context_Serialize;
+  builtins: vsf_application_quality_profile_Profile[];
+};
+
 export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Serialize
   | visualsubforge_document_Snapshot_Deserialize;
@@ -879,6 +978,17 @@ export type visualsubforge_document_Snapshot_Serialize = {
   canUndo: boolean;
   canRedo: boolean;
   cues: visualsubforge_document_CueView_Serialize[];
+};
+
+export type vsf_application_quality_profile_SpeedBasis =
+  'ordinary_v1' | 'vss_overlap_v1';
+
+export type vsf_application_quality_profile_SpeedRule = {
+  enabled: boolean;
+  minimumRs: number | null;
+  maximumRsExclusive: number | null;
+  minimumCps: number | null;
+  maximumCps: number | null;
 };
 
 export type visualsubforge_media_Status =
@@ -933,6 +1043,14 @@ export type visualsubforge_media_Status_Serialize = {
   subtitlePreviewError: string | null;
   previewDocumentGeneration: number | null;
   previewDocumentRevision: number | null;
+};
+
+export type vsf_application_quality_profile_TextAlgorithm = 'vss_utf16_v1';
+
+export type vsf_application_quality_profile_Timing = {
+  cueGapMs: number;
+  sceneBeforeMs: number;
+  sceneAfterMs: number;
 };
 
 export type visualsubforge_resync_view_View = {

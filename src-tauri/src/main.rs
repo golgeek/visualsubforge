@@ -48,6 +48,7 @@ mod native_surface;
 mod playback_bench;
 mod preferences;
 mod project;
+mod quality_profile;
 mod recovery_store;
 mod resync;
 mod save_lease;

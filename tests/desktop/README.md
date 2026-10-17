@@ -32,7 +32,12 @@ Save As before saving and reopening an exact-byte copy. It waits for a real
 recovery checkpoint, abruptly terminates its own app, modifies the saved file to
 simulate an external editor, then relaunches and uses the recovery UI. It verifies
 that the external edit survives a rejected save, saves recovery elsewhere and
-requests normal application shutdown.
+requests normal application shutdown. It also exercises quality profile selection,
+customization, cancelled/invalid imports, export/reimport and timing-only imports
+through the real Settings UI. An actual failed settings-file replacement preserves
+accepted rules; retry persists them, a stale dialog is rejected, and a second
+process restores the exact saved profile. All these operations must leave the
+loaded subtitle document and Undo history unchanged.
 
 Each run retains `test-results/desktop-*`: its inputs/outputs, isolated recovery
 data, per-process logs, receipt and screenshot (plus DOM on failure). The runner
@@ -84,6 +89,13 @@ The first Mac/Linux runs
 incorrectly expected ordinary recovery to prohibit any reuse of its unchanged
 source; the corrected scenario tests the actual external-edit conflict guarantee.
 Resync's stricter distinct-file rule is covered separately.
+
+The expanded quality Settings/restart workflow passes on macOS ARM64 on
+2026-10-17; this addition has not yet been executed on Windows/Linux. The pinned
+embedded driver uses JavaScript clicks, so select options require explicit DOM
+input/change events in this harness. This verifies the real component/IPC path,
+not physical keyboard or pointer delivery. Retained current evidence is copied
+under `tests/fixtures/generated/quality/profiles-desktop-final/`.
 
 The first Windows run reached the save-failure check, then failed because Rust's
 canonical path had the Windows extended-length prefix. The runner now normalizes

@@ -1,6 +1,9 @@
 # Current implementation and validation status
 
-Updated 2026-10-12 (America/New_York): the first CLI/GUI resync milestone is complete, including generated IPC, local three-OS automated validation and the Mac native workflow.
+Updated 2026-10-17 (America/New_York): inline ASS/SSA preview and transactional
+quality profile Settings/project snapshots are implemented; the full quality
+workflow remains in progress. The first CLI/GUI resync milestone was completed
+on October 12, including local three-OS checks and the Mac native workflow.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
@@ -9,14 +12,21 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 **Quality workflow in progress (2026-10-17):** shared pure Rust metrics/rules,
 strict version-2 data-only profiles, default/partial archived SW profiles, and
-`vsf check` now have tests. The desktop profile/settings/project owner, Problems
-UI, navigation and gap proposals remain pending. Inline ASS/SSA tag preservation
+`vsf check` now have tests. Desktop Settings supports profile selection,
+import/export, customization and transactional Apply; Rust owns the accepted
+policy and project snapshots. Problems UI, navigation and gap proposals remain
+pending. Inline ASS/SSA tag preservation
 and native preview are implemented, with exact millisecond demux and software
 composition checks; full ASS/SSA files/styles remain separate. See the
 [tag contract and validation limits](subtitle-tags.md). The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
 budgets; full-buffer benchmark memory failed and remains recorded. See the
 [quality contract and commands](subtitle-quality.md). This is an implementation
 increment, not milestone or native-platform acceptance.
+
+The profile increment passes 187 Rust tests, 39 frontend unit tests, all 34
+Chromium/WebKit workflows, strict Clippy/lint/type/IPC checks and a real Mac
+Settings/save/restart/recovery workflow. Its native media configuration compiles;
+new Windows/Linux profile UI execution and physical GPU checks remain unverified.
 
 **Mac preview regression fixed (2026-10-12):** the original signed candidates
 from 38205417832 are withdrawn. A synthetic video reproduced `CODESIGNING /

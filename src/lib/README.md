@@ -45,6 +45,19 @@ exercises these compiled Svelte owners with controlled replies, checking orderin
 rejection and disposal at each asynchronous boundary. These checks model IPC and
 do not establish native GPU/audio behavior.
 
+## Quality profile Settings
+
+Settings holds a deep, dialog-local draft of the accepted quality profile and
+timing settings fetched from Rust. Its captured policy epoch guards Apply;
+failed persistence and stale drafts cannot change accepted rules. Import changes
+only this draft, export writes it explicitly, and Cancel discards it. The pure
+`quality-profile.ts` helpers prepare custom drafts; they do not evaluate quality
+or own accepted state. Built-in values come from Rust-generated
+`generated/quality-defaults.ts`, avoiding a second handwritten rule definition.
+ProjectWorkflow restores timing/view projections after Rust accepts the staged
+project profile; the profile itself remains Rust-owned and is captured there on
+project save. See the [quality guide](../../docs/subtitle-quality.md).
+
 ## Generated IPC
 
 All commands, the workspace-action event and their JSON contracts are generated
@@ -56,7 +69,8 @@ owners keep using that facade. No protobuf or separate Rust service is involved.
 
 `npm run ipc:generate` invokes the explicit, ignored `ipc::export_bindings`
 exporter test, formats its output with pinned Prettier and writes
-`generated/ipc.ts`. Normal tests and application startup never rewrite bindings.
+`generated/ipc.ts` and built-in profile defaults. Normal tests and application
+startup never rewrite bindings.
 `npm run ipc:check` compares a temporary export with the checked-in files; the
 desktop CI matrix runs it. The exporter also serializes actual Rust presets,
 document/recovery snapshots, opened projects, scene/waveform views, preferences,

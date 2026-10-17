@@ -1,5 +1,6 @@
 import type { updateMenu } from '../../../src/lib/client';
-import { defaultPreferences } from '../../../src/lib/client';
+import { defaultPreferences, type Preferences } from '../../../src/lib/client';
+import { builtinQualityProfiles } from '../../../src/lib/generated/quality-defaults';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
 import App from '../../../src/App.svelte';
@@ -18,7 +19,8 @@ let doc = structuredClone(emptyDocument);
 let failOpen = false;
 let failSettings = false;
 let eventHandler = 0;
-let savedSettings: unknown = null;
+let savedSettings: Preferences | null = null;
+let settingsEpoch = 1;
 const edits: DocumentAction[] = [];
 const loops: [number, number][] = [];
 let exported: unknown = null;
@@ -32,6 +34,7 @@ const project: ProjectData = {
   mediaIdentity: { size: 10, modified: '1', sampleHash: 'abc' },
   positionSeconds: 3,
   options: {
+    quality: null,
     waveformStart: 0,
     waveformSpan: 10,
     followPlayback: false,
@@ -68,7 +71,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
         preset?: unknown;
-        preferences?: unknown;
+        preferences?: Preferences;
       },
     ) {
       calls.push(command);
@@ -78,9 +81,23 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'plugin:event|listen':
           eventHandler = args.handler!;
           return 1;
+        case 'quality_settings':
+          return {
+            current: {
+              epoch: settingsEpoch,
+              profile: structuredClone(
+                savedSettings?.quality ?? defaultPreferences.quality,
+              ),
+              timing: structuredClone(
+                savedSettings?.timing ?? project.options.timing,
+              ),
+            },
+            builtins: structuredClone(builtinQualityProfiles),
+          };
         case 'preferences_save':
           if (failSettings) throw new Error('Cannot save settings');
-          savedSettings = args.preferences;
+          savedSettings = args.preferences!;
+          settingsEpoch++;
           return;
         case 'plugin:event|unlisten':
           return;

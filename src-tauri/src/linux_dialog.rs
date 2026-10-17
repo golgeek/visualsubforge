@@ -118,8 +118,16 @@ async fn request_file(
         FileChoice::TimingPreset | FileChoice::SaveTimingPreset
     );
     let saving_preset = matches!(kind, FileChoice::SaveTimingPreset);
+    let quality = matches!(
+        kind,
+        FileChoice::QualityPreset | FileChoice::SaveQualityPreset
+    );
     let filter = || {
-        if preset {
+        if quality {
+            FileFilter::new("VSF quality profile")
+                .glob("*.vsfpreset")
+                .glob("*.json")
+        } else if preset {
             if saving_preset {
                 FileFilter::new("VSF timing preset").glob("*.vsfpreset")
             } else {
@@ -135,10 +143,15 @@ async fn request_file(
         }
     };
     let response = match kind {
-        FileChoice::SaveSubtitles | FileChoice::SaveProject | FileChoice::SaveTimingPreset => {
+        FileChoice::SaveSubtitles
+        | FileChoice::SaveProject
+        | FileChoice::SaveTimingPreset
+        | FileChoice::SaveQualityPreset => {
             SelectedFiles::save_file()
                 .identifier(identifier)
-                .title(if preset {
+                .title(if quality {
+                    "Export Quality Profile"
+                } else if preset {
                     "Export Timing Preset"
                 } else if project {
                     "Save VSF Project As"
@@ -159,11 +172,14 @@ async fn request_file(
         FileChoice::Media
         | FileChoice::Subtitles
         | FileChoice::Project
+        | FileChoice::QualityPreset
         | FileChoice::TimingPreset => {
             let subtitles = matches!(kind, FileChoice::Subtitles);
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
-                .title(if preset {
+                .title(if quality {
+                    "Import Quality Profile"
+                } else if preset {
                     "Import Timing Preset"
                 } else if project {
                     "Open VSF Project"
@@ -176,7 +192,7 @@ async fn request_file(
                 .multiple(false)
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?;
-            if subtitles || project || preset {
+            if subtitles || project || preset || quality {
                 request = request.filter(filter());
             }
             request.send().await

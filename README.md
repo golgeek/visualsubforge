@@ -28,8 +28,9 @@ The editor provides:
 - Experimental subtitle resynchronization through a headless CLI or Tools →
   Resynchronize Subtitles, with proposal review, one-step Undo and protected Save
   As. The desktop workflow uses the loaded target video and a selected source.
-- Persistent settings, portable timing presets and native menus. Settings drafts
-  are committed with Apply; project timing options can override workspace defaults.
+- Persistent settings, portable timing and quality profiles, and native menus.
+  Settings drafts are committed with Apply; projects retain their effective
+  quality rules and timing options independently of workspace defaults.
 
 Native Mac ANGLE/Metal, Windows D3D11 and Linux GTK playback remain opt-in
 experiments. The maintained mpv recipes have pinned sources and recorded build

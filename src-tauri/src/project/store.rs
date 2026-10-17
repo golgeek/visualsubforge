@@ -20,6 +20,8 @@ struct Baseline {
     token: u64,
     path: PathBuf,
     bytes: Vec<u8>,
+    policy: crate::quality_profile::Policy,
+    media_path: PathBuf,
 }
 #[derive(Serialize, specta::Type)]
 pub struct Attachment {
@@ -63,10 +65,34 @@ impl Projects {
         let bytes = read_bytes(&path)?;
         let project = resolve(&path, &bytes)?;
         let token = store.token()?;
-        store.pending = Some(Baseline { token, path, bytes });
+        let policy = match &project.options.quality {
+            Some(profile) => crate::quality_profile::Policy::new(
+                profile.clone(),
+                project.options.timing.clone(),
+            )?,
+            None => {
+                crate::quality_profile::Policy::legacy(project.options.timing.clone(), "project")?
+            }
+        };
+        store.pending = Some(Baseline {
+            token,
+            path,
+            bytes,
+            policy,
+            media_path: project.media_path.clone().into(),
+        });
         Ok(Opened { project, token })
     }
+    #[cfg(test)]
     pub fn attach(&self, token: u64) -> Result<Attachment> {
+        self.attach_with(token, None, |_| {})
+    }
+    pub(crate) fn attach_with(
+        &self,
+        token: u64,
+        media_path: Option<&Path>,
+        accept: impl FnOnce(&crate::quality_profile::Policy),
+    ) -> Result<Attachment> {
         let mut store = self.0.lock().map_err(|_| "Project state unavailable")?;
         if store
             .pending
@@ -75,7 +101,17 @@ impl Projects {
         {
             return Err("Project open was replaced; open the project again".into());
         }
+        if media_path.is_some_and(|path| {
+            store
+                .pending
+                .as_ref()
+                .is_none_or(|pending| pending.media_path != path)
+        }) {
+            return Err("Project media changed during restoration".into());
+        }
         let pending = store.pending.take().ok_or("Project open unavailable")?;
+        // Infallible assignment callback, with document -> project lock order.
+        accept(&pending.policy);
         let attachment = pending.attachment();
         store.active = Some(pending);
         Ok(attachment)
@@ -110,9 +146,24 @@ impl Projects {
         }
         // Selecting a different destination through Save As explicitly permits
         // replacing that file. The attached path always retains conflict checking.
+        let policy = match &project.options.quality {
+            Some(profile) => crate::quality_profile::Policy::new(
+                profile.clone(),
+                project.options.timing.clone(),
+            )?,
+            None => {
+                crate::quality_profile::Policy::legacy(project.options.timing.clone(), "project")?
+            }
+        };
         let token = store.token()?;
         crate::atomic_file::write(&path, &bytes)?;
-        let saved = Baseline { token, path, bytes };
+        let saved = Baseline {
+            token,
+            path,
+            bytes,
+            policy,
+            media_path: project.media_path.clone().into(),
+        };
         let attachment = saved.attachment();
         store.active = Some(saved);
         // A staged read must not replace the just-saved attachment later.

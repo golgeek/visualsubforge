@@ -339,7 +339,7 @@ const project: OpenedProject = {
   subtitlePath: '/one.srt',
   mediaIdentity: { size: 10, modified: '1', sampleHash: 'a' },
   positionSeconds: 12.5,
-  options: { ...options, timing: defaultTiming },
+  options: { ...options, timing: defaultTiming, quality: null },
   scenes: {
     version: 4,
     mode: 'visual',
@@ -457,7 +457,7 @@ async function projectCases() {
   await normal.workflow.open();
   assert(
     normal.events.join(',') ===
-      'chooser,read,protect,begin,media:open,media projection,subtitles,scenes,scene projection,options,media:seek,attach,notice',
+      'chooser,read,protect,begin,media:open,media projection,subtitles,scenes,scene projection,media:seek,attach,options,notice',
     'Project restore ordering changed',
   );
   assert(
@@ -494,6 +494,10 @@ async function projectCases() {
     assert(
       fixture.events.length === before && fixture.workflow.path === null,
       `Disposed ${stage} continued the restore`,
+    );
+    assert(
+      !fixture.events.includes('options'),
+      'Unattached project changed workspace settings',
     );
     passed(
       `disposing during project ${stage} suppresses subsequent work and attachment`,

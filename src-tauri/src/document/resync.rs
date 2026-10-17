@@ -55,7 +55,7 @@ impl Documents {
     pub(crate) fn with_project_subtitle<T>(
         &self,
         path: Option<&Path>,
-        publish: impl FnOnce() -> Result<T>,
+        publish: impl FnOnce(&crate::quality_profile::Context) -> Result<T>,
     ) -> Result<T> {
         let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
         if store.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
@@ -73,7 +73,7 @@ impl Documents {
                 "Subtitle path changed before project save; retry with the current document".into(),
             );
         }
-        publish()
+        publish(&store.quality.context())
     }
 }
 

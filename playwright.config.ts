@@ -8,6 +8,8 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: './tests/frontend',
   testMatch: '**/*.spec.ts',
+  // Keep browser cleanup from deleting retained real-desktop receipts.
+  outputDir: 'test-results/browser',
   workers: 1,
   retries: 0,
   forbidOnly: !!process.env.CI,

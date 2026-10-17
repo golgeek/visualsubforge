@@ -268,6 +268,8 @@ pub enum FileChoice {
     SaveProject,
     TimingPreset,
     SaveTimingPreset,
+    QualityPreset,
+    SaveQualityPreset,
 }
 #[tauri::command]
 #[specta::specta]
@@ -301,6 +303,14 @@ pub async fn choose_file(
             }
         }
         let picked = match kind {
+            FileChoice::QualityPreset => dialog
+                .set_title("Import Quality Profile")
+                .add_filter("VSF quality profile", &["vsfpreset", "json"])
+                .blocking_pick_file(),
+            FileChoice::SaveQualityPreset => dialog
+                .set_title("Export Quality Profile")
+                .add_filter("VSF quality profile", &["vsfpreset"])
+                .blocking_save_file(),
             FileChoice::TimingPreset => dialog
                 .set_title("Import Timing Preset")
                 .add_filter("Timing presets", &["vsfpreset", "json", "ini"])

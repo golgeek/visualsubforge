@@ -1,8 +1,8 @@
 # Subtitle quality
 
 Implementation in progress (2026-10-17). This contract describes Task 011;
-the shared checker and CLI are implemented; desktop controls and gap acceptance
-are not implemented yet. Checking is
+the shared checker, CLI and desktop profile Settings are implemented. Live cue
+metrics, Problems review and gap acceptance are still in progress. Checking is
 read-only and never makes a subtitle document unsavable.
 
 ## Metrics and source evidence
@@ -63,6 +63,29 @@ speed and explicitly lacks full duration exemptions, scene/filter/sticky/sequenc
 typography/case/dialogue/tag and linguistic line rules. Its coverage stays partial
 even when implemented checks find nothing. No SW1 is synthesized. Built-ins are
 immutable identities; customization produces a separate named profile.
+
+Settings → Subtitle quality selects a built-in or imports a version-2 profile.
+Its unsupported rules and source/counting policy remain visible. **Customize a
+copy** assigns a new identity and enables rule editing. Export writes the complete
+draft, including provenance and limitations, without applying it. A blank speed
+bound disables that bound; the rule switches are separate.
+
+Profile selection also changes the three shared cue/scene timing thresholds.
+Changing those thresholds or importing a version-1 timing preset makes a custom
+profile while preserving every quality rule and coverage limitation. Interaction
+options such as snapping stay in the timing settings. Apply validates this pair,
+atomically saves defaults, and then accepts the current workspace policy. Cancel,
+invalid imports and failed writes preserve accepted rules and subtitle history.
+A draft opened before the workspace policy changes cannot overwrite the newer
+policy; reopen Settings to edit it.
+
+Projects save Rust's accepted effective profile snapshot, including its source,
+revision and limitations. Restoring one applies that snapshot only after its media
+and document restoration succeeds; it never rewrites global defaults. New media
+and project detachment restore defaults. Old settings and projects without quality
+rules use the VSF default rules with their existing timing values; reading them
+does not rewrite their files. Different legacy thresholds get an explicitly named
+custom profile, not an inferred historical broadcaster norm.
 
 Overlaps are half-open intervals: touching is allowed when minimum gap is zero.
 Chronological neighbors supply gap metrics. A sweep additionally identifies

@@ -41,6 +41,7 @@ for (const name of [
   'waveform-selection',
   'workspace-lifecycle',
   'resync',
+  'quality-settings',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

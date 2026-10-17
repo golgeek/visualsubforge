@@ -150,6 +150,7 @@ export const openedProject = {
   options: {
     followPlayback: true,
     followSubtitle: false,
+    quality: null,
     showScenes: true,
     timing: {
       cueGapMs: 80,
@@ -302,7 +303,49 @@ export const mediaStatus = {
 } satisfies MediaStatus;
 export const preferences = {
   autoScanScenes: true,
+  quality: {
+    id: 'vsf-default',
+    kind: 'quality',
+    language: 'und',
+    limitations: [],
+    name: 'VSF authoring defaults',
+    publisher: 'VisualSubForge',
+    revision: 1,
+    rules: {
+      duration: {
+        enabled: true,
+        maximumMs: 7000,
+        minimumMs: 800,
+      },
+      empty: true,
+      gaps: true,
+      lines: {
+        enabled: true,
+        maximumCharacters: 42,
+        maximumLines: 2,
+        singleLinePreferred: 40,
+      },
+      speed: {
+        enabled: true,
+        maximumCps: 20,
+        maximumRsExclusive: 35,
+        minimumCps: null,
+        minimumRs: 5,
+      },
+    },
+    source:
+      'VSF quality contract v1; authoring aid, not a broadcaster standard',
+    speedBasis: 'ordinary_v1',
+    textAlgorithm: 'vss_utf16_v1',
+    timing: {
+      cueGapMs: 80,
+      sceneAfterMs: 130,
+      sceneBeforeMs: 130,
+    },
+    version: 2,
+  },
   sceneDetail: 'standard',
+  showQualityMetrics: false,
   timing: {
     cueGapMs: 80,
     enabled: false,

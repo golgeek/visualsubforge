@@ -44,6 +44,7 @@ const project: ProjectData = {
   mediaIdentity: { size: 10, modified: '1', sampleHash: 'abc' },
   positionSeconds: 12.5,
   options: {
+    quality: null,
     waveformStart: 10,
     waveformSpan: 20,
     followPlayback: false,
@@ -302,7 +303,13 @@ async function run() {
       'Save uses attached path, Rust token and current workspace',
     );
     assert(
-      JSON.stringify(saved.options) === JSON.stringify(project.options),
+      Object.entries(project.options)
+        .filter(([key]) => key !== 'quality')
+        .every(
+          ([key, value]) =>
+            JSON.stringify((saved.options as Record<string, unknown>)[key]) ===
+            JSON.stringify(value),
+        ) && !('quality' in (saved.options as Record<string, unknown>)),
       'Waveform and follow options roundtrip',
     );
     projectSaveError =

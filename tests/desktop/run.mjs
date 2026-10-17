@@ -17,6 +17,7 @@ import { join, resolve, toNamespacedPath } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
+import { qualitySettings } from './quality.mjs';
 
 const { values } = parseArgs({ options: { binary: { type: 'string' } } });
 const binary = resolve(
@@ -36,6 +37,24 @@ const invalid = join(root, 'missing-parent', 'copy.srt');
 const original =
   '\uFEFF7\r\n00:00:01,000 --> 00:00:02,000\r\n<i>世界</i>\r\n\r\n9\r\n00:00:02,120 --> 00:00:03,000\r\nSecond\r\n\r\n';
 await writeFile(source, original, { flag: 'wx' });
+await writeFile(join(root, 'invalid.vsfpreset'), '{invalid', { flag: 'wx' });
+await writeFile(
+  join(root, 'timing.vsfpreset'),
+  JSON.stringify({
+    version: 1,
+    name: 'Timing only',
+    timing: {
+      enabled: true,
+      snapCues: true,
+      snapScenes: true,
+      cueGapMs: 167,
+      sceneBeforeMs: 120,
+      sceneAfterMs: 120,
+      snapDistancePx: 8,
+    },
+  }),
+  { flag: 'wx' },
+);
 const receipt = {
   binary,
   platform: process.platform,
@@ -230,6 +249,11 @@ async function terminate() {
 try {
   await launch([
     { kind: 'subtitles', path: source },
+    { kind: 'qualityPreset', path: null },
+    { kind: 'qualityPreset', path: join(root, 'invalid.vsfpreset') },
+    { kind: 'saveQualityPreset', path: join(root, 'exported.vsfpreset') },
+    { kind: 'qualityPreset', path: join(root, 'exported.vsfpreset') },
+    { kind: 'timingPreset', path: join(root, 'timing.vsfpreset') },
     { kind: 'saveSubtitles', path: null },
     { kind: 'saveSubtitles', path: invalid },
     { kind: 'saveSubtitles', path: copy },
@@ -241,6 +265,16 @@ try {
     (doc) => doc.loaded && doc.cues.length === 2,
   );
   assert.equal(opened.cues[0].text, '<i>世界</i>');
+  const persistedQuality = await qualitySettings({
+    browser,
+    menu,
+    invoke,
+    status,
+    until,
+    root,
+    evidence,
+    record,
+  });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);
   assert.deepEqual(
@@ -335,6 +369,13 @@ try {
     { kind: 'saveSubtitles', path: recoveredCopy },
   ]);
   const recover = await browser.$('button=Recover');
+  assert.deepEqual(
+    (await invoke('quality_settings')).current.profile,
+    persistedQuality,
+  );
+  await record({
+    step: 'quality profile restored after actual process restart',
+  });
   await until('recoverable checkpoint', () => recover.isEnabled());
   await recover.click();
   await documentIs(

@@ -2,6 +2,7 @@ import { commands, events } from './generated/ipc';
 import type * as IPC from './generated/ipc';
 import { isTauri } from '@tauri-apps/api/core';
 import { defaultTiming } from './magnetic-timing';
+import { builtinQualityProfiles } from './generated/quality-defaults';
 
 export type DocumentAction = IPC.visualsubforge_document_Action_Deserialize;
 export type DocumentSnapshot = IPC.visualsubforge_document_Snapshot_Serialize;
@@ -28,6 +29,10 @@ export type ProjectAttachment =
 export type SaveProjectRequest =
   IPC.visualsubforge_project_SaveRequest_Deserialize;
 export type Preferences = IPC.visualsubforge_preferences_Preferences;
+export type QualityProfile = IPC.vsf_application_quality_profile_Profile;
+export type QualitySettingsData = Awaited<
+  ReturnType<typeof commands.qualitySettings>
+>;
 export type SceneDetail = IPC.media_analysis_scenes_Detail;
 type ImportedTimingPreset = IPC.visualsubforge_timing_preset_Imported;
 type TraceInput = IPC.visualsubforge_workflow_trace_InputEvent_Deserialize;
@@ -238,8 +243,17 @@ export function scenesView(
 export function openProject(path: string): Promise<OpenedProject> {
   return commands.projectOpen(path);
 }
-export function attachProject(token: number): Promise<ProjectAttachment> {
-  return commands.projectAttach(token);
+export function attachProject(
+  token: number,
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+): Promise<ProjectAttachment> {
+  return commands.projectAttach(
+    token,
+    session,
+    document.generation,
+    document.revision,
+  );
 }
 export async function detachProject(): Promise<void> {
   await commands.projectDetach();
@@ -274,10 +288,27 @@ export const defaultPreferences: Preferences = {
   autoScanScenes: true,
   sceneDetail: 'standard',
   timing: defaultTiming,
+  quality: builtinQualityProfiles[0]!,
+  showQualityMetrics: false,
 };
 export function getPreferences(): Promise<Preferences> {
   return commands.preferencesGet();
 }
-export async function savePreferences(preferences: Preferences): Promise<void> {
-  await commands.preferencesSave(preferences);
+export async function savePreferences(
+  preferences: Preferences,
+  epoch: number,
+): Promise<void> {
+  await commands.preferencesSave(preferences, epoch);
+}
+export function getQualitySettings(): Promise<QualitySettingsData> {
+  return commands.qualitySettings();
+}
+export function importQualityProfile(path: string): Promise<QualityProfile> {
+  return commands.qualityProfileOpen(path);
+}
+export async function exportQualityProfile(
+  path: string,
+  profile: QualityProfile,
+): Promise<void> {
+  await commands.qualityProfileSave(path, profile);
 }
