@@ -46,6 +46,25 @@ export const commands = {
       request,
     }),
   qualityCancel: (id: number) => __TAURI_INVOKE<null>('quality_cancel', { id }),
+  statisticsStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    selection: vsf_application_quality_statistics_Selection,
+  ) =>
+    __TAURI_INVOKE<number>('statistics_start', {
+      session,
+      generation,
+      revision,
+      selection,
+    }),
+  statisticsView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_statistics_StatisticsView>(
+      'statistics_view',
+      { id, offset, limit },
+    ),
+  statisticsCancel: (id: number) =>
+    __TAURI_INVOKE<null>('statistics_cancel', { id }),
   gapStart: (session: number, generation: number, revision: number) =>
     __TAURI_INVOKE<number>('gap_start', { session, generation, revision }),
   gapView: (id: number, offset: number, limit: number) =>
@@ -610,6 +629,13 @@ export type visualsubforge_document_Action_Serialize =
       text?: never;
     });
 
+export type vsf_application_quality_statistics_Aggregate = {
+  count: number;
+  minimum: vsf_application_quality_statistics_Extreme | null;
+  maximum: vsf_application_quality_statistics_Extreme | null;
+  mean: number | null;
+};
+
 export type visualsubforge_project_store_Attachment =
   | visualsubforge_project_store_Attachment_Serialize
   | visualsubforge_project_store_Attachment_Deserialize;
@@ -762,6 +788,13 @@ export type visualsubforge_recovery_store_Entry_Serialize = {
   capturedMs: number | null;
   revision: number | null;
   error: string | null;
+};
+
+export type vsf_application_quality_statistics_Extreme = {
+  value: number | null;
+  cueId: string;
+  cueIndex: number;
+  relatedCueId: string | null;
 };
 
 export type visualsubforge_desktop_FileChoice =
@@ -1009,6 +1042,15 @@ export type visualsubforge_resync_view_Phase =
   | 'cancelled'
   | 'failed';
 
+export type visualsubforge_statistics_Phase =
+  | 'preparing'
+  | 'ready'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
 export type visualsubforge_text_review_Phase =
   | 'preparing'
   | 'reviewing'
@@ -1078,6 +1120,11 @@ export type visualsubforge_project_Project_Serialize = {
   scenes: visualsubforge_scenes_Saved_Serialize | null;
 };
 
+export type vsf_application_quality_statistics_Range = {
+  first: number;
+  last: number;
+};
+
 export type vsf_application_quality_metrics_Rate =
   | { status: 'finite'; value: number | null }
   | {
@@ -1095,6 +1142,12 @@ export type vsf_application_quality_metrics_Rating =
   | 'a_bit_fast'
   | 'fast_acceptable'
   | 'too_fast';
+
+export type vsf_application_quality_statistics_RatingCount = {
+  rating: vsf_application_quality_metrics_Rating;
+  count: number;
+  percentage: number | null;
+};
 
 export type visualsubforge_document_RecoveryStatus =
   | visualsubforge_document_RecoveryStatus_Serialize
@@ -1175,6 +1228,11 @@ export type vsf_application_quality_check_Rule =
   | 'gap'
   | 'scene_start'
   | 'scene_end';
+
+export type vsf_application_quality_statistics_RuleCount = {
+  rule: vsf_application_quality_check_Rule;
+  count: number;
+};
 
 export type vsf_application_quality_profile_Rules = {
   duration: vsf_application_quality_profile_DurationRule;
@@ -1294,6 +1352,11 @@ export type visualsubforge_resync_view_SectionRow = {
   maxResidualUs: number;
 };
 
+export type vsf_application_quality_statistics_Selection = {
+  range: vsf_application_quality_statistics_Range | null;
+  excluded: number[];
+};
+
 export type visualsubforge_timing_preset_Settings = {
   enabled: boolean;
   snapCues: boolean;
@@ -1384,6 +1447,17 @@ export type vsf_application_quality_profile_SpeedRule = {
   maximumCps: number | null;
 };
 
+export type visualsubforge_statistics_StatisticsView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_statistics_Phase;
+  error: string | null;
+  summary: vsf_application_quality_statistics_Summary | null;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+};
+
 export type visualsubforge_media_Status =
   | visualsubforge_media_Status_Serialize
   | visualsubforge_media_Status_Deserialize;
@@ -1438,6 +1512,42 @@ export type visualsubforge_media_Status_Serialize = {
   previewDocumentRevision: number | null;
 };
 
+export type vsf_application_quality_statistics_Summary = {
+  schemaVersion: number;
+  selection: vsf_application_quality_statistics_Selection;
+  profile: vsf_application_quality_profile_Profile;
+  profileHash: string;
+  complete: boolean;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  totalCues: number;
+  scopeCues: number;
+  outsideScopeCues: number;
+  excludedCues: number;
+  includedCues: number;
+  emptyTextCues: number;
+  durationMs: vsf_application_quality_statistics_Aggregate;
+  cps: vsf_application_quality_statistics_Aggregate;
+  rs: vsf_application_quality_statistics_Aggregate;
+  unavailableCps: vsf_application_quality_statistics_UnavailableCounts;
+  unavailableRs: vsf_application_quality_statistics_UnavailableCounts;
+  ratings: vsf_application_quality_statistics_RatingCount[];
+  lineCount: vsf_application_quality_statistics_Aggregate;
+  longestLine: vsf_application_quality_statistics_Aggregate;
+  gapsMs: vsf_application_quality_statistics_Aggregate;
+  excludedNeighborPairs: number;
+  negativeGaps: number;
+  touchingGaps: number;
+  positiveGaps: number;
+  /**  Exact integer <= 100000*99999/2, safely represented by JSON numbers. */
+  overlappingPairs: number | null;
+  overlappingCues: number;
+  findingsCount: number;
+  affectedCues: number;
+  violations: number;
+  advisories: number;
+  rules: vsf_application_quality_statistics_RuleCount[];
+};
+
 export type visualsubforge_text_review_Target = {
   cueIndex: number;
   matchIndex: number;
@@ -1470,6 +1580,13 @@ export type vsf_application_quality_profile_Timing = {
 
 export type vsf_application_quality_metrics_Unavailable =
   'empty_text' | 'invalid_duration' | 'reading_allowance';
+
+export type vsf_application_quality_statistics_UnavailableCounts = {
+  total: number;
+  emptyText: number;
+  invalidDuration: number;
+  readingAllowance: number;
+};
 
 export type visualsubforge_quality_check_View = {
   key: visualsubforge_quality_check_Key;

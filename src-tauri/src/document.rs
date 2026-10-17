@@ -12,6 +12,9 @@ use subtitle_formats::srt;
 
 mod autosave;
 mod checks;
+mod statistics;
+#[cfg(test)]
+pub(crate) use statistics::ipc_sample as statistics_ipc_sample;
 mod gaps;
 mod texts;
 mod timing_repairs;
@@ -48,6 +51,7 @@ struct Store {
     recovery_error: Option<String>,
     quality: quality::State,
     checks: checks::Checks,
+    statistics: statistics::State,
     gaps: gaps::State,
     timing_repairs: timing_repairs::State,
     texts: texts::State,

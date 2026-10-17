@@ -150,8 +150,9 @@ beside the automatic checker, with no queue and a ten-second deadline. Closing
 the dialog cancels it; application shutdown joins both workers outside the
 document lock. Full proposals/reports stay in Rust; review IPC caps at 200 rows.
 Text review and shared scene/duration review each have another independently
-bounded owner; there are at most four CPU workers across checking and explicit
-gap, text and timing reviews.
+bounded owner. Explicit [statistics](statistics.md) uses another bounded owner,
+bringing the total to five CPU workers across checking, gap, text, timing review
+and statistics. Statistics shares metric policy and never changes accepted cues.
 
 The shared proposal keeps every cue start fixed and only
 shortens an earlier cue's end to next-start minus the effective minimum gap.

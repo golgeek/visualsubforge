@@ -28,6 +28,30 @@ export type DurationRepairView = Awaited<
   ReturnType<typeof commands.durationRepairView>
 >;
 
+export type StatisticsView = Awaited<
+  ReturnType<typeof commands.statisticsView>
+>;
+export type StatisticsSelection = Parameters<
+  typeof commands.statisticsStart
+>[3];
+export type StatisticsSummary = NonNullable<StatisticsView['summary']>;
+export const statisticsStart = (
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  selection: StatisticsSelection,
+) =>
+  commands.statisticsStart(
+    session,
+    document.generation,
+    document.revision,
+    selection,
+  );
+export const statisticsView = (id: number, offset = 0, limit = 100) =>
+  commands.statisticsView(id, offset, limit);
+export async function statisticsCancel(id: number): Promise<void> {
+  await commands.statisticsCancel(id);
+}
+
 export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];

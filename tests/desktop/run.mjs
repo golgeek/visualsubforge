@@ -25,6 +25,7 @@ import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
 import { sceneQuality } from './scene-quality.mjs';
 import { durationQuality } from './duration-quality.mjs';
+import { statisticsWorkflow } from './statistics.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -33,6 +34,7 @@ const { values } = parseArgs({
     performance: { type: 'boolean', default: false },
     scenes: { type: 'boolean', default: false },
     duration: { type: 'boolean', default: false },
+    statistics: { type: 'boolean', default: false },
   },
 });
 const cli = resolve(
@@ -87,7 +89,7 @@ let exit;
 let launchCount = 0;
 const runDeadline =
   Date.now() +
-  (values.scenes || values.duration
+  (values.scenes || values.duration || values.statistics
     ? 480_000
     : values.performance
       ? 300_000
@@ -422,6 +424,13 @@ try {
           { kind: 'project', path: join(root, 'scene-large.vsfproject') },
         ]
       : []),
+    ...(values.statistics
+      ? [
+          { kind: 'subtitles', path: join(root, 'statistics-small.srt') },
+          { kind: 'project', path: join(root, 'statistics-small.vsfproject') },
+          { kind: 'project', path: join(root, 'statistics-large.vsfproject') },
+        ]
+      : []),
     ...(values.duration
       ? [
           { kind: 'project', path: join(root, 'duration-small.vsfproject') },
@@ -496,6 +505,18 @@ try {
       record,
     });
   }
+  if (values.statistics)
+    await statisticsWorkflow({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      cli,
+    });
   if (values.duration)
     await durationQuality({
       browser,

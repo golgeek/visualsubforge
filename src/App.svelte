@@ -2,6 +2,7 @@
   import SettingsDialog from './lib/SettingsDialog.svelte';
   import ResyncDialog from './lib/ResyncDialog.svelte';
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
+  import StatisticsDialog from './lib/StatisticsDialog.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
@@ -399,6 +400,8 @@
     ...defaultPreferences,
     timing: { ...defaultTiming },
   });
+  let statisticsOpen = $state(false);
+  let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
   let timingOpen = $state(false);
@@ -467,6 +470,57 @@
       if (alive) error = String(e);
     } finally {
       if (alive) confirming = false;
+    }
+  }
+  async function openStatistics() {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.loaded ||
+      cueMenu ||
+      waveformGesture
+    )
+      return;
+    busy = true;
+    error = '';
+    statisticsReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        statisticsOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeStatistics(id?: string) {
+    const version = `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`;
+    statisticsOpen = false;
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (statisticsReturn?.isConnected) statisticsReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
+    }
+    if (
+      alive &&
+      id &&
+      version ===
+        `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`
+    ) {
+      problemsOpen = true;
+      requestProblem(id);
     }
   }
   async function openTimingReview(kind: 'gap' | 'scene' | 'duration') {
@@ -1984,6 +2038,10 @@
         >
 
         <button
+          disabled={busy || confirming || !doc.loaded}
+          onclick={() => void openStatistics()}>Statistics…</button
+        >
+        <button
           aria-expanded={problemsOpen}
           onclick={() => {
             problemsOpen = !problemsOpen;
@@ -2375,6 +2433,15 @@
       target={mediaPath}
       onclose={() => void closeResync()}
       onaccepted={() => void closeResync(true)}
+    />
+  {/if}
+  {#if statisticsOpen}
+    <StatisticsDialog
+      {subtitles}
+      mediaSession={() => status.session}
+      context={() => `${qualityContext}/${sceneState.qualityKey}`}
+      onclose={() => void closeStatistics()}
+      onnavigate={(id) => void closeStatistics(id)}
     />
   {/if}
   {#if timingOpen}

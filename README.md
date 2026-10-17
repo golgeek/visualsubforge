@@ -41,6 +41,9 @@ The editor provides:
 - Duration and reading-speed previews repair a selected cue or whole document by
   moving only cue ends. Whole-document validation and explicit skips protect
   timing constraints; each accepted batch uses one Undo/Redo operation.
+- Read-only document/range statistics summarize shared quality metrics, finite
+  reading-speed categories, gaps and overlaps, with explicit exclusions and
+  protected outlier navigation. `vsf stats` exposes the same report as JSON.
 - Tag-aware Find/Replace, selection formatting and previewable line joining/reflow
   preserve subtitle markup. Reviewed text batches use one Undo/Redo operation.
 
@@ -77,6 +80,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   coverage, safe timing previews and measured desktop responsiveness.
 - [Duration and speed repairs](docs/duration-repairs.md): selected/all review,
   exact endpoint policy, conservative skips and validation evidence.
+- [Document statistics](docs/statistics.md): scope, counting, denominators,
+  desktop/CLI parity and measured responsiveness.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT parsing/serialization without filesystem access. `vsf-application`

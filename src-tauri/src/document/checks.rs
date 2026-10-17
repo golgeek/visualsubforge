@@ -185,6 +185,7 @@ impl Store {
     pub(super) fn invalidate_checks(&mut self) {
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
+            self.statistics.invalidate(key);
             self.gaps.invalidate(key);
             self.timing_repairs.invalidate(key);
             self.texts.invalidate(key);
@@ -311,6 +312,7 @@ impl Documents {
             store.checks.worker.take()
         };
         drop(worker); // joins outside the document lock
+        self.shutdown_statistics()?;
         self.shutdown_gaps()?;
         self.shutdown_timing_repairs()?;
         self.shutdown_texts()

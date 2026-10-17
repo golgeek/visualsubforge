@@ -227,3 +227,25 @@ webview/IPC measurements with Homebrew mpv/OpenGL, not release CPU benchmarks or
 physical input/GPU/audio acceptance. See the
 [duration contract](../../docs/duration-repairs.md) for the separate release
 benchmark and conservative repair policy. Windows/Linux execution remains open.
+
+## Document statistics workflow
+
+Use the same `desktop-e2e,media-prototype` build and run
+`npm run test:desktop -- --statistics`. It can also accompany `--scenes` and
+`--duration`. The normal Settings/text/history/save/recovery workflow runs first.
+Statistics compares actual desktop and CLI reports for whole-document, inclusive
+range/exclusions and all-excluded scopes on a BOM/CRLF tagged Unicode fixture.
+It verifies unchanged source/history, draft preservation, protected navigation
+Cancel/Discard/Apply, invalid ranges, profile changes, media replacement and
+actual FFmpeg rescanning. Only an explicit draft Apply may edit subtitles.
+
+The 10,000-cue/10,000-cut fixture checks finite/unavailable populations, scoped
+exclusions, 200-row IPC caps, 100-row UI pages, cancellation, typing, stale document
+rejection, exact Undo and outlier navigation. The Mac run on 2026-10-17 passes:
+449 ms report display, 4 ms generated draft interaction, 1 ms cancellation,
+12 ms invalidation and 125 ms navigation, within the predeclared one-second
+interaction budget. Screenshots, CLI parity, performance JSON and the ordinary
+receipt are retained in `tests/fixtures/generated/statistics/desktop-final/`.
+This uses Homebrew mpv/OpenGL and generated WebView events; it does not establish
+physical input, GPU/audio, native-dialog or Windows/Linux acceptance. See the
+[statistics contract](../../docs/statistics.md) for separate release measurements.

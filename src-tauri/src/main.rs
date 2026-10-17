@@ -56,6 +56,7 @@ mod resync;
 mod save_lease;
 mod scenes;
 mod srt_limits;
+mod statistics;
 #[cfg(any(
     test,
     all(

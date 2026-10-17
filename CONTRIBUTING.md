@@ -107,6 +107,10 @@ The optional `npm run test:desktop -- --scenes` needs a build with both
 review, acceptance and 10,000-cue interaction; see the desktop lane's instructions.
 Add `--duration` to exercise selected/all duration-speed repairs, exact saves,
 history and 10,000 mixed extensions/trims. The two options can run together.
+Add `--statistics` for read-only whole/range reports, executable CLI parity,
+protected outlier navigation and 10,000-cue statistics. It uses the same native
+test build and can run alone or with the other extensions. See the
+[statistics guide](docs/statistics.md) for its separate release CPU/RSS benchmark.
 The [duration guide](docs/duration-repairs.md) also records the release CPU/RSS
 benchmark and unchanged acceptance budgets.
 The optional `npm run test:desktop -- --performance` extends that lane with the

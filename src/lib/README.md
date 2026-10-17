@@ -172,6 +172,26 @@ document lock. The existing `Edit::Retime` supplies one atomic Undo/Redo entry.
 See the [scene contract](../../docs/scene-quality.md) and
 [duration policy](../../docs/duration-repairs.md) for skips and coverage.
 
+## Document statistics
+
+`StatisticsDialog` starts a read-only report without resolving or modifying a cue
+draft. `StatisticsSession` captures the accepted revision, media/context and scope;
+one in-flight poll projects the summary and 100-row outlier pages. Draft typing
+leaves the report valid, while document/profile/media/scenes or scope changes
+hide old results. Reactive capture and request epochs reject late responses;
+closing also cancels a late worker admission. App restores native occlusion/focus
+before routing a cue link through existing Problems Apply/Discard/Cancel navigation.
+
+The typed client calls three thin worker-dispatched commands. Rust's dedicated
+statistics owner clones accepted inputs under media → scenes → document ordering,
+then evaluates shared quality metrics and aggregates outside locks. It retains
+only summary/findings, with one worker, no queue and a ten-second deadline. Reads
+validate captured keys; shutdown joins outside the document lock. This fifth
+bounded CPU service avoids interrupting automatic checks or repair reviews.
+The CLI calls the same pure report engine. There is no statistics acceptance or
+second document/history owner. See [statistics](../../docs/statistics.md) for
+denominators, boundaries and validation.
+
 ## Text tools
 
 `TextDialog` resolves a cue draft before `TextSession` captures its accepted

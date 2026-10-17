@@ -1,6 +1,7 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): duration/reading-speed repairs, scene-aware
+Updated 2026-10-17 (America/New_York): document statistics,
+duration/reading-speed repairs, scene-aware
 quality and timing repair,
 tag-aware text editing and the first subtitle-quality milestone are complete,
 including protected Find/Replace,
@@ -12,6 +13,26 @@ evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
+
+**Statistics milestone complete (2026-10-17):** read-only whole-document or
+inclusive cue-range reports share Rust quality metrics and the active profile
+with `vsf stats`. Counts/denominators, exclusions and unavailable rates are
+explicit. Duration/CPS/RS and line/gap summaries, nine RS categories, all-pair
+overlaps and paged outliers preserve accepted state, tags and drafts. Cue links
+use existing draft protection. One bounded worker rejects stale document/profile/
+media/scene results without interrupting checker or repair jobs.
+
+Validation passes 271 ordinary Rust tests, 39 frontend unit tests, 46 browser
+cases, strict Clippy/lint/type/format/IPC checks and the default desktop build.
+The actual Mac workflow verifies three-scope CLI parity, draft guards, source/
+history preservation, profile/media/rescan invalidation and recovery regression.
+At 10,000 cues/cuts, display takes 449 ms, draft interaction 4 ms, cancellation
+1 ms, invalidation 12 ms and navigation 125 ms. Release document/range p95 is
+11.003/9.675 ms with 21,676,032 additional sampled RSS bytes. The initial RSS
+failure is retained; bounded allocation fixes it without changing the budgets.
+See [statistics](statistics.md) for policy, commands, ownership and limits.
+New Windows/Linux feature execution, clean installs and physical GPU/audio
+acceptance remain open; complete ASS/SSA document/style support is still absent.
 
 **Duration/speed milestone complete (2026-10-17):** selected-cue and whole-document
 previews keep starts fixed and choose the nearest integer-ms end satisfying the
@@ -361,11 +382,13 @@ The native maintenance contract is established; native adoption is still blocked
 by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
-The shared application, resync, quality, text-editing, scene-quality and
-duration/speed-repair milestones are complete within their recorded scope. The
-next feature candidate is document statistics using the same shared metrics,
-with explicit scope, exclusions and denominators. Full
-ASS/SSA document/style editing is a separate format milestone. Broader matching evidence remains useful; retain conservative
+The shared application, resync, quality, text-editing, scene-quality,
+duration/speed-repair and statistics milestones are complete within their recorded
+scope. The next recommended feature is loss-preserving ASS/SSA document support:
+opening, text/timing edits, faithful preview and same-format save with headers,
+styles, event fields and unknown content retained. Inline ASS/SSA tags already
+work in SRT; full document/style support remains a separate format milestone.
+Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.
 
