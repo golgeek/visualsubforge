@@ -1,5 +1,5 @@
 //! Bounded deterministic checks over an immutable accepted document.
-use super::{Error, MAX_CUES, MAX_FINDINGS, Profile, Result, metrics, profile::SpeedBasis};
+use super::{Error, MAX_CUES, MAX_FINDINGS, Profile, Result, metrics};
 use metrics::{Rate, Rating, TextMetrics};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -133,17 +133,15 @@ pub fn evaluate_with_scenes(
         checkpoint(position, total)?;
         let cue = &cues[i];
         let start = cue.start().get();
-        starts[i] = start;
-        if profile.speed_basis == SpeedBasis::VssOverlapV1 && position > 0 {
-            let previous = chronological[position - 1];
-            let prior = &cues[previous];
-            if prior.end().get() > start {
-                starts[i] = (starts[previous] + metrics::reading_duration(texts[previous].count))
-                    .min(prior.end().get())
-                    .max(start)
-                    .min(cue.end().get());
+        let prior = position.checked_sub(1).map(|p| {
+            let j = chronological[p];
+            metrics::ReadingPrior {
+                start: starts[j],
+                end: cues[j].end().get(),
+                count: texts[j].count,
             }
-        }
+        });
+        starts[i] = metrics::reading_floor(profile.speed_basis, start, prior).min(cue.end().get());
         next[i] = chronological.get(position + 1).copied();
         if let Some(prior) = frontier
             && cues[prior].end().get() > start
@@ -162,7 +160,10 @@ pub fn evaluate_with_scenes(
         scene_coverage: windows.coverage(),
         affected_cues: 0,
         metrics: Vec::with_capacity(total),
-        findings: Vec::new(),
+        // Start from the bounded cue count. Dense repeated proposals otherwise
+        // grow through large power-of-two allocations retained by the allocator;
+        // the 10k duration benchmark verifies the resulting process RSS.
+        findings: Vec::with_capacity(total),
     };
     for (i, cue) in cues.iter().enumerate() {
         checkpoint(i, total)?;

@@ -201,3 +201,31 @@ pub fn rates(count: u32, duration_ms: u64, empty: bool) -> (Rate, Rate, Option<R
 pub fn reading_duration(count: u32) -> u64 {
     (u64::from(count) * 20_000).div_ceil(699) + 500
 }
+
+/// Prior chronological cue data after any accepted proposal-local timing changes.
+#[derive(Clone, Copy)]
+pub(super) struct ReadingPrior {
+    pub start: u64,
+    pub end: u64,
+    pub count: u32,
+}
+
+/// Reading start before clamping to the current end. The unclamped floor lets
+/// endpoint repairs find a finite reading interval even when the old end is too
+/// early. The checker clamps it to the actual end when reporting unavailable rates.
+pub(super) fn reading_floor(
+    basis: super::profile::SpeedBasis,
+    start: u64,
+    prior: Option<ReadingPrior>,
+) -> u64 {
+    if basis == super::profile::SpeedBasis::VssOverlapV1
+        && let Some(prior) = prior
+        && prior.end > start
+    {
+        (prior.start + reading_duration(prior.count))
+            .min(prior.end)
+            .max(start)
+    } else {
+        start
+    }
+}

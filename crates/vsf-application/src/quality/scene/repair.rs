@@ -2,9 +2,9 @@
 //! shrinking intervals cannot connect previously independent groups. At most three
 //! full evaluations (baseline, candidate, retained plan) establish safety.
 use super::{SceneCoverage, Scenes, Windows};
-use crate::quality::{Error, Finding, Profile, Report, Result, Rule, evaluate_with_scenes, gap};
+use crate::quality::timing_validation::{timing_findings, worsened};
+use crate::quality::{Error, Profile, Report, Result, evaluate_with_scenes, gap};
 use serde::Serialize;
-use std::collections::HashMap;
 use subtitle_core::{Cue, CueTiming, Document, Edit, Milliseconds};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -227,51 +227,4 @@ fn retimed(
         );
     }
     Document::new(cues).map_err(Error::Invalid)
-}
-fn timing(rule: Rule) -> bool {
-    !matches!(rule, Rule::Empty | Rule::LineCount | Rule::LineLength)
-}
-type Findings<'a> = HashMap<(u32, Rule, Option<&'a str>, &'a str), Option<f64>>;
-fn timing_findings(report: &Report) -> Findings<'_> {
-    report
-        .findings
-        .iter()
-        .filter(|f| timing(f.rule))
-        .map(|f| {
-            (
-                (
-                    f.cue_index,
-                    f.rule,
-                    f.related_cue_id.as_deref(),
-                    f.expected.as_str(),
-                ),
-                f.measured,
-            )
-        })
-        .collect()
-}
-fn worsened(finding: &Finding, old: &Findings<'_>) -> bool {
-    if !timing(finding.rule) {
-        return false;
-    }
-    let Some(before) = old.get(&(
-        finding.cue_index,
-        finding.rule,
-        finding.related_cue_id.as_deref(),
-        finding.expected.as_str(),
-    )) else {
-        return true;
-    };
-    match (before, finding.measured) {
-        (Some(old), Some(new)) => match finding.rule {
-            Rule::DurationShort | Rule::CpsLow | Rule::RsLow | Rule::Gap | Rule::Overlap => {
-                new < *old
-            }
-            Rule::DurationLong | Rule::CpsHigh | Rule::RsHigh => new > *old,
-            Rule::SceneStart | Rule::SceneEnd => new != *old,
-            _ => false,
-        },
-        (None, None) => false,
-        _ => true,
-    }
 }

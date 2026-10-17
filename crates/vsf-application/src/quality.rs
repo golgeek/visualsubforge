@@ -1,10 +1,12 @@
 //! Shared quality operations. `metrics` and `check` are deterministic and do no IO.
 //! Only this outer adapter reads/writes files; desktop callers use workers.
 mod check;
+pub mod duration;
 pub mod gap;
 pub mod metrics;
 pub mod profile;
 pub mod scene;
+mod timing_validation;
 pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_with_scenes};
 pub use profile::Profile;
 use std::{fmt, fs, io::Read, path::Path};
