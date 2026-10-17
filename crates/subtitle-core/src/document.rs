@@ -21,12 +21,58 @@ impl Milliseconds {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CueId(pub u64);
 
+/// Accepted event properties travel with a cue through history. Field parsing
+/// and format-specific meaning belong to the format/application boundaries.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CueMetadata {
+    fields: Vec<(String, String)>,
+}
+impl CueMetadata {
+    pub fn new(fields: Vec<(String, String)>) -> Result<Self> {
+        let mut names = std::collections::HashSet::new();
+        for (name, value) in &fields {
+            if name.is_empty()
+                || name.trim() != name
+                || name.contains(['\r', '\n', '\0', ','])
+                || !names.insert(name.to_ascii_lowercase())
+                || value.contains(['\r', '\n', '\0', ','])
+            {
+                return Err("Invalid or duplicate cue metadata field".into());
+            }
+        }
+        Ok(Self { fields })
+    }
+    pub fn fields(&self) -> &[(String, String)] {
+        &self.fields
+    }
+    pub fn get(&self, name: &str) -> Option<&str> {
+        self.fields
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
+    }
+    pub fn with_style(&self, style: String) -> Result<Self> {
+        if style.trim().is_empty() || style.contains(['\r', '\n', '\0', ',']) {
+            return Err("Style name must be nonempty and contain no commas or line breaks".into());
+        }
+        let mut metadata = self.clone();
+        let (_, value) = metadata
+            .fields
+            .iter_mut()
+            .find(|(key, _)| key.eq_ignore_ascii_case("Style"))
+            .ok_or("This cue has no assignable style")?;
+        *value = style;
+        Ok(metadata)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cue {
     pub(crate) id: CueId,
     pub(crate) start: Milliseconds,
     pub(crate) end: Milliseconds,
     pub(crate) text: String,
+    pub(crate) metadata: Option<CueMetadata>,
 }
 impl Cue {
     pub fn id(&self) -> CueId {
@@ -41,6 +87,13 @@ impl Cue {
     pub fn text(&self) -> &str {
         &self.text
     }
+    pub fn metadata(&self) -> Option<&CueMetadata> {
+        self.metadata.as_ref()
+    }
+    pub fn with_metadata(mut self, metadata: CueMetadata) -> Self {
+        self.metadata = Some(metadata);
+        self
+    }
     pub fn new(id: CueId, start: Milliseconds, end: Milliseconds, text: String) -> Result<Self> {
         Self::validate(start, end, &text)?;
         Ok(Self {
@@ -48,6 +101,7 @@ impl Cue {
             start,
             end,
             text,
+            metadata: None,
         })
     }
     pub(crate) fn validate(start: Milliseconds, end: Milliseconds, text: &str) -> Result<()> {

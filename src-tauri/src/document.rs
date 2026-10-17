@@ -315,6 +315,7 @@ impl Store {
                         start: Milliseconds::new(start_ms)?,
                         end: Milliseconds::new(end_ms)?,
                         text,
+                        metadata: None,
                     },
                 )?;
                 if let Some(loaded) = untitled {

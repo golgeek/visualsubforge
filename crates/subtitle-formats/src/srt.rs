@@ -150,6 +150,11 @@ fn write_srt(document: &Document, source: &Source, mut write: impl FnMut(&str)) 
         write("\u{feff}");
     }
     for (index, cue) in document.cues().iter().enumerate() {
+        if cue.metadata().is_some() {
+            return Err(
+                "SRT cannot preserve event metadata; explicit format conversion is required".into(),
+            );
+        }
         validate_text(cue.text())?;
         if original_order {
             write(&source.labels[index].1);

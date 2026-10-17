@@ -1,4 +1,4 @@
-use crate::{Cue, CueId, Document, Milliseconds, Result};
+use crate::{Cue, CueId, CueMetadata, Document, Milliseconds, Result};
 
 /// New timing for an existing cue. Text and document order cannot be changed by
 /// a retiming operation. The application supplies one entry per accepted cue.
@@ -18,6 +18,10 @@ pub struct CueText {
 
 /// Domain edits use validated times and identities, independently of any IPC or format.
 pub enum Edit {
+    Style {
+        id: CueId,
+        name: String,
+    },
     TextBatch {
         texts: Vec<CueText>,
     },
@@ -35,6 +39,7 @@ pub enum Edit {
         start: Milliseconds,
         end: Milliseconds,
         text: String,
+        metadata: Option<CueMetadata>,
     },
     Delete {
         id: CueId,
@@ -136,6 +141,23 @@ impl Editor {
         self.expect_revision(expected)?;
         let mut created = None;
         let (index, count, after) = match edit {
+            Edit::Style { id, name } => {
+                let index = self.index(id)?;
+                let original = &self.document.cues[index];
+                let metadata = original
+                    .metadata
+                    .as_ref()
+                    .ok_or("This cue has no assignable style")?
+                    .with_style(name)?;
+                (
+                    index,
+                    1,
+                    vec![Cue {
+                        metadata: Some(metadata),
+                        ..original.clone()
+                    }],
+                )
+            }
             Edit::TextBatch { texts } => {
                 if texts.len() != self.document.cues.len() {
                     return Err("Text batch must include every cue once in document order".into());
@@ -189,6 +211,7 @@ impl Editor {
                         start,
                         end,
                         text,
+                        ..self.document.cues[index].clone()
                     }],
                 )
             }
@@ -197,6 +220,7 @@ impl Editor {
                 start,
                 end,
                 text,
+                metadata,
             } => {
                 Cue::validate(start, end, &text)?;
                 let index = match after {
@@ -213,6 +237,7 @@ impl Editor {
                         start,
                         end,
                         text,
+                        metadata,
                     }],
                 )
             }
@@ -250,6 +275,9 @@ impl Editor {
                     .get(index + 1)
                     .filter(|cue| cue.id == second)
                     .ok_or("Merge requires two adjacent cues in document order")?;
+                if left.metadata != right.metadata {
+                    return Err("Merge requires matching cue metadata and style".into());
+                }
                 let text = match (left.text.is_empty(), right.text.is_empty()) {
                     (true, _) => right.text.clone(),
                     (_, true) => left.text.clone(),
@@ -263,6 +291,7 @@ impl Editor {
                         start: left.start.min(right.start),
                         end: left.end.max(right.end),
                         text,
+                        metadata: left.metadata.clone(),
                     }],
                 )
             }
@@ -355,6 +384,7 @@ impl Editor {
                 start,
                 end,
                 text,
+                metadata: None,
             },
             |_| Ok(()),
         )?
