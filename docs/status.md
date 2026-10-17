@@ -17,7 +17,8 @@ import/export, customization and transactional Apply; Rust owns the accepted
 policy and project snapshots. Accepted/labeled draft metrics and Problems now
 support filters, paged findings and protected distinct-cue navigation, including
 without media. One cancellable worker rejects obsolete document/profile results;
-checking leaves history and save policy unchanged. Gap proposals remain pending.
+checking leaves history and save policy unchanged. Pure immutable gap proposals
+and their atomic history edit are tested; desktop gap review/acceptance remains pending.
 Inline ASS/SSA tag preservation
 and native preview are implemented, with exact millisecond demux and software
 composition checks; full ASS/SSA files/styles remain separate. See the

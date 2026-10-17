@@ -2,7 +2,8 @@
 
 Implementation in progress (2026-10-17). This contract describes Task 011;
 the shared checker, CLI, desktop profile Settings, live cue metrics and Problems
-review are implemented. Gap acceptance is still in progress. Checking is
+review are implemented. Shared gap proposals are tested; desktop review and
+acceptance are still in progress. Checking is
 read-only and never makes a subtitle document unsavable.
 
 ## Metrics and source evidence
@@ -125,9 +126,9 @@ profile and the same SRT input, comparing every metric and finding. The desktop
 projects bounded pages; the CLI streams the complete report. Partial-profile
 limitations remain visible even when there are no findings.
 
-## Planned explicit gap action
+## Gap proposal policy (desktop action in progress)
 
-After checking is verified, a proposal keeps every cue start fixed and only
+The shared proposal keeps every cue start fixed and only
 shortens an earlier cue's end to next-start minus the effective minimum gap.
 No cue is extended, shifted, reordered, deleted or collapsed. Already sufficient
 gaps stay unchanged. Nested/ambiguous overlapping neighborhoods are unresolved.
@@ -136,6 +137,15 @@ violation, or enter a configured scene endpoint exclusion zone. Scene constraint
 require current completed data when media is attached; unavailable/partial data
 is reported, never assumed clear. Without media, scene constraints are explicitly
 not checked and require a visible acknowledgment before accepting a partial plan.
+
+Equal starts and nested intervals make their connected overlapping group
+ambiguous. Candidate endpoints exactly on a scene exclusion boundary are allowed;
+strictly interior endpoints are rejected. With zero scene buffers, no scene data
+is required. The whole candidate document is evaluated before review. If it adds
+a speed finding or worsens an existing high/low-rate finding in any overlapping
+group, that group's changes are withheld, including when they affect an unchanged
+following cue's reading start. This conservative grouping bounds the work and
+keeps coupled reading-speed changes from escaping an individual-cue check.
 
 Preview includes old/new endpoints, skipped reasons and changed reading metrics.
 Acceptance applies only the displayed safe changes together via one validated
