@@ -1,6 +1,7 @@
 //! Thin synchronous CLI adapter. Shared application operations own analysis,
 //! validation and file publication; this process never loads desktop settings.
 mod args;
+mod check;
 use args::{Cli, Command, Resync};
 use clap::Parser;
 use media_analysis::Tools;
@@ -33,20 +34,25 @@ fn main() -> ExitCode {
     // Returning from main drops all owned state. Do not exit from a signal
     // handler: the current synchronous call must reap children/clean temporaries.
     let result = match cli.command {
-        Command::Resync(args) => run(args, &cancel),
-    };
-    match result {
-        Ok(code) => ExitCode::from(code),
-        Err(error) => {
-            diagnostic(format!("vsf: {error}"));
-            ExitCode::from(match error {
+        Command::Resync(args) => run(args, &cancel).map_err(|error| {
+            let code = match &error {
                 Error::InvalidInput(_) => 2,
                 Error::Analysis(_) => 4,
                 Error::Io(_) => 5,
                 Error::InputChanged(_) => 6,
                 Error::Timeout => 7,
                 Error::Cancelled => 130,
-            })
+            };
+            (code, error.to_string())
+        }),
+        Command::Check(args) => check::run(args, &cancel)
+            .map_err(|error| (check::error_code(&error), error.to_string())),
+    };
+    match result {
+        Ok(code) => ExitCode::from(code),
+        Err((code, error)) => {
+            diagnostic(format!("vsf: {error}"));
+            ExitCode::from(code)
         }
     }
 }

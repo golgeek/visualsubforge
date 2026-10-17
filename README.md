@@ -54,6 +54,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   legacy INI migration.
 - [Headless resynchronization](docs/resynchronization.md): CLI commands, shared
   operation, output protections and current matching/validation limits.
+- [Subtitle quality](docs/subtitle-quality.md): implemented headless checks and
+  profiles, metric semantics, and the desktop workflow still in progress.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT parsing/serialization without filesystem access. `vsf-application`

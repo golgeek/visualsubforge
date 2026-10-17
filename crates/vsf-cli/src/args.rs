@@ -14,8 +14,26 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Check subtitle authoring rules without changing the file.
+    Check(Check),
     /// Transfer SRT timings between versions of the same programme.
     Resync(Resync),
+}
+
+#[derive(Args)]
+#[command(
+    after_help = "Profiles: vsf-default, sw3-uk-vo-subset, or a version-2 .vsfpreset path.\nThe archived SW profile is explicitly partial; unsupported checks never count as passing.\nNo media tools, GUI, or desktop settings are required. Input files are never modified.\nExit codes: 0 no findings and complete coverage, 1 findings, 2 invalid input/limit, 3 incomplete coverage (possibly with findings), 5 IO, 130 cancelled."
+)]
+pub struct Check {
+    /// UTF-8 SRT to check.
+    #[arg(long, value_name = "FILE")]
+    pub subtitles: PathBuf,
+    /// Explicit built-in ID or quality-preset path. Prefix a colliding filename with ./.
+    #[arg(long, value_name = "ID_OR_FILE")]
+    pub profile: String,
+    /// Emit the complete versioned report as JSON instead of human-readable text.
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Args)]

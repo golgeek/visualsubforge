@@ -7,6 +7,15 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
+**Quality workflow in progress (2026-10-17):** shared pure Rust metrics/rules,
+strict version-2 data-only profiles, default/partial archived SW profiles, and
+`vsf check` now have tests. The desktop profile/settings/project owner, Problems
+UI, navigation, gap proposals and newly requested ASS/SSA tag support remain
+pending. The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
+budgets; full-buffer benchmark memory failed and remains recorded. See the
+[quality contract and commands](subtitle-quality.md). This is an implementation
+increment, not milestone or native-platform acceptance.
+
 **Mac preview regression fixed (2026-10-12):** the original signed candidates
 from 38205417832 are withdrawn. A synthetic video reproduced `CODESIGNING /
 Invalid Page` in mpv's unused LuaJIT `stats` script without a project. Shared
