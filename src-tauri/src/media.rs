@@ -266,6 +266,16 @@ impl Media {
         session: u64,
         operation: impl FnOnce(&std::path::Path) -> Result<T, String>,
     ) -> Result<T, String> {
+        self.with_context(session, |path| {
+            operation(path.ok_or("Open the target video first")?)
+        })
+    }
+    /// Serialize operations that also support an intentionally media-free workspace.
+    pub(crate) fn with_context<T>(
+        &self,
+        session: u64,
+        operation: impl FnOnce(Option<&std::path::Path>) -> Result<T, String>,
+    ) -> Result<T, String> {
         let selection = self
             .selection
             .lock()
@@ -273,7 +283,7 @@ impl Media {
         if self.stopping.load(Ordering::Relaxed) || self.current_session() != session {
             return Err("Media changed or is shutting down".into());
         }
-        operation(selection.as_deref().ok_or("Open the target video first")?)
+        operation(selection.as_deref())
     }
 
     pub fn shutdown_complete(&self) -> bool {

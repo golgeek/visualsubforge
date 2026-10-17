@@ -10,6 +10,7 @@ mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
 mod file_lease;
+mod gap_review;
 mod ipc;
 mod ipc_number;
 #[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]

@@ -46,6 +46,20 @@ export const commands = {
       request,
     }),
   qualityCancel: (id: number) => __TAURI_INVOKE<null>('quality_cancel', { id }),
+  gapStart: (session: number, generation: number, revision: number) =>
+    __TAURI_INVOKE<number>('gap_start', { session, generation, revision }),
+  gapView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_gap_review_GapView>('gap_view', {
+      id,
+      offset,
+      limit,
+    }),
+  gapCancel: (id: number) => __TAURI_INVOKE<null>('gap_cancel', { id }),
+  gapAccept: (id: number, acknowledgeNoMedia: boolean) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('gap_accept', {
+      id,
+      acknowledgeNoMedia,
+    }),
   qualityProfileOpen: (path: string) =>
     __TAURI_INVOKE<vsf_application_quality_profile_Profile>(
       'quality_profile_open',
@@ -659,6 +673,24 @@ export type vsf_application_quality_check_Finding = {
   explanation: string;
 };
 
+export type visualsubforge_gap_review_GapView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_gap_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_gap_review_Row[];
+};
+
 export type visualsubforge_timing_preset_Imported = {
   preset: visualsubforge_timing_preset_Preset;
   warnings: string[];
@@ -809,6 +841,16 @@ export type visualsubforge_project_Options_Serialize = {
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
 
+export type visualsubforge_gap_review_Phase =
+  | 'preparing'
+  | 'reviewing'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'accepted'
+  | 'closed';
+
 export type visualsubforge_quality_check_Phase =
   | 'idle'
   | 'checking'
@@ -933,6 +975,19 @@ export type visualsubforge_quality_check_Request = {
   draft: visualsubforge_quality_check_DraftChange | null;
 };
 
+export type visualsubforge_gap_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  nextCueIndex: number;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_gap_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
+  nextBefore: visualsubforge_quality_check_Metric;
+  nextAfter: visualsubforge_quality_check_Metric;
+};
+
 export type vsf_application_quality_check_Rule =
   | 'empty'
   | 'duration_short'
@@ -996,6 +1051,9 @@ export type visualsubforge_scenes_Saved_Serialize = {
   cuts: number[];
   identity: visualsubforge_project_MediaIdentity_Serialize;
 };
+
+export type vsf_application_quality_gap_SceneCoverage =
+  'notRequired' | 'checked' | 'noMedia' | 'unavailable';
 
 export type visualsubforge_scenes_SceneView =
   | visualsubforge_scenes_SceneView_Serialize
@@ -1069,6 +1127,14 @@ export type visualsubforge_quality_profile_SettingsData_Serialize = {
 };
 
 export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
+
+export type vsf_application_quality_gap_Skip =
+  | 'ambiguousOverlap'
+  | 'wouldCollapse'
+  | 'minimumDuration'
+  | 'sceneDataUnavailable'
+  | 'sceneExclusion'
+  | 'speedWouldWorsen';
 
 export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Serialize

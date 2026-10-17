@@ -1,9 +1,9 @@
 # Subtitle quality
 
 Implementation in progress (2026-10-17). This contract describes Task 011;
-the shared checker, CLI, desktop profile Settings, live cue metrics and Problems
-review are implemented. Shared gap proposals are tested; desktop review and
-acceptance are still in progress. Checking is
+the shared checker, CLI, desktop profile Settings, live cue metrics, Problems
+review and explicit gap proposal acceptance are implemented and tested. Measured
+large-document desktop validation remains in progress. Checking is
 read-only and never makes a subtitle document unsavable.
 
 ## Metrics and source evidence
@@ -126,7 +126,23 @@ profile and the same SRT input, comparing every metric and finding. The desktop
 projects bounded pages; the CLI streams the complete report. Partial-profile
 limitations remain visible even when there are no findings.
 
-## Gap proposal policy (desktop action in progress)
+## Previewing minimum-gap changes
+
+Choose **Enforce minimum gaps…** above the cue list, resolve any unapplied cue
+draft, then **Create gap preview**. Review old/new endpoints, before/after reading
+metrics, skipped reasons and total finding counts. The table pages 100 candidates
+at a time; **Accept gap changes** commits all safe changes in the proposal,
+including other pages, together. Cancel and Close leave accepted subtitles alone.
+Without media, acceptance requires the explicit scene-check acknowledgment.
+Saving remains a separate action. Existing recovery/resync Save As protections
+survive acceptance, failed saves and Undo.
+
+Document edits, history changes, a changed profile, media replacement or scene
+rescan retire the captured proposal. Accept rechecks these identities in Rust;
+a late reply or an old dialog cannot apply it. One explicit proposal worker runs
+beside the automatic checker, with no queue and a ten-second deadline. Closing
+the dialog cancels it; application shutdown joins both workers outside the
+document lock. Full proposals/reports stay in Rust; review IPC caps at 200 rows.
 
 The shared proposal keeps every cue start fixed and only
 shortens an earlier cue's end to next-start minus the effective minimum gap.

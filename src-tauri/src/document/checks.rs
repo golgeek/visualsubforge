@@ -166,7 +166,7 @@ impl Checks {
     }
 }
 impl Store {
-    fn quality_key(&self) -> Result<Key> {
+    pub(super) fn quality_key(&self) -> Result<Key> {
         Ok(Key {
             generation: self.generation.try_into()?,
             revision: self
@@ -181,6 +181,7 @@ impl Store {
     pub(super) fn invalidate_checks(&mut self) {
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
+            self.gaps.invalidate(key);
         } else {
             self.checks.cancel_worker();
             self.checks.report = None;
@@ -279,7 +280,7 @@ impl Documents {
             store.checks.worker.take()
         };
         drop(worker); // joins outside the document lock
-        Ok(())
+        self.shutdown_gaps()
     }
 }
 fn project_view(

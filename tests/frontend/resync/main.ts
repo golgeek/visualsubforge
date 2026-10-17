@@ -123,6 +123,9 @@ async function fixture() {
         doc = { ...doc, path: action.path };
       return doc;
     },
+    gapAccept: async () => {
+      throw new Error('Gap acceptance is not used in this fixture');
+    },
     resyncAccept: async () => {
       state.accepts++;
       return {

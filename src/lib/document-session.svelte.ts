@@ -2,6 +2,7 @@ import {
   chooseFile,
   documentAction,
   resyncAccept,
+  gapAccept,
   emptyDocument,
   type DocumentAction,
   type DocumentSnapshot,
@@ -13,7 +14,7 @@ import {
 } from './cue-operations';
 import { formatTime, parseTime } from './timeline';
 
-const client = { chooseFile, documentAction, resyncAccept };
+const client = { chooseFile, documentAction, resyncAccept, gapAccept };
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
 type CommandOptions = {
   plan?: CueOperationPlan;
@@ -83,6 +84,17 @@ export class DocumentSession {
         new Error('Subtitles or the cue draft changed; analyze again.'),
       );
     return this.update(() => this.client.resyncAccept(id));
+  }
+  acceptGap(
+    id: number,
+    expected: DocumentSnapshot,
+    acknowledgeNoMedia: boolean,
+  ): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() => this.client.gapAccept(id, acknowledgeNoMedia));
   }
   private async update(
     request: (before: DocumentSnapshot) => Promise<DocumentSnapshot>,

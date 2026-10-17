@@ -89,6 +89,9 @@ async function documentCases() {
   let picker: ReturnType<typeof deferred<string | null>> | null = null;
   let choosing = false;
   const model = new DocumentSession({
+    gapAccept: async () => {
+      throw new Error('Gap acceptance is not used in this fixture');
+    },
     resyncAccept: async () => {
       throw new Error('Resync is not used in this fixture');
     },
@@ -184,6 +187,9 @@ async function documentCases() {
   passed('document disposal rejects late projection updates and new commands');
 
   const saveModel = new DocumentSession({
+    gapAccept: async () => {
+      throw new Error('Gap acceptance is not used in this fixture');
+    },
     resyncAccept: async () => {
       throw new Error('Resync is not used in this fixture');
     },
@@ -361,6 +367,9 @@ function projectFixture(hold: string | null = null) {
   let mediaPath = '';
   let current = status();
   const subtitles = new DocumentSession({
+    gapAccept: async () => {
+      throw new Error('Gap acceptance is not used in this fixture');
+    },
     resyncAccept: async () => {
       throw new Error('Resync is not used in this fixture');
     },

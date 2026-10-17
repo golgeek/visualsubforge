@@ -43,6 +43,7 @@ for (const name of [
   'resync',
   'quality-settings',
   'quality-checking',
+  'gap-review',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

@@ -34,6 +34,8 @@ The editor provides:
 - Optional accepted/draft cue metrics and a paged Problems panel with filters,
   protected cue navigation and the same checker as `vsf check`. Review works
   without media and never changes subtitles or save eligibility.
+- Explicit minimum-gap previews show safe endpoint changes, skipped reasons and
+  before/after metrics. Accept commits the whole plan as one Undo/Redo operation.
 
 Native Mac ANGLE/Metal, Windows D3D11 and Linux GTK playback remain opt-in
 experiments. The maintained mpv recipes have pinned sources and recorded build
@@ -59,7 +61,7 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
 - [Headless resynchronization](docs/resynchronization.md): CLI commands, shared
   operation, output protections and current matching/validation limits.
 - [Subtitle quality](docs/subtitle-quality.md): profiles, desktop/CLI checking,
-  metric semantics and the gap-repair workflow still in progress.
+  metric semantics and previewable minimum-gap repair.
 - [Subtitle tags](docs/subtitle-tags.md): SRT preservation, inline ASS/SSA native
   preview, millisecond timing, defaults and counting limitations.
 

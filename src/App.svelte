@@ -3,6 +3,7 @@
   import ResyncDialog from './lib/ResyncDialog.svelte';
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
+  import GapDialog from './lib/GapDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { rate } from './lib/quality-display';
   import { isTauri } from '@tauri-apps/api/core';
@@ -394,6 +395,8 @@
   });
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
+  let gapOpen = $state(false);
+  let gapReturn: HTMLElement | null = null;
   let resyncReturn: HTMLElement | null = null;
   let settingsReturn: HTMLElement | null = null;
   const nativeMenus = isTauri();
@@ -438,6 +441,51 @@
       if (!alive) return;
       await occludeVideo(diagnostics);
       if (resyncReturn?.isConnected) resyncReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
+    }
+  }
+  async function openGap() {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.cues.length ||
+      cueMenu ||
+      waveformGesture
+    )
+      return;
+    busy = true;
+    error = '';
+    gapReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        gapOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeGap(accepted = false) {
+    gapOpen = false;
+    if (accepted) {
+      notice = 'Gap timings accepted. Undo restores the whole change.';
+      quality.restart();
+    }
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (gapReturn?.isConnected) gapReturn.focus();
     } catch (e) {
       if (alive) error = String(e);
     } finally {
@@ -909,9 +957,12 @@
     cancelHeldTiming();
     if (action === 'apply' && event && cue && draftDirty)
       traceApplyInput(event, doc);
-    // Native menu accelerators still respect the text field's local undo stack.
+    // Menu/keyboard actions respect the text field's local undo stack. Explicit
+    // history buttons use document history even if the platform retains focus
+    // in the editor while dispatching their click.
     const focused = document.activeElement;
     if (
+      !event &&
       (action === 'undo' || action === 'redo') &&
       (focused instanceof HTMLInputElement ||
         focused instanceof HTMLTextAreaElement)
@@ -1765,6 +1816,10 @@
       </div>
       <div class="cue-followbar">
         <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openGap()}>Enforce minimum gaps…</button
+        >
+        <button
           aria-expanded={problemsOpen}
           onclick={() => {
             problemsOpen = !problemsOpen;
@@ -2013,10 +2068,10 @@
           onclick={() => subtitles.revert()}>Revert draft</button
         ><button
           disabled={!doc.canUndo || draftDirty || busy}
-          onclick={() => void run('undo')}>Undo edit</button
+          onclick={(e) => void run('undo', e)}>Undo edit</button
         ><button
           disabled={!doc.canRedo || draftDirty || busy}
-          onclick={() => void run('redo')}>Redo edit</button
+          onclick={(e) => void run('redo', e)}>Redo edit</button
         ><span class="spacer"></span><span
           >{draftDirty
             ? 'Draft · apply to record in history'
@@ -2120,6 +2175,14 @@
       target={mediaPath}
       onclose={() => void closeResync()}
       onaccepted={() => void closeResync(true)}
+    />
+  {/if}
+  {#if gapOpen}
+    <GapDialog
+      {subtitles}
+      mediaSession={() => status.session}
+      onclose={() => void closeGap()}
+      onaccepted={() => void closeGap(true)}
     />
   {/if}
   {#if settingsOpen}

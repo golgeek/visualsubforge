@@ -19,6 +19,7 @@ import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
 import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
+import { gapReview } from './gaps.mjs';
 
 const { values } = parseArgs({
   options: { binary: { type: 'string' }, cli: { type: 'string' } },
@@ -266,7 +267,7 @@ try {
     { kind: 'subtitles', path: copy },
   ]);
   await menu('openSubtitles');
-  const opened = await documentIs(
+  let opened = await documentIs(
     'opened source',
     (doc) => doc.loaded && doc.cues.length === 2,
   );
@@ -292,6 +293,7 @@ try {
     source,
     cli,
   });
+  opened = await gapReview({ browser, status, until, evidence, record });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);
   assert.deepEqual(

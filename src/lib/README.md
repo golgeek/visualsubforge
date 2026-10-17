@@ -11,6 +11,7 @@ mount and are disposed on unmount; they are not global stores.
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
+| `GapSession` | Dialog-lived proposal pages, acknowledgment and asynchronous response ordering. Rust owns calculation and acceptance; DocumentSession serializes the accepted reply with ordinary edits. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
@@ -128,3 +129,20 @@ checks. The generator is a pinned prerelease: review generated diffs, actual
 Serde samples and browser/native regressions on upgrades. The optional schema
 feature in media-analysis is enabled only by the desktop; headless callers do
 not depend on Specta, Tauri or native playback.
+
+## Minimum-gap review
+
+`GapDialog` resolves drafts before `GapSession.start()` captures the current
+DocumentSession projection and media session. The generated client admits one
+Rust proposal worker, then polls pages. The frontend never computes repair
+endpoints or treats draft text as accepted. Page/start epochs reject stale
+responses; late admissions are cancelled after disposal. A completed proposal is
+still polled for backend profile/scene invalidation. Acceptance blocks dialog
+closure, delegates through `DocumentSession.acceptGap()` and replaces the accepted
+projection only after Rust succeeds; App then restarts quality checking.
+
+The backend holds media selection → scene state → document during acceptance.
+It checks the captured scene generation/readiness, media session and document
+revision/profile epoch before applying the immutable plan as one history entry.
+All capture/projection/commit commands run on blocking workers. Evaluation owns
+an immutable clone outside those locks; shutdown cancels and joins outside them.

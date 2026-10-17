@@ -50,6 +50,14 @@ Screenshots cover both the panel controls and scrolled findings; the JSON parity
 receipt preserves both actual outputs. Neither checking nor draft metrics may
 change the accepted document, history or save eligibility.
 
+Minimum-gap review then verifies protected draft cancellation/discard, a read-only
+preview, explicit no-media acknowledgment and atomic acceptance. One Undo restores
+every cue and the original dirty/history state; Redo reapplies the plan. The normal
+save/recovery checks run afterward. The explicit history buttons must use document
+history even when a text field retained focus during the click; menu/keyboard Undo
+still uses the focused field's local history. Modal closure waits for native
+occlusion/focus restoration before further workspace actions.
+
 Each run retains `test-results/desktop-*`: its inputs/outputs, isolated recovery
 data, per-process logs, receipt and screenshot (plus DOM on failure). The runner
 has bounded waits and terminates only processes it spawned. CI additionally caps
@@ -106,7 +114,8 @@ The expanded quality Settings/checker/CLI-parity/restart workflow passes on macO
 embedded driver uses JavaScript clicks, so select options require explicit DOM
 input/change events in this harness. This verifies the real component/IPC path,
 not physical keyboard or pointer delivery. Retained current evidence is copied
-under `tests/fixtures/generated/quality/checks-desktop-final/`.
+under `tests/fixtures/generated/quality/checks-desktop-final/`; the expanded gap
+workflow is under `quality/gaps-desktop-final/` (2026-10-17, macOS ARM64).
 
 The first Windows run reached the save-failure check, then failed because Rust's
 canonical path had the Windows extended-length prefix. The runner now normalizes

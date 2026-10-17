@@ -12,6 +12,8 @@ use std::{
     time::Duration,
 };
 use tauri::Manager;
+mod gap;
+pub(crate) use gap::{GapCapture, GapKey};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]

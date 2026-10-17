@@ -1,7 +1,7 @@
 # Current implementation and validation status
 
 Updated 2026-10-17 (America/New_York): inline ASS/SSA preview, quality profiles,
-desktop cue metrics and Problems review are implemented; the full quality
+desktop cue metrics, Problems review and minimum-gap preview/acceptance are implemented; the full quality
 workflow remains in progress. The first CLI/GUI resync milestone was completed
 on October 12, including local three-OS checks and the Mac native workflow.
 This is the tracked summary of current behavior and evidence. The code is being
@@ -17,8 +17,9 @@ import/export, customization and transactional Apply; Rust owns the accepted
 policy and project snapshots. Accepted/labeled draft metrics and Problems now
 support filters, paged findings and protected distinct-cue navigation, including
 without media. One cancellable worker rejects obsolete document/profile results;
-checking leaves history and save policy unchanged. Pure immutable gap proposals
-and their atomic history edit are tested; desktop gap review/acceptance remains pending.
+checking leaves history and save policy unchanged. Explicit immutable gap proposals
+now have protected desktop review, bounded pages, context guards and one-step
+Undo/Redo acceptance. Safe changes and skipped reasons are shown before acceptance.
 Inline ASS/SSA tag preservation
 and native preview are implemented, with exact millisecond demux and software
 composition checks; full ASS/SSA files/styles remain separate. See the
@@ -27,9 +28,10 @@ budgets; full-buffer benchmark memory failed and remains recorded. See the
 [quality contract and commands](subtitle-quality.md). This is an implementation
 increment, not milestone or native-platform acceptance.
 
-The checker increment passes 191 Rust tests, 39 frontend unit tests, all 36
+The gap increment passes 203 Rust tests and all 38
 Chromium/WebKit workflows, strict Clippy/lint/type/IPC checks and a real Mac
-Settings/metrics/Problems/save/restart/recovery workflow. That run compares every
+Settings/metrics/Problems/gap-acceptance/save/restart/recovery workflow. The prior
+39 frontend unit tests are unchanged. That run compares every
 desktop metric/finding and profile hash with the actual CLI on the same input.
 Its native media configuration compiles. Desktop 10k-cue performance, new
 Windows/Linux quality UI execution and physical GPU checks remain unverified.
@@ -53,7 +55,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
 | Resynchronization | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). The v4 verifier passes 29 synthetic cases on Mac/Ubuntu/Windows ARM64 and both reference films on Mac. | Coverage is measured, not universal. Sampled visual evidence can miss indistinguishable edits; ambiguous or unsupported cues remain unresolved. Wider real-programme evaluation is a follow-up. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. | Blocking filesystem calls can delay cancellation. Bulk minimum-gap enforcement and audio matching are separate unimplemented features. |
+| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. Shared quality checking and conservative gap proposals also power the desktop. | Blocking filesystem calls can delay cancellation. Audio matching remains unimplemented. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). Rust and modeled-browser tests cover proposal ownership, Save As/recovery and project references. The actual Mac native workflow passes review/accept/Undo/Redo, source-path rejection, save-before-project and reopen. | Native resync dialogs were exercised on Mac only. Recovery tests do not imply power-loss guarantees or restoration of unapplied drafts/history. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. Real default-app IPC passes on all three local ARM64 OSes; Mac native resync transport also passes. | The pinned generator has documented naming limitations; upgrades require contract and runtime regression checks. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |

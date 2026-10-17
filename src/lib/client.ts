@@ -20,6 +20,7 @@ export type WaveformView = IPC.visualsubforge_waveform_WaveformView_Serialize;
 export type SceneMode = IPC.visualsubforge_scenes_Mode;
 export type SceneView = IPC.visualsubforge_scenes_SceneView_Serialize;
 export type ResyncView = Awaited<ReturnType<typeof commands.resyncView>>;
+export type GapView = Awaited<ReturnType<typeof commands.gapView>>;
 export type ProjectOptions = IPC.visualsubforge_project_Options_Deserialize;
 export type ProjectData = IPC.visualsubforge_project_Project_Serialize;
 export type SavedScenes = IPC.visualsubforge_scenes_Saved_Deserialize;
@@ -235,6 +236,24 @@ export async function resyncCancel(id: number): Promise<void> {
 }
 export function resyncAccept(id: number): Promise<DocumentSnapshot> {
   return commands.resyncAccept(id);
+}
+export function gapStart(
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+) {
+  return commands.gapStart(session, document.generation, document.revision);
+}
+export function gapView(id: number, offset = 0, limit = 100) {
+  return commands.gapView(id, offset, limit);
+}
+export async function gapCancel(id: number): Promise<void> {
+  await commands.gapCancel(id);
+}
+export function gapAccept(
+  id: number,
+  acknowledgeNoMedia: boolean,
+): Promise<DocumentSnapshot> {
+  return commands.gapAccept(id, acknowledgeNoMedia);
 }
 export function scenesView(
   generation: number,
