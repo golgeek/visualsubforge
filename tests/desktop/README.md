@@ -117,6 +117,25 @@ not physical keyboard or pointer delivery. Retained current evidence is copied
 under `tests/fixtures/generated/quality/checks-desktop-final/`; the expanded gap
 workflow is under `quality/gaps-desktop-final/` (2026-10-17, macOS ARM64).
 
+## Optional large-document measurement
+
+Run `npm run test:desktop -- --performance` after the same instrumented build.
+It performs the regular workflow and then measures a generated 10,000-cue SRT
+with 1,050,000 text bytes. Twenty warm real check round trips, bounded report
+pages/DOM, typing during admitted checking, visible pause, worker cancellation,
+stale-revision rejection and UI reconciliation are recorded. The interaction
+budget was declared as one second before measurement. It checks Undo restoration
+and a 9,999-candidate read-only gap preview with 100 table rows. A recovery banner
+and metrics must not overlap or clip the history controls.
+
+`quality-performance.json` retains binary/input hashes, profile, raw timings,
+main-process RSS samples and rAF intervals. RSS uses macOS/Linux `ps`; the final
+measurement was on macOS ARM64. These are generated webview events and actual IPC,
+not physical input, GPU presentation or total multiprocess memory. Desktop debug
+round trips and RSS observations are separate from the release pure-engine
+benchmark. Final evidence: `quality/performance-layout-final/`. See the
+[quality guide](../../docs/subtitle-quality.md) for results and exact limits.
+
 The first Windows run reached the save-failure check, then failed because Rust's
 canonical path had the Windows extended-length prefix. The runner now normalizes
 that representation with Node's `toNamespacedPath`, retaining a complete path

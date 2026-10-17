@@ -1,8 +1,8 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): inline ASS/SSA preview, quality profiles,
-desktop cue metrics, Problems review and minimum-gap preview/acceptance are implemented; the full quality
-workflow remains in progress. The first CLI/GUI resync milestone was completed
+Updated 2026-10-17 (America/New_York): the first subtitle-quality milestone is
+complete, including inline ASS/SSA preview, quality profiles, desktop cue metrics,
+Problems review, the shared CLI and minimum-gap preview/acceptance. The first CLI/GUI resync milestone was completed
 on October 12, including local three-OS checks and the Mac native workflow.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
@@ -10,7 +10,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
-**Quality workflow in progress (2026-10-17):** shared pure Rust metrics/rules,
+**Quality milestone complete (2026-10-17):** shared pure Rust metrics/rules,
 strict version-2 data-only profiles, default/partial archived SW profiles, and
 `vsf check` now have tests. Desktop Settings supports profile selection,
 import/export, customization and transactional Apply; Rust owns the accepted
@@ -25,16 +25,20 @@ and native preview are implemented, with exact millisecond demux and software
 composition checks; full ASS/SSA files/styles remain separate. See the
 [tag contract and validation limits](subtitle-tags.md). The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
 budgets; full-buffer benchmark memory failed and remains recorded. See the
-[quality contract and commands](subtitle-quality.md). This is an implementation
-increment, not milestone or native-platform acceptance.
+[quality contract and commands](subtitle-quality.md). Native-platform release
+acceptance remains separate.
 
-The gap increment passes 203 Rust tests and all 38
+The milestone passes 203 Rust tests, 39 frontend unit tests and all 38
 Chromium/WebKit workflows, strict Clippy/lint/type/IPC checks and a real Mac
-Settings/metrics/Problems/gap-acceptance/save/restart/recovery workflow. The prior
-39 frontend unit tests are unchanged. That run compares every
+Settings/metrics/Problems/gap-acceptance/save/restart/recovery workflow. That run compares every
 desktop metric/finding and profile hash with the actual CLI on the same input.
-Its native media configuration compiles. Desktop 10k-cue performance, new
-Windows/Linux quality UI execution and physical GPU checks remain unverified.
+Its native media configuration compiles. The 10,000-cue debug desktop run measures
+101 ms p95 check IPC round trips, 16 ms draft interaction, 181 ms cancellation and
+56 ms edit/result invalidation; the interaction checks pass the declared one-second
+budget. It also reviews 9,999 gap candidates in bounded pages. A reproduced compact
+window overlap with metrics/recovery is fixed; final browser and desktop checks
+keep history controls reachable. New Windows/Linux quality UI execution and physical
+GPU/audio checks remain unverified. Full ASS/SSA file import remains out of scope.
 
 **Mac preview regression fixed (2026-10-12):** the original signed candidates
 from 38205417832 are withdrawn. A synthetic video reproduced `CODESIGNING /
@@ -247,7 +251,8 @@ and end, including long pauses, should follow actual matched programme timing.
 The superseded fixed-ms end adjustment is removed. Reports use schema 2 and
 `content_mapped_endpoints_v1`, with original/resulting gaps and separate section
 boundaries. FPS-only conversion is not treated as a speed change. Preset/minimum
-gap enforcement and audio matching remain separate follow-ups.
+gap enforcement was a separate follow-up (now implemented in the quality milestone);
+audio matching remains deferred.
 
 `cargo test --locked -p vsf-application -p vsf-cli` passed 22 tests, including
 nine proposal tests. Generated sequences cover 256 cues at 46 scales with

@@ -1494,6 +1494,7 @@
   aria-busy={busy || !ready}
   class:has-recovery={recovery.entries.length > 0 || !!recovery.error}
   style:--workspace-height={`${workspaceHeight}px`}
+  style:--workspace-min-height={`${368 + editorMinimum}px`}
 >
   <header class="toolbar">
     <strong>VisualSubForge</strong>
@@ -2260,12 +2261,14 @@
     height: 100dvh;
     min-height: 610px;
     display: grid;
-    grid-template-rows: 48px minmax(498px, 1fr) auto 28px;
+    grid-template-rows: 48px minmax(var(--workspace-min-height), 1fr) auto 28px;
     isolation: isolate;
     overflow: auto;
   }
   main.has-recovery {
-    grid-template-rows: 48px auto minmax(498px, 1fr) auto 28px;
+    grid-template-rows:
+      48px auto minmax(var(--workspace-min-height), 1fr)
+      auto 28px;
   }
   main:has(.shortcut-help[open]) {
     min-height: 700px;

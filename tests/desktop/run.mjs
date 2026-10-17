@@ -20,9 +20,14 @@ import { remote } from 'webdriverio';
 import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
 import { gapReview } from './gaps.mjs';
+import { qualityPerformance } from './performance.mjs';
 
 const { values } = parseArgs({
-  options: { binary: { type: 'string' }, cli: { type: 'string' } },
+  options: {
+    binary: { type: 'string' },
+    cli: { type: 'string' },
+    performance: { type: 'boolean', default: false },
+  },
 });
 const cli = resolve(
   values.cli ?? `target/debug/vsf${process.platform === 'win32' ? '.exe' : ''}`,
@@ -74,7 +79,7 @@ let browser;
 let log;
 let exit;
 let launchCount = 0;
-const runDeadline = Date.now() + 180_000;
+const runDeadline = Date.now() + (values.performance ? 300_000 : 180_000);
 
 async function record(step) {
   receipt.steps.push(step);
@@ -386,6 +391,9 @@ try {
   await launch([
     { kind: 'saveSubtitles', path: copy },
     { kind: 'saveSubtitles', path: recoveredCopy },
+    ...(values.performance
+      ? [{ kind: 'subtitles', path: join(root, 'quality-10000.srt') }]
+      : []),
   ]);
   const recover = await browser.$('button=Recover');
   assert.deepEqual(
@@ -425,6 +433,19 @@ try {
   await record({
     step: 'real recovery UI, external conflict and separate Save As',
   });
+  if (values.performance)
+    await qualityPerformance({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      pid: app.pid,
+    });
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([
     exit,

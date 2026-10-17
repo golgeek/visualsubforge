@@ -1,9 +1,8 @@
 # Subtitle quality
 
-Implementation in progress (2026-10-17). This contract describes Task 011;
-the shared checker, CLI, desktop profile Settings, live cue metrics, Problems
-review and explicit gap proposal acceptance are implemented and tested. Measured
-large-document desktop validation remains in progress. Checking is
+The first quality milestone is implemented and validated (2026-10-17): shared
+checker, CLI, desktop profile Settings, live cue metrics, Problems review and
+explicit gap proposal acceptance. Checking is
 read-only and never makes a subtitle document unsavable.
 
 ## Metrics and source evidence
@@ -212,6 +211,34 @@ the memory gate (162,414,592 bytes additional RSS). The retained comparison
 uses the production CLI's streaming serializer and counts the same 7,824,921
 bytes without allocating a complete output buffer. Budgets remain unchanged;
 this establishes streaming performance, not full-buffer allocation performance.
-Desktop paging/interaction evidence is still required. Ignored receipts:
+Ignored pure-engine receipts:
 `tests/fixtures/generated/quality/benchmark-v1.json` and
 `benchmark-streaming-v2.json` and `benchmark-streaming-v3.json` (final source).
+
+The real Mac desktop lane has an optional large-document measurement:
+
+```sh
+npm run build:desktop-test
+npm run test:desktop -- --performance
+```
+
+It runs the ordinary Settings/checking/gap/history/save/recovery workflow, then
+opens 10,000 cues with the same 1,050,000 text bytes. The final debug-app run
+measures 101 ms p95 over 20 warm check IPC round trips, 16 ms for generated draft
+input to become usable, 181 ms for worker cancellation (15 ms for visible pause),
+and 56 ms for stale-revision rejection plus accepted edit reconciliation. The
+three interaction checks pass the previously declared one-second budget.
+The modal reviews 9,999 safe gap candidates in approximately 423 ms with 100 DOM
+rows, then closes without changing the document. Check IPC pages cap at 200;
+201-row requests fail. The largest sampled check page is 120,929 serialized bytes.
+
+The measurement records binary/input hashes, the effective profile, raw timings,
+screenshots and rAF intervals (26 ms p95 / 73 ms maximum). Additional sampled
+main-process RSS across checking, edits and gap review is 70,696,960 bytes. This
+is a separate desktop observation, not the pure-engine 64 MiB memory gate; it
+excludes WebKit subprocesses and does not prove absence of leaks. The lane uses
+generated webview events and supplied file choices, so it does not measure
+physical input or GPU/audio presentation. Its RSS sampler uses macOS/Linux `ps`.
+Final ignored evidence is `quality/performance-layout-final/`; earlier trials
+and the reproduced compact-window layout failure are retained. The workspace
+now reserves enough height for metrics and history buttons when recovery is shown.
