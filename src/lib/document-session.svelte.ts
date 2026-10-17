@@ -3,6 +3,8 @@ import {
   documentAction,
   resyncAccept,
   gapAccept,
+  textAccept,
+  type TextTarget,
   emptyDocument,
   type DocumentAction,
   type DocumentSnapshot,
@@ -14,7 +16,15 @@ import {
 } from './cue-operations';
 import { formatTime, parseTime } from './timeline';
 
-const client = { chooseFile, documentAction, resyncAccept, gapAccept };
+const client = {
+  chooseFile,
+  documentAction,
+  resyncAccept,
+  gapAccept,
+  textAccept,
+};
+type Client = Omit<typeof client, 'textAccept'> &
+  Partial<Pick<typeof client, 'textAccept'>>;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
 type CommandOptions = {
   plan?: CueOperationPlan;
@@ -29,12 +39,12 @@ export class DocumentSession {
   private selection = $state<number | null>(null);
   private alive = true;
   private pending = false;
-  private client: typeof client;
+  private client: Client;
   text = $state('');
   start = $state('');
   end = $state('');
 
-  constructor(api = client) {
+  constructor(api: Client = client) {
     this.client = api;
   }
   get snapshot() {
@@ -95,6 +105,19 @@ export class DocumentSession {
         new Error('Subtitles or the cue draft changed; preview again.'),
       );
     return this.update(() => this.client.gapAccept(id, acknowledgeNoMedia));
+  }
+  acceptText(
+    id: number,
+    expected: DocumentSnapshot,
+    target: TextTarget,
+  ): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() =>
+      (this.client.textAccept ?? textAccept)(id, target),
+    );
   }
   private async update(
     request: (before: DocumentSnapshot) => Promise<DocumentSnapshot>,

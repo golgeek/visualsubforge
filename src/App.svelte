@@ -4,6 +4,7 @@
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
+  import TextDialog from './lib/TextDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { rate } from './lib/quality-display';
   import { isTauri } from '@tauri-apps/api/core';
@@ -24,6 +25,9 @@
   import { onMount, tick, untrack } from 'svelte';
   import {
     traceApplyInput,
+    textFormat,
+    type TextOperation,
+    type TextFormat,
     chooseFile,
     workspaceActions,
     updateMenu,
@@ -397,6 +401,13 @@
   let resyncOpen = $state(false);
   let gapOpen = $state(false);
   let gapReturn: HTMLElement | null = null;
+  let textOpen = $state(false);
+  let textReturn: HTMLElement | null = null;
+  let textOperation = $state<TextOperation>({
+    kind: 'find',
+    query: '',
+    caseSensitive: false,
+  });
   let resyncReturn: HTMLElement | null = null;
   let settingsReturn: HTMLElement | null = null;
   const nativeMenus = isTauri();
@@ -469,6 +480,117 @@
         confirming = true;
         gapOpen = true;
       }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function openText(mode?: 'find' | 'replace') {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.cues.length ||
+      cueMenu ||
+      waveformGesture
+    )
+      return;
+    busy = true;
+    error = '';
+    textReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    if (mode) {
+      const old = textOperation;
+      const query =
+        old.kind === 'find' || old.kind === 'replace' ? old.query : '';
+      const caseSensitive =
+        old.kind === 'find' || old.kind === 'replace'
+          ? old.caseSensitive
+          : false;
+      textOperation =
+        mode === 'find'
+          ? { kind: mode, query, caseSensitive }
+          : {
+              kind: mode,
+              query,
+              caseSensitive,
+              replacement: old.kind === 'replace' ? old.replacement : '',
+            };
+    }
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        textOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeText(operation: TextOperation, accepted = false) {
+    textOperation = operation;
+    textOpen = false;
+    if (accepted) {
+      notice = 'Text changes accepted. Undo restores the whole change.';
+      quality.restart();
+    }
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (textReturn?.isConnected) textReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
+    }
+  }
+  async function navigateText(
+    id: number,
+    start: number,
+    end: number,
+    operation: TextOperation,
+  ) {
+    // The dialog resolves drafts before searching and checks capture identity
+    // before navigation. Never apply an unexpected draft to leave a search row.
+    if (draftDirty || busy) return;
+    await closeText(operation);
+    if (!alive || draftDirty) return;
+    await selectCue(id);
+    await tick();
+    if (selected === id && textEditor) {
+      textEditor.focus();
+      textEditor.setSelectionRange(start, end);
+    }
+  }
+  async function formatText(style: TextFormat) {
+    if (busy || confirming || !cue || !textEditor) return;
+    const before = subtitles.text;
+    const snapshot = doc;
+    const id = selected;
+    const start = textEditor.selectionStart;
+    const end = textEditor.selectionEnd;
+    busy = true;
+    error = '';
+    try {
+      const result = await textFormat(before, start, end, style);
+      if (
+        !alive ||
+        doc !== snapshot ||
+        selected !== id ||
+        subtitles.text !== before
+      )
+        return;
+      subtitles.text = result.text;
+      await tick();
+      textEditor.focus();
+      textEditor.setSelectionRange(result.start, result.end);
+      notice = 'Formatting updated in the cue draft. Apply edit to accept it.';
     } catch (e) {
       if (alive) error = String(e);
     } finally {
@@ -1434,6 +1556,18 @@
       (e.target instanceof HTMLElement && e.target.isContentEditable);
     if (e.isComposing || e.defaultPrevented || cueMenu || confirming) return;
     if (
+      (e.metaKey || e.ctrlKey) &&
+      !e.altKey &&
+      !e.repeat &&
+      ((e.key.toLowerCase() === 'f' && !e.shiftKey) ||
+        (e.key.toLowerCase() === 'h' &&
+          ((e.ctrlKey && !e.shiftKey) || (e.metaKey && e.shiftKey))))
+    ) {
+      e.preventDefault();
+      void openText(e.key.toLowerCase() === 'f' ? 'find' : 'replace');
+      return;
+    }
+    if (
       problemsOpen &&
       e.key === 'F4' &&
       !e.metaKey &&
@@ -1818,6 +1952,10 @@
       <div class="cue-followbar">
         <button
           disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openText()}>Find / Replace…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
           onclick={() => void openGap()}>Enforce minimum gaps…</button
         >
         <button
@@ -2050,6 +2188,24 @@
         onkeydown={(e) => {
           if (
             (e.metaKey || e.ctrlKey) &&
+            !e.altKey &&
+            !e.shiftKey &&
+            !e.repeat &&
+            !e.isComposing &&
+            ['b', 'i', 'u'].includes(e.key.toLowerCase())
+          ) {
+            e.preventDefault();
+            void formatText(
+              e.key.toLowerCase() === 'b'
+                ? 'bold'
+                : e.key.toLowerCase() === 'i'
+                  ? 'italic'
+                  : 'underline',
+            );
+            return;
+          }
+          if (
+            (e.metaKey || e.ctrlKey) &&
             e.key === 'Enter' &&
             !e.altKey &&
             !e.shiftKey &&
@@ -2061,6 +2217,24 @@
           }
         }}></textarea>
       <div class="editorfooter">
+        <button
+          disabled={!cue || busy || confirming}
+          title="Bold selection (Ctrl/Cmd+B)"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => void formatText('bold')}>Bold</button
+        >
+        <button
+          disabled={!cue || busy || confirming}
+          title="Italic selection (Ctrl/Cmd+I)"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => void formatText('italic')}>Italic</button
+        >
+        <button
+          disabled={!cue || busy || confirming}
+          title="Underline selection (Ctrl/Cmd+U)"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => void formatText('underline')}>Underline</button
+        >
         <button
           disabled={!draftDirty || busy}
           onclick={(e) => void run('apply', e)}>Apply edit</button
@@ -2184,6 +2358,16 @@
       mediaSession={() => status.session}
       onclose={() => void closeGap()}
       onaccepted={() => void closeGap(true)}
+    />
+  {/if}
+  {#if textOpen}
+    <TextDialog
+      {subtitles}
+      initial={textOperation}
+      onclose={(operation) => void closeText(operation)}
+      onaccepted={(operation) => void closeText(operation, true)}
+      onnavigate={(id, start, end, operation) =>
+        void navigateText(id, start, end, operation)}
     />
   {/if}
   {#if settingsOpen}

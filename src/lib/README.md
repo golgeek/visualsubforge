@@ -146,3 +146,26 @@ It checks the captured scene generation/readiness, media session and document
 revision/profile epoch before applying the immutable plan as one history entry.
 All capture/projection/commit commands run on blocking workers. Evaluation owns
 an immutable clone outside those locks; shutdown cancels and joins outside them.
+
+## Text tools
+
+`TextDialog` resolves a cue draft before `TextSession` captures its accepted
+document projection and search/repair inputs. The typed client starts a Rust
+worker and polls bounded cue/match pages. Changes to inputs immediately disable
+acceptance; document/profile changes retire the Rust proposal. Closing while
+admission is pending cancels the eventual job ID. `DocumentSession.acceptText()`
+uses the same serialized adoption path as ordinary edits, resync and gap repair.
+The dialog cannot close during acceptance; accepted edits restart visible checks.
+
+Rust owns the original source and immutable plan. The shared operation maps
+search text back to source offsets and preserves protected tag/escape tokens.
+`Edit::TextBatch` changes only cue text and validates the complete document before
+publishing one history operation. Frontend code never reconstructs a batch from
+stripped text or sends proposed replacement cue arrays back to Rust.
+
+Formatting is a separate draft operation: App captures source text, cue identity,
+accepted snapshot and UTF-16 selection; `textFormat` validates and transforms it
+in shared Rust code. A reply only updates the still-matching draft. App restores
+the returned selection and leaves acceptance to the ordinary Apply action.
+See [the text tool contract](../../docs/text-editing.md) for supported syntax,
+conservative skips, limits and evidence.

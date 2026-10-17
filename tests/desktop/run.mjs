@@ -20,6 +20,8 @@ import { remote } from 'webdriverio';
 import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
 import { gapReview } from './gaps.mjs';
+import { textEditing } from './text.mjs';
+import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
 
 const { values } = parseArgs({
@@ -299,6 +301,14 @@ try {
     cli,
   });
   opened = await gapReview({ browser, status, until, evidence, record });
+  opened = await textEditing({
+    browser,
+    status,
+    until,
+    evidence,
+    record,
+    root,
+  });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);
   assert.deepEqual(
@@ -433,7 +443,7 @@ try {
   await record({
     step: 'real recovery UI, external conflict and separate Save As',
   });
-  if (values.performance)
+  if (values.performance) {
     await qualityPerformance({
       browser,
       menu,
@@ -446,6 +456,8 @@ try {
       binary,
       pid: app.pid,
     });
+    await textPerformance({ browser, status, until, evidence, record });
+  }
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([
     exit,

@@ -36,6 +36,8 @@ The editor provides:
   without media and never changes subtitles or save eligibility.
 - Explicit minimum-gap previews show safe endpoint changes, skipped reasons and
   before/after metrics. Accept commits the whole plan as one Undo/Redo operation.
+- Tag-aware Find/Replace, selection formatting and previewable line joining/reflow
+  preserve subtitle markup. Reviewed text batches use one Undo/Redo operation.
 
 Native Mac ANGLE/Metal, Windows D3D11 and Linux GTK playback remain opt-in
 experiments. The maintained mpv recipes have pinned sources and recorded build
@@ -64,6 +66,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   metric semantics and previewable minimum-gap repair.
 - [Subtitle tags](docs/subtitle-tags.md): SRT preservation, inline ASS/SSA native
   preview, millisecond timing, defaults and counting limitations.
+- [Text tools](docs/text-editing.md): protected search/replace, formatting drafts,
+  conservative line repairs, ownership, limits and validation.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT parsing/serialization without filesystem access. `vsf-application`

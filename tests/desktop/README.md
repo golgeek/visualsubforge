@@ -58,6 +58,13 @@ history even when a text field retained focus during the click; menu/keyboard Un
 still uses the focused field's local history. Modal closure waits for native
 occlusion/focus restoration before further workspace actions.
 
+Text tools then exercise draft cancellation/discard, Unicode source-match
+navigation, single replacement and Replace All through real IPC. The lane checks
+exact ASS/HTML preservation, stable IDs/times, one-step Undo/Redo, failed-save
+preservation, join/reflow acceptance with positioned-text skips, and formatting
+that remains a draft until Apply. The temporary fixture edits are undone before
+the existing save/recovery workflow continues.
+
 Each run retains `test-results/desktop-*`: its inputs/outputs, isolated recovery
 data, per-process logs, receipt and screenshot (plus DOM on failure). The runner
 has bounded waits and terminates only processes it spawned. CI additionally caps
@@ -127,6 +134,13 @@ stale-revision rejection and UI reconciliation are recorded. The interaction
 budget was declared as one second before measurement. It checks Undo restoration
 and a 9,999-candidate read-only gap preview with 100 table rows. A recovery banner
 and metrics must not overlap or clip the history controls.
+
+The same 10,000-cue document then exercises text proposals, typing during work,
+cancellation, 200-cue IPC pages, 100 visible review rows, accepting the complete
+batch from a later page, one Undo and revision invalidation. `text-performance.json`
+records these separately, with a one-second interaction/cancellation/invalidation
+budget. Full proposal duration is reported separately from the release engine
+benchmark in the [text tools guide](../../docs/text-editing.md).
 
 `quality-performance.json` retains binary/input hashes, profile, raw timings,
 main-process RSS samples and rAF intervals. RSS uses macOS/Linux `ps`; the final

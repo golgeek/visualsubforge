@@ -1,7 +1,8 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): the first subtitle-quality milestone is
-complete, including inline ASS/SSA preview, quality profiles, desktop cue metrics,
+Updated 2026-10-17 (America/New_York): tag-aware text editing and the first
+subtitle-quality milestone are complete, including protected Find/Replace,
+formatting, line repairs, inline ASS/SSA preview, quality profiles, cue metrics,
 Problems review, the shared CLI and minimum-gap preview/acceptance. The first CLI/GUI resync milestone was completed
 on October 12, including local three-OS checks and the Mac native workflow.
 This is the tracked summary of current behavior and evidence. The code is being
@@ -9,6 +10,27 @@ evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
+
+**Text editing milestone complete (2026-10-17):** literal Unicode Find/Replace
+maps matches back to original source; supported tags/escapes stay protected and
+ambiguous replacements explain why they are skipped. Single-match and Replace
+All acceptance use one atomic Rust history operation. Formatting shortcuts update
+selected draft text; explicit Apply accepts it. Conservative line joining/reflow
+uses the active profile, previews exact changes and leaves positioned text,
+dialogue, karaoke and other ambiguous cases for manual review. Document/profile
+guards, bounded cancellation, failed-save preservation and quality invalidation
+are tested. Full ASS/SSA files/styles remain separate.
+
+Final validation passes 218 Rust tests, 39 frontend unit tests, all 40 browser
+workflows, strict Clippy/lint/type/format/IPC checks and native-media compilation.
+The actual Mac application passes protected navigation, exact tag preservation,
+single/all acceptance, line repairs, formatting, Undo/Redo, failed saves, restart,
+recovery and normal shutdown. With 10,000 cues, text preview takes 849 ms,
+acceptance 114 ms, cancellation 4 ms and edit invalidation 14 ms. Release proposal
+p95 is 16.600–38.144 ms across four workloads, with 30,883,840 additional sampled
+RSS bytes; declared CPU/RSS/interaction budgets pass. See the
+[text tool contract and receipts](text-editing.md). New Windows/Linux text UI
+execution, installations and physical GPU/audio acceptance remain unverified.
 
 **Quality milestone complete (2026-10-17):** shared pure Rust metrics/rules,
 strict version-2 data-only profiles, default/partial archived SW profiles, and
@@ -28,7 +50,7 @@ budgets; full-buffer benchmark memory failed and remains recorded. See the
 [quality contract and commands](subtitle-quality.md). Native-platform release
 acceptance remains separate.
 
-The milestone passes 203 Rust tests, 39 frontend unit tests and all 38
+At its closeout, the quality milestone passed 203 Rust tests, 39 frontend unit tests and all 38
 Chromium/WebKit workflows, strict Clippy/lint/type/IPC checks and a real Mac
 Settings/metrics/Problems/gap-acceptance/save/restart/recovery workflow. That run compares every
 desktop metric/finding and profile hash with the actual CLI on the same input.
@@ -54,6 +76,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
 | Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |
+| Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity and use one Undo/Redo operation. Real Mac and 10,000-cue workflows pass. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. No full ASS/SSA file editing. |
 | Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
@@ -290,12 +313,13 @@ The native maintenance contract is established; native adoption is still blocked
 by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
-The active direction is shared Rust application operations for a headless CLI
-and desktop resynchronization, with generated JSON IPC bindings. Complete native
-workflow validation and broaden matching evidence; preserve conservative refusal
-at ambiguous or missing content. Broader formats, plugin frameworks and cosmetic
-module rearrangements can wait. Packaging, licensing, physical-device/x64 and
-scale/display coverage remain prerequisites for corresponding release claims.
+The shared application, resync, quality and text-editing milestones are complete
+within their recorded scope. The next feature candidate is scene-aware quality
+checking and previewable scene-related timing repairs, building on the existing
+scene cache and profile rules. Full ASS/SSA document/style editing is a separate
+format milestone. Broader matching evidence remains useful; retain conservative
+refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
+and scale/display coverage remain prerequisites for corresponding release claims.
 
 Desktop resync backend validation (2026-10-11, development Mac, pinned Rust/Node,
 FFmpeg 9.0.2): `cargo test --locked --workspace` passed 153 tests, including

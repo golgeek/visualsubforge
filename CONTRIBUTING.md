@@ -103,7 +103,10 @@ then `npm run test:desktop`; headless Linux needs the documented Xvfb/session-bu
 wrapper. This supplies file selections and excludes native dialogs and playback.
 Normal builds do not include the WebDriver server.
 The optional `npm run test:desktop -- --performance` extends that lane with the
-declared 10,000-cue quality responsiveness check; its RSS sampler uses Unix `ps`.
+declared 10,000-cue quality and text-tool responsiveness checks; its RSS sampler
+uses Unix `ps`. The ordinary lane also checks protected Find/Replace, formatting
+drafts and atomic line repairs. See [text tools](docs/text-editing.md) for the
+separate release proposal benchmark and conservative transformation limits.
 
 After changing a Rust IPC definition, run `npm run ipc:generate`, then `npm run
 check` and the relevant browser workflows. `ipc:check` generates into a temporary

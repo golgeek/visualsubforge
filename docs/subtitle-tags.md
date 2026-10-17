@@ -2,7 +2,9 @@
 
 VSF preserves subtitle text, including tags, through SRT open/edit/save and
 Undo/Redo. Accepted text is rendered on native video; unapplied editor drafts
-remain separate. Formatting is edited as text. Full `.ass`/`.ssa` file import,
+remain separate. [Text tools](text-editing.md) provide protected Find/Replace,
+selection formatting shortcuts and conservative line repairs; tags can also be
+edited directly as text. Full `.ass`/`.ssa` file import,
 style sheets, attachments and metadata editing are not implemented.
 
 ## Preview syntax
