@@ -18,18 +18,23 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 [feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
-batch timing and ASS/SSA resync are complete. Language tools are in progress;
-later stages are pending. Completed milestones below remain the
+batch timing, ASS/SSA resync and language tools are complete. Style/attachment/
+conversion authoring is next; later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**Language integration implemented; acceptance in progress (2026-10-17):** opt-in
+**Language tools complete (2026-10-17):** opt-in
 English/French checking, source-mapped Problems, bounded selected suggestions,
 reviewed one-occurrence corrections and persistent/session lexicons now share the
 existing Rust workers, context guards and Undo path. Browser and library tests
 cover Unicode/markup, failed persistence, stale reviews and exact SRT/ASS/SSA
 preservation. The six-format/language 10k workload passes 500ms/96MiB gates after
-fixing findings-buffer retention. Native workflow, project/recovery and interaction
-acceptance remain pending; [scope and evidence](language-tools.md) track stage4.
+fixing findings-buffer retention. Actual Mac six-case language workflows include
+all optional rules, save/reopen, project/recovery, failed writes and lexicon
+persistence. Six native 10k cases pass existing interaction gates: acceptance
+<=122ms, cancellation <=16ms and stale invalidation <=69ms. Final library p95
+analysis/proposal <=76.695/158.380ms with 48,037,888 additional RSS bytes.
+[Scope, exact commands and retained failures](language-tools.md) close stage4;
+Windows/Linux new-feature and physical acceptance remain separate.
 
 **ASS/SSA resync complete (2026-10-17):** shared CLI/GUI analysis preserves source
 styles, metadata, attachments and tags. Rational endpoints round directly to the

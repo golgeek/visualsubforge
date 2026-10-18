@@ -51,6 +51,8 @@ The editor provides:
   precision and accept each batch as one Undo step. See [batch timing](docs/batch-timing.md).
 - Bounded subtitle-font notices and a Mac CJK fallback preserve original font
   declarations, including embedded font previews. See [font policy](docs/preview-fonts.md).
+- Optional English/French spelling, typography, capitalization and dialogue checks
+  offer reviewed corrections and personal/session words. See [language tools](docs/language-tools.md).
 - Tag-aware Find/Replace, selection formatting and previewable line joining/reflow
   preserve subtitle markup. Reviewed text batches use one Undo/Redo operation.
 

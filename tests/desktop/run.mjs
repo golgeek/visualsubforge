@@ -30,6 +30,8 @@ import { assDocuments } from './ass-documents.mjs';
 import { assPerformance } from './ass-performance.mjs';
 import { batchTiming } from './batch-timing.mjs';
 import { styledResync } from './resync.mjs';
+import { languageTools } from './language.mjs';
+import { languagePerformance } from './language-performance.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -42,6 +44,8 @@ const { values } = parseArgs({
     ass: { type: 'boolean', default: false },
     batch: { type: 'boolean', default: false },
     resync: { type: 'boolean', default: false },
+    language: { type: 'boolean', default: false },
+    'language-performance': { type: 'boolean', default: false },
     'ass-performance': { type: 'boolean', default: false },
   },
 });
@@ -97,7 +101,12 @@ let exit;
 let launchCount = 0;
 const runDeadline =
   Date.now() +
-  (values.ass || values.batch || values.resync || values['ass-performance']
+  (values.ass ||
+  values.batch ||
+  values.resync ||
+  values.language ||
+  values['language-performance'] ||
+  values['ass-performance']
     ? 900_000
     : values.scenes || values.duration || values.statistics
       ? 480_000
@@ -579,6 +588,39 @@ try {
       until,
       record,
       cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.language)
+    await languageTools({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['language-performance'])
+    await languagePerformance({
+      status,
+      invoke,
+      menu,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

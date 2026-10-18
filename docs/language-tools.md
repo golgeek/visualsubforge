@@ -98,8 +98,8 @@ fixes the adapter. No engine/data behavior or performance threshold was changed.
 These are microbenchmarks, not the full markup/quality/IPC feature budget. The
 full warm 10k analysis/proposal gate remains 500ms p95 /96MiB additional sampled
 RSS, with cold initialization <=128MiB for both dictionaries. Ordinary 10k UI
-interaction budgets remain unchanged. No Windows/Linux or native language-tool
-execution has been established yet.
+interaction budgets remain unchanged. The native acceptance below extends this
+early evidence; Windows/Linux language-tool execution remains unverified.
 
 ## Integration workload declared before measurement
 
@@ -169,6 +169,70 @@ acknowledged result. Failed receipts and screenshots remain alongside passing lo
 under ignored `tests/fixtures/generated/language-research/`. No product guard or
 performance threshold was relaxed.
 
-Native workflow, save/reopen, process-loss recovery, project language policy and
-10k native interaction acceptance are the next Task021 work. These automated
-results do not establish Windows/Linux execution or physical hardware acceptance.
+## Native acceptance — 2026-10-17
+
+Task021 is complete within the available Mac environment. Native receipts
+`test-results/desktop-uzoI1V` (six format/language workflows) and
+`test-results/desktop-drqGuf` (six 10,000-cue workloads) passed with normal shutdown
+exit 0. They use the actual debug Tauri app, production Rust IPC and isolated real
+files; generated DOM events are not physical input or GPU/audio acceptance.
+Binary SHA256: `bc156262c59db4b223dbac136aa9191d22e6423459ab54ff68b320427a8ff269`.
+This is the existing private OpenGL `audio-integration-master-v1` runtime, not an
+ANGLE/adoption claim or a change to the approved native strategy.
+
+```sh
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype --config "$PWD/tests/fixtures/generated/fonts/tauri.native.json" -- --locked
+cargo build --locked -p vsf-cli
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" node tests/desktop/run.mjs --language --binary target/debug/bundle/macos/VisualSubForge.app/Contents/MacOS/visualsubforge
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" node tests/desktop/run.mjs --language-performance --binary target/debug/bundle/macos/VisualSubForge.app/Contents/MacOS/visualsubforge
+npm run lint
+npm run format:check
+```
+
+All pass. Each SRT/ASS/SSA × English/French workflow exercises Settings opt-in and
+license notices; selected suggestions; read-only exact correction preview; one-step
+Undo/Redo; unchanged other occurrences, timing, tags and metadata; failed Save As;
+exact separate save/reopen; project language-policy restoration; session ignores;
+failed personal-word persistence and retry; Settings personal-word editing;
+durable checkpoint and abrupt owned-process termination; recovered exact bytes;
+external-file conflict protection; persistent personal words and cleared session
+ignores after restart. All three optional editorial rules are enabled through
+Settings and individually reviewed, accepted, undone and redone through Problems.
+SRT uses BOM/CRLF and inline ASS plus HTML; ASS/SSA retain original style/event
+columns, comments and opaque sections. Screenshots were inspected; native media
+presentation itself is not the language acceptance criterion.
+
+The native scale harness uses the same predeclared corpus as the library matrix,
+asserting 10,000 distinct unknown words and 2,000 skipped ambiguous cues. Maximum
+observed interaction results across the six cases:
+
+| Operation | Maximum | Existing budget |
+| --- | ---: | ---: |
+| Finding-page p95 | 12ms | <1000ms |
+| Typing during analysis | 18ms | <1000ms |
+| Checker cancellation | 16ms | <1000ms |
+| Correction-worker cancellation | 14ms | <1000ms |
+| Reviewed acceptance/reconciliation | 122ms | <1000ms |
+| Undo/reconciliation | 79ms | <1000ms |
+| Edit invalidates old proposal | 69ms | <1000ms |
+
+Complete debug background analysis takes up to 897ms; correction preparation,
+including whole-document before/after analysis, takes up to 2033ms. These worker
+completion times are recorded separately from interaction gates, as in the existing
+text-performance harness; the production ten-second worker deadline is unchanged.
+No full findings report is sent to the UI. The library final-source repeat
+`language-benchmark-v5.json` also passes: worst analysis/proposal p95
+76.694083/158.379792ms, cold dictionaries 18.040583ms, selected suggestions
+3.598083ms and combined additional sampled RSS 48,037,888 bytes. This includes the
+final URL sentence-context guard; the earlier v4 passing and failed measurements
+remain retained. No corpus or budget changed.
+
+Native harness failures remain visible: `desktop-BbmcKN` expected checkpoint v4
+for SRT, which correctly uses v3; `desktop-bHiHIe` expected a required format DTO,
+where omitted means SRT. `desktop-WjGf9q` passed the original six-case workflow
+before the editorial-rule extension. Scale attempt `desktop-Yv5BCX` selected
+controls during a Problems refresh; the harness now waits for the refreshed,
+actionable panel. These required harness fixes, not product changes. Logs and
+receipts remain under ignored generated/evidence directories. Windows/Linux new
+feature execution and physical installation/GPU/audio checks remain open gates.
