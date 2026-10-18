@@ -11,6 +11,160 @@ fn source() -> String {
 fn ms(t: u64) -> Milliseconds {
     Milliseconds::new(t).unwrap()
 }
+
+#[test]
+fn style_overlay_retains_source_records_and_shares_base_through_history() {
+    for input in [
+        source(),
+        format!("\u{feff}{}", source().replace('\n', "\r\n")),
+    ] {
+        let parsed = parse(&input).unwrap();
+        let updated = parsed
+            .source
+            .with_style(
+                Some(1),
+                parsed.source.styles()[1]
+                    .with_field("Fontsize", "72")
+                    .unwrap(),
+            )
+            .unwrap();
+        assert!(Arc::ptr_eq(&parsed.source.0, &updated.0));
+        let expected = input.replace("Title,Hiragino Sans,64,more", "Title,Hiragino Sans,72,more");
+        assert_eq!(serialize(&parsed.document, &updated).unwrap(), expected);
+        assert_eq!(
+            serialized_len(&parsed.document, &updated).unwrap(),
+            expected.len()
+        );
+        assert!(
+            updated
+                .preview_header()
+                .contains("Title,Hiragino Sans,72,more")
+        );
+        assert_eq!(parse(&expected).unwrap().source.styles(), updated.styles());
+        let mut editor = Editor::with_properties(parsed.document.clone(), parsed.source);
+        editor
+            .apply_document(0, parsed.document, updated, |doc, source| {
+                serialized_len(doc, source).map(|_| ())
+            })
+            .unwrap();
+        editor.undo(1).unwrap();
+        assert_eq!(
+            serialize(editor.document(), editor.properties()).unwrap(),
+            input
+        );
+        editor.redo(2).unwrap();
+        assert_eq!(
+            serialize(editor.document(), editor.properties()).unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn appended_style_can_be_edited_and_reopened_with_independent_columns() {
+    for input in [
+        source(),
+        source()
+            .replace("v4.00+", "v4.00")
+            .replace("[V4+ Styles]", "[V4 Styles]"),
+    ] {
+        let parsed = parse(&input).unwrap();
+        let added = parsed.source.styles()[0]
+            .with_field("Name", "New 世界")
+            .unwrap();
+        let source = parsed.source.with_style(None, added).unwrap();
+        let source = source
+            .with_style(
+                Some(2),
+                source.styles()[2]
+                    .with_field("Fontname", "Another Font")
+                    .unwrap(),
+            )
+            .unwrap();
+        assert!(source.validate_style("New 世界").is_ok());
+        let encoded = serialize(&parsed.document, &source).unwrap();
+        let insertion =
+            "Format: Name, Fontname, Fontsize, Unknown\nStyle: New 世界,Another Font,42,preserve\n";
+        assert_eq!(
+            encoded,
+            input.replace("[Events]\n", &format!("{insertion}[Events]\n"))
+        );
+        let reopened = parse(&encoded).unwrap();
+        assert_eq!(reopened.document, parsed.document);
+        assert_eq!(reopened.source.styles(), source.styles());
+        assert_eq!(
+            serialized_len(&parsed.document, &source).unwrap(),
+            encoded.len()
+        );
+        assert!(source.preview_header().contains(insertion));
+    }
+}
+
+#[test]
+fn style_creation_handles_absent_empty_and_eof_sections() {
+    let original = parse(&source()).unwrap();
+    let style = original.source.styles()[0].clone();
+    for (input, expected) in [
+        (
+            "[Script Info]\nScriptType: v4.00+\n[Events]\nFormat: Start, End, Style, Text\n",
+            "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, Unknown\nStyle: Default,Arial,42,preserve\n[Events]",
+        ),
+        (
+            "[Script Info]\nScriptType: v4.00+\n[V4+ Styles]\n; retain\n[Events]\nFormat: Start, End, Style, Text\n",
+            "; retain\nFormat: Name, Fontname, Fontsize, Unknown\nStyle: Default,Arial,42,preserve\n[Events]",
+        ),
+        (
+            "[Script Info]\nScriptType: v4.00\n[Events]\nFormat: Start, End, Style, Text\n[V4 Styles]\n; eof",
+            "; eof\nFormat: Name, Fontname, Fontsize, Unknown\nStyle: Default,Arial,42,preserve\n",
+        ),
+    ] {
+        let parsed = parse(input).unwrap();
+        let updated = parsed.source.with_style(None, style.clone()).unwrap();
+        let encoded = serialize(&parsed.document, &updated).unwrap();
+        assert!(encoded.contains(expected), "{encoded}");
+        assert_eq!(
+            parse(&encoded).unwrap().source.styles(),
+            std::slice::from_ref(&style)
+        );
+        assert_eq!(
+            updated.default_metadata().unwrap().get("Style"),
+            Some("Default")
+        );
+    }
+}
+
+#[test]
+fn invalid_style_records_do_not_modify_sources_or_unknown_fields() {
+    let parsed = parse(&source()).unwrap();
+    let original = parsed.source.styles()[0].clone();
+    for name in ["", "Default", " New", "New\\reset", "New{tag}", "New\nline"] {
+        let candidate = original.with_field("Name", name);
+        assert!(
+            candidate
+                .and_then(|style| parsed.source.with_style(None, style))
+                .is_err()
+        );
+    }
+    assert!(original.with_field("Fontname", "comma,name").is_err());
+    assert!(original.with_field("Missing", "value").is_err());
+    assert!(
+        parsed
+            .source
+            .with_style(Some(99), original.clone())
+            .is_err()
+    );
+    let mut changed = original.clone();
+    changed.fields.swap(1, 2);
+    assert!(parsed.source.with_style(Some(0), changed).is_err());
+    let mut changed = original.clone();
+    changed.fields.push(("Name".into(), "Default".into()));
+    assert!(parsed.source.with_style(Some(0), changed).is_err());
+    assert_eq!(parsed.source.styles()[0], original);
+    assert_eq!(
+        serialize(&parsed.document, &parsed.source).unwrap(),
+        source()
+    );
+}
 #[test]
 fn noop_preserves_all_bytes_bom_endings_unknowns_and_variants() {
     let lf = source();

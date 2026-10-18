@@ -1,5 +1,7 @@
 //! Loss-preserving UTF-8 ASS v4+ / SSA v4 source records. No IO or renderer.
-//! Dialogue fields are editable; all other records are retained verbatim.
+//! Unedited records are retained verbatim. Authoring overlays share the original
+//! records so history does not copy an entire script for a style change.
+mod styles;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -25,7 +27,11 @@ pub struct Style {
     pub fields: Vec<(String, String)>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Source(Arc<SourceData>);
+pub struct Source(Arc<SourceData>, Arc<Authoring>);
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Authoring {
+    styles: Option<Vec<Style>>,
+}
 #[derive(Debug, PartialEq, Eq)]
 struct SourceData {
     variant: Variant,
@@ -35,6 +41,8 @@ struct SourceData {
     script_info: Vec<(String, String)>,
     format: Vec<String>,
     events_end: usize,
+    events_start: usize,
+    styles_end: Option<usize>,
     newline: &'static str,
 }
 #[derive(Debug, PartialEq, Eq)]
@@ -42,6 +50,7 @@ struct Line {
     raw: String,
     event: Option<CueId>,
     format: Option<Vec<String>>,
+    style: Option<usize>,
 }
 #[derive(Debug, PartialEq, Eq)]
 struct Original {
@@ -161,6 +170,8 @@ pub fn parse(input: &str) -> Result<Parsed> {
     let mut seen_info = false;
     let mut seen_events = false;
     let mut events_end = None;
+    let mut events_start = 0;
+    let mut styles_end = None;
     let mut lines = Vec::new();
     let mut cues = Vec::new();
     let mut originals = HashMap::new();
@@ -187,12 +198,16 @@ pub fn parse(input: &str) -> Result<Parsed> {
             raw: raw.into(),
             event: None,
             format: None,
+            style: None,
         };
         let result: Result<()> = (|| {
             if trimmed.starts_with('[') && trimmed.ends_with(']') {
                 let next = trimmed.to_ascii_lowercase();
                 if section == "[events]" && next != section {
                     events_end = Some(i);
+                }
+                if matches!(section.as_str(), "[v4+ styles]" | "[v4 styles]") && next != section {
+                    styles_end = Some(i);
                 }
                 match next.as_str() {
                     "[script info]" => {
@@ -206,6 +221,7 @@ pub fn parse(input: &str) -> Result<Parsed> {
                             return Err("Duplicate Events section is ambiguous".into());
                         }
                         seen_events = true;
+                        events_start = i;
                     }
                     "[v4+ styles]" | "[v4 styles]" => {
                         if style_variant.is_some() {
@@ -274,6 +290,7 @@ pub fn parse(input: &str) -> Result<Parsed> {
                             name: name.into(),
                             fields: format.iter().cloned().zip(parts).collect(),
                         });
+                        line.style = Some(styles.len() - 1);
                     }
                 }
                 "[events]" => {
@@ -333,18 +350,24 @@ pub fn parse(input: &str) -> Result<Parsed> {
     }
     let format = event_format.ok_or("ASS/SSA requires an Events Format line")?;
     let events_end = events_end.unwrap_or(lines.len());
+    let styles_end = style_variant.map(|_| styles_end.unwrap_or(lines.len()));
     Ok(Parsed {
         document: Document::new(cues)?,
-        source: Source(Arc::new(SourceData {
-            variant,
-            lines,
-            originals,
-            styles,
-            script_info,
-            format,
-            events_end,
-            newline,
-        })),
+        source: Source(
+            Arc::new(SourceData {
+                variant,
+                lines,
+                originals,
+                styles,
+                script_info,
+                format,
+                events_end,
+                events_start,
+                styles_end,
+                newline,
+            }),
+            Arc::new(Authoring::default()),
+        ),
     })
 }
 
@@ -353,7 +376,7 @@ impl Source {
         self.0.variant
     }
     pub fn styles(&self) -> &[Style] {
-        &self.0.styles
+        self.1.styles.as_deref().unwrap_or(&self.0.styles)
     }
     pub fn script_info(&self) -> &[(String, String)] {
         &self.0.script_info
@@ -364,13 +387,18 @@ impl Source {
     pub fn preview_header(&self) -> String {
         let mut header = String::new();
         let mut events = false;
-        for line in &self.0.lines {
+        for i in 0..=self.0.lines.len() {
+            let mut ended = header.is_empty() || header.ends_with('\n');
+            self.write_added_styles(i, &mut ended, &mut |part| header.push_str(part));
+            let Some(line) = self.0.lines.get(i) else {
+                break;
+            };
             let trimmed = line.raw.trim_start_matches('\u{feff}').trim();
             if trimmed.starts_with('[') && trimmed.ends_with(']') {
                 events = trimmed.eq_ignore_ascii_case("[Events]");
             }
             if !events {
-                header.push_str(&line.raw);
+                header.push_str(&self.style_line(line));
             }
         }
         header.push_str("\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
@@ -378,11 +406,10 @@ impl Source {
     }
     pub fn default_metadata(&self) -> Result<CueMetadata> {
         let style = self
-            .0
-            .styles
+            .styles()
             .iter()
             .find(|s| s.name == "Default")
-            .or_else(|| self.0.styles.first())
+            .or_else(|| self.styles().first())
             .ok_or("Create requires an existing ASS/SSA style")?;
         CueMetadata::new(
             self.0
@@ -402,7 +429,7 @@ impl Source {
         )
     }
     pub fn validate_style(&self, name: &str) -> Result<()> {
-        if self.0.styles.iter().any(|s| s.name == name) {
+        if self.styles().iter().any(|s| s.name == name) {
             Ok(())
         } else {
             Err(format!("Style {name:?} is not defined in this document"))
@@ -478,6 +505,7 @@ fn write_document(document: &Document, source: &Source, mut write: impl FnMut(&s
     let mut format: &[String] = &data.format;
     let mut ended = true;
     for i in 0..=data.lines.len() {
+        source.write_added_styles(i, &mut ended, &mut write);
         let line = data.lines.get(i);
         if line.is_some_and(|l| l.event.is_some()) || i == data.events_end {
             while pending
@@ -514,8 +542,9 @@ fn write_document(document: &Document, source: &Source, mut write: impl FnMut(&s
             }
             ended = !original.ending.is_empty();
         } else {
-            write(&line.raw);
-            ended = line.raw.ends_with('\n');
+            let raw = source.style_line(line);
+            write(&raw);
+            ended = raw.ends_with('\n');
         }
     }
     if pending.next().is_some() {

@@ -63,3 +63,21 @@ compilation identified two remaining field accesses after moving Source into
 Editor; both now use its borrowed accessor. Logs are retained under ignored
 `tests/fixtures/generated/authoring-research/`. No native authoring or scale
 acceptance is claimed yet; those remain required for Task022.
+
+## Loss-preserving style records
+
+The format adapter now shares immutable base records with a separate style
+overlay. Edits replace only the selected style record; additions insert explicit
+Format/Style records at the style section boundary (creating that section when
+absent). Original field order, padding, line endings and unrelated source remain
+intact. Preview headers, default cue metadata and style lookup use the same
+accepted overlay. Application field/reference validation is still required before
+this lower-level transformation can become a user-facing transaction.
+
+`cargo test --locked -p subtitle-formats` passes 16 tests, including four new
+overlay/preservation/history/invalid-record cases.
+`cargo clippy --locked -p subtitle-formats -p subtitle-core --all-targets -- -D warnings`
+passes after replacing an unnecessary test clone with `slice::from_ref`.
+The tests cover both variants, BOM/CRLF, empty/absent/EOF style sections, added
+styles with independent columns, exact unrelated records and shared base identity.
+Native authoring, field/reference proposals and scale acceptance remain open.
