@@ -240,3 +240,33 @@ sink. It establishes neither visible pixel correctness nor audible output.
 All platforms still need the [manual acceptance checklist](preview-acceptance.md),
 including clean consumer systems, real display/audio devices and claimed oldest
 OS versions. No release has been published.
+
+## October18 Linux feature validation candidate
+
+[Linux package39142923333](https://github.com/golgeek/visualsubforge/actions/runs/39142923333)
+builds f0dbf68c643d4f9a483389fe07b4103453c26c29. The
+[candidate and both source archives](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12143295022)
+and [installation/native evidence](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12142293247)
+are retained. Downloaded hashes verify:
+
+| File | SHA256 |
+| --- | --- |
+| `VisualSubForge_0.0.1-alpha_amd64_ubuntu24.04.deb` (80,124,236bytes) | `f251f421c04d25bb47e2a2936e46257157d45b81458b8a358aea92f26a5f9379` |
+| `native-sources.tar.gz` | `647c718bb5614755239acafa8cc02c652a66262e03251cb21cd27454d139630b` |
+| `application-sources.tar.gz` | `a538fac817231b1493b23ffc5cc408ec000b32391ae45ef15cbd9c15d842d91e` |
+
+The independent artifact identity check verifies1092 application source/notice
+files and713 installed notices. The inventory contains369 resolved Cargo packages;
+registry crate hashes match the archived lockfile. Four frontend packages remain inventoried. The new rquickjs
+0.14.0 family carries MIT notices, with the missing rquickjs-core notice supplied
+from its recorded upstream revision; rquickjs-sys retains its QuickJS notice.
+Spellbook0.4.2 carries MPL-2.0 notices/source. All nine VSF dictionary data/source/
+notice files are present verbatim in the application source archive. This is
+source and notice identity evidence, not a new blanket redistribution approval.
+
+All124 assembled runtime files and120 observed private images match package
+bytes, including GUI b35e3d49... and libmpv6e5c0f0d.... The custom mpv/libplacebo
+sources and Ubuntu build-input inventory match the receipt. Exact audit script
+and results live under `test-results/native-reliability-20261018/linux-package-f0db-*`.
+Isolated installation, offline CLI and software-renderer/null-sink smoke pass;
+physical GPU/audio, interactive dialogs and oldest-OS acceptance remain separate.

@@ -1,8 +1,9 @@
 # Preview candidate manual acceptance
 
-The October 12 downloads below predate the October 17–18 feature milestones.
-Use an identified build containing those milestones for the extended feature
-checks below. Their fixture pack must contain `subtitles/`, `plugins/` and
+The Ubuntu24.04 x64 candidate below is updated to f0dbf68 on October18 and
+includes the feature milestones. The Mac and Windows downloads in the table
+remain October12 baselines. Use an identified build containing the milestones
+for the extended feature checks below. Their fixture pack must contain `subtitles/`, `plugins/` and
 `legacy.vssprj`; earlier fixture archives do not contain them. Record the fixture
 `provenance.json` and `SHA256SUMS` alongside the application revision. A newer
 fixture pack does not establish that an older app implements these features.
@@ -30,9 +31,14 @@ retention; preserve the candidate, matching sources and checksums together.
 | Apple Silicon, macOS 14+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38334674579/artifacts/11784371040) | [Matching ARM inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11782814984) |
 | Intel, macOS 15+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38335057462/artifacts/11784079472) | [Matching Intel inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11783364443) |
 | Windows x64 | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119) | Included in the same artifact |
-| Ubuntu 24.04 x64 | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11728388564) | Included in the same artifact |
+| Ubuntu 24.04 x64, f0dbf68 (October18) | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12143295022) | Included in the same artifact |
 
 Use the shared [fixtures](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11729128569).
+The October18 Linux run also retains the baseline fixture set; extended feature
+fixtures can be generated from b379885 or later with
+`python3 scripts/package-release-fixtures.py --output /path/to/new-fixture-folder`
+after the three media-generation recipes listed in its provenance. The collector
+records the checkout revision, dirty state and exact input/recipe hashes.
 [Dependency review](dependency-review.md) records package hashes and evidence.
 Windows installation/offline/native smoke passes with a virtual WASAPI device
 and software D3D11; Ubuntu smoke uses a prepared virtual PulseAudio sink. Neither

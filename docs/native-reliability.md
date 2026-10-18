@@ -461,3 +461,51 @@ Fresh validation package workflows were dispatched atf0dbf68:
 and [Windows39142924874](https://github.com/golgeek/visualsubforge/actions/runs/39142924874).
 They build and inventory hosted candidates without using Linux VM root space;
 their artifacts/install/runtime checks remain pending. No release is published.
+
+## Hosted completion and portable fixtures — 2026-10-18
+
+At375394d, [Checks39143664696](https://github.com/golgeek/visualsubforge/actions/runs/39143664696)
+passes all ten jobs and [Native39143664477](https://github.com/golgeek/visualsubforge/actions/runs/39143664477)
+passes all six. This verifies the specific worker guard-order correction on all
+three hosted desktop platforms. Production limits are unchanged. Browser60/60
+passes again; the earlier intermittent statistics count failure remains retained
+and unexplained. `ci-latest-verified.json` records exact jobs/revisions.
+
+The f0dbf68 Linux package run39142923333 finishes successfully: clean Ubuntu24.04
+container installation, offline relocated CLI/analysis, protected output refusal,
+missing-tool diagnosis and production native smoke/exit pass. GUI evidence uses
+Xvfb/Mesa software rendering and a prepared PulseAudio null sink. It does not
+observe physical pixels/speaker output, interactive dialogs or device latency.
+Windows package39142924874 is still collecting sources at this checkpoint.
+
+Downloaded Linux artifact checksums,1092 application source/notice files,713
+installed notice files,369 resolved Cargo packages,124 assembled runtime files
+and120 observed private images verify. All nine dictionary source/notice files
+match the archived application revision. The two custom native source hashes
+and Ubuntu build-input inventory match the assembly receipt. The retained
+`audit-linux-package.py` and `linux-package-f0db-audit.json` describe this identity
+check, not an additional device or legal acceptance. Its first attempt expected
+an unprefixed project archive; the actual `source/` prefix is now handled.
+Package hashes/downloads are recorded in dependency-review.md.
+
+Commitb379885 extends the explicit portable fixture collector and manual guide
+with original ASS/SSA/WebVTT/tagged-SRT, language, font, legacy-project and plugin
+controls. No historical plugin or system font is copied. All ten subtitle inputs
+parse/round-trip; project inspection resolves3cues with1250ms resume and two
+expected notices; dictionary suggestions include hello/bonjour. Actual modern
+and VSS CLI preview/apply each change only cue1's two trailing spaces. Existing
+output refusal and every input checksum pass. Initial validation-scaffold argument
+ordering failure is retained; no product change was needed. Python compilation,
+CLI build and diff checks pass; full application suites were not repeated for
+this fixture/docs-only change.
+
+`VisualSubForge-feature-acceptance-b379885.zip` under the same evidence root is
+48,196,412bytes with SHA256
+`504ee916bfc1dd11c1310ffb68ef107f2fa5946ac819de621a788a88a4413ebd`.
+All36 checksummed files and ZIP CRCs verify. Its data matches the validated first
+pack; only README literal-tag spelling and committed provenance differ.
+`feature-fixtures-b379885-receipt.json`, `feature-fixture-cli-validation.json`,
+`feature-fixture-application-validation.log` and the validation scaffolds retain
+exact commands and identities. The running f0dbf68 package workflows predate this
+fixture expansion; their attached fixture set remains the earlier baseline.
+No Linux VM root-space install/build or production audio-option change occurred.

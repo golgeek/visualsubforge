@@ -25,11 +25,13 @@ native reliability work is now in progress.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**Latest reliability checkpoint (2026-10-18):** all six hosted native build-contract
-jobs pass at71cf014 andf0dbf68. Windows x64 plugin rejection tests incorrectly
-assumed protocol checks would precede the unchanged time/stack guards; focused
-test corrections pass locally and await hosted validation. All60 browser cases
-pass atf0dbf68, but the earlier WebKit statistics paging failure is still unexplained.
+**Latest reliability checkpoint (2026-10-18):** all ten hosted application jobs
+and all six native build-contract jobs pass at375394d. The plugin rejection-test
+correction is verified on Mac, Windows x64 and Ubuntu with production limits
+unchanged. All60 browser cases pass; the earlier intermittent WebKit statistics
+paging failure is still unexplained. The f0dbf68 Ubuntu24.04 x64 package passes
+isolated installation/offline CLI and software-renderer/null-sink native checks;
+downloaded runtime/source/notice identities verify. Windows packaging is running.
 Linux Pulse interpolation-option content/re-entry/EOF checks add bounded passes,
 while the default capture has an incomplete beginning; production configuration
 is unchanged. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
