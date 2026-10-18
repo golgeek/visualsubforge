@@ -14,6 +14,13 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
+**Next umbrella goal active (2026-10-17):** the ordered
+[feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
+ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
+formats/workflows, initial plugins and native reliability. Font investigation is
+in progress; later stages are pending. Completed milestones below remain the
+baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
 **ASS/SSA document milestone complete (2026-10-17):** loss-preserving UTF-8
 ASS v4.00+/SSA v4.00 parsing and same-format serialization retain original script
 headers, styles, event fields, comments, attachments and unknown content. Rust owns
