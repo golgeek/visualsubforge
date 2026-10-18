@@ -4,9 +4,9 @@ VSF preserves subtitle text, including tags, through SRT open/edit/save and
 Undo/Redo. Accepted text is rendered on native video; unapplied editor drafts
 remain separate. [Text tools](text-editing.md) provide protected Find/Replace,
 selection formatting shortcuts and conservative line repairs; tags can also be
-edited directly as text. Full `.ass`/`.ssa` document integration is
-[in progress](ass-ssa-documents.md); its backend preservation and preview are
-implemented, while style controls and end-to-end workflow validation remain open.
+edited directly as text. Full `.ass`/`.ssa` documents have a separate
+[preservation policy and validated workflow](ass-ssa-documents.md), including
+original headers/styles, style inspection and assignment, projects and recovery.
 Attachment management and a comprehensive style designer are deferred.
 
 ## Preview syntax
@@ -73,6 +73,12 @@ counted source, not rendered wrapping, animation or drawing. Pixel/typography
 checks and full broadcaster compliance remain outside the current checker.
 
 ## Validation
+
+The actual Mac Task016 workflow additionally verifies mixed HTML/ASS SRT through
+editing, Undo/Redo, exact BOM/CRLF save/reopen and native preview at multiple times.
+Color, italics, hard breaks, movement, positioning and expiry were visually
+inspected; original 1.001/2.999-second endpoints remain exact. See the
+[desktop evidence and font limits](ass-ssa-documents.md#native-preview-and-current-evidence).
 
 Ordinary Rust tests cover literal/malformed syntax, mixed/nested styles,
 transport bounds, accepted edit/Undo/Redo/save preservation, mode switching and

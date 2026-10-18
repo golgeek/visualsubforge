@@ -2167,7 +2167,7 @@
             onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}
           >
             {#if !doc.loaded}<p class="empty">
-                Create a cue to start new subtitles, or open an SRT file.
+                Create a cue to start new subtitles, or open SRT, ASS or SSA.
               </p>{:else if doc.cues.length === 0}<p class="empty">
                 No cues yet. Create a cue to start editing.
               </p>{:else}

@@ -67,7 +67,7 @@ conservative skips. A long unbreakable word or text that cannot fit the enabled
 line limits is also skipped. Tags are never stripped to construct replacement
 text. Full ASS/SSA can explicitly change hard/soft break whitespace while retaining
 every other tag/escape and event metadata; nonempty event effects remain manual
-skips. Its broader desktop acceptance is still [in progress](ass-ssa-documents.md).
+skips. See the [ASS/SSA workflow validation and limits](ass-ssa-documents.md).
 
 ## Ownership, limits and validation
 

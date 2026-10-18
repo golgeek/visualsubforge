@@ -31,8 +31,8 @@ cue opt-in, literal/malformed handling and fixed SRT preview defaults. The VSS
 counting policy can exclude syntax which preview renders literally; it counts
 ASS text escapes and drawing instructions outside blocks as source characters,
 not rendered layout. Its name/details must remain visible with metrics. SRT
-preserves original tags on save. Full ASS/SSA files/styles/metadata remain a
-separate scope choice; inline tag support is included in this milestone.
+preserves original tags on save. [Full ASS/SSA documents](ass-ssa-documents.md)
+retain styles and metadata while sharing this same named counting policy.
 
 For count N and effective duration D milliseconds, CPS = N*1000/D and
 RS = N*1000/(D-500). Empty/whitespace-only text, invalid duration and RS durations

@@ -249,3 +249,42 @@ receipt are retained in `tests/fixtures/generated/statistics/desktop-final/`.
 This uses Homebrew mpv/OpenGL and generated WebView events; it does not establish
 physical input, GPU/audio, native-dialog or Windows/Linux acceptance. See the
 [statistics contract](../../docs/statistics.md) for separate release measurements.
+
+## ASS/SSA documents and tagged SRT
+
+`--ass` adds the Mac native workflow for the synthetic `styles.ass` and
+`styles.ssa` fixtures: inspect styles without mutation, reject an exact 1 ms edit,
+commit style/text/time together, Undo/Redo, cancel/fail/save/reopen, restore a
+project and recover after an abrupt owned-process restart. Exact saved bytes and
+preservation of a newer external edit are asserted. It then edits/saves/reopens
+mixed HTML/ASS SRT at 1.001/2.999 seconds and samples native motion, position,
+color, hard breaks and expiry. A separate Hiragino Sans GB document checks an
+explicitly installed Mac font; original font declarations are never substituted.
+
+Build with `desktop-e2e,media-prototype`, the test config and an explicitly
+selected native runtime; see the Mac build guide. For a private dylib selected
+through DYLD_LIBRARY_PATH, launch the pinned Node executable directly: npm's
+shell can remove that variable on macOS. For example, after configuring pkg-config:
+
+```sh
+npm run tauri -- build --debug --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
+cargo build --locked -p vsf-cli
+DYLD_LIBRARY_PATH=/absolute/runtime/directory /absolute/pinned/node tests/desktop/run.mjs --ass
+```
+
+The runner writes `ass-documents.json` and WebKit PNGs. WebKit screenshots can omit
+the native media surface, so those PNGs alone do not establish composition.
+`VSF_ASS_DESKTOP_CAPTURE=1` pauses each settled revision for an independent native
+window observation: the observer reads `capture-request.json` and writes
+`capture-ack.json` containing its matching `label` within 60 seconds. Observe the
+actual rendered frame before acknowledging it. Backend readiness can precede
+visible presentation. Record the loaded runtime with `record-native-runtime.py`.
+
+`--ass-performance` adds the unchanged Task016 one-second desktop gate using
+`scripts/ass-fixtures.py`'s exact 10,000-cue inputs. It works with the default test
+build without media. It measures open (including filesystem time), text/time/style
+edits and Undo, navigation, typing during work, cancellation and invalidation;
+checks actual accepted values, complete restoration, source bytes and bounded
+DOM/proposal pages; and records input/binary hashes in `ass-performance.json`.
+Both flags can be combined. These synthetic inputs and generated DOM events do
+not establish physical input latency, platform installations or GPU/audio acceptance.

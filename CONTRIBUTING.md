@@ -95,6 +95,10 @@ npm run tauri -- build --debug --no-bundle -- --locked
 
 `npm run build` includes strict Svelte/TypeScript checking; `npm run check` runs that step alone. `npm run format` and `cargo fmt --all` apply formatting. Prettier covers frontend and configuration files; existing planning Markdown is excluded to preserve its formatting.
 
+The optional desktop `--ass` and `--ass-performance` lanes cover full ASS/SSA,
+tagged SRT and exact 10,000-cue format fixtures. The native lane needs the explicit
+Mac runtime/test build; see [reproduction and evidence limits](tests/desktop/README.md#assssa-documents-and-tagged-srt).
+
 The [real desktop workflow lane](tests/desktop/README.md) additionally builds an
 isolated, optionally instrumented app and the CLI, then exercises actual IPC,
 profile Settings, quality metrics/Problems with CLI parity, edits, Undo/Redo,

@@ -26,6 +26,8 @@ import { qualityPerformance } from './performance.mjs';
 import { sceneQuality } from './scene-quality.mjs';
 import { durationQuality } from './duration-quality.mjs';
 import { statisticsWorkflow } from './statistics.mjs';
+import { assDocuments } from './ass-documents.mjs';
+import { assPerformance } from './ass-performance.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -35,6 +37,8 @@ const { values } = parseArgs({
     scenes: { type: 'boolean', default: false },
     duration: { type: 'boolean', default: false },
     statistics: { type: 'boolean', default: false },
+    ass: { type: 'boolean', default: false },
+    'ass-performance': { type: 'boolean', default: false },
   },
 });
 const cli = resolve(
@@ -89,11 +93,13 @@ let exit;
 let launchCount = 0;
 const runDeadline =
   Date.now() +
-  (values.scenes || values.duration || values.statistics
-    ? 480_000
-    : values.performance
-      ? 300_000
-      : 180_000);
+  (values.ass || values['ass-performance']
+    ? 900_000
+    : values.scenes || values.duration || values.statistics
+      ? 480_000
+      : values.performance
+        ? 300_000
+        : 180_000);
 
 async function record(step) {
   receipt.steps.push(step);
@@ -527,6 +533,34 @@ try {
       root,
       evidence,
       record,
+    });
+  if (values.ass)
+    await assDocuments({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['ass-performance'])
+    await assPerformance({
+      status,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
     });
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([

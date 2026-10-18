@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): document statistics,
+Updated 2026-10-17 (America/New_York): ASS/SSA documents, document statistics,
 duration/reading-speed repairs, scene-aware
 quality and timing repair,
 tag-aware text editing and the first subtitle-quality milestone are complete,
@@ -14,16 +14,29 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
-**ASS/SSA documents in progress (2026-10-17):** pure loss-preserving adapters,
-Rust-owned metadata/history and format-aware desktop save/project/recovery paths
-are implemented. Native packet and software-composition checks pass for document
-styles/settings and existing tagged SRT; generic-font CJK fallback failed on the
-tested runtime and remains recorded. Style inspection/assignment, file filters,
-format-aware text/timing tools and CLI checking/statistics are implemented with
-focused shared/owner/browser regressions. Actual desktop workflows and 10,000-cue
-desktop validation remain required; the separate pure format CPU/RSS budget passes. This is not
-a completed document-support or platform-acceptance claim. See
-[ASS/SSA integration](ass-ssa-documents.md) for policy, ownership and limits.
+**ASS/SSA document milestone complete (2026-10-17):** loss-preserving UTF-8
+ASS v4.00+/SSA v4.00 parsing and same-format serialization retain original script
+headers, styles, event fields, comments, attachments and unknown content. Rust owns
+metadata/history; style inspection/assignment and safe text/timing tools share
+existing owners. Save/Save As, projects and recovery retain format identity.
+Fansub SRT with inline ASS/SSA tags retains exact text and millisecond endpoints.
+
+Final validation passes 300 ordinary Rust tests, 41 frontend tests, 48 Chromium/
+WebKit cases, strict Clippy/lint/format/type/IPC checks and the default desktop
+build. Actual Mac ASS/SSA inspection/edit/Undo/Redo/save/reopen/project/crash-recovery
+workflows and tagged-SRT native/save/history regression pass. Native window
+observations show source-defined style/alignment, position, hard breaks, motion
+and expiry. Generic sans-serif CJK fallback still produces boxes on this runtime;
+an explicit installed Hiragino Sans GB control renders the glyphs correctly.
+
+The exact 10,000-cue desktop gate passes: open 260/285 ms (ASS/SSA), text/style/time
+acceptance <=105 ms, Undo <=96 ms, navigation <=27 ms, cancellation <=15 ms and
+invalidation <=59 ms. Rebuilt release format p95 is 29.723/25.165 ms with 46,333,952
+additional sampled RSS bytes, within unchanged 500 ms/96 MiB budgets. Measurements
+and retained failures are in the [ASS/SSA integration guide](ass-ssa-documents.md).
+Comprehensive style design, attachment management and conversion remain deferred;
+resync remains explicitly SRT-only. Windows/Linux feature execution, Linux picker
+filters, installation and physical GPU/audio acceptance remain unverified.
 
 **Statistics milestone complete (2026-10-17):** read-only whole-document or
 inclusive cue-range reports share Rust quality metrics and the active profile
@@ -43,7 +56,7 @@ At 10,000 cues/cuts, display takes 449 ms, draft interaction 4 ms, cancellation
 failure is retained; bounded allocation fixes it without changing the budgets.
 See [statistics](statistics.md) for policy, commands, ownership and limits.
 New Windows/Linux feature execution, clean installs and physical GPU/audio
-acceptance remain open; complete ASS/SSA document/style support is still absent.
+acceptance remain open.
 
 **Duration/speed milestone complete (2026-10-17):** selected-cue and whole-document
 previews keep starts fixed and choose the nearest integer-ms end satisfying the
@@ -153,16 +166,16 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
-| Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |
+| Subtitle editing | Rust owns accepted UTF-8 SRT/ASS/SSA, cue metadata/identity, generation/revision and undo/redo. Style inspection/assignment and safe cue operations preserve source records. Actual Mac format/save/history workflows pass. | UTF-8 only; ASS/SSA endpoints require 10 ms precision. Unsafe operations are refused. Style designer, attachment management and conversion are deferred; fonts depend on the runtime. Native preview has a separate 4 MiB limit. |
 | Duration/speed repair | Selected/all fixed-start previews, exact shared metric bounds, whole-document validation, explicit skips and atomic Undo/Redo. Actual Mac and 10,000-cue workflows pass. | Conservative plan, not a joint optimizer or dialogue synchronization. Completed scenes required with buffers enabled; timed/unknown markup stays manual. |
 | Scene quality | Shared endpoint checks, explicit coverage and paged inward-repair previews use current completed scenes. Safe whole batches preserve text/tags and use one Undo/Redo. Real Mac and 10,000-cue workflows pass. | Heuristic detection can miss cuts. Missing/partial data cannot authorize repair; timed/ambiguous markup stays manual. No new Windows/Linux execution. |
-| Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity/metadata and use one Undo/Redo operation. SRT real Mac and 10,000-cue workflows pass; format-aware ASS/SSA tools have shared/owner/browser coverage. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. Full ASS/SSA desktop acceptance remains in progress. |
+| Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity/metadata and use one Undo/Redo operation. SRT real Mac and 10,000-cue workflows pass; format-aware ASS/SSA tools have shared/owner/browser coverage. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. ASS/SSA desktop and 10,000-cue validation pass within the format policy above. |
 | Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
-| Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
+| Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from subtitle documents/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
 | Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
 | Resynchronization | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). The v4 verifier passes 29 synthetic cases on Mac/Ubuntu/Windows ARM64 and both reference films on Mac. | Coverage is measured, not universal. Sampled visual evidence can miss indistinguishable edits; ambiguous or unsupported cues remain unresolved. Wider real-programme evaluation is a follow-up. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. Shared quality checking and conservative gap proposals also power the desktop. | Blocking filesystem calls can delay cancellation. Audio matching remains unimplemented. |
+| Shared application and CLI | `vsf-application` owns shared format/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. Shared quality checking and conservative gap proposals also power the desktop. | Blocking filesystem calls can delay cancellation. Audio matching remains unimplemented. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). Rust and modeled-browser tests cover proposal ownership, Save As/recovery and project references. The actual Mac native workflow passes review/accept/Undo/Redo, source-path rejection, save-before-project and reopen. | Native resync dialogs were exercised on Mac only. Recovery tests do not imply power-loss guarantees or restoration of unapplied drafts/history. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. Real default-app IPC passes on all three local ARM64 OSes; Mac native resync transport also passes. | The pinned generator has documented naming limitations; upgrades require contract and runtime regression checks. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
@@ -395,10 +408,10 @@ exact runtime before accepting it, and run configured CI when a remote is availa
 
 The shared application, resync, quality, text-editing, scene-quality,
 duration/speed-repair and statistics milestones are complete within their recorded
-scope. The next recommended feature is loss-preserving ASS/SSA document support:
-opening, text/timing edits, faithful preview and same-format save with headers,
-styles, event fields and unknown content retained. Inline ASS/SSA tags already
-work in SRT; full document/style support remains a separate format milestone.
+scope. Loss-preserving ASS/SSA documents now also pass their full scoped audit,
+including existing styles, format-aware tools and tagged-SRT regression. Further
+style design, font/attachment management and cross-format conversion need their
+own policies and goals; none is implicitly enabled by this milestone.
 Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.

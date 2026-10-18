@@ -1,9 +1,11 @@
 # ASS/SSA document integration
 
-Task 016 is **in progress**. Format/history, desktop persistence, style controls
-and format-aware text/timing tools are implemented. The complete user workflow is
-not yet accepted: actual Mac desktop workflows, font-availability checks and
-10,000-cue desktop interaction measurements remain required.
+Task 016 is **complete within the policy below**. Format/history, desktop
+persistence, style controls and format-aware text/timing tools pass shared,
+owner/browser, actual Mac and 10,000-cue validation. Comprehensive style design,
+attachment management and cross-format conversion remain deferred. Font
+availability is runtime-dependent; Windows/Linux installation and physical
+GPU/audio acceptance remain separate.
 
 ## Preservation policy
 
@@ -22,8 +24,9 @@ than rounded at save. SRT retains 1 ms precision.
 
 Rust cues own accepted event metadata. Existing range-based history therefore
 restores styles, layer, margins, actor, effect and unknown fields together with
-text/timing. A combined style/text/timing edit is one transaction; changing text
-with an unchanged style name preserves the original Style field whitespace.
+text/timing. A combined style/text/timing edit is one transaction. Assigning a
+different style preserves the original Style field's leading/trailing padding,
+including the delimiter space when Style is the first event column.
 The adapter shares immutable original records through an Arc, without a mutable
 metadata sidecar. No frontend, filesystem or native dependency enters the domain
 or format adapter.
@@ -100,13 +103,12 @@ atomic checkpoint replacement. Recovery preserves the source and requires Save A
 
 ## Native preview and current evidence
 
-The style/tool increment passes 299 ordinary workspace Rust tests, 41 frontend
+The final increment passes 300 ordinary workspace Rust tests, 41 frontend
 unit tests, 48 Chromium/WebKit cases, strict Clippy/lint/format/type/IPC checks and
-the default desktop build. A focused browser rerun also passes after list-key
-lint corrections. These include format-aware public APIs, desktop owners and CLI
-parity; browser interactions use modeled IPC. Receipts are under
-`tests/fixtures/generated/ass-ssa/tools-v1/`. Actual Mac workflow acceptance remains
-required.
+the default desktop build. These include format-aware public APIs, desktop owners
+and CLI parity; browser interactions use modeled IPC. Final receipts are under
+`tests/fixtures/generated/ass-ssa/final-v1/`; the earlier style/tool increment and
+its retained failures remain in `tools-v1/`. Actual Mac evidence is described below.
 
 Full documents use their own script information/styles and normalized event
 packets through the existing bounded Matroska memory transport. The
@@ -125,11 +127,44 @@ top titles, white bottom text, line breaks and expiry for both document variants
 The tagged-SRT regression also passes mixed HTML/SSA, motion, color, expiry and
 30 track replacements. These are not actual desktop/GPU/audio acceptance.
 
-The software composition fixture's generic sans-serif font cannot resolve the
-two CJK glyphs on this Mac runtime: the image shows fallback boxes and the log
-records font lookup failures. Unicode source/packet preservation passes; this
-run does not establish Unicode font rendering. Retain this limitation for the
-native desktop/font-availability checks rather than substituting document fonts.
+The generic sans-serif fixture cannot resolve the two CJK glyphs on this Mac
+runtime: software and actual desktop images show fallback boxes, and native logs
+record inaccessible PingFangUI fallback. A separate desktop control explicitly
+declaring installed Hiragino Sans GB renders `世界` correctly. Unicode source and
+packet preservation pass; font availability remains runtime-dependent. VSF does
+not replace the original document's font declarations to mask missing fonts.
+
+The actual Mac `--ass` workflow passes both formats' inspection, combined
+style/text/time edit, precision rejection, Undo/Redo, cancelled/failed/successful
+Save As, exact-byte reopen, project restore and abrupt-process recovery. A newer
+external edit survives rejected recovery publication. The tagged-SRT sequence
+passes exact BOM/CRLF/tag preservation, Undo/Redo/save/reopen and exact
+1.001/2.999-second endpoints.
+
+Evidence: `test-results/desktop-qySk8l/ass-documents.json`, its native observation
+records and `native-runtime.json` (46 mapped images, none unavailable). CUA native
+window screenshots were inspected for source style color/alignment, edited
+position, hard breaks, restored project appearance, mixed HTML/ASS SRT, advancing
+motion and cue expiry. The separate CJK control was inspected too. WebKit PNGs
+omit native composition and cannot substitute for those observations. One first
+project-restored capture was black; the follow-up native observation showed the
+correct frame. Backend readiness therefore is not proof of visible presentation.
+The timed-tail frame is after fade-in and does not measure the fade duration.
+
+This uses a debug `desktop-e2e,media-prototype` Mac OpenGL build with the private
+`audio-integration-master-v1` runtime. Test file choices and app-data directories
+are isolated; Svelte, Rust IPC and native preview are real. A temporary test config
+used the ordinary bundle identifier so native inspection could bind the owned
+app. This is feature evidence, not ANGLE, release packaging, audio or physical
+Windows/Linux GPU acceptance. See [desktop reproduction](../tests/desktop/README.md#assssa-documents-and-tagged-srt).
+
+The workflow exposed and now guards against loss of Style field padding during
+assignment. Commit `8f1bfba` preserves that padding; domain and exact-byte owner
+regressions pass. Earlier desktop failures remain retained: npm's shell stripped
+DYLD_LIBRARY_PATH, the temporary test bundle could not be bound for native
+inspection, an inspector assertion incorrectly required whitespace between cells,
+and the exact-save assertion found the padding bug. No failing receipt is counted
+as a passing native workflow.
 
 Reproduce independent native checks after the ordinary Rust tests:
 
@@ -151,11 +186,36 @@ Only raw input bytes are loaded before the RSS baseline. The release example
 times application parsing, one accepted style/text/timing edit with source-format
 validation and serialization, then verifies exact Undo outside the CPU timer.
 
-One warmup and 20 measured runs per variant pass the unchanged p95 <500 ms budget:
-ASS 27.813 ms; SSA 24.048 ms. Additional sampled RSS is 48,250,880 bytes, below
-96 MiB, across 109 observations. `budget-v1.json` retains hashes and results.
-This measures format CPU/RSS; desktop interaction and native presentation remain
-separate gates.
+One warmup and 20 measured runs per variant pass the unchanged p95 <500 ms budget.
+After the style-padding fix, the rebuilt example records ASS 29.723 ms and SSA
+25.165 ms, with 46,333,952 additional sampled RSS bytes, below 96 MiB, across
+124 observations. `final-v1/budget-v2.json` retains hashes/results; the preceding
+`budget-v1.json` also passed. This measures format CPU/RSS separately from desktop
+interaction and native presentation.
+
+Actual Mac 10,000-cue desktop measurements pass the unchanged <1,000 ms gate for
+both exact inputs. The final `--ass-performance` run verifies accepted values and
+complete Undo restoration, source bytes, six virtualized cue rows and 200-row
+proposal pages. It loads no media. Open includes filesystem time; generated DOM
+events and webview clocks do not measure physical input latency.
+
+| Interaction | ASS ms | SSA ms |
+| --- | ---: | ---: |
+| Open | 260 | 285 |
+| Text acceptance | 53 | 53 |
+| Style acceptance | 105 | 104 |
+| Timing acceptance | 56 | 54 |
+| Slowest Undo | 95 | 96 |
+| Navigate to cue 10,000 | 27 | 24 |
+| Type during a query | 1 | 1 |
+| Cancel query | 15 | 14 |
+| Invalidate query with an edit | 54 | 59 |
+
+`test-results/desktop-BbyWKt/ass-performance.json` retains all raw timings and
+input/binary hashes. The preceding combined native/scale run also passed; the
+follow-up added explicit timing edits and accepted-value assertions. These are
+bounded observations, not a latency distribution. Pure format p95/RSS remains
+the independent 20-run measurement reported above.
 
 ```sh
 python3 scripts/ass-fixtures.py

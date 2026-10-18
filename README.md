@@ -13,8 +13,11 @@ notes are optional local context, not prerequisites for building this checkout.
 
 The editor provides:
 
-- UTF-8 SRT text/timing edits, cue creation/deletion/splitting/merging and undo/redo.
+- UTF-8 SRT and loss-preserving ASS/SSA text/timing edits, cue operations and undo/redo.
   Rust owns accepted state; unapplied frontend drafts remain separate.
+- ASS/SSA style inspection and cue assignment, original script/style/event metadata,
+  same-format save, projects and recovery. Unsafe structural/text/timing operations
+  are explained or refused. Fansub SRT containing ASS/SSA tags remains supported.
 - Atomic subtitle saves, conflict protection between VSF instances and accepted-state
   recovery snapshots. Recovery requires Save As and does not restore drafts or
   undo history.
@@ -22,7 +25,7 @@ The editor provides:
   active-cue following. Accepted subtitles can be previewed on native video.
 - Progressive visual scene detection with Standard/Reduced detail, cancellation,
   marker navigation and completed-result caches. Reduced detail can miss cuts.
-- `.vsfproject` references to media/SRT, completed scene results, view/timing
+- `.vsfproject` references to media/subtitles, completed scene results, view/timing
   options and paused resume position. Save subtitles separately for interchange.
   Normal quit updates an attached project and offers explicit choices on failure.
 - Experimental subtitle resynchronization through a headless CLI or Tools →
@@ -84,8 +87,9 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   desktop/CLI parity and measured responsiveness.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
-handles SRT/ASS/SSA parsing/serialization without filesystem access. Full ASS/SSA
-desktop support is [in progress](docs/ass-ssa-documents.md). `vsf-application`
+handles SRT/ASS/SSA parsing/serialization without filesystem access. See the
+[ASS/SSA preservation policy and validation](docs/ass-ssa-documents.md), including
+encoding, fonts and deferred style-design/conversion limits. `vsf-application`
 shares bounded subtitle reads, size policy and atomic file persistence with headless
 callers. `src-tauri` coordinates accepted desktop state and background services,
 while `media-analysis` and
