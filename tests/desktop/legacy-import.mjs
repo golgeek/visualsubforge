@@ -627,15 +627,45 @@ export async function legacyImportWorkflow({
         m
       );
     });
+    const waveform = await until('raw WAV waveform decoded and painted', () =>
+      browser.execute(() => {
+        if (document.querySelector('.wave-message')) return null;
+        const canvas = document.querySelector(
+          'canvas[aria-label^="Audio waveform:"]',
+        );
+        if (!canvas?.width || !canvas.height) return null;
+        const pixels = canvas
+          .getContext('2d')
+          .getImageData(0, 0, canvas.width, canvas.height).data;
+        let signalPixels = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (
+            pixels[i] === 119 &&
+            pixels[i + 1] === 216 &&
+            pixels[i + 2] === 192 &&
+            pixels[i + 3] === 255
+          )
+            signalPixels++;
+        }
+        return (
+          signalPixels > 100 && {
+            width: canvas.width,
+            height: canvas.height,
+            signalPixels,
+          }
+        );
+      }),
+    );
     await capture('import-audio-restored');
     assert.equal(await readFile(audioLegacy, 'utf8'), audioSource);
     assert.deepEqual(await readFile(audio), audioBytes);
     report.audioOnly = {
       project: audioData,
       media: audioMedia,
+      waveform,
       audioSha256: hash(audioBytes),
       scope:
-        'Native load/track/paused-position acknowledgment; no speaker-output acceptance.',
+        'Native load/track/paused-position acknowledgment and decoded waveform painted in the actual WebView; no speaker-output acceptance.',
     };
     await record({
       step: 'legacy WAVFile fallback imports and restores audio-only media',

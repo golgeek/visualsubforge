@@ -64,6 +64,7 @@ The generator records versions and complete argv arrays in `generated/generation
 | --- | --- |
 | `cfr-offset.mkv` | 100 video frames: 0, 0.04, …, 3.96 s. Audio ordinal 0 starts at 0.25 s, with a positive pulse at 1.25 s. Audio ordinal 1 starts at 0 and has a negative pulse at 2 s. Both end at 4 s. |
 | `vfr-offset.mkv` | 70 video frames: 0, 0.04, …, 1.96, then 2, 2.1, …, 3.9 s. Same audio tracks as CFR fixture. No constant frame duration may be inferred for stepping. |
+| `zero-start.wav`, `bwf-zero-start.wav` | Four seconds of 8 kHz PCM, first packet PTS zero, positive pulse at 1.25 s. Both yield 32,000 samples and 400 peaks. The BWF variant has nonzero recording `time_reference=480000`; it must retain the same playback origin and pulse position. |
 | `long.flac` | 7200 s, 8000 samples/s; positive pulse at 7199 s. 57,600,000 samples and 720,000 ten-millisecond buckets. |
 
 The CLI emits JSON containing stream index, container origin in seconds, sample rate, samples per peak, sample count and min/max peaks. Peak `i` starts at project time `i * samples_per_peak / sample_rate`. The last bucket can be partial: use sample count for its actual end.
@@ -94,7 +95,7 @@ budgets; generating a fixture does not satisfy them.
 
 ## Limits
 
-This experiment produces one resolution, no cache and no displayed waveform. It downmixes to mono (opposite-phase channels can cancel), and resamples to 8 kHz; peaks are for timing inspection, not mastering measurements. Container origins must be known and finite. Negative/pre-origin audio is trimmed; positive offsets and timestamp gaps are filled with silence by the resampler. Tests establish the supplied positive-offset fixtures only; negative starts, discontinuities, compressed encoder delay, multichannel policy and container-specific timestamp normalization still need fixtures.
+The analysis CLI produces one resolution; the desktop separately caches a peak pyramid for display. It downmixes to mono (opposite-phase channels can cancel), and resamples to 8 kHz; peaks are for timing inspection, not mastering measurements. Explicit container origins must be finite. A single-stream PCM WAV with an absent container start requires a separate bounded first-packet probe proving PTS zero for that stream. Other unknown origins remain refused; BWF recording metadata does not replace playback timestamps. Negative/pre-origin audio is trimmed; positive offsets and timestamp gaps are filled with silence by the resampler. Tests establish the supplied positive-offset and PCM WAV/BWF fixtures only; negative starts, discontinuities, compressed encoder delay and multichannel policy still need fixtures.
 
 Input is a canonical local file, but nested references inside a container are not sandboxed. Do not treat the experimental CLI as an untrusted-media security boundary. The library accepts an overall timeout; the CLI uses 120 s. Output is capped at four hours, probe JSON at 64 KiB and retained diagnostics at 16 KiB. Raw PCM is consumed through a buffered pipe rather than retained in memory. Tests use a blocked helper process to exercise kill/wait cleanup and a large stderr stream to exercise pipe draining.
 

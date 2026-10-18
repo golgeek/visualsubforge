@@ -20,8 +20,8 @@ ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
 authoring, WebVTT, legacy project import and manual translation are complete
-within their recorded Mac scopes. Plugin runtime/API work is in progress, followed
-by native reliability.
+within their recorded Mac scopes. Plugin historical-host comparison remains open;
+native reliability work is now in progress.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
@@ -100,6 +100,16 @@ maximum interaction689ms and preparation1418ms. The correction passes503 Mac,
 workflows on all three systems. Historical-host comparison remains pending. Exact commands, identities,
 retained failures and scope are in the [desktop record](plugin-desktop.md#wrapped-toolbar-correction-and-complete-vm-editor-acceptance--2026-10-18).
 
+**Native stage8 first correction (2026-10-18):** PCM WAV files lacking a reported
+container start now generate waveforms after a bounded first-packet PTS-zero
+verification. Explicit origins remain authoritative; ambiguous inputs are refused.
+Ordinary/Broadcast-WAV, existing offsets, long timelines and cancellation pass on
+Mac and Windows/Linux ARM64 VMs. The native Mac legacy-import workflow now verifies
+the displayed waveform, with fresh executable/runtime identities and normal
+shutdown. The full Mac suite passes507 Rust tests/33 ignored and strict checks.
+Audio loop/clock, gesture, dialog/lifetime and distribution work remains required;
+see [the correction, commands and remaining scope](native-reliability.md).
+
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all
@@ -162,8 +172,9 @@ import, relocation, source-change/failed-write protection, unchanged active stat
 save/history/project/recovery and normal shutdown now pass. Separate real macOS
 source/media/subtitle/output chooser checks also pass, including cancellation,
 Unicode paths, exact original preservation and native restored preview. Audio-only
-WAV references restore paused playback, but waveform generation reports an unknown
-container start time; stage8 must address this retained limitation. Four final
+WAV references restore paused playback. The initially retained unknown-container-
+start waveform failure is now corrected with verified PCM sample zero; see the
+[stage8 Mac/VM evidence](native-reliability.md). Four final
 desktop10k workloads pass five review/publication cycles, full project restoration,
 history/save/recovery and cancel/stale checks. A retained 1656ms project-open
 failure led to faster ASCII boundary scanning with every validation check retained;
@@ -449,7 +460,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 | Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
 | Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from subtitle documents/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
-| Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
+| Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Five waveform and seven scene integrations run actual FFmpeg. PCM WAV/BWF origins have Mac/VM validation and native Mac waveform display evidence. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. Unknown origins outside the verified single-stream PCM WAV case remain refused. |
 | Resynchronization | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). The v4 verifier passes 29 synthetic cases on Mac/Ubuntu/Windows ARM64 and both reference films on Mac. | Coverage is measured, not universal. Sampled visual evidence can miss indistinguishable edits; ambiguous or unsupported cues remain unresolved. Wider real-programme evaluation is a follow-up. |
 | Shared application and CLI | `vsf-application` owns shared format/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. Shared quality checking and conservative gap proposals also power the desktop. | Blocking filesystem calls can delay cancellation. Audio matching remains unimplemented. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). Rust and modeled-browser tests cover proposal ownership, Save As/recovery and project references. The actual Mac native workflow passes review/accept/Undo/Redo, source-path rejection, save-before-project and reopen. | Native resync dialogs were exercised on Mac only. Recovery tests do not imply power-loss guarantees or restoration of unapplied drafts/history. |

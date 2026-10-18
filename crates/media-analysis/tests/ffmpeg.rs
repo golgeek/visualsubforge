@@ -52,6 +52,28 @@ fn offset_and_selected_track_match_project_time_for_cfr_and_vfr() {
 }
 #[test]
 #[ignore = "requires generated fixtures and FFmpeg; see tests/fixtures/README.md"]
+fn pcm_wav_and_broadcast_wav_use_verified_sample_zero() {
+    for file in ["zero-start.wav", "bwf-zero-start.wav"] {
+        let waveform = analyze(
+            &tools(),
+            &fixture(file),
+            0,
+            &Cancellation::default(),
+            Duration::from_secs(30),
+        )
+        .unwrap();
+        assert_eq!(waveform.container_origin_seconds, 0.0, "{file}");
+        assert_eq!(waveform.audio_stream_index, 0, "{file}");
+        assert_eq!(waveform.sample_count, 32_000, "{file}");
+        assert_eq!(waveform.peaks.len(), 400, "{file}");
+        let first = waveform.peaks.iter().position(|p| p.max > 0.1);
+        assert_eq!(first, Some(125), "{file}");
+        assert!((waveform.peaks[125].max - 0.75).abs() < 0.001, "{file}");
+    }
+}
+
+#[test]
+#[ignore = "requires generated fixtures and FFmpeg; see tests/fixtures/README.md"]
 fn long_timeline_has_no_accumulated_bucket_drift() {
     let start = Instant::now();
     let waveform = analyze(

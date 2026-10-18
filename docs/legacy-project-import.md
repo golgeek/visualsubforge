@@ -266,7 +266,9 @@ save. Real IPC cancellation drains before another review is admitted.
 WAVFile-only import also restores its audio track and paused 1.250s position.
 The independent native image exposes **“Container start time is unknown”** instead
 of a waveform. Import/reference restoration passes; waveform generation and
-speaker output are not accepted by this case. Task025/stage8 retains this issue.
+speaker output were not accepted by that earlier case. The subsequent
+[stage8 correction and complete native rerun](native-reliability.md) validate the
+raw-WAV waveform; speaker-output acceptance remains separate.
 For video, initial project JSON retains 1.501s and a 1–6s waveform interval;
 following displays 0–5s and frame quantization displays 1.500s after Open.
 

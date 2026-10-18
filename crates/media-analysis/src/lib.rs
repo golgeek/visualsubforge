@@ -95,15 +95,74 @@ struct Probe {
 #[derive(Deserialize)]
 struct Stream {
     index: u32,
+    codec_name: Option<String>,
 }
 #[derive(Deserialize)]
 struct Format {
     start_time: Option<String>,
+    format_name: Option<String>,
+    nb_streams: Option<u32>,
+}
+
+enum Origin {
+    Container(f64),
+    VerifyPcmWav,
+}
+
+impl Probe {
+    fn origin(&self) -> Result<Origin> {
+        if let Some(start) = &self.format.start_time {
+            let origin: f64 = start
+                .parse()
+                .map_err(|_| Error::Message("Invalid container start time".into()))?;
+            if !origin.is_finite() {
+                return Err(Error::Message("Non-finite container start time".into()));
+            }
+            return Ok(Origin::Container(origin));
+        }
+        if self.format.format_name.as_deref() == Some("wav")
+            && self.format.nb_streams == Some(1)
+            && self.streams.len() == 1
+            && self.streams[0]
+                .codec_name
+                .as_deref()
+                .is_some_and(|name| name.starts_with("pcm_"))
+        {
+            return Ok(Origin::VerifyPcmWav);
+        }
+        Err(Error::Message("Container start time is unknown".into()))
+    }
+}
+
+fn verified_wav_sample_zero(bytes: &[u8], stream_index: u32) -> Result<f64> {
+    #[derive(Deserialize)]
+    struct Packets {
+        #[serde(default)]
+        packets: Vec<Packet>,
+    }
+    #[derive(Deserialize)]
+    struct Packet {
+        stream_index: u32,
+        pts: Option<i64>,
+    }
+    let response: Packets = serde_json::from_slice(bytes)
+        .map_err(|e| Error::Message(format!("Invalid ffprobe packet response: {e}")))?;
+    if matches!(response.packets.as_slice(), [packet]
+        if packet.stream_index == stream_index && packet.pts == Some(0))
+    {
+        Ok(0.0)
+    } else {
+        Err(Error::Message(
+            "PCM WAV first audio packet has no verified zero timestamp".into(),
+        ))
+    }
 }
 
 /// Selects the zero-based AUDIO ordinal, not the global stream index.
 /// Project time zero is the container start time. FFmpeg preserves timestamps,
 /// shifts them to that origin, then fills audio gaps and trims pre-origin samples.
+/// If a single-stream PCM WAV omits its origin, verify its first packet PTS is zero.
+/// Recording metadata such as BWF time_reference is not a playback timestamp.
 /// Returns no partial waveform on cancellation, timeout, decode failure or >4h input.
 pub fn analyze(
     tools: &Tools,
@@ -124,7 +183,7 @@ pub fn analyze(
         "-select_streams",
         &format!("a:{audio_ordinal}"),
         "-show_entries",
-        "stream=index:format=start_time",
+        "stream=index,codec_name:format=start_time,format_name,nb_streams",
         "-of",
         "json",
     ]);
@@ -138,16 +197,33 @@ pub fn analyze(
         .streams
         .first()
         .ok_or_else(|| Error::Message(format!("Audio track {audio_ordinal} does not exist")))?;
-    let origin: f64 = probe
-        .format
-        .start_time
-        .as_deref()
-        .ok_or_else(|| Error::Message("Container start time is unknown".into()))?
-        .parse()
-        .map_err(|_| Error::Message("Invalid container start time".into()))?;
-    if !origin.is_finite() {
-        return Err(Error::Message("Non-finite container start time".into()));
-    }
+    let origin = match probe.origin()? {
+        Origin::Container(origin) => origin,
+        Origin::VerifyPcmWav => {
+            // WAV can omit format.start_time. Verify demuxed sample zero rather
+            // than guessing an origin for every format with missing metadata.
+            // One packet and the original job deadline bound this extra probe.
+            let mut packet = Command::new(&tools.ffprobe);
+            packet.args([
+                "-v",
+                "error",
+                "-select_streams",
+                &format!("a:{audio_ordinal}"),
+                "-read_intervals",
+                "%+#1",
+                "-show_entries",
+                "packet=stream_index,pts",
+                "-of",
+                "json",
+            ]);
+            packet.arg(&path);
+            let remaining = timeout.checked_sub(start.elapsed()).ok_or(Error::Timeout)?;
+            let bytes = process::run(packet, cancellation, remaining, |r| {
+                process::limited(r, 65_536)
+            })?;
+            verified_wav_sample_zero(&bytes, stream.index)?
+        }
+    };
     let mut decode = Command::new(&tools.ffmpeg);
     // Waveform may coexist with resync; bound its decoder/filter threads too.
     decode.args(["-v", "error", "-nostdin", "-threads", "2", "-copyts", "-i"]);
@@ -236,6 +312,144 @@ fn bounded_peaks(mut reader: impl Read, max_samples: u64) -> Result<(u64, Vec<Pe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn wav_probe() -> serde_json::Value {
+        serde_json::json!({
+            "streams": [{"index": 0, "codec_name": "pcm_s16le"}],
+            "format": {"format_name": "wav", "nb_streams": 1}
+        })
+    }
+
+    #[test]
+    fn explicit_container_origins_are_preserved_and_never_replaced_by_wav_zero() {
+        for value in ["12.25", "-0.5", "0"] {
+            let mut raw = wav_probe();
+            raw["format"]["start_time"] = value.into();
+            let probe: Probe = serde_json::from_value(raw).unwrap();
+            assert!(matches!(probe.origin().unwrap(), Origin::Container(origin)
+                if origin == value.parse::<f64>().unwrap()));
+        }
+        for value in ["", "unknown", "NaN", "inf", "-inf"] {
+            let mut raw = wav_probe();
+            raw["format"]["start_time"] = value.into();
+            let probe: Probe = serde_json::from_value(raw).unwrap();
+            assert!(probe.origin().is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn missing_origin_requires_an_identified_single_stream_pcm_wav() {
+        let probe: Probe = serde_json::from_value(wav_probe()).unwrap();
+        assert!(matches!(probe.origin().unwrap(), Origin::VerifyPcmWav));
+        for (pointer, value) in [
+            ("/format/format_name", serde_json::json!("matroska,webm")),
+            ("/format/format_name", serde_json::Value::Null),
+            ("/format/nb_streams", serde_json::json!(2)),
+            ("/format/nb_streams", serde_json::Value::Null),
+            ("/streams/0/codec_name", serde_json::json!("adpcm_ms")),
+            ("/streams/0/codec_name", serde_json::Value::Null),
+            ("/streams", serde_json::json!([])),
+            (
+                "/streams",
+                serde_json::json!([
+                    {"index": 0, "codec_name": "pcm_s16le"},
+                    {"index": 1, "codec_name": "pcm_s16le"}
+                ]),
+            ),
+        ] {
+            let mut raw = wav_probe();
+            *raw.pointer_mut(pointer).unwrap() = value;
+            let probe: Probe = serde_json::from_value(raw).unwrap();
+            assert!(probe.origin().is_err(), "{pointer}");
+        }
+    }
+
+    #[test]
+    fn wav_sample_zero_requires_one_matching_packet_with_explicit_zero_pts() {
+        assert_eq!(
+            verified_wav_sample_zero(br#"{"packets":[{"stream_index":2,"pts":0}]}"#, 2).unwrap(),
+            0.0
+        );
+        for bytes in [
+            "{}",
+            "{\"packets\":[]}",
+            "{\"packets\":[{\"stream_index\":2}]}",
+            "{\"packets\":[{\"stream_index\":1,\"pts\":0}]}",
+            "{\"packets\":[{\"stream_index\":2,\"pts\":1}]}",
+            "{\"packets\":[{\"stream_index\":2,\"pts\":-1}]}",
+            "{\"packets\":[{\"stream_index\":2,\"pts\":0},{\"stream_index\":2,\"pts\":0}]}",
+            "{\"packets\":[{\"stream_index\":2,\"pts\":\"bad\"}]}",
+            "not JSON",
+        ] {
+            assert!(
+                verified_wav_sample_zero(bytes.as_bytes(), 2).is_err(),
+                "{bytes}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wav_packet_verification_obeys_cancellation_and_the_overall_deadline() {
+        use std::{fs, os::unix::fs::PermissionsExt, process::Stdio, thread, time::Instant};
+        for cancel in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let probe = dir.path().join("ffprobe");
+            fs::write(&probe, r#"#!/bin/sh
+case "$*" in
+  *packet=stream_index,pts*)
+    printf '%s' "$$" > "$(dirname "$0")/packet.pid"
+    exec sleep 60
+    ;;
+  *) printf '%s' '{"streams":[{"index":0,"codec_name":"pcm_s16le"}],"format":{"format_name":"wav","nb_streams":1}}' ;;
+esac
+"#).unwrap();
+            fs::set_permissions(&probe, fs::Permissions::from_mode(0o755)).unwrap();
+            let media = dir.path().join("input.wav");
+            fs::write(&media, []).unwrap();
+            let tools = Tools {
+                ffprobe: probe,
+                ffmpeg: dir.path().join("must-not-decode"),
+            };
+            let cancellation = Cancellation::default();
+            let token = cancellation.clone();
+            let started = Instant::now();
+            let worker =
+                thread::spawn(move || analyze(&tools, &media, 0, &token, Duration::from_secs(2)));
+            let marker = dir.path().join("packet.pid");
+            while !marker.exists()
+                && !worker.is_finished()
+                && started.elapsed() < Duration::from_secs(2)
+            {
+                thread::sleep(Duration::from_millis(5));
+            }
+            assert!(
+                marker.exists(),
+                "The bounded packet probe must actually start"
+            );
+            if cancel {
+                cancellation.cancel();
+            }
+            let result = worker.join().unwrap();
+            assert!(if cancel {
+                matches!(result, Err(Error::Cancelled))
+            } else {
+                matches!(result, Err(Error::Timeout))
+            });
+            assert!(started.elapsed() < Duration::from_secs(5));
+            let pid = fs::read_to_string(marker).unwrap();
+            assert!(
+                !Command::new("kill")
+                    .args(["-0", &pid])
+                    .stderr(Stdio::null())
+                    .status()
+                    .unwrap()
+                    .success(),
+                "packet probe was not reaped"
+            );
+        }
+    }
+
     #[test]
     fn partial_bucket_preserves_extrema_without_inventing_zero() {
         let values: Vec<u8> = [0.25_f32; 81]
