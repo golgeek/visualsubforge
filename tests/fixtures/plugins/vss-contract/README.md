@@ -2,9 +2,10 @@
 
 These synthetic inputs and ES3-compatible scripts are original repository code,
 licensed GPL-3.0-or-later. No historical executable, DLL or plugin implementation
-is included. This probe is preparation for a running-host comparison, **not a
-record of historical parity**. Its VSF CLI control passes; the historical report
-and fixed-file comparison remain pending.
+is included. The VSF CLI control and historical checker/fix comparison are
+recorded in [the API evidence](../../../../docs/plugin-api.md). They establish
+the observed cases, **not broad historical parity**. Saved text and timings match
+exactly with the documented encoding and empty-selection-count differences.
 
 `source.srt` has exactly three cues, UTF-8 BOM and CRLF: combined ASS/HTML tags,
 accented/CJK/astral characters, a literal entity, a logical ASS newline escape,
@@ -46,3 +47,15 @@ Pin the separately acquired historical binary/DLL hashes and provenance before
 running. A dated binary is not proof that it was built from the local reference
 source commit. Keep that checkout and original distribution unchanged, and keep
 unresolved-license binaries/scripts out of repository fixtures.
+
+On 2026-10-18, the separately pinned VSS executable (SHA256
+`8f67e3c8b430f4414e27249017423aa1e3253758442a93d326be0bdbbb0bb7ef`)
+showed no rows for this UTF-8 fixture. An identical decoded-text copy encoded as
+UTF-16LE with a BOM loaded all three rows, confirmed by the user and a desktop
+observation. The effective subtitle path and Windows file reads were verified.
+This establishes an encoding-dependent legacy loading failure; the suspected
+supplementary-character trigger has not been isolated separately. Use the UTF-16
+copy only to continue the historical plugin comparison. VSF's existing UTF-8
+control passes with the original accented, CJK and supplementary characters;
+reproducing the legacy loading limitation is explicitly outside compatibility
+scope. Loading three rows alone does not establish plugin parity.

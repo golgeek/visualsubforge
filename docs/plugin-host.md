@@ -1,13 +1,18 @@
 # JavaScript plugin host
 
-Stage7 is in progress. The bounded worker in `crates/plugin-host`, pure
+Stage7 is complete within the initial checker/fix subset (2026-10-18).
+The bounded worker in `crates/plugin-host`, pure
 [modern/VSS APIs and validated proposals](plugin-api.md), and
 [local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
 The desktop job owner, typed commands and [review controls](plugin-desktop.md) are
 implemented and tested. Actual Mac format/history/recovery and real chooser
 workflows and ten complete desktop10k workloads pass. Windows/Linux ARM64 automated
-suites and complete subtitle-only plugin editor workflows pass. Historical-host
-comparison and physical platform acceptance remain required. ADR0008 is still proposed.
+suites and complete subtitle-only plugin editor workflows pass. The
+[historical checker/fix comparison](plugin-api.md#historical-vss-comparison--2026-10-18)
+now passes with explicit differences for Unicode encoding and empty-selection
+counts. ADR0008 is accepted for this bounded scope. Physical platform acceptance
+and broader plugin compatibility remain separate. Earlier dated increments below
+retain the limits of their original evidence.
 
 The latest [deadline correction and full revalidation](plugin-desktop.md#plugin-deadline-correction--2026-10-18)
 passes all ten complete Mac desktop10k workloads and eight plugin desktop workflows
@@ -16,8 +21,8 @@ with strict Clippy and matching desktop/CLI builds. The correction removes an
 intermediate worker JSON object tree and unnecessary VSS newline regex work;
 parent parsing, application validation and all execution limits remain unchanged.
 The earlier failure and all final source/binary identities remain in the linked
-record. This supersedes the earlier worker baseline below, without closing the
-historical-host comparison or native/physical-platform gates.
+record. Together with the historical comparison, this supersedes the earlier
+worker baseline and completes stage7. Native/physical-platform gates remain open.
 
 ## VM automated validation — 2026-10-18
 
@@ -183,15 +188,19 @@ parent+helper RSS above an input-preallocation baseline. The extra process/copie
 are included. Existing pure-application 96MiB gates are unchanged. Sampling can miss
 peaks and does not establish a hard RSS ceiling.
 
-Required before stage7/ADR0008 acceptance:
+Stage7/ADR0008 acceptance audit, completed 2026-10-18:
 
-- Complete the supported API/behavior acceptance against the pinned VSS host and
-  available platforms. The pure modern/VSS adapters, captured package loading,
+- Supported API/behavior acceptance passes against the independently hash-pinned
+  VSS executable and available platforms. Its source-build equivalence is not
+  established; the precise comparison and intentional differences are recorded
+  in the API guide. The pure modern/VSS adapters, captured package loading,
   settings, neighbor/scene semantics and Rust proposal/history validation now have
   real-helper tests; the owner and actual Mac workflows now add lifetime evidence.
   Unresolved-license scripts are tested locally and are not redistributed.
-- Available Windows/Linux VM/CI validation. Bindings
-  present in a crate are not successful platform builds or execution evidence.
+- Windows/Linux ARM64 workspace/helper and eight-case desktop workflows pass,
+  alongside Mac native/chooser and complete desktop10k acceptance. These are
+  actual execution results, with identities and commands in the desktop guide;
+  they do not establish physical GPU/audio or general installation acceptance.
 
 General actions, columns, UI hooks, split hooks and broad historical-pack
 compatibility remain separately tracked beyond the first rule/fix subset.

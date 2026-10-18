@@ -126,6 +126,12 @@ even when a script catches its exception. Diagnostic messages/findings cap at 10
 UTF-16 units; logs cap at 100 entries and a conservative 16 KiB estimate. Rust also
 validates returned byte limits and all result fields independently.
 
+Legacy file-decoding failures are not part of this compatibility contract. VSF
+retains valid UTF-8 text, including supplementary Unicode characters. The
+[historical probe](../tests/fixtures/plugins/vss-contract/README.md) uses an
+equivalent UTF-16 input where needed to bypass a legacy VSS loading failure;
+that workaround does not change VSF's subtitle or plugin string behavior.
+
 ## Acceptance boundary and ownership
 
 The application produces `Execution { script, input }`. The caller runs that in
@@ -166,8 +172,9 @@ Package verification reserves acceptance off-lock; media→scene→document chec
 protect final commit. Frontend review/draft reconciliation, browser races and
 actual Mac format/history/save/recovery/chooser workflows now pass their recorded
 checks; ten complete desktop10k workloads now add full review/history/persistence
-and race coverage. See the [desktop guide](plugin-desktop.md). Historical/platform
-acceptance remains required; owner tests alone do not close those gates.
+and race coverage. The [desktop guide](plugin-desktop.md) records the subsequent
+Windows/Linux ARM64 workflows; the historical comparison below closes the bounded
+stage7 acceptance. Physical-platform and broader compatibility gates remain separate.
 
 ## Provenance and validation scope
 
@@ -179,14 +186,60 @@ external file selected by `VSF_LEGACY_OVERLAP_SCRIPT`, requires exact SHA256
 copy or redistribute it. That archived rule's checker and three integer-safe fix
 modes pass locally, including neighbor review and one Undo; an odd overlap that
 produces fractional endpoints is explicitly refused. This does not establish
-parity with a running historical VSS engine. A pinned-host comparison and the
-available Windows/Linux desktop workflow checks remain required before stage 7
-acceptance. Guest workspace/runtime/build/helper checks now pass on both ARM64 VMs;
-see the [exact scope](plugin-host.md#vm-automated-validation--2026-10-18).
+parity with a running historical VSS engine by itself. The independently pinned
+host comparison below and Windows/Linux ARM64 desktop workflows now complete
+stage7 acceptance within the documented checker/fix subset. See the
+[platform scope](plugin-desktop.md).
 
 The independently authored [cross-host contract probe](../tests/fixtures/plugins/vss-contract/README.md)
 uses ES3 syntax, three synthetic Unicode/tagged cues and explicit context. Its VSF
 CLI control passes read-only checking and combined text/timing/neighbor-fix review,
-including raw/stripped UTF-16 reports and callback/RegExp state. This is preparation
-for the historical comparison, not historical parity evidence. No historical
+including raw/stripped UTF-16 reports and callback/RegExp state. The historical
+comparison below records the observed cases separately. No historical
 executable, DLL or unresolved-license plugin is included with the probe.
+
+## Historical VSS comparison — 2026-10-18
+
+The first actual historical checker comparison on 2026-10-18 uses the separately
+pinned executable identified in the probe README. Its exported report has SHA256
+`9bb45c27c1bdc7cc485b8ccadc65d27c2044f060976a87a18054bf5722d419e1`.
+After matching its observed preferences (120/1000/6000 ms, CPS18, RS index0),
+empty selection, cursor0 and empty scene list with offsets130/130/250 ms, 63 of
+66 field values match across three cues. These include raw/stripped UTF-16 text,
+endpoints, indexing/neighbors/bounds, selection traversal, cursor/preferences,
+scene sentinels/offsets, callback/RegExp progression, parameter and receiver.
+The sole differing field is `GetSelectedCount()` with no selected cues: the
+historical executable reports `null`; VSF deliberately retains numeric `0`.
+The legacy HTML exporter also writes the emoji as CESU-8 surrogate sequences,
+despite declaring UTF-8. Comparison extracts the probe's ASCII hex fields from
+the original bytes, without silently replacing invalid text. Neither encoding
+failure becomes a VSF compatibility requirement. Receipts and exact check/preview
+commands are in `test-results/plugin-legacy-host-20261018/` under
+`historical-check-comparison.json`.
+
+The user then applied **Fix all errors of same type (color)**. Save As produced
+no visible dialog; its cause remains unverified. After verified backups, ordinary
+Save produced the historical file (SHA256
+`57bcdb7243ada1b03fc7f45cb0e7cb73a7d53631276986d66d433a1cdc0060d1`).
+All three cues exactly match VSF's reviewed and actually published result:
+1010–1910, 3010–3910 and 5010–5910 ms; `!` on the first cue and ` neighbour!`
+on the other two, preserving the original tags, Unicode and line break. This
+also observes writes to the next cue in later callbacks. The original UTF-8
+fixture remains byte-identical.
+
+The historical SRT repeats the CESU-8 exporter defect. Comparison explicitly
+decodes paired surrogate sequences and normalizes CRLF to LF; it performs no
+character replacement or timing tolerance. VSF's published file is valid UTF-8,
+SHA256 `d5cd5cd83e21f02965210fddc27ed5a2404e5019ac45d56381d3ca875de31795`,
+and its entire decoded serialization matches after that newline normalization.
+Receipts are `historical-save-receipt.json`, `historical-fix-comparison.json` and
+`historical-apply-comparison.json`; `compare-fixed.py` records the exact semantic
+comparison. CLI check returns1 for three findings, preview/apply return0, and the
+comparison exits0. The CLI SHA256 is
+`4381e697c92c6dd6c168fbc24ce6798f9c27e6e9e1f3170b23c2520318f66260`.
+
+Together with the recorded worker/API/history, native/VM and complete10k checks,
+this completes the initial checker/fix milestone and accepts ADR0008 for that
+scope. It does not establish every historical plugin pack, nonempty scene/selection
+case in this three-cue probe, or equivalence between the supplied binary and the
+pinned source checkout. Those limits and the unsupported API matrix stay explicit.

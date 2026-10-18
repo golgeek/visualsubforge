@@ -1,10 +1,11 @@
 # Desktop subtitle plugins
 
-Stage7 remains in progress. The desktop controls compose the bounded Rust owner
+Stage7 is complete within the initial checker/fix subset. The desktop controls compose the bounded Rust owner
 and helper. Eight actual Mac format/API workflows and a separate real macOS
 chooser workflow pass, along with ten complete desktop10k workloads. Windows/Linux
 ARM64 automated suites and complete subtitle-only plugin editor workflows pass.
-Historical-host comparison remains required; ADR0008 is still Proposed. Physical
+The [historical checker/fix comparison](plugin-api.md#historical-vss-comparison--2026-10-18)
+also passes with documented intentional differences; ADR0008 is accepted. Physical
 GPU/audio, real guest OS choosers and installation acceptance remain separate.
 
 ## Workflow

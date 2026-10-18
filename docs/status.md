@@ -14,14 +14,14 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
-**Next umbrella goal active (2026-10-17):** the ordered
+**Umbrella goal authorized 2026-10-17:** the ordered
 [feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
 authoring, WebVTT, legacy project import and manual translation are complete
-within their recorded Mac scopes. Plugin historical-host comparison remains open;
-native reliability work is now in progress.
+within their recorded Mac scopes. The initial plugin checker/fix milestone is
+complete within its documented subset; native reliability remains in progress.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
@@ -58,11 +58,24 @@ audio, with417 exact-zero captured frames. Ten cases pass content/order checks;
 the interruption remains unresolved. See the
 [state diagnosis](native-reliability.md#coreaudio-empty-callback-state-diagnosis--2026-10-18).
 A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
-separate save and normal quit pass. Held-pointer cancellation, dialog lifetime,
-historical VSS-host comparison and distribution/physical gates remain open.
+separate save and normal quit pass. Held-pointer cancellation, dialog lifetime
+and distribution/physical gates remain open.
 See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).
 
-**Plugin stage7 in progress (2026-10-18):** a separate worker crate pins
+**Plugin stage7 complete within its checker/fix subset (2026-10-18):** the
+[actual VSS comparison](plugin-api.md#historical-vss-comparison--2026-10-18) now
+passes: 63/66 read-only field values match, with the sole difference repeated
+per cue (legacy empty-selection count null versus VSF numeric0). All three saved
+cue texts and exact millisecond endpoints match VSF's actual CLI publication.
+The legacy UTF-8 loading/CESU-8 export defects are documented limitations, not
+behavior to reproduce; VSF's output remains valid UTF-8. Together with the
+recorded worker/rollback/history, Mac native/chooser/desktop10k and Windows/Linux
+ARM64 workflows, this closes Task024 and accepts ADR0008 for the bounded subset.
+Broader actions/columns/hooks/pack compatibility and physical acceptance remain
+separate. No product behavior or execution limits changed in this final audit.
+The following dated increments retain their original evidence and test counts.
+
+**Plugin implementation and progressive validation (2026-10-18):** a separate worker crate pins
 rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
 stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
 focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
@@ -777,7 +790,7 @@ including existing styles, format-aware tools and tagged-SRT regression. The act
 resync, language tools, style/font authoring, conversion and WebVTT within their
 recorded Mac scopes, including legacy project import and manual translation.
 The bounded JavaScript checker/fix host is implemented and passes its Mac and
-Windows/Linux VM workflows; historical VSS-host comparison remains. Current work
+Windows/Linux VM workflows and the bounded historical checker/fix comparison. Current work
 addresses native audio, interaction/lifetime and distribution reliability.
 Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
