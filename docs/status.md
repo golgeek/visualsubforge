@@ -110,6 +110,20 @@ shutdown. The full Mac suite passes507 Rust tests/33 ignored and strict checks.
 Audio loop/clock, gesture, dialog/lifetime and distribution work remains required;
 see [the correction, commands and remaining scope](native-reliability.md).
 
+**Current CoreAudio boundary audit (2026-10-18):** four exact-candidate 1× captures
+and twelve isolated diagnostic rate/phase/pause cases complete normally. The
+diagnostic changes only read-only submission tracing in one native source file;
+all39 upstream tests and seven production transport-policy tests pass. All12
+native buffer sequences match independent renders and the restart endpoint stays
+within the retained half-source-sample bound. All12 captured suffixes pass in both
+channels. Eight full-sequence comparisons pass; four near-B comparisons remain
+ambiguous because their references repeat content. Separate ordered anchors bound
+those joins within0.166 output samples and reject deletion/repetition/extra-silence
+controls; the original ambiguities remain recorded. No functional runtime patch
+or production policy changed. Midstream rates, re-entry/replacement, other outputs,
+full-editor interaction and physical-device gates remain open. See the
+[exact scope and retained evidence](native-reliability.md#current-coreaudio-clear-boundary-audit--2026-10-18).
+
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all

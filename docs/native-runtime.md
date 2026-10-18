@@ -204,3 +204,10 @@ remains unverified; the CI Windows x64 environment has not run locally.
 These gates preserve the existing acceptance requirements. The local task
 history contains dated investigations; a fresh tracked checkout can reproduce
 the build/control commands above without those intentionally untracked files.
+
+The [2026-10-18 CoreAudio audit](native-reliability.md#current-coreaudio-clear-boundary-audit--2026-10-18)
+adds exact-candidate 1× captures and a separately identified diagnostic build's
+constant-rate/phase/pause submission and process-capture evidence. It retains four
+ambiguous combined-reference comparisons and records their separate ordered-boundary
+checks. It does not substitute for the changing-rate, re-entry/replacement,
+other-output, full-editor or physical presentation gates above.

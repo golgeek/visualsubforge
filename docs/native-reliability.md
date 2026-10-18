@@ -92,3 +92,93 @@ This closes the reproduced raw-WAV waveform defect within the stated scope.
 Audio loop/clear discontinuities, Linux clocks/outputs, gesture interruption,
 dialog/resource lifecycle, current CI/distribution and identifiable physical-device
 acceptance work remain required. Stage 8 and the umbrella goal stay open.
+
+## Current CoreAudio clear-boundary audit — 2026-10-18
+
+Fresh captures now exercise the current Rust `media_transport::clear_loop`
+against the selected candidate, including clears near B while playing and paused.
+This is a component/content audit; it does not close the full editor, changing-rate,
+replacement, other-output or physical presentation gates.
+
+Four uninstrumented 1× runs use the exact existing candidate library
+`fd572d9e18640414d3dd480ae6d2fad5b166cdbd9377ac65009b527e17d96a0f`.
+Both interior cases pass the existing two-channel gross-content oracle. Near-B
+captures contain a B-to-A wrap and continue to EOF, but their API-selected restart
+point is not independent proof that this wrap was already submitted. Those
+descriptive traces remain separate from the following diagnostic evidence.
+
+A fresh isolated build copies all 961 candidate source inputs and changes only
+`audio/out/ao_coreaudio.c`: read-only full-buffer/endpoint fingerprints, callback
+timestamps and reset logging. It changes no sample, filter, transport or clock
+calculation. Logging can affect scheduling; this diagnostic is not part of the
+maintained functional patch series or an adopted runtime. All 39 upstream tests
+pass. Its library SHA256 is
+`2762bb8a0c1eb50510947a9bcdb238650ad4c6ae0fd5b0657f2a62989782ef46`.
+
+Twelve cases cover 0.5×/1×/1.5×, interior/near-B and playing/already-paused clear.
+The harness compiles the actual current Rust policy byte-for-byte, owns one native
+handle on one thread and captures only that process. Independent PCM renders use
+the same filter implementation; this is not independent WSOLA grain accounting.
+
+| Check | Result and limit |
+| --- | --- |
+| State, capture timestamps, rate, disabled endpoints, EOF and normal shutdown | All 12 pass; held cases pause for at least 300 ms before and after clear. |
+| Every nonempty callback before/after reset | All 12 match complete independent loop/exact-seek renders, including suffix EOF. No nonempty callback occurs between clear resets or during held clear. |
+| Restart versus verified submitted endpoint | All 12 meet the retained half-source-sample bound. The 1.5× residual is approximately −0.5 sample; other rates differ only by floating-point residuals. Verified 1×/1.5× near-B cases already submitted a wrap. |
+| Process-capture suffix correspondence | All 12 pass in both channels. This alone cannot establish a correct restart target. |
+| Complete submitted-sequence correspondence | Eight pass in both channels. Four 1×/1.5× near-B cases retain failures from repeated-reference ambiguity: three lack a unique anchor; one has 67.51% coverage, below the unchanged 80% requirement. |
+| Separate ordered boundary audit for those four cases | Pre-command single-loop anchors plus the verified prefix and native zero-frame count predict the independently matched suffix origin within 0.166 output samples, in both channels. This does not relabel the four combined-reference failures as passes. |
+
+The diagnostic records no empty callback between old/new content in its playing
+cases, and 29,184 zero frames in each held case. These are observed submissions,
+not a seamless-output guarantee; the earlier interruption evidence remains valid.
+The full-sequence matcher retains its 2,048-frame window, 256-frame hop, 0.97
+correlation, 0.10 uniqueness margin, 80% coverage and two-frame displacement bounds.
+The ordered audit rejects all 12 delete/repeat/extra-silence corruptions of 512
+frames in both channels. Its independent submission matcher passes the unchanged
+positive control and rejects four content/pause corruptions. Native hash checking
+passes two controls and rejects seven byte/order/completeness corruptions.
+
+Evidence is retained under `test-results/native-reliability-20261018/`:
+
+- `clear-current-v1/`: exact-candidate captures, source/harness hashes, existing
+  interior checks and descriptive near-B correspondence.
+- `coreaudio-submission-v1/`: declared matrix, one-file diagnostic patch and
+  961-file identity, source/build/test receipts, captures, reference PCM, all
+  passing and failing analyses, corruption controls and cleanup receipts.
+
+Recorded commands use Python 3.14.7, Meson 1.12.1, Ninja 1.13.2 and Rust 1.98.1.
+Setup uses the existing candidate's Cocoa/Swift/libmpv/tests configuration with
+VapourSynth and manual/media-player builds disabled, followed by
+`meson compile -C BUILD -j 4 mpv:executable mpv:shared_library` and
+`meson test -C BUILD --print-errorlogs -j 4`. The retained `setup.json`,
+`harness-build.json` and `build-runtime-receipt.json` contain exact paths/commands.
+The capture/analysis script snapshots are part of those local evidence directories;
+their output files must not be overwritten. The recorded analysis sequence is:
+
+```sh
+python3 "$E/capture.py"
+python3 "$E/render-current.py" baseline
+python3 "$E/render-current.py" suffix
+python3 "$E/analyze-native-current.py"
+"$PY" "$E/analyze-state.py"
+"$PY" "$E/analyze-suffix.py"
+"$PY" "$E/analyze-submission-current.py" # exits 1: four retained ambiguities
+"$PY" "$E/ordered-boundary.py"
+"$PY" "$E/ordered-negative.py"
+"$PY" "$E/controls.py"
+```
+
+Here `E` is the diagnostic evidence directory and `PY` is the existing bundled
+Python with NumPy. Seven production transport-policy tests pass. The maintained
+fingerprint/loop/clear analyzer suites pass 12/18/8 tests respectively; exact
+commands/results are recorded in `analyzer-regressions.json`. Loaded-library receipts verify 45 non-system
+files; system cache images are not individually hashed. All 50 owned capture and
+reference-render processes across both stages exit normally and are absent.
+The production policy, candidate library and functional patch series are unchanged.
+
+The Linux VM currently has no logged-in user audio session: `/run/user/1000` and
+its Pulse/PipeWire services are absent. That is an environment precondition, not
+a reproduced clock failure or a pass. The historical 98 µs Pulse backstep remains
+open. Next audio work must cover midstream rate changes, outside-range re-entry
+and replacement, then current Linux/Windows output and full-editor behavior.
