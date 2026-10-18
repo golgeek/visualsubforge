@@ -41,6 +41,7 @@ import { conversionPerformance } from './conversion-performance.mjs';
 import { webvttWorkflow } from './webvtt.mjs';
 import { webvttPerformance } from './webvtt-performance.mjs';
 import { legacyImportWorkflow } from './legacy-import.mjs';
+import { legacyImportPerformance } from './legacy-import-performance.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -59,6 +60,7 @@ const { values } = parseArgs({
     conversion: { type: 'boolean', default: false },
     webvtt: { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
+    'legacy-import-performance': { type: 'boolean', default: false },
     'webvtt-performance': { type: 'boolean', default: false },
     'conversion-performance': { type: 'boolean', default: false },
     'font-performance': { type: 'boolean', default: false },
@@ -128,6 +130,7 @@ const runDeadline =
   values.conversion ||
   values.webvtt ||
   values['legacy-import'] ||
+  values['legacy-import-performance'] ||
   values['webvtt-performance'] ||
   values['conversion-performance'] ||
   values['font-performance'] ||
@@ -601,6 +604,20 @@ try {
       record,
       binary,
       cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['legacy-import-performance'])
+    await legacyImportPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

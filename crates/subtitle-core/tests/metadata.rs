@@ -1,4 +1,27 @@
 use subtitle_core::{Cue, CueId, CueMetadata, Document, Edit, Editor, Milliseconds};
+
+#[test]
+fn unicode_metadata_retains_values_but_rejects_record_boundary_injection() {
+    let value = "世界 😀 ،，, <i>été</i>";
+    let valid = CueMetadata::new(vec![("Identifiant世界".into(), value.into())]).unwrap();
+    assert_eq!(valid.get("Identifiant世界"), Some(value));
+    for delimiter in ['\r', '\n', '\0'] {
+        for (name, text) in [
+            (format!("Identifiant世界{delimiter}other"), value.into()),
+            ("Identifier".into(), format!("世界{delimiter}other")),
+        ] {
+            assert!(CueMetadata::new(vec![(name, text)]).is_err());
+        }
+    }
+    assert!(CueMetadata::new(vec![("Identifier,other".into(), value.into())]).is_err());
+    assert!(
+        CueMetadata::new(vec![
+            ("Identifier".into(), value.into()),
+            ("IDENTIFIER".into(), value.into())
+        ])
+        .is_err()
+    );
+}
 fn ms(t: u64) -> Milliseconds {
     Milliseconds::new(t).unwrap()
 }

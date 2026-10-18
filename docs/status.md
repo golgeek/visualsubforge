@@ -19,13 +19,13 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
-authoring and WebVTT are complete within their recorded Mac scopes. Legacy project
-import is implemented and undergoing acceptance, followed by manual translation,
+authoring, WebVTT and legacy project import are complete within their recorded
+Mac scopes. Next are manual translation,
 plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**Legacy project import in progress (2026-10-18):** application parsing supports
+**Legacy project import stage6b complete (2026-10-18):** application parsing supports
 strict UTF-8 and BOM-marked UTF-16, explicit Windows path handling, supported
 references/positions and unsupported-setting diagnostics. Read-only inspection
 supports explicit relocation and all four subtitle formats; revalidation detects
@@ -43,8 +43,14 @@ save/history/project/recovery and normal shutdown now pass. Separate real macOS
 source/media/subtitle/output chooser checks also pass, including cancellation,
 Unicode paths, exact original preservation and native restored preview. Audio-only
 WAV references restore paused playback, but waveform generation reports an unknown
-container start time; stage8 must address this retained limitation. Desktop10k
-acceptance remains pending, so the import milestone stays open.
+container start time; stage8 must address this retained limitation. Four final
+desktop10k workloads pass five review/publication cycles, full project restoration,
+history/save/recovery and cancel/stale checks. A retained 1656ms project-open
+failure led to faster ASCII boundary scanning with every validation check retained;
+final open/reopen peaks at 831ms, publication at 418ms and recovery at 422ms.
+426 workspace Rust tests / 30 ignored and strict checks pass. Updated library10k
+p95 is <=37.548ms with +48,267,264 sampled RSS bytes. Normal shutdown is code0.
+This accepts stage6b within its recorded scope; translation remains next.
 See [mapping, checks and remaining scope](legacy-project-import.md).
 
 **WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,

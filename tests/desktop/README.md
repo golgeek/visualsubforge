@@ -413,4 +413,15 @@ Inspect/save the actual window before writing `capture-ack.json` with the matchi
 `label` within 60 seconds. WebView images alone omit sibling native video.
 Audio load/paused-position status does not establish waveform or speaker output;
 the current raw-WAV fixture exposes an unknown-start waveform limitation.
-Desktop10k import acceptance remains a separate pending gate.
+
+`--legacy-import-performance` uses the exact plain/styled/timed WebVTT and ASS
+10,000-cue library fixtures, checking their hashes before five review/publication
+cycles each. It measures full native project open/reopen, edit/Undo/Redo/save,
+crash recovery and cancellation/stale-input rejection, and verifies original
+bytes and complete restored cue arrays. The one-second interaction gate and
+ten-second background deadline remain unchanged. Results, timings and executable
+identity are retained in `legacy-import-performance.json`. Generate inputs with
+`python3 scripts/webvtt-fixtures.py` and `python3 scripts/ass-fixtures.py` first.
+Run this lane on its own to avoid competing benchmark CPU work. It loads a small
+generated video for real project restoration, but does not measure physical
+input latency, GPU presentation or speaker output.

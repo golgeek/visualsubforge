@@ -1,9 +1,9 @@
 # Legacy VisualSubSync project import
 
-Stage6b is in progress. File → Import VisualSubSync Project now provides an
+Stage6b is complete within the recorded Mac scope. File → Import VisualSubSync Project provides an
 explicit review, file relocation and publication of a new `.vsfproject`.
-The Rust owner and browser workflows are implemented; actual Mac native workflows
-and real choosers pass, while desktop 10k acceptance remains pending.
+The Rust owner, browser workflows, actual Mac native workflows, real choosers and
+desktop 10k acceptance pass.
 WebVTT is already accepted; translation
 remains the next increment. This is not a release/platform acceptance claim.
 
@@ -61,7 +61,7 @@ UNC and POSIX absolute paths are never guessed into another platform's roots.
 URLs, drive-relative and device paths require explicit relocation. No recursive
 basename search silently chooses a similarly named file.
 
-## Ownership and remaining acceptance
+## Ownership and validation boundaries
 
 Application parsing and reference inspection are independent of Tauri and native
 media. Rust's `Projects` service owns one additional import IO worker and one
@@ -312,3 +312,97 @@ No product code changed in this acceptance increment, so the prior 425 Rust,
 runs. Desktop10k review/publication/reopen/cancel/stale measurements remain next;
 stage6b/ADR0032 are still open. No Windows/Linux chooser, installation or physical
 GPU/audio acceptance is inferred from these Mac checks.
+
+## Desktop 10,000-cue acceptance — 2026-10-18
+
+Stage6b/ADR0032 are accepted after the following final measurements, alongside
+the parser/owner/browser/native/chooser evidence above. Task023 remains open for
+manual translation. This does not close the raw-WAV waveform issue assigned to
+stage8 or the separate physical Windows/Linux release gates.
+
+The first scale run, `desktop-6kUc9n`, stopped at a harness assertion that omitted
+the UI's localized thousands separator. The assertion now uses the same locale
+and normalizes layout whitespace; full accepted cue arrays still establish the
+10,000 count. `desktop-pLucrE` then completed every behavioral check but failed the
+unchanged performance gate: styled project open/reopen took 1440/1656ms and timed
+WebVTT took 1354/1549ms. Neither result is counted as an acceptance pass.
+
+Sampling the debug inspection executable showed substantial time in generic
+multi-character Unicode searches for ASCII record delimiters. Individual ASCII
+separator searches now validate cue metadata and WebVTT payloads; WebVTT's line
+iterator scans bytes until CR/LF, whose offsets are necessarily UTF-8 boundaries.
+No validation, fresh file read or parse is skipped. No cache, worker, dependency,
+accepted-state owner or project-restoration protocol is added. Existing BOM,
+CRLF/CR/LF/mixed-ending, Unicode, timed-marker, structural and rollback cases pass;
+a new metadata regression covers Unicode retention and boundary injection.
+Debug styled inspection p95 changed from 403.025ms in the sampled run to 135.229ms
+after the change; these diagnostic runs are separate from release CPU/RSS gates.
+
+Exact commands, in addition to the fixture generation documented above:
+
+```sh
+cargo build --locked -p vsf-application --example legacy-project-benchmark
+target/debug/examples/legacy-project-benchmark
+# Diagnostic baseline sampled the running example, before the scan change:
+sample 83287 8 1 -file test-results/legacy-import-scale-20261018/debug-inspection-sample.txt
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+node --check tests/desktop/legacy-import-performance.mjs
+npm run lint
+npm run format:check
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/legacy-import-scale-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/legacy-import-scale-20261018/VisualSubForgeLegacyImportScale.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs --legacy-import-performance \
+  --binary "$PWD/test-results/legacy-import-scale-20261018/VisualSubForgeLegacyImportScale.app/Contents/MacOS/visualsubforge"
+cargo build --locked --release -p vsf-application --example legacy-project-benchmark
+python3 scripts/legacy-project-benchmark.py
+git diff --check
+```
+
+The scale config copies `tests/desktop/tauri.test.json` and changes only the
+identifier to `com.golgeek.visualsubforge.legacy-import-scale-20261018`. Native
+build passes in 38.13s; executable SHA256 is
+`6df0772026d8a95acadd0ae968ee947409bfe12a2c7e0685e96f1a027b2b019c`.
+426 workspace Rust tests pass, 30 external/native tests remain ignored, and strict
+Clippy/Rustfmt/ESLint/Prettier plus the build's Svelte/TypeScript checks pass.
+Zero-test harnesses are not feature validation. The IPC contract and frontend
+behavior are unchanged; their prior browser/unit coverage is not reported as a
+fresh run.
+
+Final `desktop-sTWABd` passes all four exact fixture hashes used by the library
+benchmark. Each workload performs five actual GUI reviews/new-project writes,
+checks unchanged active state and original bytes, then restores all 10,000 cues,
+edits with Undo/Redo, saves exact expected bytes to a separate file, reopens the
+original project references, crashes after an exact checkpoint and recovers/saves
+the full document. Cancelled work drains before another review starts. A changed
+original produces Stale and no output, preserving the changed bytes; the harness
+then restores its own controlled fixture. Source/legacy/media hashes and complete
+cue comparisons verify preservation. Normal application shutdown is code0.
+
+| 10,000-cue input | Project open | Project reopen | Recovery | Maximum publication, 5 cycles | Cancel drained |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Plain WebVTT | 550ms | 412ms | 239ms | 413ms | 73ms |
+| Styled WebVTT | 757ms | 730ms | 406ms | 415ms | 130ms |
+| Timed WebVTT | 701ms | 831ms | 373ms | 400ms | 139ms |
+| Styled ASS | 612ms | 605ms | 422ms | 418ms | 163ms |
+
+Across all cases, dialog/close <=16ms, review-start acknowledgment <=6ms,
+full review <=406ms, edit <=253ms, Undo/Redo <=61ms, save <=170ms,
+Cancel acknowledgment <=12ms and stale-input rejection <=14ms. Every measured
+interaction remains below 1000ms; background review retains its 10-second limit.
+Report/DOM rows stay bounded. Supplied DOM events and file choices measure actual
+application work, not physical input or native chooser latency. The small video
+exercises native project restoration, not physical GPU/audio output acceptance.
+
+The rebuilt release library benchmark passes p95 9.983/16.684/15.180/37.548ms
+for plain/styled/timed/ASS and +48,267,264 sampled RSS bytes across 118 samples,
+within the unchanged 500ms/96MiB gates. CPU/RSS sampling runs separately from the
+desktop measurements. Logs, failed attempts, profile and `benchmark.json` remain
+under `test-results/legacy-import-scale-20261018/`; the named desktop directories
+retain raw timings, generated inputs, exact hashes, images and shutdown receipts.

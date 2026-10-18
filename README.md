@@ -40,7 +40,8 @@ The editor provides:
   Normal quit updates an attached project and offers explicit choices on failure.
 - Reviewed VisualSubSync `.vssprj` import with explicit missing-file relocation,
   unsupported-setting notices and protected new-project creation. Native Mac
-  workflows and real choosers pass; desktop scale acceptance remains pending.
+  workflows, real choosers and 10,000-cue desktop acceptance pass within the
+  documented scope.
   See [the supported subset](docs/legacy-project-import.md).
 - Experimental subtitle resynchronization through a headless CLI or Tools →
   Resynchronize Subtitles for SRT/ASS/SSA, with format-aware timing review,

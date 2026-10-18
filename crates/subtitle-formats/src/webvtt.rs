@@ -82,8 +82,11 @@ impl Iterator for Lines<'_> {
             return None;
         }
         let start = self.at;
-        let body_end = self.input[start..]
-            .find(['\r', '\n'])
+        // Both delimiters are ASCII, so their byte offsets are UTF-8 boundaries.
+        // Avoid decoding every character through a multi-character searcher.
+        let body_end = self.input.as_bytes()[start..]
+            .iter()
+            .position(|byte| matches!(byte, b'\r' | b'\n'))
             .map_or(self.input.len(), |offset| start + offset);
         let ending = if self.input[body_end..].starts_with("\r\n") {
             2
@@ -226,7 +229,7 @@ pub fn metadata(cue: &Cue) -> Result<Metadata<'_>> {
 }
 
 pub fn validate_payload(text: &str) -> Result<()> {
-    if text.contains(['\r', '\0']) || text.contains("-->") {
+    if text.contains('\r') || text.contains('\0') || text.contains("-->") {
         return Err(
             "WebVTT cue text cannot contain CR, NUL or -->; escape literal arrows as --&gt;".into(),
         );

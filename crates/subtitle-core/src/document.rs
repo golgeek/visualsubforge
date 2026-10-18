@@ -33,9 +33,14 @@ impl CueMetadata {
         for (name, value) in &fields {
             if name.is_empty()
                 || name.trim() != name
-                || name.contains(['\r', '\n', '\0', ','])
+                || name.contains('\r')
+                || name.contains('\n')
+                || name.contains('\0')
+                || name.contains(',')
                 || !names.insert(name.to_ascii_lowercase())
-                || value.contains(['\r', '\n', '\0'])
+                || value.contains('\r')
+                || value.contains('\n')
+                || value.contains('\0')
             {
                 return Err("Invalid or duplicate cue metadata field".into());
             }
