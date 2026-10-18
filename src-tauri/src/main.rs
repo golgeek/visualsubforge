@@ -4,6 +4,7 @@ mod atomic_file;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod audio_smoke;
 mod batch_timing;
+mod conversion_review;
 mod desktop;
 #[cfg(feature = "desktop-e2e")]
 mod desktop_test;

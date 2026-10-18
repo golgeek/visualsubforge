@@ -2,10 +2,10 @@
 //! cannot be made atomic. A crash/failure can leave a report without subtitles.
 use super::{Analysis, Budget, Error, Result};
 use crate::atomic_file::{self, Prepared};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use crate::new_output;
+#[cfg(test)]
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub struct OutputPaths {
     report: PathBuf,
@@ -15,8 +15,11 @@ impl OutputPaths {
     /// Validate before expensive analysis. Existing paths, including dangling
     /// symlinks and input aliases, are refused; the same check runs at preparation.
     pub fn new(report: &Path, subtitles: Option<&Path>) -> Result<Self> {
-        let report = new_path(report)?;
-        let subtitles = subtitles.map(new_path).transpose()?;
+        let report = new_output::resolve(report).map_err(output_error)?;
+        let subtitles = subtitles
+            .map(new_output::resolve)
+            .transpose()
+            .map_err(output_error)?;
         if subtitles.as_ref() == Some(&report) {
             return Err(Error::InvalidInput(
                 "Report and subtitle outputs must be different paths".into(),
@@ -65,7 +68,7 @@ impl Analysis {
                     return Err(Error::InvalidInput("An output aliases an input".into()));
                 }
             }
-            require_absent(path)?;
+            new_output::require_absent(path).map_err(output_error)?;
         }
         let report = self.report_json()?;
         budget.check()?;
@@ -112,37 +115,10 @@ fn commit(
     Ok(())
 }
 
-fn new_path(path: &Path) -> Result<PathBuf> {
-    let absolute = std::path::absolute(path).map_err(|e| Error::Io(e.to_string()))?;
-    let name = absolute
-        .file_name()
-        .ok_or_else(|| Error::InvalidInput("Output needs a file name".into()))?;
-    let parent = absolute
-        .parent()
-        .ok_or_else(|| Error::InvalidInput("Output needs a parent directory".into()))?
-        .canonicalize()
-        .map_err(|e| Error::Io(format!("Cannot resolve output directory: {e}")))?;
-    if !parent.is_dir() {
-        return Err(Error::InvalidInput(
-            "Output parent is not a directory".into(),
-        ));
-    }
-    let path = parent.join(name);
-    require_absent(&path)?;
-    Ok(path)
-}
-
-fn require_absent(path: &Path) -> Result<()> {
-    match fs::symlink_metadata(path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(Error::Io(format!(
-            "Cannot inspect output {}: {error}",
-            path.display()
-        ))),
-        Ok(_) => Err(Error::InvalidInput(format!(
-            "Output already exists: {}",
-            path.display()
-        ))),
+fn output_error(error: new_output::Error) -> Error {
+    match error {
+        new_output::Error::InvalidInput(message) => Error::InvalidInput(message),
+        new_output::Error::Io(message) => Error::Io(message),
     }
 }
 

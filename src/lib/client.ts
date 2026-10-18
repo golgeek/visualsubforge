@@ -83,6 +83,25 @@ export async function fontCancel(id: number): Promise<void> {
 }
 export const fontAccept = (id: number) => commands.fontAccept(id);
 
+export type ConversionReview = Awaited<
+  ReturnType<typeof commands.conversionView>
+>;
+export type ConversionOptions = Parameters<typeof commands.conversionStart>[2];
+export const conversionStart = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  options: ConversionOptions,
+) => commands.conversionStart(document.generation, document.revision, options);
+export const conversionView = (id: number) => commands.conversionView(id);
+export async function conversionCancel(id: number): Promise<void> {
+  await commands.conversionCancel(id);
+}
+export async function conversionPublish(
+  id: number,
+  path: string,
+): Promise<void> {
+  await commands.conversionPublish(id, path);
+}
+
 export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];

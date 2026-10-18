@@ -21,6 +21,7 @@ import type {
   StyleForm,
   StyleReview,
   FontReview,
+  ConversionReview,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -622,6 +623,156 @@ export const fontInventory = {
   phase: 'reviewing',
   summary: null,
 } satisfies FontReview;
+export const conversionReview = {
+  error: null,
+  id: 1,
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+  options: {
+    precision: 'exact',
+    target: 'ass',
+  },
+  outputPath: null,
+  phase: 'reviewing',
+  report: {
+    cues: 1,
+    issues: [
+      {
+        code: 'canonical',
+        count: 1,
+        examples: [
+          {
+            cueId: null,
+            detail:
+              'The open document, original file and Undo history remain unchanged.',
+          },
+        ],
+        message:
+          'The separate export uses UTF-8 without BOM, LF endings and canonical records. SRT labels are renumbered; source formatting is not retained.',
+        severity: 'notice',
+      },
+      {
+        code: 'default_style',
+        count: 1,
+        examples: [
+          {
+            cueId: null,
+            detail:
+              'Inline overrides take precedence; installed font availability and player defaults affect appearance.',
+          },
+        ],
+        message:
+          'SRT has no style sheet. The export creates Default (sans-serif, 24 pt), a 384×288 canvas and explicit wrapping/color defaults.',
+        severity: 'notice',
+      },
+      {
+        code: 'text_encoding',
+        count: 1,
+        examples: [
+          {
+            cueId: '1',
+            detail:
+              'Unbalanced or unsupported HTML stays literal, following VSF preview. Literal backslashes can include an invisible U+2060 word joiner.',
+          },
+        ],
+        message:
+          'SRT text is encoded as ASS: balanced b/i/u markup becomes overrides, line breaks become \\N, and literal braces/backslashes are protected.',
+        severity: 'notice',
+      },
+      {
+        code: 'srt_overrides',
+        count: 1,
+        examples: [
+          {
+            cueId: '1',
+            detail: 'No tags are stripped or retimed.',
+          },
+        ],
+        message:
+          'Fansub ASS/SSA overrides are retained. Coordinates and named resets now use the exported default style and canvas.',
+        severity: 'notice',
+      },
+    ],
+    options: {
+      precision: 'exact',
+      target: 'ass',
+    },
+    outputBytes: 646,
+    source: 'srt',
+  },
+} satisfies ConversionReview;
+export const conversionBlocked = {
+  error: null,
+  id: 2,
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 1,
+  },
+  options: {
+    precision: 'exact',
+    target: 'ssa',
+  },
+  outputPath: null,
+  phase: 'reviewing',
+  report: {
+    cues: 1,
+    issues: [
+      {
+        code: 'canonical',
+        count: 1,
+        examples: [
+          {
+            cueId: null,
+            detail:
+              'The open document, original file and Undo history remain unchanged.',
+          },
+        ],
+        message:
+          'The separate export uses UTF-8 without BOM, LF endings and canonical records. SRT labels are renumbered; source formatting is not retained.',
+        severity: 'notice',
+      },
+      {
+        code: 'default_style',
+        count: 1,
+        examples: [
+          {
+            cueId: null,
+            detail:
+              'Inline overrides take precedence; installed font availability and player defaults affect appearance.',
+          },
+        ],
+        message:
+          'SRT has no style sheet. The export creates Default (sans-serif, 24 pt), a 384×288 canvas and explicit wrapping/color defaults.',
+        severity: 'notice',
+      },
+      {
+        code: 'precision_required',
+        count: 1,
+        examples: [
+          {
+            cueId: '1',
+            detail: '1001–2000 ms → 1000–2000 ms',
+          },
+        ],
+        message:
+          'ASS/SSA requires 10 ms endpoints. Choose explicit nearest rounding or edit these times.',
+        severity: 'blocked',
+      },
+    ],
+    options: {
+      precision: 'exact',
+      target: 'ssa',
+    },
+    outputBytes: null,
+    source: 'srt',
+  },
+} satisfies ConversionReview;
 export const statisticsView = {
   error: null,
   findings: [

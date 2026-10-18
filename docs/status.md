@@ -27,7 +27,9 @@ SRT/ASS/SSA export proposals cover all six directions with explicit precision,
 loss and blocking reports. The open document/source/history is unchanged. Eight
 new cases and the complete 366-test Rust suite pass; strict workspace checks pass.
 Eight 10k workloads pass p95 <=37.489ms and +81,526,784 sampled RSS bytes.
-Desktop review, protected publication and native acceptance remain required.
+Typed desktop review/publication commands now pass source/history/recovery,
+no-clobber/retry and cancellation/shutdown race checks; the complete suite is
+374 Rust tests. The conversion dialog and native acceptance remain required.
 See [conversion policy and evidence](format-conversion.md).
 
 **Style authoring increment (2026-10-17; stage5 remains in progress):** reviewed

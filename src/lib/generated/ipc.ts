@@ -191,6 +191,25 @@ export const commands = {
     __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('font_accept', {
       id,
     }),
+  conversionStart: (
+    generation: number,
+    revision: number,
+    options: vsf_application_conversion_ConversionOptions,
+  ) =>
+    __TAURI_INVOKE<number>('conversion_start', {
+      generation,
+      revision,
+      options,
+    }),
+  conversionView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_conversion_review_ConversionReview>(
+      'conversion_view',
+      { id },
+    ),
+  conversionCancel: (id: number) =>
+    __TAURI_INVOKE<null>('conversion_cancel', { id }),
+  conversionPublish: (id: number, path: string) =>
+    __TAURI_INVOKE<null>('conversion_publish', { id, path }),
   textStart: (
     generation: number,
     revision: number,
@@ -890,6 +909,65 @@ export type visualsubforge_quality_profile_Context_Serialize = {
   profile: vsf_application_quality_profile_Profile_Serialize;
   timing: visualsubforge_timing_preset_Settings;
 };
+
+export type vsf_application_conversion_ConversionExample = {
+  /**  Source cue identity; never a newly allocated export identity. */
+  cueId: string | null;
+  detail: string;
+};
+
+export type vsf_application_conversion_ConversionFormat = 'srt' | 'ass' | 'ssa';
+
+export type vsf_application_conversion_ConversionIssue = {
+  code: string;
+  severity: vsf_application_conversion_ConversionSeverity;
+  message: string;
+  /**  Exact affected count. Examples are capped, not a complete occurrence list. */
+  count: number;
+  examples: vsf_application_conversion_ConversionExample[];
+};
+
+export type vsf_application_conversion_ConversionOptions = {
+  target: vsf_application_conversion_ConversionFormat;
+  precision: vsf_application_conversion_ConversionPrecision;
+};
+
+export type visualsubforge_conversion_review_ConversionPhase =
+  | 'preparing'
+  | 'reviewing'
+  | 'publishing'
+  | 'published'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
+export type vsf_application_conversion_ConversionPrecision =
+  | 'exact'
+  /**  Round each endpoint to the nearest 10 ms, with ties rounding upward. */
+  | 'nearest';
+
+export type vsf_application_conversion_ConversionReport = {
+  source: vsf_application_conversion_ConversionFormat;
+  options: vsf_application_conversion_ConversionOptions;
+  cues: number;
+  outputBytes: number | null;
+  issues: vsf_application_conversion_ConversionIssue[];
+};
+
+export type visualsubforge_conversion_review_ConversionReview = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_conversion_review_ConversionPhase;
+  options: vsf_application_conversion_ConversionOptions;
+  report: vsf_application_conversion_ConversionReport | null;
+  outputPath: string | null;
+  error: string | null;
+};
+
+export type vsf_application_conversion_ConversionSeverity =
+  'notice' | 'loss' | 'blocked';
 
 export type vsf_application_language_analysis_Coverage = {
   enabled: boolean;

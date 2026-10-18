@@ -1,8 +1,8 @@
 # Deliberate subtitle conversion
 
-Stage5 is in progress. The shared, pure conversion proposal is implemented;
-desktop review, destination selection, protected publication and native acceptance
-are still required. Ordinary Save keeps its existing same-format restriction.
+Stage5 is in progress. Shared conversion proposals and the desktop owner's typed
+review/publication commands are implemented. The dialog, destination picker and
+native acceptance remain required. Ordinary Save keeps its same-format restriction.
 
 ## Output and loss policy
 
@@ -58,12 +58,31 @@ conversion and the existing native packet writer; the packet container remains
 behind the desktop media boundary. No native dependency, new accepted-state owner,
 undo stack or worker is introduced by this library increment.
 
-Desktop integration will reuse the existing bounded text/style/font worker, retain
-generation/revision/policy checks and require review before choosing a separate
-destination. Publication must use exact reviewed bytes, refuse existing files and
-source aliases (including a deleted original path), and check staleness again at
-the publication boundary. File failure/cancellation must retain the original
-document, dirty state, history and recovery identity. These checks are pending.
+The desktop owner reuses the existing text/style/font worker slot for both
+preparation and subsequent publication. Each has a cooperative ten-second
+deadline; no pending queue or sixth CPU worker is added. Typed start/view/cancel/
+publish commands expose only bounded reports, status and the published path.
+The dialog will require review before destination selection.
+
+Publication shares immutable reviewed bytes through Arc, reserves the same job
+slot and prepares/fsyncs a sibling temporary outside the document lock. It checks
+cancellation between 64 KiB writes. It uses the existing cross-process writer
+lease and refuses existing paths, including directories, hardlinks and dangling
+symlinks. Deleted provenance paths remain protected through canonical parents and
+conservative case/Unicode-normalization comparison. Namespace/source protection
+is rechecked after temporary IO. Under the document lock, a final job/generation/
+revision/policy/path check precedes atomic no-clobber publication. This operation
+does not adopt a document or mark it saved; source contents changing on disk do not
+replace the reviewed output bytes. Failure retains the review for another path.
+
+Cancellation before commit removes the owned temporary. After successful commit,
+late cancellation leaves the completed file and publication receipt intact.
+Shutdown cancels and joins outside the document lock. The IO worker captures a
+Weak store reference, avoiding an owner/worker cycle. It upgrades only for final
+publication; if the last external owner disappears then, Job disposal must avoid
+joining the current exiting thread. Ordinary blocking filesystem calls cannot be
+interrupted mid-call; checkpoints run between them. Crashes may leave an orphan
+temporary, and atomic publication does not promise directory power-loss durability.
 
 Predeclared gates remain 10k pure preparation p95 ≤500 ms and additional sampled
 RSS ≤96 MiB; native interaction/cancellation/review/publication <1000 ms, with
@@ -112,6 +131,40 @@ the font decoder test call and the shared preview helper's visibility. No behavi
 or performance budget was relaxed. Logs/receipts are retained under ignored
 `tests/fixtures/generated/authoring-research/`.
 
-No desktop conversion, protected publication or native appearance acceptance is
-claimed by this foundation. Existing frontend/browser acceptance remains at the
-previous authoring increment; those tests have not been rerun for new UI here.
+No conversion dialog or native appearance acceptance is claimed by this foundation.
+
+Desktop owner/publication increment, 2026-10-18:
+
+```sh
+cargo test --locked -p visualsubforge document::texts::conversion -- --nocapture
+cargo test --locked -p vsf-application --lib
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+npm run ipc:generate
+npm run check
+npm run lint
+npm run format:check
+npm run build
+npm run ipc:check
+```
+
+All final checks pass: **374 ordinary Rust tests, 30 ignored**. Six conversion
+owner tests cover all six format pairs, exact reviewed bytes, dirty state/Redo/
+paths and persisted recovery, blocked/wrong-family/admission guards, failed-path
+retry, competing destination writes, writer-lease refusal/retry, changed source
+bytes, deleted provenance, cancel/document/policy/Save-As/close/shutdown races and
+last-owner drop. New shared tests cover cancellation at every write checkpoint
+and absent-path aliases; existing resync publication tests retain their error
+classification and no-clobber behavior through the shared path helper. Actual
+Serde samples cover reviewable and blocked reports in generated TypeScript.
+
+Initial tests used nonexistent capture/setter helpers; they now exercise the real
+recovery image/persistence and quality operations. An invalid test profile ID
+triggered abrupt owner disposal and exposed a strong store/worker cycle ending in
+self-join. Weak ownership, current-thread disposal protection and the explicit
+last-owner-drop regression fix that lifecycle defect. The corrected owner tests
+and complete workspace pass. UI/browser/native conversion acceptance and desktop
+10k interaction measurements remain pending; existing frontend unit/browser
+counts still belong to the prior authoring increment.

@@ -43,6 +43,31 @@ pub fn prepare(path: &Path, bytes: &[u8]) -> Result<Prepared> {
     )
 }
 
+/// Bounded writes check cancellation before/after IO and between 64 KiB chunks.
+/// A blocking filesystem call cannot itself be interrupted safely. Dropping the
+/// prepared value removes its temporary without publishing a destination.
+pub fn prepare_with_checkpoint(
+    path: &Path,
+    bytes: &[u8],
+    mut checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Prepared> {
+    checkpoint()?;
+    let prepared = prepare_with_io(
+        path,
+        bytes,
+        |file, bytes| {
+            for chunk in bytes.chunks(64 * 1024) {
+                checkpoint().map_err(std::io::Error::other)?;
+                file.write_all(chunk)?;
+            }
+            checkpoint().map_err(std::io::Error::other)
+        },
+        |file| file.sync_all(),
+    )?;
+    checkpoint()?;
+    Ok(prepared)
+}
+
 // Keep failure injection private to this boundary. Tests use real temporary
 // files, replacing only the write/sync operations that can fail before publish.
 fn prepare_with_io(
@@ -74,6 +99,49 @@ fn prepare_with_io(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancellation_at_each_write_checkpoint_removes_only_owned_temporary() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("output.ass");
+        let bytes = vec![42; 200_000];
+        let mut calls = 0;
+        drop(
+            prepare_with_checkpoint(&path, &bytes, || {
+                calls += 1;
+                Ok(())
+            })
+            .unwrap(),
+        );
+        for existing in [false, true] {
+            if existing {
+                fs::write(&path, b"original").unwrap();
+            }
+            for stop in 1..=calls {
+                let mut at = 0;
+                assert!(
+                    prepare_with_checkpoint(&path, &bytes, || {
+                        at += 1;
+                        if at == stop {
+                            Err("cancel-once".into())
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .err()
+                    .unwrap()
+                    .contains("cancel-once")
+                );
+                assert_eq!(
+                    fs::read_dir(directory.path()).unwrap().count(),
+                    usize::from(existing)
+                );
+                if existing {
+                    assert_eq!(fs::read(&path).unwrap(), b"original");
+                }
+            }
+        }
+    }
 
     #[test]
     fn partial_write_and_sync_failures_preserve_destination_and_remove_temporary() {

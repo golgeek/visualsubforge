@@ -16,6 +16,7 @@ use vsf_application::{
     text::{self, Proposal},
 };
 
+mod conversion;
 mod fonts;
 mod styles;
 
@@ -23,11 +24,13 @@ enum Request {
     Text(Operation),
     Style(style_engine::StyleOperation),
     Font(crate::font_review::FontOperation),
+    Conversion(vsf_application::conversion::ConversionOptions),
 }
 enum Prepared {
     Text(Proposal),
     Style(style_engine::Proposal),
     Font(fonts::PreparedFont),
+    Conversion(conversion::PreparedConversion),
 }
 impl Prepared {
     fn text(&self) -> Option<&Proposal> {
@@ -57,6 +60,8 @@ struct Job {
     error: Option<String>,
     stale: bool,
     accepted: bool,
+    publishing: bool,
+    published_path: Option<String>,
 }
 impl Job {
     fn cancel(&mut self) {
@@ -65,6 +70,7 @@ impl Job {
     }
     fn refresh(&mut self) {
         if let Some(worker) = self.worker.take_if(|w| w.is_finished()) {
+            self.publishing = false;
             let result = worker
                 .join()
                 .unwrap_or_else(|_| Err("Document review worker stopped unexpectedly".into()));
@@ -82,7 +88,13 @@ impl Drop for Job {
         self.cancel.store(true, Ordering::Relaxed);
         // Normally finished work was reaped or shutdown took it outside the lock.
         if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
+            // Export briefly upgrades a Weak document owner for its final commit.
+            // If the last external owner disappears then, Store may be dropped
+            // on that finishing worker. It cannot join itself; dropping its own
+            // handle detaches only the current thread, which is already exiting.
+            if worker.thread().id() != std::thread::current().id() {
+                let _ = worker.join();
+            }
         }
     }
 }
@@ -140,6 +152,8 @@ impl State {
             error: None,
             stale: false,
             accepted: false,
+            publishing: false,
+            published_path: None,
         });
         self.next_id = id;
         Ok(id)
@@ -459,6 +473,8 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
     serde_json::to_value(tests::ready(&docs, id)).unwrap()
 }
 
+#[cfg(test)]
+pub(crate) use conversion::ipc_samples as conversion_ipc_samples;
 #[cfg(test)]
 pub(crate) use fonts::ipc_samples as font_ipc_samples;
 #[cfg(test)]
