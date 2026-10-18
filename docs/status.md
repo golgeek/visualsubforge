@@ -26,7 +26,7 @@ Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
 **Latest reliability checkpoint (2026-10-18):** all ten hosted application jobs
-and all six native build-contract jobs pass at0a1769b. The plugin rejection-test
+and all six native build-contract jobs pass at5af8b07. The plugin rejection-test
 correction is verified on Mac, Windows x64 and Ubuntu with production limits
 unchanged. All60 browser cases pass. The intermittent statistics paging failure
 is reproduced in both browsers: an unscoped test selector counted the underlying
@@ -42,7 +42,10 @@ source/notice identities and packaged modern/VSS CLI on the Windows ARM64 VM
 verify; the [acceptance guide](preview-acceptance.md) now links both feature builds.
 Linux Pulse interpolation-option content/re-entry/EOF checks add bounded passes,
 while the default capture has an incomplete beginning; production configuration
-is unchanged. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
+is unchanged. The new actual Linux editor lane reproduces a missing paused-seek
+cursor with both Pulse options; raw properties identify an exact transport
+position with unavailable audio PTS. The [diagnosis and retained failures](native-reliability.md#linux-editor-capture-lane-and-paused-seek--2026-10-18)
+require an application correction and complete rerun. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
 separate save and normal quit pass. Held-pointer cancellation, dialog lifetime,
 historical VSS-host comparison and distribution/physical gates remain open.
 See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).

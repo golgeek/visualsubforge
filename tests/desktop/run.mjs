@@ -68,6 +68,7 @@ const { values } = parseArgs({
     plugins: { type: 'boolean', default: false },
     'plugins-editor': { type: 'boolean', default: false },
     'native-audio': { type: 'boolean', default: false },
+    'native-audio-capture-only': { type: 'boolean', default: false },
     'plugin-performance': { type: 'boolean', default: false },
     'translation-performance': { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
@@ -82,6 +83,8 @@ const { values } = parseArgs({
 });
 if (values.plugins && values['plugins-editor'])
   throw new Error('Choose --plugins or --plugins-editor, not both.');
+if (values['native-audio-capture-only'] && !values['native-audio'])
+  throw new Error('--native-audio-capture-only requires --native-audio.');
 const cli = resolve(
   values.cli ?? `target/debug/vsf${process.platform === 'win32' ? '.exe' : ''}`,
 );
@@ -606,6 +609,7 @@ try {
       evidence,
       record,
       binary,
+      captureOnly: values['native-audio-capture-only'],
       restart: async (choices) => {
         await terminate();
         await launch(choices);

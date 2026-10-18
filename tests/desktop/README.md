@@ -478,7 +478,7 @@ For diagnosis, `VSF_TRANSLATION_PERFORMANCE_WORKLOADS=dense` selects a subset an
 `VSF_TRANSLATION_PROFILE_DRAW=1` records canvas draw counts/times. Instrumented or
 partial runs do not replace the complete uninstrumented acceptance run.
 
-### Native audio re-entry and replacement (macOS)
+### Native audio re-entry and replacement (macOS and Linux)
 
 `--native-audio` uses an actual `desktop-e2e,media-prototype` bundle and the
 selected private libmpv. It creates two deterministic stereo WAV files and checks
@@ -511,6 +511,34 @@ private process tap; it does not select a system device or record a microphone.
 Each recorder is stopped and reaped even when an assertion fails. The runner
 requires normal app shutdown and independently analyzes all five captures in
 both channels with `tests/native/audio-editor-content.py`.
+
+On Linux, use `tests/native/pulse-stream-capture.py` as the capture helper with
+`pactl`, `parec` and a running server that supports single-stream monitoring.
+The helper requires exactly one sink input belonging to the owned editor PID;
+it never substitutes a whole-sink recording. Select and identify the intended
+native runtime before running. The isolated diagnostic build described in the
+[reliability record](../../docs/native-reliability.md) permits comparing existing
+Pulse options; those overrides are not supported production environment options.
+Linux also checks sampled clock continuity and EOF after clearing a live loop,
+with a one-source-sample backward tolerance. This extra check does not capture
+the clear boundary's PCM.
+
+For a VM without NumPy, add `--native-audio-capture-only`, then run the analyzer
+on a host with NumPy. This flag completes only the state/capture phase; it does
+not establish an audio-content pass. Keep the original report and source/capture
+files unchanged. Map the VM path prefix to the same files on the analysis host:
+
+```sh
+/absolute/path/to/python-with-numpy tests/native/audio-editor-content.py \
+  --report /host/shared/evidence/native-audio.json \
+  --output /host/shared/evidence/native-audio-content.json \
+  --path-map /guest/shared /host/shared
+```
+
+The analyzer verifies capture/source hashes, process identity, format and complete
+PCM block coverage before checking both channels. Linux metadata contains receive
+times, not presentation timestamps. Paused-seek observations are retained even
+when the workflow fails, and an incomplete workflow cannot pass content analysis.
 
 `native-audio.json` records input hashes, observed state and recorder exits;
 `native-audio-runtime.json` verifies loaded executable/library backing files;

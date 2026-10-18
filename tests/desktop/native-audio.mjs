@@ -60,16 +60,21 @@ export async function nativeAudioWorkflow({
   until,
   record,
   binary,
+  captureOnly = false,
 }) {
-  assert.equal(process.platform, 'darwin', 'This capture lane requires macOS.');
+  assert.ok(
+    ['darwin', 'linux'].includes(process.platform),
+    'This capture lane requires macOS or Linux with a Pulse stream monitor.',
+  );
   assert.ok(
     process.env.VSF_PROCESS_AUDIO_CAPTURE,
     'Set VSF_PROCESS_AUDIO_CAPTURE.',
   );
-  assert.ok(
-    process.env.VSF_AUDIO_ANALYSIS_PYTHON,
-    'Set VSF_AUDIO_ANALYSIS_PYTHON to a Python with NumPy.',
-  );
+  if (!captureOnly)
+    assert.ok(
+      process.env.VSF_AUDIO_ANALYSIS_PYTHON,
+      'Set VSF_AUDIO_ANALYSIS_PYTHON to a Python with NumPy.',
+    );
   assert.ok(
     process.env.VSF_EXPECT_MPV,
     'Set VSF_EXPECT_MPV to the selected runtime library.',
@@ -87,6 +92,10 @@ export async function nativeAudioWorkflow({
   );
   const report = {
     status: 'running',
+    captureKind:
+      process.platform === 'linux'
+        ? 'pulse-single-stream-receive-time'
+        : 'macos-process-tap',
     binary,
     binarySha256: hash(await readFile(binary)),
     helper,
@@ -131,29 +140,43 @@ export async function nativeAudioWorkflow({
   let session;
   const act = (action) => invoke('media_action', { action, session });
   const seek = async (seconds) => {
-    await act({ kind: 'pause', paused: true });
-    await act({ kind: 'seek', seconds });
-    return until(`paused exact seek ${seconds}`, async () => {
-      const m = await media();
-      assert.equal(m.error, null);
-      return (
-        m.session === session &&
-        m.paused &&
-        !m.seeking &&
-        m.positionSeconds !== null &&
-        Math.abs(m.positionSeconds - seconds) <= 1 / 48000 &&
-        m
-      );
-    });
+    const observation = { name: 'paused-seek', seconds, rows: [] };
+    report.observations.push(observation);
+    try {
+      await act({ kind: 'pause', paused: true });
+      await act({ kind: 'seek', seconds });
+      return await until(`paused exact seek ${seconds}`, async () => {
+        const m = await media();
+        observation.rows.push(m);
+        assert.equal(m.error, null);
+        return (
+          m.session === session &&
+          m.paused &&
+          !m.seeking &&
+          m.positionSeconds !== null &&
+          Math.abs(m.positionSeconds - seconds) <= 1 / 48000 &&
+          m
+        );
+      });
+    } catch (error) {
+      observation.failure = String(error);
+      throw error;
+    } finally {
+      await save();
+    }
   };
   const hold = async (seconds) => {
     const end = Date.now() + seconds * 1000;
+    const began = performance.now();
     const rows = [];
     while (Date.now() < end) {
       const m = await media();
       assert.equal(m.error, null);
       assert.equal(m.session, session);
-      rows.push(m);
+      rows.push({
+        ...m,
+        observationElapsedSeconds: (performance.now() - began) / 1000,
+      });
       await delay(25);
     }
     return rows;
@@ -365,6 +388,55 @@ export async function nativeAudioWorkflow({
     },
     { start: 0 },
   );
+  if (process.platform === 'linux') {
+    await act({ kind: 'loop', start: 1.013, end: 1.336 });
+    await seek(1.013);
+    await act({ kind: 'pause', paused: false });
+    const looping = await hold(1.5);
+    await act({ kind: 'clearLoop' });
+    const cleared = await hold(4.5);
+    const settled = cleared.filter((m) => m.observationElapsedSeconds > 0.5);
+    const live = settled.filter((m) => !m.paused);
+    const missing = live.filter((m) => m.positionSeconds === null).length;
+    const backward = Math.max(
+      0,
+      ...live
+        .slice(1)
+        .map((m, i) =>
+          live[i].positionSeconds === null || m.positionSeconds === null
+            ? 0
+            : live[i].positionSeconds - m.positionSeconds,
+        ),
+    );
+    report.observations.push({
+      name: 'linux-loop-clear-clock',
+      scope:
+        'Sampled editor clock and EOF only; no clear-boundary PCM capture.',
+      looping,
+      cleared,
+      maxBackwardSeconds: backward,
+      missingClockSamples: missing,
+      toleranceSeconds: 1 / 48000,
+    });
+    await save();
+    assert.ok(
+      live.length >= 10,
+      'Clear did not retain enough live clock samples.',
+    );
+    assert.equal(missing, 0, 'Clear lost the live queued-audio clock.');
+    assert.ok(
+      live.every((m) => m.queuedAudioClock && !m.seeking),
+      'Clear clock observations are not settled queued-audio observations.',
+    );
+    assert.ok(
+      backward <= 1 / 48000,
+      `Cleared editor clock moved backwards by ${backward} seconds.`,
+    );
+    assert.ok(
+      cleared.at(-1).paused && cleared.at(-1).positionSeconds >= 4 - 1 / 48000,
+      'Cleared editor playback did not finish at EOF.',
+    );
+  }
   await act({ kind: 'close' });
   await until('media fully closed', async () => !(await media()).loaded);
   const after = await status();
@@ -382,6 +454,14 @@ export async function nativeAudioWorkflow({
     '--output',
     join(evidence, 'native-audio-content.json'),
   ];
+  if (captureOnly) {
+    await record({
+      step: 'native audio state and captures complete; content analysis required',
+      report: join(evidence, 'native-audio.json'),
+      analysisCommand,
+    });
+    return;
+  }
   try {
     const result = await promisify(execFile)(
       process.env.VSF_AUDIO_ANALYSIS_PYTHON,

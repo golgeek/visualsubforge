@@ -592,3 +592,61 @@ its extended fixture collector and separate physical-device gate remain applicab
 Historical-host comparison, retained audio defects, native held-gesture and
 resource-lifetime acceptance remain open. Stage8 and the umbrella goal stay active.
 No Linux VM root-space install/build or production audio-option change occurred.
+
+## Linux editor capture lane and paused seek — 2026-10-18
+
+The maintained `--native-audio` editor lane now accepts the existing isolated
+Pulse stream recorder as well as the Mac process tap. Capture-only operation can
+leave the unchanged files on shared storage for NumPy analysis on the host.
+Explicit path mapping retains source/capture hash verification; Pulse metadata
+requires the owned player PID, stereo48kHz float PCM, successful recorder exit and
+complete ordered byte coverage. Receive times are not presentation timestamps.
+Linux adds a sampled loop-clear/EOF check with the unchanged1/48000s backward
+limit; its clear boundary is not a PCM-content claim. Failed paused seeks now
+retain every status sample instead of only a timeout. No production option or
+native dependency changes are included in this test increment.
+
+A fresh isolated Linux ARM64 build starts from5af8b07 and the existing approved
+candidate SDK. Only a diagnostic adapter override selects `ao=pulse` and the
+existing `pulse-latency-hacks` option. The source archive SHA256 is
+`3aca509fd08afed122426e891237e14a49c5d3fc0b1a0e3b059e528ed5eb5e4a`;
+the diagnostic app is
+`322ff4e09760b5bb94aff3edd2bf1b2713c10445c5e4225c04e81c1018a64544`
+and CLI is `7885a4c147aac032fdacc3474a26f45043d3a8937b49428b2b8ec7d6f5e246ed`.
+The two environment overrides exist only in that copied diagnostic source.
+Build/cache/output live under host Downloads
+`VisualSubForge-linux-native-sis0_t4d`, mapped as
+`/media/psf/Home/Downloads/VisualSubForge-linux-native-sis0_t4d` in the guest.
+No packages were installed. Root free space remained about613MiB; the copied
+existing cache uses host disk space. Retained setup failures identify an external
+node_modules symlink rejected by inventory validation, then a missing private
+libplacebo pkg-config path. Copying node_modules and selecting the existing SDK
+resolved these without weakening checks or changing system packages.
+
+The actual editor baseline (`desktop-nZgMuO`) and interpolation-option run
+(`desktop-FQw9Dt`) both fail waiting for a paused exact seek to2.5s after looping.
+The second retains177 status samples; the final status is loaded, paused, not
+seeking, error-free, with a missing position. Neither run is a complete audio
+workflow or content pass. Six separate raw-property probes confirm the cause:
+two default Pulse and two interpolated Pulse runs have unavailable `audio-pts`
+after the paused seek while `time-pos` is exactly2.5; both PipeWire controls
+report2.5 for both. An application correction and full editor rerun remain pending.
+The existing live-clock and clear/backstep failures are not superseded.
+
+An earlier isolated capture readiness experiment
+(`VisualSubForge-pulse-readiness-05pewacq`) waits for a first PCM block while
+paused and fails with zero frames. The recorder exits cleanly, but this does not
+resolve the earlier incomplete capture beginning. The maintained recorder's
+readiness protocol is unchanged.
+
+Validation: pinned Node24.21.0 Prettier, ESLint and syntax checks pass; Python
+compilation, ten analyzer controls and diff checks pass. Reanalysis of the five
+previous Mac captures through a mapped path passes both channels, preserving the
+original files and thresholds; this is not a fresh Mac editor run. Exact scripts,
+commands, dispatches and controls are indexed in
+`test-results/native-reliability-20261018/linux-editor-*`,
+`linux-native-build-*`, `linux-paused-seek-*` and `native-audio-mapped-control*`.
+The shared directory retains build receipts, both failed editor reports, raw
+six-case properties, hashes and logs. All ten hosted application jobs39146820541
+and six native-contract jobs39146820484 pass at5af8b07; receipts are
+`ci-5af8b07-checks.json` and `ci-5af8b07-native.json`.
