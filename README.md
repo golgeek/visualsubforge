@@ -47,6 +47,8 @@ The editor provides:
 - Read-only document/range statistics summarize shared quality metrics, finite
   reading-speed categories, gaps and overlaps, with explicit exclusions and
   protected outlier navigation. `vsf stats` exposes the same report as JSON.
+- Bounded subtitle-font notices and a Mac CJK fallback preserve original font
+  declarations, including embedded font previews. See [font policy](docs/preview-fonts.md).
 - Tag-aware Find/Replace, selection formatting and previewable line joining/reflow
   preserve subtitle markup. Reviewed text batches use one Undo/Redo operation.
 

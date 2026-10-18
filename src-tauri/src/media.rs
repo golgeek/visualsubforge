@@ -87,6 +87,8 @@ pub struct Status {
     pub output_drops: Option<f64>,
     pub error: Option<String>,
     pub subtitle_preview_error: Option<String>,
+    #[serde(default)]
+    pub subtitle_font_diagnostics: Vec<String>,
     #[serde(default, with = "crate::ipc_number::optional")]
     #[specta(type = Option<crate::ipc_number::SafeU64>)]
     pub preview_document_generation: Option<u64>,
@@ -349,6 +351,7 @@ impl Media {
                     {
                         preview.reconcile(player, &documents);
                         status.subtitle_preview_error = preview.error.clone();
+                        status.subtitle_font_diagnostics = player.font_diagnostics();
                         let revision = preview.revision().filter(|_| preview.error.is_none());
                         status.preview_document_generation = revision.map(|r| r.0);
                         status.preview_document_revision = revision.map(|r| r.1);

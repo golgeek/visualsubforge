@@ -25,6 +25,7 @@ let doc = structuredClone(original),
   before = structuredClone(original),
   after = structuredClone(original);
 const edits: DocumentAction[] = [];
+let fontNotices = ['Font missing: <b>VSF Test Font</b>; fallback may be used'];
 function assert(value: unknown, message: string) {
   if (!value) throw new Error(message);
 }
@@ -97,7 +98,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
-          return structuredClone(emptyStatus);
+          return {
+            ...structuredClone(emptyStatus),
+            subtitleFontDiagnostics: [...fontNotices],
+          };
         case 'quality_read':
           throw new Error('Quality disabled in this fixture');
         case 'choose_file':
@@ -164,6 +168,26 @@ const app = mount(App, { target: host });
 async function run() {
   try {
     await until(() => host.querySelectorAll('.cue-row').length === 2);
+    await until(
+      () => !!host.querySelector('[aria-label="Subtitle font notices"]'),
+    );
+    const notices = host.querySelector('[aria-label="Subtitle font notices"]')!;
+    assert(
+      notices.textContent?.includes(fontNotices[0]!) &&
+        !notices.querySelector('b'),
+      'Font notices must be visible as escaped text',
+    );
+    assert(
+      !doc.dirty && edits.length === 0,
+      'Font notices changed accepted state',
+    );
+    fontNotices = [];
+    await until(
+      () => !host.querySelector('[aria-label="Subtitle font notices"]'),
+    );
+    passed(
+      'Session font notices are escaped, read-only and clear with media status',
+    );
     assert(field('Cue style').value === 'Title', 'Accepted style missing');
     button('Inspect styles…').click();
     await until(() => !!host.querySelector('dialog[open]'));

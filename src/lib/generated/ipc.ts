@@ -1569,6 +1569,7 @@ export type visualsubforge_media_Status_Deserialize = {
   outputDrops: number | null;
   error: string | null;
   subtitlePreviewError: string | null;
+  subtitleFontDiagnostics?: string[];
   previewDocumentGeneration?: number | null;
   previewDocumentRevision?: number | null;
 };
@@ -1594,6 +1595,7 @@ export type visualsubforge_media_Status_Serialize = {
   outputDrops: number | null;
   error: string | null;
   subtitlePreviewError: string | null;
+  subtitleFontDiagnostics: string[];
   previewDocumentGeneration: number | null;
   previewDocumentRevision: number | null;
 };

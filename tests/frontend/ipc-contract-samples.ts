@@ -1865,6 +1865,7 @@ export const mediaStatus = {
   renderedFrames: 0,
   seeking: false,
   session: 0,
+  subtitleFontDiagnostics: [],
   subtitlePreviewError: null,
   surfaceAboveWebview: false,
   swapCounterAvailable: false,

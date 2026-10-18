@@ -41,7 +41,11 @@ struct Surface {
     gint64 max_tick_gap = 0, max_render_time = 0;
     uint64_t queued_renders = 0, skipped_renders = 0;
 };
-struct Playback { mpv_handle *core = nullptr; Surface *surface = nullptr; };
+struct Playback {
+    mpv_handle *core = nullptr;
+    Surface *surface = nullptr;
+    vsf_mpv::FontDiagnostics fontDiagnostics;
+};
 struct MainCall {
     std::function<void()> action;
     std::mutex mutex;
@@ -248,7 +252,8 @@ extern "C" void *vsf_player_create(void *raw, int *error) try {
         *error=mpv_set_option_string(core.get(),option[0],option[1]);
         if (*error<0) return nullptr;
     }
-    if (std::getenv("VSF_MEDIA_SMOKE")) mpv_request_log_messages(core.get(),"v");
+    *error = vsf_mpv::configure_font_logging(core.get(), std::getenv("VSF_MEDIA_SMOKE") != nullptr);
+    if (*error < 0) return nullptr;
     *error=vsf_mpv::disable_scripts(core.get());
     if (*error<0) return nullptr;
     *error=mpv_initialize(core.get());
@@ -296,7 +301,10 @@ extern "C" void vsf_presenting(void *raw,int value) {
     s.layout_dirty.store(true);
 }
 extern "C" int vsf_discard_events(void *raw) {
-    return vsf_mpv::discard_events(static_cast<Playback *>(raw)->core);
+    auto *player = static_cast<Playback *>(raw);
+    const int result = vsf_mpv::discard_events(player->core);
+    if (result >= 0) player->fontDiagnostics.clear();
+    return result;
 }
 extern "C" double vsf_number(void *raw, const char *name) {
     return vsf_mpv::number(static_cast<Playback *>(raw)->core, name);
@@ -308,7 +316,10 @@ extern "C" uint64_t vsf_frames(void *raw) { return static_cast<Playback *>(raw)-
 extern "C" int vsf_event_error(void *raw, int *file_transition) {
     auto *player = static_cast<Playback *>(raw);
     return vsf_mpv::poll_events(static_cast<Playback *>(raw)->core, player->surface->error.exchange(0),
-                                true, file_transition);
+                                std::getenv("VSF_MEDIA_SMOKE") != nullptr, file_transition, &player->fontDiagnostics);
+}
+extern "C" const char *vsf_font_diagnostics(void *raw) {
+    return static_cast<Playback *>(raw)->fontDiagnostics.text();
 }
 extern "C" char *vsf_text(void *raw,const char *name) { return mpv_get_property_string(static_cast<Playback *>(raw)->core,name); }
 extern "C" void vsf_text_free(char *text) { mpv_free(text); }

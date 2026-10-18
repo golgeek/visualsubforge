@@ -478,6 +478,58 @@ mod tests {
         );
     }
 
+    #[test]
+    fn embedded_font_header_and_source_are_preserved() {
+        let source = include_str!("../../../tests/fixtures/subtitles/embedded-font.ass");
+        let parsed = subtitle_formats::parse(source, Some(subtitle_formats::Format::Ass)).unwrap();
+        let header = parsed.source.ass().unwrap().preview_header();
+        let attachment = source.split_once("[Fonts]\n").unwrap().1;
+        assert!(header.contains(attachment));
+        assert!(header.contains("Style: Default,VSF Fixture Font,"));
+        let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
+            .unwrap()
+            .unwrap();
+        assert!(
+            decode_url(&url)
+                .windows(attachment.len())
+                .any(|part| part == attachment.as_bytes())
+        );
+        assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), source);
+    }
+
+    #[test]
+    #[ignore = "exports production font-preview packets for native composition checks"]
+    fn native_font_preview_sources() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../tests/fixtures/generated/fonts/sources");
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = include_str!("../../../tests/fixtures/subtitles/styles.ass");
+        let embedded = include_str!("../../../tests/fixtures/subtitles/embedded-font.ass");
+        for (name, source) in [
+            ("generic", base.to_owned()),
+            ("explicit", base.replace("sans-serif", "Hiragino Sans GB")),
+            (
+                "missing",
+                base.replace("sans-serif", "VSF Definitely Missing Font"),
+            ),
+            ("embedded", embedded.to_owned()),
+            (
+                "without-attachment",
+                embedded.split_once("[Fonts]").unwrap().0.to_owned(),
+            ),
+            ("missing-glyph", base.replace("世界", "\u{10ffff}")),
+        ] {
+            let parsed =
+                subtitle_formats::parse(&source, Some(subtitle_formats::Format::Ass)).unwrap();
+            let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
+                .unwrap()
+                .unwrap();
+            std::fs::write(dir.join(format!("{name}.url")), &url).unwrap();
+            std::fs::write(dir.join(format!("{name}.mks")), decode_url(&url)).unwrap();
+            assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), source);
+        }
+    }
+
     /// Independently demux the production bytes with the real native tool. Also
     /// retain reproducible inputs for the separate mpv composition check.
     #[test]

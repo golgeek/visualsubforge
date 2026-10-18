@@ -130,7 +130,12 @@ export async function assDocuments({
     await saveReport();
     // Optional native-window inspection: WebKit snapshots may omit sibling media
     // surfaces. The runner pauses at a settled, revision-checked frame for capture.
-    if (process.env.VSF_ASS_DESKTOP_CAPTURE === '1') {
+    const captureLabels =
+      process.env.VSF_ASS_DESKTOP_CAPTURE_LABELS?.split(',');
+    if (
+      process.env.VSF_ASS_DESKTOP_CAPTURE === '1' &&
+      (!captureLabels || captureLabels.includes(label))
+    ) {
       await writeFile(
         join(evidence, 'capture-request.json'),
         JSON.stringify(capture, null, 2),
@@ -423,7 +428,23 @@ export async function assDocuments({
 
     const tagged = join(root, 'fansub.srt'),
       taggedCopy = join(root, 'fansub-copy.srt'),
-      unicode = join(root, 'available-font.ass');
+      unicode = join(root, 'available-font.ass'),
+      embedded = join(root, 'embedded-font.ass'),
+      embeddedCopy = join(root, 'embedded-copy.ass'),
+      removed = join(root, 'removed-font.ass'),
+      missing = join(root, 'missing-font.ass');
+    const embeddedSource = await readFile(
+      resolve('tests/fixtures/subtitles/embedded-font.ass'),
+      'utf8',
+    );
+    await writeFile(embedded, embeddedSource);
+    await writeFile(removed, embeddedSource.split('[Fonts]')[0]);
+    await writeFile(
+      missing,
+      (await readFile(resolve('tests/fixtures/subtitles/styles.ass'), 'utf8'))
+        .replaceAll('sans-serif', 'VSF Definitely Missing Font')
+        .replaceAll('世界', '\u{10ffff}'),
+    );
     const srt =
       '\uFEFF1\r\n00:00:01,001 --> 00:00:02,999\r\n{\\an8\\move(160,60,440,60)}<i>Fansub</i>\\N{\\c&H00FFFF&}Mixed formatting\r\n\r\n2\r\n00:00:03,010 --> 00:00:05,000\r\n{\\pos(320,180)\\fad(100,200)}<b>Timed tail</b>\r\n\r\n';
     await writeFile(tagged, srt);
@@ -441,6 +462,11 @@ export async function assDocuments({
       { kind: 'saveSubtitles', path: taggedCopy },
       { kind: 'subtitles', path: taggedCopy },
       { kind: 'subtitles', path: unicode },
+      { kind: 'subtitles', path: embedded },
+      { kind: 'saveSubtitles', path: embeddedCopy },
+      { kind: 'subtitles', path: removed },
+      { kind: 'subtitles', path: missing },
+      { kind: 'media', path: video },
     ]);
     await menu('openMedia');
     await until('tagged SRT native media', async () => (await state()).loaded);
@@ -498,6 +524,56 @@ export async function assDocuments({
     };
     report.explicitFontControl =
       'Hiragino Sans GB (document-defined); generic sans-serif fixture remains unchanged';
+    await menu('openSubtitles');
+    const attached = await documentIs(
+      'embedded font opened',
+      (d) => d.path === embedded,
+    );
+    await ready();
+    await preview('ass-embedded-font');
+    await input('Subtitle text', 'BA');
+    await click('Apply edit');
+    await documentIs('embedded font edit', (d) => d.cues[0].text === 'BA');
+    await ready();
+    await undoTo(attached);
+    await menu('saveAs');
+    await documentIs(
+      'embedded font saved',
+      (d) => d.path === embeddedCopy && !d.dirty,
+    );
+    assert.equal(await readFile(embeddedCopy, 'utf8'), embeddedSource);
+    assert.equal(await readFile(embedded, 'utf8'), embeddedSource);
+    await ready();
+    await menu('openSubtitles');
+    await documentIs('attachment removed control', (d) => d.path === removed);
+    await ready();
+    await preview('ass-removed-font');
+    await menu('openSubtitles');
+    await documentIs('missing font control', (d) => d.path === missing);
+    await ready();
+    await preview('ass-missing-font');
+    const fontStatus = await until('native font notices', async () => {
+      const m = await state();
+      return (
+        m.subtitleFontDiagnostics.some((text) =>
+          text.includes('VSF Definitely Missing Font'),
+        ) &&
+        m.subtitleFontDiagnostics.some((text) =>
+          text.toUpperCase().includes('10FFFF'),
+        ) &&
+        m
+      );
+    });
+    await until('visible native font notices', () =>
+      browser.$('[aria-label="Subtitle font notices"]').isExisting(),
+    );
+    assert(fontStatus.subtitleFontDiagnostics.length <= 9);
+    assert.equal(fontStatus.error, null);
+    assert.equal(fontStatus.subtitlePreviewError, null);
+    report.fonts = {
+      embeddedExactSaveAndUndo: true,
+      notices: fontStatus.subtitleFontDiagnostics,
+    };
     report.status = 'passed';
     await saveReport();
     await record({
@@ -506,6 +582,17 @@ export async function assDocuments({
     await menu('closeSubtitles');
     await documentIs('final styled document closed', (d) => !d.loaded);
     await ready();
+    await menu('openMedia');
+    await until('font notice session reset', async () => {
+      const m = await state();
+      return (
+        m.loaded &&
+        m.session !== fontStatus.session &&
+        m.subtitleFontDiagnostics.length === 0
+      );
+    });
+    report.fonts.noticesResetWithMedia = true;
+    await saveReport();
   } catch (error) {
     report.status = 'failed';
     report.error = String(error.stack ?? error);

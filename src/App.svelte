@@ -2424,6 +2424,26 @@
       </div>
     </section>
   </div>
+  {#if status.subtitleFontDiagnostics.length > 0}
+    <details class="shortcut-help" aria-label="Subtitle font notices">
+      <summary
+        >Subtitle font notices ({status.subtitleFontDiagnostics
+          .length})</summary
+      >
+      <p>
+        The renderer reported font issues in this media session. Fallback may
+        still render the text. Check the affected subtitles and make the
+        required fonts available; original document font names are unchanged.
+        These notices include previously displayed cues and clear when media is
+        closed or replaced.
+      </p>
+      <ul>
+        {#each status.subtitleFontDiagnostics as message, index (index)}<li>
+            {message}
+          </li>{/each}
+      </ul>
+    </details>
+  {/if}
   <details class="shortcut-help">
     <summary>Keyboard shortcuts</summary>
     <p>

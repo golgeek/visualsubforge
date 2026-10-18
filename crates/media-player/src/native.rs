@@ -33,6 +33,7 @@ unsafe extern "C" {
     fn vsf_flag(player: *mut c_void, name: *const c_char) -> c_int;
     fn vsf_frames(player: *mut c_void) -> u64;
     fn vsf_event_error(player: *mut c_void, file_transition: *mut c_int) -> c_int;
+    fn vsf_font_diagnostics(player: *mut c_void) -> *const c_char;
     fn vsf_text(player: *mut c_void, name: *const c_char) -> *mut c_char;
     fn vsf_text_free(text: *mut c_char);
     fn vsf_error(code: c_int) -> *const c_char;
@@ -256,6 +257,14 @@ impl Player {
             self.file_loaded = transition > 0;
         }
         (code < 0).then(|| error(code))
+    }
+    /// Bounded notices observed in this media session, including earlier cues.
+    /// Cleared by successful unload; absence is not proof of complete font coverage.
+    pub fn font_diagnostics(&mut self) -> Vec<String> {
+        // SAFETY: the live native owner returns its fixed NUL-terminated buffer.
+        // Only this control thread polls/writes it, and we copy before any call.
+        let text = unsafe { CStr::from_ptr(vsf_font_diagnostics(self.raw)) };
+        text.to_string_lossy().lines().map(str::to_owned).collect()
     }
     /// FILE_LOADED has completed track initialization for the current load.
     pub fn file_loaded(&self) -> bool {

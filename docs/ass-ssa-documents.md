@@ -115,7 +115,9 @@ packets through the existing bounded Matroska memory transport. The
 [Matroska subtitle mapping](https://www.matroska.org/technical/subtitles.html#ssaass-subtitles)
 defines packet order independently of source Format order; SSA has an empty layer.
 Unknown source fields remain saved even when the renderer does not use them.
-Attachment management and reliable embedded-font availability remain unverified.
+Attachment management remains deferred. The later [font milestone](preview-fonts.md)
+validates embedded-font rendering/replacement and generic CJK fallback on the Mac
+runtime; historical observations below retain their original scope.
 The 4 MiB preview transport cap is unchanged and never prevents editing/saving.
 
 2026-10-17 backend tests cover both formats, selective edits, style assignment,

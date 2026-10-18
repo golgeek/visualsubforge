@@ -4,6 +4,7 @@
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
 #include "mpv_client.hpp"
+#include "mac_font_fallback.hpp"
 #include "mac_render_trace.hpp"
 #include <mpv/render.h>
 #include <mpv/render_gl.h>
@@ -50,6 +51,9 @@ struct Surface {
     id moveObserver, scaleObserver, resizeObserver, endResizeObserver;
 };
 struct Playback {
+    MacFontFallback fontFallback;
+    bool fontFallbackReady = false;
+    vsf_mpv::FontDiagnostics fontDiagnostics;
     mpv_handle *core = nullptr; // Only control worker calls ordinary client APIs.
     std::shared_ptr<Surface> surface;
     std::atomic<bool> stopping{false}, dirty{true}, presenting{true};
@@ -266,6 +270,15 @@ extern "C" void *vsf_player_create(void *rawSurface, int *error) try {
     }
     *error = vsf_mpv::disable_scripts(player->core);
     if (*error < 0) return nullptr;
+    player->fontFallbackReady = player->fontFallback.prepare();
+    if (player->fontFallbackReady) {
+        *error = player->fontFallback.configure(player->core);
+        if (*error < 0) return nullptr;
+    } else {
+        player->fontDiagnostics.add("Mac CJK fallback font unavailable; install a suitable font or use an available document font.");
+    }
+    *error = vsf_mpv::configure_font_logging(player->core, std::getenv("VSF_MEDIA_SMOKE") != nullptr);
+    if (*error < 0) return nullptr;
     *error = mpv_initialize(player->core);
     if (*error < 0) { return nullptr; }
     std::promise<int> ready;
@@ -410,7 +423,14 @@ extern "C" void vsf_presenting(void *raw, int value) {
     player->dirty.store(true);
 }
 extern "C" int vsf_discard_events(void *raw) {
-    return vsf_mpv::discard_events((*static_cast<PlayerRef *>(raw))->core);
+    auto player = *static_cast<PlayerRef *>(raw);
+    const int result = vsf_mpv::discard_events(player->core);
+    if (result >= 0) {
+        player->fontDiagnostics.clear();
+        if (!player->fontFallbackReady)
+            player->fontDiagnostics.add("Mac CJK fallback font unavailable; install a suitable font or use an available document font.");
+    }
+    return result;
 }
 extern "C" double vsf_number(void *raw, const char *name) {
     return vsf_mpv::number((*static_cast<PlayerRef *>(raw))->core, name);
@@ -422,7 +442,10 @@ extern "C" uint64_t vsf_frames(void *raw) { return (*static_cast<PlayerRef *>(ra
 extern "C" int vsf_event_error(void *raw, int *file_transition) {
     auto player = *static_cast<PlayerRef *>(raw);
     return vsf_mpv::poll_events((*static_cast<PlayerRef *>(raw))->core, player->renderError.exchange(0),
-                                false, file_transition);
+                                std::getenv("VSF_MEDIA_SMOKE") != nullptr, file_transition, &player->fontDiagnostics);
+}
+extern "C" const char *vsf_font_diagnostics(void *raw) {
+    return (*static_cast<PlayerRef *>(raw))->fontDiagnostics.text();
 }
 extern "C" const char *vsf_error(int code) { return mpv_error_string(code); }
 

@@ -164,6 +164,7 @@ export const emptyStatus: MediaStatus = {
   outputDrops: null,
   error: null,
   subtitlePreviewError: null,
+  subtitleFontDiagnostics: [],
   previewDocumentGeneration: null,
   previewDocumentRevision: null,
 };

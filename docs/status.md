@@ -17,9 +17,21 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 **Next umbrella goal active (2026-10-17):** the ordered
 [feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
-formats/workflows, initial plugins and native reliability. Font investigation is
-in progress; later stages are pending. Completed milestones below remain the
+formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
+batch timing is in progress, and later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**Font milestone complete (2026-10-17):** the current Mac runtime's generic CJK
+fallback now uses an installed last-resort font without rewriting original font
+names or redistributing fonts. Bounded session notices expose unavailable families,
+substitutions and missing glyphs. Actual Mac generic/explicit/embedded rendering,
+attachment replacement, exact save/Undo, notice reset and normal resource cleanup
+pass. Abrupt termination can leave the private temporary font link for OS cleanup.
+301 ordinary Rust tests, 41 frontend tests, 48 browser cases, strict static/IPC
+checks and the unchanged 10k desktop interaction gate pass. See [font policy and
+exact evidence](preview-fonts.md). Windows/Linux rendering, ANGLE and distribution
+acceptance remain separate; later historical results below describe their original
+runtime state.
 
 **ASS/SSA document milestone complete (2026-10-17):** loss-preserving UTF-8
 ASS v4.00+/SSA v4.00 parsing and same-format serialization retain original script
