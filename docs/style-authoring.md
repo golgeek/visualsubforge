@@ -3,7 +3,8 @@
 Task022 is in progress. Reviewed ASS/SSA style creation, copying and editing now
 join style inspection/assignment and loss-preserving same-format editing. Reviewed
 font attachment management is also validated on the recorded Mac runtime.
-Deliberate separate-file conversion remains required. This document
+The [pure conversion foundation](format-conversion.md) is implemented; desktop
+review and protected separate-file publication remain required. This document
 tracks implementation and acceptance; the full milestone is not yet complete.
 
 Document-level source properties now participate in Rust's existing Undo history. A style edit and any required cue-reference changes must succeed or

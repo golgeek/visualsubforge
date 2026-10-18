@@ -4,6 +4,7 @@
 pub mod atomic_file;
 pub mod authoring;
 pub mod batch_timing;
+pub mod conversion;
 pub mod file_lease;
 pub mod language;
 pub mod quality;
@@ -13,4 +14,5 @@ pub mod srt_limits;
 pub mod subtitle_file;
 mod subtitle_markup;
 pub mod subtitle_operations;
+pub mod subtitle_text;
 pub mod text;

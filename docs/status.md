@@ -22,6 +22,14 @@ batch timing, ASS/SSA resync and language tools are complete. Style/attachment/
 conversion authoring is in progress; later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
+**Conversion foundation (2026-10-18; stage5 remains in progress):** pure
+SRT/ASS/SSA export proposals cover all six directions with explicit precision,
+loss and blocking reports. The open document/source/history is unchanged. Eight
+new cases and the complete 366-test Rust suite pass; strict workspace checks pass.
+Eight 10k workloads pass p95 <=37.489ms and +81,526,784 sampled RSS bytes.
+Desktop review, protected publication and native acceptance remain required.
+See [conversion policy and evidence](format-conversion.md).
+
 **Style authoring increment (2026-10-17; stage5 remains in progress):** reviewed
 ASS/SSA create/copy/edit/rename now use Rust-owned source/cue transactions and one
 Undo/Redo history. Exact references and original records are preserved; ambiguous
