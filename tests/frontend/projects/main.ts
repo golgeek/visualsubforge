@@ -1,6 +1,10 @@
 import type { updateMenu } from '../../../src/lib/client';
 import { defaultPreferences } from '../../../src/lib/client';
-import type { LegacyImportReview } from '../../../src/lib/client';
+import type {
+  LegacyImportReview,
+  ProjectReferenceIssue,
+  ProjectReferenceOverride,
+} from '../../../src/lib/client';
 import { legacyImportReview } from '../ipc-contract-samples';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
@@ -26,6 +30,21 @@ let importView: LegacyImportReview = structuredClone(legacyImportReview);
 let openedPath: string | undefined;
 let loadingPolls = 0;
 let holdSceneCompletion = false;
+let mediaOpening = false;
+let referenceIssue: ProjectReferenceIssue | null = null;
+const referenceRequests: (ProjectReferenceOverride | null)[] = [];
+const referenceSummary = {
+  epoch: 1,
+  dirty: false,
+  reference: {
+    path: '/reference.srt',
+    format: 'srt',
+    sha256: 'a'.repeat(64),
+    cues: 1,
+    offsetMs: -1500,
+  },
+};
+let attachReference = false;
 const calls: string[] = [];
 const saves: Record<string, unknown>[] = [];
 const callbacks = new Map<number, (value: unknown) => void>();
@@ -86,6 +105,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
         path?: string;
+        reference?: ProjectReferenceOverride | null;
       },
     ) {
       calls.push(command);
@@ -110,6 +130,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'project_open':
           openedPath = args.path;
           if (failOpen) throw new Error('Project media has changed');
+          referenceRequests.push(args.reference ?? null);
+          if (
+            referenceIssue &&
+            !args.reference?.reload &&
+            !args.reference?.path
+          )
+            return { ...structuredClone(project), referenceIssue, token: 0 };
           return { ...structuredClone(project), token: 41 };
         case 'project_import_start':
           importView = structuredClone(legacyImportReview);
@@ -126,12 +153,15 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'project_import_cancel':
           return;
         case 'project_attach':
+          if (attachReference)
+            doc.translation = structuredClone(referenceSummary);
           return { path: '/work.vsfproject', token: 41 };
         case 'project_detach':
           return;
         case 'project_save':
           if (projectSaveError) throw new Error(projectSaveError);
           saves.push(args.request!);
+          if (doc.translation) doc.translation.dirty = false;
           return { path: args.request!.path, token: 42 };
         case 'scenes_restore':
           if (restoreFailure === 'scenes')
@@ -159,6 +189,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (action.kind === 'occlude') occluded = action.occluded;
           if (action.kind === 'open') {
             loadingPolls = 0;
+            mediaOpening = true;
             media = {
               ...media,
               session: media.session + 1,
@@ -169,14 +200,21 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               positionSeconds: 0,
             };
           }
-          if (
-            action.kind === 'status' &&
-            media.session > 0 &&
-            ++loadingPolls >= 2
-          ) {
+          if (action.kind === 'close') {
+            mediaOpening = false;
+            media = {
+              ...emptyStatus,
+              available: media.available,
+              session: media.session + 1,
+            };
+          }
+          if (action.kind === 'status' && mediaOpening && ++loadingPolls >= 2) {
             if (restoreFailure === 'readiness')
               media.error = 'Injected readiness failure';
-            else media.loaded = true;
+            else {
+              media.loaded = true;
+              mediaOpening = false;
+            }
           }
           if (action.kind === 'seek') {
             if (restoreFailure === 'seek')
@@ -193,6 +231,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               throw new Error('Injected subtitles failure');
             doc = {
               ...doc,
+              translation: null,
               loaded: true,
               path: '/captions.srt',
               generation: 1,
@@ -213,12 +252,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
 function workspaceReady() {
-  return (
-    callbacks.has(eventHandler) &&
-    !!menuState &&
-    !menuState.busy &&
-    menuState.available
-  );
+  return callbacks.has(eventHandler) && !!menuState && !menuState.busy;
 }
 function menuAction(action: string) {
   callbacks.get(eventHandler)!({ payload: action });
@@ -279,11 +313,12 @@ async function run() {
           attachments && workspaceReady(),
     );
   }
-  async function freshProject() {
+  async function freshProject(available = true) {
     await unmount(app);
     menuState = undefined;
     eventHandler = 0;
-    media = { ...emptyStatus, available: true, surfaceAboveWebview: true };
+    media = { ...emptyStatus, available, surfaceAboveWebview: true };
+    mediaOpening = false;
     doc = structuredClone(emptyDocument);
     chosenPath = '/work.vsfproject';
     projectSaveError = null;
@@ -579,6 +614,162 @@ async function run() {
               importDraft.value === 'Keep this translation draft'
           : media.session > session && doc.cues[0]?.text === 'Project cue',
         `Explicit ${decision} protects or restores the imported project through the existing workflow`,
+      );
+    }
+    await freshProject();
+    const referenceDraft = host.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Subtitle text"]',
+    )!;
+    referenceDraft.value = 'Protect this draft while choosing a reference';
+    referenceDraft.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    referenceIssue = {
+      path: '/reference.srt',
+      message: 'Reference content changed',
+      canReload: true,
+    };
+    const beforeReferenceSession = media.session;
+    const referenceDialog = () =>
+      host.querySelector<HTMLDialogElement>(
+        'dialog[aria-labelledby="project-reference-title"][open]',
+      );
+    menuAction('openProject');
+    await until(() => !!referenceDialog());
+    assert(
+      occluded &&
+        media.session === beforeReferenceSession &&
+        referenceDraft.value.startsWith('Protect this draft'),
+      'Reference preflight asks before replacing media or the unapplied draft',
+    );
+    assert(
+      document.activeElement?.textContent?.trim() === 'Cancel Open',
+      'Reference resolution defaults focus to Cancel Open',
+    );
+    referenceDialog()!.dispatchEvent(new Event('cancel', { cancelable: true }));
+    await until(workspaceReady);
+    assert(
+      !occluded &&
+        media.session === beforeReferenceSession &&
+        referenceDraft.value.startsWith('Protect this draft'),
+      'Cancelling reference resolution leaves the active workspace intact',
+    );
+
+    menuAction('openProject');
+    await until(() => !!referenceDialog());
+    button('Reload Changed Reference');
+    await until(
+      () =>
+        !!host.querySelector(
+          'dialog[aria-label="Unsaved subtitle changes"][open]',
+        ),
+    );
+    assert(
+      referenceRequests.at(-1)?.reload === true &&
+        media.session === beforeReferenceSession,
+      'Explicit reload revalidates the reference before asking to replace the draft',
+    );
+    button('Cancel');
+    await until(workspaceReady);
+    referenceIssue = {
+      ...referenceIssue,
+      canReload: false,
+      message: 'Reference unavailable',
+    };
+    menuAction('openProject');
+    await until(() => !!referenceDialog());
+    assert(
+      !referenceDialog()!.textContent?.includes('Reload Changed Reference'),
+      'An unavailable reference offers relocation without an invalid reload choice',
+    );
+    chosenPath = '/relocated.srt';
+    button('Choose Reference…');
+    await until(
+      () =>
+        !!host.querySelector(
+          'dialog[aria-label="Unsaved subtitle changes"][open]',
+        ),
+    );
+    assert(
+      referenceRequests.at(-1)?.path === chosenPath &&
+        referenceRequests.at(-1)?.reload === false,
+      'Choosing a reference preserves identity checking instead of implicitly accepting changed contents',
+    );
+    button('Cancel');
+    await until(workspaceReady);
+    referenceIssue = null;
+
+    attachReference = true;
+    referenceSummary.dirty = true;
+    await freshProject();
+    const unsavedProject = () =>
+      host.querySelector('dialog[aria-label="Unsaved project changes"][open]');
+    menuAction('quit');
+    await until(() => !!unsavedProject());
+    button('Cancel');
+    await until(workspaceReady);
+    assert(
+      !calls.includes('finish_exit') && doc.translation?.dirty === true,
+      'Reference-only changes require an explicit save or discard before quitting',
+    );
+    menuAction('quit');
+    await until(() => !!unsavedProject());
+    button('Discard changes');
+    await until(() => calls.includes('finish_exit'));
+    assert(
+      saves.length === 0,
+      'Discarding reference changes on quit does not autosave those changes',
+    );
+
+    await freshProject();
+    menuAction('quit');
+    await until(() => !!unsavedProject());
+    button('Save project');
+    await until(() => calls.includes('finish_exit'));
+    assert(
+      saves.length === 1 && doc.translation?.dirty === false,
+      'Saving reference changes refreshes accepted state and saves once before quitting',
+    );
+
+    await freshProject();
+    const beforeOpens = calls.filter((call) => call === 'project_open').length;
+    const beforeAttachments = calls.filter(
+      (call) => call === 'project_attach',
+    ).length;
+    menuAction('openProject');
+    await until(() => !!unsavedProject());
+    button('Save project');
+    await until(
+      () =>
+        calls.filter((call) => call === 'project_attach').length >
+          beforeAttachments && workspaceReady(),
+    );
+    assert(
+      saves.length === 1 &&
+        calls.filter((call) => call === 'project_open').length ===
+          beforeOpens + 2,
+      'Saving the current context restages the next project before replacing the workspace',
+    );
+
+    referenceSummary.dirty = false;
+    project.version = 2;
+    project.mediaPath = null;
+    project.mediaIdentity = null;
+    project.positionSeconds = 0;
+    project.scenes = null;
+    for (const available of [true, false]) {
+      await freshProject(available);
+      assert(
+        doc.loaded &&
+          !media.loaded &&
+          !calls.includes('scenes_restore') &&
+          doc.translation?.reference?.offsetMs === -1500,
+        `Subtitle-only project restores its target and reference with playback available=${available}`,
+      );
+      menuAction('saveProject');
+      await until(() => saves.length === 1 && workspaceReady());
+      assert(
+        saves[0]?.mediaPath === null && saves[0]?.positionSeconds === 0,
+        `Subtitle-only save omits media and position with playback available=${available}`,
       );
     }
     document.querySelector('#result')!.textContent =

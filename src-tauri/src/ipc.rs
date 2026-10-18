@@ -126,6 +126,7 @@ fn export_bindings() {
     samples.extend(document::font_ipc_samples());
     samples.extend(document::conversion_ipc_samples());
     samples.extend(project::import::ipc_samples());
+    samples.extend(project::translation_ipc_samples());
     samples.extend(document::translation::ipc_samples());
     samples.extend([
         (

@@ -8,6 +8,8 @@ import {
   finishExit,
   type ProjectAttachment,
   type ProjectOptions,
+  type ProjectReferenceIssue,
+  type ProjectReferenceOverride,
 } from './client';
 import type { DocumentSession } from './document-session.svelte';
 import type { MediaSession } from './media-session.svelte';
@@ -28,7 +30,10 @@ export interface ProjectWorkspace {
   mediaOpened(mediaPath: string): void;
   restoreOptions(options: ProjectOptions): void;
   restoreScenes(session: number, generation: number): void;
-  protect(): Promise<boolean>;
+  protect(saveContext?: () => Promise<boolean>): Promise<boolean>;
+  referenceIssue?(
+    issue: ProjectReferenceIssue,
+  ): Promise<'cancel' | 'choose' | 'reload'>;
   saveSubtitles(): Promise<boolean>;
   saveFailed(error: unknown): Promise<ProjectExitChoice>;
   notify(message: string): void;
@@ -85,25 +90,73 @@ export class ProjectWorkflow {
   private async openAt(operation: number, path: string) {
     this.check(operation);
     // Validate references before the user discards or saves the active draft.
-    const project = await this.client.openProject(path);
-    this.check(operation);
-    const proceed = await this.workspace.protect();
+    let reference: ProjectReferenceOverride | null = null;
+    const prepare = async () => {
+      while (true) {
+        const project = await this.client.openProject(path, reference);
+        this.check(operation);
+        if (!project.referenceIssue) {
+          if (project.mediaPath && !this.media.status.available)
+            throw new Error(
+              'This project includes media and requires a build with native playback enabled',
+            );
+          return project;
+        }
+        if (!this.workspace.referenceIssue)
+          throw new Error(project.referenceIssue.message);
+        const choice = await this.workspace.referenceIssue(
+          project.referenceIssue,
+        );
+        this.check(operation);
+        if (choice === 'cancel') return null;
+        if (choice === 'reload' && project.referenceIssue.canReload)
+          reference = { path: reference?.path ?? null, reload: true };
+        else {
+          const selected = await this.client.chooseFile(
+            'subtitles',
+            project.referenceIssue.path,
+          );
+          this.check(operation);
+          if (selected) reference = { path: selected, reload: false };
+        }
+      }
+    };
+    let project = await prepare();
+    if (!project) return;
+    let restage = false;
+    const proceed = await this.workspace.protect(async () => {
+      const saved = await this.saveAt(operation, false, true);
+      restage = saved;
+      return saved;
+    });
     this.check(operation);
     if (!proceed) return;
+    // Saving the current project invalidates staged tokens. Revalidate the next
+    // project's references before replacing any current workspace state.
+    if (restage) {
+      project = await prepare();
+      if (!project) return;
+    }
     this.attachment = null;
     this.workspace.beginRestore();
-    if (
-      !(await this.media.command({
-        kind: 'open',
-        path: project.mediaPath,
-        hardware: this.workspace.read().hardware,
-      }))
-    )
-      return;
-    this.check(operation);
-    this.workspace.mediaOpened(project.mediaPath);
-    const session = this.media.status.session;
-    await this.media.waitUntilLoaded(session);
+    let session = this.media.status.session;
+    if (project.mediaPath) {
+      if (
+        !(await this.media.command({
+          kind: 'open',
+          path: project.mediaPath,
+          hardware: this.workspace.read().hardware,
+        }))
+      )
+        return;
+      this.check(operation);
+      this.workspace.mediaOpened(project.mediaPath);
+      session = this.media.status.session;
+      await this.media.waitUntilLoaded(session);
+    } else if (this.media.status.available) {
+      if (!(await this.media.command({ kind: 'close' }))) return;
+      session = this.media.status.session;
+    }
     this.check(operation, session);
     if (project.subtitlePath) {
       if (
@@ -119,7 +172,7 @@ export class ProjectWorkflow {
         return;
     }
     this.check(operation, session);
-    if (project.scenes?.mode === 'visual') {
+    if (project.mediaPath && project.scenes?.mode === 'visual') {
       const generation = await this.client.restoreScenes(
         project.mediaPath,
         session,
@@ -129,6 +182,7 @@ export class ProjectWorkflow {
       this.workspace.restoreScenes(session, generation);
     }
     if (
+      project.mediaPath &&
       !(await this.media.command({
         kind: 'seek',
         seconds: Math.min(
@@ -145,12 +199,16 @@ export class ProjectWorkflow {
       this.document.snapshot,
     );
     this.check(operation, session);
+    if (!(await this.document.command({ kind: 'status' }))) return;
+    this.check(operation, session);
     this.attachment = attached;
     this.workspace.restoreOptions(project.options);
     this.workspace.notify(
-      project.scenes?.mode === 'keyframes'
-        ? 'Project restored · playback paused · keyframe markers skipped; run a visual scan'
-        : 'Project restored · playback paused',
+      !project.mediaPath
+        ? 'Subtitle project restored'
+        : project.scenes?.mode === 'keyframes'
+          ? 'Project restored · playback paused · keyframe markers skipped; run a visual scan'
+          : 'Project restored · playback paused',
     );
   }
   async save(as: boolean) {
@@ -163,9 +221,8 @@ export class ProjectWorkflow {
   ): Promise<boolean> {
     this.check(operation);
     const session = this.media.status.session;
-    if (!this.media.status.loaded || !this.workspace.read().mediaPath)
-      return false;
     const doc = this.document.snapshot;
+    if (!this.media.status.loaded && !doc.loaded) return false;
     if (
       saveSubtitles &&
       doc.loaded &&
@@ -180,8 +237,10 @@ export class ProjectWorkflow {
         ? await this.client.chooseFile(
             'saveProject',
             this.path ??
-              this.workspace.read().mediaPath.replace(/\.[^/.\\]+$/, '') +
-                '.vsfproject',
+              (this.media.status.loaded
+                ? this.workspace.read().mediaPath
+                : (this.document.snapshot.path ?? 'subtitles')
+              ).replace(/\.[^/.\\]+$/, '') + '.vsfproject',
           )
         : this.path;
     this.check(operation, session);
@@ -190,24 +249,37 @@ export class ProjectWorkflow {
     const attached = await this.client.saveProject({
       path,
       token: this.attachment?.token ?? null,
-      mediaPath: current.mediaPath,
+      mediaPath: this.media.status.loaded ? current.mediaPath : null,
       subtitlePath: this.document.snapshot.path,
       session,
-      positionSeconds: this.media.status.positionSeconds ?? 0,
+      positionSeconds: this.media.status.loaded
+        ? (this.media.status.positionSeconds ?? 0)
+        : 0,
       options: current.options,
     });
     this.check(operation, session);
     this.attachment = attached;
+    if (!(await this.document.command({ kind: 'status' }))) return false;
+    this.check(operation, session);
     this.workspace.notify('Project saved');
     return true;
   }
   async quit() {
     const operation = ++this.operation;
     this.check(operation);
-    const proceed = await this.workspace.protect();
+    const contextWasDirty = this.document.snapshot.translation?.dirty === true;
+    const proceed = await this.workspace.protect(() =>
+      this.saveAt(operation, false, true),
+    );
     this.check(operation);
     if (!proceed) return;
-    if (this.path && this.media.status.loaded) {
+    // Context Save already wrote the project; Discard must leave its previous
+    // reference relationship intact rather than autosaving the discarded choice.
+    if (
+      !contextWasDirty &&
+      this.path &&
+      (this.media.status.loaded || this.document.snapshot.loaded)
+    ) {
       let saveAs = false;
       while (true) {
         this.check(operation);

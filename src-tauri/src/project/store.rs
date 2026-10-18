@@ -24,7 +24,9 @@ struct Baseline {
     path: PathBuf,
     bytes: Vec<u8>,
     policy: crate::quality_profile::Policy,
-    media_path: PathBuf,
+    media_path: Option<PathBuf>,
+    subtitle_path: Option<PathBuf>,
+    translation: TranslationContext,
 }
 #[derive(Serialize, specta::Type)]
 pub struct Attachment {
@@ -37,6 +39,8 @@ pub struct Attachment {
 pub struct Opened {
     #[serde(flatten)]
     project: Project,
+    #[serde(rename = "referenceIssue", skip_serializing_if = "Option::is_none")]
+    reference_issue: Option<ReferenceIssue>,
     #[serde(with = "crate::ipc_number")]
     #[specta(type = crate::ipc_number::SafeU64)]
     pub token: u64,
@@ -60,13 +64,28 @@ impl Store {
     }
 }
 impl Projects {
+    #[cfg(test)]
     pub fn open(&self, path: &Path) -> Result<Opened> {
+        self.open_with(path, &ReferenceOverride::default())
+    }
+    pub fn open_with(&self, path: &Path, overrides: &ReferenceOverride) -> Result<Opened> {
         let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         let path = path
             .canonicalize()
             .map_err(|e| format!("Cannot open project: {e}"))?;
         let bytes = read_bytes(&path)?;
-        let project = resolve(&path, &bytes)?;
+        let Resolved {
+            project,
+            translation,
+            reference_issue,
+        } = resolve(&path, &bytes, overrides)?;
+        if reference_issue.is_some() {
+            return Ok(Opened {
+                project,
+                token: 0,
+                reference_issue,
+            });
+        }
         let token = store.token()?;
         let policy = match &project.options.quality {
             Some(profile) => crate::quality_profile::Policy::new(
@@ -82,19 +101,35 @@ impl Projects {
             path,
             bytes,
             policy,
-            media_path: project.media_path.clone().into(),
+            media_path: project.media_path.as_ref().map(PathBuf::from),
+            subtitle_path: project.subtitle_path.as_ref().map(PathBuf::from),
+            translation,
         });
-        Ok(Opened { project, token })
+        Ok(Opened {
+            project,
+            token,
+            reference_issue: None,
+        })
     }
     #[cfg(test)]
     pub fn attach(&self, token: u64) -> Result<Attachment> {
-        self.attach_with(token, None, |_| {})
+        let (media, subtitles) = {
+            let store = self.state.lock().map_err(|_| "Project state unavailable")?;
+            let pending = store
+                .pending
+                .as_ref()
+                .filter(|p| p.token == token)
+                .ok_or("Project open unavailable")?;
+            (pending.media_path.clone(), pending.subtitle_path.clone())
+        };
+        self.attach_with(token, media.as_deref(), subtitles.as_deref(), |_, _| {})
     }
     pub(crate) fn attach_with(
         &self,
         token: u64,
         media_path: Option<&Path>,
-        accept: impl FnOnce(&crate::quality_profile::Policy),
+        subtitle_path: Option<&Path>,
+        accept: impl FnOnce(&crate::quality_profile::Policy, TranslationContext),
     ) -> Result<Attachment> {
         let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         if store
@@ -104,17 +139,15 @@ impl Projects {
         {
             return Err("Project open was replaced; open the project again".into());
         }
-        if media_path.is_some_and(|path| {
-            store
-                .pending
-                .as_ref()
-                .is_none_or(|pending| pending.media_path != path)
+        if store.pending.as_ref().is_none_or(|pending| {
+            pending.media_path.as_deref() != media_path
+                || pending.subtitle_path.as_deref() != subtitle_path
         }) {
-            return Err("Project media changed during restoration".into());
+            return Err("Project media or target subtitles changed during restoration".into());
         }
-        let pending = store.pending.take().ok_or("Project open unavailable")?;
+        let mut pending = store.pending.take().ok_or("Project open unavailable")?;
         // Infallible assignment callback, with document -> project lock order.
-        accept(&pending.policy);
+        accept(&pending.policy, std::mem::take(&mut pending.translation));
         let attachment = pending.attachment();
         store.active = Some(pending);
         Ok(attachment)
@@ -162,10 +195,18 @@ impl Projects {
         crate::atomic_file::write(&path, &bytes)?;
         let saved = Baseline {
             token,
-            path,
+            path: path.clone(),
             bytes,
             policy,
-            media_path: project.media_path.clone().into(),
+            media_path: project
+                .media_path
+                .as_ref()
+                .map(|p| absolute(path.parent().unwrap_or(Path::new(".")), p)),
+            subtitle_path: project
+                .subtitle_path
+                .as_ref()
+                .map(|p| absolute(path.parent().unwrap_or(Path::new(".")), p)),
+            translation: TranslationContext::default(),
         };
         let attachment = saved.attachment();
         store.active = Some(saved);
@@ -176,9 +217,13 @@ impl Projects {
 }
 
 #[cfg(test)]
-pub(super) fn ipc_sample(project: Project) -> serde_json::Value {
+pub(super) fn ipc_sample(
+    project: Project,
+    reference_issue: Option<ReferenceIssue>,
+) -> serde_json::Value {
     serde_json::to_value(Opened {
         project,
+        reference_issue,
         token: crate::ipc_number::MAX_SAFE_INTEGER,
     })
     .unwrap()

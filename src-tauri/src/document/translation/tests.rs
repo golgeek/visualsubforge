@@ -667,9 +667,13 @@ fn context_only_change_invalidates_prepared_recovery_and_failed_save_preserves_i
     );
     assert_eq!(serde_json::to_value(snapshot(&docs)).unwrap(), before);
     assert!(
-        docs.with_project_subtitle(snap.path.as_deref().map(Path::new), |_, _| -> Result<()> {
-            panic!("context must not be silently omitted")
-        })
+        docs.with_project_subtitle(
+            snap.path.as_deref().map(Path::new),
+            |_, _, context| -> Result<()> {
+                assert!(context.project_description(root.path())?.is_some());
+                Err("injected project write failure".into())
+            }
+        )
         .is_err()
     );
     docs.shutdown_quality().unwrap();

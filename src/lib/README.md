@@ -40,6 +40,17 @@ of making quit overwrite the previous project. Ordinary media open/close detache
 the project explicitly. Project save failures during quit retain the separate
 subtitle decision and offer retry, Save As, cancellation, or explicit exit.
 
+Translation reference issues are resolved before unsaved-work protection. Missing
+references permit relocation; changed contents require explicit reload. App owns
+the transient decision dialog and native-video occlusion. ProjectWorkflow retries
+preflight with the chosen override; Rust owns the captured reference and its
+identity. If protecting current work saves its project, the next project is
+preflighted again because publication invalidates pending attachment tokens.
+After attachment/save, a document status reply refreshes accepted context.
+Context-only dirty changes prompt for project save before replacement/quit;
+discarding them on quit skips automatic project publication. Subtitle-only
+projects skip media loading, scenes and seeking, including in playback-free builds.
+
 Legacy import is independent of the active document/media projection. Relocation
 retires old reviews; choosing a different project clears earlier relocations.
 One status request runs at a time. Closing cancels known/late jobs, while a picker
@@ -51,7 +62,7 @@ path and then uses the ordinary unsaved-work decision. See the
 remaining native/scale acceptance.
 
 Disposal invalidates project continuations, stops polling, and discards queued loop
-previews. App disposes the shared `PendingDecision` owners, settling both modal decisions as cancellation. In-flight IPC can
+previews. App disposes the shared `PendingDecision` owners, settling pending modal decisions as cancellation. In-flight IPC can
 still complete in Rust; disposal does not roll back an accepted operation or
 pretend to cancel native IO. Late replies cannot update the disposed projection
 or dispatch the next project/Save As step.

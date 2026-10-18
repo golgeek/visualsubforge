@@ -10,8 +10,10 @@ use std::{
 use vsf_application::translation as engine;
 
 mod context;
+mod project;
 use context::ReferenceFile;
 pub(crate) use context::{Context, Stored};
+pub(crate) use project::{ProjectContext, ReferenceIssue, ReferenceOverride};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -188,7 +190,7 @@ pub(super) struct State {
     job: Option<Job>,
 }
 impl State {
-    fn next_epoch(&self) -> Result<u64> {
+    pub(super) fn next_epoch(&self) -> Result<u64> {
         next(self.epoch, "Reference context")
     }
     pub(super) fn invalidate(&mut self, key: Key) {
@@ -281,7 +283,7 @@ impl Store {
     }
     pub(super) fn translation_summary(&self) -> Option<Summary> {
         let context = &self.loaded.as_ref()?.translation;
-        if context.is_empty() {
+        if context.is_empty() && self.translation.epoch == 0 {
             return None;
         }
         Some(Summary {

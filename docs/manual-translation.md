@@ -1,8 +1,9 @@
 # Manual reference/target translation
 
 Stage6c is in progress. The pure foundation and Rust desktop owner/IPC/recovery
-are implemented; project persistence and the user-facing panel are not available
-yet. WebVTT and legacy project import are already accepted.
+and project persistence are implemented. The user-facing translation panel and
+native/combined scale acceptance remain pending. WebVTT and legacy project import
+are already accepted.
 
 ## Intended workflow
 
@@ -90,10 +91,36 @@ preserves the previous checkpoint. Older recovery versions remain readable.
 
 Target Save/Save As and the final conversion commit protect current and copied
 reference paths, including deleted provenance and case/normalization aliases.
-Project persistence is the next required integration: the intermediate owner
-explicitly refuses to save a project that would silently omit translation context.
-No menu or panel exposes this unfinished workflow. ADR0033 remains proposed until
-the complete project/UI/native/scale acceptance passes.
+Project v2 persists the expected reference path, format, SHA-256, signed offset and
+copied-source provenance. It also permits a saved target without media; existing
+v1 media projects remain readable and retain their format when no new fields are
+needed. A reference-only relationship still requires a saved target.
+
+Project preflight loads an immutable reference before unsaved-work protection.
+Missing/changed references return an issue with no usable attachment token; the
+user can cancel, choose a replacement, or explicitly reload changed contents.
+Relocation retains identity checking and changed reload marks the context dirty.
+Attachment compares the media selection, target path/generation/revision and
+reference epoch, then transfers the captured context under document→project lock
+order. It does not reread the reference after the user discards current work.
+Projects retains no second reference snapshot after successful attachment.
+
+Project publication verifies that the current reference still matches its
+captured bytes and protects both current and copied origins. The existing
+media→document→project publication lock order also guards an empty media selection
+and its session. Only successful publication clears context dirty state; failures
+and conflicts retain it. Full contents remain in recovery, not project JSON.
+
+The frontend resolves reference issues before asking to discard drafts, keeps
+native video occluded during decisions, and refreshes accepted context after
+attachment/save. Saving current context invalidates a staged project token, so
+Open revalidates its next project before replacement. Context-only changes prompt
+for project Save/Discard/Cancel on replacement and quit. Discard on quit skips
+automatic project publication. Subtitle-only projects skip media/scenes/seek and
+work in builds without playback.
+
+No menu or panel yet creates a translation relationship. ADR0033 remains proposed
+until the complete project/UI/native/scale acceptance passes.
 
 ## Acceptance
 
@@ -241,6 +268,70 @@ combined target/reference/project/recovery 10k measurement has run yet. The pure
 benchmark above is a baseline only, with its memory headroom still a concern for
 the complete workflow. Next is project persistence and the user-facing workflow,
 including draft/exit protection, then actual native and full scale validation.
+
+## Project persistence increment — 2026-10-18
+
+Five new backend cases cover four-format subtitle-only round trips, unchanged
+target history, signed offsets and portable provenance; changed/missing/relocated
+references; captured-source restoration and stale media/target/revision/epoch
+rejection; failed publication retaining dirty context; successful publication
+clearing only context; malformed versions/metadata and deleted-source protection.
+Generated Serde/TypeScript samples now include subtitle-only translation projects
+and changed-reference issues.
+
+Browser project coverage adds preflight cancellation and focus, explicit changed
+reload/relocation, preserved drafts, context-only quit Cancel/Discard/Save,
+restaging after saving current context, and subtitle-only open/save with playback
+enabled and disabled. Lifecycle coverage includes disposal during accepted-context
+refresh. These use production components with modeled IPC, not native filesystem,
+chooser or playback acceptance.
+
+Evidence: `test-results/translation-project-20261018/`. Rust 1.98.1,
+Node 24.21.0/npm11.19.0. Commands:
+
+```sh
+cargo check --locked -p visualsubforge
+cargo test --locked -p visualsubforge
+cargo test --locked -p visualsubforge project::translation_tests
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+source "$HOME/.nvm/nvm.sh"
+nvm use --silent
+npm run ipc:generate
+npm run ipc:check
+npm run check
+npm test
+npm run build
+npm run format:check
+npm run lint
+npm run test:browser -- --grep projects
+npm run test:browser
+npm run test:browser -- --grep 'projects|workspace-lifecycle'
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+All 452 workspace Rust tests pass /30 ignored; eight zero-test harnesses are not
+feature validation. Strict Clippy, Rustfmt, generated IPC, Svelte/TypeScript,
+Prettier, ESLint and 44 frontend tests pass. The final default desktop build passes
+in 5.49s; it was not launched. Six initial targeted browser cases pass, each project
+harness executing 50 checks. The wider run passes 57/58 cases; its Chromium lifecycle
+fixture had not initialized playback availability before opening a media project.
+The corrected fixture also expects the new context refresh and checks disposal
+during it; final targeted results are recorded below. The failure log, screenshot
+and trace remain in `retained-lifecycle-failure/`. Initial new Rust test compilation
+attempts accessed private fields; the tests now inspect serialized snapshots
+without widening production visibility. Those attempts remain in
+`translation-tests-1.log` and `translation-tests-2.log`.
+
+Final targeted rerun passes all eight Chromium/WebKit project/lifecycle cases
+in 48.4s (`browser-projects-lifecycle-2.log`): 50 project checks and 25 lifecycle
+checks per ordinary harness, plus delayed-registration and scene-notice cases.
+The other wider-suite cases already passed; no unrelated failure remains.
+
+The translation panel/start-copy entry point and actual native/chooser/combined10k
+acceptance remain pending. Project persistence does not close stage6c or ADR0033.
+No native runtime, physical-platform acceptance or performance limit changed.
 
 ## Legacy source reference
 

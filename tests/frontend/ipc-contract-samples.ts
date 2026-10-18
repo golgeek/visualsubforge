@@ -883,6 +883,89 @@ export const legacyImportClosed = {
   report: null,
   running: false,
 } satisfies LegacyImportReview;
+export const translationProject = {
+  mediaIdentity: null,
+  mediaPath: null,
+  options: {
+    followPlayback: true,
+    followSubtitle: false,
+    quality: null,
+    showScenes: true,
+    timing: {
+      cueGapMs: 80,
+      enabled: false,
+      sceneAfterMs: 130,
+      sceneBeforeMs: 130,
+      snapCues: true,
+      snapDistancePx: 8,
+      snapScenes: true,
+    },
+    waveformSpan: 20.0,
+    waveformStart: 0.0,
+  },
+  positionSeconds: 0.0,
+  scenes: null,
+  subtitlePath: 'target.srt',
+  token: 9007199254740991,
+  translation: {
+    copiedFrom: {
+      path: 'reference.srt',
+      selected: 'reference.srt',
+    },
+    reference: {
+      format: 'srt',
+      offsetMs: -1500,
+      path: 'reference.srt',
+      sha256:
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    },
+  },
+  version: 2,
+} satisfies OpenedProject;
+export const changedReferenceProject = {
+  mediaIdentity: null,
+  mediaPath: null,
+  options: {
+    followPlayback: true,
+    followSubtitle: false,
+    quality: null,
+    showScenes: true,
+    timing: {
+      cueGapMs: 80,
+      enabled: false,
+      sceneAfterMs: 130,
+      sceneBeforeMs: 130,
+      snapCues: true,
+      snapDistancePx: 8,
+      snapScenes: true,
+    },
+    waveformSpan: 20.0,
+    waveformStart: 0.0,
+  },
+  positionSeconds: 0.0,
+  referenceIssue: {
+    canReload: true,
+    message: 'Reference content changed',
+    path: 'reference.srt',
+  },
+  scenes: null,
+  subtitlePath: 'target.srt',
+  token: 9007199254740991,
+  translation: {
+    copiedFrom: {
+      path: 'reference.srt',
+      selected: 'reference.srt',
+    },
+    reference: {
+      format: 'srt',
+      offsetMs: -1500,
+      path: 'reference.srt',
+      sha256:
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    },
+  },
+  version: 2,
+} satisfies OpenedProject;
 export const translationReply = {
   context: {
     dirty: true,

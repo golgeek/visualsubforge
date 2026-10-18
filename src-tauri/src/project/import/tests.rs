@@ -454,7 +454,8 @@ fn import_uses_captured_defaults_without_changing_current_project_policy() {
         token,
         0,
         0,
-        &root.path().join("clip.mkv").canonicalize().unwrap(),
+        Some(&root.path().join("clip.mkv").canonicalize().unwrap()),
+        0,
     )
     .unwrap();
     assert_ne!(

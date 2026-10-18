@@ -444,19 +444,29 @@ export function scenesView(
   return commands.scenesView(generation, start, end, position);
 }
 
-export function openProject(path: string): Promise<OpenedProject> {
-  return commands.projectOpen(path);
+export type ProjectReferenceOverride = NonNullable<
+  Parameters<typeof commands.projectOpen>[1]
+>;
+export type ProjectReferenceIssue = NonNullable<
+  OpenedProject['referenceIssue']
+>;
+export function openProject(
+  path: string,
+  reference: ProjectReferenceOverride | null = null,
+): Promise<OpenedProject> {
+  return commands.projectOpen(path, reference);
 }
 export function attachProject(
   token: number,
   session: number,
-  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision' | 'translation'>,
 ): Promise<ProjectAttachment> {
   return commands.projectAttach(
     token,
     session,
     document.generation,
     document.revision,
+    document.translation?.epoch ?? 0,
   );
 }
 export async function detachProject(): Promise<void> {

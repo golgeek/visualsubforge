@@ -35,9 +35,15 @@ The subsequent Rust owner adds bounded loading/querying, stale/cancel guards,
 independent target copies, sticky source protection and reference-aware recovery.
 Twelve owner/related conversion cases, a signed-IPC boundary test, all 447 workspace
 Rust tests /30 ignored, 44 frontend tests, strict checks, generated IPC and the
-default desktop build pass. Project persistence and the panel remain pending;
-the intermediate owner refuses project saves that would omit the context. No
-browser/native/chooser or combined desktop10k translation acceptance is claimed.
+default desktop build pass. The subsequent project increment now persists reference
+identity/offset/provenance, supports subtitle-only projects, and offers explicit
+missing/changed-reference resolution before draft protection. Five focused project
+tests and all 452 workspace Rust tests /30 ignored pass; 44 frontend tests and
+targeted Chromium/WebKit project checks pass. The wider browser run exposed one
+outdated lifecycle fixture; its corrected project/lifecycle rerun passes all eight
+cases in both engines. Strict checks and the final default desktop build pass.
+The panel and native/chooser/combined
+desktop10k translation acceptance remain pending.
 See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports

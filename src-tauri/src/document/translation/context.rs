@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub(crate) struct Origin {
     pub(crate) path: PathBuf,
-    selected: PathBuf,
+    pub(super) selected: PathBuf,
 }
 impl Origin {
-    fn validate(&self) -> Result<()> {
+    pub(super) fn validate(&self) -> Result<()> {
         for path in [&self.path, &self.selected] {
             if !path.is_absolute() || path.as_os_str().len() > 32_768 {
                 return Err("Reference paths must be absolute and at most 32 KiB".into());

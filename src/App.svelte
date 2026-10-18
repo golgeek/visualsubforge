@@ -43,6 +43,7 @@
     recoveryStatus,
     discardRecovery,
     type RecoveryStatus,
+    type ProjectReferenceIssue,
     waveformStart,
     waveformView,
     type MediaAction,
@@ -87,6 +88,7 @@
   import ProjectSaveFailureDialog, {
     type ProjectExitChoice,
   } from './lib/ProjectSaveFailureDialog.svelte';
+  import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
   import CueTiming from './lib/CueTiming.svelte';
   import {
     beginTimingEdit,
@@ -1068,6 +1070,10 @@
   let confirming = $state(false);
   let projectExitError = $state<string | null>(null);
   const projectExitDecision = new PendingDecision<ProjectExitChoice>('cancel');
+  let projectReferenceIssue = $state<ProjectReferenceIssue | null>(null);
+  const projectReferenceDecision = new PendingDecision<
+    'cancel' | 'choose' | 'reload'
+  >('cancel');
   let lastMenu = '';
   let alive = true;
   function docAct(action: DocumentAction, plan?: CueOperationPlan) {
@@ -1135,6 +1141,7 @@
     protect,
     saveSubtitles: () => save(false),
     saveFailed: projectSaveFailed,
+    referenceIssue: resolveProjectReference,
     notify: (message) => {
       notice = message;
     },
@@ -1172,13 +1179,49 @@
       subtitleDecision.answer('cancel');
     }
   }
-  async function protect() {
+  async function protect(saveContext?: () => Promise<boolean>) {
     if (!alive) return false;
-    if (!doc.dirty && !draftDirty) return true;
+    if (!doc.dirty && !draftDirty && !doc.translation?.dirty) return true;
     const choice = await confirmChanges();
     if (!alive || choice === 'cancel') return false;
-    if (choice === 'save') return save(false);
+    if (choice === 'save') {
+      return doc.translation?.dirty
+        ? (saveContext ?? (() => projects.save(false)))()
+        : save(false);
+    }
     return true;
+  }
+  async function resolveProjectReference(issue: ProjectReferenceIssue) {
+    confirming = true;
+    try {
+      await occludeVideo(true);
+      if (!alive) {
+        confirming = false;
+        return 'cancel' as const;
+      }
+      const decision = projectReferenceDecision.wait();
+      projectReferenceIssue = issue;
+      return decision;
+    } catch (failure) {
+      confirming = false;
+      throw failure;
+    }
+  }
+  async function answerProjectReference(
+    choice: 'cancel' | 'choose' | 'reload',
+  ) {
+    if (!projectReferenceDecision.pending || projectReferenceIssue === null)
+      return;
+    projectReferenceIssue = null;
+    confirming = false;
+    await tick();
+    try {
+      await occludeVideo(diagnostics);
+      projectReferenceDecision.answer(alive ? choice : 'cancel');
+    } catch (failure) {
+      error = String(failure);
+      projectReferenceDecision.answer('cancel');
+    }
   }
   async function projectSaveFailed(error: unknown): Promise<ProjectExitChoice> {
     confirming = true;
@@ -1804,6 +1847,7 @@
       media.dispose();
       subtitleDecision.dispose();
       projectExitDecision.dispose();
+      projectReferenceDecision.dispose();
       waveRequest++;
       unlisten();
       observer.disconnect();
@@ -1915,9 +1959,8 @@
   <header class="toolbar">
     <strong>VisualSubForge</strong>
     {#if !nativeMenus}
-      <button
-        disabled={busy || !ready || !status.available}
-        onclick={() => void run('openProject')}>Open Project</button
+      <button disabled={busy || !ready} onclick={() => void run('openProject')}
+        >Open Project</button
       >
       <button
         disabled={busy || confirming || !ready}
@@ -1925,9 +1968,9 @@
         >Import VisualSubSync Project</button
       >
       <button
-        disabled={busy || !ready || !status.loaded}
+        disabled={busy || !ready || (!status.loaded && !doc.loaded)}
         title={projects.path ??
-          'Save media, scene results, view options and resume position'}
+          'Save subtitle references, media, scene results and workspace options'}
         onclick={() => void run('saveProject')}>Save Project</button
       >
       <button
@@ -2737,20 +2780,38 @@
       e.preventDefault();
       answer('cancel');
     }}
-    aria-label="Unsaved subtitle changes"
+    aria-label={doc.translation?.dirty
+      ? 'Unsaved project changes'
+      : 'Unsaved subtitle changes'}
   >
-    <h2>Save subtitle changes?</h2>
-    <p>Your current document or cue draft has changes.</p>
+    <h2>
+      {doc.translation?.dirty
+        ? 'Save project changes?'
+        : 'Save subtitle changes?'}
+    </h2>
+    <p>
+      {doc.translation?.dirty
+        ? 'Save your subtitle changes and the translation reference and offset in a project.'
+        : 'Your current document or cue draft has changes.'}
+    </p>
     <div class="dialog-actions">
       <button onclick={() => answer('cancel')}>Cancel</button><button
         onclick={() => answer('discard')}>Discard changes</button
-      ><button onclick={() => answer('save')}>Save changes</button>
+      ><button onclick={() => answer('save')}
+        >{doc.translation?.dirty ? 'Save project' : 'Save changes'}</button
+      >
     </div>
   </dialog>
   {#if projectExitError !== null}
     <ProjectSaveFailureDialog
       error={projectExitError}
       onchoose={(choice) => void answerProjectExit(choice)}
+    />
+  {/if}
+  {#if projectReferenceIssue !== null}
+    <ProjectReferenceDialog
+      issue={projectReferenceIssue}
+      onchoose={(choice) => void answerProjectReference(choice)}
     />
   {/if}
   {#if resyncOpen}

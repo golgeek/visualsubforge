@@ -197,21 +197,34 @@ impl Documents {
         token: u64,
         generation: u64,
         revision: u64,
-        media_path: &Path,
+        media_path: Option<&Path>,
+        reference_epoch: u64,
     ) -> Result<crate::project::Attachment> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         if store.generation != generation
             || store.loaded.as_ref().map_or(0, |d| d.editor.revision()) != revision
+            || store.loaded.as_ref().map_or(0, |_| store.translation.epoch) != reference_epoch
         {
             return Err("Document changed during project restoration".into());
         }
         let next = store.quality.next_epoch()?;
+        let translation_epoch = store.translation.next_epoch()?;
+        let subtitle_path = store.loaded.as_ref().and_then(|loaded| loaded.path.clone());
         // Existing publication order is document -> project. The callback only
         // assigns validated staged data and cannot fail after attachment changes.
-        let attached = projects.attach_with(token, Some(media_path), |policy| {
-            store.quality.current = policy.clone();
-            store.quality.epoch = next;
-        })?;
+        let attached = projects.attach_with(
+            token,
+            media_path,
+            subtitle_path.as_deref(),
+            |policy, translation| {
+                store.quality.current = policy.clone();
+                store.quality.epoch = next;
+                if let Some(loaded) = &mut store.loaded {
+                    loaded.translation = translation;
+                }
+                store.translation.epoch = translation_epoch;
+            },
+        )?;
         store.invalidate_checks();
         Ok(attached)
     }
@@ -354,7 +367,7 @@ mod tests {
         let opened = projects.open(&path).unwrap();
         let epoch = docs.quality_context().unwrap().epoch;
         assert!(
-            docs.attach_quality_project(&projects, opened.token, 99, 0, &media)
+            docs.attach_quality_project(&projects, opened.token, 99, 0, Some(&media), 0)
                 .is_err()
         );
         assert!(
@@ -363,14 +376,15 @@ mod tests {
                 opened.token,
                 0,
                 0,
-                &dir.path().join("other.mkv")
+                Some(&dir.path().join("other.mkv")),
+                0,
             )
             .is_err()
         );
         assert_eq!(docs.quality_context().unwrap().epoch, epoch);
         // External changes after staging cannot silently replace the staged policy.
         std::fs::write(&path, b"changed after read").unwrap();
-        docs.attach_quality_project(&projects, opened.token, 0, 0, &media)
+        docs.attach_quality_project(&projects, opened.token, 0, 0, Some(&media), 0)
             .unwrap();
         let context = docs.quality_context().unwrap();
         assert_eq!(context.profile, profile);
@@ -383,7 +397,7 @@ mod tests {
         docs.detach_quality_project(&projects).unwrap();
         assert_eq!(docs.quality_context().unwrap().profile.name, "Mine");
         assert!(
-            docs.attach_quality_project(&projects, opened.token, 0, 0, &media)
+            docs.attach_quality_project(&projects, opened.token, 0, 0, Some(&media), 0)
                 .is_err()
         );
     }

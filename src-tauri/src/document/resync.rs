@@ -59,15 +59,16 @@ impl Documents {
         publish: impl FnOnce(
             &crate::quality_profile::Context,
             Option<subtitle_formats::Format>,
+            &translation::Context,
         ) -> Result<T>,
     ) -> Result<T> {
-        let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
+        let mut store = self.0.lock().map_err(|_| "Document worker unavailable")?;
         if store
             .loaded
             .as_ref()
-            .is_some_and(|loaded| !loaded.translation.is_empty())
+            .is_some_and(|loaded| !loaded.translation.is_empty() && loaded.path.is_none())
         {
-            return Err("Translation project persistence is not integrated yet; reference context cannot be omitted from a project".into());
+            return Err("Save the translation target before saving its project".into());
         }
         if store.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
             return Err(
@@ -84,14 +85,23 @@ impl Documents {
                 "Subtitle path changed before project save; retry with the current document".into(),
             );
         }
-        publish(
+        let empty = translation::Context::default();
+        let result = publish(
             &store.quality.context(),
             store
                 .loaded
                 .as_ref()
                 .filter(|loaded| loaded.path.is_some())
                 .map(|loaded| loaded.source().format()),
-        )
+            store
+                .loaded
+                .as_ref()
+                .map_or(&empty, |loaded| &loaded.translation),
+        )?;
+        if let Some(loaded) = &mut store.loaded {
+            loaded.translation.dirty = false;
+        }
+        Ok(result)
     }
 }
 

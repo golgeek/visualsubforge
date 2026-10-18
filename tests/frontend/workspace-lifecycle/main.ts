@@ -353,7 +353,7 @@ const project: OpenedProject = {
     identity: { size: 10, modified: '1', sampleHash: 'a' },
   },
 };
-function projectFixture(hold: string | null = null) {
+async function projectFixture(hold: string | null = null) {
   const events: string[] = [];
   const gate = deferred<void>();
   let held = false;
@@ -374,8 +374,8 @@ function projectFixture(hold: string | null = null) {
       throw new Error('Resync is not used in this fixture');
     },
     chooseFile: async () => null,
-    documentAction: async () => {
-      await step('subtitles');
+    documentAction: async (action) => {
+      await step(action.kind === 'status' ? 'context' : 'subtitles');
       return snapshot();
     },
   });
@@ -448,6 +448,9 @@ function projectFixture(hold: string | null = null) {
       },
     },
   );
+  // As in App startup, establish playback availability before opening media.
+  await media.poll();
+  events.length = 0;
   return {
     workflow,
     media,
@@ -462,11 +465,11 @@ function projectFixture(hold: string | null = null) {
   };
 }
 async function projectCases() {
-  const normal = projectFixture();
+  const normal = await projectFixture();
   await normal.workflow.open();
   assert(
     normal.events.join(',') ===
-      'chooser,read,protect,begin,media:open,media projection,subtitles,scenes,scene projection,media:seek,attach,options,notice',
+      'chooser,read,protect,begin,media:open,media projection,subtitles,scenes,scene projection,media:seek,attach,context,options,notice',
     'Project restore ordering changed',
   );
   assert(
@@ -475,7 +478,7 @@ async function projectCases() {
   );
   await normal.workflow.quit();
   assert(
-    normal.events.slice(-4).join(',') === 'protect,save,notice,exit',
+    normal.events.slice(-5).join(',') === 'protect,save,context,notice,exit',
     'Quit did not protect, save and exit in order',
   );
   normal.dispose();
@@ -492,8 +495,9 @@ async function projectCases() {
     'scenes',
     'media:seek',
     'attach',
+    'context',
   ]) {
-    const fixture = projectFixture(stage);
+    const fixture = await projectFixture(stage);
     const opening = fixture.workflow.open().catch(() => {});
     await until(() => fixture.events.includes(stage));
     const before = fixture.events.length;
@@ -512,7 +516,7 @@ async function projectCases() {
       `disposing during project ${stage} suppresses subsequent work and attachment`,
     );
   }
-  const saving = projectFixture('save');
+  const saving = await projectFixture('save');
   await saving.workflow.open();
   const save = saving.workflow.save(false).catch(() => {});
   await until(() => saving.events.includes('save'));
@@ -527,7 +531,7 @@ async function projectCases() {
   saving.dispose();
   passed('a late project save cannot reattach after a media detach');
 
-  const replacement = projectFixture('read');
+  const replacement = await projectFixture('read');
   const earlier = replacement.workflow.open().catch(() => {});
   await until(() => replacement.events.includes('read'));
   await replacement.workflow.open();

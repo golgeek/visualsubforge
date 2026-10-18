@@ -285,20 +285,27 @@ export const commands = {
     path: string,
     preset: visualsubforge_timing_preset_Preset,
   ) => __TAURI_INVOKE<null>('timing_preset_save', { path, preset }),
-  projectOpen: (path: string) =>
+  projectOpen: (
+    path: string,
+    reference: {
+      path: string | null;
+      reload?: boolean;
+    } | null,
+  ) =>
     __TAURI_INVOKE<visualsubforge_project_store_Opened_Serialize>(
       'project_open',
-      { path },
+      { path, reference },
     ),
   projectAttach: (
     token: number,
     session: number,
     generation: number,
     revision: number,
+    referenceEpoch: number,
   ) =>
     __TAURI_INVOKE<visualsubforge_project_store_Attachment_Serialize>(
       'project_attach',
-      { token, session, generation, revision },
+      { token, session, generation, revision, referenceEpoch },
     ),
   projectDetach: () => __TAURI_INVOKE<null>('project_detach'),
   projectSave: (request: visualsubforge_project_SaveRequest_Deserialize) =>
@@ -1493,10 +1500,12 @@ export type visualsubforge_project_store_Opened =
   | visualsubforge_project_store_Opened_Deserialize;
 
 export type visualsubforge_project_store_Opened_Deserialize = {
+  referenceIssue: visualsubforge_document_translation_project_ReferenceIssue | null;
   token: number;
 } & visualsubforge_project_Project_Deserialize;
 
 export type visualsubforge_project_store_Opened_Serialize = {
+  referenceIssue?: visualsubforge_document_translation_project_ReferenceIssue | null;
   token: number;
 } & visualsubforge_project_Project_Serialize;
 
@@ -1720,12 +1729,30 @@ export type visualsubforge_project_Project =
   | visualsubforge_project_Project_Serialize
   | visualsubforge_project_Project_Deserialize;
 
+export type visualsubforge_document_translation_project_ProjectContext = {
+  reference: visualsubforge_document_translation_project_ProjectReference | null;
+  copiedFrom: visualsubforge_document_translation_project_ProjectOrigin | null;
+};
+
+export type visualsubforge_document_translation_project_ProjectOrigin = {
+  path: string;
+  selected: string;
+};
+
+export type visualsubforge_document_translation_project_ProjectReference = {
+  path: string;
+  format: string;
+  sha256: string;
+  offsetMs: number;
+};
+
 export type visualsubforge_project_Project_Deserialize = {
   version: number;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
   subtitleFormat?: string | null;
-  mediaIdentity: visualsubforge_project_MediaIdentity_Deserialize;
+  mediaIdentity: visualsubforge_project_MediaIdentity_Deserialize | null;
+  translation?: visualsubforge_document_translation_project_ProjectContext | null;
   positionSeconds: number;
   options: visualsubforge_project_Options_Deserialize;
   scenes: visualsubforge_scenes_Saved_Deserialize | null;
@@ -1733,10 +1760,11 @@ export type visualsubforge_project_Project_Deserialize = {
 
 export type visualsubforge_project_Project_Serialize = {
   version: number;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
   subtitleFormat?: string | null;
-  mediaIdentity: visualsubforge_project_MediaIdentity_Serialize;
+  mediaIdentity: visualsubforge_project_MediaIdentity_Serialize | null;
+  translation?: visualsubforge_document_translation_project_ProjectContext | null;
   positionSeconds: number;
   options: visualsubforge_project_Options_Serialize;
   scenes: visualsubforge_scenes_Saved_Serialize | null;
@@ -1791,6 +1819,17 @@ export type visualsubforge_document_translation_ReferenceInfo = {
   sha256: string;
   cues: number;
   offsetMs: number;
+};
+
+export type visualsubforge_document_translation_project_ReferenceIssue = {
+  path: string;
+  message: string;
+  canReload: boolean;
+};
+
+export type visualsubforge_document_translation_project_ReferenceOverride = {
+  path: string | null;
+  reload?: boolean;
 };
 
 export type visualsubforge_document_translation_Reply =
@@ -1915,7 +1954,7 @@ export type visualsubforge_project_SaveRequest =
 export type visualsubforge_project_SaveRequest_Deserialize = {
   path: string;
   token?: number | null;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
   session: number;
   positionSeconds: number;
@@ -1925,7 +1964,7 @@ export type visualsubforge_project_SaveRequest_Deserialize = {
 export type visualsubforge_project_SaveRequest_Serialize = {
   path: string;
   token: number | null;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
   session: number;
   positionSeconds: number;

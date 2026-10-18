@@ -61,10 +61,11 @@ pub(super) fn inspect(
     ) {
         (Some(media), Some(subtitles), Some(identity)) if inspection.ready() => Some(Project {
             version: 1,
-            media_path: media.to_string_lossy().into_owned(),
+            media_path: Some(media.to_string_lossy().into_owned()),
             subtitle_path: Some(subtitles.to_string_lossy().into_owned()),
             subtitle_format: inspection.subtitle_format.map(|f| f.extension().into()),
-            media_identity: identity,
+            media_identity: Some(identity),
+            translation: None,
             position_seconds: f64::from(inspection.project.view.focused_ms.unwrap_or(0)) / 1000.,
             options: Options {
                 waveform_start: f64::from(inspection.project.view.start_ms) / 1000.,
@@ -135,7 +136,9 @@ pub(super) fn publish(
     let parent = path
         .parent()
         .ok_or_else(|| "Output has no parent directory".to_owned())?;
-    project.media_path = project::portable(parent, Path::new(&project.media_path));
+    project.media_path = project
+        .media_path
+        .map(|p| project::portable(parent, Path::new(&p)));
     project.subtitle_path = project
         .subtitle_path
         .map(|s| project::portable(parent, Path::new(&s)));
@@ -160,7 +163,7 @@ pub(super) fn publish(
         .canonicalize()
         .map_err(|e| ExportError::stale(format!("Media is unavailable: {e}")))?
         != *media
-        || project::identify(media).map_err(ExportError::stale)? != project.media_identity
+        || Some(project::identify(media).map_err(ExportError::stale)?) != project.media_identity
     {
         return Err(ExportError::stale(
             "Media changed after review; inspect the project again",
