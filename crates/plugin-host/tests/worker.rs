@@ -44,15 +44,17 @@ fn result_transport_preserves_json_values_and_rejects_excessive_nesting() {
         "nested": [{"empty": {}, "values": [true, false, null, -0.5]}],
     });
     assert_eq!(execute("return input;", input.clone()).unwrap(), input);
-    // JSON text forwarding must not bypass the parent's normal parser depth
-    // limit or turn an invalid reply into an accepted result.
+    // Depending on the native engine stack cost, JavaScript serialization can
+    // hit its stack cap before the parent rejects JSON depth (Windows x64 does).
+    // The faulty-helper probe below separately requires a parser rejection.
     let result = execute(
         "let value = 1; for (let i=0; i<160; ++i) value=[value]; return value;",
         Value::Null,
     );
     assert!(
-        matches!(result, Err(Failure::Protocol(_))),
-        "Expected a nesting protocol rejection; actual error: {:?}",
+        matches!(&result, Err(Failure::Protocol(_)))
+            || matches!(&result, Err(Failure::Script(message)) if message.contains("stack")),
+        "Expected a bounded nesting rejection; actual error: {:?}",
         result.err()
     );
 }
@@ -171,12 +173,17 @@ fn recursion_and_allocations_are_bounded_and_worker_remains_reusable() {
 fn oversized_javascript_result_is_refused() {
     let mut request = Request::new("return 'x'.repeat(33*1024*1024);", Value::Null);
     request.limits.heap_bytes = 128 * 1024 * 1024;
+    let started = Instant::now();
     let result = run(worker(), &[], &request, &AtomicBool::new(false));
+    // On slower hosts the unchanged one-second deadline wins before the byte
+    // check. A separate output-flood probe strictly exercises the byte limit.
     assert!(
-        matches!(result, Err(Failure::Protocol(_))),
-        "Expected a size protocol rejection; actual error: {:?}",
+        matches!(result, Err(Failure::Protocol(_) | Failure::Timeout)),
+        "Expected an oversized-result rejection; actual error: {:?}",
         result.err()
     );
+    assert!(started.elapsed() < Duration::from_secs(2));
+    assert_eq!(execute("return 42;", Value::Null).unwrap(), 42);
 }
 
 #[test]
@@ -335,6 +342,8 @@ fn parent_watchdog_bounds_blocked_pipes_floods_crash_and_invalid_protocol() {
         "output-flood",
         "stderr-flood",
         "bad-json",
+        "nested-json",
+        "deep-json",
         "wrong-version",
         "crash",
     ] {
@@ -348,6 +357,17 @@ fn parent_watchdog_bounds_blocked_pipes_floods_crash_and_invalid_protocol() {
             assert_eq!(result, Err(Failure::Timeout));
         } else if mode == "crash" {
             assert!(matches!(result, Err(Failure::Worker(_))), "{result:?}");
+        } else if mode == "nested-json" {
+            let mut expected = json!(1);
+            for _ in 0..32 {
+                expected = json!([expected]);
+            }
+            assert_eq!(result, Ok(expected));
+        } else if mode == "deep-json" {
+            assert!(
+                matches!(&result, Err(Failure::Protocol(message)) if message.contains("recursion limit")),
+                "Expected the parent's parser depth limit: {result:?}"
+            );
         } else {
             assert!(
                 matches!(result, Err(Failure::Protocol(_))),

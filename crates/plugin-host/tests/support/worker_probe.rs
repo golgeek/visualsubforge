@@ -19,6 +19,15 @@ fn main() {
             print!("{{\"version\":2,\"result\":{{\"Ok\":null}}}}");
             return;
         }
+        "nested-json" | "deep-json" => {
+            let depth = if args[1] == "nested-json" { 32 } else { 160 };
+            print!(
+                "{{\"version\":1,\"result\":{{\"Ok\":{}1{}}}}}",
+                "[".repeat(depth),
+                "]".repeat(depth)
+            );
+            return;
+        }
         "output-flood" => {
             io::stdout()
                 .write_all(&vec![b'x'; 32 * 1024 * 1024 + 1])

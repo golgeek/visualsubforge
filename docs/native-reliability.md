@@ -374,6 +374,20 @@ player PIDs absent and no owned player/recorder remaining. Root retains
 642,576,384bytes free; temporary guest outputs remain in tmpfs. No Linux install
 or rebuild was performed.
 
+An ordered crossover repeats ordinary captures as default/interpolated/
+interpolated/default/default/interpolated. Five pass both channels with complete
+source frames0–192000; only the first default capture again starts at2048. The
+later default passes rule out a universal default-option content failure. This
+sequence does not reset the server or identify the startup loss's owner. Two
+additional interpolated loop cases change0.5×→1.5× and1.5×→0.5×: all four settled
+phases pass one-source-frame bounds with92–94 samples and4–11 wraps. Those are
+sampled-clock checks, not mixed-rate content/presentation acceptance.
+`run-linux-pulse-crossover.py`, `linux-pulse-crossover*.log` and the final receipt
+retain the failed first capture and all later passes. Host staging is
+`Downloads/VisualSubForge-native-audio-k6f2faxo/pulse-crossover-v1/`.
+All29 exported artifact hashes (10,765,177bytes) verify; six capture-player PIDs
+and all owned tmpfs players/recorders are absent. Root retains642,572,288bytes.
+
 ## Native Mac pointer and keyboard check — 2026-10-18
 
 The identified2c431dab... app with fd572d9e... libmpv opened an isolated three-cue
@@ -391,6 +405,25 @@ pointer release outside the canvas and keyboard/history/save behavior; it does
 not establish held-pointer Escape, focus-loss cancellation, native chooser
 parenting or physical-platform acceptance.
 
+A separate fresh `media-prototype` build atf0dbf68 (no WebDriver/test chooser)
+uses an isolated app identifier. Executable SHA256
+`fe15e4157a11f1afb72b38d1a5cfb1ff78dbe8c0db9f9092650a80a0bd0625e0`
+loads the same fd572d9e... libmpv. Of63 mapped backing files,61 retain their hashes;
+the initial equality check fails on mutable WebKit database shared memory and
+the system icon cache. Both differences remain in the receipt; application/native
+library hashes match. The actual OS media chooser loads the paused WAV. With the actual
+Open Subtitles sheet pending, Command-Q leaves the sheet open. Terminating only
+the verified owned PID with SIGKILL gives the expected-9 status. A fresh restart
+has no open sheet, permits Open Subtitles/Cancel, returns Ready and exits normally0.
+Both app PIDs are absent and the media remains unchanged.
+
+The receipt/build log is in `mac-parent-lifetime-v1` under the same evidence root.
+The immediate post-kill accessibility request timed out and the app inventory
+did not identify that isolated bundle; no complete window/helper census is
+claimed. Direct process-tree observation excludes launchd-owned helpers. This
+validates the bounded crash/restart interaction, not orderly native teardown,
+all orphan-window/helper behavior, leak freedom or other-platform parent death.
+
 ## Hosted checks checkpoint — 2026-10-18
 
 Commit71cf014 passes all six jobs in
@@ -405,3 +438,26 @@ WebKit statistics runs. Eleven local worker tests pass. Assertions now report
 the actual rejection error and rendered count without changing their criteria;
 hosted diagnosis is pending. Original logs and browser trace are retained under
 `test-results/native-reliability-20261018/ci-*`.
+
+Atf0dbf68, all six native-contract jobs and all60 hosted browser cases pass.
+The Windows failure repeats and now identifies two distinct guards: oversized
+JavaScript output reaches the unchanged1000ms deadline, while160-level JSON
+serialization reaches QuickJS's stack cap. Both reject the result. The worker
+tests now admit those specific earlier guards and retain the same runtime limits.
+A separate engine-independent helper supplies valid32-level and invalid160-level
+JSON; the parent must accept the former and report its recursion-limit Protocol
+error for the latter. The existing32MiB+1 output-flood case must still produce a
+Protocol error. This separates execution-limit ordering from strict protocol
+checks, without accepting output or extending production time/heap/stack limits.
+Hosted validation of this test correction is pending. The earlier intermittent
+WebKit failure remains unexplained; a later pass alone is not a correction.
+`cargo test --locked -p vsf-plugin-host --test worker` passes all11 tests, including
+the two added protocol probe cases. `cargo clippy --locked -p vsf-plugin-host
+--all-targets -- -D warnings`, `cargo fmt --all -- --check` and `git diff --check`
+pass. No production implementation changed in this correction.
+
+Fresh validation package workflows were dispatched atf0dbf68:
+[Linux39142923333](https://github.com/golgeek/visualsubforge/actions/runs/39142923333)
+and [Windows39142924874](https://github.com/golgeek/visualsubforge/actions/runs/39142924874).
+They build and inventory hosted candidates without using Linux VM root space;
+their artifacts/install/runtime checks remain pending. No release is published.
