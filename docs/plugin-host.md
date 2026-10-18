@@ -2,8 +2,8 @@
 
 Stage7 is in progress. The bounded worker foundation exists in
 `crates/plugin-host`; the editor and CLI do not yet load or execute plugins.
-Modern subtitle APIs, VSS compatibility, reviewed fixes and their integration
-remain required. ADR0008 is still proposed.
+The pure application now has [modern/VSS APIs and validated fix proposals](plugin-api.md).
+Editor/CLI review, ownership and integration remain required. ADR0008 is still proposed.
 
 ## Candidate execution boundary
 
@@ -86,14 +86,11 @@ peaks and does not establish a hard RSS ceiling.
 
 Required before stage7/ADR0008 acceptance:
 
-- Modern API and supported VSS rule/fix subset with precise capability/version,
-  settings, package-local loading and missing-dependency behavior.
-- Transaction-local writable legacy wrappers, read-your-writes, raw versus stripped
-  text policy, neighbor/scene semantics and representative unchanged legacy checks.
-  Unresolved-license scripts may be tested locally but must not be redistributed.
-- Rust validation of stable cue identities, revision/context, source-format
-  precision/markup safety and all proposed edits; accept as one Undo transaction.
-  Exceptions, cancellation, invalid results and stale replies commit nothing.
+- Complete the supported API/behavior acceptance against the pinned VSS host and
+  available platforms. The pure modern/VSS adapters, captured package loading,
+  settings, neighbor/scene semantics and Rust proposal/history validation now have
+  real-helper tests; this does not yet validate the desktop owner's lifetime.
+  Unresolved-license scripts are tested locally and are not redistributed.
 - Editor/CLI discovery, review, adoption, cancellation, close/replace/shutdown,
   save/reopen/recovery and races with existing accepted state. One admitted plugin
   run with no queued helper process; the current low-level `run` function relies
@@ -158,3 +155,92 @@ development dependency entry; an offline lockfile update followed, then the lock
 build passed. Five packages were added (the three rquickjs crates, allocator-api2
 and relative-path); no existing package version changed. Boa was inspected in the
 registry cache only. The preserved legacy checkout was not changed or executed.
+
+## Pure API/proposal evidence — 2026-10-18
+
+The [API matrix](plugin-api.md) now documents implemented modern/VSS rules and
+fixes, package-local loading/settings, transaction-local neighbors, raw/stripped
+text, scenes and explicit unsupported surfaces. Fourteen real-helper API tests
+pass, plus two combined domain-batch tests. All 478 workspace tests pass, with 31
+opt-in tests ignored; 11 zero-test harnesses are excluded from feature evidence.
+Strict workspace Clippy, Rustfmt, Prettier and ESLint pass. The separately acquired unchanged
+archived overlap rule also passes its opt-in local test; no legacy script is
+redistributed. These tests cover the library proposal and Editor transaction,
+not desktop admission, review, recovery or historical VSS runtime parity.
+
+Twenty exact 10,000-cue workloads exercise both APIs in check/fix modes on five
+fixtures. Each has one warm-up and 20 measured fresh-helper runs. The declared
+500ms p95 includes initial parse, capture/package validation, execution, every
+finding/edit/metadata check and, for fixes, accepted history, serialization,
+reparse, one Undo/Redo and stale rejection. WebVTT fixes retain absolute payload
+timestamps and change only text; other fixes combine text and a 10 ms shift with
+unchanged duration. The dense SRT karaoke fixture retains its expected markup
+review warnings. No filesystem save/recovery, UI or native acceptance is claimed.
+
+| Fixture | Modern check / fix p95 ms | VSS check / fix p95 ms |
+| --- | ---: | ---: |
+| Dense tagged SRT | 80.052 / 159.977 | 109.993 / 218.899 |
+| ASS | 99.022 / 240.446 | 127.120 / 302.633 |
+| SSA | 97.325 / 225.818 | 124.276 / 281.466 |
+| Styled WebVTT | 98.169 / 205.627 | 123.595 / 274.932 |
+| Timed WebVTT | 94.898 / 196.327 | 120.584 / 254.737 |
+
+All pass; the largest p95 is 302.632917 ms and that workload's maximum is 304.23275 ms.
+Combined parent/direct-helper RSS rises from 9,895,936 to 208,142,336 bytes:
+**+198,246,400 bytes (189.0625 MiB)** against the unchanged 192 MiB limit. There are
+2737 samples, 1539 observing a live helper. Only raw fixture allocation precedes
+the baseline; parsed documents, captures, history and protocol copies are included.
+Sampling can miss peaks and does not establish an OS-enforced memory cap. Existing
+pure-application 96 MiB gates have not been relaxed.
+
+The final API benchmark binary SHA256 is
+`c24bce7847fd807b3936c2765a48641bb3e7235fa733d8f3c6d9a998d7cae4b0`;
+the worker is
+`b4348bf2e3caac3aa0fa85cbb479d166e9f55af00116b44e40dfbd6afd31ab62`.
+Exact input identities:
+
+| Fixture | SHA256 |
+| --- | --- |
+| Dense tagged SRT (generated in example) | `c8118a0cc80dc2e2955c68d83401a7cb1e80f0858fc6d5ef45827a3c1bfec6e2` |
+| ASS | `00e4deb1210c47e2943c30744da0e5d0512a57ba159b659d9dd16ef5d47c1c0c` |
+| SSA | `0d2415e1e2d61776e7c9051c3c3c1c10b1c02770e225652b7b0132c57fb79b14` |
+| Styled WebVTT | `783a7ad89406073e0cb6512c9ca9daaac9b7c09baeaa933dada2bd0e67aa339f` |
+| Timed WebVTT | `46430c8e7b374e2bd6ccb3d4bd95cf3489d2571f00ff8c9120c9c59ce5e1c1e6` |
+
+Reproduce with the pinned toolchains, from the repository root:
+
+```sh
+python3 scripts/ass-fixtures.py
+python3 scripts/webvtt-fixtures.py
+cargo test --locked -p subtitle-core --test update_batch
+cargo test --locked -p vsf-plugin-host --test subtitles -- --test-threads=1
+# Set this to your separately acquired, hash-verified archived file:
+VSF_LEGACY_OVERLAP_SCRIPT=/path/to/jsplugin/overlapping.js cargo test --locked -p vsf-plugin-host --test subtitles unchanged_archived_overlap_rule_and_fix_run_locally -- --ignored --nocapture
+cargo build --release --locked -p vsf-plugin-host --bin vsf-plugin-worker --example api-benchmark
+python3 scripts/plugin-runtime-benchmark.py --api
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run format:check
+npm run lint
+```
+
+Receipts are in `test-results/plugin-api-20261018/`; `benchmark-v4.json` is the
+final passing run. Retained attempts include a benchmark format-string compile
+error, an incorrect oracle that expected no karaoke warning, then actual VSS CPU
+and repeated-run RSS failures. Sharing accessor functions alone was insufficient:
+`benchmark-v3.json` records p95 up to 659.335 ms and +248,627,200 RSS bytes. A bounded
+engine phase probe isolated the legacy callback loop; a key-type microprobe found
+numeric-Map overhead. The final dense wrapper array preserves own properties and
+stable identity. Immutable cue metadata sharing avoids copying every event field
+across captures/history; style replacement remains copy-on-write. All fixture
+contents, iterations, validation steps and CPU/RSS limits remain unchanged.
+An initial SRT test fixture also omitted its canonical final blank line; it was
+corrected to test existing serializer behavior, without changing format policy.
+
+Only workspace-local dev-dependencies were added to compose application and
+runtime tests/examples; no registry package/version changed. The application,
+domain and desktop dependency boundaries are unchanged. Full desktop/CLI owner
+integration and native/VM acceptance still keep stage 7 and ADR0008 open.
+Frontend interaction/browser tests and a new native desktop build were not rerun
+for this pure library increment; no UI/IPC/native workflow implementation changed.

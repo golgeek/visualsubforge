@@ -29,12 +29,21 @@ baseline. Physical Windows/Linux acceptance is a separate open release gate.
 rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
 stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
 focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
-floods and crashes. All 462 workspace tests/30 ignored and strict checks pass.
+floods and crashes. The latest baseline passes 478 workspace tests/31 ignored,
+strict Clippy, Rustfmt, Prettier and ESLint (zero-test harnesses excluded).
 Two fresh-helper 10k workloads pass p95<=46.513ms and sampled additional combined
-RSS 53,575,680 bytes within predeclared limits. This is runtime foundation only:
-no editor/CLI plugin entry point, modern/VSS subtitle API, reviewed fixes or Undo
-integration exists yet. Those, unchanged legacy-script behavior, available VM
-checks and complete native/10k acceptance remain required. ADR0008 is proposed.
+RSS 53,575,680 bytes within predeclared limits. Pure modern/VSS APIs, captured
+packages/settings, read-your-writes neighbors and validated private fix proposals
+now pass 14 real-helper API tests plus two domain batch tests. The unchanged archived
+overlap checker and three integer-safe fixes pass a separate local-only test;
+no unresolved-license code is redistributed. Combined text/timing batches use one
+Undo and retain source metadata; immutable field sharing reduces capture/history
+allocation. Twenty complete API/history 10k workloads pass p95<=302.633ms and
++198,246,400 sampled RSS bytes against 500ms/192MiB. The [API matrix](plugin-api.md)
+and [failed attempts/final evidence](plugin-host.md#pure-apiproposal-evidence--2026-10-18)
+record exact scope. There is still no editor/CLI plugin entry point, Rust job owner
+or review UI. Those, pinned VSS-host parity, available VM checks and complete
+desktop/native/recovery 10k acceptance remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation

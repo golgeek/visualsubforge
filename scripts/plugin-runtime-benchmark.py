@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Measure the fresh plugin helper and its parent together (macOS/Linux ps)."""
 import hashlib
+import argparse
 import json
 import os
 import pathlib
@@ -11,19 +12,23 @@ import time
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--api", action="store_true", help="Measure complete application API/history workloads")
+    options = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[1]
-    binary = root / "target/release/examples/runtime-benchmark"
+    binary = root / "target/release/examples" / ("api-benchmark" if options.api else "runtime-benchmark")
     worker = root / "target/release/vsf-plugin-worker"
     baseline = None
     peak = samples = helper_samples = 0
     phases = {}
-    deadline = time.monotonic() + 90
+    timeout = 300 if options.api else 90
+    deadline = time.monotonic() + timeout
     with tempfile.TemporaryFile(mode="w+") as output, tempfile.TemporaryFile(mode="w+") as errors:
         child = subprocess.Popen([str(binary)], stdout=output, stderr=errors)
         try:
             while child.poll() is None:
                 if time.monotonic() >= deadline:
-                    raise RuntimeError("Plugin runtime benchmark exceeded 90s")
+                    raise RuntimeError(f"Plugin benchmark exceeded {timeout}s")
                 output.seek(0)
                 progress = output.read()
                 phase = next((line[6:] for line in reversed(progress.splitlines()) if line.startswith("phase ")), "fixture")
@@ -44,12 +49,14 @@ def main():
             output.seek(0)
             text = output.read()
             errors.seek(0)
-            if child.returncode != 0:
+            lines = text.splitlines()
+            if child.returncode != 0 and (not lines or not lines[-1].startswith("{")):
                 raise RuntimeError(f"Benchmark failed: {text}\n{errors.read()}")
             if baseline is None or helper_samples < 10:
                 raise RuntimeError("Insufficient live-helper RSS observations")
             result = json.loads(text.splitlines()[-1])
             result.update({
+                "exit_code": child.returncode,
                 "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
                 "worker_sha256": hashlib.sha256(worker.read_bytes()).hexdigest(),
                 "rss_baseline_bytes": baseline,
@@ -63,7 +70,7 @@ def main():
                 "memory_method": "10ms sampled ps RSS, benchmark parent plus direct helper; fixture allocation precedes baseline; sampling may miss peaks; not an OS RSS limit",
             })
             print(json.dumps(result, indent=2))
-            if not result["passed"] or not result["memory_passed"]:
+            if child.returncode != 0 or not result["passed"] or not result["memory_passed"]:
                 raise RuntimeError("Predeclared plugin runtime budget failed")
         finally:
             if child.poll() is None:

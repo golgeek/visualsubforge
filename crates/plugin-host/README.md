@@ -10,8 +10,10 @@ execution thread. A new runtime/process is used for each request. The embedding
 application must separately bound admission and validate all resulting proposals.
 
 The `vsf-plugin-worker` binary is currently the feasibility/test entry point.
-Native packaging and the public VSF/VSS APIs remain proposed. Direct execution
-does not provide the parent's watchdog, so use the parent API for plugin runs.
+Native packaging and editor/CLI integration remain pending. The pure application
+[VSF/VSS APIs](../../docs/plugin-api.md) are composed with this crate through
+dev-dependencies for real-helper tests and benchmarks. Direct execution does not
+provide the parent's watchdog, so use the parent API for plugin runs.
 
 No local unsafe code is allowed. `rquickjs`0.14.0 provides the safe binding to its
 bundled QuickJS-NG0.16.2 native implementation, both MIT-licensed. Only the `std`

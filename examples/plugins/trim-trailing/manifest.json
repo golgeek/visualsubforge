@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "vsf.trim-trailing",
+  "name": "Trailing whitespace",
+  "api": "vsf-1",
+  "entry": "main.js",
+  "requires": ["rules", "fixes"],
+  "settings": { "removeTabs": true }
+}

@@ -4707,7 +4707,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "subtitle-core",
+ "subtitle-formats",
  "tempfile",
+ "vsf-application",
 ]
 
 [[package]]
