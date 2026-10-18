@@ -91,6 +91,19 @@ fn ass_ssa_edit_style_save_reopen_and_history_preserve_opaque_content() {
         assert_eq!(snapshot.cues[0].text, "{\\b1}Edited\\N世界");
         assert_eq!(snapshot.cues[0].style.as_deref(), Some("Default"));
         let changed = bytes(&store);
+        let expected = source.replace("Red title", "{\\b1}Edited\\N世界");
+        let expected = if extension == "ass" {
+            expected.replace(
+                "Dialogue: Title,0:00:03.00,0:00:01.00,",
+                "Dialogue: Default,0:00:03.00,0:00:01.01,",
+            )
+        } else {
+            expected.replace(
+                "Dialogue: Marked=0,0:00:01.00,0:00:03.00,Title,",
+                "Dialogue: Marked=0,0:00:01.01,0:00:03.00,Default,",
+            )
+        };
+        assert_eq!(changed, expected);
         assert!(changed.contains("Opaque: exact bytes,untouched"));
         assert!(changed.contains("Comment:"));
         apply(&mut store, Action::Undo).unwrap();

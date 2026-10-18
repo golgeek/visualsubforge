@@ -61,7 +61,12 @@ impl CueMetadata {
             .iter_mut()
             .find(|(key, _)| key.eq_ignore_ascii_case("Style"))
             .ok_or("This cue has no assignable style")?;
-        *value = style;
+        // Metadata retains original field bytes. Changing the logical style
+        // name should not discard padding, including the event delimiter space
+        // when Style happens to be the first source column.
+        let left = value.len() - value.trim_start_matches([' ', '\t']).len();
+        let right = value.trim_end_matches([' ', '\t']).len().max(left);
+        *value = format!("{}{}{}", &value[..left], style, &value[right..]);
         Ok(metadata)
     }
 }

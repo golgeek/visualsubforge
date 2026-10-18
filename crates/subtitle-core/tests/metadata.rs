@@ -10,6 +10,21 @@ fn metadata(style: &str) -> CueMetadata {
     ])
     .unwrap()
 }
+
+#[test]
+fn style_assignment_preserves_field_padding_and_other_metadata() {
+    for (before, after) in [
+        ("Title", "日本語"),
+        (" Title", " 日本語"),
+        (" \tTitle\t  ", " \t日本語\t  "),
+    ] {
+        let original = metadata(before);
+        let changed = original.with_style("日本語".into()).unwrap();
+        assert_eq!(changed, metadata(after));
+        assert_eq!(original.get("Style"), Some(before));
+    }
+}
+
 #[test]
 fn metadata_is_accepted_state_and_follows_every_history_path() {
     let cue = Cue::new(CueId(1), ms(1000), ms(3000), "text".into())
