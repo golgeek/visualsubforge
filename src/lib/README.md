@@ -6,7 +6,7 @@ mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
-| `DocumentSession` | Replacement-only projection of Rust's document, selected cue, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
+| `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
@@ -225,3 +225,19 @@ in shared Rust code. A reply only updates the still-matching draft. App restores
 the returned selection and leaves acceptance to the ordinary Apply action.
 See [the text tool contract](../../docs/text-editing.md) for supported syntax,
 conservative skips, limits and evidence.
+
+
+## Batch timing and selection
+
+`cue-selection.ts` implements file-order ranges, disjoint toggles and stable-ID
+reconciliation as pure transformations. `DocumentSession` replaces these immutable
+sets along with its primary cue after protected selection and accepted commands.
+`App` owns keyboard focus and virtual scrolling; focus-only Ctrl/Cmd navigation
+does not change membership. Existing single-cue controls still edit the primary.
+
+`BatchTimingDialog` shares `TimingRepairSession` with scene/duration review and
+captures an explicit request. Semantic comparison handles derived-object
+recomputation without accepting changed inputs. The paused playhead is captured,
+not followed during review. Rust computes exact endpoints; `acceptBatchTiming`
+uses the ordinary document replacement path. See [batch timing](../../docs/batch-timing.md)
+for rounding, cancellation, worker ownership and measured limits.

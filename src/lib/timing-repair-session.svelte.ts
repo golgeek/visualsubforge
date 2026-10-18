@@ -1,11 +1,12 @@
 import type { SceneRepairView, DocumentSnapshot } from './client';
 import type { DocumentSession } from './document-session.svelte';
-type Review = Pick<SceneRepairView, 'phase' | 'changed' | 'coverage' | 'error'>;
-interface Client<V> {
+type Review = Pick<SceneRepairView, 'phase' | 'changed' | 'error'> &
+  Partial<Pick<SceneRepairView, 'coverage'>>;
+interface Client<V, S> {
   start(
     session: number,
     document: DocumentSnapshot,
-    selectedCueId: string | null,
+    selectedCueId: S,
   ): Promise<number>;
   view(id: number, offset: number, limit: number): Promise<V>;
   cancel(id: number): Promise<void>;
@@ -14,7 +15,7 @@ interface Client<V> {
 
 // Dialog lifetime and bounded projections only. Rust owns the immutable proposal;
 // DocumentSession reconciles its accepted reply with ordinary document operations.
-export class TimingRepairSession<V extends Review> {
+export class TimingRepairSession<V extends Review, S = string | null> {
   view = $state.raw<V | null>(null);
   error = $state('');
   pending = $state(false);
@@ -26,16 +27,17 @@ export class TimingRepairSession<V extends Review> {
   private capture: {
     document: DocumentSnapshot;
     session: number;
-    selectedCueId: string | null;
+    selectedCueId: S;
   } | null = null;
   private polling = false;
   private offset = 0;
   constructor(
     private subtitles: DocumentSession,
     private mediaSession: () => number,
-    private api: Client<V>,
-    private scope: () => string | null,
+    private api: Client<V, S>,
+    private scope: () => S,
     private allowedCoverage: readonly string[],
+    private sameScope: (a: S, b: S) => boolean = Object.is,
   ) {}
   get running() {
     return (
@@ -55,7 +57,7 @@ export class TimingRepairSession<V extends Review> {
       this.capture.document === this.subtitles.snapshot &&
       !this.subtitles.dirty &&
       this.capture.session === this.mediaSession() &&
-      this.capture.selectedCueId === this.scope()
+      this.sameScope(this.capture.selectedCueId, this.scope())
     );
   }
   get canAccept() {
@@ -135,13 +137,20 @@ export class TimingRepairSession<V extends Review> {
     const view = await this.api.view(this.id, this.offset, 100);
     if (!this.active(epoch)) return;
     if (!this.current) {
+      const reason =
+        this.capture?.document !== this.subtitles.snapshot
+          ? 'Subtitles changed'
+          : this.subtitles.dirty
+            ? 'Cue draft changed'
+            : this.capture?.session !== this.mediaSession()
+              ? 'Media changed'
+              : 'Selection or scope changed';
       await this.api.cancel(this.id).catch(() => {});
       if (!this.active(epoch)) return;
       this.view = null;
       this.id = null;
       this.capture = null;
-      this.error =
-        'Workspace, selection, scope or cue draft changed; preview again.';
+      this.error = `${reason}; preview again.`;
       return;
     }
     this.view = view;

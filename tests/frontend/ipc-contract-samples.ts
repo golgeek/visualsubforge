@@ -15,6 +15,7 @@ import type {
   GapView,
   SceneRepairView,
   DurationRepairView,
+  BatchTimingView,
   StatisticsView,
   TextView,
 } from '../../src/lib/client';
@@ -1391,6 +1392,49 @@ export const sceneRepairView = {
   skipped: 1,
   total: 3,
 } satisfies SceneRepairView;
+export const batchTimingView = {
+  alignedMs: null,
+  changed: 3,
+  error: null,
+  id: 1,
+  key: {
+    epoch: 1,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+  offset: 0,
+  offsetMs: '123',
+  phase: 'reviewing',
+  rows: [
+    {
+      cueId: '1',
+      cueIndex: 0,
+      newEndMs: 3123,
+      newStartMs: 1123,
+      oldEndMs: 3000,
+      oldStartMs: 1000,
+    },
+    {
+      cueId: '2',
+      cueIndex: 1,
+      newEndMs: 6173,
+      newStartMs: 4173,
+      oldEndMs: 6050,
+      oldStartMs: 4050,
+    },
+    {
+      cueId: '3',
+      cueIndex: 2,
+      newEndMs: 10123,
+      newStartMs: 8123,
+      oldEndMs: 10000,
+      oldStartMs: 8000,
+    },
+  ],
+  session: 7,
+  total: 3,
+} satisfies BatchTimingView;
 export const durationRepairView = {
   afterFindings: 3,
   beforeFindings: 9,

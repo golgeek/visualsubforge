@@ -28,6 +28,7 @@ import { durationQuality } from './duration-quality.mjs';
 import { statisticsWorkflow } from './statistics.mjs';
 import { assDocuments } from './ass-documents.mjs';
 import { assPerformance } from './ass-performance.mjs';
+import { batchTiming } from './batch-timing.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -38,6 +39,7 @@ const { values } = parseArgs({
     duration: { type: 'boolean', default: false },
     statistics: { type: 'boolean', default: false },
     ass: { type: 'boolean', default: false },
+    batch: { type: 'boolean', default: false },
     'ass-performance': { type: 'boolean', default: false },
   },
 });
@@ -93,7 +95,7 @@ let exit;
 let launchCount = 0;
 const runDeadline =
   Date.now() +
-  (values.ass || values['ass-performance']
+  (values.ass || values.batch || values['ass-performance']
     ? 900_000
     : values.scenes || values.duration || values.statistics
       ? 480_000
@@ -549,8 +551,24 @@ try {
         return browser;
       },
     });
-  if (values['ass-performance'])
+  if (values.batch)
+    await batchTiming({
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['ass-performance'] || values.batch)
     await assPerformance({
+      batch: values.batch,
       status,
       root,
       evidence,

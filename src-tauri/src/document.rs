@@ -25,6 +25,8 @@ pub(crate) use gaps::ipc_sample as gap_ipc_sample;
 #[cfg(test)]
 pub(crate) use texts::ipc_sample as text_ipc_sample;
 #[cfg(test)]
+pub(crate) use timing_repairs::batch_ipc_sample;
+#[cfg(test)]
 pub(crate) use timing_repairs::duration_ipc_sample as duration_repair_ipc_sample;
 #[cfg(test)]
 pub(crate) use timing_repairs::ipc_sample as scene_repair_ipc_sample;

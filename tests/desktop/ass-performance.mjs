@@ -1,6 +1,7 @@
 // Task016's predeclared 1-second desktop gate on the exact pure-format fixtures.
 // These are real Svelte events and Rust IPC, without media/native decode loaded.
 import assert from 'node:assert/strict';
+import { batchPerformance } from './batch-performance.mjs';
 import { createHash } from 'node:crypto';
 import { copyFile, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -12,6 +13,7 @@ export async function assPerformance({
   root,
   binary,
   record,
+  batch = false,
 }) {
   const report = {
     schema: 1,
@@ -276,6 +278,13 @@ export async function assPerformance({
           elapsed < report.budgetMs,
           `${extension} ${label}: ${elapsed} ms exceeded ${report.budgetMs} ms`,
         );
+      if (batch)
+        result.batch = await batchPerformance({
+          browser,
+          status,
+          evidence,
+          extension,
+        });
       result.status = 'passed';
       await save();
       await record({

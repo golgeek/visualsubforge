@@ -288,3 +288,16 @@ checks actual accepted values, complete restoration, source bytes and bounded
 DOM/proposal pages; and records input/binary hashes in `ass-performance.json`.
 Both flags can be combined. These synthetic inputs and generated DOM events do
 not establish physical input latency, platform installations or GPU/audio acceptance.
+
+
+## Batch timing
+
+`--batch` runs the ordinary save/history/recovery regression, then real native
+paused-playhead/disjoint alignment with tagged SRT, exact output and failed-save
+protection. It also runs `--ass-performance` with the new batch gate: 10k Select
+All, paged review, whole-batch acceptance/Undo/Redo, cancellation, typing and stale
+acceptance rejection. Receipts retain the actual playhead (which can differ from
+the requested video seek), binary/input hashes and the unchanged one-second
+budget. See [batch policy and receipts](../../docs/batch-timing.md). The native
+feature is required for the small playhead workflow; screenshots of WebKit do
+not establish native video composition.

@@ -79,6 +79,31 @@ export const commands = {
       id,
       acknowledgeNoMedia,
     }),
+  batchTimingStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    request: visualsubforge_batch_timing_BatchRequest,
+  ) =>
+    __TAURI_INVOKE<number>('batch_timing_start', {
+      session,
+      generation,
+      revision,
+      request,
+    }),
+  batchTimingView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_batch_timing_BatchView>('batch_timing_view', {
+      id,
+      offset,
+      limit,
+    }),
+  batchTimingCancel: (id: number) =>
+    __TAURI_INVOKE<null>('batch_timing_cancel', { id }),
+  batchTimingAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'batch_timing_accept',
+      { id },
+    ),
   sceneRepairStart: (session: number, generation: number, revision: number) =>
     __TAURI_INVOKE<number>('scene_repair_start', {
       session,
@@ -718,6 +743,38 @@ export type visualsubforge_media_AudioTrack = {
   title: string;
   audioOrdinal: number;
 };
+
+export type visualsubforge_batch_timing_BatchRequest = {
+  scope: visualsubforge_batch_timing_Scope;
+  change: visualsubforge_batch_timing_Change;
+};
+
+export type visualsubforge_batch_timing_BatchRow = {
+  cueId: string;
+  cueIndex: number;
+  oldStartMs: number;
+  oldEndMs: number;
+  newStartMs: number;
+  newEndMs: number;
+};
+
+export type visualsubforge_batch_timing_BatchView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  error: string | null;
+  total: number;
+  changed: number;
+  offset: number;
+  offsetMs: string | null;
+  alignedMs: number | null;
+  rows: visualsubforge_batch_timing_BatchRow[];
+};
+
+export type visualsubforge_batch_timing_Change =
+  | { kind: 'shift'; earlier: boolean; amountMs: number }
+  | { kind: 'align'; playheadMs: number };
 
 export type visualsubforge_quality_profile_Context =
   | visualsubforge_quality_profile_Context_Serialize
@@ -1424,6 +1481,12 @@ export type visualsubforge_scenes_SceneView_Serialize = {
   partial: boolean;
   note: string | null;
 };
+
+export type visualsubforge_batch_timing_Scope =
+  | { kind: 'selected'; cueIds: number[] }
+  | { kind: 'all' }
+  | { kind: 'following'; cueId: number }
+  | { kind: 'atOrAfter'; positionMs: number };
 
 export type visualsubforge_resync_view_SectionRow = {
   sourceStartUs: number;

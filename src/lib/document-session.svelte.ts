@@ -5,6 +5,7 @@ import {
   gapAccept,
   sceneRepairAccept,
   durationRepairAccept,
+  batchTimingAccept,
   textAccept,
   type TextTarget,
   emptyDocument,
@@ -17,6 +18,13 @@ import {
   type CueOperationPlan,
 } from './cue-operations';
 import { formatTime, parseTime } from './timeline';
+import {
+  selectCues,
+  selectAllCues,
+  reconcileSelection,
+  type CueSelection,
+  type SelectionMode,
+} from './cue-selection';
 
 const client = {
   chooseFile,
@@ -25,16 +33,23 @@ const client = {
   gapAccept,
   sceneRepairAccept,
   durationRepairAccept,
+  batchTimingAccept,
   textAccept,
 };
 type Client = Omit<
   typeof client,
-  'textAccept' | 'sceneRepairAccept' | 'durationRepairAccept'
+  | 'textAccept'
+  | 'sceneRepairAccept'
+  | 'durationRepairAccept'
+  | 'batchTimingAccept'
 > &
   Partial<
     Pick<
       typeof client,
-      'textAccept' | 'sceneRepairAccept' | 'durationRepairAccept'
+      | 'textAccept'
+      | 'sceneRepairAccept'
+      | 'durationRepairAccept'
+      | 'batchTimingAccept'
     >
   >;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
@@ -49,6 +64,7 @@ type CommandOptions = {
 export class DocumentSession {
   private accepted = $state.raw<DocumentSnapshot>({ ...emptyDocument });
   private selection = $state<number | null>(null);
+  private multi = $state.raw<CueSelection>(selectAllCues([], null));
   private alive = true;
   private pending = false;
   private client: Client;
@@ -66,6 +82,9 @@ export class DocumentSession {
   get selected() {
     return this.selection;
   }
+  get selectedIds() {
+    return this.multi.ids;
+  }
   get cue() {
     return this.accepted.cues.find((cue) => cue.id === this.selection);
   }
@@ -79,11 +98,16 @@ export class DocumentSession {
         this.style !== (cue.style ?? ''))
     );
   }
-  select(id: number | null) {
+  select(id: number | null, mode: SelectionMode = 'replace') {
     if (!this.alive) return;
-    this.selection = this.accepted.cues.some((cue) => cue.id === id)
-      ? id
-      : null;
+    this.multi = selectCues(this.accepted.cues, this.multi, id, mode);
+    this.selection = this.multi.primary;
+    this.revert();
+  }
+  selectAll() {
+    if (!this.alive) return;
+    this.selection = this.selection ?? this.accepted.cues[0]?.id ?? null;
+    this.multi = selectAllCues(this.accepted.cues, this.selection);
     this.revert();
   }
   revert() {
@@ -155,6 +179,15 @@ export class DocumentSession {
       (this.client.durationRepairAccept ?? durationRepairAccept)(id),
     );
   }
+  acceptBatchTiming(id: number, expected: DocumentSnapshot): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() =>
+      (this.client.batchTimingAccept ?? batchTimingAccept)(id),
+    );
+  }
   private async update(
     request: (before: DocumentSnapshot) => Promise<DocumentSnapshot>,
     options: CommandOptions = {},
@@ -176,8 +209,14 @@ export class DocumentSession {
         next.generation !== before.generation
           ? (next.cues[0]?.id ?? null)
           : preferred === undefined
-            ? reconcileCueSelection(before.cues, next.cues, this.selection)
+            ? this.selection === null
+              ? null
+              : reconcileCueSelection(before.cues, next.cues, this.selection)
             : preferred;
+      this.multi =
+        next.generation !== before.generation
+          ? selectCues(next.cues, this.multi, this.selection, 'replace')
+          : reconcileSelection(next.cues, this.multi, this.selection);
       this.accepted = next;
       this.revert();
       return true;

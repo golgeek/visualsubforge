@@ -26,6 +26,10 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             gap_review::gap_view,
             gap_review::gap_cancel,
             gap_review::gap_accept,
+            crate::batch_timing::batch_timing_start,
+            crate::batch_timing::batch_timing_view,
+            crate::batch_timing::batch_timing_cancel,
+            crate::batch_timing::batch_timing_accept,
             timing_review::scene_repair_start,
             timing_review::scene_repair_view,
             timing_review::scene_repair_cancel,
@@ -92,7 +96,7 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, StatisticsView, TextView }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
@@ -109,6 +113,11 @@ fn export_bindings() {
             "sceneRepairView",
             "SceneRepairView",
             document::scene_repair_ipc_sample(),
+        ),
+        (
+            "batchTimingView",
+            "BatchTimingView",
+            document::batch_ipc_sample(),
         ),
         (
             "durationRepairView",

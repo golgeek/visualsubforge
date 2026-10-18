@@ -18,8 +18,22 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 [feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
-batch timing is in progress, and later stages are pending. Completed milestones below remain the
+batch timing is complete, and ASS/SSA resync is in progress. Later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**Selection and batch timing complete (2026-10-17):** mouse/keyboard ranges and
+disjoint selection retain surviving cue IDs through edits/history. Explicit
+selected/all/following-row/from-playhead shifts and selection alignment show exact
+before/after timings. Rust rejects invalid batches atomically and accepts each as
+one Undo step, retaining text/tags/styles/metadata/attachments and format precision.
+The existing bounded timing worker handles cancellation and stale contexts.
+
+308 ordinary Rust tests, 44 frontend tests, all 50 browser cases and strict
+static/build/IPC checks pass. Actual Mac disjoint alignment, save/error/history and
+10k ASS/SSA workflows pass: preview <=317ms, accept <=161ms, Undo <=106ms; release
+p95 <=46.586ms and additional sampled RSS 54,018,048 bytes meet unchanged budgets.
+See [batch timing and exact evidence](batch-timing.md). Windows/Linux execution,
+physical input/presentation and distribution acceptance remain separate gates.
 
 **Font milestone complete (2026-10-17):** the current Mac runtime's generic CJK
 fallback now uses an installed last-resort font without rewriting original font

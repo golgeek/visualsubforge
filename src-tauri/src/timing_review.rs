@@ -16,6 +16,7 @@ use vsf_application::quality::{
 pub(crate) enum Purpose {
     Scene,
     Duration,
+    Batch,
 }
 
 pub(crate) use crate::gap_review::Phase;
@@ -104,7 +105,7 @@ pub(crate) async fn scene_repair_start(
     .await
     .map_err(|e| e.to_string())?
 }
-fn with_current<T>(
+pub(crate) fn with_current<T>(
     app: &tauri::AppHandle,
     id: u64,
     purpose: Purpose,

@@ -49,6 +49,7 @@ for (const name of [
   'statistics',
   'text-editing',
   'ass-documents',
+  'batch-timing',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

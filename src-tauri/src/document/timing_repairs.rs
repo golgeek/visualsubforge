@@ -1,6 +1,7 @@
 //! One explicit proposal worker and no pending queue. Immutable capture and
 //! publication share the document lock; evaluation and shutdown join do not.
 use super::*;
+use crate::batch_timing::{BatchRow, BatchView};
 use crate::{
     quality_check::Key,
     scenes::{SceneCapture, SceneKey},
@@ -11,30 +12,35 @@ use std::{
     thread::JoinHandle,
     time::{Duration, Instant},
 };
+use vsf_application::batch_timing as batch;
 use vsf_application::quality::{self as engine, Profile, duration::Scope};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Operation {
     Scene,
     Duration(Scope),
+    Batch(batch::Request),
 }
 impl Operation {
-    fn purpose(self) -> Purpose {
+    fn purpose(&self) -> Purpose {
         match self {
             Self::Scene => Purpose::Scene,
             Self::Duration(_) => Purpose::Duration,
+            Self::Batch(_) => Purpose::Batch,
         }
     }
 }
 enum Proposal {
     Scene(engine::scene::Proposal),
     Duration(engine::duration::Proposal),
+    Batch(batch::Proposal),
 }
 impl Proposal {
     fn edit(&self, document: &subtitle_core::Document) -> engine::Result<Edit> {
         match self {
             Self::Scene(p) => p.edit(document),
             Self::Duration(p) => p.edit(document),
+            Self::Batch(p) => p.edit(document),
         }
     }
 }
@@ -166,6 +172,15 @@ impl Documents {
     ) -> Result<u64> {
         self.timing_repair_start(generation, revision, scenes, Operation::Duration(scope))
     }
+    pub(crate) fn batch_timing_start(
+        &self,
+        generation: u64,
+        revision: u64,
+        scenes: SceneCapture,
+        request: batch::Request,
+    ) -> Result<u64> {
+        self.timing_repair_start(generation, revision, scenes, Operation::Batch(request))
+    }
     fn timing_repair_start(
         &self,
         generation: u64,
@@ -187,7 +202,7 @@ impl Documents {
         let captured = profile.clone();
         store
             .timing_repairs
-            .launch(key, scenes.key, operation, profile, move |cancel| {
+            .launch(key, scenes.key, operation.clone(), profile, move |cancel| {
                 let start = Instant::now();
                 let checkpoint = || {
                     if cancel.load(Ordering::Relaxed) {
@@ -201,6 +216,9 @@ impl Documents {
                     Ok(())
                 };
                 match operation {
+                    Operation::Batch(request) => {
+                        batch::propose(document, format, request, checkpoint).map(Proposal::Batch)
+                    }
                     Operation::Scene => engine::scene::propose_for_format(
                         document,
                         format,
@@ -279,6 +297,61 @@ impl Documents {
             .ok_or("Timing proposal was replaced")?;
         job.refresh();
         project_duration(job, closed, offset, limit)
+    }
+    pub(crate) fn batch_timing_view(&self, id: u64, offset: u32, limit: u32) -> Result<BatchView> {
+        if limit > 200 {
+            return Err("Batch pages are limited to 200 rows".into());
+        }
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        let key = store.quality_key()?;
+        store.timing_repairs.invalidate(key);
+        let closed = store.timing_repairs.closed;
+        let job = store
+            .timing_repairs
+            .job
+            .as_mut()
+            .filter(|j| j.id == id && j.operation.purpose() == Purpose::Batch)
+            .ok_or("Timing proposal was replaced or has a different kind")?;
+        job.refresh();
+        let mut view = BatchView {
+            id: job.id.try_into()?,
+            key: job.key,
+            session: job.scenes.session.try_into()?,
+            phase: phase(job, closed),
+            error: job.error.clone(),
+            total: 0,
+            changed: 0,
+            offset,
+            offset_ms: None,
+            aligned_ms: None,
+            rows: vec![],
+        };
+        if let Some(Proposal::Batch(p)) = &job.proposal {
+            view.total = p.rows.len() as u32;
+            view.changed = view.total;
+            view.offset_ms = Some(p.offset_ms.to_string());
+            view.aligned_ms = p.aligned_ms.map(|t| t.get().try_into()).transpose()?;
+            view.offset = offset.min(view.total.saturating_sub(1) / limit.max(1) * limit.max(1));
+            for row in p
+                .rows
+                .iter()
+                .skip(view.offset as usize)
+                .take(limit as usize)
+            {
+                view.rows.push(BatchRow {
+                    cue_id: row.before.id.0.to_string(),
+                    cue_index: row.cue_index as u32,
+                    old_start_ms: row.before.start.get().try_into()?,
+                    old_end_ms: row.before.end.get().try_into()?,
+                    new_start_ms: row.after.start.get().try_into()?,
+                    new_end_ms: row.after.end.get().try_into()?,
+                });
+            }
+        }
+        Ok(view)
+    }
+    pub(crate) fn batch_timing_accept(&self, id: u64) -> Result<Snapshot> {
+        self.timing_repair_accept(id, Purpose::Batch)
     }
     pub(crate) fn scene_repair_cancel(&self, id: u64) -> Result<()> {
         self.timing_repair_cancel(id, Purpose::Scene)
@@ -437,7 +510,7 @@ fn project_duration(
     }
     let phase = phase(job, closed);
     let mut view = DurationRepairView {
-        selected_cue_id: match job.operation {
+        selected_cue_id: match &job.operation {
             Operation::Duration(Scope::Cue(id)) => Some(id.0.to_string()),
             _ => None,
         },
@@ -501,4 +574,14 @@ pub(crate) fn duration_ipc_sample() -> serde_json::Value {
     let (_directory, docs, scenes) = duration_tests::fixture();
     let id = duration_tests::start(&docs, &scenes, Scope::Document);
     serde_json::to_value(duration_tests::ready(&docs, id)).unwrap()
+}
+
+#[cfg(test)]
+mod batch_tests;
+
+#[cfg(test)]
+pub(crate) fn batch_ipc_sample() -> serde_json::Value {
+    let (_dir, docs, scenes) = tests::fixture();
+    let id = batch_tests::start(&docs, &scenes, 123);
+    serde_json::to_value(batch_tests::ready(&docs, id)).unwrap()
 }

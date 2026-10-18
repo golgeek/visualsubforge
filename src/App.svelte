@@ -8,6 +8,8 @@
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
   import DurationRepairDialog from './lib/DurationRepairDialog.svelte';
+  import BatchTimingDialog from './lib/BatchTimingDialog.svelte';
+  import type { SelectionMode } from './lib/cue-selection';
   import TextDialog from './lib/TextDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { rate } from './lib/quality-display';
@@ -408,7 +410,7 @@
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
   let timingOpen = $state(false);
-  let timingReview = $state<'gap' | 'scene' | 'duration'>('gap');
+  let timingReview = $state<'gap' | 'scene' | 'duration' | 'batch'>('gap');
   const TimingDialog = $derived(
     timingReview === 'duration'
       ? DurationRepairDialog
@@ -567,7 +569,9 @@
       requestProblem(id);
     }
   }
-  async function openTimingReview(kind: 'gap' | 'scene' | 'duration') {
+  async function openTimingReview(
+    kind: 'gap' | 'scene' | 'duration' | 'batch',
+  ) {
     if (
       busy ||
       confirming ||
@@ -579,6 +583,7 @@
       return;
     busy = true;
     error = '';
+    suspendCueFollowing();
     timingReturn =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -717,7 +722,7 @@
   async function closeTimingReview(accepted = false) {
     timingOpen = false;
     if (accepted) {
-      notice = `${timingReview === 'duration' ? 'Duration and speed' : timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
+      notice = `${timingReview === 'batch' ? 'Batch' : timingReview === 'duration' ? 'Duration and speed' : timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
       quality.restart();
     }
     try {
@@ -1119,7 +1124,7 @@
     cancelHeldTiming();
     return media.command(action);
   }
-  async function selectCue(id: number) {
+  async function selectCue(id: number, mode: SelectionMode = 'replace') {
     // Rows use aria-disabled so transport commands do not drop keyboard focus.
     // Enforce the pending-operation guard here for both pointer and keyboard use.
     if (busy || cueMenu || !doc.cues.some((c) => c.id === id)) return;
@@ -1129,13 +1134,65 @@
     error = '';
     try {
       await applyDraft();
-      subtitles.select(id);
+      subtitles.select(id, mode);
       const selectedCue = subtitles.cue;
       if (selectedCue)
         selectRange([selectedCue.startMs / 1000, selectedCue.endMs / 1000]);
       await revealSelection();
       if (cue && status.loaded)
         await act({ kind: 'seek', seconds: cue.startMs / 1000 });
+    } catch (e) {
+      error = String(e);
+    } finally {
+      busy = false;
+    }
+  }
+  function cueSelectionKey(e: KeyboardEvent, id: number) {
+    if (e.isComposing || e.altKey || e.defaultPrevented) return;
+    const modifier = e.ctrlKey || e.metaKey;
+    const index = doc.cues.findIndex((c) => c.id === id);
+    const targetIndex =
+      e.key === 'ArrowUp'
+        ? index - 1
+        : e.key === 'ArrowDown'
+          ? index + 1
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? doc.cues.length - 1
+              : null;
+    if (modifier && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      void selectAllCues();
+    } else if (modifier && e.code === 'Space') {
+      e.preventDefault();
+      void selectCue(id, 'toggle');
+    } else if (targetIndex !== null) {
+      e.preventDefault();
+      const next = doc.cues[clamp(targetIndex, 0, doc.cues.length - 1)];
+      if (next && !busy && !confirming)
+        void moveCueFocus(next.id, modifier, e.shiftKey);
+    }
+  }
+  async function moveCueFocus(id: number, modifier: boolean, extend: boolean) {
+    if (!modifier || extend)
+      await selectCue(
+        id,
+        extend ? (modifier ? 'addRange' : 'range') : 'replace',
+      );
+    await revealSelection(id);
+    await tick();
+    if (alive)
+      list.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)?.focus();
+  }
+  async function selectAllCues() {
+    if (busy || confirming || cueMenu) return;
+    busy = true;
+    error = '';
+    suspendCueFollowing();
+    try {
+      await applyDraft();
+      subtitles.selectAll();
     } catch (e) {
       error = String(e);
     } finally {
@@ -1364,10 +1421,10 @@
       busy = false;
     }
   }
-  async function revealSelection() {
+  async function revealSelection(id: number | null = selected) {
     await tick();
     if (!alive || !list) return;
-    const index = doc.cues.findIndex((c) => c.id === selected);
+    const index = doc.cues.findIndex((c) => c.id === id);
     if (index >= 0)
       list.scrollTop = revealCueRow(index, list.scrollTop, list.clientHeight);
   }
@@ -2089,6 +2146,11 @@
           onclick={() => void openTimingReview('duration')}
           >Repair duration / speed…</button
         >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('batch')}
+          >Shift / align cues…</button
+        >
 
         <button
           disabled={busy || confirming || !doc.loaded}
@@ -2157,7 +2219,8 @@
         <div class="cue-table">
           <div class="table-head" class:with-metrics={showQualityMetrics}>
             <span>#</span><span>Start</span><span>End</span><span
-              >Subtitle text · {doc.cues.length} cues</span
+              >Subtitle text · {doc.cues.length} cues · {subtitles.selectedIds
+                .size} selected</span
             >
             {#if showQualityMetrics}<span>CPS · RS</span>{/if}
           </div>
@@ -2179,19 +2242,31 @@
                   {#each visibleCues as item, i (item.id)}<button
                       class="cue-row"
                       class:with-metrics={showQualityMetrics}
-                      class:selected={item.id === selected}
+                      class:selected={subtitles.selectedIds.has(item.id)}
                       class:active={activeIds.includes(item.id)}
                       aria-current={activeIds.includes(item.id)
                         ? 'time'
                         : undefined}
                       onfocus={suspendCueFollowing}
-                      aria-pressed={item.id === selected}
+                      aria-pressed={subtitles.selectedIds.has(item.id)}
+                      data-cue-id={item.id}
                       aria-disabled={busy}
                       oncontextmenu={(e) => {
                         e.preventDefault();
                         void openCueMenu(e.clientX, e.clientY, item.id, false);
                       }}
-                      onclick={() => void selectCue(item.id)}
+                      onclick={(e) =>
+                        void selectCue(
+                          item.id,
+                          e.shiftKey
+                            ? e.ctrlKey || e.metaKey
+                              ? 'addRange'
+                              : 'range'
+                            : e.ctrlKey || e.metaKey
+                              ? 'toggle'
+                              : 'replace',
+                        )}
+                      onkeydown={(e) => cueSelectionKey(e, item.id)}
                       ondblclick={() => void focusText()}
                       ><span>{firstRow + i + 1}</span><span
                         >{formatTime(item.startMs)}</span
@@ -2449,8 +2524,10 @@
     <p>
       ⌘/Ctrl+Alt+Enter: play/pause while typing (Alt+Space also works when the
       OS allows it) · Alt+←/→: seek 1 s (Shift: 5 s) · Alt+↑/↓: edit
-      previous/next cue · Enter: edit selected cue · Escape: return to waveform
-      / cancel held timing. In Timing mode, tap Space to play/pause; hold it for
+      previous/next cue · In cue rows: Shift+click/arrows selects a range;
+      Ctrl/Cmd+click or Space toggles, Ctrl/Cmd+arrows moves focus, Ctrl/Cmd+A
+      selects all · Enter: edit selected cue · Escape: return to waveform /
+      cancel held timing. In Timing mode, tap Space to play/pause; hold it for
       at least 400 ms during playback to create a cue and keep timing. Press
       Enter to edit its text.
     </p>
@@ -2556,12 +2633,21 @@
     />
   {/if}
   {#if timingOpen}
-    <TimingDialog
-      {subtitles}
-      mediaSession={() => status.session}
-      onclose={() => void closeTimingReview()}
-      onaccepted={() => void closeTimingReview(true)}
-    />
+    {#if timingReview === 'batch'}
+      <BatchTimingDialog
+        {subtitles}
+        media={() => status}
+        onclose={() => void closeTimingReview()}
+        onaccepted={() => void closeTimingReview(true)}
+      />
+    {:else}
+      <TimingDialog
+        {subtitles}
+        mediaSession={() => status.session}
+        onclose={() => void closeTimingReview()}
+        onaccepted={() => void closeTimingReview(true)}
+      />
+    {/if}
   {/if}
   {#if textOpen}
     <TextDialog

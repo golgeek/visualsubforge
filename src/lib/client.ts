@@ -444,3 +444,31 @@ export async function exportQualityProfile(
 ): Promise<void> {
   await commands.qualityProfileSave(path, profile);
 }
+
+export type BatchTimingView = Awaited<
+  ReturnType<typeof commands.batchTimingView>
+>;
+export type BatchTimingRequest = Parameters<
+  typeof commands.batchTimingStart
+>[3];
+export function batchTimingStart(
+  session: number,
+  document: DocumentSnapshot,
+  request: BatchTimingRequest,
+) {
+  return commands.batchTimingStart(
+    session,
+    document.generation,
+    document.revision,
+    request,
+  );
+}
+export function batchTimingView(id: number, offset = 0, limit = 100) {
+  return commands.batchTimingView(id, offset, limit);
+}
+export async function batchTimingCancel(id: number): Promise<void> {
+  await commands.batchTimingCancel(id);
+}
+export function batchTimingAccept(id: number): Promise<DocumentSnapshot> {
+  return commands.batchTimingAccept(id);
+}
