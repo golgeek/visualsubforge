@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
+import { observePluginChildren } from './plugin-processes.mjs';
 const run = promisify(execFile);
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -20,6 +21,8 @@ export async function pluginWorkflow({
   record,
   binary,
   getPid,
+  samePath,
+  withNativePreview = true,
 }) {
   const runner = join(
     dirname(binary),
@@ -27,6 +30,7 @@ export async function pluginWorkflow({
   );
   const report = {
     status: 'running',
+    withNativePreview,
     binary,
     binarySha256: hash(await readFile(binary)),
     runner,
@@ -39,30 +43,34 @@ export async function pluginWorkflow({
   };
   const save = () =>
     writeFile(
-      join(evidence, 'plugins.json'),
+      join(
+        evidence,
+        withNativePreview ? 'plugins.json' : 'plugins-editor.json',
+      ),
       JSON.stringify(report, null, 2) + '\n',
     );
   const video = join(root, 'plugin-video.mkv');
-  await run(
-    process.env.VSF_FFMPEG ?? 'ffmpeg',
-    [
-      '-v',
-      'error',
-      '-nostdin',
-      '-f',
-      'lavfi',
-      '-i',
-      'color=c=black:s=640x360:r=24:d=10',
-      '-c:v',
-      'libx264',
-      '-preset',
-      'ultrafast',
-      '-threads',
-      '1',
-      video,
-    ],
-    { timeout: 30000 },
-  );
+  if (withNativePreview)
+    await run(
+      process.env.VSF_FFMPEG ?? 'ffmpeg',
+      [
+        '-v',
+        'error',
+        '-nostdin',
+        '-f',
+        'lavfi',
+        '-i',
+        'color=c=black:s=640x360:r=24:d=10',
+        '-c:v',
+        'libx264',
+        '-preset',
+        'ultrafast',
+        '-threads',
+        '1',
+        video,
+      ],
+      { timeout: 30000 },
+    );
   let browser;
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -194,17 +202,6 @@ export async function pluginWorkflow({
       );
     }
   };
-  const helperPids = async () => {
-    const { stdout } = await run('ps', ['-axo', 'pid=,ppid=,command=']);
-    return stdout.split('\n').flatMap((line) => {
-      const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
-      return m &&
-        Number(m[2]) === getPid() &&
-        m[3].includes('--vsf-plugin-worker')
-        ? [Number(m[1])]
-        : [];
-    });
-  };
   try {
     for (const api of ['vsf-1', 'vss-1'])
       for (const format of ['srt', 'ass', 'ssa', 'vtt']) {
@@ -243,7 +240,7 @@ export async function pluginWorkflow({
         await writeFile(manifest, JSON.stringify(definition));
         await writeFile(script, code);
         browser = await restart([
-          { kind: 'media', path: video },
+          ...(withNativePreview ? [{ kind: 'media', path: video }] : []),
           { kind: 'subtitles', path: source },
           { kind: 'plugin', path: null },
           { kind: 'plugin', path: manifest },
@@ -256,17 +253,24 @@ export async function pluginWorkflow({
           { kind: 'subtitles', path: output },
           { kind: 'plugin', path: manifest },
         ]);
-        await menu('openMedia');
-        await until('native plugin media', async () => (await media()).loaded);
-        await until('completed scene context and paused cursor', async () => {
-          const m = await media();
-          return (
-            m.paused &&
-            !m.seeking &&
-            m.positionSeconds !== null &&
-            (await footer()).includes('0 visual cuts')
+        if (withNativePreview) {
+          await menu('openMedia');
+          await until(
+            'native plugin media',
+            async () => (await media()).loaded,
           );
-        });
+          await until('completed scene context and paused cursor', async () => {
+            const m = await media();
+            return (
+              m.paused &&
+              !m.seeking &&
+              m.positionSeconds !== null &&
+              (await footer()).includes('0 visual cuts')
+            );
+          });
+        } else {
+          assert.equal((await media()).loaded, false);
+        }
         await ready();
         await menu('openSubtitles');
         const initial = await documentIs(
@@ -300,25 +304,30 @@ export async function pluginWorkflow({
             script,
             'globalThis.VSFPlugin={check(){while(true){}},fix(){}};',
           );
-          await click('Run checker');
-          const pids = await until('live plugin helper', async () => {
-            const p = await helperPids();
-            return p.length && p;
-          });
-          assert.equal(pids.length, 1);
-          await click('Cancel plugin');
-          await until('cancelled plugin', async () =>
-            (await dialogText()).includes('Plugin: cancelled'),
-          );
-          await until(
-            'plugin helper reaped',
-            async () => (await helperPids()).length === 0,
-          );
+          const observer = await observePluginChildren(getPid());
+          try {
+            await click('Run checker');
+            const pids = await until('live plugin helper', async () => {
+              const p = await observer.sample();
+              return p.length && p;
+            });
+            assert.equal(pids.length, 1);
+            await click('Cancel plugin');
+            await until('cancelled plugin', async () =>
+              (await dialogText()).includes('Plugin: cancelled'),
+            );
+            await until(
+              'plugin helper reaped',
+              async () => (await observer.sample()).length === 0,
+            );
+            report.controls.push({
+              name: 'live-loop UI cancellation and reaping',
+              pids,
+            });
+          } finally {
+            await observer.close();
+          }
           assert.deepEqual(await status(), initial);
-          report.controls.push({
-            name: 'live-loop UI cancellation and reaping',
-            pids,
-          });
           await writeFile(
             script,
             "globalThis.VSFPlugin={check(){return 'control';},fix(){throw new Error('native rollback control');}};",
@@ -364,7 +373,7 @@ export async function pluginWorkflow({
           accepted.cues.map((c) => ({ ...c, text: c.text.slice(0, -1) })),
           initial.cues,
         );
-        const native = await nativePreview();
+        const native = withNativePreview ? await nativePreview() : null;
         await capture(`plugin-${label}-accepted`);
         await click('Undo edit');
         await documentIs(
@@ -404,7 +413,7 @@ export async function pluginWorkflow({
         await menu('saveAs');
         await documentIs(
           'plugin output saved',
-          (d) => d.path === output && !d.dirty,
+          (d) => samePath(d.path, output) && !d.dirty,
         );
         await ready();
         assert.equal(await readFile(output, 'utf8'), expected);
@@ -412,7 +421,8 @@ export async function pluginWorkflow({
         await menu('openSubtitles');
         await documentIs(
           'plugin output reopened',
-          (d) => d.path === output && d.generation !== initial.generation,
+          (d) =>
+            samePath(d.path, output) && d.generation !== initial.generation,
         );
         await ready();
         assert.deepEqual((await status()).cues, accepted.cues);
@@ -450,7 +460,7 @@ export async function pluginWorkflow({
                 ),
               );
               if (
-                stored.source_path === output &&
+                samePath(stored.source_path, output) &&
                 stored.generation === checkpoint.generation &&
                 stored.revision === checkpoint.revision &&
                 stored.accepted_srt === expected
@@ -476,7 +486,7 @@ export async function pluginWorkflow({
             if (!b) return false;
             b.click();
             return true;
-          }, output),
+          }, checkpoint.path),
         );
         const restored = await documentIs(
           'plugin document recovered',
@@ -489,7 +499,7 @@ export async function pluginWorkflow({
         await menu('saveAs');
         await documentIs(
           'recovered plugin saved',
-          (d) => d.path === recovered && !d.dirty,
+          (d) => samePath(d.path, recovered) && !d.dirty,
         );
         await ready();
         assert.equal(await readFile(recovered, 'utf8'), expected);
@@ -504,17 +514,19 @@ export async function pluginWorkflow({
           oneUndoRedo: true,
           failedSavePreserved: true,
           recovery: true,
-          native: {
-            videoOutputConfigured: native.videoOutputConfigured,
-            hardwareDecoder: native.hardwareDecoder,
-            renderedFrames: native.renderedFrames,
-            generation: native.previewDocumentGeneration,
-            revision: native.previewDocumentRevision,
-          },
+          native: native
+            ? {
+                videoOutputConfigured: native.videoOutputConfigured,
+                hardwareDecoder: native.hardwareDecoder,
+                renderedFrames: native.renderedFrames,
+                generation: native.previewDocumentGeneration,
+                revision: native.previewDocumentRevision,
+              }
+            : null,
         });
         await save();
         await record({
-          step: `plugin ${label}: native check/fix/history/save/reopen/recovery`,
+          step: `plugin ${label}: ${withNativePreview ? 'native preview and ' : 'subtitle-only '}check/fix/history/save/reopen/recovery`,
           bytes: Buffer.byteLength(expected),
         });
       }

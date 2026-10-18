@@ -148,8 +148,11 @@ DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/bui
 The normal picker build uses only `--features media-prototype` with its separate
 identifier/configuration; it has no test server or supplied chooser queue. The
 native lane's optional capture handshake is documented in the [runner guide](../tests/desktop/README.md#subtitle-plugins).
-The helper process observation currently uses Unix `ps`; Windows needs a separate
-process observation implementation before claiming this complete lane there.
+Helper process observation uses Unix `ps` or a prestarted Windows CIM observer.
+The observer never terminates plugin helpers; UI cancellation must make the
+production owner stop and reap the helper. A separate real-helper observation
+test passes on Mac, Ubuntu ARM64 and Windows ARM64. Windows/Linux full plugin UI
+acceptance remains pending as recorded below.
 
 Earlier failures are retained: `desktop-bm9Oob` started a review while automatic
 scene analysis was still changing context, so stale protection invalidated it.
@@ -160,6 +163,52 @@ product guard, execution deadline or fixture content was relaxed. Native workflo
 evidence alone does not establish desktop scale or historical/platform acceptance;
 see the scale results below. Physical Windows/Linux GPU/audio and release readiness
 remain separate gates.
+
+## Subtitle-only VM workflow checkpoint — 2026-10-18
+
+The explicit `--plugins-editor` mode runs the same eight modern/VSS ×
+SRT/ASS/SSA/WebVTT workflows without media. It retains all review, source, history,
+failed-save, exact-output, reopen, recovery and live-helper cancellation checks.
+Windows paths are compared using the existing full canonical-path normalizer;
+recovery selection uses the backend's authoritative source path.
+
+The source archive combines base `615030d` with the four harness files listed in
+`test-results/plugin-platform-20261018/desktop-source-manifest.json` (790 verified
+files). Archive SHA256:
+`c0c7cb21519572e822f1d799102ddd9631f174b8d57213023bdced46e0018174`.
+Both guests pass `npm run build:desktop-test` and the one real-helper observer
+test. Their next commands fail before entering the plugin cases:
+
+```sh
+# Windows ARM64
+node tests/desktop/run.mjs --plugins-editor
+# Ubuntu ARM64, GDK_BACKEND=x11
+xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- \
+  node tests/desktop/run.mjs --plugins-editor
+```
+
+| Instrumented desktop | SHA256 |
+| --- | --- |
+| Ubuntu ARM64 | `781ed8733be7b348f6bb72851025301ee9d1018ed3977e49b6f5e54e22628284` |
+| Windows ARM64 | `31c54250fd41d830f00a6b0b0a538b38ee9e9281087b440c15a8441f8dd6a5ab` |
+
+Sibling CLI hashes are unchanged from the [automated VM record](plugin-host.md#vm-automated-validation--2026-10-18).
+
+Both fail the existing `Problems squeezed out the cue list` assertion in
+`qualityChecking`: the visible list must retain at least two 32px rows. Retained
+screenshots show the crowded default-size workspace; the table allocation still
+uses a fixed minimum despite wrapped platform-dependent control heights. The
+next correction must preserve the layout requirement, then rerun both complete
+lanes. No plugin UI, GPU/audio or installation pass is claimed for these runs.
+Logs, manifests, receipts and screenshots are retained under
+`plugin-platform-20261018/{linux,windows}-desktop-*`; Windows evidence was copied
+back from the owned Downloads staging folder.
+
+The original Mac native `--plugins` regression passes all eight cases, cancellation,
+exception rollback, package revalidation and normal code0 shutdown in
+`test-results/desktop-6YUUrg/`. It uses the unchanged native executable/CLI hashes
+listed above and the same private runtime. Local JavaScript syntax, ESLint and
+Prettier checks pass. Historical VSS-host comparison and stage8 remain open.
 
 ## Complete desktop10k workflows — 2026-10-18
 

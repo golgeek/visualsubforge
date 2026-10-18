@@ -86,6 +86,14 @@ elevation. New plugin desktop UI workflows and historical-host comparison remain
 open; these checks do not establish physical-device or installation acceptance.
 See [commands, identities and retained failures](plugin-host.md#vm-automated-validation--2026-10-18).
 
+**Plugin desktop VM checkpoint (2026-10-18):** both instrumented guest builds and
+the real-helper process-observer test pass. Both complete desktop attempts stop
+at the prerequisite cue-list layout assertion before reaching plugin cases.
+The Mac native regression passes all eight cases and normal shutdown. Next:
+account for wrapped toolbar heights, rerun both VM workflows and complete the
+historical-host comparison. Exact commands, retained screenshots and scope are
+in the [desktop checkpoint](plugin-desktop.md#subtitle-only-vm-workflow-checkpoint--2026-10-18).
+
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all

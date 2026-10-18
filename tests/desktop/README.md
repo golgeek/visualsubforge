@@ -487,7 +487,20 @@ one-transaction Undo/Redo, cancelled/failed/exact saves, reopen and durable reco
 after owned-process termination. Controls observe a live looping helper, cancel
 and verify reaping, reject package changes after review and preserve accepted
 state after script exceptions. Each format also reaches an acknowledged native
-preview frame. FFmpeg generates a short video; process inspection uses Unix `ps`.
+preview frame. FFmpeg generates a short video. Process inspection uses Unix `ps`
+or a prestarted Windows CIM observer; each post-cancel sample is fresh. The
+observer never signals plugin helpers: the production job owner must reap them.
+
+`--plugins-editor` runs the same eight format/API cases without loading media or
+requiring FFmpeg/native playback. Use the ordinary `npm run build:desktop-test`
+build with its sibling CLI. This mode writes `plugins-editor.json` with explicit
+`withNativePreview: false` and no native-preview claims. Choose one plugin mode
+per run. The ordinary quality/history/save/recovery prerequisite workflow still
+runs, including its cue-list and text-editor layout assertions.
+
+`node --test tests/desktop/plugin-processes.test.mjs` validates process observation
+using an actual sibling CLI helper waiting for stdin, followed by a fresh empty
+snapshot after EOF. It does not substitute for live-loop UI cancellation.
 
 See the [native build commands and evidence](../../docs/plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
 `plugins.json` records app/CLI/input/output hashes, exact-state assertions and

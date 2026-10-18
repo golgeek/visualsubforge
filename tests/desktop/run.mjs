@@ -65,6 +65,7 @@ const { values } = parseArgs({
     webvtt: { type: 'boolean', default: false },
     translation: { type: 'boolean', default: false },
     plugins: { type: 'boolean', default: false },
+    'plugins-editor': { type: 'boolean', default: false },
     'plugin-performance': { type: 'boolean', default: false },
     'translation-performance': { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
@@ -77,6 +78,8 @@ const { values } = parseArgs({
     'ass-performance': { type: 'boolean', default: false },
   },
 });
+if (values.plugins && values['plugins-editor'])
+  throw new Error('Choose --plugins or --plugins-editor, not both.');
 const cli = resolve(
   values.cli ?? `target/debug/vsf${process.platform === 'win32' ? '.exe' : ''}`,
 );
@@ -139,6 +142,7 @@ const runDeadline =
   values.webvtt ||
   values.translation ||
   values.plugins ||
+  values['plugins-editor'] ||
   values['plugin-performance'] ||
   values['translation-performance'] ||
   values['legacy-import'] ||
@@ -636,8 +640,10 @@ try {
         return browser;
       },
     });
-  if (values.plugins)
+  if (values.plugins || values['plugins-editor'])
     await pluginWorkflow({
+      samePath,
+      withNativePreview: values.plugins,
       menu,
       invoke,
       status,
