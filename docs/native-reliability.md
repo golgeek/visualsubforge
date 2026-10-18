@@ -784,3 +784,20 @@ The original compile error, successful nine-test log and negative-control receip
 remain in `paused-cursor-native-harness-*` and
 `vsf-paused-guard-negative-66335cy1`. Rustfmt and diff checks pass. The actual Mac
 workspace and Linux native results from the preceding checkpoint remain separate.
+
+### CI coverage of the Rust transport boundary
+
+The successful native-controls job at07260fa compiled the C++ client boundary
+only; no hosted job compiled `media-transport-test.rs`. The headless matrix now
+compiles and runs that harness with pinned Rust on macOS, Windows and Linux,
+without a native media runtime. It covers the production native-feature policy
+through the fake client, separately from the ordinary Cargo workspace tests.
+
+The exact Bash step extracted from `.github/workflows/checks.yml` passes all nine
+tests locally on macOS with Rust1.98.1. Repeating that step in an isolated copy
+with the07260fa harness fails with the original missing-`seeking()` E0599; the
+production transport source hash is identical in both cases. Commands, source/
+workflow hashes and complete logs are retained under
+`test-results/native-reliability-20261018/transport-ci-controls/`. Pinned Node24.21.0
+Prettier, Rustfmt and diff checks pass. Hosted three-platform results are pending;
+this closes the automated coverage gap, not the remaining native output gates.

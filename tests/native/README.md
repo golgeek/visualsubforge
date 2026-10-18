@@ -9,7 +9,19 @@ Run synthetic controls through `check-controls.py` using the pinned dependencies
 in `requirements.txt`; [CONTRIBUTING](../../CONTRIBUTING.md#browser-and-analysis-regressions)
 provides the commands. That runner discovers every `*-test.py` suite and rejects
 failure or timeout. The fake boundary in `mpv-client-test.cpp` tests shared
-command/event policy without a real player. Neither proves device behavior.
+command/event policy without a real player. `media-transport-test.rs` compiles the
+production Rust transport policy against a deterministic player boundary, covering
+paused/seeking cursor selection, loop-clear transactions and rollback failures.
+Ordinary Cargo workspace tests do not compile this native-feature boundary; the
+headless CI matrix runs it separately on macOS, Windows and Linux with pinned Rust:
+
+```sh
+rustc --edition=2024 --test --cfg 'feature="media-prototype"' tests/native/media-transport-test.rs -o /tmp/vsf-media-transport-test
+/tmp/vsf-media-transport-test
+```
+
+On Windows, choose a writable output path ending in `.exe` and run that executable.
+These fake-client controls do not link mpv or prove device behavior.
 
 | Directory or tool | Role |
 | --- | --- |

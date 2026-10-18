@@ -58,6 +58,15 @@ jobs:
           python-version: '3.14.7'
       - name: Install pinned Rust
         run: rustup show
+      - name: Compile and run Rust transport policy controls (no media runtime)
+        shell: bash
+        run: |
+          test_binary="$RUNNER_TEMP/vsf-media-transport-test"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            test_binary="$test_binary.exe"
+          fi
+          rustc --edition=2024 --test --cfg 'feature="media-prototype"' tests/native/media-transport-test.rs -o "$test_binary"
+          "$test_binary"
       - name: Install Linux FFmpeg
         if: runner.os == 'Linux'
         run: |
