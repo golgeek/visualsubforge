@@ -56,6 +56,7 @@ export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];
 export type TextFormat = Parameters<typeof commands.textFormat>[3];
+export type TextFormattingContext = Parameters<typeof commands.textFormat>[4];
 
 export const textStart = (
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
@@ -79,7 +80,8 @@ export const textFormat = (
   start: number,
   end: number,
   style: TextFormat,
-) => commands.textFormat(text, start, end, style);
+  context: TextFormattingContext = null,
+) => commands.textFormat(text, start, end, style, context);
 export type ProjectOptions = IPC.visualsubforge_project_Options_Deserialize;
 export type ProjectData = IPC.visualsubforge_project_Project_Serialize;
 export type SavedScenes = IPC.visualsubforge_scenes_Saved_Deserialize;

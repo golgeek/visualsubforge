@@ -180,13 +180,9 @@ impl Documents {
         }
         // Reject busy admission before cloning another document snapshot.
         store.timing_repairs.ensure_idle()?;
-        let document = store
-            .loaded
-            .as_ref()
-            .ok_or("Open subtitles first")?
-            .editor
-            .document()
-            .clone();
+        let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
+        let document = loaded.editor.document().clone();
+        let format = loaded.source.format();
         let profile = store.quality.context().profile;
         let captured = profile.clone();
         store
@@ -205,12 +201,17 @@ impl Documents {
                     Ok(())
                 };
                 match operation {
-                    Operation::Scene => {
-                        engine::scene::propose(document, &captured, &scenes.data, checkpoint)
-                            .map(Proposal::Scene)
-                    }
-                    Operation::Duration(scope) => engine::duration::propose(
+                    Operation::Scene => engine::scene::propose_for_format(
                         document,
+                        format,
+                        &captured,
+                        &scenes.data,
+                        checkpoint,
+                    )
+                    .map(Proposal::Scene),
+                    Operation::Duration(scope) => engine::duration::propose_for_format(
+                        document,
+                        format,
                         &captured,
                         &scenes.data,
                         scope,

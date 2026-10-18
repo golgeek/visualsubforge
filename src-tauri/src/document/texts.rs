@@ -122,6 +122,62 @@ impl State {
     }
 }
 impl Documents {
+    pub(crate) fn format_text(
+        &self,
+        text: &str,
+        start: u32,
+        end: u32,
+        style: text::Format,
+        context: Option<&crate::text_review::FormattingContext>,
+    ) -> Result<text::Formatted> {
+        let inherited = {
+            let store = self.0.lock().map_err(|_| "Document state unavailable")?;
+            let loaded = store.loaded.as_ref();
+            if let Some(context) = context
+                && (context.generation.get() != store.generation
+                    || loaded.is_none_or(|loaded| {
+                        loaded.editor.revision() != context.revision.get()
+                            || !loaded
+                                .editor
+                                .document()
+                                .cues()
+                                .iter()
+                                .any(|cue| cue.id().0 == context.cue_id.get())
+                    }))
+            {
+                return Err("Subtitles changed before formatting; select the cue again".into());
+            }
+            if let Some(source) = loaded.and_then(|loaded| loaded.source.ass()) {
+                let context = context
+                    .ok_or("ASS/SSA formatting requires a current cue and assigned style")?;
+                let definition = source.styles().iter().find(|style| style.name == context.style_name)
+                    .ok_or("The assigned style is undefined; choose an existing style before formatting")?;
+                let field = match style {
+                    text::Format::Bold => "Bold",
+                    text::Format::Italic => "Italic",
+                    text::Format::Underline => "Underline",
+                };
+                let value = definition
+                    .fields
+                    .iter()
+                    .find(|(name, _)| name.eq_ignore_ascii_case(field))
+                    .map(|(_, value)| value.trim())
+                    .unwrap_or("0");
+                Some(
+                    value.parse::<i32>().map_err(|_| {
+                        format!("Style {field} is not a valid integer; edit tags manually")
+                    })? != 0,
+                )
+            } else {
+                None
+            }
+        };
+        match inherited {
+            Some(inherited) => text::format_ass_selection(text, start, end, style, inherited),
+            None => text::format_selection(text, start, end, style),
+        }
+        .map_err(|error| error.to_string())
+    }
     pub(crate) fn text_matches(
         &self,
         id: u64,
@@ -167,19 +223,15 @@ impl Documents {
         }
         // Reject busy admission before cloning another document snapshot.
         store.texts.ensure_idle()?;
-        let document = store
-            .loaded
-            .as_ref()
-            .ok_or("Open subtitles first")?
-            .editor
-            .document()
-            .clone();
+        let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
+        let document = loaded.editor.document().clone();
+        let format = loaded.source.format();
         let profile = store.quality.context().profile;
         let captured = profile.clone();
         let request = operation.clone();
         store.texts.launch(key, operation, profile, move |cancel| {
             let start = Instant::now();
-            text::propose(document, &captured, &request, || {
+            text::propose_for_format(document, format, &captured, &request, || {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(engine::Error::Cancelled);
                 }

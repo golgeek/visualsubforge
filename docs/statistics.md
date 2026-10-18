@@ -55,6 +55,10 @@ speech synchronization. Completed visual scene detection is still heuristic.
 
 ## CLI
 
+Both SRT and UTF-8 ASS/SSA inputs are accepted. The named counting policy is
+unchanged; these are source metrics, not rendered text measurements. See the
+[ASS/SSA integration guide](ass-ssa-documents.md) for the current acceptance scope.
+
 ```sh
 vsf stats --subtitles episode.srt --profile vsf-default --json
 vsf stats --subtitles episode.srt --profile ./custom.vsfpreset --from-cue 10 --to-cue 100 --exclude 12,17 --json

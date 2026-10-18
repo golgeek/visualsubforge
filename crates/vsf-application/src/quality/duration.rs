@@ -3,10 +3,11 @@
 use super::{
     Error, Profile, Report, Result, Rule, evaluate_with_scenes, gap, metrics,
     scene::{SceneCoverage, Scenes, Windows},
-    timing_validation::{timing_findings, worsened},
+    timing_validation::{retimed_cue, timing_findings, worsened},
 };
 use serde::Serialize;
-use subtitle_core::{Cue, CueId, CueTiming, Document, Edit, Milliseconds};
+use subtitle_core::{CueId, CueTiming, Document, Edit, Milliseconds};
+use subtitle_formats::Format;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {
@@ -22,6 +23,7 @@ pub enum Skip {
     MarkupNeedsReview,
     ConflictingBounds,
     NeighborConstraint,
+    FormatPrecision,
     SceneExclusion,
     CoupledConstraints,
     NoDirectChange,
@@ -36,13 +38,16 @@ impl Skip {
                 "Equal starts or nested intervals make this overlapping group ambiguous."
             }
             Self::MarkupNeedsReview => {
-                "Timing-sensitive ASS effects, ambiguous markup or a cue over 64 KiB require manual timing review."
+                "Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review."
             }
             Self::ConflictingBounds => {
                 "The enabled duration and speed limits have no common integer-millisecond endpoint within the time range."
             }
             Self::NeighborConstraint => {
                 "The next cue and minimum gap leave no endpoint satisfying all enabled duration and speed limits."
+            }
+            Self::FormatPrecision => {
+                "No endpoint on the ASS/SSA 10 ms grid satisfies all enabled duration, speed and neighbor limits."
             }
             Self::SceneExclusion => {
                 "Every otherwise permitted endpoint lies inside a scene exclusion window."
@@ -140,10 +145,21 @@ pub fn propose(
     profile: &Profile,
     scenes: &Scenes,
     scope: Scope,
+    checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Proposal> {
+    propose_for_format(document, Format::Srt, profile, scenes, scope, checkpoint)
+}
+
+pub fn propose_for_format(
+    document: Document,
+    format: Format,
+    profile: &Profile,
+    scenes: &Scenes,
+    scope: Scope,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
     let before = evaluate_with_scenes(&document, profile, scenes, |_, _| checkpoint())?;
-    let windows = Windows::new(profile, scenes, &mut checkpoint)?;
+    let windows = Windows::for_format(profile, scenes, format, &mut checkpoint)?;
     let cues = document.cues();
     if let Scope::Cue(id) = scope
         && !cues.iter().any(|c| c.id() == id)
@@ -173,11 +189,18 @@ pub fn propose(
                 Err(Skip::SceneDataUnavailable)
             } else if ambiguous[groups[i]] {
                 Err(Skip::AmbiguousOverlap)
-            } else if crate::subtitle_markup::retiming_is_ambiguous(cue.text()) {
+            } else if crate::subtitle_markup::retiming_is_ambiguous(cue, format) {
                 Err(Skip::MarkupNeedsReview)
             } else {
                 let next_start = order.get(position + 1).map(|&j| cues[j].start().get());
-                choose_end(&before.metrics[i], profile, floor, next_start, &windows)
+                choose_end(
+                    &before.metrics[i],
+                    profile,
+                    floor,
+                    next_start,
+                    &windows,
+                    format.time_step_ms(),
+                )
             };
             let (new_end, skipped) = match choice {
                 Ok(value) if value != end => {
@@ -261,6 +284,7 @@ fn choose_end(
     floor: u64,
     next_start: Option<u64>,
     windows: &Windows,
+    step: u64,
 ) -> std::result::Result<u64, Skip> {
     let start = row.start_ms as u64;
     let old = row.end_ms as u64;
@@ -308,6 +332,11 @@ fn choose_end(
     if low > high {
         return Err(Skip::NeighborConstraint);
     }
+    low = low.div_ceil(step) * step;
+    high = high / step * step;
+    if low > high {
+        return Err(Skip::FormatPrecision);
+    }
     let nearest = old.clamp(low, high);
     let Some((left, right)) = windows.containing(nearest) else {
         return Ok(nearest);
@@ -333,7 +362,7 @@ fn retimed(
         } else {
             cue.end()
         };
-        cues.push(Cue::new(cue.id(), cue.start(), end, cue.text().into()).map_err(Error::Invalid)?);
+        cues.push(retimed_cue(cue, cue.start(), end)?);
     }
     Document::new(cues).map_err(Error::Invalid)
 }

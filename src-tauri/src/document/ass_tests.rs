@@ -3,6 +3,45 @@ use super::*;
 pub(super) const ASS: &str = include_str!("../../../tests/fixtures/subtitles/styles.ass");
 pub(super) const SSA: &str = include_str!("../../../tests/fixtures/subtitles/styles.ssa");
 
+#[test]
+fn draft_formatting_captures_style_defaults_and_rejects_stale_context() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("source.ass");
+    fs::write(&path, ASS).unwrap();
+    let docs = Documents::default();
+    open(&mut docs.0.lock().unwrap(), &path);
+    assert_eq!(docs.subtitle_extension().unwrap(), "ass");
+    let mut context = crate::text_review::FormattingContext {
+        generation: 1.try_into().unwrap(),
+        revision: 0.try_into().unwrap(),
+        cue_id: 1.try_into().unwrap(),
+        style_name: "Title".into(),
+    };
+    use vsf_application::text::Format;
+    assert!(
+        docs.format_text("Hello tail", 0, 5, Format::Bold, None)
+            .is_err()
+    );
+    let formatted = docs
+        .format_text("Hello tail", 0, 5, Format::Bold, Some(&context))
+        .unwrap();
+    assert_eq!(formatted.text, r"{\b0}Hello{\b1} tail");
+    context.style_name = "Default".into();
+    assert_eq!(
+        docs.format_text("Hello tail", 0, 5, Format::Bold, Some(&context))
+            .unwrap()
+            .text,
+        r"{\b1}Hello{\b0} tail"
+    );
+    context.revision = 1.try_into().unwrap();
+    assert!(
+        docs.format_text("Hello tail", 0, 5, Format::Bold, Some(&context))
+            .unwrap_err()
+            .contains("changed")
+    );
+    assert_eq!(bytes(&docs.0.lock().unwrap()), ASS);
+}
+
 fn open(store: &mut Store, path: &Path) -> Snapshot {
     let previous = store.snapshot();
     store
@@ -281,4 +320,146 @@ fn unchanged_style_retains_field_whitespace_and_pathless_projects_have_no_format
         Ok(())
     })
     .unwrap();
+}
+
+#[test]
+fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposals() {
+    use crate::{quality_profile::Policy, scenes::Scenes, timing_review::Phase};
+    use std::time::{Duration, Instant};
+    use vsf_application::quality::{Profile, duration::Scope};
+    fn policy(p: Profile) -> Policy {
+        let timing = crate::timing_preset::Settings {
+            cue_gap_ms: p.timing.cue_gap_ms,
+            scene_before_ms: p.timing.scene_before_ms,
+            scene_after_ms: p.timing.scene_after_ms,
+            ..Default::default()
+        };
+        Policy::new(p, timing).unwrap()
+    }
+    for (extension, source) in [("ass", ASS), ("ssa", SSA)] {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(format!("timing.{extension}"));
+        let parsed = subtitle_formats::parse(source, None).unwrap();
+        let cues = parsed
+            .document
+            .cues()
+            .iter()
+            .zip([(1000, 2000), (2050, 3000)])
+            .map(|(c, (start, end))| {
+                subtitle_core::Cue::new(
+                    c.id(),
+                    Milliseconds::new(start).unwrap(),
+                    Milliseconds::new(end).unwrap(),
+                    c.text().into(),
+                )
+                .unwrap()
+                .with_metadata(c.metadata().unwrap().clone())
+            })
+            .collect();
+        let original = parsed
+            .source
+            .serialize(&subtitle_core::Document::new(cues).unwrap())
+            .unwrap();
+        fs::write(&path, &original).unwrap();
+        let docs = Documents::default();
+        open(&mut docs.0.lock().unwrap(), &path);
+        let mut p = Profile::default().custom("ass-owner-timing".into(), "ASS owner timing".into());
+        p.rules.duration.enabled = false;
+        p.rules.speed.enabled = false;
+        p.timing.cue_gap_ms = 83;
+        p.timing.scene_before_ms = 0;
+        p.timing.scene_after_ms = 0;
+        docs.apply_quality_defaults(
+            docs.quality_context().unwrap().epoch,
+            policy(p.clone()),
+            || Ok(()),
+        )
+        .unwrap();
+        let scenes = Scenes::default();
+        let captured = scenes.capture_quality(0, false).unwrap();
+        let id = docs.gap_start(1, 0, captured).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let v = docs.gap_view(id, 0, 100).unwrap();
+            if v.phase == crate::gap_review::Phase::Reviewing {
+                assert_eq!(v.changed, 1);
+                break;
+            }
+            assert_eq!(
+                v.phase,
+                crate::gap_review::Phase::Preparing,
+                "{:?}",
+                v.error
+            );
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(docs.gap_accept(id, false).unwrap().cues[0].end_ms, 1960);
+        apply(&mut docs.0.lock().unwrap(), Action::Undo).unwrap();
+        assert_eq!(bytes(&docs.0.lock().unwrap()), original);
+
+        p.rules.duration.enabled = true;
+        p.rules.duration.minimum_ms = 1103;
+        docs.apply_quality_defaults(
+            docs.quality_context().unwrap().epoch,
+            policy(p.clone()),
+            || Ok(()),
+        )
+        .unwrap();
+        let snapshot = docs.apply(Action::Status, 0, 0).unwrap();
+        let id = docs
+            .duration_repair_start(
+                snapshot.generation,
+                snapshot.revision,
+                scenes.capture_quality(0, false).unwrap(),
+                Scope::Document,
+            )
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let v = docs.duration_repair_view(id, 0, 100).unwrap();
+            if v.phase == Phase::Reviewing {
+                assert_eq!(v.changed, 1);
+                break;
+            }
+            assert_eq!(v.phase, Phase::Preparing, "{:?}", v.error);
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(
+            docs.duration_repair_accept(id).unwrap().cues[1].end_ms,
+            3160
+        );
+        apply(&mut docs.0.lock().unwrap(), Action::Undo).unwrap();
+        assert_eq!(bytes(&docs.0.lock().unwrap()), original);
+
+        p.rules.duration.enabled = false;
+        p.timing.scene_before_ms = 2;
+        p.timing.scene_after_ms = 3;
+        docs.apply_quality_defaults(docs.quality_context().unwrap().epoch, policy(p), || Ok(()))
+            .unwrap();
+        scenes.test_completed(7, vec![1.0], false);
+        let snapshot = docs.apply(Action::Status, 0, 0).unwrap();
+        let id = docs
+            .scene_repair_start(
+                snapshot.generation,
+                snapshot.revision,
+                scenes.capture_quality(7, true).unwrap(),
+            )
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let v = docs.scene_repair_view(id, 0, 100).unwrap();
+            if v.phase == Phase::Reviewing {
+                assert_eq!(v.changed, 1);
+                break;
+            }
+            assert_eq!(v.phase, Phase::Preparing, "{:?}", v.error);
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(docs.scene_repair_accept(id).unwrap().cues[0].start_ms, 1010);
+        apply(&mut docs.0.lock().unwrap(), Action::Undo).unwrap();
+        assert_eq!(bytes(&docs.0.lock().unwrap()), original);
+    }
 }

@@ -22,6 +22,26 @@ const context: OperationContext = {
   range: null,
 };
 
+test('ASS structural interactions use centiseconds before applying interval checks', () => {
+  const styled = { ...context, timeStepMs: 10 };
+  assert.deepEqual(
+    planCueOperation('createCue', { ...styled, range: [1.2345, 2.3456] })
+      .action,
+    { kind: 'create', afterId: 8, startMs: 1230, endMs: 2350, text: '' },
+  );
+  assert.deepEqual(
+    planCueOperation('splitCue', { ...styled, positionSeconds: 4.006 }).action,
+    { kind: 'split', cueId: 8, atMs: 4010 },
+  );
+  assert.throws(() =>
+    planCueOperation('splitCue', { ...styled, positionSeconds: 4.998 }),
+  );
+  assert.throws(
+    () => planCueOperation('createCue', { ...styled, range: [1.001, 1.004] }),
+    /10 milliseconds/,
+  );
+});
+
 test('Structural requests target stable IDs and round at the media boundary', () => {
   assert.deepEqual(planCueOperation('splitCue', context), {
     action: { kind: 'split', cueId: 8, atMs: 4000 },

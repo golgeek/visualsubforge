@@ -1,6 +1,169 @@
 use super::*;
 use subtitle_core::{CueId, Editor, Milliseconds};
 
+#[test]
+fn ass_search_protects_escapes_and_comments_but_treats_html_as_visible_text() {
+    let doc = document(&[r"First\N世界{translator note}<i>literal</i>"]);
+    let format = subtitle_formats::Format::Ass;
+    for query in ["translator", "N"] {
+        let p = propose_for_format(
+            doc.clone(),
+            format,
+            &profile(),
+            &replace(query, "other"),
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(p.matches(), 0);
+    }
+    let p = propose_for_format(
+        doc.clone(),
+        format,
+        &profile(),
+        &replace("literal", "visible"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        p.rows()[0].after.as_deref(),
+        Some(r"First\N世界{translator note}<i>visible</i>")
+    );
+    let p = propose_for_format(
+        doc.clone(),
+        format,
+        &profile(),
+        &replace("First\n世界", "crossed"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert!(p.rows()[0].matches[0].skipped.is_some());
+    assert_eq!(p.changed(), 0);
+    assert!(
+        propose_for_format(
+            doc.clone(),
+            format,
+            &profile(),
+            &replace("First", "first\nsecond"),
+            || Ok(())
+        )
+        .is_err()
+    );
+    let srt = propose(
+        document(&[r"First\Nlast"]),
+        &profile(),
+        &replace("N", "n"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(srt.matches(), 1, "Plain SRT keeps literal escape policy");
+}
+
+#[test]
+fn ass_line_repairs_preserve_overrides_metadata_and_undo() {
+    let parsed = subtitle_formats::parse(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/subtitles/styles.ass"
+        )),
+        Some(subtitle_formats::Format::Ass),
+    )
+    .unwrap();
+    let source = parsed.source;
+    let mut editor = Editor::new(parsed.document);
+    editor
+        .apply_edit(
+            0,
+            Edit::TextBatch {
+                texts: vec![
+                    CueText {
+                        id: CueId(1),
+                        text: r"{\i1}One two three four five six{\i0}".into(),
+                    },
+                    CueText {
+                        id: CueId(2),
+                        text: r"First\Nsecond".into(),
+                    },
+                ],
+            },
+            |document| crate::subtitle_file::validate_document(document, &source),
+        )
+        .unwrap();
+    let before = source.serialize(editor.document()).unwrap();
+    let metadata = editor.document().cues()[0].metadata().cloned();
+    let mut rules = profile();
+    rules.rules.lines.maximum_characters = 18;
+    rules.rules.lines.single_line_preferred = 16;
+    let p = propose_for_format(
+        editor.document().clone(),
+        source.format(),
+        &rules,
+        &Operation::Reflow,
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        p.rows()[0].after.as_deref(),
+        Some(r"{\i1}One two three\Nfour five six{\i0}")
+    );
+    assert_eq!(p.rows()[1].after.as_deref(), Some("First second"));
+    let edit = p.edit(editor.document(), None).unwrap();
+    editor
+        .apply_edit(1, edit, |document| {
+            crate::subtitle_file::validate_document(document, &source)
+        })
+        .unwrap();
+    assert_eq!(editor.document().cues()[0].metadata(), metadata.as_ref());
+    assert!(
+        source
+            .serialize(editor.document())
+            .unwrap()
+            .contains("Comment:")
+    );
+    editor.undo(2).unwrap();
+    assert_eq!(source.serialize(editor.document()).unwrap(), before);
+    let p = propose_for_format(
+        editor.document().clone(),
+        source.format(),
+        &rules,
+        &Operation::JoinLines,
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(p.rows()[0].cue_index, 1);
+    assert_eq!(p.rows()[0].after.as_deref(), Some("First second"));
+}
+
+#[test]
+fn ass_formatting_restores_inherited_styles_and_toggles_only_its_exact_span() {
+    let text = "😀 A<B>";
+    let formatted = format_ass_selection(text, 3, 4, Format::Italic, false).unwrap();
+    assert_eq!(formatted.text, "😀 {\\i1}A{\\i0}<B>");
+    assert_eq!(
+        format_ass_selection(
+            &formatted.text,
+            formatted.start,
+            formatted.end,
+            Format::Italic,
+            false
+        )
+        .unwrap()
+        .text,
+        text
+    );
+    assert_eq!(
+        format_ass_selection("Bold tail", 0, 4, Format::Bold, true)
+            .unwrap()
+            .text,
+        "{\\b0}Bold{\\b1} tail"
+    );
+    for text in [r"{\rTitle}Hello", r"{\b700}Hello", r"{\k40}Hello"] {
+        let start = text.find("Hello").unwrap() as u32;
+        assert!(format_ass_selection(text, start, start + 5, Format::Bold, false).is_err());
+    }
+    assert!(format_ass_selection(r"A\N B", 1, 3, Format::Bold, false).is_err());
+    assert!(format_ass_selection("😀", 1, 2, Format::Bold, false).is_err());
+}
+
 fn document(texts: &[&str]) -> Document {
     Document::new(
         texts

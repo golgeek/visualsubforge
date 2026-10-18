@@ -174,6 +174,12 @@ following cue's reading start. This conservative grouping bounds the work and
 keeps coupled reading-speed changes from escaping an individual-cue check.
 
 Preview includes old/new endpoints, skipped reasons and changed reading metrics.
+For ASS/SSA, gap repair floors the latest permitted end to the 10 ms source grid.
+Timing-sensitive tags, ambiguous markup, nonempty event effects and cues over
+64 KiB require manual timing review, including tagged SRT. Accepted metadata is
+preserved. `vsf check` also accepts ASS/SSA through the shared format-aware reader
+without changing metric policies. See the current
+[ASS/SSA integration and acceptance scope](ass-ssa-documents.md).
 Acceptance applies only the displayed safe changes together via one validated
 `Edit::Retime`, guards document/profile/context identity, preserves failed-save
 and recovery policies, and reruns checking. No action is inferred from profile

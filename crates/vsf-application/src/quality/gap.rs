@@ -2,16 +2,20 @@
 //! Connected overlap groups bound coupled speed effects without a document check
 //! for each candidate. At most three full shared evaluations are required.
 pub use super::scene::{SceneCoverage, Scenes};
-use super::{Error, Profile, Report, Result, Rule, evaluate_with_scenes};
+use super::{
+    Error, Profile, Report, Result, Rule, evaluate_with_scenes, timing_validation::retimed_cue,
+};
 use serde::Serialize;
 use std::collections::HashMap;
-use subtitle_core::{Cue, CueTiming, Document, Edit, Milliseconds};
+use subtitle_core::{CueTiming, Document, Edit, Milliseconds};
+use subtitle_formats::Format;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum Skip {
     AmbiguousOverlap,
+    MarkupNeedsReview,
     WouldCollapse,
     MinimumDuration,
     SceneDataUnavailable,
@@ -23,6 +27,9 @@ impl Skip {
         match self {
             Self::AmbiguousOverlap => {
                 "Equal starts or nested intervals make this overlapping group ambiguous."
+            }
+            Self::MarkupNeedsReview => {
+                "Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review."
             }
             Self::WouldCollapse => "The required gap would leave no positive cue duration.",
             Self::MinimumDuration => "Shortening would violate the enabled minimum duration.",
@@ -109,10 +116,20 @@ pub fn propose(
     document: Document,
     profile: &Profile,
     scenes: &Scenes,
+    checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Proposal> {
+    propose_for_format(document, Format::Srt, profile, scenes, checkpoint)
+}
+
+pub fn propose_for_format(
+    document: Document,
+    format: Format,
+    profile: &Profile,
+    scenes: &Scenes,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
     let before = evaluate_with_scenes(&document, profile, scenes, |_, _| checkpoint())?;
-    let windows = super::scene::Windows::new(profile, scenes, &mut checkpoint)?;
+    let windows = super::scene::Windows::for_format(profile, scenes, format, &mut checkpoint)?;
     let coverage = windows.coverage();
     let cues = document.cues();
     let mut order: Vec<usize> = (0..cues.len()).collect();
@@ -129,9 +146,12 @@ pub fn propose(
         if next_start >= cue.end().get() && next_start - cue.end().get() >= gap {
             continue;
         }
-        let end = next_start.checked_sub(gap);
+        let step = format.time_step_ms();
+        let end = next_start.checked_sub(gap).map(|end| end / step * step);
         let reason = if ambiguous[groups[i]] {
             Some(Skip::AmbiguousOverlap)
+        } else if crate::subtitle_markup::retiming_is_ambiguous(cue, format) {
+            Some(Skip::MarkupNeedsReview)
         } else if end.is_none_or(|end| end <= cue.start().get()) {
             Some(Skip::WouldCollapse)
         } else if profile.rules.duration.enabled
@@ -261,7 +281,7 @@ fn retimed(
         } else {
             cue.end()
         };
-        cues.push(Cue::new(cue.id(), cue.start(), end, cue.text().into()).map_err(Error::Invalid)?);
+        cues.push(retimed_cue(cue, cue.start(), end)?);
     }
     Document::new(cues).map_err(Error::Invalid)
 }

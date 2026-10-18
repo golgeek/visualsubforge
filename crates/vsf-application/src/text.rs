@@ -4,7 +4,7 @@ mod formatting;
 mod reflow;
 use crate::quality::{self, Error, Profile, Result};
 use crate::subtitle_markup::Projection;
-pub use formatting::{Format, Formatted, format_selection};
+pub use formatting::{Format, Formatted, format_ass_selection, format_selection};
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use subtitle_core::{Cue, CueText, Document, Edit};
@@ -50,6 +50,7 @@ pub struct Row {
     pub skipped: Option<&'static str>,
 }
 pub struct Proposal {
+    format: subtitle_formats::Format,
     document: Document,
     rows: Vec<Row>,
     before_findings: usize,
@@ -111,7 +112,7 @@ impl Proposal {
                 replacement,
                 &source[found.source.end..]
             );
-            if after.len() > MAX_CUE_BYTES || !same_markup(source, &after) {
+            if after.len() > MAX_CUE_BYTES || !same_markup(source, &after, self.format) {
                 return Err(Error::Invalid(
                     "This replacement would change markup or exceed the cue limit.".into(),
                 ));
@@ -139,10 +140,30 @@ pub fn propose(
     document: Document,
     profile: &Profile,
     operation: &Operation,
+    checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Proposal> {
+    propose_for_format(
+        document,
+        subtitle_formats::Format::Srt,
+        profile,
+        operation,
+        checkpoint,
+    )
+}
+pub fn propose_for_format(
+    document: Document,
+    format: subtitle_formats::Format,
+    profile: &Profile,
+    operation: &Operation,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
     checkpoint()?;
     let (search, replacement) = search(operation)?;
+    if format != subtitle_formats::Format::Srt
+        && replacement.is_some_and(|text| text.contains('\n'))
+    {
+        return Err(Error::Invalid("ASS/SSA replacement accepts plain text without line breaks; use Join/Reflow or the cue editor to change breaks explicitly.".into()));
+    }
     let before_findings = quality::evaluate(&document, profile, |_, _| checkpoint())?
         .findings
         .len();
@@ -162,8 +183,8 @@ pub fn propose(
             output_bytes += source.len();
             continue;
         }
-        let projection = Projection::new(source);
-        let row = if let Some(regex) = &search {
+        let projection = Projection::for_format(source, format);
+        let mut row = if let Some(regex) = &search {
             replace_row(
                 cue_index,
                 source,
@@ -182,6 +203,15 @@ pub fn propose(
                 matches!(operation, Operation::JoinLines),
             )
         };
+        if search.is_none()
+            && cue
+                .metadata()
+                .and_then(|m| m.get("Effect"))
+                .is_some_and(|effect| !effect.trim().is_empty())
+        {
+            row.after = None;
+            row.skipped = Some("Event effects need manual line-layout review.");
+        }
         output_bytes += row.after.as_ref().map_or(source.len(), String::len);
         if output_bytes > quality::MAX_TEXT_BYTES {
             return Err(Error::Limit(
@@ -205,9 +235,12 @@ pub fn propose(
                 None
             };
             let text = row.and_then(|r| r.after.as_deref()).unwrap_or(cue.text());
-            cues.push(
-                Cue::new(cue.id(), cue.start(), cue.end(), text.into()).map_err(Error::Invalid)?,
-            );
+            let mut candidate =
+                Cue::new(cue.id(), cue.start(), cue.end(), text.into()).map_err(Error::Invalid)?;
+            if let Some(metadata) = cue.metadata() {
+                candidate = candidate.with_metadata(metadata.clone());
+            }
+            cues.push(candidate);
         }
         let candidate = Document::new(cues).map_err(Error::Invalid)?;
         quality::evaluate(&candidate, profile, |_, _| checkpoint())?
@@ -218,6 +251,7 @@ pub fn propose(
     };
     checkpoint()?;
     Ok(Proposal {
+        format,
         document,
         rows,
         before_findings,
@@ -331,7 +365,15 @@ fn replace_row(
         }
         after.push_str(&source[at..]);
         if after != source {
-            if !same_markup(source, &after) {
+            if !same_markup(
+                source,
+                &after,
+                if projection.ass_document {
+                    subtitle_formats::Format::Ass
+                } else {
+                    subtitle_formats::Format::Srt
+                },
+            ) {
                 for found in &mut row.matches {
                     found.skipped =
                         Some("Replacement would create or change markup; edit manually.");
@@ -344,9 +386,9 @@ fn replace_row(
     Ok(row)
 }
 
-fn same_markup(before: &str, after: &str) -> bool {
-    let old = Projection::new(before);
-    let new = Projection::new(after);
+fn same_markup(before: &str, after: &str, format: subtitle_formats::Format) -> bool {
+    let old = Projection::for_format(before, format);
+    let new = Projection::for_format(after, format);
     old.ambiguous == new.ambiguous
         && old
             .protected

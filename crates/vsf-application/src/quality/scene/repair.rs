@@ -2,10 +2,11 @@
 //! shrinking intervals cannot connect previously independent groups. At most three
 //! full evaluations (baseline, candidate, retained plan) establish safety.
 use super::{SceneCoverage, Scenes, Windows};
-use crate::quality::timing_validation::{timing_findings, worsened};
+use crate::quality::timing_validation::{retimed_cue, timing_findings, worsened};
 use crate::quality::{Error, Profile, Report, Result, evaluate_with_scenes, gap};
 use serde::Serialize;
-use subtitle_core::{Cue, CueTiming, Document, Edit, Milliseconds};
+use subtitle_core::{CueTiming, Document, Edit, Milliseconds};
+use subtitle_formats::Format;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -24,10 +25,10 @@ impl Skip {
                 "Nested intervals or equal starts make this overlap group ambiguous."
             }
             Self::MarkupNeedsReview => {
-                "Timing-sensitive ASS effects, ambiguous markup or a cue over 64 KiB require manual timing review."
+                "Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review."
             }
             Self::WouldCollapse => {
-                "The scene buffers leave no positive cue duration within the original interval."
+                "The scene buffers leave no positive cue duration within the original interval at this format's precision."
             }
             Self::DurationConstraint => {
                 "The proposed interval would be outside the enabled duration limits."
@@ -109,10 +110,20 @@ pub fn propose(
     document: Document,
     profile: &Profile,
     scenes: &Scenes,
+    checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Proposal> {
+    propose_for_format(document, Format::Srt, profile, scenes, checkpoint)
+}
+
+pub fn propose_for_format(
+    document: Document,
+    format: Format,
+    profile: &Profile,
+    scenes: &Scenes,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
     let before = evaluate_with_scenes(&document, profile, scenes, |_, _| checkpoint())?;
-    let windows = Windows::new(profile, scenes, &mut checkpoint)?;
+    let windows = Windows::for_format(profile, scenes, format, &mut checkpoint)?;
     let cues = document.cues();
     let mut order: Vec<_> = (0..cues.len()).collect();
     order.sort_by_key(|&i| (cues[i].start(), i));
@@ -129,7 +140,7 @@ pub fn propose(
         let end = end_window.map_or(cue.end().get() as i64, |(left, _)| left);
         let reason = if ambiguous[groups[i]] {
             Some(Skip::AmbiguousOverlap)
-        } else if crate::subtitle_markup::retiming_is_ambiguous(cue.text()) {
+        } else if crate::subtitle_markup::retiming_is_ambiguous(cue, format) {
             Some(Skip::MarkupNeedsReview)
         } else if start >= end || start < 0 || end > Milliseconds::MAX as i64 {
             Some(Skip::WouldCollapse)
@@ -216,15 +227,11 @@ fn retimed(
         } else {
             None
         };
-        cues.push(
-            Cue::new(
-                cue.id(),
-                row.and_then(|r| r.new_start).unwrap_or(cue.start()),
-                row.and_then(|r| r.new_end).unwrap_or(cue.end()),
-                cue.text().into(),
-            )
-            .map_err(Error::Invalid)?,
-        );
+        cues.push(retimed_cue(
+            cue,
+            row.and_then(|r| r.new_start).unwrap_or(cue.start()),
+            row.and_then(|r| r.new_end).unwrap_or(cue.end()),
+        )?);
     }
     Document::new(cues).map_err(Error::Invalid)
 }

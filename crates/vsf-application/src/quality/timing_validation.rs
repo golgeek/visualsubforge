@@ -1,6 +1,17 @@
 //! Compare whole-document timing findings without treating old unrelated findings as new.
 use super::{Finding, Report, Rule};
 use std::collections::HashMap;
+use subtitle_core::{Cue, Milliseconds};
+
+/// Proposal evaluation must see the same metadata as accepted history.
+pub(super) fn retimed_cue(cue: &Cue, start: Milliseconds, end: Milliseconds) -> super::Result<Cue> {
+    let mut candidate =
+        Cue::new(cue.id(), start, end, cue.text().into()).map_err(super::Error::Invalid)?;
+    if let Some(metadata) = cue.metadata() {
+        candidate = candidate.with_metadata(metadata.clone());
+    }
+    Ok(candidate)
+}
 
 fn timing(rule: Rule) -> bool {
     !matches!(rule, Rule::Empty | Rule::LineCount | Rule::LineLength)

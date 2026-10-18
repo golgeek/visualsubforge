@@ -45,7 +45,7 @@ type CommandOptions = {
 };
 
 // Rust owns the document and history. This owner replaces accepted projections;
-// only selection and the three draft fields are editable frontend state.
+// Only selection and cue draft fields are editable frontend state.
 export class DocumentSession {
   private accepted = $state.raw<DocumentSnapshot>({ ...emptyDocument });
   private selection = $state<number | null>(null);
@@ -55,6 +55,7 @@ export class DocumentSession {
   text = $state('');
   start = $state('');
   end = $state('');
+  style = $state('');
 
   constructor(api: Client = client) {
     this.client = api;
@@ -74,7 +75,8 @@ export class DocumentSession {
       !!cue &&
       (this.text !== cue.text ||
         this.start !== formatTime(cue.startMs) ||
-        this.end !== formatTime(cue.endMs))
+        this.end !== formatTime(cue.endMs) ||
+        this.style !== (cue.style ?? ''))
     );
   }
   select(id: number | null) {
@@ -90,6 +92,7 @@ export class DocumentSession {
     this.text = cue?.text ?? '';
     this.start = cue ? formatTime(cue.startMs) : '';
     this.end = cue ? formatTime(cue.endMs) : '';
+    this.style = cue?.style ?? '';
   }
   command(
     action: DocumentAction,
@@ -186,13 +189,17 @@ export class DocumentSession {
     if (!this.alive) return false;
     const cue = this.cue;
     if (!cue || !this.dirty) return true;
-    return this.command({
-      kind: 'edit',
+    const fields = {
       cueId: cue.id,
       startMs: parseTime(this.start),
       endMs: parseTime(this.end),
       text: this.text,
-    });
+    };
+    return this.command(
+      this.accepted.format
+        ? { kind: 'editStyled', ...fields, style: this.style }
+        : { kind: 'edit', ...fields },
+    );
   }
   async save(as: boolean): Promise<boolean> {
     if (!(await this.apply())) return false;

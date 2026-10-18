@@ -434,7 +434,7 @@ impl Store {
                     .iter()
                     .find(|c| c.id() == CueId(cue_id))
                     .ok_or("Cue no longer exists")?;
-                vsf_application::subtitle_operations::validate_split(cue)?;
+                vsf_application::subtitle_operations::validate_split(cue, loaded.source.format())?;
                 self.loaded_mut()?.apply_edit(
                     revision,
                     Edit::Split {
@@ -457,7 +457,11 @@ impl Store {
                     .iter()
                     .find(|c| c.id() == CueId(second_id))
                     .ok_or("Cue no longer exists")?;
-                vsf_application::subtitle_operations::validate_merge(first, second)?;
+                vsf_application::subtitle_operations::validate_merge(
+                    first,
+                    second,
+                    loaded.source.format(),
+                )?;
                 let separator = if self.loaded_mut()?.source.ass().is_some() {
                     "\\N{\\r}"
                 } else {
@@ -565,6 +569,13 @@ fn save_path(path: &Path) -> Result<PathBuf> {
 }
 
 impl Documents {
+    pub(crate) fn subtitle_extension(&self) -> Result<&'static str> {
+        let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
+        Ok(store
+            .loaded
+            .as_ref()
+            .map_or("srt", |loaded| loaded.source.format().extension()))
+    }
     #[cfg(any(
         test,
         all(

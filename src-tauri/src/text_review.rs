@@ -44,6 +44,14 @@ pub(crate) struct Target {
     pub cue_index: u32,
     pub match_index: u32,
 }
+#[derive(Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct FormattingContext {
+    pub generation: SafeU64,
+    pub revision: SafeU64,
+    pub cue_id: SafeU64,
+    pub style_name: String,
+}
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TextView {
@@ -132,13 +140,16 @@ pub(crate) async fn text_accept(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn text_format(
+    app: tauri::AppHandle,
     text: String,
     start: u32,
     end: u32,
     style: Format,
+    context: Option<FormattingContext>,
 ) -> Result<Formatted, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        vsf_application::text::format_selection(&text, start, end, style).map_err(|e| e.to_string())
+        app.state::<Documents>()
+            .format_text(&text, start, end, style, context.as_ref())
     })
     .await
     .map_err(|e| e.to_string())?

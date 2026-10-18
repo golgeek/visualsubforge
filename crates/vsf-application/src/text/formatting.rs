@@ -22,6 +22,24 @@ pub struct Formatted {
 /// Pure draft transformation. Offsets are UTF-16 textarea boundaries. It does
 /// not accept a document edit; the ordinary explicit Apply operation does that.
 pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Result<Formatted> {
+    format_selection_inherited(source, start, end, style, None)
+}
+pub fn format_ass_selection(
+    source: &str,
+    start: u32,
+    end: u32,
+    style: Format,
+    inherited: bool,
+) -> Result<Formatted> {
+    format_selection_inherited(source, start, end, style, Some(inherited))
+}
+fn format_selection_inherited(
+    source: &str,
+    start: u32,
+    end: u32,
+    style: Format,
+    inherited: Option<bool>,
+) -> Result<Formatted> {
     if source.len() > MAX_CUE_BYTES || source.contains(['\r', '\0']) {
         return Err(Error::Invalid(
             "Formatting requires a cue of at most 64 KiB without CR or NUL.".into(),
@@ -44,7 +62,14 @@ pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Re
     if a >= b {
         return Err(Error::Invalid("Select the text to format first.".into()));
     }
-    let p = Projection::new(source);
+    let projection = |text: &str| {
+        if inherited.is_some() {
+            Projection::for_ass_document(text)
+        } else {
+            Projection::new(text)
+        }
+    };
+    let p = projection(source);
     if let Some(reason) = p.ambiguous {
         return Err(Error::Invalid(reason.into()));
     }
@@ -58,22 +83,16 @@ pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Re
         Format::Italic => 'i',
         Format::Underline => 'u',
     };
-    // Closing a new HTML span turns this style off in libass. Do not accidentally
-    // disable an ASS style inherited by the rest of the cue.
-    if p.protected.iter().any(|r| {
-        let block = &source[r.clone()];
-        block.starts_with("{\\")
-            && block.split('\\').skip(1).any(|part| {
-                part.starts_with(style)
-                    && part.chars().nth(1).is_none_or(|c| !c.is_ascii_alphabetic())
-            })
-    }) {
-        return Err(Error::Invalid(
-            "This style is controlled by ASS overrides; edit those tags manually.".into(),
-        ));
-    }
-    let open = format!("<{style}>");
-    let close = format!("</{style}>");
+    let open = if let Some(inherited) = inherited {
+        format!("{{\\{style}{}}}", u8::from(!inherited))
+    } else {
+        format!("<{style}>")
+    };
+    let close = if let Some(inherited) = inherited {
+        format!("{{\\{style}{}}}", u8::from(inherited))
+    } else {
+        format!("</{style}>")
+    };
     let wrapped = a >= open.len()
         && source
             .get(a - open.len()..a)
@@ -81,6 +100,24 @@ pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Re
         && source
             .get(b..b + close.len())
             .is_some_and(|s| s.eq_ignore_ascii_case(&close));
+    // Closing a new HTML span turns this style off in libass. Do not accidentally
+    // disable an ASS style inherited by the rest of the cue.
+    if p.protected.iter().any(|r| {
+        if inherited.is_some() && wrapped && (r.start == a - open.len() || r.start == b) {
+            return false;
+        }
+        let block = &source[r.clone()];
+        block.starts_with("{\\")
+            && block.split('\\').skip(1).any(|part| {
+                (inherited.is_some() && part.starts_with('r'))
+                    || (part.starts_with(style)
+                        && part.chars().nth(1).is_none_or(|c| !c.is_ascii_alphabetic()))
+            })
+    }) {
+        return Err(Error::Invalid(
+            "This style is controlled by ASS overrides; edit those tags manually.".into(),
+        ));
+    }
     let same_style = p
         .protected
         .iter()
@@ -97,8 +134,8 @@ pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Re
                 &source[a..b],
                 &source[b + close.len()..]
             ),
-            start - 3,
-            end - 3,
+            start - open.len() as u32,
+            end - open.len() as u32,
         )
     } else {
         (
@@ -108,8 +145,8 @@ pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Re
                 &source[a..b],
                 &source[b..]
             ),
-            start + 3,
-            end + 3,
+            start + open.len() as u32,
+            end + open.len() as u32,
         )
     };
     if text.len() > MAX_CUE_BYTES {
@@ -117,7 +154,7 @@ pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Re
             "Formatted text would exceed the 64 KiB cue limit.".into(),
         ));
     }
-    let after = Projection::new(&text);
+    let after = projection(&text);
     let old_tokens = p
         .protected
         .iter()

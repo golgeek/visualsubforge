@@ -81,7 +81,11 @@ pub fn check_file(
     checkpoint(0, 0)?;
     let bytes = read_bounded(path, crate::srt_limits::MAX_BYTES, "Subtitles")?;
     checkpoint(0, 0)?;
-    let parsed = crate::subtitle_file::parse(&bytes).map_err(Error::Invalid)?;
+    let parsed = crate::subtitle_file::parse_document(
+        &bytes,
+        path.extension().and_then(|extension| extension.to_str()),
+    )
+    .map_err(Error::Invalid)?;
     evaluate(&parsed.document, profile, checkpoint)
 }
 

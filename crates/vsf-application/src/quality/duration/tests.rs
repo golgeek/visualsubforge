@@ -1,5 +1,6 @@
 use super::*;
 use crate::quality::profile::SpeedBasis;
+use subtitle_core::Cue;
 use subtitle_core::Editor;
 fn ms(value: u64) -> Milliseconds {
     Milliseconds::new(value).unwrap()

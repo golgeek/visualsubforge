@@ -278,14 +278,22 @@ pub async fn choose_file(
     kind: FileChoice,
     current: Option<String>,
 ) -> Result<Option<String>, String> {
+    let subtitle_extension = if matches!(kind, FileChoice::SaveSubtitles) {
+        let documents = app.state::<crate::document::Documents>().inner().clone();
+        tauri::async_runtime::spawn_blocking(move || documents.subtitle_extension())
+            .await
+            .map_err(|e| e.to_string())??
+    } else {
+        "srt"
+    };
     #[cfg(feature = "desktop-e2e")]
     {
-        let _ = current;
+        let _ = (current, subtitle_extension);
         app.state::<crate::desktop_test::Driver>().choose(kind)
     }
 
     #[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]
-    return crate::linux_dialog::choose_file(app, kind, current).await;
+    return crate::linux_dialog::choose_file(app, kind, current, subtitle_extension).await;
 
     #[cfg(all(not(target_os = "linux"), not(feature = "desktop-e2e")))]
     tauri::async_runtime::spawn_blocking(move || {
@@ -301,6 +309,8 @@ pub async fn choose_file(
             if let Some(name) = path.file_name() {
                 dialog = dialog.set_file_name(name.to_string_lossy());
             }
+        } else if matches!(kind, FileChoice::SaveSubtitles) {
+            dialog = dialog.set_file_name(format!("Untitled.{subtitle_extension}"));
         }
         let picked = match kind {
             FileChoice::QualityPreset => dialog
@@ -330,11 +340,11 @@ pub async fn choose_file(
             FileChoice::Media => dialog.set_title("Open Media").blocking_pick_file(),
             FileChoice::Subtitles => dialog
                 .set_title("Open Subtitles")
-                .add_filter("SubRip subtitles", &["srt"])
+                .add_filter("Subtitles", &["srt", "ass", "ssa"])
                 .blocking_pick_file(),
             FileChoice::SaveSubtitles => dialog
                 .set_title("Save Subtitles As")
-                .add_filter("SubRip subtitles", &["srt"])
+                .add_filter("Subtitles (same format)", &[subtitle_extension])
                 .blocking_save_file(),
         };
         picked

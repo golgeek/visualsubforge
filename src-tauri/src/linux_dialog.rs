@@ -22,6 +22,7 @@ pub async fn choose_file(
     app: tauri::AppHandle,
     kind: FileChoice,
     current: Option<String>,
+    subtitle_extension: &'static str,
 ) -> Result<Option<String>, String> {
     let window = app
         .get_webview_window("main")
@@ -43,7 +44,7 @@ pub async fn choose_file(
         .recv()
         .await
         .ok_or("File picker stopped before replying")??;
-    let result = choose_with_parent(identifier, kind, current.as_deref()).await;
+    let result = choose_with_parent(identifier, kind, current.as_deref(), subtitle_extension).await;
     // Keep the parent wrapper alive for the entire modal request. The existing
     // frontend busy/exit gate prevents normal window closure during a picker.
     drop(window);
@@ -66,6 +67,7 @@ async fn choose_with_parent(
     identifier: WindowIdentifier,
     kind: FileChoice,
     current: Option<&str>,
+    subtitle_extension: &str,
 ) -> Result<Option<String>, String> {
     // Subscribe before sending: ashpd waits for Response even if the service
     // disappears after replying with a request handle. Watch only this request's
@@ -98,7 +100,7 @@ async fn choose_with_parent(
         }
         Err("The desktop file picker connection closed. Check the session bus and FileChooser backend, then reopen the picker.".into())
     };
-    let request = request_file(identifier, kind, current);
+    let request = request_file(identifier, kind, current, subtitle_extension);
     pin_mut!(request, lost_service);
     match select(request, lost_service).await {
         Either::Left((result, _)) | Either::Right((result, _)) => result,
@@ -109,6 +111,7 @@ async fn request_file(
     identifier: WindowIdentifier,
     kind: FileChoice,
     current: Option<&str>,
+    subtitle_extension: &str,
 ) -> Result<Option<String>, String> {
     let path = current.map(Path::new);
     let folder = path.and_then(Path::parent);
@@ -138,10 +141,16 @@ async fn request_file(
             }
         } else if project {
             FileFilter::new("VSF project").glob("*.vsfproject")
+        } else if matches!(kind, FileChoice::SaveSubtitles) {
+            FileFilter::new("Subtitles (same format)").glob(format!("*.{subtitle_extension}"))
         } else {
-            FileFilter::new("SubRip subtitles").glob("*.srt")
+            FileFilter::new("Subtitles")
+                .glob("*.srt")
+                .glob("*.ass")
+                .glob("*.ssa")
         }
     };
+    let default_subtitle_name = format!("Untitled.{subtitle_extension}");
     let response = match kind {
         FileChoice::SaveSubtitles
         | FileChoice::SaveProject
@@ -162,7 +171,11 @@ async fn request_file(
                 .filter(filter())
                 .current_name(
                     path.and_then(Path::file_name)
-                        .and_then(|name| name.to_str()),
+                        .and_then(|name| name.to_str())
+                        .or_else(|| {
+                            matches!(kind, FileChoice::SaveSubtitles)
+                                .then_some(default_subtitle_name.as_str())
+                        }),
                 )
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?
@@ -246,6 +259,7 @@ mod tests {
             WindowIdentifier::from_xid(0),
             FileChoice::Subtitles,
             None,
+            "srt",
         ));
         match case.as_str() {
             "success" => assert_eq!(result, Ok(Some("/tmp/café subtitle.srt".into()))),
@@ -262,6 +276,7 @@ mod tests {
                         WindowIdentifier::from_xid(0),
                         FileChoice::Subtitles,
                         None,
+                        "srt",
                     ));
                     if let Ok(path) = retry {
                         assert_eq!(path, Some("/tmp/café subtitle.srt".into()));

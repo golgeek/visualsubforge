@@ -4,11 +4,22 @@ use std::ops::Range;
 pub(crate) const MAX_CUE_BYTES: usize = 64 * 1024;
 
 /// Timing changes cannot safely reinterpret cue-relative effects or unknown tags.
-pub(crate) fn retiming_is_ambiguous(source: &str) -> bool {
+pub(crate) fn retiming_is_ambiguous(
+    cue: &subtitle_core::Cue,
+    format: subtitle_formats::Format,
+) -> bool {
+    let source = cue.text();
+    if cue
+        .metadata()
+        .and_then(|m| m.get("Effect"))
+        .is_some_and(|v| !v.trim().is_empty())
+    {
+        return true;
+    }
     if source.len() > MAX_CUE_BYTES {
         return true;
     }
-    let projection = Projection::new(source);
+    let projection = Projection::for_format(source, format);
     projection.timed || projection.ambiguous.is_some()
 }
 
@@ -25,19 +36,30 @@ pub(super) struct Projection {
     pub layout: bool,
     pub escapes: bool,
     pub timed: bool,
+    pub ass_document: bool,
     unbalanced: bool,
 }
 
 impl Projection {
     pub fn new(source: &str) -> Self {
-        let mut result = Self::parse(source, true);
+        let mut result = Self::parse(source, true, false);
         if result.unbalanced {
-            result = Self::parse(source, false);
+            result = Self::parse(source, false, false);
             result.ambiguous = Some("Unbalanced HTML formatting needs manual review.");
         }
         result
     }
-    fn parse(source: &str, hide_html: bool) -> Self {
+    pub fn for_ass_document(source: &str) -> Self {
+        Self::parse(source, false, true)
+    }
+    pub fn for_format(source: &str, format: subtitle_formats::Format) -> Self {
+        if format == subtitle_formats::Format::Srt {
+            Self::new(source)
+        } else {
+            Self::for_ass_document(source)
+        }
+    }
+    fn parse(source: &str, hide_html: bool, ass_document: bool) -> Self {
         let mut result = Self {
             visible: String::new(),
             units: vec![],
@@ -46,13 +68,14 @@ impl Projection {
             layout: false,
             escapes: false,
             timed: false,
+            ass_document,
             unbalanced: false,
         };
         let mut at = 0;
         let mut styles = vec![];
         // Match preview's cue-local ASS opt-in, ignoring escaped open braces.
-        let mut ass = false;
-        while at < source.len() {
+        let mut ass = ass_document;
+        while !ass_document && at < source.len() {
             let rest = &source[at..];
             if rest.starts_with("\\{") {
                 at += 2;
@@ -67,7 +90,7 @@ impl Projection {
         let mut no_angle_closer = false;
         while at < source.len() {
             let rest = &source[at..];
-            if rest.starts_with("{\\") {
+            if rest.starts_with("{\\") || (ass_document && rest.starts_with('{')) {
                 if let Some(end) = rest.find('}') {
                     let block = &rest[..=end];
                     result.inspect_override(block);
@@ -95,7 +118,7 @@ impl Projection {
                 continue;
             }
             // Unknown HTML is visible in preview, but edits must not alter its syntax.
-            if rest.starts_with('<') && !no_angle_closer {
+            if !ass_document && rest.starts_with('<') && !no_angle_closer {
                 if let Some(end) = rest.find('>') {
                     result.ambiguous = Some("Unsupported HTML syntax needs manual review.");
                     result.protected.push(at..at + end + 1);

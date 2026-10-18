@@ -3,6 +3,7 @@
   import ResyncDialog from './lib/ResyncDialog.svelte';
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import StatisticsDialog from './lib/StatisticsDialog.svelte';
+  import StyleInspector from './lib/StyleInspector.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
@@ -401,6 +402,8 @@
     timing: { ...defaultTiming },
   });
   let statisticsOpen = $state(false);
+  let stylesOpen = $state(false);
+  let stylesReturn: HTMLElement | null = null;
   let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
@@ -498,6 +501,47 @@
       if (alive) error = String(e);
     } finally {
       if (alive) busy = false;
+    }
+  }
+  async function openStyles() {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.format ||
+      waveformGesture ||
+      cueMenu
+    )
+      return;
+    busy = true;
+    error = '';
+    stylesReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        stylesOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeStyles() {
+    stylesOpen = false;
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (stylesReturn?.isConnected) stylesReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
     }
   }
   async function closeStatistics(id?: string) {
@@ -637,6 +681,7 @@
   async function formatText(style: TextFormat) {
     if (busy || confirming || !cue || !textEditor) return;
     const before = subtitles.text;
+    const beforeStyle = subtitles.style;
     const snapshot = doc;
     const id = selected;
     const start = textEditor.selectionStart;
@@ -644,11 +689,17 @@
     busy = true;
     error = '';
     try {
-      const result = await textFormat(before, start, end, style);
+      const result = await textFormat(before, start, end, style, {
+        generation: snapshot.generation,
+        revision: snapshot.revision,
+        cueId: cue.id,
+        styleName: beforeStyle,
+      });
       if (
         !alive ||
         doc !== snapshot ||
         selected !== id ||
+        subtitles.style !== beforeStyle ||
         subtitles.text !== before
       )
         return;
@@ -684,6 +735,7 @@
   let hardware = $state(true);
   const selected = $derived(subtitles.selected);
   const cue = $derived(subtitles.cue);
+  const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
   const draftDirty = $derived(subtitles.dirty);
   let timingEdit = $state<TimingEdit | null>(null);
   let timingMagnets: {
@@ -810,6 +862,7 @@
   let span = $state(20);
   let range = $state<[number, number] | null>(null);
   const operationContext = $derived({
+    timeStepMs,
     cues: doc.cues,
     selected,
     loaded: doc.loaded,
@@ -2185,6 +2238,7 @@
       onfocusin={(e) => {
         editorFocused =
           e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLSelectElement ||
           e.target instanceof HTMLTextAreaElement;
         if (editorFocused) suspendCueFollowing();
       }}
@@ -2218,7 +2272,10 @@
             status.positionSeconds === null}
           onclick={() => {
             if (status.positionSeconds !== null)
-              subtitles.start = formatTime(status.positionSeconds * 1000);
+              subtitles.start = formatTime(
+                Math.round((status.positionSeconds * 1000) / timeStepMs) *
+                  timeStepMs,
+              );
           }}>Start here</button
         ><button
           disabled={!cue ||
@@ -2227,9 +2284,36 @@
             status.positionSeconds === null}
           onclick={() => {
             if (status.positionSeconds !== null)
-              subtitles.end = formatTime(status.positionSeconds * 1000);
+              subtitles.end = formatTime(
+                Math.round((status.positionSeconds * 1000) / timeStepMs) *
+                  timeStepMs,
+              );
           }}>End here</button
         >
+        {#if doc.format}
+          <label
+            >Style <select
+              aria-label="Cue style"
+              bind:value={subtitles.style}
+              disabled={!cue || busy || confirming}
+            >
+              {#if cue && !doc.format.styles.some((style) => style.name === subtitles.style)}<option
+                  value={subtitles.style}>{subtitles.style} (undefined)</option
+                >{/if}
+              {#each doc.format.styles as style (style.name)}<option
+                  value={style.name}>{style.name}</option
+                >{/each}
+            </select></label
+          >
+          <button
+            disabled={busy || confirming || !ready}
+            onclick={() => void openStyles()}>Inspect styles…</button
+          >
+          <small
+            >{doc.format.name.toUpperCase()} · {timeStepMs} ms · line breaks save
+            as \N</small
+          >
+        {/if}
       </div>
       {#if showQualityMetrics && cue}<div class="quality-readout">
           {#if quality.view?.selected?.data.cueId === String(cue.id)}<CueMetrics
@@ -2442,6 +2526,13 @@
       context={() => `${qualityContext}/${sceneState.qualityKey}`}
       onclose={() => void closeStatistics()}
       onnavigate={(id) => void closeStatistics(id)}
+    />
+  {/if}
+  {#if stylesOpen && doc.format}
+    <StyleInspector
+      format={doc.format}
+      initial={subtitles.style}
+      onclose={() => void closeStyles()}
     />
   {/if}
   {#if timingOpen}
@@ -2876,6 +2967,12 @@
   .editorbar input {
     width: 116px;
     font-variant-numeric: tabular-nums;
+  }
+  .editorbar select {
+    max-width: 150px;
+  }
+  .editorbar small {
+    color: #a9c1ce;
   }
   .editor textarea {
     resize: none;

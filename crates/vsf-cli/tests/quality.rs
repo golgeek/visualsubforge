@@ -132,3 +132,53 @@ fn imported_profiles_and_errors_have_documented_exit_codes_without_file_changes(
     );
     assert_eq!(run(&["check", "--help"]).status.code(), Some(0));
 }
+
+#[test]
+fn check_and_stats_read_ass_ssa_without_losing_source_or_changing_metric_policy() {
+    use quality::statistics::{self, Selection};
+    for (extension, source) in [
+        (
+            "ass",
+            include_str!("../../../tests/fixtures/subtitles/styles.ass"),
+        ),
+        (
+            "ssa",
+            include_str!("../../../tests/fixtures/subtitles/styles.ssa"),
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("input.{extension}"));
+        fs::write(&path, source).unwrap();
+        let parsed =
+            vsf_application::subtitle_file::parse_document(source.as_bytes(), Some(extension))
+                .unwrap();
+        let expected =
+            quality::evaluate(&parsed.document, &Profile::default(), |_, _| Ok(())).unwrap();
+        let expected_stats =
+            statistics::summarize(expected.clone(), Selection::default(), || Ok(())).unwrap();
+        for (command, expected) in [
+            ("check", serde_json::to_value(expected).unwrap()),
+            ("stats", serde_json::to_value(expected_stats).unwrap()),
+        ] {
+            let output = run(&[
+                command,
+                "--subtitles",
+                path.to_str().unwrap(),
+                "--profile",
+                "vsf-default",
+                "--json",
+            ]);
+            assert_eq!(
+                output.status.code(),
+                Some(3),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap(),
+                expected
+            );
+            assert_eq!(fs::read_to_string(&path).unwrap(), source);
+        }
+    }
+}

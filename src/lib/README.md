@@ -6,7 +6,7 @@ mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
-| `DocumentSession` | Replacement-only projection of Rust's document, selected cue, and text/time drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
+| `DocumentSession` | Replacement-only projection of Rust's document, selected cue, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
@@ -20,6 +20,17 @@ snapshots use `$state.raw`: replace them rather than mutating cue objects. App's
 Apply sends a captured generation/revision to Rust, which owns validation and
 undo history. A failed command preserves the draft. Timing gestures deliberately
 send the version captured when the gesture began.
+
+ASS/SSA snapshots include read-only styles/script settings and their 10 ms time
+grid. `StyleInspector` owns only its inspected style selection; assignment belongs
+to DocumentSession's draft and commits with text/time in one `editStyled` command.
+Unknown existing style names stay visible. Opening the inspector neither applies
+nor discards a draft. Playhead/gesture operations quantize before commit; typed
+values remain exact and Rust rejects unrepresentable endpoints. Formatting sends
+document identity plus the draft style so Rust can resolve the inherited property;
+App rejects a reply if document, cue, text or style changed while it was pending.
+See the [ASS/SSA integration guide](../../docs/ass-ssa-documents.md) for current
+validation scope and format-aware repair policies.
 
 Project references validate before the save/discard decision. Starting replacement
 clears the frontend attachment; only a complete media/subtitle/scene/seek restore

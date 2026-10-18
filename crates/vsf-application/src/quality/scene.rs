@@ -2,7 +2,7 @@
 //! A completed visual analysis is heuristic, including a completed empty result.
 mod repair;
 use super::{CueMetrics, Error, Finding, Profile, Result, Rule, Severity};
-pub use repair::{Proposal, Row, Skip, propose};
+pub use repair::{Proposal, Row, Skip, propose, propose_for_format};
 use serde::{Deserialize, Serialize};
 use subtitle_core::Milliseconds;
 
@@ -43,6 +43,16 @@ impl Windows {
     pub(super) fn new(
         profile: &Profile,
         scenes: &Scenes,
+        checkpoint: impl FnMut() -> Result<()>,
+    ) -> Result<Self> {
+        Self::for_format(profile, scenes, subtitle_formats::Format::Srt, checkpoint)
+    }
+    /// Expanding open bounds to grid edges preserves exactly the permitted grid
+    /// points. Merge expansions once so each later endpoint lookup stays O(log n).
+    pub(super) fn for_format(
+        profile: &Profile,
+        scenes: &Scenes,
+        format: subtitle_formats::Format,
         mut checkpoint: impl FnMut() -> Result<()>,
     ) -> Result<Self> {
         checkpoint()?;
@@ -81,8 +91,9 @@ impl Windows {
                 if coverage == SceneCoverage::NotRequired {
                     continue;
                 }
-                let left = cut.get() as i64 - before;
-                let right = cut.get() as i64 + after;
+                let step = format.time_step_ms() as i64;
+                let left = (cut.get() as i64 - before).div_euclid(step) * step;
+                let right = -(-(cut.get() as i64 + after)).div_euclid(step) * step;
                 if let Some(last) = result.intervals.last_mut()
                     && left < last.1
                 {

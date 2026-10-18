@@ -157,12 +157,19 @@ export const commands = {
     start: number,
     end: number,
     style: vsf_application_text_formatting_Format,
+    context: {
+      generation: number;
+      revision: number;
+      cueId: number;
+      styleName: string;
+    } | null,
   ) =>
     __TAURI_INVOKE<vsf_application_text_formatting_Formatted>('text_format', {
       text,
       start,
       end,
       style,
+      context,
     }),
   qualityProfileOpen: (path: string) =>
     __TAURI_INVOKE<vsf_application_quality_profile_Profile>(
@@ -894,6 +901,13 @@ export type vsf_application_text_formatting_Formatted = {
   end: number;
 };
 
+export type visualsubforge_text_review_FormattingContext = {
+  generation: number;
+  revision: number;
+  cueId: number;
+  styleName: string;
+};
+
 export type visualsubforge_gap_review_GapView = {
   id: number;
   key: visualsubforge_quality_check_Key;
@@ -1457,12 +1471,14 @@ export type vsf_application_quality_duration_Skip =
   | 'markupNeedsReview'
   | 'conflictingBounds'
   | 'neighborConstraint'
+  | 'formatPrecision'
   | 'sceneExclusion'
   | 'coupledConstraints'
   | 'noDirectChange';
 
 export type vsf_application_quality_gap_Skip =
   | 'ambiguousOverlap'
+  | 'markupNeedsReview'
   | 'wouldCollapse'
   | 'minimumDuration'
   | 'sceneDataUnavailable'

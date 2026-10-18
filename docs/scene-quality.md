@@ -39,6 +39,10 @@ failures and ambiguous markup are skipped. Karaoke, transforms, move/fade effect
 and unknown/incomplete tags require manual timing review; static supported tags
 remain byte-identical. Individual cues over 64 KiB also require manual review.
 The shared source-mapping parser is used by both text tools and timing repairs.
+For ASS/SSA, inward edges must lie on the 10 ms source grid; expanded exclusion
+windows retain exactly the representable safe points. Event metadata is preserved
+and nonempty event effects require manual review. See the current
+[ASS/SSA integration and acceptance scope](ass-ssa-documents.md).
 
 The entire proposed document is checked for new or worsened duration, speed,
 overlap, gap and scene findings, including effects on unchanged overlapping cues.

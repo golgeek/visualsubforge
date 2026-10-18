@@ -14,7 +14,7 @@ pub(super) fn row(
         after: None,
         skipped: None,
     };
-    if join && !source.contains('\n') {
+    if join && !(if p.ass_document { &p.visible } else { source }).contains('\n') {
         return row;
     }
     let reason = p.ambiguous.or_else(|| {
@@ -22,7 +22,7 @@ pub(super) fn row(
             Some("Line rules are disabled in the active quality profile.")
         } else if p.layout {
             Some("Positioned or animated text needs manual line-layout review.")
-        } else if p.escapes {
+        } else if p.escapes && !p.ass_document {
             Some("ASS text escapes need manual reflow; source counting differs from rendering.")
         } else if p
             .visible
@@ -121,12 +121,32 @@ pub(super) fn row(
     let mut patches = vec![];
     for (i, pair) in words.windows(2).enumerate() {
         let range = p.source_range(pair[0].end..pair[1].start);
-        if !p.safe_range(source, range.clone()) {
+        let first_token = p
+            .protected
+            .partition_point(|token| token.end <= range.start);
+        let plain_whitespace = p.ass_document
+            && p.protected[first_token..]
+                .iter()
+                .take_while(|token| token.start < range.end)
+                .filter(|token| token.start < range.end && token.end > range.start)
+                .all(|token| {
+                    token.start >= range.start
+                        && token.end <= range.end
+                        && matches!(&source[token.clone()], "\\N" | "\\n")
+                });
+        if !p.safe_range(source, range.clone()) && !plain_whitespace {
             row.skipped =
                 Some("Whitespace crosses a formatting boundary; adjust the lines manually.");
             return row;
         }
-        patches.push((range, if breaks[i] { "\n" } else { " " }));
+        patches.push((
+            range,
+            if breaks[i] {
+                if p.ass_document { "\\N" } else { "\n" }
+            } else {
+                " "
+            },
+        ));
     }
     let mut after = String::with_capacity(source.len());
     let mut at = 0;
@@ -138,9 +158,21 @@ pub(super) fn row(
     after.push_str(&source[at..]);
     if after != source {
         // Check the actual stored source against the named counting policy.
-        let valid = metrics::text(&after, || Ok(())).is_ok_and(|m| {
-            m.lines.len() <= max_lines && m.lines.iter().all(|&n| n as usize <= maximum)
-        });
+        let valid = if p.ass_document {
+            // Wrapping is an explicit display operation. Keep the named historical
+            // quality counters unchanged; they describe source, including escapes.
+            let projection = Projection::for_ass_document(&after);
+            let lines: Vec<_> = projection.visible.split('\n').collect();
+            projection.ambiguous.is_none()
+                && lines.len() <= max_lines
+                && lines
+                    .iter()
+                    .all(|line| line.encode_utf16().count() <= maximum)
+        } else {
+            metrics::text(&after, || Ok(())).is_ok_and(|m| {
+                m.lines.len() <= max_lines && m.lines.iter().all(|&n| n as usize <= maximum)
+            })
+        };
         if valid {
             row.after = Some(after);
         } else {

@@ -133,18 +133,14 @@ impl Documents {
         }
         // Reject busy admission before cloning another document snapshot.
         store.gaps.ensure_idle()?;
-        let document = store
-            .loaded
-            .as_ref()
-            .ok_or("Open subtitles first")?
-            .editor
-            .document()
-            .clone();
+        let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
+        let document = loaded.editor.document().clone();
+        let format = loaded.source.format();
         let profile = store.quality.context().profile;
         let captured = profile.clone();
         store.gaps.launch(key, scenes.key, profile, move |cancel| {
             let start = Instant::now();
-            engine::gap::propose(document, &captured, &scenes.data, || {
+            engine::gap::propose_for_format(document, format, &captured, &scenes.data, || {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(engine::Error::Cancelled);
                 }

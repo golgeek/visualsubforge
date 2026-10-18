@@ -42,6 +42,11 @@ start. Intersect all enabled bounds with the domain time range; never clamp one
 rule independently and silently leave another violated. No display rounding,
 nominal FPS assumption or new ideal-speed threshold drives the result.
 
+For ASS/SSA, intersect those bounds with the 10 ms source grid before choosing an
+endpoint; an empty intersection is an explicit precision skip. Event metadata is
+preserved and nonempty event effects need manual review. See the current
+[ASS/SSA integration and acceptance scope](ass-ssa-documents.md).
+
 The proposed end cannot exceed the next chronological start minus the configured
 minimum gap, even when gap warnings are disabled. This prevents new overlaps and
 keeps separate original overlap groups independent. A final cue has only domain
@@ -73,7 +78,7 @@ from reading metrics.
 reports and endpoint plan. It has no filesystem, Tauri, native-media or frontend
 dependency. The shared checker supplies metrics and whole-document validation;
 `Edit::Retime` validates the complete accepted document and records one history
-entry. The desktop additionally enforces the SRT size/save policy before publishing.
+entry. The desktop additionally enforces the source-format size/save policy before publishing.
 
 `document::timing_repairs` owns one worker and global proposal IDs for both scene
 and duration review. Purpose guards prevent cross-tool reads, acceptance or

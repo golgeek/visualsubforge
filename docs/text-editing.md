@@ -16,7 +16,7 @@ special meaning. An empty replacement deletes a safe match. Queries/replacements
 are limited to 4096 UTF-8 bytes; replacement excludes markup delimiters
 `< > { }`, backslashes, carriage returns and NUL. Edit tags directly when needed.
 
-Balanced `<b>`, `<i>` and `<u>` and complete ASS/SSA override blocks are protected
+For SRT, balanced `<b>`, `<i>` and `<u>` and complete ASS/SSA override blocks are protected
 source tokens. A cue containing a complete override uses the same ASS text
 escapes as native preview. Search maps breaks/nonbreaking spaces to readable
 characters, but replacements crossing tags or escapes are skipped with a reason.
@@ -24,6 +24,9 @@ Unknown overrides, karaoke, drawings, transforms, unsupported HTML and malformed
 formatting need manual review. Plain SRT backslashes remain literal. A final
 token comparison also rejects replacements that would accidentally form markup.
 This source mapping is separate from the historical quality-counting policy.
+Full ASS/SSA documents always interpret escapes, protect brace comments and treat
+HTML-looking text literally. Replacement also excludes new line breaks there;
+use the cue editor or Join/Reflow to change breaks explicitly.
 
 The preview shows exact original/proposed source, match counts, skipped reasons,
 the effective profile and whole-plan quality finding totals. **Replace this
@@ -36,27 +39,35 @@ and resynchronization Save As protections remain in force.
 
 Select a span in the cue text editor, then use **Bold**, **Italic**, **Underline**
 or Ctrl/Cmd+B/I/U. The shortcut wraps plain selected source with the matching
-HTML style; selecting exactly the text inside that wrapper toggles it off. It
+HTML style in SRT; selecting exactly the text inside that wrapper toggles it off. It
 updates the draft and restores its selection. **Apply edit** accepts it through
 the normal document operation. Empty selections, partial Unicode characters,
 tag/escape boundaries and conflicting existing same-style markup are rejected
 with an explanation. ASS/SSA overrides remain byte-for-byte intact; a style
 already controlled by ASS needs manual tag editing.
+For full ASS/SSA, shortcuts insert override spans and restore the assigned style's
+base value. Existing property controls or style resets require manual editing,
+except toggling an exact generated span. Rust validates the document/cue version
+and resolves the draft style; the result still requires explicit Apply.
 
 Join lines replaces safe physical line breaks/space runs with single spaces only
 when the result fits the profile's preferred single-line and maximum width.
 Reflow prefers one line within that preference, otherwise a balanced two-line
 split where possible, then greedy wrapping up to the allowed number of lines.
-Both use UTF-16 source counts under the active quality profile and verify the
-resulting stored source against its enabled line limits. They never split words,
+SRT uses UTF-16 source counts under the active quality profile and verifies the
+resulting stored source against its enabled line limits. Full ASS/SSA wrapping
+uses visible UTF-16 lengths and emits `\N`; before/after quality reports retain
+their named historical source-counting policy. These tools never split words,
 nonbreaking spaces or Unicode characters. There is no linguistic or pixel-width
 claim. Previewed text may still have other quality findings.
 
-Dialogue/list markers, positioned/animated text, ASS text escapes, blank lines,
+Dialogue/list markers, positioned/animated text, SRT cues with ASS text escapes, blank lines,
 tabs, leading/trailing whitespace and breaks crossing formatting boundaries are
 conservative skips. A long unbreakable word or text that cannot fit the enabled
 line limits is also skipped. Tags are never stripped to construct replacement
-text. Full ASS/SSA files/styles/metadata remain outside this SRT workflow.
+text. Full ASS/SSA can explicitly change hard/soft break whitespace while retaining
+every other tag/escape and event metadata; nonempty event effects remain manual
+skips. Its broader desktop acceptance is still [in progress](ass-ssa-documents.md).
 
 ## Ownership, limits and validation
 
@@ -68,7 +79,7 @@ state, including saved-state identity and redo. A proposal additionally checks
 its full source baseline before creating the edit.
 
 The desktop document owner admits one text worker, with no pending queue and a
-10-second cooperative deadline. It captures a document/profile under the mutex,
+10-second cooperative deadline. It captures a document/source-format/profile under the mutex,
 computes outside it, and guards generation, revision and profile epoch during
 publication/acceptance. Accepted edits/history/profile changes invalidate old
 results. Shutdown cancels and joins outside the document mutex. Quality and gap
