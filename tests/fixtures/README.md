@@ -22,6 +22,13 @@ the A/B outlines to expose stale-font replacement in later native tests. Their
 structural parsing is validated; native attachment-management acceptance remains
 separate. See [preview font validation](../../docs/preview-fonts.md).
 
+`subtitles/styles.vtt` is independently authored under the repository's
+GPL-3.0-or-later license. It covers cue identifiers/settings, comments, CSS/region
+records, voice/language/class/ruby markup, entities, Unicode and internal timestamp
+markers. No legacy or third-party subtitle text is included. The pure WebVTT
+benchmark generates three further deterministic 10,000-cue inputs in memory;
+see [scope, commands and evidence](../../docs/webvtt.md).
+
 ## Generate and validate
 
 Install FFmpeg/ffprobe, then run from the repository root:

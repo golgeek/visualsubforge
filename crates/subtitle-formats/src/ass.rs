@@ -464,6 +464,13 @@ fn event(cue: &Cue, original: Option<&Original>, format: &[String]) -> Result<St
     let metadata = cue
         .metadata()
         .ok_or("ASS/SSA cue is missing event metadata")?;
+    if metadata
+        .fields()
+        .iter()
+        .any(|(_, value)| value.contains(','))
+    {
+        return Err("ASS/SSA event metadata cannot contain field-separating commas".into());
+    }
     if cue.text().contains('\n') {
         return Err("ASS/SSA cue text uses literal \\N hard breaks; convert editor newlines before committing".into());
     }

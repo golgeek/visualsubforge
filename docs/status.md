@@ -19,10 +19,19 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
-authoring are complete within their recorded Mac scopes. WebVTT is next, followed
+authoring are complete within their recorded Mac scopes. WebVTT is in progress, followed
 by legacy project import, manual translation, plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**WebVTT foundation (2026-10-18):** the pure format adapter preserves original
+blocks, cue identifiers/settings and line endings through exact-millisecond edits
+and history. Invalid boundaries, timestamps and metadata reject atomically.
+Desktop/CLI dispatch, markup-aware tools, preview, projects and recovery remain
+pending; WebVTT cannot yet be opened in the editor. This does not complete stage6a.
+384 Rust tests / 30 ignored and strict checks pass. Three pure 10k workloads pass
+p95 <=51.506ms and +26,230,784 sampled RSS bytes; these are not desktop measurements.
+See [the implemented boundary, checks and remaining acceptance](webvtt.md).
 
 **Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
 have explicit precision/loss/blocking review and protected separate-file export.

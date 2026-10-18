@@ -2,4 +2,5 @@
 pub mod ass;
 mod source;
 pub mod srt;
+pub mod webvtt;
 pub use source::{Format, Parsed, Source, parse};

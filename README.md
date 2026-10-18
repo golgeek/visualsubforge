@@ -101,7 +101,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT/ASS/SSA parsing/serialization without filesystem access. See the
 [ASS/SSA preservation policy and validation](docs/ass-ssa-documents.md), including
-encoding, fonts and format limits. `vsf-application`
+encoding, fonts and format limits. The [WebVTT format foundation](docs/webvtt.md)
+is in progress and is not yet exposed by the editor. `vsf-application`
 shares bounded subtitle reads, size policy and atomic file persistence with headless
 callers. `src-tauri` coordinates accepted desktop state and background services,
 while `media-analysis` and
