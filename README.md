@@ -84,8 +84,9 @@ checks, but candidate audio/content, device, composition and distribution gates
 remain open. A build, property smoke test or VM trial is not platform acceptance.
 
 The [JavaScript plugin host](docs/plugin-host.md) is in progress. Its bounded
-worker foundation and pure modern/VSS APIs have Mac tests; editor/CLI integration
-is not yet available. See the [supported API subset](docs/plugin-api.md).
+worker, modern/VSS API subset and [local CLI check/preview/apply](docs/plugin-cli.md)
+have Mac tests. Desktop plugin integration remains pending. See the
+[supported API subset](docs/plugin-api.md).
 
 ## Build, test and understand the code
 

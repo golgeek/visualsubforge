@@ -4697,6 +4697,7 @@ dependencies = [
  "subtitle-formats",
  "tempfile",
  "vsf-application",
+ "vsf-plugin-host",
 ]
 
 [[package]]

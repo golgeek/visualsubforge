@@ -1,7 +1,7 @@
 # Initial plugin API and VSS compatibility
 
-This is the implemented **application-library subset**, currently under validation.
-The desktop and CLI do not yet discover, run or review plugins. It is not a claim
+This is the implemented **application-library subset**, with a tested
+[local CLI workflow](plugin-cli.md). Desktop plugin integration remains pending. It is not a claim
 of complete VisualSubSync compatibility. The [host guide](plugin-host.md) records
 runtime limits and remaining integration gates; ADR0008 remains proposed.
 
@@ -9,9 +9,10 @@ runtime limits and remaining integration gates; ADR0008 remains proposed.
 
 `vsf-application::plugins::Package` contains a manifest and a sorted map of relative
 JavaScript filenames to captured UTF-8 source strings. The library does no IO.
-Filesystem discovery and package installation belong to the future IO owner.
-The examples under `examples/plugins/` use `manifest.json` plus `main.js`; tests
-capture these explicitly. No installed-plugin directory or CLI command exists yet.
+The separate `plugin_files` application module performs bounded local package IO
+and protected publication for the CLI. The examples under `examples/plugins/` use
+`manifest.json` plus `main.js`. No installed-plugin directory or package installer
+exists yet; the CLI requires an explicitly selected local manifest.
 
 Manifest version 1 requires `id`, `name`, `api` (`vsf-1` or `vss-1`) and `entry`.
 `requires` and scalar `settings` are optional. IDs use lowercase ASCII letters,
@@ -154,9 +155,10 @@ field allocations without introducing a mutable metadata owner. VSS wrapper
 lookup uses the captured array index, while accessor functions are shared across
 stable wrappers; their own enumerable properties and write guards are retained.
 
-No engine/native dependency enters the domain or application crate. Only the
-plugin-host **test/example** dependencies compose the pure application with the
-worker here. Desktop admission, one worker/no queue, job lifetime, paging/review,
+No engine/native dependency enters the domain or application crate. The CLI now
+composes the shared application with the worker through an injected executor;
+plugin-host tests/examples also compose those boundaries. Desktop admission,
+one worker/no queue, job lifetime, paging/review,
 close/replacement cancellation and recovery remain to be implemented and tested.
 
 ## Provenance and validation scope

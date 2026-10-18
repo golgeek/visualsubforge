@@ -1,16 +1,19 @@
 # JavaScript plugin host
 
-Stage7 is in progress. The bounded worker foundation exists in
-`crates/plugin-host`; the editor and CLI do not yet load or execute plugins.
-The pure application now has [modern/VSS APIs and validated fix proposals](plugin-api.md).
-Editor/CLI review, ownership and integration remain required. ADR0008 is still proposed.
+Stage7 is in progress. The bounded worker in `crates/plugin-host`, pure
+[modern/VSS APIs and validated proposals](plugin-api.md), and
+[local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
+Desktop review, ownership and integration remain required. ADR0008 is still proposed.
 
 ## Candidate execution boundary
 
 The experiment pins `rquickjs`/`rquickjs-core`/`rquickjs-sys` 0.14.0 and the latter's
 bundled QuickJS-NG 0.16.2 sources. The binding and engine use MIT licenses. Published
-crate checksums are in Cargo.lock; existing distribution inventory/source recipes
-must include these components when a shipped application actually links them.
+crate checksums are in Cargo.lock. The CLI now links the runtime; its non-dev
+dependency closure includes these components. The source collector retains the
+published engine notices and uses the existing pinned-upstream fallback for
+rquickjs-core, whose published crate omits its root license. A targeted Mac closure
+and archive/notice audit passes; complete release inventory remains required.
 No legacy script implementation is redistributed by this increment.
 
 The candidate exposes a fresh single-threaded runtime in a short-lived helper.
@@ -28,7 +31,8 @@ The `std` feature alone is enabled: no module resolver, native module loader,
 async runtime or host file/network/DOM capabilities. The parent clears the helper's
 environment, preserving only SystemRoot on Windows for runtime loading, and uses
 direct executable/argument invocation. Windows launches without a console window.
-Native package placement and desktop/CLI startup integration remain unimplemented.
+The CLI launches its own executable in an early internal worker mode before normal
+startup. Desktop startup integration and package installation remain unimplemented.
 
 The inspected [Boa 0.22.0 runtime limits](https://docs.rs/boa_engine/0.22.0/boa_engine/vm/struct.RuntimeLimits.html)
 cover loop iterations, stack, recursion and backtrace limits. That API does not
@@ -91,7 +95,7 @@ Required before stage7/ADR0008 acceptance:
   settings, neighbor/scene semantics and Rust proposal/history validation now have
   real-helper tests; this does not yet validate the desktop owner's lifetime.
   Unresolved-license scripts are tested locally and are not redistributed.
-- Editor/CLI discovery, review, adoption, cancellation, close/replace/shutdown,
+- Editor discovery, review, adoption, cancellation, close/replace/shutdown,
   save/reopen/recovery and races with existing accepted state. One admitted plugin
   run with no queued helper process; the current low-level `run` function relies
   on its caller to provide that application-wide admission bound.
@@ -101,6 +105,84 @@ Required before stage7/ADR0008 acceptance:
 
 General actions, columns, UI hooks, split hooks and broad historical-pack
 compatibility remain separately tracked beyond the first rule/fix subset.
+
+## CLI and package IO evidence — 2026-10-18
+
+On the same Mac/Rust toolchain, six application IO tests pass: bounded package
+traversal, helpers, invalid encodings/counts/sizes/depth, symlinks and FIFO refusal,
+exact review identity, cancelled/changed/unreadable inputs, competing output lease,
+no-clobber publication and temporary cleanup. These tests inject wire replies;
+they do not claim JavaScript execution by themselves.
+
+Eight separate integration tests run the actual `vsf` executable and its internal
+helper. Modern/VSS check, preview, deterministic rerun and apply pass for all four
+formats, including Unicode/spaces in paths, source labels, raw tags, ASS/SSA
+metadata/attachments and WebVTT timed content. Tests cover explicit scene/cursor/
+selection/settings context, captured helpers, outside-scope neighbor changes and
+markup warnings, invalid timing/precision/timed effects, exceptions after partial
+mutation, absent APIs, nondeterministic review refusal, invalid arguments, existing
+and aliased outputs, source/package/context/scope/setting changes, live SIGINT and
+helper reaping, and source mutation during execution. Unix process/symlink tests
+are explicitly platform-gated; this run is Mac evidence only.
+
+All492 workspace Rust tests pass/31 ignored;11 zero-test harnesses are excluded.
+All44 frontend tests, strict workspace Clippy, Rustfmt, Prettier, ESLint,
+Svelte/TypeScript/Vite, generated-IPC comparison and the default desktop build
+pass. There is no new frontend/IPC or native-editor behavior in this increment;
+browser/native workflows were not rerun. Windows/Linux plugin execution and full
+desktop/recovery acceptance remain open.
+
+Thirty predeclared release workloads cover modern/VSS check, preview and apply on
+five exact10k inputs: dense tagged SRT, ASS, SSA, styled and timed WebVTT. Each has
+one warm-up and20 measured fresh CLI commands. The500ms p95 budget includes
+process startup, package/source IO, helper, validation, full review output or
+atomic publication, and final input verification. Worst p95 is333.31024996005ms
+(timed WebVTT/VSS apply), with a335.46562504488975ms maximum in that workload.
+Sampled totalCLI+helperRSS is120,782,848bytes (115.1875MiB) against192MiB, using
+8278 samples including4082 live helpers. There is no input-baseline subtraction.
+Every finding/change, original bytes, output SHA256 and output reparse through a
+second real CLI check is verified outside the command timer. Sampling adds polling
+latency and can miss RSS peaks; it is not an OS memory cap. Existing pure/API gates
+are unchanged. The default desktop build overlapped part of this passing run.
+
+Commands (repository root; Node commands use `source "$HOME/.nvm/nvm.sh" && nvm use --silent`):
+
+```sh
+cargo test --locked -p vsf-application --test plugin_files
+cargo test --locked -p vsf-cli --test plugins
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+cargo build --locked -p vsf-cli
+cargo build --locked --release -p vsf-cli
+python3 scripts/plugin-cli-benchmark.py
+npm run format:check
+npm run lint
+npm test
+npm run build
+npm run ipc:check
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+Receipts live under `test-results/plugin-cli-20261018/`: application/CLI/workspace
+test logs, strict/build logs, `benchmark.json` and `source-inventory.json`.
+Measured release CLI SHA256:
+`860eb7a351f3b0958fe494c995995bf8052cc5adbeb973ee80f5022ddf70ef90`.
+The targeted source audit uses `cargo metadata --locked --offline --format-version 1
+--filter-platform aarch64-apple-darwin`, the existing non-dev GUI/CLI closure and
+archive/notice functions. All three registry archives match Cargo.lock and local
+unpacked sources; original nested engine notices and the core crate's pinned
+upstream license are retained. This is not a complete release inventory.
+
+Retained failures: the first IO assertion expected `/var` rather than the published
+canonical `/private/var` path; the test now compares canonical paths. Initial CLI
+tests omitted the required VSS name, mistook a structured helper request error for
+a process transport failure, and expected an argument error for a runtime setting
+type mismatch. Those test expectations/fixtures were corrected, with the actual
+helper protocol and API behavior retained. The first targeted license audit
+assumed every crate contained root notices; using the existing pinned-upstream
+fallback resolves the missing rquickjs-core notice. No performance budget was
+relaxed and no desktop/VM acceptance is inferred from these results.
 
 ## Mac foundation evidence — 2026-10-18
 

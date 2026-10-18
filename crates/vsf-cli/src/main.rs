@@ -2,6 +2,7 @@
 //! validation and file publication; this process never loads desktop settings.
 mod args;
 mod check;
+mod plugins;
 mod stats;
 use args::{Cli, Command, Resync};
 use clap::Parser;
@@ -11,6 +12,10 @@ use std::{
     io::{self, Write},
     path::Path,
     process::ExitCode,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 use vsf_application::resync::{
@@ -18,6 +23,9 @@ use vsf_application::resync::{
 };
 
 fn main() -> ExitCode {
+    if let Some(code) = vsf_plugin_host::worker_entry() {
+        return code;
+    }
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(error) => {
@@ -28,13 +36,20 @@ fn main() -> ExitCode {
     };
     let cancel = Cancellation::default();
     let token = cancel.clone();
-    if let Err(error) = ctrlc::set_handler(move || token.cancel()) {
+    let plugin_cancel = Arc::new(AtomicBool::new(false));
+    let plugin_token = Arc::clone(&plugin_cancel);
+    if let Err(error) = ctrlc::set_handler(move || {
+        token.cancel();
+        plugin_token.store(true, Ordering::Release);
+    }) {
         diagnostic(format!("Cannot install cancellation handler: {error}"));
         return ExitCode::from(5);
     }
     // Returning from main drops all owned state. Do not exit from a signal
     // handler: the current synchronous call must reap children/clean temporaries.
     let result = match cli.command {
+        Command::Plugin(args) => plugins::run(args.command, &plugin_cancel)
+            .map_err(|e| (plugins::error_code(&e), e.to_string())),
         Command::Resync(args) => run(args, &cancel).map_err(|error| {
             let code = match &error {
                 Error::InvalidInput(_) => 2,

@@ -29,7 +29,7 @@ baseline. Physical Windows/Linux acceptance is a separate open release gate.
 rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
 stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
 focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
-floods and crashes. The latest baseline passes 478 workspace tests/31 ignored,
+floods and crashes. The latest baseline passes 492 workspace tests/31 ignored,
 strict Clippy, Rustfmt, Prettier and ESLint (zero-test harnesses excluded).
 Two fresh-helper 10k workloads pass p95<=46.513ms and sampled additional combined
 RSS 53,575,680 bytes within predeclared limits. Pure modern/VSS APIs, captured
@@ -41,8 +41,16 @@ Undo and retain source metadata; immutable field sharing reduces capture/history
 allocation. Twenty complete API/history 10k workloads pass p95<=302.633ms and
 +198,246,400 sampled RSS bytes against 500ms/192MiB. The [API matrix](plugin-api.md)
 and [failed attempts/final evidence](plugin-host.md#pure-apiproposal-evidence--2026-10-18)
-record exact scope. There is still no editor/CLI plugin entry point, Rust job owner
-or review UI. Those, pinned VSS-host parity, available VM checks and complete
+record exact scope. The [local CLI](plugin-cli.md) now supports explicit package
+loading, complete preview and reviewed same-format new-file publication. Six IO
+tests and eight real-executable tests cover all four formats, changed-input/review
+refusal, source protection, timeout, live cancellation and helper reaping. Thirty
+fresh-CLI10k workloads pass p95<=333.311ms and sampled combined RSS120,782,848 bytes
+against500ms/192MiB; complete rows, source/output hashes and output reparse are
+verified. All44 frontend tests, strict checks and the default desktop build pass;
+no frontend/native UI behavior changed or was retested. There is still no desktop
+plugin entry point, Rust job owner or review UI. Those, pinned VSS-host parity,
+available VM checks and complete
 desktop/native/recovery 10k acceptance remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 

@@ -14,12 +14,92 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Run local JavaScript subtitle checks and reviewable fixes.
+    Plugin(Plugin),
     /// Check subtitle authoring rules without changing the file.
     Check(Check),
     /// Summarize accepted subtitle metrics without changing the file.
     Stats(Stats),
     /// Transfer SRT/ASS/SSA/WebVTT timings between versions of the same programme.
     Resync(Resync),
+}
+
+#[derive(Args)]
+pub struct Plugin {
+    #[command(subcommand)]
+    pub command: PluginCommand,
+}
+#[derive(Subcommand)]
+pub enum PluginCommand {
+    /// Report plugin findings without changing files (exit 1 for findings).
+    Check(PluginRun),
+    /// Preview every proposed fix and obtain an exact review ID; no files change.
+    Preview(PluginRun),
+    /// Rerun a reviewed proposal and publish matching changes to a new file.
+    Apply(PluginApply),
+}
+#[derive(Args)]
+#[command(
+    after_help = "Plugins are local code running with bounded time/memory and no filesystem/network host bindings. This is not an OS security sandbox.\nDefaults use the VSF default gap/duration/CPS policy; scenes, cursor and RS index are unavailable unless provided by --context.\nApply reruns the plugin: inputs, settings, findings and proposed changes must reproduce the preview's review ID. Outputs must be new same-format paths.\nExit codes: 0 complete, 1 check findings, 2 input/limit, 4 script/worker, 5 IO, 6 changed input/review, 7 timeout, 130 cancelled."
+)]
+pub struct PluginRun {
+    /// Source UTF-8 SRT, ASS, SSA or WebVTT (never overwritten).
+    #[arg(long, value_name = "FILE")]
+    pub subtitles: PathBuf,
+    /// JSON manifest in a local package containing at most 64 JavaScript files.
+    #[arg(long, value_name = "MANIFEST")]
+    pub package: PathBuf,
+    /// One-based cue positions to check/fix; omitted means all. May be repeated.
+    #[arg(long, value_delimiter = ',')]
+    pub cue: Vec<u32>,
+    /// One-based positions exposed as selection; omitted means no selection.
+    #[arg(long, value_delimiter = ',')]
+    pub select: Vec<u32>,
+    /// Override a declared scalar setting, e.g. ParamMode=3 or removeTabs=false.
+    #[arg(long,value_name="NAME=JSON",value_parser=parse_plugin_setting)]
+    pub setting: Vec<(String, serde_json::Value)>,
+    /// Explicit JSON preferences, cursorMs and/or completed mapped scenes.
+    #[arg(long, value_name = "FILE")]
+    pub context: Option<PathBuf>,
+    /// Whole operation budget including IO and publication preparation.
+    #[arg(long,default_value_t=10000,value_parser=clap::value_parser!(u32).range(1..=60000))]
+    pub timeout_ms: u32,
+    /// Maximum helper execution time, also bounded by the remaining whole budget.
+    #[arg(long,default_value_t=1000,value_parser=clap::value_parser!(u32).range(1..=10000))]
+    pub execution_ms: u32,
+    /// Emit the complete versioned review as JSON.
+    #[arg(long)]
+    pub json: bool,
+}
+#[derive(Args)]
+pub struct PluginApply {
+    #[command(flatten)]
+    pub run: PluginRun,
+    /// Exact review ID printed by plugin preview with the same inputs/options.
+    #[arg(long,value_parser=parse_review_id)]
+    pub accept: String,
+    /// New output file with the same subtitle extension.
+    #[arg(long, value_name = "FILE")]
+    pub output: PathBuf,
+}
+fn parse_plugin_setting(text: &str) -> Result<(String, serde_json::Value), String> {
+    let (name, value) = text
+        .split_once('=')
+        .ok_or("Use NAME=JSON for a plugin setting")?;
+    Ok((
+        name.into(),
+        serde_json::from_str(value).map_err(|e| format!("Invalid setting JSON: {e}"))?,
+    ))
+}
+fn parse_review_id(text: &str) -> Result<String, String> {
+    if text.len() != 64
+        || !text
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err("Use the 64-character lowercase review ID from plugin preview".into());
+    }
+    Ok(text.into())
 }
 
 #[derive(Args)]
