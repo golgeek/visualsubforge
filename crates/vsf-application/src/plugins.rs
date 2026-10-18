@@ -4,7 +4,7 @@ use crate::{
     subtitle_file,
     subtitle_markup::{MAX_CUE_BYTES, Projection, retiming_is_ambiguous},
 };
-pub use package::{Api, CAPABILITIES, Manifest, Package};
+pub use package::{Api, CAPABILITIES, MAX_FILES, MAX_PACKAGE_BYTES, Manifest, Package};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -29,8 +29,8 @@ pub enum Mode {
     Check,
     Fix,
 }
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     pub minimum_blank_ms: u64,
     pub minimum_duration_ms: u64,
@@ -38,8 +38,8 @@ pub struct Preferences {
     pub cps_target: f64,
     pub rs_target_index: Option<u32>,
 }
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Scenes {
     pub cuts_ms: Vec<u64>,
     pub start_offset_ms: u64,
