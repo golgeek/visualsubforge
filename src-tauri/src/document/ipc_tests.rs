@@ -57,6 +57,7 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
         saved_bytes: super::ass_tests::ASS.as_bytes().to_vec(),
         recovered: true,
         resynced: false,
+        translation: translation::Context::default(),
     });
     vec![
         ("documentActions", "DocumentAction[]", actions),

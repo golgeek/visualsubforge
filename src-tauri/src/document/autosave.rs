@@ -61,6 +61,7 @@ impl Documents {
                                     d.source().clone(),
                                     d.path.clone(),
                                     d.saved_bytes.clone(),
+                                    d.translation.clone(),
                                 )
                             })
                         } else {
@@ -73,7 +74,7 @@ impl Documents {
                         // the document lock. Only the atomic rename/clear holds it.
                         let prepared = (|| -> Result<Option<crate::atomic_file::Prepared>> {
                             match image {
-                                Some((document, source, path, saved)) => {
+                                Some((document, source, path, saved, translation)) => {
                                     let saved =
                                         String::from_utf8(saved).map_err(|e| e.to_string())?;
                                     let mut record = crate::recovery_store::Record::new_document(
@@ -85,6 +86,7 @@ impl Documents {
                                         key.revision,
                                     )?;
                                     record.resynced = key.resynced;
+                                    record.set_translation(translation.stored()?);
                                     session.prepare(&record).map(Some)
                                 }
                                 None => Ok(None),

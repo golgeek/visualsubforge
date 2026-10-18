@@ -10,6 +10,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
         .commands(tauri_specta::collect_commands![
             media::media_action,
             document::document_action,
+            document::translation::translation_action,
             document::recovery_status,
             document::recovery_discard,
             desktop::choose_file,
@@ -116,7 +117,7 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
@@ -125,6 +126,7 @@ fn export_bindings() {
     samples.extend(document::font_ipc_samples());
     samples.extend(document::conversion_ipc_samples());
     samples.extend(project::import::ipc_samples());
+    samples.extend(document::translation::ipc_samples());
     samples.extend([
         (
             "statisticsView",

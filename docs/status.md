@@ -31,8 +31,13 @@ support signed offsets and independent target copies. Eight focused tests and al
 434 workspace Rust tests pass (30 opt-in tests ignored), with strict Clippy and
 format/lint checks. Five 10k library workloads pass p95 <=86.801ms and additional
 sampled RSS 99,876,864 bytes, with only 786,432 bytes of memory-budget headroom.
-This is not a desktop feature yet: Rust desktop adoption, UI, source guards,
-project persistence/recovery and native/chooser/desktop10k acceptance remain.
+The subsequent Rust owner adds bounded loading/querying, stale/cancel guards,
+independent target copies, sticky source protection and reference-aware recovery.
+Twelve owner/related conversion cases, a signed-IPC boundary test, all 447 workspace
+Rust tests /30 ignored, 44 frontend tests, strict checks, generated IPC and the
+default desktop build pass. Project persistence and the panel remain pending;
+the intermediate owner refuses project saves that would omit the context. No
+browser/native/chooser or combined desktop10k translation acceptance is claimed.
 See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports

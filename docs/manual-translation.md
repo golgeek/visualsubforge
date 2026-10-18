@@ -1,7 +1,8 @@
 # Manual reference/target translation
 
-Stage6c is in progress. This is the implementation contract; the desktop workflow
-is not available yet. WebVTT and legacy project import are already accepted.
+Stage6c is in progress. The pure foundation and Rust desktop owner/IPC/recovery
+are implemented; project persistence and the user-facing panel are not available
+yet. WebVTT and legacy project import are already accepted.
 
 ## Intended workflow
 
@@ -45,17 +46,54 @@ indexed interval queries, exact original bytes and format-aware text projection.
 They have no filesystem, Tauri, frontend or native media dependencies. Format
 validation continues through the existing bounded subtitle reader/parser.
 
-The planned desktop owner keeps the accepted reference context with Rust's
-loaded target, separate from its existing Editor history. An epoch distinguishes
-reference changes from target revisions. Reference reads/parsing and query work
-run off the UI thread; a bounded, cancellable admission path must reject stale
-target generations and replaced reference requests before adoption. The frontend
-owns only selected reference rows, paging, visibility and temporary offset/file
-choices. It cannot mutate the reference or accept target content independently.
+The desktop owner now keeps accepted reference context with Rust's loaded target,
+separate from its existing Editor history. Context consists of the immutable
+reference, signed offset, copied-source provenance and a project-dirty flag.
+An epoch distinguishes reference changes from target revisions. Context-only
+changes neither manufacture subtitle edits nor discard target Undo/Redo. A copied
+target starts unsaved and requires Save As; copied-source protection survives
+Undo, reference detachment and subsequent saves for that loaded target's lifetime.
 
-The current pure foundation adds no worker or desktop owner. The exact worker,
-IPC, project schema and recovery schema changes must be documented with their
-integration and race tests before ADR0033 can be accepted.
+One additional reference worker handles load preparation and paged reading/matches,
+with no queue. It owns immutable captures only and never locks or retains Store.
+Store owns admission, job identity and a cancellation flag; generation, revision
+and reference epoch guard every adoption and result. Queries capture accepted
+target intervals, never a frontend draft. Input reads retain the existing regular
+file/16 MiB limits. Cancellation/deadline checkpoints surround bounded IO/parser
+phases and scan rows; the ten-second deadline is cooperative, not an OS syscall
+interrupt. Normal shutdown takes the handle under the document lock, then joins
+outside it. A one-shot completion channel also lets shutdown await reserved
+acceptance IO outside the lock; its sender is dropped on every return path.
+Owner destruction has a final cancellation/join fallback.
+
+Acceptance reserves one slot, rechecks the selected path/canonical destination
+and exact bytes, and constructs an independent target off-lock. It then rechecks
+document/context/job identity, cancellation and discard permission before one
+locked assignment. No external filesystem lock is claimed across adoption: the
+accepted immutable snapshot and fingerprint identify the captured version.
+Queries return at most 200 rows, with 1 KiB UTF-8-safe raw/reading excerpts and an
+optional selected row capped at 64 KiB. Truncation and projection limits are
+explicit. Source text always remains complete in Rust and in recovery.
+
+The thin typed `translation_action` command delegates to blocking application
+work; generated contracts and `client.ts` expose its actions/replies. The pending
+frontend will own only selection, paging, visibility, drafts and reply epochs.
+It must reconcile context replies without replacing an unapplied target draft.
+
+Recovery v5 retains exact reference text, format, SHA-256, paths, offset and copy
+provenance. Restore validates all data without reading the original reference.
+The checkpoint key includes context epoch/dirty state, so an old prepared write
+cannot cross a reference-only change. Existing recovery still requires Save As.
+The record envelope is 300 MiB: three independently bounded 16 MiB subtitle texts
+can each expand sixfold as JSON, plus metadata. Oversized/corrupt preparation
+preserves the previous checkpoint. Older recovery versions remain readable.
+
+Target Save/Save As and the final conversion commit protect current and copied
+reference paths, including deleted provenance and case/normalization aliases.
+Project persistence is the next required integration: the intermediate owner
+explicitly refuses to save a project that would silently omit translation context.
+No menu or panel exposes this unfinished workflow. ADR0033 remains proposed until
+the complete project/UI/native/scale acceptance passes.
 
 ## Acceptance
 
@@ -151,9 +189,58 @@ was relaxed. The benchmark excludes desktop latency, project/recovery IO, file
 choosers and native rendering. No frontend/IPC behavior changed, so browser/native
 feature acceptance remains pending rather than inferred from these tests.
 
-Next: implement bounded desktop loading/querying, reference adoption and source
-guards, typed UI, project/recovery persistence and all remaining acceptance.
+Subsequent owner implementation is recorded below. Typed UI, project persistence
+and all remaining native/scale acceptance are still required.
 Stage6c and ADR0033 remain in progress/proposed.
+
+## Desktop owner increment — 2026-10-18
+
+Twelve focused translation/related conversion tests pass: four-format copies and
+history, attach/offset/detach, mixed-format queries, bounded Unicode previews,
+invalid inputs, failed/stale loads, external byte/symlink changes, cancellation
+during acceptance, single-worker admission and off-lock shutdown, source alias/
+deleted-name protection, failed-save preservation, four-format recovery with a
+missing reference, corrupt hash/format/offset/path/version refusal, and background
+reference-only checkpointing plus normal cleanup. A delayed conversion test
+attaches a reference after temporary output preparation; its final commit refuses
+the newly protected path even after that reference file is removed.
+
+The signed IPC boundary additionally tests exact positive/negative integers and
+rejects fractional/lossy values. Generated Serde/TypeScript samples include signed
+mapped times, context summaries, paged raw/reading text and all translation actions.
+The owner preserves original source bytes and the existing target editor/history.
+
+Evidence: `test-results/translation-owner-20261018/`. Rust 1.98.1,
+Node 24.21.0/npm 11.19.0. Commands:
+
+```sh
+cargo check --locked -p visualsubforge
+cargo test --locked -p visualsubforge translation
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+source "$HOME/.nvm/nvm.sh"
+nvm use --silent
+npm run ipc:generate
+npm run ipc:check
+npm run check
+npm test
+npm run build
+npm run format:check
+npm run lint
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+The first check/test attempts exposed two missing closure result annotations;
+their logs are retained as `check-1.log`/`tests-1.log`. Correcting the annotations
+changed no acceptance policy. Final workspace validation passes 447 Rust tests /30 ignored; eight zero-test
+harnesses are not feature evidence. Owner tests, strict checks, generated IPC, 44 frontend
+unit tests and the default desktop build pass. These are not browser/native
+translation acceptance: no panel, normal chooser, complete project restore or
+combined target/reference/project/recovery 10k measurement has run yet. The pure
+benchmark above is a baseline only, with its memory headroom still a concern for
+the complete workflow. Next is project persistence and the user-facing workflow,
+including draft/exit protection, then actual native and full scale validation.
 
 ## Legacy source reference
 

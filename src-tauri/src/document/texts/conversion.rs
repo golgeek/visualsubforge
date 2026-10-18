@@ -213,6 +213,9 @@ impl Documents {
                             .into(),
                     );
                 }
+                if let Some(loaded) = &store.loaded {
+                    loaded.translation.protect(&path)?;
+                }
                 let job = store
                     .texts
                     .job

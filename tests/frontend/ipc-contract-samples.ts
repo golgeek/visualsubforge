@@ -23,6 +23,8 @@ import type {
   FontReview,
   ConversionReview,
   LegacyImportReview,
+  TranslationAction,
+  TranslationReply,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -881,6 +883,125 @@ export const legacyImportClosed = {
   report: null,
   running: false,
 } satisfies LegacyImportReview;
+export const translationReply = {
+  context: {
+    dirty: true,
+    epoch: 3,
+    reference: {
+      cues: 1,
+      format: 'srt',
+      offsetMs: -1500,
+      path: '/example/reference.srt',
+      sha256:
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    },
+  },
+  document: null,
+  job: {
+    copy: false,
+    error: null,
+    id: 7,
+    key: {
+      epoch: 3,
+      generation: 1,
+      revision: 2,
+    },
+    page: {
+      offset: 0,
+      rows: [
+        {
+          endMs: 500,
+          index: 0,
+          layout: true,
+          overlapMs: 500,
+          raw: '{\\an8}<i>Été 世界</i>',
+          reading: 'Été 世界',
+          startMs: -500,
+          timed: false,
+          truncated: false,
+          warning: null,
+        },
+      ],
+      selected: {
+        endMs: 500,
+        index: 0,
+        layout: true,
+        overlapMs: 500,
+        raw: '{\\an8}<i>Été 世界</i>',
+        reading: 'Été 世界',
+        startMs: -500,
+        timed: false,
+        truncated: false,
+        warning: null,
+      },
+      total: 1,
+    },
+    phase: 'ready',
+    reference: null,
+  },
+  key: {
+    epoch: 3,
+    generation: 1,
+    revision: 2,
+  },
+} satisfies TranslationReply;
+export const translationActions = [
+  {
+    kind: 'status',
+  },
+  {
+    copy: true,
+    key: {
+      epoch: 3,
+      generation: 1,
+      revision: 2,
+    },
+    kind: 'load',
+    path: '/example/reference.srt',
+  },
+  {
+    key: {
+      epoch: 3,
+      generation: 1,
+      revision: 2,
+    },
+    kind: 'query',
+    limit: 200,
+    offset: 0,
+    selected: 0,
+    targetCueId: 1,
+  },
+  {
+    id: 7,
+    kind: 'view',
+  },
+  {
+    id: 7,
+    kind: 'cancel',
+  },
+  {
+    discard: false,
+    id: 7,
+    kind: 'accept',
+  },
+  {
+    key: {
+      epoch: 3,
+      generation: 1,
+      revision: 2,
+    },
+    kind: 'setOffset',
+    offsetMs: -1500,
+  },
+  {
+    key: {
+      epoch: 3,
+      generation: 1,
+      revision: 2,
+    },
+    kind: 'detach',
+  },
+] satisfies TranslationAction[];
 export const statisticsView = {
   error: null,
   findings: [

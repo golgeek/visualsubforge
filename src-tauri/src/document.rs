@@ -13,6 +13,7 @@ use subtitle_formats::{Source, srt};
 mod autosave;
 mod checks;
 mod statistics;
+pub(crate) mod translation;
 #[cfg(test)]
 pub(crate) use statistics::ipc_sample as statistics_ipc_sample;
 mod gaps;
@@ -67,6 +68,7 @@ struct Store {
     gaps: gaps::State,
     timing_repairs: timing_repairs::State,
     texts: texts::State,
+    translation: translation::State,
 }
 struct Loaded {
     editor: Editor<Source>,
@@ -77,6 +79,7 @@ struct Loaded {
     // The current path is source provenance until a different file is saved.
     // Independent of editor history: Undo must not remove this protection.
     resynced: bool,
+    translation: translation::Context,
 }
 #[derive(Deserialize, specta::Type)]
 #[serde(
@@ -165,6 +168,8 @@ pub enum Action {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
+    translation: Option<translation::Summary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<FormatView>,
     #[serde(with = "crate::ipc_number")]
     #[specta(type = crate::ipc_number::SafeU64)]
@@ -212,6 +217,12 @@ struct StyleView {
 }
 
 impl Loaded {
+    fn subtitle_dirty(&self) -> bool {
+        self.editor.dirty()
+            || self.recovered
+            || self.resynced
+            || (self.path.is_none() && self.translation.copied_from.is_some())
+    }
     fn source(&self) -> &Source {
         self.editor.properties()
     }
@@ -230,6 +241,7 @@ impl Store {
     fn snapshot(&self) -> Snapshot {
         let loaded = self.loaded.as_ref();
         Snapshot {
+            translation: self.translation_summary(),
             format: loaded.and_then(|d| {
                 if d.source().format() == subtitle_formats::Format::WebVtt {
                     return Some(FormatView {
@@ -259,7 +271,7 @@ impl Store {
             path: loaded
                 .and_then(|d| d.path.as_ref())
                 .map(|p| p.to_string_lossy().into_owned()),
-            dirty: loaded.is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced),
+            dirty: loaded.is_some_and(Loaded::subtitle_dirty),
             requires_save_as: loaded.is_some_and(|d| d.recovered || d.resynced || d.path.is_none()),
             can_undo: loaded.is_some_and(|d| d.editor.can_undo()),
             can_redo: loaded.is_some_and(|d| d.editor.can_redo()),
@@ -349,6 +361,7 @@ impl Store {
                     saved_bytes: bytes,
                     recovered: false,
                     resynced: false,
+                    translation: translation::Context::default(),
                 });
                 self.generation += 1;
             }
@@ -358,8 +371,11 @@ impl Store {
                     .recovery_root
                     .as_ref()
                     .ok_or("Recovery storage is unavailable")?;
-                let crate::recovery_store::Recovered { record, parsed } =
-                    crate::recovery_store::recover(root, &id)?;
+                let crate::recovery_store::Recovered {
+                    record,
+                    parsed,
+                    translation,
+                } = crate::recovery_store::recover(root, &id)?;
                 self.loaded = Some(Loaded {
                     editor: Editor::with_properties(parsed.document, parsed.source),
                     path: record.source_path.map(|path| {
@@ -368,6 +384,7 @@ impl Store {
                     saved_bytes: record.saved_srt.into_bytes(),
                     recovered: true,
                     resynced: record.resynced,
+                    translation,
                 });
                 self.generation += 1;
             }
@@ -412,6 +429,7 @@ impl Store {
                         saved_bytes: Vec::new(),
                         recovered: false,
                         resynced: false,
+                        translation: translation::Context::default(),
                     })
                 } else {
                     None
@@ -521,6 +539,7 @@ impl Store {
                 if loaded.resynced && loaded.path.as_ref() == Some(&target) {
                     return Err("Choose a different file to preserve the original subtitles".into());
                 }
+                loaded.translation.protect(&target)?;
                 loaded
                     .source()
                     .validate_save_extension(target.extension().and_then(|s| s.to_str()))?;
@@ -557,11 +576,16 @@ impl Store {
             .ok_or_else(|| "Open subtitles first".into())
     }
     fn check_discard(&self, discard: bool) -> Result<()> {
+        if !discard && self.loaded.as_ref().is_some_and(|d| d.translation.dirty) {
+            return Err(
+                "Save the translation context in a project or explicitly discard it first".into(),
+            );
+        }
         if !discard
             && self
                 .loaded
                 .as_ref()
-                .is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced)
+                .is_some_and(|d| d.subtitle_dirty() || d.translation.dirty)
         {
             return Err("Save or explicitly discard subtitle changes first".into());
         }
@@ -667,6 +691,8 @@ struct CheckpointKey {
     dirty: bool,
     path: Option<PathBuf>,
     resynced: bool,
+    translation_epoch: u64,
+    translation_dirty: bool,
 }
 impl Store {
     fn publish_checkpoint(
@@ -691,9 +717,11 @@ impl Store {
             dirty: self
                 .loaded
                 .as_ref()
-                .is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced),
+                .is_some_and(|d| d.subtitle_dirty() || d.translation.dirty),
             path: self.loaded.as_ref().and_then(|d| d.path.clone()),
             resynced: self.loaded.as_ref().is_some_and(|d| d.resynced),
+            translation_epoch: self.translation.epoch,
+            translation_dirty: self.loaded.as_ref().is_some_and(|d| d.translation.dirty),
         }
     }
 }

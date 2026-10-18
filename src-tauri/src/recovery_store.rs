@@ -9,7 +9,8 @@ use std::{
 };
 
 type Result<T> = std::result::Result<T, String>;
-const MAX_RECORD: u64 = 200 * 1024 * 1024; // JSON escaping can expand both SRT strings.
+// Three independently bounded 16 MiB strings can each expand sixfold as JSON.
+const MAX_RECORD: u64 = 300 * 1024 * 1024;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,6 +30,8 @@ pub(crate) struct Record {
     // exact source-format text; old SRT records remain readable without rewriting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    translation: Option<crate::document::translation::Stored>,
 }
 impl Record {
     #[cfg(test)]
@@ -69,6 +72,7 @@ impl Record {
             generation,
             revision,
             resynced: false,
+            translation: None,
             captured_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
@@ -82,16 +86,32 @@ impl Record {
     pub fn format_extension(&self) -> &str {
         self.format.as_deref().unwrap_or("srt")
     }
+    pub(crate) fn set_translation(
+        &mut self,
+        translation: Option<crate::document::translation::Stored>,
+    ) {
+        if translation.is_some() {
+            self.version = 5;
+        }
+        self.translation = translation;
+    }
     // Return the validated accepted document so recovery can adopt it directly.
     // Re-parsing after this boundary repeats the most expensive part of recovery.
-    fn validate(&self) -> Result<subtitle_formats::Parsed> {
-        if !matches!(self.version, 1..=4)
+    fn validate(
+        &self,
+    ) -> Result<(
+        subtitle_formats::Parsed,
+        crate::document::translation::Context,
+    )> {
+        if !matches!(self.version, 1..=5)
             || (self.version < 3 && self.resynced)
             || (self.version < 4 && self.format.is_some())
-            || (self.version == 4
+            || (self.version < 5 && self.translation.is_some())
+            || (self.version >= 4
                 && self
                     .format
                     .as_deref()
+                    .or((self.version == 5).then_some("srt"))
                     .and_then(subtitle_formats::Format::from_extension)
                     .is_none())
         {
@@ -110,10 +130,17 @@ impl Record {
             self.saved_srt.as_bytes(),
             Some(self.format_extension()),
         )?;
-        vsf_application::subtitle_file::parse_document(
+        let parsed = vsf_application::subtitle_file::parse_document(
             self.accepted_srt.as_bytes(),
             Some(self.format_extension()),
-        )
+        )?;
+        let translation = self
+            .translation
+            .as_ref()
+            .map(|t| t.restore())
+            .transpose()?
+            .unwrap_or_default();
+        Ok((parsed, translation))
     }
 }
 
@@ -144,6 +171,9 @@ impl Session {
     pub fn prepare(&self, record: &Record) -> Result<crate::atomic_file::Prepared> {
         record.validate()?;
         let bytes = serde_json::to_vec(record).map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > MAX_RECORD {
+            return Err("Recovery record exceeds its size limit".into());
+        }
         crate::atomic_file::prepare(&self.directory.join("snapshot.json"), &bytes)
     }
     pub fn clear(&self) -> Result<()> {
@@ -153,11 +183,7 @@ impl Session {
     pub fn write(&self, record: Option<&Record>) -> Result<()> {
         let target = self.directory.join("snapshot.json");
         match record {
-            Some(record) => {
-                record.validate()?;
-                let bytes = serde_json::to_vec(record).map_err(|e| e.to_string())?;
-                crate::atomic_file::write(&target, &bytes)
-            }
+            Some(record) => self.prepare(record)?.commit(),
             None => remove_snapshot(&target),
         }
     }
@@ -228,6 +254,7 @@ fn lease(path: &Path) -> Result<Option<crate::file_lease::FileLease>> {
 pub(crate) struct Recovered {
     pub record: Record,
     pub parsed: subtitle_formats::Parsed,
+    pub translation: crate::document::translation::Context,
 }
 
 fn read(path: &Path) -> Result<Recovered> {
@@ -249,8 +276,12 @@ fn read(path: &Path) -> Result<Recovered> {
     }
     let record: Record =
         serde_json::from_slice(&bytes).map_err(|e| format!("Cannot read recovery record: {e}"))?;
-    let parsed = record.validate()?;
-    Ok(Recovered { record, parsed })
+    let (parsed, translation) = record.validate()?;
+    Ok(Recovered {
+        record,
+        parsed,
+        translation,
+    })
 }
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]

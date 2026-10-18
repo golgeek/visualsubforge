@@ -184,6 +184,9 @@ impl Store {
         })
     }
     pub(super) fn invalidate_checks(&mut self) {
+        if let Ok(key) = self.translation_key() {
+            self.translation.invalidate(key);
+        }
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
             self.statistics.invalidate(key);
@@ -323,7 +326,8 @@ impl Documents {
         self.shutdown_statistics()?;
         self.shutdown_gaps()?;
         self.shutdown_timing_repairs()?;
-        self.shutdown_texts()
+        self.shutdown_texts()?;
+        self.shutdown_translation()
     }
 }
 fn project_view(

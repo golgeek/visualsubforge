@@ -19,6 +19,11 @@ export const commands = {
       'document_action',
       { action, generation, revision },
     ),
+  translationAction: (action: visualsubforge_document_translation_Action) =>
+    __TAURI_INVOKE<visualsubforge_document_translation_Reply_Serialize>(
+      'translation_action',
+      { action },
+    ),
   recoveryStatus: () =>
     __TAURI_INVOKE<visualsubforge_document_RecoveryStatus_Serialize>(
       'recovery_status',
@@ -413,6 +418,32 @@ export type visualsubforge_workflow_trace_Acknowledgment_Serialize = {
 export type visualsubforge_document_Action =
   | visualsubforge_document_Action_Serialize
   | visualsubforge_document_Action_Deserialize;
+
+export type visualsubforge_document_translation_Action =
+  | { kind: 'status' }
+  | {
+      kind: 'load';
+      key: visualsubforge_document_translation_Key;
+      path: string;
+      copy: boolean;
+    }
+  | {
+      kind: 'query';
+      key: visualsubforge_document_translation_Key;
+      targetCueId: number | null;
+      offset: number;
+      limit: number;
+      selected: number | null;
+    }
+  | { kind: 'view'; id: number }
+  | { kind: 'cancel'; id: number }
+  | { kind: 'accept'; id: number; discard: boolean }
+  | {
+      kind: 'setOffset';
+      key: visualsubforge_document_translation_Key;
+      offsetMs: number;
+    }
+  | { kind: 'detach'; key: visualsubforge_document_translation_Key };
 
 export type visualsubforge_media_Action =
   | { kind: 'occlude'; occluded: boolean }
@@ -1305,6 +1336,22 @@ export type visualsubforge_workflow_trace_InputEvent_Serialize = {
 
 export type visualsubforge_workflow_trace_InputType = 'click' | 'keydown';
 
+export type visualsubforge_document_translation_JobView = {
+  id: number;
+  key: visualsubforge_document_translation_Key;
+  copy: boolean;
+  phase: visualsubforge_document_translation_Phase;
+  reference: visualsubforge_document_translation_ReferenceInfo | null;
+  page: visualsubforge_document_translation_Page | null;
+  error: string | null;
+};
+
+export type visualsubforge_document_translation_Key = {
+  generation: number;
+  revision: number;
+  epoch: number;
+};
+
 export type visualsubforge_quality_check_Key = {
   generation: number;
   revision: number;
@@ -1517,8 +1564,26 @@ export type visualsubforge_project_Options_Serialize = {
   quality: vsf_application_quality_profile_Profile_Serialize | null;
 };
 
+export type visualsubforge_document_translation_Page = {
+  total: number;
+  offset: number;
+  rows: visualsubforge_document_translation_Row[];
+  selected: visualsubforge_document_translation_Row | null;
+};
+
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
+
+export type visualsubforge_document_translation_Phase =
+  | 'working'
+  | 'ready'
+  | 'accepting'
+  | 'accepted'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
 
 export type visualsubforge_gap_review_Phase =
   | 'preparing'
@@ -1720,6 +1785,32 @@ export type visualsubforge_document_RecoveryStatus_Serialize = {
   error: string | null;
 };
 
+export type visualsubforge_document_translation_ReferenceInfo = {
+  path: string;
+  format: string;
+  sha256: string;
+  cues: number;
+  offsetMs: number;
+};
+
+export type visualsubforge_document_translation_Reply =
+  | visualsubforge_document_translation_Reply_Serialize
+  | visualsubforge_document_translation_Reply_Deserialize;
+
+export type visualsubforge_document_translation_Reply_Deserialize = {
+  key: visualsubforge_document_translation_Key;
+  context: visualsubforge_document_translation_Summary | null;
+  job: visualsubforge_document_translation_JobView | null;
+  document: visualsubforge_document_Snapshot_Deserialize | null;
+};
+
+export type visualsubforge_document_translation_Reply_Serialize = {
+  key: visualsubforge_document_translation_Key;
+  context: visualsubforge_document_translation_Summary | null;
+  job: visualsubforge_document_translation_JobView | null;
+  document: visualsubforge_document_Snapshot_Serialize | null;
+};
+
 export type visualsubforge_quality_check_Request = {
   session: number;
   generation: number;
@@ -1734,6 +1825,19 @@ export type visualsubforge_quality_check_Request = {
   rule: vsf_application_quality_check_Rule | null;
   severity: vsf_application_quality_check_Severity | null;
   draft: visualsubforge_quality_check_DraftChange | null;
+};
+
+export type visualsubforge_document_translation_Row = {
+  index: number;
+  startMs: number;
+  endMs: number;
+  overlapMs: number | null;
+  raw: string;
+  reading: string | null;
+  warning: string | null;
+  timed: boolean;
+  layout: boolean;
+  truncated: boolean;
 };
 
 export type visualsubforge_gap_review_Row = {
@@ -2014,6 +2118,7 @@ export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Deserialize;
 
 export type visualsubforge_document_Snapshot_Deserialize = {
+  translation: visualsubforge_document_translation_Summary | null;
   format: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -2027,6 +2132,7 @@ export type visualsubforge_document_Snapshot_Deserialize = {
 };
 
 export type visualsubforge_document_Snapshot_Serialize = {
+  translation?: visualsubforge_document_translation_Summary | null;
   format?: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -2191,6 +2297,12 @@ export type vsf_application_authoring_styles_StyleSummary = {
 export type visualsubforge_document_StyleView = {
   name: string;
   fields: [string, string][];
+};
+
+export type visualsubforge_document_translation_Summary = {
+  epoch: number;
+  dirty: boolean;
+  reference: visualsubforge_document_translation_ReferenceInfo | null;
 };
 
 export type vsf_application_quality_statistics_Summary =

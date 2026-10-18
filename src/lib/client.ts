@@ -9,6 +9,15 @@ export type DocumentSnapshot = IPC.visualsubforge_document_Snapshot_Serialize;
 export type Cue = IPC.visualsubforge_document_CueView_Serialize;
 export type RecoveryStatus =
   IPC.visualsubforge_document_RecoveryStatus_Serialize;
+export type TranslationAction = Parameters<
+  typeof commands.translationAction
+>[0];
+export type TranslationReply = Awaited<
+  ReturnType<typeof commands.translationAction>
+>;
+export type TranslationKey = TranslationReply['key'];
+export const translationAction = (action: TranslationAction) =>
+  commands.translationAction(action);
 export type TimingPreset = IPC.visualsubforge_timing_preset_Preset;
 export type TimingSettings = IPC.visualsubforge_timing_preset_Settings;
 export type MediaAction = IPC.visualsubforge_media_Action;

@@ -105,6 +105,52 @@ fn blocked_publication(
 }
 
 #[test]
+fn newly_attached_translation_reference_is_protected_at_final_export_commit() {
+    let (root, docs, original) = fixture("srt");
+    let id = start(&docs, ConversionFormat::Ass);
+    ready(&docs, id);
+    let output = root.path().join("later-reference.ass");
+    let (wait, release) = blocked_publication(&docs, id, &output);
+    wait.recv_timeout(Duration::from_secs(10)).unwrap();
+    fs::write(&output, crate::document::ass_tests::ASS).unwrap();
+    let request = |value| {
+        serde_json::to_value(
+            docs.translation_action(serde_json::from_value(value).unwrap())
+                .unwrap(),
+        )
+        .unwrap()
+    };
+    let current = request(serde_json::json!({"kind":"status"}));
+    let load =
+        request(serde_json::json!({"kind":"load","key":current["key"],"path":output,"copy":false}));
+    let reference_id = load["job"]["id"].as_u64().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let view = request(serde_json::json!({"kind":"view","id":reference_id}));
+        if view["job"]["phase"] == "ready" {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    request(serde_json::json!({"kind":"accept","id":reference_id,"discard":false}));
+    // Delete the reference after capture. The destination is absent again, but
+    // its accepted provenance must still block the already-prepared conversion.
+    fs::remove_file(&output).unwrap();
+    release.send(()).unwrap();
+    let failed = ready(&docs, id);
+    assert!(matches!(failed.phase, ConversionPhase::Failed));
+    assert!(failed.error.unwrap().contains("preserve the original"));
+    assert!(!output.exists());
+    assert_eq!(
+        fs::read_to_string(root.path().join("source.srt")).unwrap(),
+        original
+    );
+    assert!(!snapshot(&docs).dirty);
+    docs.shutdown_quality().unwrap();
+}
+
+#[test]
 fn reviewed_export_uses_exact_bytes_and_preserves_dirty_history_path_and_recovery() {
     for extension in ["srt", "ass", "ssa"] {
         let (root, docs, original) = fixture(extension);

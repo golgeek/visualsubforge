@@ -62,6 +62,13 @@ impl Documents {
         ) -> Result<T>,
     ) -> Result<T> {
         let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
+        if store
+            .loaded
+            .as_ref()
+            .is_some_and(|loaded| !loaded.translation.is_empty())
+        {
+            return Err("Translation project persistence is not integrated yet; reference context cannot be omitted from a project".into());
+        }
         if store.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
             return Err(
                 "Save resynchronized subtitles to a new file before saving the project".into(),
