@@ -1,7 +1,9 @@
 //! Loss-preserving UTF-8 ASS v4+ / SSA v4 source records. No IO or renderer.
 //! Unedited records are retained verbatim. Authoring overlays share the original
 //! records so history does not copy an entire script for a style change.
+mod attachments;
 mod styles;
+pub use attachments::{Attachment, AttachmentInventory, AttachmentKind};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -32,6 +34,7 @@ pub struct Source(Arc<SourceData>, Arc<Authoring>);
 struct Authoring {
     styles: Option<Vec<Style>>,
     records: BTreeMap<usize, String>,
+    fonts: attachments::Overlays,
 }
 #[derive(Debug, PartialEq, Eq)]
 struct SourceData {
@@ -388,7 +391,16 @@ impl Source {
     pub fn preview_header(&self) -> String {
         let mut header = String::new();
         let mut events = false;
+        let mut skip_until = 0;
         for i in 0..=self.0.lines.len() {
+            if i < skip_until {
+                continue;
+            }
+            if let Some((raw, end)) = self.font_replacement(i) {
+                header.push_str(raw);
+                skip_until = end;
+                continue;
+            }
             let mut ended = header.is_empty() || header.ends_with('\n');
             self.write_added_styles(i, &mut ended, &mut |part| header.push_str(part));
             let Some(line) = self.0.lines.get(i) else {
@@ -406,6 +418,8 @@ impl Source {
                 }
             }
         }
+        let mut ended = header.is_empty() || header.ends_with('\n');
+        self.write_added_fonts(&mut ended, |part| header.push_str(part));
         header.push_str("\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
         header
     }
@@ -509,7 +523,19 @@ fn write_document(document: &Document, source: &Source, mut write: impl FnMut(&s
     let mut pending = document.cues().iter().peekable();
     let mut format: &[String] = &data.format;
     let mut ended = true;
+    let mut skip_until = 0;
     for i in 0..=data.lines.len() {
+        if i < skip_until {
+            continue;
+        }
+        if let Some((raw, end)) = source.font_replacement(i) {
+            write(raw);
+            if !raw.is_empty() {
+                ended = raw.ends_with('\n');
+            }
+            skip_until = end;
+            continue;
+        }
         source.write_added_styles(i, &mut ended, &mut write);
         let line = data.lines.get(i);
         if line.is_some_and(|l| l.event.is_some()) || i == data.events_end {
@@ -555,6 +581,7 @@ fn write_document(document: &Document, source: &Source, mut write: impl FnMut(&s
             ended = raw.ends_with('\n');
         }
     }
+    source.write_added_fonts(&mut ended, &mut write);
     if pending.next().is_some() {
         return Err("Cannot place ASS/SSA events without changing source order".into());
     }

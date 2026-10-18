@@ -276,3 +276,23 @@ only recognized section headers end font parsing; an unknown section following
 font data can be treated as payload. The inspector must not silently treat that
 ambiguous boundary as a safely editable font. This is design scope, not evidence
 of implemented attachment functionality.
+
+
+### Attachment record foundation
+
+The pure format adapter now exposes bounded metadata inspection (up to 200 rows,
+with full total count), streams original encoded lines without payload copies, and
+supports separate shared font replacement/addition overlays. Original graphic and
+ambiguous records remain read-only. Font edits share base source and authored
+payloads across history and unrelated style edits. Save size accounting and preview
+headers consume the same overlays; removing a block preserves surrounding records
+and newline state. Canonical encoded lines that happen to start/end with brackets
+remain font data rather than being mistaken for section headers.
+
+Validation: `cargo test --locked -p subtitle-formats` passes 20 tests, including
+four new both-variant attachment inventory/stream/overlay/history/boundary/limit
+cases. `cargo test --locked -p vsf-application --test style_authoring --test subtitle_documents`
+passes all 6 tests; `cargo clippy --locked -p subtitle-formats --all-targets -- -D warnings`
+and formatting pass. Test payloads at this layer exercise record mechanics, not
+valid decoded fonts. Application decoding/sfnt validation, desktop controls and
+native font replacement/cleanup are still unimplemented and required.
