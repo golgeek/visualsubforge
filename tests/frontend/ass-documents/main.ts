@@ -6,6 +6,7 @@ import {
   emptyStatus,
   type DocumentSnapshot,
   type DocumentAction,
+  type MediaAction,
   type TextFormattingContext,
 } from '../../../src/lib/client';
 import { styledDocument } from '../ipc-contract-samples';
@@ -26,6 +27,9 @@ let doc = structuredClone(original),
   after = structuredClone(original);
 const edits: DocumentAction[] = [];
 let fontNotices = ['Font missing: <b>VSF Test Font</b>; fallback may be used'];
+let occluded = false;
+let eventHandler = 0;
+const callbacks = new Map<number, (value: unknown) => void>();
 function assert(value: unknown, message: string) {
   if (!value) throw new Error(message);
 }
@@ -75,12 +79,17 @@ Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
 Object.defineProperty(window, '__TAURI_INTERNALS__', {
   configurable: true,
   value: {
-    transformCallback: () => 1,
+    transformCallback: (callback: (value: unknown) => void) => {
+      const id = callbacks.size + 1;
+      callbacks.set(id, callback);
+      return id;
+    },
     unregisterCallback: () => {},
     invoke: async (
       command: string,
       args: {
-        action?: DocumentAction;
+        action?: DocumentAction | MediaAction;
+        handler?: number;
         context?: TextFormattingContext;
         text?: string;
         start?: number;
@@ -89,6 +98,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     ) => {
       switch (command) {
         case 'plugin:event|listen':
+          eventHandler = args.handler!;
           return 1;
         case 'plugin:event|unlisten':
         case 'update_menu':
@@ -98,8 +108,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
+          if (args.action?.kind === 'occlude') occluded = args.action.occluded;
           return {
             ...structuredClone(emptyStatus),
+            available: true,
+            surfaceAboveWebview: true,
             subtitleFontDiagnostics: [...fontNotices],
           };
         case 'quality_read':
@@ -122,7 +135,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         }
         case 'document_action': {
-          const action = args.action!;
+          const action = args.action! as DocumentAction;
           if (action.kind === 'editStyled') {
             if (action.startMs % 10 || action.endMs % 10)
               throw new Error('ASS/SSA cue times must use 10 ms increments');
@@ -217,6 +230,34 @@ async function run() {
     );
     passed(
       'Existing styles and original fields are inspectable without changing the cue',
+    );
+
+    const convert = button('Convert subtitles…');
+    convert.focus();
+    convert.click();
+    await until(() => !!host.querySelector('#conversion-dialog-title'));
+    assert(
+      occluded && button('Apply edit').disabled,
+      'Conversion dialog did not occlude native video and protect workspace',
+    );
+    assert(
+      field('Conversion format').value === 'srt' && edits.length === 0,
+      'Conversion changed accepted state or selected the source format',
+    );
+    button('Close conversion').click();
+    await until(() => !host.querySelector('dialog[open]') && !convert.disabled);
+    assert(
+      !occluded && document.activeElement === convert,
+      'Conversion close did not restore video and focus',
+    );
+    await until(() => callbacks.has(eventHandler));
+    callbacks.get(eventHandler)!({ payload: 'convertSubtitles' });
+    await until(() => !!host.querySelector('#conversion-dialog-title'));
+    assert(occluded, 'Native menu conversion skipped modal occlusion');
+    button('Close conversion').click();
+    await until(() => !host.querySelector('dialog[open]') && !convert.disabled);
+    passed(
+      'Conversion toolbar and menu share protected modal lifetime and restore native video and focus',
     );
 
     input('Cue style', 'Default');

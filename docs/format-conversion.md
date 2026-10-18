@@ -1,8 +1,16 @@
 # Deliberate subtitle conversion
 
-Stage5 is in progress. Shared conversion proposals and the desktop owner's typed
-review/publication commands are implemented. The dialog, destination picker and
-native acceptance remain required. Ordinary Save keeps its same-format restriction.
+Stage5 is in progress. Shared proposals, the desktop review/export dialog and
+protected new-file publication are implemented. Native workflow and desktop 10k
+acceptance remain required. Ordinary Save keeps its same-format restriction.
+
+Open **File → Convert Subtitles…** or use **Convert subtitles…** in the cue editor.
+Apply or discard an unapplied cue draft, choose a different output format, then
+select **Review conversion**. Exact timing is the default. Read the loss and
+blocking findings before choosing a new output filename; blocked reviews cannot
+export. Changing options requires another review. Export completion shows the new
+path and leaves the original document open, with its saved state and Undo/Redo
+history unchanged. Open the exported file separately to edit it.
 
 ## Output and loss policy
 
@@ -62,7 +70,7 @@ The desktop owner reuses the existing text/style/font worker slot for both
 preparation and subsequent publication. Each has a cooperative ten-second
 deadline; no pending queue or sixth CPU worker is added. Typed start/view/cancel/
 publish commands expose only bounded reports, status and the published path.
-The dialog will require review before destination selection.
+The dialog requires review before destination selection.
 
 Publication shares immutable reviewed bytes through Arc, reserves the same job
 slot and prepares/fsyncs a sibling temporary outside the document lock. It checks
@@ -83,6 +91,16 @@ publication; if the last external owner disappears then, Job disposal must avoid
 joining the current exiting thread. Ordinary blocking filesystem calls cannot be
 interrupted mid-call; checkpoints run between them. Crashes may leave an orphan
 temporary, and atomic publication does not promise directory power-loss durability.
+
+`ConversionSession` owns options, the report projection and request epochs only.
+Snapshot identity, unapplied drafts and option changes disable export immediately;
+Rust additionally checks its captured policy epoch and source path. The native
+picker rechecks the captured frontend state before dispatch. The dialog remains
+open while choosing a path or awaiting publication. Dispatch acknowledgment is
+not completion: it polls the authoritative result, including after a lost reply,
+and preserves successful receipts when publication wins a late cancellation race.
+It never adopts a document snapshot. Closing cancels preparation or retires the
+finished review; explicit draft Apply still uses `DocumentSession`.
 
 Predeclared gates remain 10k pure preparation p95 ≤500 ms and additional sampled
 RSS ≤96 MiB; native interaction/cancellation/review/publication <1000 ms, with
@@ -168,3 +186,57 @@ last-owner-drop regression fix that lifecycle defect. The corrected owner tests
 and complete workspace pass. UI/browser/native conversion acceptance and desktop
 10k interaction measurements remain pending; existing frontend unit/browser
 counts still belong to the prior authoring increment.
+
+Desktop dialog/browser increment, 2026-10-18:
+
+```sh
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+npm run ipc:generate
+npm run check
+npm run lint
+npm test
+npm run build
+npm run test:browser -- --grep 'workflow: (conversion|ass-documents)'
+npm run test:browser
+npm run format:check
+npm run ipc:check
+cargo test --locked -p subtitle-formats
+cargo test --locked -p visualsubforge desktop::workspace_event_preserves_name_and_native_menu_payloads
+cargo test --locked -p visualsubforge document::texts::conversion -- --nocapture
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" cargo clippy --locked -p visualsubforge --features desktop-e2e,media-prototype --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+The full suites pass **374 ordinary Rust tests / 30 ignored**, **44 frontend unit
+tests** and **56 browser cases** across Chromium and WebKit. The new conversion
+page executes 13 workflow/lifetime checks per browser using actual Serde report
+samples and modeled IPC. It covers draft Apply/failure/discard, exact refusal,
+explicit nearest review, fansub notices, report escaping/bounds, picker cancellation,
+failure/retry, all destination filters/path suggestions, original state/history,
+preparation cancellation, stale options/path/drafts, single-flight polling, late
+admission and picker disposal, lost dispatch/status replies and late publication
+receipts. The production App fixture additionally covers toolbar/menu dispatch,
+modal video occlusion and focus restoration. Browser events/IPC do not validate
+native dialogs, actual filesystem publication or GPU presentation.
+
+The initial browser run corrected a whitespace-sensitive report assertion and a
+fixture which had not declared its native surface available/above the WebView.
+It then exposed real shared-authoring focus restoration before the return button
+was re-enabled; close now clears the modal gate and waits for that DOM update
+before focusing. Type/lint corrections supplied an explicit optional-argument
+default in the fixture and a stable format-option key. A full parallel Rust run
+exposed an existing cleanup-test race: Stale becomes visible before the cancelled
+worker has finished removing its temporary. The helper now waits for reaping
+before filesystem assertions, while the controlled test separately proves stale/
+cancelling status is visible with the worker still held. Production cancellation
+and publication policy is unchanged. Corrected focused and full suites pass.
+
+Strict checks, generated IPC drift, default desktop build and native-feature
+Clippy pass. These compile on the development Mac; the changed Linux portal
+branch has not been compiled or executed here. Conversion native workflow,
+appearance, actual destination picker and desktop10k measurements remain pending.
+Logs, including the initial browser/focus/lint and Rust cleanup failure receipts,
+are retained under ignored `tests/fixtures/generated/authoring-research/`.

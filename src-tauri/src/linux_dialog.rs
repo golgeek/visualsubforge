@@ -117,6 +117,10 @@ async fn request_file(
     let folder = path.and_then(Path::parent);
     let project = matches!(kind, FileChoice::Project | FileChoice::SaveProject);
     let font = matches!(kind, FileChoice::Font);
+    let conversion = matches!(
+        kind,
+        FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa
+    );
     let preset = matches!(
         kind,
         FileChoice::TimingPreset | FileChoice::SaveTimingPreset
@@ -144,6 +148,8 @@ async fn request_file(
             }
         } else if project {
             FileFilter::new("VSF project").glob("*.vsfproject")
+        } else if conversion {
+            FileFilter::new("Converted subtitles").glob(format!("*.{subtitle_extension}"))
         } else if matches!(kind, FileChoice::SaveSubtitles) {
             FileFilter::new("Subtitles (same format)").glob(format!("*.{subtitle_extension}"))
         } else {
@@ -153,15 +159,23 @@ async fn request_file(
                 .glob("*.ssa")
         }
     };
-    let default_subtitle_name = format!("Untitled.{subtitle_extension}");
+    let default_subtitle_name = format!(
+        "{}.{subtitle_extension}",
+        if conversion { "Converted" } else { "Untitled" }
+    );
     let response = match kind {
         FileChoice::SaveSubtitles
+        | FileChoice::ExportSrt
+        | FileChoice::ExportAss
+        | FileChoice::ExportSsa
         | FileChoice::SaveProject
         | FileChoice::SaveTimingPreset
         | FileChoice::SaveQualityPreset => {
             SelectedFiles::save_file()
                 .identifier(identifier)
-                .title(if quality {
+                .title(if conversion {
+                    "Export Converted Subtitles to a New File"
+                } else if quality {
                     "Export Quality Profile"
                 } else if preset {
                     "Export Timing Preset"
@@ -176,7 +190,7 @@ async fn request_file(
                     path.and_then(Path::file_name)
                         .and_then(|name| name.to_str())
                         .or_else(|| {
-                            matches!(kind, FileChoice::SaveSubtitles)
+                            (conversion || matches!(kind, FileChoice::SaveSubtitles))
                                 .then_some(default_subtitle_name.as_str())
                         }),
                 )

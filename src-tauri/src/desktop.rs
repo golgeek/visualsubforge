@@ -34,6 +34,7 @@ pub enum WorkspaceAction {
     OpenSubtitles,
     Save,
     SaveAs,
+    ConvertSubtitles,
     CloseMedia,
     CloseSubtitles,
     Undo,
@@ -90,6 +91,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .separator()
         .item(&item("save", "Save Subtitles", "CmdOrCtrl+S")?)
         .item(&item("saveAs", "Save Subtitles As…", "CmdOrCtrl+Shift+S")?)
+        .text("convertSubtitles", "Convert Subtitles…")
         .separator()
         .text("closeMedia", "Close Media")
         .text("closeSubtitles", "Close Subtitles")
@@ -219,6 +221,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
             ("mergePrevious", state.merge_previous),
             ("mergeNext", state.merge_next),
             ("saveAs", state.document),
+            ("convertSubtitles", state.document),
             ("closeSubtitles", state.document),
             ("closeMedia", state.media),
             ("undo", state.undo),
@@ -265,6 +268,9 @@ pub enum FileChoice {
     Subtitles,
     Font,
     SaveSubtitles,
+    ExportSrt,
+    ExportAss,
+    ExportSsa,
     Project,
     SaveProject,
     TimingPreset,
@@ -285,7 +291,11 @@ pub async fn choose_file(
             .await
             .map_err(|e| e.to_string())??
     } else {
-        "srt"
+        match kind {
+            FileChoice::ExportAss => "ass",
+            FileChoice::ExportSsa => "ssa",
+            _ => "srt",
+        }
     };
     #[cfg(feature = "desktop-e2e")]
     {
@@ -312,6 +322,11 @@ pub async fn choose_file(
             }
         } else if matches!(kind, FileChoice::SaveSubtitles) {
             dialog = dialog.set_file_name(format!("Untitled.{subtitle_extension}"));
+        } else if matches!(
+            kind,
+            FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa
+        ) {
+            dialog = dialog.set_file_name(format!("Converted.{subtitle_extension}"));
         }
         let picked = match kind {
             FileChoice::QualityPreset => dialog
@@ -350,6 +365,10 @@ pub async fn choose_file(
             FileChoice::SaveSubtitles => dialog
                 .set_title("Save Subtitles As")
                 .add_filter("Subtitles (same format)", &[subtitle_extension])
+                .blocking_save_file(),
+            FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa => dialog
+                .set_title("Export Converted Subtitles to a New File")
+                .add_filter("Converted subtitles", &[subtitle_extension])
                 .blocking_save_file(),
         };
         picked
@@ -414,6 +433,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "openSubtitles",
         "save",
         "saveAs",
+        "convertSubtitles",
         "closeMedia",
         "closeSubtitles",
         "undo",

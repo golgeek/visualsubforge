@@ -250,3 +250,15 @@ rechecks the captured document; draft edits block proposals and acceptance.
 font commands reuse the text/style worker, including inventory and bounded font
 file reads. Reviewed bytes are captured in Rust and not reread on acceptance.
 See style-authoring.md for source/history ownership, bounds and validation.
+
+`ConversionDialog`/`ConversionSession` reuses the authoring modal lifecycle but
+does not call a document adoption method. Review captures the accepted projection
+and options; draft, snapshot or option changes immediately block export. The typed
+client dispatches preparation and polls a bounded Rust report. A successful
+review enables a format-specific new-file picker. Picker completion rechecks the
+capture, then publication reuses the Rust review worker. The frontend waits for
+the terminal receipt even if the dispatch reply is lost; a late successful receipt
+is retained despite cancellation or a changed document. Closing is disabled during
+the picker/publication, and unmount cancels an eventual late job ID. Export never
+changes accepted state, saved identity or history. See
+[conversion](../../docs/format-conversion.md) for policies and validation scope.

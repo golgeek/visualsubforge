@@ -127,7 +127,7 @@ impl Source {
             return Ok(());
         }
         Err(format!(
-            "Save this document as .{}; cross-format conversion is not available",
+            "Save this document as .{}; use an explicit conversion to change formats",
             self.format().extension()
         ))
     }

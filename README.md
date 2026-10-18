@@ -19,7 +19,11 @@ The editor provides:
   reviewed font attachment management, original script/style/event metadata,
   same-format save, projects and recovery. Unsafe structural/text/timing operations
   are explained or refused. [Style authoring](docs/style-authoring.md) records
-  reference safety, supported fonts and remaining conversion work. Fansub SRT containing ASS/SSA tags remains supported.
+  reference safety and supported fonts. Fansub SRT containing ASS/SSA tags remains supported.
+- Explicit SRT/ASS/SSA conversion reviews precision and content losses before
+  exporting a separate file. The original document and history remain unchanged.
+  [Conversion policy](docs/format-conversion.md) records supported mappings and
+  pending native acceptance.
 - Atomic subtitle saves, conflict protection between VSF instances and accepted-state
   recovery snapshots. Recovery requires Save As and does not restore drafts or
   undo history.
@@ -97,7 +101,7 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
 handles SRT/ASS/SSA parsing/serialization without filesystem access. See the
 [ASS/SSA preservation policy and validation](docs/ass-ssa-documents.md), including
-encoding, fonts and deferred style-design/conversion limits. `vsf-application`
+encoding, fonts and format limits. `vsf-application`
 shares bounded subtitle reads, size policy and atomic file persistence with headless
 callers. `src-tauri` coordinates accepted desktop state and background services,
 while `media-analysis` and

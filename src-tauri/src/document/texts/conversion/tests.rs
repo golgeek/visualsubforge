@@ -51,7 +51,17 @@ fn ready(docs: &Documents, id: u64) -> ConversionReview {
         if !matches!(
             view.phase,
             ConversionPhase::Preparing | ConversionPhase::Publishing | ConversionPhase::Cancelling
-        ) {
+        ) && docs
+            .0
+            .lock()
+            .unwrap()
+            .texts
+            .job
+            .as_ref()
+            .is_some_and(|job| job.worker.is_none())
+        {
+            // Stale blocks publication immediately, but cleanup can still be
+            // draining. Filesystem assertions below require the worker reaped.
             return view;
         }
         assert!(Instant::now() < deadline);
@@ -293,6 +303,24 @@ fn cancellation_document_policy_path_changes_and_shutdown_prevent_late_publicati
                 }
             }
         }
+        if change != "shutdown" {
+            let held = docs.conversion_view(id).unwrap();
+            assert!(matches!(
+                held.phase,
+                ConversionPhase::Stale | ConversionPhase::Cancelling
+            ));
+            assert!(
+                docs.0
+                    .lock()
+                    .unwrap()
+                    .texts
+                    .job
+                    .as_ref()
+                    .unwrap()
+                    .worker
+                    .is_some()
+            );
+        }
         release.send(()).unwrap();
         if let Some(handle) = shutdown {
             handle.join().unwrap();
@@ -308,13 +336,16 @@ fn cancellation_document_policy_path_changes_and_shutdown_prevent_late_publicati
             fs::read_to_string(root.path().join("source.srt")).unwrap(),
             original
         );
-        assert!(!fs::read_dir(root.path()).unwrap().any(|entry| {
-            entry
-                .unwrap()
-                .file_name()
-                .to_string_lossy()
-                .starts_with(".tmp")
-        }));
+        assert!(
+            !fs::read_dir(root.path()).unwrap().any(|entry| {
+                entry
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".tmp")
+            }),
+            "Temporary remained after {change} worker completion"
+        );
     }
 }
 

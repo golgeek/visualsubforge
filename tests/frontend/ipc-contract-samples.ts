@@ -2427,6 +2427,7 @@ export const workspaceActions = [
   'openSubtitles',
   'save',
   'saveAs',
+  'convertSubtitles',
   'closeMedia',
   'closeSubtitles',
   'undo',

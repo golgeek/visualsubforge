@@ -29,7 +29,11 @@ new cases and the complete 366-test Rust suite pass; strict workspace checks pas
 Eight 10k workloads pass p95 <=37.489ms and +81,526,784 sampled RSS bytes.
 Typed desktop review/publication commands now pass source/history/recovery,
 no-clobber/retry and cancellation/shutdown race checks; the complete suite is
-374 Rust tests. The conversion dialog and native acceptance remain required.
+374 Rust tests. The conversion dialog now adds exact-default review, target-specific
+new-file selection, bounded escaped loss examples, failed-export retry and receipt
+tracking without adopting a document. Full 374 Rust / 30 ignored, 44 frontend and
+56 browser cases pass, including workflow/lifetime checks in both engines;
+native conversion and desktop 10k acceptance remain required.
 See [conversion policy and evidence](format-conversion.md).
 
 **Style authoring increment (2026-10-17; stage5 remains in progress):** reviewed
@@ -129,8 +133,8 @@ acceptance <=105 ms, Undo <=96 ms, navigation <=27 ms, cancellation <=15 ms and
 invalidation <=59 ms. Rebuilt release format p95 is 29.723/25.165 ms with 46,333,952
 additional sampled RSS bytes, within unchanged 500 ms/96 MiB budgets. Measurements
 and retained failures are in the [ASS/SSA integration guide](ass-ssa-documents.md).
-Comprehensive style design, attachment management and conversion remain deferred;
-resync was SRT-only at that milestone and is extended above. Windows/Linux feature execution, Linux picker
+Style design, attachment management and conversion were deferred at that milestone;
+their subsequent increments and ASS/SSA resync are recorded above. Windows/Linux feature execution, Linux picker
 filters, installation and physical GPU/audio acceptance remain unverified.
 
 **Statistics milestone complete (2026-10-17):** read-only whole-document or
@@ -261,7 +265,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
-| Subtitle editing | Rust owns accepted UTF-8 SRT/ASS/SSA, cue metadata/identity, generation/revision and undo/redo. Style inspection/assignment and safe cue operations preserve source records. Actual Mac format/save/history workflows pass. | UTF-8 only; ASS/SSA endpoints require 10 ms precision. Unsafe operations are refused. Style designer, attachment management and conversion are deferred; fonts depend on the runtime. Native preview has a separate 4 MiB limit. |
+| Subtitle editing | Rust owns accepted UTF-8 SRT/ASS/SSA, cue metadata/identity, generation/revision and undo/redo. Reviewed style authoring and supported font management preserve source records and share history. Actual Mac format/save/history workflows pass. Separate-file conversion now has engine, owner and browser coverage. | UTF-8 only; ASS/SSA endpoints require 10 ms precision. Unsafe operations are refused. Conversion native/desktop10k acceptance remains pending; fonts depend on the runtime. Native preview has a separate 4 MiB limit. |
 | Duration/speed repair | Selected/all fixed-start previews, exact shared metric bounds, whole-document validation, explicit skips and atomic Undo/Redo. Actual Mac and 10,000-cue workflows pass. | Conservative plan, not a joint optimizer or dialogue synchronization. Completed scenes required with buffers enabled; timed/unknown markup stays manual. |
 | Scene quality | Shared endpoint checks, explicit coverage and paged inward-repair previews use current completed scenes. Safe whole batches preserve text/tags and use one Undo/Redo. Real Mac and 10,000-cue workflows pass. | Heuristic detection can miss cuts. Missing/partial data cannot authorize repair; timed/ambiguous markup stays manual. No new Windows/Linux execution. |
 | Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity/metadata and use one Undo/Redo operation. SRT real Mac and 10,000-cue workflows pass; format-aware ASS/SSA tools have shared/owner/browser coverage. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. ASS/SSA desktop and 10,000-cue validation pass within the format policy above. |
@@ -504,9 +508,11 @@ exact runtime before accepting it, and run configured CI when a remote is availa
 The shared application, resync, quality, text-editing, scene-quality,
 duration/speed-repair and statistics milestones are complete within their recorded
 scope. Loss-preserving ASS/SSA documents now also pass their full scoped audit,
-including existing styles, format-aware tools and tagged-SRT regression. Further
-style design, font/attachment management and cross-format conversion need their
-own policies and goals; none is implicitly enabled by this milestone.
+including existing styles, format-aware tools and tagged-SRT regression. The active
+[umbrella roadmap](feature-roadmap.md) has completed fonts, batch timing, ASS/SSA
+resync and language tools. Style and font authoring are validated; finish native
+conversion and desktop10k acceptance next, followed by WebVTT, legacy project
+import, manual translation, bounded plugins and native/distribution reliability.
 Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.

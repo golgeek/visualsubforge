@@ -5,6 +5,7 @@
   import StatisticsDialog from './lib/StatisticsDialog.svelte';
   import StyleInspector from './lib/StyleInspector.svelte';
   import FontDialog from './lib/FontDialog.svelte';
+  import ConversionDialog from './lib/ConversionDialog.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
@@ -407,6 +408,7 @@
   let statisticsOpen = $state(false);
   let stylesOpen = $state(false);
   let fontsOpen = $state(false);
+  let conversionOpen = $state(false);
   let authoringReturn: HTMLElement | null = null;
   let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
@@ -507,12 +509,12 @@
       if (alive) busy = false;
     }
   }
-  async function openAuthoring(kind: 'styles' | 'fonts') {
+  async function openAuthoring(kind: 'styles' | 'fonts' | 'conversion') {
     if (
       busy ||
       confirming ||
       !ready ||
-      !doc.format ||
+      (kind === 'conversion' ? !doc.loaded : !doc.format) ||
       waveformGesture ||
       cueMenu
     )
@@ -529,6 +531,7 @@
         confirming = true;
         stylesOpen = kind === 'styles';
         fontsOpen = kind === 'fonts';
+        conversionOpen = kind === 'conversion';
       }
     } catch (e) {
       if (alive) error = String(e);
@@ -536,9 +539,10 @@
       if (alive) busy = false;
     }
   }
-  async function closeAuthoring(accepted = false) {
+  async function closeAuthoring(accepted = false, outputPath?: string) {
     const kind = fontsOpen ? 'Font' : 'Style';
-    stylesOpen = fontsOpen = false;
+    stylesOpen = fontsOpen = conversionOpen = false;
+    if (outputPath) notice = `Converted subtitles exported to ${outputPath}`;
     if (accepted) {
       notice = `${kind} changes accepted. Undo restores the whole change.`;
       quality.restart();
@@ -547,11 +551,15 @@
       await tick();
       if (!alive) return;
       await occludeVideo(diagnostics);
-      if (authoringReturn?.isConnected) authoringReturn.focus();
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) confirming = false;
+      if (alive) {
+        confirming = false;
+        // Restore focus after the toolbar is enabled again.
+        await tick();
+        if (alive && authoringReturn?.isConnected) authoringReturn.focus();
+      }
     }
   }
   async function closeStatistics(id?: string) {
@@ -1252,6 +1260,11 @@
   }
   async function run(action: WorkspaceAction, event?: Event) {
     if (busy || confirming || !ready || cueMenu || waveformGesture) return;
+    if (action === 'convertSubtitles') {
+      cancelHeldTiming();
+      await openAuthoring('conversion');
+      return;
+    }
     if (action === 'showScenes') {
       showScenes = !showScenes;
       return;
@@ -2410,6 +2423,12 @@
             as \N</small
           >
         {/if}
+        <button
+          type="button"
+          disabled={!doc.loaded || busy || confirming || !ready}
+          onclick={() => void run('convertSubtitles')}
+          >Convert subtitles…</button
+        >
       </div>
       {#if showQualityMetrics && cue}<div class="quality-readout">
           {#if quality.view?.selected?.data.cueId === String(cue.id)}<CueMetrics
@@ -2651,6 +2670,12 @@
       {subtitles}
       onclose={() => void closeAuthoring()}
       onaccepted={() => void closeAuthoring(true)}
+    />
+  {/if}
+  {#if conversionOpen}
+    <ConversionDialog
+      {subtitles}
+      onclose={(path) => void closeAuthoring(false, path)}
     />
   {/if}
   {#if stylesOpen && doc.format}

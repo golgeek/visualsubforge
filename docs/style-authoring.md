@@ -3,8 +3,8 @@
 Task022 is in progress. Reviewed ASS/SSA style creation, copying and editing now
 join style inspection/assignment and loss-preserving same-format editing. Reviewed
 font attachment management is also validated on the recorded Mac runtime.
-The [conversion engine and publication owner](format-conversion.md) are implemented;
-the desktop dialog and native conversion acceptance remain required. This document
+The [reviewed conversion workflow](format-conversion.md) is implemented;
+native conversion and desktop 10k acceptance remain required. This document
 tracks implementation and acceptance; the full milestone is not yet complete.
 
 Document-level source properties now participate in Rust's existing Undo history. A style edit and any required cue-reference changes must succeed or
