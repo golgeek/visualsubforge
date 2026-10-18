@@ -53,7 +53,11 @@ recovery, changed/missing reference resolution, source/external-file protection,
 mixed ASS-target/WebVTT-reference attachment and normal code0 shutdown. Native
 window observations retain target rendering and literal reference text; existing
 WebVTT preview limits remain. Supplied file choices do not test OS sheets.
-Real chooser and combined desktop10k translation acceptance remain pending.
+An isolated non-WebDriver Mac bundle also passes real Open/Save/Save Project sheets,
+Unicode paths, cancellation, source-overwrite refusal after OS Replace, mixed-format
+reference changes, changed/missing-reference resolution, target-copy draft
+protection and Quit Cancel/Save with code0 shutdown. Exact target/project bytes and
+protected source hashes are checked. Combined desktop10k acceptance remains pending.
 See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports

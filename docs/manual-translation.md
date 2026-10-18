@@ -2,8 +2,8 @@
 
 Stage6c is in progress. The pure foundation and Rust desktop owner/IPC/recovery
 and project persistence are implemented, with the user-facing reference panel.
-Actual Mac native workflows pass; real chooser and combined scale acceptance
-remain pending. WebVTT and legacy project import are already accepted.
+Actual Mac native workflows and real choosers pass; combined scale acceptance
+remains pending. WebVTT and legacy project import are already accepted.
 
 ## Workflow
 
@@ -463,6 +463,56 @@ File selections and DOM input are supplied. Actual OS chooser checks and combine
 10,000-cue target/reference/project/recovery acceptance remain required; stage6c
 and ADR0033 stay open. Physical Windows/Linux and native-runtime adoption gates
 are unchanged.
+
+## Real macOS file dialogs — 2026-10-18
+
+An isolated non-WebDriver bundle passes the actual native file-dialog workflow.
+Its config contains only identifier
+`com.golgeek.visualsubforge.translation-picker-20261018`; it uses `media-prototype`
+without `desktop-e2e` or global Tauri access. Same Mac, pinned toolchains and private
+runtime as above. Build passes in 14.15s; executable SHA-256 is
+`38ca76f0bf84e98a60f6debf8858c4ccd01088e167a61a8f0c02d236e85d307c`.
+
+```sh
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features media-prototype \
+  --config "$PWD/test-results/translation-picker-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/translation-picker-20261018/VisualSubForgeTranslationPicker.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  "$PWD/test-results/translation-picker-20261018/VisualSubForgeTranslationPicker.app/Contents/MacOS/visualsubforge"
+```
+
+`test-results/translation-picker-20261018/receipt.json` records 19 checks, native
+images/AX observations, input hashes and exact saved project snapshots. Actual
+Open, Save As, Save Project and Save Project As sheets cover all four subtitle
+extensions, accented/CJK paths, source/destination cancellation and successful
+separate outputs. After macOS's Replace confirmation, Rust refuses the reference
+destination and hashes prove the original files unchanged. The ASS target equals
+the original with only the intended text replacement; the SSA target is byte-exact.
+
+Reference replacement preserves a native target draft, including when cancelled;
+ASS/WebVTT and SSA/tagged-SRT pairings keep target format and source markup.
+Changed-reference Cancel precedes any draft loss; explicit Reload persists the new
+identity. Missing-reference Choose uses the actual picker; cancelling it returns
+to the unresolved-reference prompt. Choosing the moved file restores the expected
+hash/offset, and Save Project persists the new path. Controlled fixture changes
+create these scenarios; original fixture bytes are retained separately and restored
+after shutdown. Starting another target copy tests both Cancel (preserved draft)
+and Discard (independent SSA copy). Separate project publication preserves the
+previous project byte-for-byte.
+
+Quit with a changed reference offset offers Save project. Cancel preserves the
+in-memory offset and previous on-disk value; Save project writes the new offset
+and the owned process exits normally with code0. No other application is stopped.
+Native AX/paste/click input is not a physical-keyboard latency measurement. An
+initial automated path typing attempt produced incomplete Unicode text; selecting
+the exact path through the native text field resolved it before opening any file.
+No product change was needed. The earlier production regression remains applicable.
+
+Combined desktop10k validation remains next. Stage6c and ADR0033 stay open until
+that passes; plugin and native/distribution milestones are still required.
 
 ## Legacy source reference
 
