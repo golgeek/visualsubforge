@@ -294,5 +294,72 @@ four new both-variant attachment inventory/stream/overlay/history/boundary/limit
 cases. `cargo test --locked -p vsf-application --test style_authoring --test subtitle_documents`
 passes all 6 tests; `cargo clippy --locked -p subtitle-formats --all-targets -- -D warnings`
 and formatting pass. Test payloads at this layer exercise record mechanics, not
-valid decoded fonts. Application decoding/sfnt validation, desktop controls and
-native font replacement/cleanup are still unimplemented and required.
+valid decoded fonts. That record-layer validation does not cover font decoding or rendering;
+the application validation increment is recorded below. Desktop controls and
+native font replacement/cleanup remain required.
+
+
+### Font payload foundation
+
+Application `authoring::fonts` now performs bounded streaming ASS decoding,
+canonical encoding and conservative single-font sfnt inspection. It checks the
+four-MiB bound, table directory/count/order/alignment/ranges/checksums, whole-font
+checksum, required tables, TrueType glyph-location bounds, CFF/CFF2 header shape,
+horizontal metrics and bounded family-name records. Collections, invalid encoding,
+truncated/overlapping/out-of-range tables and unsupported trailing data are
+refused. These are structural checks, not a complete font sanitizer or proof of
+rendering. Original malformed/unsupported source remains preservable.
+
+The original TTF fixture decodes byte-for-byte. Two new independently authored
+CFF/CFF2 fixtures share its family and swap its simple shapes; no third-party font
+outlines were copied. `scripts/font-fixture.py` regenerates all using pinned
+fontTools4.61.1 in an ignored isolated generation environment. No fontTools or
+native font dependency was added to the application. Existing TTF/ASS fixture
+bytes remain unchanged. CFF SHA256 is
+`b6d34a45311d3a001236a74794b46733a7f85dc9e20b0a80f72806fbe7adb1ae`;
+CFF2 is `48d612ceb1106fdd2d46a0fd2a4faaf61ae2fdef0bb3424ab0f93732c75a60b9`.
+
+`cargo test --locked -p vsf-application --test font_attachments` passes three
+cases covering all three structural font variants, exact codec round trips,
+all remainder lengths, padding, size/cancellation and malformed sfnt data.
+`cargo clippy --locked -p vsf-application --all-targets -- -D warnings` passes.
+The first test compile used the facade serializer on the lower-level ASS source;
+it now uses that module's serializer. Initial Clippy findings use the pinned
+Rust toolchain's array-chunk API. Font inspection/proposals still need desktop
+integration and native replacement/cleanup acceptance; this foundation does not
+complete attachment management.
+
+
+### Reviewed attachment proposals
+
+The shared application now supplies a bounded inventory and immutable add,
+replace and remove proposals. Inventories contain metadata, decoded byte counts,
+SHA256 and structural font information, never payloads. Supported font changes
+retain cue values and unrelated source records and commit through the existing
+`Editor<Source>` history. Exact same-name/same-byte replacement is a no-op and
+preserves redo. Cancellation remains an operation error even when it occurs
+inside a parser that otherwise reports unsupported input as a read-only row.
+
+The limits are 200 displayed records (partial inventories cannot authorize edits),
+32 active fonts, 4 MiB per decoded font, 8 MiB total decoded fonts, and the existing
+16 MiB complete subtitle limit. Adding/replacing requires every existing font
+record to be supported; this avoids claiming a reliable total for ambiguous
+blocks. A supported font can still be removed while preserving unsupported peers.
+Graphics stay read-only. Names are bounded `.ttf`/`.otf` filenames with no path or
+control characters. Candidates exceeding the existing 4 MiB preview limit report
+that limitation before acceptance; save eligibility remains separate.
+
+`cargo test --locked -p vsf-application --test attachment_authoring --test font_attachments`
+passes all seven tests. Coverage includes ASS/SSA, BOM/CRLF, opaque graphics,
+TTF/CFF/CFF2, exact unrelated bytes, history/no-op redo/reopen, partial/malformed
+inventories, every one-shot cancellation checkpoint, count/individual/aggregate
+limits and complete-file refusal. A synthetic valid sfnt with an additional opaque
+table exercises the exact 8 MiB aggregate boundary independently of invalid-font
+rejection. Strict application Clippy and formatting pass. The first new proposal
+test accidentally duplicated the fixture's Events section; the fixture now uses a
+valid recognized font-section delimiter. No production parser rule was relaxed.
+This increment still has no desktop attachment controls or native acceptance.
+
+Full `cargo test --locked --workspace` passes 355 ordinary tests with 30 explicit
+manual/generator harnesses ignored. Zero-test doc harnesses are not feature
+validation. Logs are retained under ignored `authoring-research` fixtures.

@@ -10,13 +10,17 @@ and the tracked scripts do not require those notes.
 
 All signals and images are generated from FFmpeg lavfi expressions in `scripts/media-fixtures.py`. No source material, fonts, or legacy assets are imported. Generated files are ignored by Git. FFV1/PCM in Matroska avoids encoder delay in the offset experiment; this does not demonstrate compressed-codec delay handling.
 
-`subtitles/fixture-font.ttf` and `embedded-font.ass` are original synthetic font
+`subtitles/fixture-font.ttf`, `fixture-font-cff.otf`, `fixture-font-cff2.otf` and
+`embedded-font.ass` are original synthetic font
 fixtures under the repository's GPL-3.0-or-later license. Their two visible glyphs
 are a triangle and a rectangle, authored in `scripts/font-fixture.py`; no existing
 font outlines or metadata were copied. Regenerate with fontTools4.61.1 in an
 isolated Python environment. Fixed font timestamps make output reproducible.
 The checked-in files require no fontTools build/runtime dependency and are never
-installed as system fonts. See [preview font validation](../../docs/preview-fonts.md).
+installed as system fonts. The CFF/CFF2 variants share the same family but swap
+the A/B outlines to expose stale-font replacement in later native tests. Their
+structural parsing is validated; native attachment-management acceptance remains
+separate. See [preview font validation](../../docs/preview-fonts.md).
 
 ## Generate and validate
 
