@@ -3,8 +3,9 @@
 Stage6a is in progress. The format adapter and application integration are
 implemented: desktop open/edit/save, projects, accepted-state recovery, shared
 text/timing/quality tools and CLI check/statistics dispatch recognize WebVTT.
-Library, owner, browser and pure 10k checks pass. Actual native workflow, renderer,
-file chooser and desktop 10k acceptance remain pending. The rest of Task023
+Library, owner, browser, native Mac workflow and pure 10k checks pass. Bounded
+native visual observations confirm the preview limitations below, and actual
+macOS file choosers pass. Desktop 10k acceptance remains pending. The rest of Task023
 (legacy projects and translation) remains required.
 
 ## Implemented format foundation
@@ -52,7 +53,9 @@ conformance validator. The editor exposes a preview limitation notice. Native
 transport sends a bounded WebVTT presentation copy directly to the existing
 decoder, normalizing only its BOM/line endings; it never enters the SRT fansub-tag
 encoder. The 4 MiB preview limit leaves editing/saving available. Empty documents
-clear the preview. Actual current-runtime visual acceptance remains pending.
+clear the preview. Current-runtime observations below show decoded CJK/voice
+text and literal ASS syntax, but omit CSS/region styling, flatten ruby and expose
+an emoji missing-glyph notice. Browser-equivalent timed highlighting is unverified.
 
 Shared WebVTT text projection understands b/i/u, classes, voice/language labels,
 ruby and internal timestamps. Quality counts decoded caption text in UTF-16,
@@ -110,10 +113,6 @@ worker, mutable document sidecar or native library is introduced.
 
 ## Acceptance still required
 
-- Actual Mac workflow through the native-enabled app: open/edit/format, reviewed
-  text/timing, exact save/reopen/history/project/recovery and failure/stale paths.
-- Current-runtime visual observations for supported text, literal ASS syntax,
-  timestamps, ruby, CSS/regions and explicit preview limits; actual file choosers.
 - Desktop 10k save/recovery and interaction measurements. Retain existing <=500ms
   pure p95, <=96MiB additional sampled RSS and <1000ms interactive gates;
   background work retains existing deadlines.
@@ -258,6 +257,103 @@ updating timing explanations, IPC drift correctly found stale generated samples;
 regeneration restored consistency. These receipts and final logs are retained
 under `test-results/webvtt-integration-20261018/` (ignored local evidence).
 
-No new native, VM, physical device or release acceptance is claimed. Stage6a and
-ADR0031 remain open, followed by legacy import, manual translation, plugins and
-the native/distribution reliability milestone.
+That application integration run alone does not establish native, VM, physical
+device or release acceptance. The subsequent native evidence is recorded below.
+Stage6a and ADR0031 remain open, followed by legacy import, manual translation,
+plugins and the native/distribution reliability milestone.
+
+## Native Mac workflow and visual observations — 2026-10-18
+
+The native-enabled test build uses the existing private
+`audio-integration-master-v1` mpv runtime. It does not adopt a new renderer or
+library strategy. The isolated identifier is
+`com.golgeek.visualsubforge.webvtt-native-20261018`; its config has the same
+test-only capabilities as `tests/desktop/tauri.test.json`. A byte-identical copy
+of the generated bundle lives under `test-results/webvtt-native-20261018/` so
+independent CUA inspection binds the intended app.
+
+```sh
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/webvtt-native-20261018/tauri.json" -- --locked
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  VSF_WEBVTT_CAPTURE=1 VSF_WEBVTT_CAPTURE_LABELS=webvtt-project-restored \
+  node tests/desktop/run.mjs \
+  --binary "$PWD/test-results/webvtt-native-20261018/VisualSubForgeWebVTT.app/Contents/MacOS/visualsubforge" \
+  --webvtt
+```
+
+Final `desktop-nI1oKm` passes the native workflow. Its three-cue BOM/CRLF source
+retains identifiers, comments, CSS/region/unknown settings and timed markup.
+Formatting remains a draft until Apply; the accepted first-cue start changes
+from 1001 to 1002 ms, then reviewed replacement retains its surrounding tags.
+Undo/Redo restores complete cue state. Whole-document shifting refuses absolute
+markers; a safe selected shift preserves exact 1 ms precision and can be undone.
+Cancelled, missing-parent and wrong-format destinations preserve state, and the
+successful save/reopen is byte-exact against independently expected output.
+Project save/restore retains format, paths and complete cues. A real interrupted
+process restores the accepted WebVTT checkpoint, requires Save As, preserves a
+newer external file and writes the recovered copy exactly. Desktop caption metrics
+match the executable CLI under the same profile; their media/scene coverage is
+reported separately. Final normal shutdown is code0.
+
+The executable SHA256 is
+`b6bc99e0109ef0396ece37189b9fb505a38bdc4d7cdc3a1b0bb81abfd44e03a6`.
+The final runtime receipt identifies PID49487 and 46 loaded backing files,
+including that executable and the expected private libmpv, with none unavailable.
+Independent CUA imagery after project restoration shows bold `Hiver`, decoded
+ampersand/CJK text and the preserved source markup in the editor.
+
+Earlier `desktop-kAAUg4` records three independent settled native-window images
+and the same binary/runtime (PID48959, 46 backing files): at 1.5 s, white decoded
+voice/language text is bottom-centered instead of the specified lime/region
+layout; at 4.5 s, ruby base and annotation share a baseline; at 6 s, ASS alignment
+braces and `\N` remain literal while HTML bold and the ampersand decode. CJK
+glyphs appear, but U+1F600 is a missing-glyph box with a matching font notice.
+These are bounded observations, not browser conformance or timed-highlight
+animation acceptance. Original records/text remain unchanged by preview.
+
+That earlier run passed metric parity but failed its next harness step: seeks
+correctly followed the active cue, while the harness assumed cue1 remained
+selected. The corrected test explicitly scrolls/selects cue1 through the real
+list before editing. The failed receipt and images remain retained; the complete
+second run supersedes its workflow result without hiding the failure. No product
+code changed for this harness correction. Harness lint/format/syntax and the
+native-feature build pass. No new Windows/Linux or physical-device acceptance is
+claimed; real chooser and desktop10k validation remain separate gates.
+
+### Actual macOS chooser acceptance — 2026-10-18
+
+```sh
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features media-prototype \
+  --config "$PWD/test-results/webvtt-picker-20261018/tauri.json" -- --locked
+```
+
+This build excludes `desktop-e2e`, global Tauri access and WebDriver. The config
+sets only the isolated identifier
+`com.golgeek.visualsubforge.webvtt-picker-20261018`. The byte-identical
+`VisualSubForgeWebVTTPicker.app` copy has executable SHA256
+`90c942e5c2a4d3aafb64acab51fafa470db5ce2cdd95d34b885f03ba13e8df7b`.
+The runtime receipt identifies PID51411 and the expected private libmpv among
+46 loaded backing files, with none unavailable.
+
+Native CUA input opens the three-cue source through the OS Open sheet, edits
+`Été` to `Printemps` while preserving surrounding markup, and applies it. The
+File menu correctly disables conversion. Save As shows `source.vtt` in the
+source directory; Cancel retains the unsaved edit and retry saves a separate
+`picker-copy.vtt`. Independent byte comparison verifies the exact BOM/CRLF,
+settings, blocks, timestamps and text replacement; the source hash is unchanged.
+Cmd-Q exits normally with code0. Open/Save images, menu/editor accessibility
+observations, hashes, runtime and exit receipts are under
+`test-results/webvtt-picker-20261018/`.
+
+The initial Go To shortcut/paste sequence reused the chooser's previous path;
+observing the path field before setting the exact fixture path corrected it
+before any file was opened. Native selection of a substring in the textarea was
+unavailable, so ordinary focus/select-all/paste entered the complete known cue.
+Neither limitation required a product change. Inspection also found a stale empty
+editor hint listing only SRT/ASS/SSA; it now includes WebVTT. The wording change
+is checked separately and does not change the identified picker binary above.
+Windows/Linux choosers and physical acceptance remain unverified. Desktop10k
+validation is the remaining stage6a acceptance gate.

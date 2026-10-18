@@ -34,8 +34,11 @@ decoder with visible CSS/region/ruby limitations. 398 Rust tests / 30 ignored,
 44 frontend and 56 browser cases pass; final menu changes pass both browser engines.
 Three expanded pure 10k workloads, including whole-document reviewed replacement
 and quality evaluation, pass p95 <=100.174ms and +54,722,560 sampled RSS bytes.
-Actual native workflow/visual/chooser and desktop10k acceptance remain pending;
-this does not complete stage6a. See [scope, checks and limits](webvtt.md).
+Actual Mac workflow, save/reopen/project/recovery and real chooser checks pass,
+including normal code0 shutdown. Independent native images show decoded CJK and
+literal ASS syntax, with omitted CSS/regions, inline ruby and an explicit emoji
+missing-glyph notice. Desktop10k acceptance remains pending; this does not
+complete stage6a. See [scope, checks and limits](webvtt.md).
 
 **Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
 have explicit precision/loss/blocking review and protected separate-file export.

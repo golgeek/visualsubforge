@@ -38,6 +38,7 @@ import { languageTools } from './language.mjs';
 import { languagePerformance } from './language-performance.mjs';
 import { conversionWorkflow } from './conversion.mjs';
 import { conversionPerformance } from './conversion-performance.mjs';
+import { webvttWorkflow } from './webvtt.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -54,6 +55,7 @@ const { values } = parseArgs({
     styles: { type: 'boolean', default: false },
     fonts: { type: 'boolean', default: false },
     conversion: { type: 'boolean', default: false },
+    webvtt: { type: 'boolean', default: false },
     'conversion-performance': { type: 'boolean', default: false },
     'font-performance': { type: 'boolean', default: false },
     'style-performance': { type: 'boolean', default: false },
@@ -120,6 +122,7 @@ const runDeadline =
   values.styles ||
   values.fonts ||
   values.conversion ||
+  values.webvtt ||
   values['conversion-performance'] ||
   values['font-performance'] ||
   values['style-performance'] ||
@@ -564,6 +567,23 @@ try {
       root,
       evidence,
       record,
+    });
+  if (values.webvtt)
+    await webvttWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
     });
   if (values.ass)
     await assDocuments({

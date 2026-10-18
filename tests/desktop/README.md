@@ -363,3 +363,23 @@ set `VSF_CONVERSION_CAPTURE=1` and optionally comma-separated
 up to 60 seconds for `capture-ack.json` containing the same `label`; acknowledge
 only after inspecting and saving the actual native window image. WebView images
 alone omit the native video sibling. The JSON reports retain those scope limits.
+
+### WebVTT
+
+`--webvtt` uses the native-feature build to exercise actual open, millisecond
+editing, formatting drafts, reviewed replacement, safe timing shifts and timed
+marker refusal. It checks byte-exact BOM/CRLF save/reopen, cancelled/failed/wrong-
+format destinations, Undo/Redo, project restoration, crash recovery and an
+external-file conflict. Native and executable CLI caption metrics must agree.
+The independently authored fixture retains CSS/region records, voice/language/
+ruby/timestamp markup and literal ASS-looking text. `webvtt.json` records binary
+and source hashes; the normal runner also requires final code0 shutdown.
+
+Use the pinned private runtime and `desktop-e2e,media-prototype` build described
+in [WebVTT evidence](../../docs/webvtt.md). File choices and DOM events are
+supplied, so this lane does not establish native chooser or physical-input
+acceptance. Set `VSF_WEBVTT_CAPTURE=1` and optionally comma-separated
+`VSF_WEBVTT_CAPTURE_LABELS` to pause at settled native frames for up to 60 seconds.
+The observer must save and inspect an actual native-window image before writing
+`capture-ack.json` with the matching `label`; WebView-only images omit the video
+sibling. Preview limitations and the separate desktop10k gate remain explicit.
