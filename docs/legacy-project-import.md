@@ -4,8 +4,9 @@ Stage6b is complete within the recorded Mac scope. File → Import VisualSubSync
 explicit review, file relocation and publication of a new `.vsfproject`.
 The Rust owner, browser workflows, actual Mac native workflows, real choosers and
 desktop 10k acceptance pass.
-WebVTT is already accepted; translation
-remains the next increment. This is not a release/platform acceptance claim.
+[WebVTT](webvtt.md) and [manual translation](manual-translation.md) are also
+accepted within their recorded Mac scopes. This is not a release/platform
+acceptance claim.
 
 Choose a `.vssprj`, then Review import. Locate missing media/subtitles explicitly
 and review again after each change. Review shows original/resolved paths,

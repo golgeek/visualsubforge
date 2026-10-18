@@ -3,7 +3,9 @@
 The experimental `vsf plugin` commands run local modern or VSS checker/fix
 packages against UTF-8 SRT, ASS, SSA or WebVTT. Build with
 `cargo build --locked -p vsf-cli`. The [API matrix](plugin-api.md) defines the
-supported subset. Desktop plugin integration and platform acceptance remain open.
+supported subset. Desktop review/Undo is implemented and passes the recorded
+Mac and ARM64 VM workflows; historical-host comparison and physical platform
+acceptance remain open. See [desktop evidence](plugin-desktop.md).
 
 ## Check, review and publish
 

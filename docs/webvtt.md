@@ -5,8 +5,9 @@ implemented: desktop open/edit/save, projects, accepted-state recovery, shared
 text/timing/quality tools and CLI check/statistics dispatch recognize WebVTT.
 Library, owner, browser, native Mac workflow, pure and desktop 10k checks pass. Bounded
 native visual observations confirm the preview limitations below, and actual
-macOS file choosers pass. The rest of Task023
-(legacy projects and translation) remains required.
+macOS file choosers pass. [Legacy project import](legacy-project-import.md) and
+[manual translation](manual-translation.md) also complete Task023 within their
+recorded Mac scopes; platform and physical-device acceptance remain separate.
 
 ## Implemented format foundation
 

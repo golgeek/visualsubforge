@@ -1,9 +1,10 @@
 # English and French language tools
 
-Task 021 is in progress. Shared analysis, profile/Problems integration, dictionary
-suggestions, reviewed exact-range corrections and personal/session words are
-implemented with automated coverage. Actual native workflow, project/recovery and
-10k native interaction acceptance are still pending; this is not a completed stage.
+Task021 is complete within the recorded Mac scope. Shared analysis,
+profile/Problems integration, dictionary suggestions, reviewed exact-range
+corrections and personal/session words pass automated and native acceptance,
+including project/recovery and six 10k workloads. The dated evidence below
+distinguishes those checks from Windows/Linux feature and physical-device gates.
 
 ## Implemented contract
 
