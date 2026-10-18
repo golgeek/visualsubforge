@@ -180,4 +180,13 @@ copy or redistribute it. That archived rule's checker and three integer-safe fix
 modes pass locally, including neighbor review and one Undo; an odd overlap that
 produces fractional endpoints is explicitly refused. This does not establish
 parity with a running historical VSS engine. A pinned-host comparison and the
-available Windows/Linux runtime checks remain required before stage 7 acceptance.
+available Windows/Linux desktop workflow checks remain required before stage 7
+acceptance. Guest workspace/runtime/build/helper checks now pass on both ARM64 VMs;
+see the [exact scope](plugin-host.md#vm-automated-validation--2026-10-18).
+
+The independently authored [cross-host contract probe](../tests/fixtures/plugins/vss-contract/README.md)
+uses ES3 syntax, three synthetic Unicode/tagged cues and explicit context. Its VSF
+CLI control passes read-only checking and combined text/timing/neighbor-fix review,
+including raw/stripped UTF-16 reports and callback/RegExp state. This is preparation
+for the historical comparison, not historical parity evidence. No historical
+executable, DLL or unresolved-license plugin is included with the probe.

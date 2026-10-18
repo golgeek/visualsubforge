@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "vsf.contract-probe",
+  "name": "Independently authored VSS contract probe",
+  "api": "vss-1",
+  "entry": "main.js",
+  "requires": ["rules", "fixes", "core-read", "scene-data", "package-scripts"],
+  "settings": {}
+}
