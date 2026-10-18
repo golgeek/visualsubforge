@@ -76,15 +76,15 @@ byte oracle failure and final full rerun are retained in the desktop guide.
 Pinned VSS-host parity and available VM checks remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 
-**Plugin VM progress (2026-10-18):** the pinned plugin/application/CLI tests,
-frontend build and frontend tests now pass on Ubuntu and Windows ARM64 VMs.
-Ubuntu full-workspace compilation exposed two Linux subtitle-dialog filter type
-errors; the borrowing correction now passes the full workspace tests and CLI
-build. The Linux desktop build is running. Windows compilation passes, but the
-workspace run stops before launching the `update_batch` test with Windows error
-740 (elevation required); this launch failure is being investigated. Full platform, installed-helper,
-desktop and historical-host acceptance remain open; see the
-[source identities and retained failures](plugin-host.md#vm-validation-progress--2026-10-18).
+**Plugin VM automated checks pass (2026-10-18):** Ubuntu ARM64 passes 503 Rust
+workspace tests/33 ignored; Windows ARM64 passes 491/32 ignored. Both pass the
+plugin/application/CLI tests, frontend build/tests, CLI/default desktop builds,
+installed-helper relocation, generated IPC and strict Clippy. Eleven zero-test
+harnesses per guest are excluded. The Linux subtitle-dialog filter type error is
+fixed; a content-identical test-target rename resolves Windows error740 without
+elevation. New plugin desktop UI workflows and historical-host comparison remain
+open; these checks do not establish physical-device or installation acceptance.
+See [commands, identities and retained failures](plugin-host.md#vm-automated-validation--2026-10-18).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries

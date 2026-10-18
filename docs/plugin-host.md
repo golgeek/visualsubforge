@@ -8,46 +8,81 @@ implemented and tested. Actual Mac format/history/recovery and real chooser
 workflows and ten complete desktop10k workloads pass; historical-host and available
 platform acceptance remain required. ADR0008 is still proposed.
 
-## VM validation progress — 2026-10-18
+## VM automated validation — 2026-10-18
 
 Isolated Ubuntu 26.04 ARM64 and Windows 11 ARM64 runs verify all 781 tracked
 source files from `8443600` before execution. The subsequent `a6482b3` changes
-only tests/docs. Both VMs pass the pinned Rust 1.98.1 plugin/application/CLI test
-command, Node 24.21.0/npm 11.19.0 setup, frontend build and frontend tests:
+only tests/docs. Both runs use Rust 1.98.1, Node 24.21.0 and npm 11.19.0,
+`CARGO_BUILD_JOBS=2`, `CARGO_INCREMENTAL=0` and sequential Rust tests.
+
+| Check | Ubuntu ARM64 | Windows ARM64 |
+| --- | --- | --- |
+| Plugin/application/CLI tests | Pass | Pass |
+| Frontend install, strict build and tests | Pass | Pass |
+| Full Rust workspace | 503 passed, 33 ignored | 491 passed, 32 ignored |
+| CLI and default desktop build | Pass | Pass |
+| Installed sibling helper and relocated packages | 1 passed | 1 passed |
+| Generated IPC and strict Clippy | Pass | Pass |
+
+Eleven zero-test harnesses per workspace run are excluded from the passing test
+counts. These runs exercise actual guest executables, including helper execution;
+they do not establish the new desktop plugin UI workflow, native playback,
+physical GPU/audio or installation acceptance. Historical VSS-host comparison
+and available desktop workflow checks remain required; ADR0008 stays proposed.
+
+The initial Ubuntu workspace compile found two Linux-only `FileFilter::glob`
+calls passing owned strings where ashpd requires borrowed strings. Borrowing the
+formatted extension patterns fixes compilation without changing the filters.
+The corrected full run passes. Windows compiled but could not start the
+`update_batch` integration executable: process creation returned error 740,
+“elevation required.” Two byte-identical-name controls in two directories show
+that a `combined_cue_edits` filename runs both tests normally while an
+`update_batch` filename is refused. The executable is ARM64 (PE machine `0xaa64`),
+SHA256 `aa3e57d3890f37c3d2e1626e8be32a830a53e2a984a8774420cfcd6cde727a91`.
+Renaming the test target to `combined_batch` resolves the ordinary Cargo run;
+all test content/assertions are unchanged. No elevation or security-policy change
+was used. This observed filename-dependent classification is consistent with
+Microsoft's warning about [unexpected installer-detection elevation](https://learn.microsoft.com/en-us/windows/win32/secbp/running-with-administrator-privileges);
+we do not infer its undocumented ARM64 implementation from older 32-bit descriptions.
+The renamed two-test target also passes on Mac, as do Rustfmt and diff checks.
+
+Exact commands (after frontend preparation and the CLI build where required):
 
 ```sh
 cargo test --locked -p vsf-plugin-host -p vsf-application -p vsf-cli -- --test-threads=1
 npm ci
 npm run build
 npm test
+cargo test --locked --workspace -- --test-threads=1
+cargo build --locked -p vsf-cli
+npm run tauri -- build --debug --no-bundle -- --locked
+# Set VSF_PLUGIN_DESKTOP_EXECUTABLE to the built guest desktop executable.
+cargo test --locked -p visualsubforge installed_cli_helper_runs_from_desktop_directory_and_relocated_packages -- --ignored --nocapture
+npm run ipc:check
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-The initial Ubuntu full-workspace compile found two Linux-only `FileFilter::glob`
-calls passing owned strings where ashpd requires borrowed strings. Borrowing the
-formatted extension patterns fixes compilation; the corrected full workspace
-tests and CLI build pass. The default Linux desktop build is running. Windows
-compiles the workspace but stops before executing the `update_batch` integration
-test: process creation returns Windows error 740, “The requested operation requires
-elevation.” This is a test-executable launch failure, not a failed assertion; its
-cause and a non-elevated execution path remain to be investigated. Neither full
-platform run, installed-helper relocation check nor desktop UI acceptance is
-claimed complete at this checkpoint. `cargo fmt --all -- --check`
-and `git diff --check` pass on the host for the two-line correction.
-
-Receipts and drivers are retained under
-`test-results/plugin-platform-20261018/`. The original source archive SHA256 is
+Receipts, drivers and original failures are retained under
+`test-results/plugin-platform-20261018/`. Final runs are
+`linux-dialog-fix-receipt.json` and `windows-test-name-fix-receipt.json`, with
+matching validation logs. The original source archive SHA256 is
 `4b9982680009a3682e8b0a5d1fb51d6a1d991bb64a36534a32427021abdabfaa`.
-The corrected Linux rerun first verifies the original source, then records the
-single patched file SHA256
-`91b30613218511e4cba4fd6493547fcfbf8eca037dc2472510e90a9f69d08ed3`
-in `linux-dialog-fix-receipt.json`. The original failed compile is retained in
-`linux-validation.log`. An earlier host disk-space interruption is recorded
-separately: only the rebuildable Mac incremental compiler cache was removed,
-and the stopped guest resumed after process and source verification. Windows
-receipts/logs have been copied from the task-owned Downloads staging folder
-recorded by `windows-staging.json` into the evidence directory. The staging folder
-is retained for subsequent validation and must be cleaned up when finished.
-These VM checks do not establish physical GPU/audio or installation acceptance.
+Each rerun verifies the original source before applying its recorded patch:
+Linux's two-line filter correction; Windows's same correction and content-identical
+test rename. Linux ran those same two tests under their original name.
+`linux-artifacts.json` and `windows-artifacts.json` pin desktop/CLI SHA256s:
+
+| Guest | Desktop SHA256 | CLI SHA256 |
+| --- | --- | --- |
+| Ubuntu | `aeead8530395a77cd0c48140e458717fd5591cf0ec02cfd19d40ba11bbd298c8` | `c058c52dc2857e4b872cc4b1587946a4e05db6462355df345b74af56b1ea30b4` |
+| Windows | `f9faa885620a320a1ab84d49f662c4127b0f90af1b311444f54b4ea12f5c7c5e` | `5d9291c76a968882a848690d71a6f0e43dc718014daa1e9b0288e5376bfe1cbb` |
+
+An earlier host disk-space interruption is recorded separately: only the
+rebuildable Mac incremental compiler cache was removed, and the stopped guest
+resumed after process and source verification. Windows final receipts/logs were
+copied from the task-owned Downloads staging folder into this evidence directory.
+The staging folder remains for subsequent workflow validation and must be cleaned
+up afterward; the VM's original idle-pausing preference must also be restored.
 
 ## Candidate execution boundary
 
@@ -492,7 +527,7 @@ Reproduce with the pinned toolchains, from the repository root:
 ```sh
 python3 scripts/ass-fixtures.py
 python3 scripts/webvtt-fixtures.py
-cargo test --locked -p subtitle-core --test update_batch
+cargo test --locked -p subtitle-core --test combined_batch
 cargo test --locked -p vsf-plugin-host --test subtitles -- --test-threads=1
 # Set this to your separately acquired, hash-verified archived file:
 VSF_LEGACY_OVERLAP_SCRIPT=/path/to/jsplugin/overlapping.js cargo test --locked -p vsf-plugin-host --test subtitles unchanged_archived_overlap_rule_and_fix_run_locally -- --ignored --nocapture
