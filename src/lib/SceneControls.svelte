@@ -58,6 +58,7 @@
   let restoredKey = '';
   let polling = false;
   let autoStarted = false;
+  let publishedCuts: number[] | null = null;
   const phaseLabel = $derived(
     view?.phase === 'full'
       ? 'Full scan'
@@ -91,7 +92,16 @@
     // Rust cancels/reaps the preceding job when media is opened/closed.
   });
   $effect(() => {
-    oncuts(shown && view?.mode === 'visual' ? view.cuts : []);
+    const cuts = shown && view?.mode === 'visual' ? view.cuts : [];
+    // Fresh status replies also contain fresh arrays. Publish the overlay only
+    // when its values change, so idle scene polling does not redraw the canvas.
+    if (
+      publishedCuts?.length === cuts.length &&
+      cuts.every((cut, index) => cut === publishedCuts![index])
+    )
+      return;
+    publishedCuts = [...cuts];
+    oncuts(publishedCuts);
   });
   $effect(() => {
     if (restored && restored.session === session && loaded) {

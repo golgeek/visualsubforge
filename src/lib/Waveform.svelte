@@ -75,6 +75,9 @@
     preview: [number, number] | null;
   } | null>(null);
   const displayedRange = $derived(gesture?.preview ?? previewRange ?? range);
+  // The parent receives fresh media-status objects on every poll. Compare the
+  // position itself before invalidating this expensive canvas draw.
+  const playhead = $derived(position);
   function draw() {
     if (!canvas) return;
     const context = canvas.getContext('2d');
@@ -206,19 +209,19 @@
       context.stroke();
     }
     context.setLineDash([]);
-    if (position === null) return;
+    if (playhead === null) return;
     context.strokeStyle = '#ff7f7f';
     context.lineWidth = 2;
     context.beginPath();
-    context.moveTo(x(position), 18);
-    context.lineTo(x(position), height);
+    context.moveTo(x(playhead), 18);
+    context.lineTo(x(playhead), height);
     context.stroke();
   }
   $effect(() => {
     void view;
     void start;
     void span;
-    void position;
+    void playhead;
     void cues;
     void selected;
     void sceneCuts;

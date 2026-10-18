@@ -31,6 +31,7 @@ let occluded = false;
 let importView: LegacyImportReview = structuredClone(legacyImportReview);
 let openedPath: string | undefined;
 let loadingPolls = 0;
+let statusPolls = 0;
 let holdSceneCompletion = false;
 let mediaOpening = false;
 let referenceIssue: ProjectReferenceIssue | null = null;
@@ -319,6 +320,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return 99;
         case 'media_action': {
           const action = args.action as MediaAction;
+          if (action.kind === 'status') statusPolls++;
           if (action.kind === 'occlude') occluded = action.occluded;
           if (action.kind === 'open') {
             loadingPolls = 0;
@@ -476,6 +478,47 @@ async function run() {
       !calls.includes('scenes_start'),
       'Saved visual results restore without rescanning',
     );
+    // Status replies are fresh objects even when paused playback is unchanged.
+    // Count actual canvas redraws, with a moved playhead as the positive control.
+    const canvas = host.querySelector<HTMLCanvasElement>('.wave canvas')!;
+    const widthDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      'width',
+    )!;
+    let redraws = 0;
+    Object.defineProperty(canvas, 'width', {
+      configurable: true,
+      get() {
+        return widthDescriptor.get!.call(this);
+      },
+      set(value: number) {
+        redraws++;
+        widthDescriptor.set!.call(this, value);
+      },
+    });
+    try {
+      // Allow project restoration, scene queries and layout to settle first.
+      let baselinePolls = statusPolls;
+      await until(() => statusPolls >= baselinePolls + 3);
+      redraws = 0;
+      baselinePolls = statusPolls;
+      await until(() => statusPolls >= baselinePolls + 3);
+      assert(
+        redraws === 0,
+        'Unchanged paused status polls do not repaint the waveform',
+      );
+      media.positionSeconds = 13.5;
+      await until(() => redraws > 0);
+      assert(
+        redraws > 0,
+        'A changed playback position repaints the waveform playhead',
+      );
+      media.positionSeconds = 12.5;
+      redraws = 0;
+      await until(() => redraws > 0);
+    } finally {
+      Reflect.deleteProperty(canvas, 'width');
+    }
     menuAction('saveProject');
     await until(
       () =>
