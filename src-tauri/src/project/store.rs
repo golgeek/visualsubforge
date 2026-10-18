@@ -8,7 +8,10 @@ use std::sync::Mutex;
 mod tests;
 
 #[derive(Default)]
-pub struct Projects(Mutex<Store>);
+pub struct Projects {
+    state: Mutex<Store>,
+    pub(crate) imports: super::import::Importer,
+}
 
 #[derive(Default)]
 struct Store {
@@ -58,7 +61,7 @@ impl Store {
 }
 impl Projects {
     pub fn open(&self, path: &Path) -> Result<Opened> {
-        let mut store = self.0.lock().map_err(|_| "Project state unavailable")?;
+        let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         let path = path
             .canonicalize()
             .map_err(|e| format!("Cannot open project: {e}"))?;
@@ -93,7 +96,7 @@ impl Projects {
         media_path: Option<&Path>,
         accept: impl FnOnce(&crate::quality_profile::Policy),
     ) -> Result<Attachment> {
-        let mut store = self.0.lock().map_err(|_| "Project state unavailable")?;
+        let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         if store
             .pending
             .as_ref()
@@ -117,13 +120,13 @@ impl Projects {
         Ok(attachment)
     }
     pub fn detach(&self) -> Result<()> {
-        let mut store = self.0.lock().map_err(|_| "Project state unavailable")?;
+        let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         store.active = None;
         store.pending = None;
         Ok(())
     }
     pub fn save(&self, path: &Path, token: Option<u64>, project: &Project) -> Result<Attachment> {
-        let mut store = self.0.lock().map_err(|_| "Project state unavailable")?;
+        let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         let active = match token {
             Some(token) => Some(
                 store

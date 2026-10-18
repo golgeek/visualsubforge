@@ -9,6 +9,7 @@ mount and are disposed on unmount; they are not global stores.
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
+| `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
 | `GapSession` | Dialog-lived proposal pages, acknowledgment and asynchronous response ordering. Rust owns calculation and acceptance; DocumentSession serializes the accepted reply with ordinary edits. |
@@ -38,6 +39,16 @@ adopts the new token. Later failures leave a usable, unattached workspace instea
 of making quit overwrite the previous project. Ordinary media open/close detaches
 the project explicitly. Project save failures during quit retain the separate
 subtitle decision and offer retry, Save As, cancellation, or explicit exit.
+
+Legacy import is independent of the active document/media projection. Relocation
+retires old reviews; choosing a different project clears earlier relocations.
+One status request runs at a time. Closing cancels known/late jobs, while a picker
+or unresolved publication keeps the modal alive. Successful publication remains
+visible if it wins a cancellation race. Creating the output never enters document
+adoption or project attachment; Open created project preflights the exact output
+path and then uses the ordinary unsaved-work decision. See the
+[import contract](../../docs/legacy-project-import.md) for backend ownership and
+remaining native/scale acceptance.
 
 Disposal invalidates project continuations, stops polling, and discards queued loop
 previews. App disposes the shared `PendingDecision` owners, settling both modal decisions as cancellation. In-flight IPC can

@@ -6,6 +6,7 @@
   import StyleInspector from './lib/StyleInspector.svelte';
   import FontDialog from './lib/FontDialog.svelte';
   import ConversionDialog from './lib/ConversionDialog.svelte';
+  import LegacyImportDialog from './lib/LegacyImportDialog.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
@@ -409,6 +410,8 @@
   let stylesOpen = $state(false);
   let fontsOpen = $state(false);
   let conversionOpen = $state(false);
+  let legacyImportOpen = $state(false);
+  let legacyImportReturn: HTMLElement | null = null;
   let authoringReturn: HTMLElement | null = null;
   let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
@@ -561,6 +564,29 @@
         // Restore focus after the toolbar is enabled again.
         await tick();
         if (alive && authoringReturn?.isConnected) authoringReturn.focus();
+      }
+    }
+  }
+  async function closeLegacyImport(outputPath?: string, open = false) {
+    legacyImportOpen = false;
+    busy = true;
+    if (outputPath) notice = `Project created at ${outputPath}`;
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      confirming = false;
+      // Restore through the existing preflight/draft protection/attachment flow.
+      if (open && outputPath) await projects.openPath(outputPath);
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) {
+        confirming = false;
+        busy = false;
+        await tick();
+        if (alive && legacyImportReturn?.isConnected)
+          legacyImportReturn.focus();
       }
     }
   }
@@ -1366,6 +1392,16 @@
         case 'openProject':
           await projects.open();
           break;
+        case 'importLegacyProject':
+          legacyImportReturn =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+          await occludeVideo(true);
+          if (!alive) break;
+          confirming = true;
+          legacyImportOpen = true;
+          break;
         case 'saveProject':
           await projects.save(false);
           break;
@@ -1882,6 +1918,11 @@
       <button
         disabled={busy || !ready || !status.available}
         onclick={() => void run('openProject')}>Open Project</button
+      >
+      <button
+        disabled={busy || confirming || !ready}
+        onclick={() => void run('importLegacyProject')}
+        >Import VisualSubSync Project</button
       >
       <button
         disabled={busy || !ready || !status.loaded}
@@ -2741,6 +2782,12 @@
     <ConversionDialog
       {subtitles}
       onclose={(path) => void closeAuthoring(false, path)}
+    />
+  {/if}
+  {#if legacyImportOpen}
+    <LegacyImportDialog
+      canOpen={status.available}
+      onclose={(path, open) => void closeLegacyImport(path, open)}
     />
   {/if}
   {#if stylesOpen && doc.format && subtitles.styled}

@@ -77,6 +77,13 @@ export class ProjectWorkflow {
     const path = await this.client.chooseFile('project', this.path);
     this.check(operation);
     if (!path) return;
+    return this.openAt(operation, path);
+  }
+  async openPath(path: string) {
+    return this.openAt(++this.operation, path);
+  }
+  private async openAt(operation: number, path: string) {
+    this.check(operation);
     // Validate references before the user discards or saves the active draft.
     const project = await this.client.openProject(path);
     this.check(operation);

@@ -116,6 +116,7 @@ async fn request_file(
     let path = current.map(Path::new);
     let folder = path.and_then(Path::parent);
     let project = matches!(kind, FileChoice::Project | FileChoice::SaveProject);
+    let legacy_project = matches!(kind, FileChoice::LegacyProject);
     let font = matches!(kind, FileChoice::Font);
     let conversion = matches!(
         kind,
@@ -148,6 +149,8 @@ async fn request_file(
             }
         } else if project {
             FileFilter::new("VSF project").glob("*.vsfproject")
+        } else if legacy_project {
+            FileFilter::new("VisualSubSync project").glob("*.vssprj")
         } else if conversion {
             FileFilter::new("Converted subtitles").glob(format!("*.{subtitle_extension}"))
         } else if matches!(kind, FileChoice::SaveSubtitles) {
@@ -204,6 +207,7 @@ async fn request_file(
         | FileChoice::Font
         | FileChoice::Subtitles
         | FileChoice::Project
+        | FileChoice::LegacyProject
         | FileChoice::QualityPreset
         | FileChoice::TimingPreset => {
             let subtitles = matches!(kind, FileChoice::Subtitles);
@@ -217,6 +221,8 @@ async fn request_file(
                     "Import Timing Preset"
                 } else if project {
                     "Open VSF Project"
+                } else if legacy_project {
+                    "Import VisualSubSync Project"
                 } else if subtitles {
                     "Open Subtitles"
                 } else {
@@ -226,7 +232,7 @@ async fn request_file(
                 .multiple(false)
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?;
-            if subtitles || project || preset || quality || font {
+            if subtitles || project || legacy_project || preset || quality || font {
                 request = request.filter(filter());
             }
             request.send().await

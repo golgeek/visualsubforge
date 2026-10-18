@@ -133,6 +133,24 @@ export const textFormat = (
   context: TextFormattingContext = null,
 ) => commands.textFormat(text, start, end, style, context);
 export type ProjectOptions = IPC.visualsubforge_project_Options_Deserialize;
+export type LegacyImportReview = Awaited<
+  ReturnType<typeof commands.projectImportView>
+>;
+export type LegacyImportRequest = Parameters<
+  typeof commands.projectImportStart
+>[0];
+export const projectImportStart = (request: LegacyImportRequest) =>
+  commands.projectImportStart(request);
+export const projectImportView = (id: number) => commands.projectImportView(id);
+export async function projectImportCancel(id: number): Promise<void> {
+  await commands.projectImportCancel(id);
+}
+export async function projectImportPublish(
+  id: number,
+  path: string,
+): Promise<void> {
+  await commands.projectImportPublish(id, path);
+}
 export type ProjectData = IPC.visualsubforge_project_Project_Serialize;
 export type SavedScenes = IPC.visualsubforge_scenes_Saved_Deserialize;
 export type OpenedProject = IPC.visualsubforge_project_store_Opened_Serialize;

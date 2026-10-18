@@ -22,6 +22,7 @@ import type {
   StyleReview,
   FontReview,
   ConversionReview,
+  LegacyImportReview,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -773,6 +774,113 @@ export const conversionBlocked = {
     source: 'srt',
   },
 } satisfies ConversionReview;
+export const legacyImportReview = {
+  error: null,
+  id: 1,
+  outputPath: null,
+  phase: 'reviewing',
+  report: {
+    canPublish: true,
+    cueCount: 42,
+    encoding: 'UTF-16LE',
+    media: {
+      candidate: '/fixture/movie.mkv',
+      field: 'VideoSource',
+      issue: null,
+      original: 'movie.mkv',
+      overridden: false,
+      resolved: '/fixture/movie.mkv',
+    },
+    positionMs: 1501,
+    qualityProfileName: 'Balanced',
+    sourcePath: '/fixture/legacy.vssprj',
+    subtitleFormat: 'ass',
+    subtitles: {
+      candidate: '/fixture/subtitles.ass',
+      field: 'SubtitlesFile',
+      issue: null,
+      original: 'subtitles.ass',
+      overridden: false,
+      resolved: '/fixture/subtitles.ass',
+    },
+    warnings: [
+      {
+        field: 'Dictionary',
+        line: 8,
+        message:
+          'Legacy dictionary selection is not imported; choose language settings in VSF.',
+        value: 'French',
+      },
+    ],
+    waveformSpanMs: 15000,
+    waveformStartMs: 1000,
+  },
+  running: false,
+} satisfies LegacyImportReview;
+export const legacyImportPreparing = {
+  error: null,
+  id: 1,
+  outputPath: null,
+  phase: 'preparing',
+  report: null,
+  running: true,
+} satisfies LegacyImportReview;
+export const legacyImportPublishing = {
+  error: null,
+  id: 1,
+  outputPath: null,
+  phase: 'publishing',
+  report: null,
+  running: true,
+} satisfies LegacyImportReview;
+export const legacyImportPublished = {
+  error: null,
+  id: 1,
+  outputPath: '/fixture/new.vsfproject',
+  phase: 'published',
+  report: null,
+  running: false,
+} satisfies LegacyImportReview;
+export const legacyImportCancelling = {
+  error: null,
+  id: 1,
+  outputPath: null,
+  phase: 'cancelling',
+  report: null,
+  running: true,
+} satisfies LegacyImportReview;
+export const legacyImportCancelled = {
+  error: null,
+  id: 1,
+  outputPath: null,
+  phase: 'cancelled',
+  report: null,
+  running: false,
+} satisfies LegacyImportReview;
+export const legacyImportStale = {
+  error: 'Inspect the project again',
+  id: 1,
+  outputPath: null,
+  phase: 'stale',
+  report: null,
+  running: false,
+} satisfies LegacyImportReview;
+export const legacyImportFailed = {
+  error: 'Inspect the project again',
+  id: 1,
+  outputPath: null,
+  phase: 'failed',
+  report: null,
+  running: false,
+} satisfies LegacyImportReview;
+export const legacyImportClosed = {
+  error: null,
+  id: 1,
+  outputPath: null,
+  phase: 'closed',
+  report: null,
+  running: false,
+} satisfies LegacyImportReview;
 export const statisticsView = {
   error: null,
   findings: [
@@ -2415,6 +2523,7 @@ export const workspaceActions = [
   'previousScene',
   'nextScene',
   'openProject',
+  'importLegacyProject',
   'saveProject',
   'saveProjectAs',
   'createCue',

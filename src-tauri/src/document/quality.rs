@@ -118,6 +118,15 @@ impl Documents {
             .quality
             .context())
     }
+    pub(crate) fn default_quality_policy(&self) -> Result<Policy> {
+        Ok(self
+            .0
+            .lock()
+            .map_err(|_| "Document state unavailable")?
+            .quality
+            .defaults
+            .clone())
+    }
     pub(crate) fn initialize_preferences(&self, policy: Policy, personal: WordLists) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         if !store.quality.initialized {

@@ -1,5 +1,7 @@
 import type { updateMenu } from '../../../src/lib/client';
 import { defaultPreferences } from '../../../src/lib/client';
+import type { LegacyImportReview } from '../../../src/lib/client';
+import { legacyImportReview } from '../ipc-contract-samples';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
 import App from '../../../src/App.svelte';
@@ -20,6 +22,8 @@ let restoreFailure: 'readiness' | 'subtitles' | 'scenes' | 'seek' | null = null;
 let projectSaveError: string | null = null;
 let chosenPath: string | null = '/work.vsfproject';
 let occluded = false;
+let importView: LegacyImportReview = structuredClone(legacyImportReview);
+let openedPath: string | undefined;
 let loadingPolls = 0;
 let holdSceneCompletion = false;
 const calls: string[] = [];
@@ -81,6 +85,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         generation?: number;
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
+        path?: string;
       },
     ) {
       calls.push(command);
@@ -103,8 +108,23 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'choose_file':
           return chosenPath;
         case 'project_open':
+          openedPath = args.path;
           if (failOpen) throw new Error('Project media has changed');
           return { ...structuredClone(project), token: 41 };
+        case 'project_import_start':
+          importView = structuredClone(legacyImportReview);
+          return 1;
+        case 'project_import_view':
+          return structuredClone(importView);
+        case 'project_import_publish':
+          importView = {
+            ...importView,
+            phase: 'published',
+            outputPath: args.path!,
+          };
+          return;
+        case 'project_import_cancel':
+          return;
         case 'project_attach':
           return { path: '/work.vsfproject', token: 41 };
         case 'project_detach':
@@ -493,6 +513,72 @@ async function run() {
           media.positionSeconds === 12.5 &&
           doc.loaded,
         `Project restoration can retry after ${stage} failure`,
+      );
+    }
+    await freshProject();
+    const importDraft = host.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Subtitle text"]',
+    )!;
+    importDraft.focus();
+    importDraft.value = 'Keep this translation draft';
+    importDraft.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    for (const decision of ['Cancel', 'Discard changes']) {
+      const before = JSON.stringify(doc);
+      const session = media.session;
+      menuAction('importLegacyProject');
+      await until(
+        () =>
+          !!host.querySelector(
+            'dialog[aria-labelledby="legacy-import-title"][open]',
+          ),
+      );
+      assert(
+        occluded && !!menuState?.busy,
+        'Legacy import occludes native video and gates workspace commands',
+      );
+      chosenPath = '/old.vssprj';
+      button('Choose legacy project…');
+      await until(() => host.textContent!.includes('/old.vssprj'));
+      button('Review import');
+      await until(
+        () => !!host.querySelector('[aria-label="Legacy import review"]'),
+      );
+      chosenPath = '/imported.vsfproject';
+      button('Create new VSF project…');
+      await until(() => !!host.querySelector('[aria-label="Project created"]'));
+      assert(
+        JSON.stringify(doc) === before &&
+          media.session === session &&
+          importDraft.value === 'Keep this translation draft',
+        'Creating an import preserves the active document, media and unapplied draft',
+      );
+      const picks = calls.filter((call) => call === 'choose_file').length;
+      button('Open created project');
+      await until(
+        () =>
+          !!host.querySelector(
+            'dialog[aria-label="Unsaved subtitle changes"][open]',
+          ),
+      );
+      assert(
+        openedPath === '/imported.vsfproject' &&
+          calls.filter((call) => call === 'choose_file').length === picks,
+        'Open created project preflights the exact output path without a second picker',
+      );
+      button(decision);
+      await until(workspaceReady);
+      assert(
+        !occluded &&
+          !host.querySelector('dialog[aria-labelledby="legacy-import-title"]'),
+        'Closing import restores video and releases its workspace gate',
+      );
+      assert(
+        decision === 'Cancel'
+          ? media.session === session &&
+              importDraft.value === 'Keep this translation draft'
+          : media.session > session && doc.cues[0]?.text === 'Project cue',
+        `Explicit ${decision} protects or restores the imported project through the existing workflow`,
       );
     }
     document.querySelector('#result')!.textContent =

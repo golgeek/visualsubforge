@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tauri::Manager;
+pub(crate) mod import;
 mod store;
 pub use store::{Attachment, Opened, Projects};
 

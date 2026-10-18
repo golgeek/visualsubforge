@@ -32,6 +32,7 @@ async function verifyChecks(
 
 for (const name of [
   'projects',
+  'legacy-import',
   'recovery',
   'fast-editing',
   'new-subtitles',

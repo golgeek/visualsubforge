@@ -1,13 +1,20 @@
 # Legacy VisualSubSync project import
 
-Stage6b is in progress. The intended workflow is an explicit import review,
-reference relocation when needed, and publication of a new `.vsfproject` file.
-No desktop import capability is claimed until its owner, UI and native checks
-are complete. WebVTT is already accepted; translation remains the next increment.
+Stage6b is in progress. File → Import VisualSubSync Project now provides an
+explicit review, file relocation and publication of a new `.vsfproject`.
+The Rust owner and browser workflows are implemented; actual native, chooser and
+desktop 10k acceptance remain pending. WebVTT is already accepted; translation
+remains the next increment. This is not a release/platform acceptance claim.
 
-The application foundation now parses legacy projects, inspects/relocates selected
-references, validates subtitles and revalidates captured text inputs. The desktop
-review owner, guarded publication and UI are still pending.
+Choose a `.vssprj`, then Review import. Locate missing media/subtitles explicitly
+and review again after each change. Review shows original/resolved paths,
+unsupported settings, preserved millisecond positions and the captured workspace
+default quality profile. Create new VSF project requires an unused filename.
+Cancelling the picker or a failed destination permits retry. Changed inputs require
+a fresh review. After creation, Open created project uses normal protected project
+restoration; creating the file does not apply or discard an active cue draft.
+Import remains available without native playback; opening the resulting project
+requires a build with playback support, which the dialog explains.
 
 ## Reference and supported mapping
 
@@ -29,7 +36,7 @@ Duplicate keys are refused rather than
 guessing which value the author intended. Limits are 256 KiB, 512 settings and
 4096 characters per value. Unknown settings produce review warnings.
 
-| Legacy data | Planned import behavior |
+| Legacy data | Import behavior |
 | --- | --- |
 | `VideoSource` | Selected media, with explicit relocation if missing or foreign-platform path syntax. |
 | `WAVFile` | Selected media when VideoSource is empty. Separate external audio is diagnosed when video is selected; VSF uses the selected media's audio and waveform. |
@@ -48,16 +55,42 @@ UNC and POSIX absolute paths are never guessed into another platform's roots.
 URLs, drive-relative and device paths require explicit relocation. No recursive
 basename search silently chooses a similarly named file.
 
-## Ownership and acceptance plan
+## Ownership and remaining acceptance
 
 Application parsing and reference inspection are independent of Tauri and native
-media. All IO runs on blocking workers. Rust's project service will own one
-bounded import review with captured source/subtitle bytes, selected media identity
-and immutable proposed project data. UI edits/reply epochs remain transient.
-Cancel/replacement must invalidate old work before publication; acceptance must
-recheck reviewed inputs and refuse existing output paths, including aliases.
-An import cannot mutate active subtitles, history, preferences or the current
-project attachment. Opening the exported file uses normal protected restoration.
+media. Rust's `Projects` service owns one additional import IO worker and one
+immutable review, with no queue. Preparation captures exact source/subtitle bytes,
+canonical and selected paths, sampled media identity and workspace default policy.
+It never borrows the current project's effective policy. Preparation and publication
+share the same admission slot and ten-second cooperative deadline. Workers capture
+only immutable input/job state, not the service; shutdown takes the join handle
+under the owner mutex and joins outside owner/document/media locks.
+The worker is separate from revision-bound document analysis because import can
+prepare a different project while no subtitle document is loaded.
+
+Publication obtains the existing writer lease and writes/fsyncs a temporary file
+off-lock. It rechecks source/subtitle bytes and selected symlinks, media selection
+and sampled identity, and all protected original path names. A per-job mutex
+serializes final cancellation with no-clobber publication. A competing output wins
+without replacement; failed writes clean up their temporary and retain a retryable
+review. A successful receipt survives late Cancel. These checks are not a cross-file
+transaction against external writers: a non-cooperating edit can still race the
+last input check. Media identity is sampled metadata/content, not full-file hashing
+or decoder validation. Normal project open performs its usual media validation.
+
+`project_import_start/view/cancel/publish` are thin blocking-task IPC adapters.
+`LegacyImportSession` holds transient selected paths, report and request epochs;
+one in-flight status read prevents queues and stale responses cannot revive retired
+reviews. An unknown publication outcome keeps duplicate-export and close guards
+until status is resolved. Closing during preparation cancels even a late job ID.
+No accepted document/history, preferences or project attachment is changed.
+
+Walkthrough: App's File action occludes native video and mounts
+`LegacyImportDialog`; its session calls the typed client to start Rust inspection.
+The same Rust owner publishes reviewed data to a new file. Only the separate Open
+button calls `ProjectWorkflow.openPath`, which preflights that exact path, protects
+unsaved work, restores media/subtitles and finally attaches the project. App owns
+modal/focus restoration. The dialog itself has no document or media owner.
 
 Validate UTF-8/UTF-16, Unicode and Windows paths, missing/relocated references,
 unsupported/invalid settings, all four subtitle formats, original preservation,
@@ -122,3 +155,63 @@ Next: the bounded Rust import review/publication owner, then the typed review UI
 relink/retry/cancel workflows, source-change and output-race tests, actual native
 and chooser checks, and final desktop 10k measurements. Stage6b and ADR0032 remain
 in progress/proposed; this foundation does not close the import milestone.
+
+## Owner and UI validation — 2026-10-18
+
+Same development Mac, Rust 1.98.1, Node 24.21.0/npm 11.19.0 (`source
+"$HOME/.nvm/nvm.sh" && nvm use --silent` before Node commands):
+
+```sh
+cargo test --locked -p visualsubforge project::import
+npm run ipc:generate
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run check
+npm run lint
+npm test
+npm run build
+npm run format:check
+npm run ipc:check
+npm run test:browser
+npm run test:browser -- --grep "(projects|legacy-import)"
+npm run tauri -- build --debug --no-bundle -- --locked
+git diff --check
+```
+
+425 workspace Rust tests pass (30 external/native tests ignored), including twelve
+import-owner tests. Coverage includes actual four-format new-project publication
+and reopen, exact original preservation, unchanged attachment/policy, relocation,
+old job IDs, one worker/no queue, cancellation before/during IO, post-temporary
+source/subtitle/media changes, media-symlink retargeting, competing destinations,
+deleted optional-reference names, failure/retry/temporary cleanup, deadline/worker
+failure, JS-safe identity exhaustion and shutdown joins. Zero-test harnesses are
+not counted as feature validation. The focused final run is `tests-5.log`.
+
+All 44 frontend unit tests and 58 Chromium/WebKit browser cases pass. The import
+component uses Rust-generated Serde report samples with modeled IPC; the App
+workflow verifies native-video occlusion requests, workspace gates, preserved
+unapplied draft, exact output-path opening and both Cancel/Discard restoration
+decisions. Controlled session replies cover single-flight polling, stale relocation
+reports, late starts/pickers, uncertain publication, final success receipts and
+cancelled-worker draining. Builds without playback can create a project while
+Open is explicitly unavailable. These are browser/IPC-model checks, not native
+window/filesystem/picker/GPU acceptance.
+
+Strict Svelte/TypeScript, ESLint, Prettier, Rustfmt, Clippy, generated IPC drift,
+production frontend and default desktop builds pass. The final desktop build
+includes the playback-independent import menu gate; no app launch is implied.
+The read-only legacy checkout remains clean at the pinned commit above.
+
+Logs remain under `test-results/legacy-project-owner-20261018/`. Failed initial
+attempts are retained: the desktop crate has no `--lib` target; two path assertions
+initially compared `/var` to macOS's canonical `/private/var`; strict frontend
+checks caught optional-property typing and callback control-flow narrowing in the
+test harness. Commands/assertions were corrected without changing filesystem
+guards. The full browser run includes the final availability change in WebKit;
+the subsequent focused run verifies both engines against the final source.
+
+Next: actual native import/relink/retry/source-change/open/history/recovery and
+normal shutdown, real project/subtitle/media/output chooser checks, and desktop10k
+review/publication/reopen timings using the predeclared fixtures and budgets.
+Stage6b/ADR0032 remain in progress/proposed; translation and stages7–8 remain open.

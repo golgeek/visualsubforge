@@ -22,6 +22,7 @@ pub enum WorkspaceAction {
     PreviousScene,
     NextScene,
     OpenProject,
+    ImportLegacyProject,
     SaveProject,
     SaveProjectAs,
     CreateCue,
@@ -79,6 +80,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
     let file = SubmenuBuilder::new(app, "File")
         .text("openProject", "Open Project…")
+        .text("importLegacyProject", "Import VisualSubSync Project…")
         .text("saveProject", "Save Project")
         .text("saveProjectAs", "Save Project As…")
         .separator()
@@ -210,6 +212,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
             ("previousScene", state.media && state.previous_scene),
             ("nextScene", state.media && state.next_scene),
             ("openProject", state.available),
+            ("importLegacyProject", true),
             ("saveProject", state.media),
             ("saveProjectAs", state.media),
             ("openMedia", state.available),
@@ -273,6 +276,7 @@ pub enum FileChoice {
     ExportAss,
     ExportSsa,
     Project,
+    LegacyProject,
     SaveProject,
     TimingPreset,
     SaveTimingPreset,
@@ -350,6 +354,10 @@ pub async fn choose_file(
                 .set_title("Open VSF Project")
                 .add_filter("VSF project", &["vsfproject"])
                 .blocking_pick_file(),
+            FileChoice::LegacyProject => dialog
+                .set_title("Import VisualSubSync Project")
+                .add_filter("VisualSubSync project", &["vssprj"])
+                .blocking_pick_file(),
             FileChoice::SaveProject => dialog
                 .set_title("Save VSF Project As")
                 .add_filter("VSF project", &["vsfproject"])
@@ -398,6 +406,7 @@ pub async fn finish_exit(
             discard,
         )?;
         app.state::<crate::resync::Resync>().shutdown();
+        app.state::<crate::project::Projects>().imports.shutdown()?;
         app.state::<crate::document::Documents>()
             .shutdown_quality()?;
         app.state::<crate::waveform::Waveforms>().shutdown();
@@ -422,6 +431,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "previousScene",
         "nextScene",
         "openProject",
+        "importLegacyProject",
         "saveProject",
         "saveProjectAs",
         "createCue",

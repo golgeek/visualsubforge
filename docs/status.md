@@ -20,19 +20,26 @@ ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
 authoring and WebVTT are complete within their recorded Mac scopes. Legacy project
-import is next, followed by manual translation, plugins and native reliability.
+import is implemented and undergoing acceptance, followed by manual translation,
+plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**Legacy project import foundation (2026-10-18):** application parsing supports
+**Legacy project import in progress (2026-10-18):** application parsing supports
 strict UTF-8 and BOM-marked UTF-16, explicit Windows path handling, supported
 references/positions and unsupported-setting diagnostics. Read-only inspection
 supports explicit relocation and all four subtitle formats; revalidation detects
-changed source/subtitle bytes and redirected symlinks. 413 workspace Rust tests /
-30 ignored and strict Clippy pass. Four 10k library/IO workloads pass <=36.236ms
-p95 and +50,724,864 sampled RSS bytes. The desktop review owner, guarded export,
-UI and native acceptance remain pending; users cannot import through the editor
-yet. See [mapping, checks and remaining scope](legacy-project-import.md).
+changed source/subtitle bytes and redirected symlinks. The new File import dialog
+supports review, relocation, protected separate-file publication and explicit Open
+through normal unsaved-work protection. Rust's bounded worker revalidates inputs,
+protects original/competing files and preserves successful receipts after late
+Cancel. Import does not modify the active document, history, policy or attachment.
+425 workspace Rust tests / 30 ignored, 44 frontend tests, all 58 browser cases,
+eight final focused Chromium/WebKit cases and strict/static/default desktop build
+checks pass. Four earlier 10k library/IO workloads
+pass <=36.236ms p95 and +50,724,864 sampled RSS bytes. Actual native workflow,
+real chooser and desktop10k acceptance remain pending; the milestone stays open.
+See [mapping, checks and remaining scope](legacy-project-import.md).
 
 **WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,
 CLI checking/statistics, project references and accepted-state recovery now retain

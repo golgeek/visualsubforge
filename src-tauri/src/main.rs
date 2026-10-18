@@ -252,6 +252,7 @@ fn diagnostic_exit(app: &tauri::AppHandle, success: bool) {
             .0
             .store(true, Ordering::Release);
         app.state::<resync::Resync>().shutdown();
+        let _ = app.state::<project::Projects>().imports.shutdown();
         let _ = app.state::<document::Documents>().shutdown_quality();
         app.state::<waveform::Waveforms>().shutdown();
         app.state::<scenes::Scenes>().shutdown();

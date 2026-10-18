@@ -301,6 +301,18 @@ export const commands = {
       'project_save',
       { request },
     ),
+  projectImportStart: (
+    request: visualsubforge_project_import_api_LegacyImportRequest,
+  ) => __TAURI_INVOKE<number>('project_import_start', { request }),
+  projectImportView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_project_import_api_LegacyImportReview>(
+      'project_import_view',
+      { id },
+    ),
+  projectImportCancel: (id: number) =>
+    __TAURI_INVOKE<null>('project_import_cancel', { id }),
+  projectImportPublish: (id: number, path: string) =>
+    __TAURI_INVOKE<null>('project_import_publish', { id, path }),
   scenesRestore: (
     path: string,
     session: number,
@@ -1148,6 +1160,7 @@ export type visualsubforge_desktop_FileChoice =
   | 'exportAss'
   | 'exportSsa'
   | 'project'
+  | 'legacyProject'
   | 'saveProject'
   | 'timingPreset'
   | 'saveTimingPreset'
@@ -1302,6 +1315,63 @@ export type visualsubforge_quality_check_Key = {
 export type vsf_application_quality_profile_Kind = 'quality';
 
 export type vsf_application_language_Language = 'en-US' | 'fr';
+
+export type visualsubforge_project_import_api_LegacyImportPhase =
+  | 'preparing'
+  | 'reviewing'
+  | 'publishing'
+  | 'published'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
+export type visualsubforge_project_import_api_LegacyImportReference = {
+  field: string;
+  original: string | null;
+  candidate: string | null;
+  resolved: string | null;
+  overridden: boolean;
+  issue: string | null;
+};
+
+export type visualsubforge_project_import_api_LegacyImportReport = {
+  sourcePath: string;
+  encoding: string;
+  media: visualsubforge_project_import_api_LegacyImportReference;
+  subtitles: visualsubforge_project_import_api_LegacyImportReference;
+  subtitleFormat: string | null;
+  cueCount: number | null;
+  positionMs: number;
+  waveformStartMs: number;
+  waveformSpanMs: number;
+  qualityProfileName: string;
+  warnings: visualsubforge_project_import_api_LegacyImportWarning[];
+  canPublish: boolean;
+};
+
+export type visualsubforge_project_import_api_LegacyImportRequest = {
+  path: string;
+  mediaPath: string | null;
+  subtitlePath: string | null;
+};
+
+export type visualsubforge_project_import_api_LegacyImportReview = {
+  id: number;
+  phase: visualsubforge_project_import_api_LegacyImportPhase;
+  running: boolean;
+  report: visualsubforge_project_import_api_LegacyImportReport | null;
+  outputPath: string | null;
+  error: string | null;
+};
+
+export type visualsubforge_project_import_api_LegacyImportWarning = {
+  field: string;
+  line: number | null;
+  value: string | null;
+  message: string;
+};
 
 export type vsf_application_quality_profile_LineRule = {
   enabled: boolean;
@@ -2364,6 +2434,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'previousScene'
   | 'nextScene'
   | 'openProject'
+  | 'importLegacyProject'
   | 'saveProject'
   | 'saveProjectAs'
   | 'createCue'
