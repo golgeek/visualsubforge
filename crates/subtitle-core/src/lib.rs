@@ -5,4 +5,4 @@ pub use document::{Cue, CueId, CueMetadata, Document, Milliseconds};
 
 pub type Result<T> = std::result::Result<T, String>;
 
-pub use editor::{CueText, CueTiming, Edit, EditOutcome, Editor};
+pub use editor::{CueText, CueTiming, CueUpdate, Edit, EditOutcome, Editor};

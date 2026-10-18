@@ -16,8 +16,20 @@ pub struct CueText {
     pub text: String,
 }
 
+/// Combined text/timing replacement. Metadata, identities and order are retained.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CueUpdate {
+    pub id: CueId,
+    pub start: Milliseconds,
+    pub end: Milliseconds,
+    pub text: String,
+}
+
 /// Domain edits use validated times and identities, independently of any IPC or format.
 pub enum Edit {
+    UpdateBatch {
+        cues: Vec<CueUpdate>,
+    },
     StyledText {
         id: CueId,
         start: Milliseconds,
@@ -172,6 +184,27 @@ impl<P: Clone + PartialEq> Editor<P> {
         self.expect_revision(expected)?;
         let mut created = None;
         let (index, count, after) = match edit {
+            Edit::UpdateBatch { cues } => {
+                if cues.len() != self.document.cues.len() {
+                    return Err("Cue batch must include every cue once in document order".into());
+                }
+                let mut after = Vec::with_capacity(cues.len());
+                for (original, replacement) in self.document.cues.iter().zip(cues) {
+                    if original.id != replacement.id {
+                        return Err(
+                            "Cue batch must include every cue once in document order".into()
+                        );
+                    }
+                    Cue::validate(replacement.start, replacement.end, &replacement.text)?;
+                    after.push(Cue {
+                        start: replacement.start,
+                        end: replacement.end,
+                        text: replacement.text,
+                        ..original.clone()
+                    });
+                }
+                (0, self.document.cues.len(), after)
+            }
             Edit::StyledText {
                 id,
                 start,

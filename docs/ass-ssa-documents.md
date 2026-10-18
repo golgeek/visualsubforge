@@ -31,6 +31,14 @@ The adapter shares immutable original records through an Arc, without a mutable
 metadata sidecar. No frontend, filesystem or native dependency enters the domain
 or format adapter.
 
+Cue metadata fields also share immutable storage across document captures and
+history. Style replacement copies that cue's fields before changing them, so old
+snapshots retain their original values. This avoids repeatedly allocating every
+event field during large reviewed batches; it adds no mutable owner or lock.
+`Edit::UpdateBatch` accepts combined text/timing replacements for the complete
+ordered set of existing cue IDs. It preserves these metadata values and document
+properties, validates before publication and records one Undo/Redo operation.
+
 New cues use Default, or the first existing style, with zero layer/margins,
 Marked=0 for SSA and otherwise empty metadata. Splits copy metadata. Merges require
 matching metadata and insert an ASS line break/style reset. Structural operations

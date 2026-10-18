@@ -1,4 +1,5 @@
 use crate::Result;
+use std::sync::Arc;
 
 /// Millisecond precision matches the first supported format, SRT. UI/media
 /// floating-point seconds must be rounded explicitly before entering the domain.
@@ -25,7 +26,10 @@ pub struct CueId(pub u64);
 /// and format-specific meaning belong to the format/application boundaries.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CueMetadata {
-    fields: Vec<(String, String)>,
+    // Cue clones in captures/history share immutable event fields. A style
+    // replacement copies only that cue's fields; accepted snapshots cannot see
+    // the new values until their own transaction is committed.
+    fields: Arc<[(String, String)]>,
 }
 impl CueMetadata {
     pub fn new(fields: Vec<(String, String)>) -> Result<Self> {
@@ -45,7 +49,9 @@ impl CueMetadata {
                 return Err("Invalid or duplicate cue metadata field".into());
             }
         }
-        Ok(Self { fields })
+        Ok(Self {
+            fields: fields.into(),
+        })
     }
     pub fn fields(&self) -> &[(String, String)] {
         &self.fields
@@ -61,8 +67,7 @@ impl CueMetadata {
             return Err("Style name must be nonempty and contain no commas or line breaks".into());
         }
         let mut metadata = self.clone();
-        let (_, value) = metadata
-            .fields
+        let (_, value) = Arc::make_mut(&mut metadata.fields)
             .iter_mut()
             .find(|(key, _)| key.eq_ignore_ascii_case("Style"))
             .ok_or("This cue has no assignable style")?;
