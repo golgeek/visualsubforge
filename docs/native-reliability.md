@@ -801,3 +801,70 @@ workflow hashes and complete logs are retained under
 `test-results/native-reliability-20261018/transport-ci-controls/`. Pinned Node24.21.0
 Prettier, Rustfmt and diff checks pass. Hosted three-platform results are pending;
 this closes the automated coverage gap, not the remaining native output gates.
+
+Hosted follow-up at1e83b2f: all three headless jobs in run39150531940 complete
+successfully. Their downloaded logs each show nine transport tests passed,
+including the settled-pause boundary test. Job IDs117743079761/117743079792/
+117743079966 and log hashes are retained in `ci-1e83b2f-transport-results.json`.
+All six native-contract jobs in39150531991 also pass. The earlier07260fa
+application run39149242708 is now terminal with all ten jobs passing.
+
+## CoreAudio empty-callback state diagnosis — 2026-10-18
+
+An isolated logging-only build adds buffer-state observations to the preceding
+CoreAudio PCM/reset fingerprints. All961 pinned candidate source inputs are
+verified; only `audio/out/ao_coreaudio.c` and `audio/out/buffer.c` differ. The
+buffer observations run under its existing mutex and report pause, playback,
+streaming, pending/queued samples and short reads. No samples, timing policy,
+ownership or functional patch series change. Logging can affect scheduling.
+All39 upstream tests pass; the diagnostic library SHA256 is
+`c58cde9f992ae7535fcb0ac4c9f09aa2c7ef59d1d8c4ee517fdbcabacf805936`.
+The existing uninstrumented candidate remains byte-identical.
+
+Four immediate rate-change/clear cases cover both0.5×↔1.5× directions and the
+existing middle/near-B phases. One near-B1.5×→0.5× case records an empty512-frame
+callback5.1805ms after clear begins, while the buffer is paused and still contains
+9,301 queued plus203 pending samples. The clear call returns at6.593ms. Its
+process capture contains417 consecutive exact-zero frames in both channels,
+matching the retained interruption shape. This directly identifies silence
+inserted by the temporary pause; it is not a source-content shortage in that
+callback. Three other cases have no empty callback between content segments.
+
+Six further predeclared middle-phase cases, three per direction, run without
+overlapping reference rendering or analysis. None has an empty callback. These
+finite observations do not establish a failure rate or seamlessness. Earlier
+traces contain empty callbacks after clear returned; that separate post-reset
+window still needs direct state evidence. The new logs show reset empties the
+queue and playback restarts after refill, but do not reproduce an empty callback
+in that interval. Shortening the synchronous command sequence alone cannot be
+treated as a demonstrated correction.
+
+All ten new cases pass state/EOF, complete native-buffer correspondence with
+independent same-filter old/new-rate renders, the unchanged half-source-sample
+restart bound, both-channel suffix correspondence and whole-sequence matching.
+The latter includes measured native silence; it is not a seamless-output pass.
+The four-case run's reference rendering overlapped its latter captures, so its
+latencies are descriptive only. The six-case follow-up avoids that overlap.
+No full-editor, device-transition or physical-presentation acceptance is added.
+
+Evidence is retained under `test-results/native-reliability-20261018/`:
+
+- `coreaudio-refill-v1/`: build/source receipts, two-file diagnostic patch and
+  a first capture whose post-run path assertion expected a symlink spelling.
+  That failure remains retained; no native operation failed in that run.
+- `coreaudio-refill-v2/` and `coreaudio-refill-v3/`: four/six-case protocols,
+  current production transport source, complete captures, native-state traces,
+  independent renders, unchanged content analyzers and all results. The corrected
+  identity check requires the exact resolved library path in dyld output.
+- `refill-gap-observations.json` and `coreaudio-refill-final.json`: captured
+  zero-run observations,961 source identities,45 non-system loaded backing files
+  per variant and all38 owned capture/render PIDs normally exited and absent.
+  System-cache images and unrelated helper processes are outside this census.
+
+Reproduction uses the saved `prepare-coreaudio-refill.py` (Meson1.12.1,
+Ninja1.13.2 and39 upstream tests), Rust1.98.1 harness build and each directory's
+`capture.py`, `analyze-refill.py`, `render-current.py`, `analyze-state.py`,
+`analyze-native-current.py`, `analyze-suffix.py` and
+`analyze-submission-current.py`. The NumPy analyzers use the existing bundled
+Python runtime. `finalize-coreaudio-refill.py` verifies identities and cleanup.
+The original interruption, native acceptance and umbrella goal remain open.

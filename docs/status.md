@@ -26,7 +26,9 @@ Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
 **Latest reliability checkpoint (2026-10-18):** all ten hosted application jobs
-and all six native build-contract jobs pass at5af8b07. The plugin rejection-test
+and all six native build-contract jobs pass at07260fa. At1e83b2f, all three
+headless jobs additionally pass nine native-feature Rust transport controls;
+all six native-contract jobs pass. The plugin rejection-test
 correction is verified on Mac, Windows x64 and Ubuntu with production limits
 unchanged. All60 browser cases pass. The intermittent statistics paging failure
 is reproduced in both browsers: an unscoped test selector counted the underlying
@@ -50,7 +52,12 @@ seeks passing. The default Pulse editor still fails its live loop-clear clock
 check. The interpolation option reports an early EOF position even when one
 captured suffix passes through the source end; independent raw properties also
 reproduce an early transport position. That option remains unadopted. Full native
-acceptance remains open. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
+acceptance remains open. New CoreAudio buffer-state logging identifies one
+512-frame empty callback during the temporary loop-clear pause despite queued
+audio, with417 exact-zero captured frames. Ten cases pass content/order checks;
+the interruption remains unresolved. See the
+[state diagnosis](native-reliability.md#coreaudio-empty-callback-state-diagnosis--2026-10-18).
+A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
 separate save and normal quit pass. Held-pointer cancellation, dialog lifetime,
 historical VSS-host comparison and distribution/physical gates remain open.
 See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).
