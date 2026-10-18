@@ -1,6 +1,6 @@
 # Current implementation and validation status
 
-Updated 2026-10-17 (America/New_York): ASS/SSA documents, document statistics,
+Updated 2026-10-18 (America/New_York): ASS/SSA documents, document statistics,
 duration/reading-speed repairs, scene-aware
 quality and timing repair,
 tag-aware text editing and the first subtitle-quality milestone are complete,
@@ -31,6 +31,18 @@ cases and strict checks pass. Pure 10k create/edit/rename p95 <=25.332ms and
 additional sampled RSS 77,709,312 bytes pass the predeclared gates. Actual Mac create/copy/edit/rename, exact save/project/recovery and native preview
 acknowledgment pass. Native 10k acceptance <=134ms and Undo <=100ms pass the
 unchanged interaction gate; attachment management and conversion remain required. See [style policy and evidence](style-authoring.md).
+
+**Font attachment increment (2026-10-18; stage5 conversion remains open):**
+reviewed ASS/SSA inventory/add/replace/remove shares the existing bounded review
+worker and source/history owner. Supported single TTF/CFF/CFF2 fonts have explicit
+limits; unsupported records remain read-only. 358 ordinary Rust, 44 frontend and
+54 browser cases plus strict checks pass. Actual Mac both-format save/history/
+project/recovery and same-player replacement/removal pass; independent native
+window observations show changed/restored shapes. Embedded-only software checks
+include CFF2. Pure 10k p95 <=11.569ms/+72,433,664 sampled RSS bytes; native 10k
+acceptance <=129ms, Undo <=101ms and stale invalidation <=107ms pass unchanged
+gates. Final normal quit is code 0. The first harness quit failure and its corrected
+UI mutation are retained. See [scope, exact commands and evidence](style-authoring.md).
 
 **Language tools complete (2026-10-17):** opt-in
 English/French checking, source-mapped Problems, bounded selected suggestions,

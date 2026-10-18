@@ -241,3 +241,12 @@ recomputation without accepting changed inputs. The paused playhead is captured,
 not followed during review. Rust computes exact endpoints; `acceptBatchTiming`
 uses the ordinary document replacement path. See [batch timing](../../docs/batch-timing.md)
 for rounding, cancellation, worker ownership and measured limits.
+
+
+Font attachment review follows the style owner: `FontDialog`/`FontSession` keeps
+only inventory metadata, selection and review identity. Native picker completion
+rechecks the captured document; draft edits block proposals and acceptance.
+`DocumentSession.acceptFont` adopts the sole Rust-owned result. The four typed
+font commands reuse the text/style worker, including inventory and bounded font
+file reads. Reviewed bytes are captured in Rust and not reread on acceptance.
+See style-authoring.md for source/history ownership, bounds and validation.

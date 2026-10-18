@@ -18,6 +18,8 @@ pub(crate) use statistics::ipc_sample as statistics_ipc_sample;
 mod gaps;
 mod texts;
 #[cfg(test)]
+pub(crate) use texts::font_ipc_samples;
+#[cfg(test)]
 pub(crate) use texts::style_ipc_samples;
 mod timing_repairs;
 #[cfg(test)]

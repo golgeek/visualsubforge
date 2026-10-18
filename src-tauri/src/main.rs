@@ -11,6 +11,7 @@ mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
 mod file_lease;
+mod font_review;
 mod gap_review;
 mod ipc;
 mod ipc_number;

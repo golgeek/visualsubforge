@@ -16,15 +16,18 @@ use vsf_application::{
     text::{self, Proposal},
 };
 
+mod fonts;
 mod styles;
 
 enum Request {
     Text(Operation),
     Style(style_engine::StyleOperation),
+    Font(crate::font_review::FontOperation),
 }
 enum Prepared {
     Text(Proposal),
     Style(style_engine::Proposal),
+    Font(fonts::PreparedFont),
 }
 impl Prepared {
     fn text(&self) -> Option<&Proposal> {
@@ -392,7 +395,7 @@ fn phase(job: &Job, closed: bool) -> Phase {
 }
 fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView> {
     let Request::Text(operation) = &job.operation else {
-        return Err("This proposal belongs to style review".into());
+        return Err("This proposal belongs to another document review".into());
     };
     let mut view = TextView {
         id: job.id.try_into()?,
@@ -456,5 +459,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
     serde_json::to_value(tests::ready(&docs, id)).unwrap()
 }
 
+#[cfg(test)]
+pub(crate) use fonts::ipc_samples as font_ipc_samples;
 #[cfg(test)]
 pub(crate) use styles::ipc_samples as style_ipc_samples;

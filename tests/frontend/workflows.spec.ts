@@ -50,6 +50,7 @@ for (const name of [
   'text-editing',
   'ass-documents',
   'style-authoring',
+  'font-authoring',
   'batch-timing',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {

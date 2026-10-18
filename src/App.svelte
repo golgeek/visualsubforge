@@ -4,6 +4,7 @@
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import StatisticsDialog from './lib/StatisticsDialog.svelte';
   import StyleInspector from './lib/StyleInspector.svelte';
+  import FontDialog from './lib/FontDialog.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
@@ -405,7 +406,8 @@
   });
   let statisticsOpen = $state(false);
   let stylesOpen = $state(false);
-  let stylesReturn: HTMLElement | null = null;
+  let fontsOpen = $state(false);
+  let authoringReturn: HTMLElement | null = null;
   let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
@@ -505,7 +507,7 @@
       if (alive) busy = false;
     }
   }
-  async function openStyles() {
+  async function openAuthoring(kind: 'styles' | 'fonts') {
     if (
       busy ||
       confirming ||
@@ -517,7 +519,7 @@
       return;
     busy = true;
     error = '';
-    stylesReturn =
+    authoringReturn =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
@@ -525,7 +527,8 @@
       await occludeVideo(true);
       if (alive) {
         confirming = true;
-        stylesOpen = true;
+        stylesOpen = kind === 'styles';
+        fontsOpen = kind === 'fonts';
       }
     } catch (e) {
       if (alive) error = String(e);
@@ -533,17 +536,18 @@
       if (alive) busy = false;
     }
   }
-  async function closeStyles(accepted = false) {
-    stylesOpen = false;
+  async function closeAuthoring(accepted = false) {
+    const kind = fontsOpen ? 'Font' : 'Style';
+    stylesOpen = fontsOpen = false;
     if (accepted) {
-      notice = 'Style changes accepted. Undo restores the whole change.';
+      notice = `${kind} changes accepted. Undo restores the whole change.`;
       quality.restart();
     }
     try {
       await tick();
       if (!alive) return;
       await occludeVideo(diagnostics);
-      if (stylesReturn?.isConnected) stylesReturn.focus();
+      if (authoringReturn?.isConnected) authoringReturn.focus();
     } catch (e) {
       if (alive) error = String(e);
     } finally {
@@ -2394,7 +2398,12 @@
           >
           <button
             disabled={busy || confirming || !ready}
-            onclick={() => void openStyles()}>Inspect styles…</button
+            onclick={() => void openAuthoring('styles')}>Inspect styles…</button
+          >
+          <button
+            type="button"
+            disabled={busy || confirming || !ready}
+            onclick={() => void openAuthoring('fonts')}>Manage fonts…</button
           >
           <small
             >{doc.format.name.toUpperCase()} · {timeStepMs} ms · line breaks save
@@ -2637,12 +2646,19 @@
       onnavigate={(id) => void closeStatistics(id)}
     />
   {/if}
+  {#if fontsOpen && doc.format}
+    <FontDialog
+      {subtitles}
+      onclose={() => void closeAuthoring()}
+      onaccepted={() => void closeAuthoring(true)}
+    />
+  {/if}
   {#if stylesOpen && doc.format}
     <StyleInspector
       {subtitles}
       initial={subtitles.style}
-      onclose={() => void closeStyles()}
-      onaccepted={() => void closeStyles(true)}
+      onclose={() => void closeAuthoring()}
+      onaccepted={() => void closeAuthoring(true)}
     />
   {/if}
   {#if timingOpen}

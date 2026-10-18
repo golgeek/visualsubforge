@@ -178,6 +178,19 @@ export const commands = {
     __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('style_accept', {
       id,
     }),
+  fontStart: (
+    generation: number,
+    revision: number,
+    operation: visualsubforge_font_review_FontOperation,
+  ) =>
+    __TAURI_INVOKE<number>('font_start', { generation, revision, operation }),
+  fontView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_font_review_FontReview>('font_view', { id }),
+  fontCancel: (id: number) => __TAURI_INVOKE<null>('font_cancel', { id }),
+  fontAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('font_accept', {
+      id,
+    }),
   textStart: (
     generation: number,
     revision: number,
@@ -760,6 +773,42 @@ export type visualsubforge_project_store_Attachment =
   | visualsubforge_project_store_Attachment_Serialize
   | visualsubforge_project_store_Attachment_Deserialize;
 
+export type vsf_application_authoring_attachments_AttachmentAction =
+  'add' | 'replace' | 'remove';
+
+export type vsf_application_authoring_attachments_AttachmentEntry = {
+  id: number;
+  name: string;
+  kind: vsf_application_authoring_attachments_AttachmentType;
+  encodedBytes: number;
+  decodedBytes: number | null;
+  sha256: string | null;
+  font: vsf_application_authoring_fonts_sfnt_FontInfo | null;
+  problem: string | null;
+};
+
+export type vsf_application_authoring_attachments_AttachmentInventory = {
+  entries: vsf_application_authoring_attachments_AttachmentEntry[];
+  total: number;
+  complete: boolean;
+  /**
+   *  Conservative decoded-size upper bound for the displayed font records.
+   *  A partial inventory must never authorize a change.
+   */
+  fontBytesUpperBound: number;
+};
+
+export type vsf_application_authoring_attachments_AttachmentSummary = {
+  action: vsf_application_authoring_attachments_AttachmentAction;
+  before: vsf_application_authoring_attachments_AttachmentEntry | null;
+  after: vsf_application_authoring_attachments_AttachmentEntry | null;
+  documentBytes: number;
+  previewSizeExceeded: boolean;
+};
+
+export type vsf_application_authoring_attachments_AttachmentType =
+  'font' | 'graphic';
+
 export type visualsubforge_project_store_Attachment_Deserialize = {
   path: string;
   token: number;
@@ -1015,6 +1064,7 @@ export type vsf_application_quality_statistics_Extreme = {
 export type visualsubforge_desktop_FileChoice =
   | 'media'
   | 'subtitles'
+  | 'font'
   | 'saveSubtitles'
   | 'project'
   | 'saveProject'
@@ -1034,6 +1084,33 @@ export type vsf_application_quality_check_Finding = {
   expected: string;
   explanation: string;
   language: vsf_application_language_analysis_Detail | null;
+};
+
+export type vsf_application_authoring_fonts_sfnt_FontInfo = {
+  kind: vsf_application_authoring_fonts_sfnt_FontKind;
+  tables: number;
+  glyphs: number;
+  family: string | null;
+};
+
+export type vsf_application_authoring_fonts_sfnt_FontKind =
+  'trueType' | 'openTypeCff' | 'openTypeCff2';
+
+export type visualsubforge_font_review_FontOperation =
+  | { kind: 'inspect' }
+  | { kind: 'add'; path: string }
+  | { kind: 'replace'; id: number; path: string }
+  | { kind: 'remove'; id: number };
+
+export type visualsubforge_font_review_FontReview = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  operation: visualsubforge_font_review_FontOperation;
+  inventory: vsf_application_authoring_attachments_AttachmentInventory | null;
+  summary: vsf_application_authoring_attachments_AttachmentSummary | null;
+  changed: boolean;
+  error: string | null;
 };
 
 export type vsf_application_text_formatting_Format =

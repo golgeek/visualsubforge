@@ -263,6 +263,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
 pub enum FileChoice {
     Media,
     Subtitles,
+    Font,
     SaveSubtitles,
     Project,
     SaveProject,
@@ -338,6 +339,10 @@ pub async fn choose_file(
                 .add_filter("VSF project", &["vsfproject"])
                 .blocking_save_file(),
             FileChoice::Media => dialog.set_title("Open Media").blocking_pick_file(),
+            FileChoice::Font => dialog
+                .set_title("Choose Font Attachment")
+                .add_filter("Single fonts", &["ttf", "otf"])
+                .blocking_pick_file(),
             FileChoice::Subtitles => dialog
                 .set_title("Open Subtitles")
                 .add_filter("Subtitles", &["srt", "ass", "ssa"])

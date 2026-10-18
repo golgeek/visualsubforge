@@ -97,7 +97,7 @@ impl Documents {
             .filter(|j| j.id == id)
             .ok_or("Style proposal was replaced")?;
         let Request::Style(operation) = &job.operation else {
-            return Err("This proposal belongs to text review".into());
+            return Err("This proposal belongs to another document review".into());
         };
         let operation = operation.clone();
         job.refresh();

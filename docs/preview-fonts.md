@@ -40,8 +40,8 @@ document findings. The default non-media build returns an empty notice list.
 
 ASS/SSA `[Fonts]` payloads already travel in the original preview header; the new
 fixture proves rendering with system fonts disabled. Original opaque/malformed
-records remain preserved. Attachment inspection/editing and conversion remain
-separate roadmap milestones.
+records remain preserved. Attachment inspection/editing is now validated in the separate
+[authoring increment](style-authoring.md); deliberate conversion remains pending.
 
 ## Reproduction and evidence
 

@@ -20,6 +20,7 @@ import type {
   TextView,
   StyleForm,
   StyleReview,
+  FontReview,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -543,6 +544,84 @@ export const styleReview = {
     referenceReviewCues: 0,
   },
 } satisfies StyleReview;
+export const fontReview = {
+  changed: true,
+  error: null,
+  id: 1,
+  inventory: null,
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+  operation: {
+    kind: 'add',
+    path: '/fixture/Fixture.ttf',
+  },
+  phase: 'reviewing',
+  summary: {
+    action: 'add',
+    after: {
+      decodedBytes: 1220,
+      encodedBytes: 1627,
+      font: {
+        family: 'VSF Fixture Font',
+        glyphs: 3,
+        kind: 'trueType',
+        tables: 10,
+      },
+      id: 21,
+      kind: 'font',
+      name: 'Fixture.ttf',
+      problem: null,
+      sha256:
+        '62982a2386b4fc6a39d7f75f1553000cc967c038358f0f5c1477138dd6842ffc',
+    },
+    before: null,
+    documentBytes: 2827,
+    previewSizeExceeded: false,
+  },
+} satisfies FontReview;
+export const fontInventory = {
+  changed: false,
+  error: null,
+  id: 2,
+  inventory: {
+    complete: true,
+    entries: [
+      {
+        decodedBytes: 1220,
+        encodedBytes: 1627,
+        font: {
+          family: 'VSF Fixture Font',
+          glyphs: 3,
+          kind: 'trueType',
+          tables: 10,
+        },
+        id: 21,
+        kind: 'font',
+        name: 'Fixture.ttf',
+        problem: null,
+        sha256:
+          '62982a2386b4fc6a39d7f75f1553000cc967c038358f0f5c1477138dd6842ffc',
+      },
+    ],
+    fontBytesUpperBound: 1220,
+    total: 1,
+  },
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 1,
+  },
+  operation: {
+    kind: 'inspect',
+  },
+  phase: 'reviewing',
+  summary: null,
+} satisfies FontReview;
 export const statisticsView = {
   error: null,
   findings: [

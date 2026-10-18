@@ -528,6 +528,38 @@ mod tests {
             std::fs::write(dir.join(format!("{name}.mks")), decode_url(&url)).unwrap();
             assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), source);
         }
+        // Exercise authoring output, not a separately hand-encoded OpenType
+        // packet. The external probe disables platform fonts for these cases.
+        let parsed = subtitle_formats::parse(embedded, None).unwrap();
+        let id = parsed.source.ass().unwrap().attachments(1).entries[0].id as u32;
+        for (name, bytes) in [
+            (
+                "embedded-cff",
+                include_bytes!("../../../tests/fixtures/subtitles/fixture-font-cff.otf").as_slice(),
+            ),
+            (
+                "embedded-cff2",
+                include_bytes!("../../../tests/fixtures/subtitles/fixture-font-cff2.otf")
+                    .as_slice(),
+            ),
+        ] {
+            let proposal = vsf_application::authoring::attachments::propose(
+                &parsed.document,
+                &parsed.source,
+                vsf_application::authoring::attachments::FontEdit::Put {
+                    replace: Some(id),
+                    name: "Replacement.otf",
+                    bytes,
+                },
+                || Ok(()),
+            )
+            .unwrap();
+            let url = serialize_document(proposal.document(), proposal.source().ass().unwrap())
+                .unwrap()
+                .unwrap();
+            std::fs::write(dir.join(format!("{name}.url")), &url).unwrap();
+            std::fs::write(dir.join(format!("{name}.mks")), decode_url(&url)).unwrap();
+        }
     }
 
     /// Independently demux the production bytes with the real native tool. Also

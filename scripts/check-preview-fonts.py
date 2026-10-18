@@ -21,6 +21,8 @@ def main():
         ('baseline', 'generic', 'baseline'), ('generic', 'generic', 'fallback'),
         ('explicit', 'explicit', 'fallback'), ('missing', 'missing', 'fallback'),
         ('embedded', 'embedded', 'embedded'),
+        ('embedded-cff', 'embedded-cff', 'embedded'),
+        ('embedded-cff2', 'embedded-cff2', 'embedded'),
         ('without-attachment', 'without-attachment', 'embedded'),
         ('missing-glyph', 'missing-glyph', 'fallback'),
     ]:
@@ -53,11 +55,17 @@ def main():
             assert 'Using default font family: (VSF Definitely Missing Font' in receipt['cases'][name]['notices']
         elif name == 'embedded':
             assert 'VSFFixtureFont-Regular' in log and lit > 100
+        elif name in ('embedded-cff', 'embedded-cff2'):
+            variant = 'CFF2' if name.endswith('cff2') else 'CFF'
+            assert f'VSFFixtureFont-{variant}Regular' in log and lit > 100
+            assert 'failed to find any fallback' not in log
         elif name == 'without-attachment':
             assert 'failed to find any fallback' in log and lit == 0
         elif name == 'missing-glyph':
             assert '10FFFF' in receipt['cases'][name]['notices'].upper(), 'Missing glyph absent from notices'
     assert receipt['cases']['generic']['image_sha256'] != receipt['cases']['baseline']['image_sha256']
+    assert receipt['cases']['embedded-cff']['image_sha256'] != receipt['cases']['embedded']['image_sha256']
+    assert receipt['cases']['embedded-cff2']['image_sha256'] != receipt['cases']['embedded']['image_sha256']
     receipt['passed'] = True
     (args.output / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(args.output / 'receipt.json')

@@ -1,18 +1,18 @@
 # Style, attachment and conversion milestone
 
 Task022 is in progress. Reviewed ASS/SSA style creation, copying and editing now
-join style inspection/assignment and loss-preserving same-format editing. Font
-attachment management and deliberate conversion remain required. This document
+join style inspection/assignment and loss-preserving same-format editing. Reviewed
+font attachment management is also validated on the recorded Mac runtime.
+Deliberate separate-file conversion remains required. This document
 tracks implementation and acceptance; the full milestone is not yet complete.
 
-The next increment makes document-level source properties part of Rust's existing
-Undo history. A style edit and any required cue-reference changes must succeed or
+Document-level source properties now participate in Rust's existing Undo history. A style edit and any required cue-reference changes must succeed or
 fail together. The domain stays format-independent; format/application code owns
 style validation and source-record preservation. Frontend controls remain drafts
 until a reviewed transaction is accepted. Existing cue-only history retains its
 range storage, and context-only history must not copy all subtitle cues.
 
-Required subsequent work:
+Milestone scope (style and attachment increments accepted below; conversion pending):
 
 - Create/copy/edit ASS/SSA styles, with precise field validation, safe named style
   references and explicit handling of reset tags and commented events.
@@ -363,3 +363,117 @@ This increment still has no desktop attachment controls or native acceptance.
 Full `cargo test --locked --workspace` passes 355 ordinary tests with 30 explicit
 manual/generator harnesses ignored. Zero-test doc harnesses are not feature
 validation. Logs are retained under ignored `authoring-research` fixtures.
+
+
+### Desktop font review implementation
+
+The cue editor's **Manage fonts…** dialog now inspects the current ASS/SSA
+attachments and previews add, replace or remove operations. The review shows
+filenames, family, decoded sizes and SHA256 before/after, complete-file size and
+any preview-size limit. Unsupported records are read-only, and a partial inventory
+cannot authorize a change. Cue drafts must be resolved before preparing changes.
+
+`font_start/view/cancel/accept` are thin typed command adapters. Inspection and
+file reads reuse the existing text/style document-review worker, with one job,
+no pending queue, global identities, cancellation, a cooperative ten-second
+deadline, stale generation/revision/policy checks and joining outside the document
+lock. Inspection captures only the shared source; change proposals also capture
+cue state after admission. Font files must be regular, bounded files; reads check
+cancellation between 64 KiB chunks. Filesystem calls themselves are synchronous
+on that worker, so an unresponsive filesystem can delay a checkpoint. No blocking
+read runs on the UI thread.
+
+The candidate owns the reviewed bytes. Acceptance never rereads the selected
+file: it validates and commits the document/source pair through existing history.
+Frontend selection, inventory metadata and review identity are transient;
+`DocumentSession.acceptFont` is the sole frontend adoption path. Picker and
+acceptance lifetimes are protected, and late replies cannot revive a closed or
+changed document. The shared Font job holds its larger edit proposal behind a
+Box; this keeps ordinary inventory jobs small without changing source ownership.
+Mac/Windows and Linux portal chooser paths both offer TTF/OTF filters. This Mac
+build does not establish Windows/Linux chooser acceptance.
+
+Twelve focused owner tests pass (`cargo test --locked -p visualsubforge document::texts`),
+including three new font cases with both-format add/replace/remove, exact save,
+no-op redo, failed-save protection, recovery, changed files after review, cross-
+family guards, stale policies/documents, bounded reads, cancellation and shutdown.
+Eight frontend font workflow/lifecycle assertions pass in both Chromium and
+WebKit. The initial strict Clippy run identified the proposal enum's size; boxing
+its edit variant resolves that finding. A modeled frontend client's parameter was
+narrower than the typed boundary; correcting the test signature restores strict
+checking. Native attachment replacement/cleanup and 10k acceptance still remain.
+
+
+### Font management acceptance — 2026-10-18
+
+The attachment increment is complete within the tested Mac runtime scope;
+Task022/ADR0030 remain in progress/proposed for conversion. This does not close
+Windows/Linux installation or physical GPU/audio gates.
+
+Full workspace validation passes **358 ordinary Rust tests** (30 explicit manual
+or generator harnesses ignored), **44 frontend unit tests**, and **54 Chromium/
+WebKit browser cases**. Strict workspace/native-feature Clippy, Rust formatting,
+ESLint, Svelte checking, frontend build/format and generated IPC checks pass.
+The native app builds with the existing private OpenGL/audio-integration runtime.
+Its tested bundle executable SHA256 is
+`0e480ab0f01a156021b335682e942c885d36dd8b2c880e30c0b772f2ef16af37`.
+
+Actual desktop `desktop-Km4h1C` passes ASS/SSA add/replace/remove, picker cancel,
+invalid-font refusal, one-step history, exact Save As/reopen, failed-save
+preservation, project restoration, property-only durable crash recovery and
+external-file conflict/separate-copy protection. Each variant reuses one native
+player for attachment replacement/removal. Actual native-window CUA observations
+(the exact bundle path, not a separately running older prototype) show the TTF's
+triangle/block, replacement CFF's block/triangle, ordinary AB after removal,
+restored CFF after Undo and after project reopening. The frame's generation and
+revision are checked before each observation and retained in the acknowledgment.
+Webview review PNGs separately show the readable metadata and proposed-change
+review; they do not capture the sibling video. The final application quits with
+code 0. Intentional recovery SIGKILLs retain the previously documented tiny
+fallback-link resource risk; font payloads themselves use the existing in-memory
+preview, with no font extraction/installation. This is observable replacement/
+removal and normal lifecycle evidence, not an exhaustive renderer-allocation audit.
+
+Software composition `fonts/composition-authoring-v1` passes nine controls,
+including authoring-produced CFF and CFF2 packets with platform fonts disabled.
+Both select their embedded PostScript names and display the independently authored
+shapes; neither falls back. Attachment-free control is black. The CFF2 image was
+visually inspected. The probe reports libass 0.17.5 in this loaded runtime, and
+checks private fallback resources are absent after each normal probe exit.
+This software lane adds CFF2 format coverage; it does not claim physical GPU proof.
+
+The eight pure inventory/add/replace/remove × ASS/SSA 10k workloads pass the
+unchanged 500ms/96MiB gates: maximum p95 **11.569ms**, additional sampled RSS
+**72,433,664 bytes**, 180 samples. Each operation has 20 measured runs after one
+warmup, uses original small TTF/CFF fixtures (1220/1296 bytes), and times proposal,
+acceptance and serialization; Undo/Redo checks are outside that timer. Inspection
+has its own measured workload. Full-size font/aggregate/file limits are separately
+validated by the ordinary large-font tests, not represented as 10k native timing.
+
+Corrected native scale receipt `desktop-ir5a6l` passes all six add/replace/remove ×
+ASS/SSA cases, five accept/Undo cycles each. Maxima: open 317ms, inventory 429ms,
+background preparation 376ms, acceptance 129ms, Undo 101ms, cancellation 1ms and stale
+invalidation 107ms. Zero-millisecond samples mean clock resolution, not zero cost.
+All interactions remain below 1000ms; preparation remains below the separate
+10-second worker limit. Corpus and attached-input hashes are retained in receipts.
+Final normal quit is code 0. The first scale receipt `desktop-2hrkgj` met timing
+limits but failed final quit because the test's direct IPC edit/Undo left the
+frontend snapshot stale. The guard test now edits and undoes through the actual
+UI; no production acceptance rule or budget was relaxed. Both receipts remain.
+
+Reproduce after the pinned native build from the Mac guide:
+
+```sh
+cargo build --locked --release -p vsf-application --example font-benchmark
+python3 scripts/font-benchmark.py
+cargo test --locked -p visualsubforge native_font_preview_sources -- --ignored --nocapture
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" python3 scripts/check-preview-fonts.py --probe /tmp/vsf-font-preview-probe --output tests/fixtures/generated/fonts/composition-authoring-new
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" node tests/desktop/run.mjs --fonts --font-performance --binary target/debug/bundle/macos/VisualSubForge.app/Contents/MacOS/visualsubforge
+```
+
+The probe compilation command remains in preview-fonts.md. For native visual
+observations, set `VSF_FONT_DESKTOP_CAPTURE=1` and optionally comma-separated
+`VSF_FONT_DESKTOP_CAPTURE_LABELS`; read `capture-request.json` and acknowledge its
+matching label only after observing the exact app's native window. This lane has
+a 60-second observation limit. Routine native runs omit the pause. Logs and JSON
+scale reports are copied to ignored `authoring-research` fixtures.

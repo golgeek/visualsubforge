@@ -8,6 +8,7 @@ import {
   batchTimingAccept,
   textAccept,
   styleAccept,
+  fontAccept,
   type TextTarget,
   emptyDocument,
   type DocumentAction,
@@ -37,10 +38,12 @@ const client = {
   batchTimingAccept,
   textAccept,
   styleAccept,
+  fontAccept,
 };
 type Client = Omit<
   typeof client,
   | 'styleAccept'
+  | 'fontAccept'
   | 'textAccept'
   | 'sceneRepairAccept'
   | 'durationRepairAccept'
@@ -50,6 +53,7 @@ type Client = Omit<
     Pick<
       typeof client,
       | 'styleAccept'
+      | 'fontAccept'
       | 'textAccept'
       | 'sceneRepairAccept'
       | 'durationRepairAccept'
@@ -168,6 +172,13 @@ export class DocumentSession {
         new Error('Subtitles or the cue draft changed; preview again.'),
       );
     return this.update(() => (this.client.styleAccept ?? styleAccept)(id));
+  }
+  acceptFont(id: number, expected: DocumentSnapshot): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() => (this.client.fontAccept ?? fontAccept)(id));
   }
   acceptSceneRepair(id: number, expected: DocumentSnapshot): Promise<boolean> {
     if (this.accepted !== expected || this.dirty)

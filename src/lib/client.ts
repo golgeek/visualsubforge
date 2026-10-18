@@ -69,6 +69,20 @@ export async function styleCancel(id: number): Promise<void> {
 }
 export const styleAccept = (id: number) => commands.styleAccept(id);
 
+export type FontReview = Awaited<ReturnType<typeof commands.fontView>>;
+export type FontOperation = Parameters<typeof commands.fontStart>[2];
+export type FontInventory = NonNullable<FontReview['inventory']>;
+export type FontEntry = FontInventory['entries'][number];
+export const fontStart = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  operation: FontOperation,
+) => commands.fontStart(document.generation, document.revision, operation);
+export const fontView = (id: number) => commands.fontView(id);
+export async function fontCancel(id: number): Promise<void> {
+  await commands.fontCancel(id);
+}
+export const fontAccept = (id: number) => commands.fontAccept(id);
+
 export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];

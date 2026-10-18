@@ -116,6 +116,7 @@ async fn request_file(
     let path = current.map(Path::new);
     let folder = path.and_then(Path::parent);
     let project = matches!(kind, FileChoice::Project | FileChoice::SaveProject);
+    let font = matches!(kind, FileChoice::Font);
     let preset = matches!(
         kind,
         FileChoice::TimingPreset | FileChoice::SaveTimingPreset
@@ -126,7 +127,9 @@ async fn request_file(
         FileChoice::QualityPreset | FileChoice::SaveQualityPreset
     );
     let filter = || {
-        if quality {
+        if font {
+            FileFilter::new("Single fonts").glob("*.ttf").glob("*.otf")
+        } else if quality {
             FileFilter::new("VSF quality profile")
                 .glob("*.vsfpreset")
                 .glob("*.json")
@@ -183,6 +186,7 @@ async fn request_file(
                 .await
         }
         FileChoice::Media
+        | FileChoice::Font
         | FileChoice::Subtitles
         | FileChoice::Project
         | FileChoice::QualityPreset
@@ -190,7 +194,9 @@ async fn request_file(
             let subtitles = matches!(kind, FileChoice::Subtitles);
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
-                .title(if quality {
+                .title(if font {
+                    "Choose Font Attachment"
+                } else if quality {
                     "Import Quality Profile"
                 } else if preset {
                     "Import Timing Preset"
@@ -205,7 +211,7 @@ async fn request_file(
                 .multiple(false)
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?;
-            if subtitles || project || preset || quality {
+            if subtitles || project || preset || quality || font {
                 request = request.filter(filter());
             }
             request.send().await

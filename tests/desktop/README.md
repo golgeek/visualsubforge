@@ -324,3 +324,18 @@ stale rejection. They can run together with the native-enabled test binary and
 explicit private runtime. See [the exact recipe, budgets and evidence](../../docs/style-authoring.md).
 Generated DOM events and preview revision acknowledgments do not establish
 physical input, GPU presentation or platform installation acceptance.
+
+
+### Font attachments
+
+`--fonts` exercises real ASS/SSA attachment inventory/add/replace/remove, exact
+save/history/project/recovery, invalid imports, picker cancellation and native
+preview revisions. `--font-performance` measures five cycles for each add/replace/
+remove and both 10k formats, including inventory, acceptance, Undo, cancellation
+and stale-edit guards. It records preparation separately from the unchanged
+one-second interaction gate. `font-authoring.json` and `font-performance.json`
+retain input/binary identity and scope. Use the native-feature bundle command in
+style-authoring.md. Optional `VSF_FONT_DESKTOP_CAPTURE=1` uses the same matching
+`capture-request.json`/`capture-ack.json` native-window observation lane as ASS,
+with optional `VSF_FONT_DESKTOP_CAPTURE_LABELS`. Webview images omit sibling
+native video. Physical platform acceptance remains separate.
