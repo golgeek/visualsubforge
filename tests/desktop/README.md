@@ -425,3 +425,23 @@ identity are retained in `legacy-import-performance.json`. Generate inputs with
 Run this lane on its own to avoid competing benchmark CPU work. It loads a small
 generated video for real project restoration, but does not measure physical
 input latency, GPU presentation or speaker output.
+
+### Manual translation
+
+`--translation` runs the ordinary regression followed by SRT/ASS/SSA/WebVTT
+independent target copies, protected/failed saves, offsets and draft preservation,
+literal reference browsing, exact edits, Undo/Redo, project restoration and native
+target preview. It covers explicit changed/missing-reference resolution, recovery
+with deleted references and externally changed targets, subtitle-only projects and
+mixed ASS-target/WebVTT-reference attachment. `translation.json` records source/
+binary hashes and per-format results; the runner requires normal code0 shutdown.
+
+Use the native-feature bundle and explicit private runtime in
+[manual translation evidence](../../docs/manual-translation.md#native-desktop-workflows--2026-10-18).
+The video fixture is generated using FFmpeg. Supplied chooser results and DOM
+events do not establish OS-sheet or physical-input acceptance. Set
+`VSF_TRANSLATION_CAPTURE=1` and optionally comma-separated
+`VSF_TRANSLATION_CAPTURE_LABELS` to pause for independent native observation.
+Save and inspect the actual native window before writing `capture-ack.json` with
+the requested `label` within 60 seconds. WebView screenshots omit the native video
+sibling. Real chooser and combined desktop10k acceptance remain separate.

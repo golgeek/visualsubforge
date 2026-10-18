@@ -42,6 +42,7 @@ import { webvttWorkflow } from './webvtt.mjs';
 import { webvttPerformance } from './webvtt-performance.mjs';
 import { legacyImportWorkflow } from './legacy-import.mjs';
 import { legacyImportPerformance } from './legacy-import-performance.mjs';
+import { translationWorkflow } from './translation.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -59,6 +60,7 @@ const { values } = parseArgs({
     fonts: { type: 'boolean', default: false },
     conversion: { type: 'boolean', default: false },
     webvtt: { type: 'boolean', default: false },
+    translation: { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
     'legacy-import-performance': { type: 'boolean', default: false },
     'webvtt-performance': { type: 'boolean', default: false },
@@ -129,6 +131,7 @@ const runDeadline =
   values.fonts ||
   values.conversion ||
   values.webvtt ||
+  values.translation ||
   values['legacy-import'] ||
   values['legacy-import-performance'] ||
   values['webvtt-performance'] ||
@@ -579,6 +582,22 @@ try {
     });
   if (values['legacy-import'])
     await legacyImportWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.translation)
+    await translationWorkflow({
       menu,
       invoke,
       status,

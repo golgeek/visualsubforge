@@ -42,8 +42,9 @@ The editor provides:
 - A manual translation reference panel attaches/replaces/detaches SRT/ASS/SSA/
   WebVTT references, shows time matches or paged browsing, and applies signed
   matching offsets. Start an independent target copy with protected Save As;
-  projects and recovery retain the reference relationship. Native and combined
-  scale acceptance are pending. See [manual translation](docs/manual-translation.md).
+  projects and recovery retain the reference relationship. Native Mac workflows
+  pass; real chooser and combined scale acceptance remain pending.
+  See [manual translation](docs/manual-translation.md).
 - Reviewed VisualSubSync `.vssprj` import with explicit missing-file relocation,
   unsupported-setting notices and protected new-project creation. Native Mac
   workflows, real choosers and 10,000-cue desktop acceptance pass within the

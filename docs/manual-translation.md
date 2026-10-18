@@ -2,8 +2,8 @@
 
 Stage6c is in progress. The pure foundation and Rust desktop owner/IPC/recovery
 and project persistence are implemented, with the user-facing reference panel.
-Native/chooser/combined scale acceptance remains pending. WebVTT and legacy project import
-are already accepted.
+Actual Mac native workflows pass; real chooser and combined scale acceptance
+remain pending. WebVTT and legacy project import are already accepted.
 
 ## Workflow
 
@@ -402,6 +402,67 @@ in 29.35s and was not launched. Exact logs retain the checks and initial failure
 Actual native Mac workflows, real source/destination choosers and combined
 target/reference/project/recovery10k validation remain required; browser fixtures
 use modeled IPC and do not establish native acceptance. Stage6c stays open.
+
+## Native desktop workflows — 2026-10-18
+
+The real desktop lane passes on macOS 27.0 (26A428), Apple Silicon, using the
+existing private mpv runtime. The renderer reports Apple M3 Max / OpenGL 4.1
+Metal 91.7. The test config copies `tests/desktop/tauri.test.json`, changing only
+the identifier to `com.golgeek.visualsubforge.translation-native-20261018`.
+The copied bundle executable SHA-256 is
+`30eca1d12306f9f1fc2a6c35b868d945a7e29ca9d7d690d20cf578b028db8cba`.
+Pinned Rust 1.98.1 and Node 24.21.0/npm 11.19.0 were used; no runtime was updated.
+
+```sh
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/translation-native-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/translation-native-20261018/VisualSubForgeTranslation.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  VSF_TRANSLATION_CAPTURE=1 node tests/desktop/run.mjs --translation \
+  --binary "$PWD/test-results/translation-native-20261018/VisualSubForgeTranslation.app/Contents/MacOS/visualsubforge"
+node --check tests/desktop/translation.mjs
+node --check tests/desktop/run.mjs
+npm run format:check
+npm run lint
+```
+
+The native bundle build passes in 43.42s. Final evidence is
+`test-results/desktop-boA7rv/`: `receipt.json` and `translation.json` pass, including
+normal application shutdown with code0. The lane runs the ordinary persistence/
+quality/text regression first, then checks all four formats for lossless independent
+copies, failed/protected Save As, target draft preservation across offsets and
+browsing, exact text-only edits, Undo/Redo, save/project restoration and preview
+revision acknowledgments. SRT additionally checks changed-reference Cancel without
+discarding a draft, explicit reload, missing-file relocation and protection of a
+deleted original path. Every format is recovered after an abrupt owned-process
+termination with the reference deleted and target externally changed; captured
+reference bytes/offsets survive, conflicts preserve external bytes, and a separate
+target and subtitle-only project save successfully. An ASS target with a WebVTT
+reference preserves its format, accepted cues, revision and unapplied draft.
+
+Independent native-window images and accessibility observations are retained for
+the four restored previews and mixed-format reference. They show tagged SRT
+positioning, ASS/SSA title styles and CJK text, and literal raw/reading text in the
+reference pane. Scrolling reaches the raw-text section. WebVTT retains its existing
+preview limitations: the emoji is visible in the editor/reference but remains a
+missing-glyph box in native playback; this does not establish browser-equivalent
+CSS/region/ruby/timed-effect rendering. The generated video contains no audio, so
+this lane supplies no speaker/waveform acceptance.
+
+The first run, `desktop-6rVmBA`, stopped on an ambiguous test selector matching two
+reference rows. The harness now explicitly selects the first row. Its failure
+receipt, screenshot and log remain; no production change was needed. Build/run/
+format/lint logs are in `test-results/translation-native-20261018/`; syntax,
+formatting and ESLint checks pass. The prior full production regression results
+remain above. This increment changes only the desktop harness and documentation.
+
+File selections and DOM input are supplied. Actual OS chooser checks and combined
+10,000-cue target/reference/project/recovery acceptance remain required; stage6c
+and ADR0033 stay open. Physical Windows/Linux and native-runtime adoption gates
+are unchanged.
 
 ## Legacy source reference
 

@@ -48,8 +48,12 @@ preserve target drafts; lost acceptance replies refresh authoritative state.
 Eight focused browser cases pass with 60 project/panel and 32 lifecycle checks per
 ordinary harness. The final full suite passes all 58 browser cases, all 452 workspace
 Rust tests /30 ignored and 44 frontend tests, with strict/IPC/default-build checks.
-Native/chooser/combined desktop10k translation acceptance remains
-pending.
+The actual Mac desktop lane now passes four-format copy/edit/history/save/project/
+recovery, changed/missing reference resolution, source/external-file protection,
+mixed ASS-target/WebVTT-reference attachment and normal code0 shutdown. Native
+window observations retain target rendering and literal reference text; existing
+WebVTT preview limits remain. Supplied file choices do not test OS sheets.
+Real chooser and combined desktop10k translation acceptance remain pending.
 See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports
