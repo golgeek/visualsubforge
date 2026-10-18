@@ -2,7 +2,7 @@
 //! Optional native properties retain their existing number-or-null contract.
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FiniteF64(f64);
 
 impl FiniteF64 {

@@ -9,6 +9,7 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
         {"kind":"create","afterId":null,"startMs":1000,"endMs":2000,"text":"A\nB"},
         {"kind":"create","startMs":2100,"endMs":3000,"text":"Missing optional ID"},
         {"kind":"edit","cueId":1,"startMs":1100,"endMs":2200,"text":"Edited"},
+        {"kind":"editStyled","cueId":1,"startMs":1100,"endMs":2200,"text":"Styled","style":"Default"},
         {"kind":"delete","cueId":1},
         {"kind":"split","cueId":1,"atMs":1500},
         {"kind":"merge","firstId":1,"secondId":2},
@@ -47,9 +48,25 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
         ],
         error: None,
     };
+    let parsed =
+        subtitle_formats::parse(super::ass_tests::ASS, Some(subtitle_formats::Format::Ass))
+            .unwrap();
+    store.loaded = Some(Loaded {
+        editor: Editor::with_properties(parsed.document, parsed.source),
+        path: None,
+        saved_bytes: super::ass_tests::ASS.as_bytes().to_vec(),
+        recovered: true,
+        resynced: false,
+        translation: translation::Context::default(),
+    });
     vec![
         ("documentActions", "DocumentAction[]", actions),
         ("emptyDocument", "DocumentSnapshot", empty),
+        (
+            "styledDocument",
+            "DocumentSnapshot",
+            serde_json::to_value(store.snapshot()).unwrap(),
+        ),
         (
             "createdDocument",
             "DocumentSnapshot",
@@ -94,6 +111,7 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
         start_ms: 1,
         end_ms: 2,
         text: "A".into(),
+        style: None,
     };
     assert_eq!(
         serde_json::to_value(&valid).unwrap()["id"],
@@ -109,12 +127,14 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
             start_ms: MAX_SAFE_INTEGER + 1,
             end_ms: 2,
             text: "A".into(),
+            style: None,
         },
         CueView {
             id: 1,
             start_ms: 1,
             end_ms: MAX_SAFE_INTEGER + 1,
             text: "A".into(),
+            style: None,
         },
     ] {
         assert!(serde_json::to_value(cue).is_err());

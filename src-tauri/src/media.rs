@@ -87,6 +87,8 @@ pub struct Status {
     pub output_drops: Option<f64>,
     pub error: Option<String>,
     pub subtitle_preview_error: Option<String>,
+    #[serde(default)]
+    pub subtitle_font_diagnostics: Vec<String>,
     #[serde(default, with = "crate::ipc_number::optional")]
     #[specta(type = Option<crate::ipc_number::SafeU64>)]
     pub preview_document_generation: Option<u64>,
@@ -203,6 +205,14 @@ impl Media {
         self.sender.is_some()
     }
     pub fn request(&self, action: Action, session: u64) -> Result<Status, String> {
+        self.request_with_replacement(action, session, || Ok(()))
+    }
+    fn request_with_replacement(
+        &self,
+        action: Action,
+        session: u64,
+        replace: impl FnOnce() -> Result<(), String>,
+    ) -> Result<Status, String> {
         validate(&action)?;
         let Some(sender) = &self.sender else {
             return if matches!(action, Action::Status) {
@@ -228,6 +238,10 @@ impl Media {
                 .checked_add(1)
                 .filter(|id| *id <= crate::ipc_number::MAX_SAFE_INTEGER)
                 .ok_or("Media session identities exhausted")?;
+            // Media selection -> document is the same order used by project
+            // attachment and proposal acceptance. Reset before publishing the
+            // new session, so a late Open reply cannot erase an attached policy.
+            replace()?;
             *selection = match &action {
                 Action::Open { path, .. } => Some(path.into()),
                 _ => None,
@@ -254,6 +268,16 @@ impl Media {
         session: u64,
         operation: impl FnOnce(&std::path::Path) -> Result<T, String>,
     ) -> Result<T, String> {
+        self.with_context(session, |path| {
+            operation(path.ok_or("Open the target video first")?)
+        })
+    }
+    /// Serialize operations that also support an intentionally media-free workspace.
+    pub(crate) fn with_context<T>(
+        &self,
+        session: u64,
+        operation: impl FnOnce(Option<&std::path::Path>) -> Result<T, String>,
+    ) -> Result<T, String> {
         let selection = self
             .selection
             .lock()
@@ -261,7 +285,7 @@ impl Media {
         if self.stopping.load(Ordering::Relaxed) || self.current_session() != session {
             return Err("Media changed or is shutting down".into());
         }
-        operation(selection.as_deref().ok_or("Open the target video first")?)
+        operation(selection.as_deref())
     }
 
     pub fn shutdown_complete(&self) -> bool {
@@ -327,6 +351,7 @@ impl Media {
                     {
                         preview.reconcile(player, &documents);
                         status.subtitle_preview_error = preview.error.clone();
+                        status.subtitle_font_diagnostics = player.font_diagnostics();
                         let revision = preview.revision().filter(|_| preview.error.is_none());
                         status.preview_document_generation = revision.map(|r| r.0);
                         status.preview_document_revision = revision.map(|r| r.1);
@@ -584,7 +609,10 @@ pub async fn media_action(
         if matches!(action, Action::Open { .. } | Action::Close) {
             app.state::<crate::scenes::Scenes>().cancel();
         }
-        app.state::<Media>().request(action, session)
+        app.state::<Media>()
+            .request_with_replacement(action, session, || {
+                app.state::<crate::document::Documents>().reset_quality()
+            })
     })
     .await
     .map_err(|e| e.to_string())?

@@ -14,6 +14,24 @@ speed from the nominal FPS ratio. Timing profiles and their minimum gaps/scene
 buffers are separate constraints; resync does not silently enforce a preset.
 Audio matching remains a possible follow-up, not part of this release.
 
+## Source formats and timed effects
+
+UTF-8 SRT, ASS v4.00+ and SSA v4.00 use the same GUI/CLI operation. A known
+input extension constrains parsing; ASS tags inside SRT retain the SRT identity.
+CLI output requires the same format extension. This operation does not convert
+formats. Script headers, styles, comments, event fields, unknown records and
+font attachment bytes remain unchanged; only accepted Dialogue cue times change.
+
+A uniform movement preserves cue-relative effects. If the mapped cue duration
+changes, karaoke (`\k`, `\K`, `\kf`, `\ko`, `\kt`), movement, transform and fade
+tags require manual review, as do ambiguous overrides, nonempty event Effects
+and cues over the 64KiB markup-analysis bound. Tags are never silently rewritten
+or rescaled. This applies equally to ASS-tagged SRT. One unresolved cue blocks
+whole-document acceptance and subtitle publication; the report remains available.
+Static tags may keep their text while the cue duration changes. The policy is
+conservative, including when format rounding alone changes a timed cue's duration.
+The timing units are based on the [Aegisub tag reference](https://aegisub.org/docs/latest/ass_tags/).
+
 ## CLI workflow
 
 Build without Tauri, a webview, libmpv or Node:
@@ -35,7 +53,7 @@ is not solved by this CLI. It never loads or modifies desktop settings/projects.
 
 `--analysis-only` replaces `--output` and writes only the report. The report path
 is always required; outputs must not already exist, even for a repeated run.
-Unresolved cues produce a report and exit 3, with no SRT. The default total
+Unresolved cues produce a report and exit 3, with no subtitle output. The default total
 time budget is 1800 seconds; `--timeout-seconds` accepts 1–14400. Ctrl-C requests
 cancellation and waits for owned child cleanup; Unix SIGTERM/SIGHUP use the same
 path. The publication commit boundary below still applies.
@@ -49,9 +67,9 @@ encoding failure occurs before publication.
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | Complete report/SRT publication, or complete analysis-only report. |
+| 0 | Complete report/subtitle publication, or complete analysis-only report. |
 | 2 | Invalid arguments, subtitle/policy input or existing/aliased output. |
-| 3 | Report published; some cues need review; no SRT published. |
+| 3 | Report published; some cues need review; no subtitles published. |
 | 4 | Missing/failing analysis tools or decoding/matching failure. |
 | 5 | Filesystem, signal-handler setup or completion-output IO failure. |
 | 6 | Input content/identity changed after capture. |
@@ -86,7 +104,7 @@ transitive dependencies.
    Missing/ambiguous cues prevent acceptance of the entire proposal.
 4. **Accept timings** applies the complete proposal through the existing document
    owner. Undo/Redo changes all mapped timings together. It does not replace media.
-5. Save As to a different SRT. Save Project first asks for that subtitle save;
+5. Save As to a different file in the original format. Save Project first asks for that subtitle save;
    cancellation/failure leaves the project unwritten.
 
 Closing an analysis cancels its job. During input verification, Cancel requests
@@ -129,10 +147,9 @@ Blocking filesystem calls can still delay cleanup.
 
 Accepted retiming requires Save As to a different canonical path. That protection
 survives Undo, no-op proposals and failed writes. Only a successful distinct save
-clears it. Recovery format 3 retains the flag and accepted SRT; versions 1 and 2
-remain readable. Rust also checks project subtitle references under the document
+clears it. Current recovery retains the flag, accepted source-format content and format identity; older SRT recovery versions remain readable. Rust also checks project subtitle references under the document
 lock through publication, preventing a pending resync from attaching the original
-SRT as though it contained the target timings. The frontend's save-before-project
+subtitle file as though it contained the target timings. The frontend's save-before-project
 continuation passes modeled-browser resync checks and the actual Mac native
 walkthrough recorded below. Other OS native resync dialogs remain untested.
 
@@ -152,9 +169,9 @@ that test on all three OS runners; dated local results are recorded below.
 ## Shared application boundary
 
 `crates/vsf-application` contains the desktop's existing atomic sibling writes,
-file/save leases, SRT size policy and bounded SRT file reads. The desktop imports
-these implementations; their lifecycle tests run in the shared crate. SRT parsing
-and normalization validation use one entry point. The domain and format crates
+file/save leases, source-format size policy and bounded subtitle file reads. The desktop imports
+these implementations; their lifecycle tests run in the shared crate. Format parsing
+and normalization validation use one facade. The domain and format crates
 remain free of filesystem dependencies. The shared crate has no Tauri, webview,
 native playback or frontend types.
 
@@ -204,7 +221,8 @@ reordered content and collapsed mapped ranges remain unresolved. The map must be
 monotonic in both timelines; this preserves cue ordering and existing overlaps
 without introducing inversions/overlaps between previously separated cues. No
 sorting, text changes or minimum-duration repairs occur. Positive rational
-arithmetic rounds once to milliseconds, with half-millisecond ties rounded up.
+arithmetic rounds directly to the source grid: 1ms SRT or 10ms ASS/SSA, nearest
+with ties later. No intermediate whole-millisecond rounding precedes ASS/SSA ticks.
 
 Every start and end maps independently from its original timestamp. Within a
 supported section this scales both cue durations and gaps with the content; no
@@ -215,7 +233,7 @@ or duplicates frames without changing programme duration keeps the timing scale
 at one. Matching establishes which case applies, including offsets after edits.
 
 Each endpoint rounds once, so subtracting two rounded endpoints can differ by a
-millisecond from rounding an isolated gap. Never accumulate rounded gaps to find
+format tick from rounding an isolated gap. Never accumulate rounded gaps to find
 later cues: that would introduce drift. A mapped cue that collapses to zero
 milliseconds remains unresolved.
 
@@ -224,24 +242,26 @@ Existing overlaps follow the same content map. Gaps across section boundaries
 (ads/edits or unverified continuity) are reported separately, with no interpolation
 or forced relationship to the original gap. Reports record the source gap and
 its mapped size, or indicate different sections/an unresolved neighbor. Report
-schema version 2 uses `content_mapped_endpoints_v1`; it replaces schema 1's
-superseded fixed-millisecond end correction. The CLI completion-summary schema
+schema version 3 retains `content_mapped_endpoints_v1` from version 2 and adds
+`subtitle_format`, `time_step_ms`, `endpoint_rounding` and `timed_effect_policy`.
+`proposed_subtitle_sha256` replaces the SRT-only digest field. Schema 1's fixed
+millisecond end correction remains superseded. The CLI completion-summary schema
 remains version 1 because its shape is unchanged. Report import is not supported.
 
 Minimum-gap and scene-buffer norms depend on the chosen profile; their values
 cannot establish programme speed. Resync does not guess a profile from a gap or
-promise full SW quality compliance. The separate bulk minimum-gap editor action
-is not implemented.
+promise full SW quality compliance. The separate reviewed minimum-gap editor action is documented in
+[the quality workflow](subtitle-quality.md).
 
 The complete candidate is validated through the existing batch domain operation
-and SRT size policy. An incomplete proposal has no exportable SRT.
+and source-format size policy. An incomplete proposal has no exportable subtitles.
 
 One deadline and cancellation token cover input hashing, supervised subprocesses,
 matching, proposal construction and final verification. At most one analysis child
 is active; resync requests two decoder threads and one filter thread per decode
 pass. Bounds include four-hour timelines, 256 GiB per media file, 20,000 cut
 anchors, 30,000 coarse image samples per video and 30,000 additional target
-frames, the existing pair-comparison caps, 16 MiB SRT and
+frames, the existing pair-comparison caps, 16 MiB subtitle files and
 64 MiB reports. Blocking filesystem operations can delay cancellation. Decoded
 images remain inside the analysis library, never ordinary desktop IPC.
 The final-frame observer uses two sequential passes per video, seeking five
@@ -264,16 +284,16 @@ concurrent writers that change and restore bytes during reads.
 
 `Analysis::publish` accepts new, distinct destinations only. It prepares and syncs
 both files before verification, then publishes the versioned JSON report first
-and SRT last. An unresolved proposal publishes only its report and returns
+and subtitles last. An unresolved proposal publishes only its report and returns
 `NeedsReview`. Analysis-only publication is also available. A report contains
 input/config/tool identities, supported sections, per-cue outcomes and the proposed
-SRT digest; it never claims that the SRT was published.
+subtitle digest; it never claims that the subtitles were published.
 
 The existing persistence boundary uses `tempfile`'s
 [`persist_noclobber`](https://docs.rs/tempfile/3.27.0/tempfile/struct.NamedTempFile.html#method.persist_noclobber)
 for each new output, so a destination created after validation is not overwritten.
-The report/SRT pair is not an atomic transaction. Failure/crash after the report
-can leave a report without an SRT; retry refuses the existing report. Ordinary
+The report/subtitle pair is not an atomic transaction. Failure/crash after the report
+can leave a report without subtitles; retry refuses the existing report. Ordinary
 failure drops owned temporaries. Abrupt exit or platform cleanup limitations can
 leave a temporary link. Cancellation immediately before the first publication
 leaves outputs absent; after that commit point it does not roll back published
@@ -324,6 +344,88 @@ cargo test --locked -p subtitle-core --test retiming
 
 The tests include complete undo/redo restoration, invalid/stale/duplicate inputs,
 policy rejection, no-op preservation and generated sequences of accepted edits.
+
+## ASS/SSA extension validation — 2026-10-17
+
+Task 020 extends the existing matcher; no thresholds, native strategy or analysis
+limits change. Shared format tests cover direct rational/tick rounding, static
+rate changes, all timed-tag families, unknown/incomplete/drawing overrides,
+nonempty event Effects, oversized cues and whole-document refusal. Exact
+styles/comments/unknown records/embedded-font bytes survive offset, serialization,
+reopen and one Undo/Redo. Desktop owner checks cover style-change/Undo staleness,
+failed saves, protected source paths and real checkpoint recovery for SRT, ASS,
+SSA and embedded-font scripts.
+
+Commands and evidence use Rust 1.98.1 and Node 24.21.0/npm 11.19.0. Node commands
+follow `source "$HOME/.nvm/nvm.sh" && nvm use --silent`. Logs are retained under
+`tests/fixtures/generated/styled-resync/` (ignored runtime evidence):
+
+```sh
+cargo test --locked --workspace
+cargo test --locked -p vsf-application --test styled_proposal
+cargo test --locked -p visualsubforge document::resync
+cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored
+cargo test --locked -p vsf-cli --test cli styled_and_tagged -- --ignored
+cargo test --locked -p vsf-cli --test cli analysis_only_and_needs_review -- --ignored
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run check
+npm run lint
+npm run format:check
+npm test
+npm run ipc:check
+npm run test:browser
+cargo build --locked --release -p vsf-application --example resync-benchmark
+python3 scripts/resync-proposal-benchmark.py
+```
+
+The full Rust run passes 312 ordinary tests; the subsequent focused owner run
+adds the style-only stale-capture test (313 ordinary tests in current source).
+The four new shared tests and six owner tests are behavior checks, not zero-test
+harnesses. Three opt-in FFmpeg application tests pass. Two actual-CLI tests pass,
+including the 12-case ASS/SSA/tagged-SRT matrix: offset preservation, unsafe speed
+refusal, static speed mapping and wrong-extension refusal with no output files.
+The frontend's 44 unit tests and all 50 Chromium/WebKit browser cases pass, with
+21 resync-specific checks per engine. Strict workspace/native-feature Clippy,
+format, lint, Svelte/type/build and generated IPC checks pass.
+
+Actual Mac native execution passes at `test-results/desktop-U0JjsN`. ASS/SSA and
+ASS-tagged SRT each match the actual CLI output byte-for-byte, retain the source,
+Undo/Redo together, preserve state after a failed save, acknowledge the accepted
+preview revision and refuse whole-document acceptance on unsafe karaoke duration
+changes. Webview review/refusal screenshots were inspected; the long dialog
+scrolls at the tested window size. They are not native composition/GPU evidence.
+The baseline real save/reopen/crash-recovery workflow and normal shutdown also pass.
+The player reports Apple M3 Max OpenGL 4.1 using the existing private
+`audio-integration-master-v1` runtime; this is not ANGLE/adoption or Windows/Linux
+execution. Native binary SHA256 is
+`aed2b86e54cc79b418f0065792f45ceeda8a8983777b9e6e43dc5c76db750439`;
+CLI SHA256 is `9eeb9b5b652226aec31d24dd3c699cc2ac860a6ccbd6e9a3ab8c25d2528ffea9`.
+
+```sh
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype --config "$PWD/tests/fixtures/generated/fonts/tauri.native.json" -- --locked
+cargo build --locked -p vsf-cli
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" "$HOME/.nvm/versions/node/v24.21.0/bin/node" tests/desktop/run.mjs --resync --binary target/debug/bundle/macos/VisualSubForge.app/Contents/MacOS/visualsubforge
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" cargo clippy --locked -p media-player -p visualsubforge --all-targets --features desktop-e2e,media-prototype -- -D warnings
+```
+
+Retained failures: the first exact-byte test incorrectly changed Comment timestamps
+in its expected output; the implementation preserved them. Native runs
+`desktop-42mORz`, `desktop-E5UCEo`, `desktop-pzApiP`, `desktop-S6QhBK` and
+`desktop-8fGOF2` exposed harness assumptions: picker paths must be test-local,
+backend readiness precedes the frontend's loaded-media projection, rendered text
+contains line breaks, and save failures appear in the status region. The final
+harness waits for enabled controls/command acknowledgment and asserts the actual
+save error. No product safety bound or timing tolerance was relaxed.
+
+The predeclared benchmark retains 10,000 cues and all text/metadata/opaque records.
+Task 016's original fixture spans 4h10m, above the existing 4h resync limit; the
+explicit timing-only derivative divides endpoints by 2, preserving the 10ms grid.
+The benchmark records both parent and derived hashes and leaves originals intact.
+Proposal/snapshot/acceptance/serialization/Undo p95 is 103.088ms ASS and 97.135ms SSA,
+with 32,931,840 bytes additional sampled RSS. This passes the unchanged 500ms/96MiB
+budgets. RSS sampling is not exhaustive allocation accounting; this is application
+cost evidence and does not measure video analysis, physical input or GPU output.
 
 ## Recorded resync validation
 

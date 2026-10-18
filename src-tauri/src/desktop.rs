@@ -16,12 +16,15 @@ pub enum WorkspaceAction {
     Settings,
     TimingSettings,
     Resync,
+    Plugins,
+    TranslationReference,
     ShowScenes,
     ScanScenes,
     CancelSceneScan,
     PreviousScene,
     NextScene,
     OpenProject,
+    ImportLegacyProject,
     SaveProject,
     SaveProjectAs,
     CreateCue,
@@ -34,6 +37,7 @@ pub enum WorkspaceAction {
     OpenSubtitles,
     Save,
     SaveAs,
+    ConvertSubtitles,
     CloseMedia,
     CloseSubtitles,
     Undo,
@@ -78,6 +82,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
     let file = SubmenuBuilder::new(app, "File")
         .text("openProject", "Open Project…")
+        .text("importLegacyProject", "Import VisualSubSync Project…")
         .text("saveProject", "Save Project")
         .text("saveProjectAs", "Save Project As…")
         .separator()
@@ -90,6 +95,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .separator()
         .item(&item("save", "Save Subtitles", "CmdOrCtrl+S")?)
         .item(&item("saveAs", "Save Subtitles As…", "CmdOrCtrl+Shift+S")?)
+        .text("convertSubtitles", "Convert Subtitles…")
         .separator()
         .text("closeMedia", "Close Media")
         .text("closeSubtitles", "Close Subtitles")
@@ -119,6 +125,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .item(&item("settings", "Settings…", "CmdOrCtrl+,")?);
     let edit = edit.build()?;
     let view = SubmenuBuilder::new(app, "View")
+        .text("translationReference", "Translation Reference")
         .item(
             &CheckMenuItemBuilder::with_id("showScenes", "Show Scene Changes")
                 .checked(true)
@@ -142,6 +149,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
     let tools = SubmenuBuilder::new(app, "Tools")
         .text("resync", "Resynchronize Subtitles…")
+        .text("plugins", "Subtitle Plugins…")
         .separator()
         .text("scanScenes", "Scan Scene Changes")
         .text("cancelSceneScan", "Cancel Scene Scan")
@@ -172,6 +180,7 @@ pub struct MenuState {
     available: bool,
     media: bool,
     document: bool,
+    convert: bool,
     resync: bool,
     undo: bool,
     redo: bool,
@@ -194,6 +203,8 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
     if let Some(menu) = app.menu() {
         for (id, enabled) in [
             ("resync", state.resync),
+            ("plugins", state.document),
+            ("translationReference", true),
             ("settings", true),
             ("timingSettings", true),
             (
@@ -206,9 +217,10 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
             ),
             ("previousScene", state.media && state.previous_scene),
             ("nextScene", state.media && state.next_scene),
-            ("openProject", state.available),
-            ("saveProject", state.media),
-            ("saveProjectAs", state.media),
+            ("openProject", true),
+            ("importLegacyProject", true),
+            ("saveProject", state.media || state.document),
+            ("saveProjectAs", state.media || state.document),
             ("openMedia", state.available),
             ("openSubtitles", true),
             ("save", state.document),
@@ -219,6 +231,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
             ("mergePrevious", state.merge_previous),
             ("mergeNext", state.merge_next),
             ("saveAs", state.document),
+            ("convertSubtitles", state.document && state.convert),
             ("closeSubtitles", state.document),
             ("closeMedia", state.media),
             ("undo", state.undo),
@@ -263,11 +276,19 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
 pub enum FileChoice {
     Media,
     Subtitles,
+    Font,
+    Plugin,
     SaveSubtitles,
+    ExportSrt,
+    ExportAss,
+    ExportSsa,
     Project,
+    LegacyProject,
     SaveProject,
     TimingPreset,
     SaveTimingPreset,
+    QualityPreset,
+    SaveQualityPreset,
 }
 #[tauri::command]
 #[specta::specta]
@@ -276,14 +297,26 @@ pub async fn choose_file(
     kind: FileChoice,
     current: Option<String>,
 ) -> Result<Option<String>, String> {
+    let subtitle_extension = if matches!(kind, FileChoice::SaveSubtitles) {
+        let documents = app.state::<crate::document::Documents>().inner().clone();
+        tauri::async_runtime::spawn_blocking(move || documents.subtitle_extension())
+            .await
+            .map_err(|e| e.to_string())??
+    } else {
+        match kind {
+            FileChoice::ExportAss => "ass",
+            FileChoice::ExportSsa => "ssa",
+            _ => "srt",
+        }
+    };
     #[cfg(feature = "desktop-e2e")]
     {
-        let _ = current;
+        let _ = (current, subtitle_extension);
         app.state::<crate::desktop_test::Driver>().choose(kind)
     }
 
     #[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]
-    return crate::linux_dialog::choose_file(app, kind, current).await;
+    return crate::linux_dialog::choose_file(app, kind, current, subtitle_extension).await;
 
     #[cfg(all(not(target_os = "linux"), not(feature = "desktop-e2e")))]
     tauri::async_runtime::spawn_blocking(move || {
@@ -299,8 +332,23 @@ pub async fn choose_file(
             if let Some(name) = path.file_name() {
                 dialog = dialog.set_file_name(name.to_string_lossy());
             }
+        } else if matches!(kind, FileChoice::SaveSubtitles) {
+            dialog = dialog.set_file_name(format!("Untitled.{subtitle_extension}"));
+        } else if matches!(
+            kind,
+            FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa
+        ) {
+            dialog = dialog.set_file_name(format!("Converted.{subtitle_extension}"));
         }
         let picked = match kind {
+            FileChoice::QualityPreset => dialog
+                .set_title("Import Quality Profile")
+                .add_filter("VSF quality profile", &["vsfpreset", "json"])
+                .blocking_pick_file(),
+            FileChoice::SaveQualityPreset => dialog
+                .set_title("Export Quality Profile")
+                .add_filter("VSF quality profile", &["vsfpreset"])
+                .blocking_save_file(),
             FileChoice::TimingPreset => dialog
                 .set_title("Import Timing Preset")
                 .add_filter("Timing presets", &["vsfpreset", "json", "ini"])
@@ -313,18 +361,34 @@ pub async fn choose_file(
                 .set_title("Open VSF Project")
                 .add_filter("VSF project", &["vsfproject"])
                 .blocking_pick_file(),
+            FileChoice::LegacyProject => dialog
+                .set_title("Import VisualSubSync Project")
+                .add_filter("VisualSubSync project", &["vssprj"])
+                .blocking_pick_file(),
             FileChoice::SaveProject => dialog
                 .set_title("Save VSF Project As")
                 .add_filter("VSF project", &["vsfproject"])
                 .blocking_save_file(),
             FileChoice::Media => dialog.set_title("Open Media").blocking_pick_file(),
+            FileChoice::Font => dialog
+                .set_title("Choose Font Attachment")
+                .add_filter("Single fonts", &["ttf", "otf"])
+                .blocking_pick_file(),
+            FileChoice::Plugin => dialog
+                .set_title("Choose Subtitle Plugin Manifest")
+                .add_filter("Plugin manifest", &["json"])
+                .blocking_pick_file(),
             FileChoice::Subtitles => dialog
                 .set_title("Open Subtitles")
-                .add_filter("SubRip subtitles", &["srt"])
+                .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt"])
                 .blocking_pick_file(),
             FileChoice::SaveSubtitles => dialog
                 .set_title("Save Subtitles As")
-                .add_filter("SubRip subtitles", &["srt"])
+                .add_filter("Subtitles (same format)", &[subtitle_extension])
+                .blocking_save_file(),
+            FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa => dialog
+                .set_title("Export Converted Subtitles to a New File")
+                .add_filter("Converted subtitles", &[subtitle_extension])
                 .blocking_save_file(),
         };
         picked
@@ -353,6 +417,9 @@ pub async fn finish_exit(
             discard,
         )?;
         app.state::<crate::resync::Resync>().shutdown();
+        app.state::<crate::project::Projects>().imports.shutdown()?;
+        app.state::<crate::document::Documents>()
+            .shutdown_quality()?;
         app.state::<crate::waveform::Waveforms>().shutdown();
         app.state::<crate::scenes::Scenes>().shutdown();
         app.state::<ExitGate>().0.store(true, Ordering::Release);
@@ -369,12 +436,15 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "settings",
         "timingSettings",
         "resync",
+        "plugins",
+        "translationReference",
         "showScenes",
         "scanScenes",
         "cancelSceneScan",
         "previousScene",
         "nextScene",
         "openProject",
+        "importLegacyProject",
         "saveProject",
         "saveProjectAs",
         "createCue",
@@ -387,6 +457,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "openSubtitles",
         "save",
         "saveAs",
+        "convertSubtitles",
         "closeMedia",
         "closeSubtitles",
         "undo",

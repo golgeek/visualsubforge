@@ -10,6 +10,36 @@ and the tracked scripts do not require those notes.
 
 All signals and images are generated from FFmpeg lavfi expressions in `scripts/media-fixtures.py`. No source material, fonts, or legacy assets are imported. Generated files are ignored by Git. FFV1/PCM in Matroska avoids encoder delay in the offset experiment; this does not demonstrate compressed-codec delay handling.
 
+`subtitles/fixture-font.ttf`, `fixture-font-cff.otf`, `fixture-font-cff2.otf` and
+`embedded-font.ass` are original synthetic font
+fixtures under the repository's GPL-3.0-or-later license. Their two visible glyphs
+are a triangle and a rectangle, authored in `scripts/font-fixture.py`; no existing
+font outlines or metadata were copied. Regenerate with fontTools4.61.1 in an
+isolated Python environment. Fixed font timestamps make output reproducible.
+The checked-in files require no fontTools build/runtime dependency and are never
+installed as system fonts. The CFF/CFF2 variants share the same family but swap
+the A/B outlines to expose stale-font replacement in later native tests. Their
+structural parsing is validated; native attachment-management acceptance remains
+separate. See [preview font validation](../../docs/preview-fonts.md).
+
+`subtitles/styles.vtt` is independently authored under the repository's
+GPL-3.0-or-later license. It covers cue identifiers/settings, comments, CSS/region
+records, voice/language/class/ruby markup, entities, Unicode and internal timestamp
+markers. No legacy or third-party subtitle text is included. The pure WebVTT
+benchmark generates three further deterministic 10,000-cue inputs in memory;
+`python3 scripts/webvtt-fixtures.py` writes byte-identical plain, styled BOM/CRLF
+and timed mixed-ending files to ignored `generated/webvtt/` for desktop validation.
+The generator asserts the library benchmark's recorded SHA256 hashes before
+writing a receipt. These independently authored inputs use the same repository
+license and contain no third-party subtitle text. See
+[scope, commands and evidence](../../docs/webvtt.md).
+
+Legacy project tests independently author INI data and UTF-16 encodings in
+`crates/vsf-application/src/legacy_project/tests.rs`. The import benchmark wraps
+the generated WebVTT and ASS inputs in temporary UTF-16LE projects and checks
+unchanged source bytes; no historical project, plugin or script content is copied.
+See [legacy import scope and measurements](../../docs/legacy-project-import.md).
+
 ## Generate and validate
 
 Install FFmpeg/ffprobe, then run from the repository root:
@@ -34,6 +64,7 @@ The generator records versions and complete argv arrays in `generated/generation
 | --- | --- |
 | `cfr-offset.mkv` | 100 video frames: 0, 0.04, …, 3.96 s. Audio ordinal 0 starts at 0.25 s, with a positive pulse at 1.25 s. Audio ordinal 1 starts at 0 and has a negative pulse at 2 s. Both end at 4 s. |
 | `vfr-offset.mkv` | 70 video frames: 0, 0.04, …, 1.96, then 2, 2.1, …, 3.9 s. Same audio tracks as CFR fixture. No constant frame duration may be inferred for stepping. |
+| `zero-start.wav`, `bwf-zero-start.wav` | Four seconds of 8 kHz PCM, first packet PTS zero, positive pulse at 1.25 s. Both yield 32,000 samples and 400 peaks. The BWF variant has nonzero recording `time_reference=480000`; it must retain the same playback origin and pulse position. |
 | `long.flac` | 7200 s, 8000 samples/s; positive pulse at 7199 s. 57,600,000 samples and 720,000 ten-millisecond buckets. |
 
 The CLI emits JSON containing stream index, container origin in seconds, sample rate, samples per peak, sample count and min/max peaks. Peak `i` starts at project time `i * samples_per_peak / sample_rate`. The last bucket can be partial: use sample count for its actual end.
@@ -64,7 +95,7 @@ budgets; generating a fixture does not satisfy them.
 
 ## Limits
 
-This experiment produces one resolution, no cache and no displayed waveform. It downmixes to mono (opposite-phase channels can cancel), and resamples to 8 kHz; peaks are for timing inspection, not mastering measurements. Container origins must be known and finite. Negative/pre-origin audio is trimmed; positive offsets and timestamp gaps are filled with silence by the resampler. Tests establish the supplied positive-offset fixtures only; negative starts, discontinuities, compressed encoder delay, multichannel policy and container-specific timestamp normalization still need fixtures.
+The analysis CLI produces one resolution; the desktop separately caches a peak pyramid for display. It downmixes to mono (opposite-phase channels can cancel), and resamples to 8 kHz; peaks are for timing inspection, not mastering measurements. Explicit container origins must be finite. A single-stream PCM WAV with an absent container start requires a separate bounded first-packet probe proving PTS zero for that stream. Other unknown origins remain refused; BWF recording metadata does not replace playback timestamps. Negative/pre-origin audio is trimmed; positive offsets and timestamp gaps are filled with silence by the resampler. Tests establish the supplied positive-offset and PCM WAV/BWF fixtures only; negative starts, discontinuities, compressed encoder delay and multichannel policy still need fixtures.
 
 Input is a canonical local file, but nested references inside a container are not sandboxed. Do not treat the experimental CLI as an untrusted-media security boundary. The library accepts an overall timeout; the CLI uses 120 s. Output is capped at four hours, probe JSON at 64 KiB and retained diagnostics at 16 KiB. Raw PCM is consumed through a buffered pipe rather than retained in memory. Tests use a blocked helper process to exercise kill/wait cleanup and a large stderr stream to exercise pipe draining.
 
@@ -284,3 +315,20 @@ python3 scripts/scene-benchmark.py /path/to/video --seconds 60 --repeats 3 --out
 The script records tool versions, metadata, timings and cut timestamps. OS cache
 and background activity are uncontrolled. See task 008's performance note for
 actual commands, results and accuracy limits.
+
+## Styled resync fixtures — Task020
+
+`subtitles/resync.ass`, `.ssa` and `.srt` are original fixtures derived from
+Task016 style/opaque-record controls and Task018's original two-glyph embedded
+font. No external fonts are added. Two cues at 3–4s and 4.1–5s fit the synthetic
+resync corpus's independently known matching intervals. The first cue has a
+`\k20` tag; the second is static. Offset output is 6–7s and 7.1–8s. A measured
+0.96 speed map refuses the karaoke row; removing that tag in the static control
+yields 1.960–2.920s and 3.020–3.880s in ASS/SSA (3.016s SRT second start).
+CLI and desktop tests compare tags, source protection, opaque records, history
+and output bytes. The font's existing generation/license instructions still apply.
+
+The 10k resync benchmark uses Task016's full fixture with only timestamps halved
+to fit the existing four-hour analysis limit; it records both parent/derived
+SHA256. All cues, text, styles and unknown records remain. CPU/RSS budgets remain
+500ms p95 / 96MiB additional sampled RSS. Original generated files stay unchanged.

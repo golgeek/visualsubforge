@@ -1,0 +1,581 @@
+# JavaScript plugin host
+
+Stage7 is complete within the initial checker/fix subset (2026-10-18).
+The bounded worker in `crates/plugin-host`, pure
+[modern/VSS APIs and validated proposals](plugin-api.md), and
+[local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
+The desktop job owner, typed commands and [review controls](plugin-desktop.md) are
+implemented and tested. Actual Mac format/history/recovery and real chooser
+workflows and ten complete desktop10k workloads pass. Windows/Linux ARM64 automated
+suites and complete subtitle-only plugin editor workflows pass. The
+[historical checker/fix comparison](plugin-api.md#historical-vss-comparison--2026-10-18)
+now passes with explicit differences for Unicode encoding and empty-selection
+counts. ADR0008 is accepted for this bounded scope. Physical platform acceptance
+and broader plugin compatibility remain separate. Earlier dated increments below
+retain the limits of their original evidence.
+
+The latest [deadline correction and full revalidation](plugin-desktop.md#plugin-deadline-correction--2026-10-18)
+passes all ten complete Mac desktop10k workloads and eight plugin desktop workflows
+per system (native playback on Mac only). Full Rust counts are503 Mac,505 Ubuntu ARM64 and493 Windows ARM64,
+with strict Clippy and matching desktop/CLI builds. The correction removes an
+intermediate worker JSON object tree and unnecessary VSS newline regex work;
+parent parsing, application validation and all execution limits remain unchanged.
+The earlier failure and all final source/binary identities remain in the linked
+record. Together with the historical comparison, this supersedes the earlier
+worker baseline and completes stage7. Native/physical-platform gates remain open.
+
+## VM automated validation — 2026-10-18
+
+Isolated Ubuntu 26.04 ARM64 and Windows 11 ARM64 runs verify all 781 tracked
+source files from `8443600` before execution. The subsequent `a6482b3` changes
+only tests/docs. Both runs use Rust 1.98.1, Node 24.21.0 and npm 11.19.0,
+`CARGO_BUILD_JOBS=2`, `CARGO_INCREMENTAL=0` and sequential Rust tests.
+
+| Check | Ubuntu ARM64 | Windows ARM64 |
+| --- | --- | --- |
+| Plugin/application/CLI tests | Pass | Pass |
+| Frontend install, strict build and tests | Pass | Pass |
+| Full Rust workspace | 503 passed, 33 ignored | 491 passed, 32 ignored |
+| CLI and default desktop build | Pass | Pass |
+| Installed sibling helper and relocated packages | 1 passed | 1 passed |
+| Generated IPC and strict Clippy | Pass | Pass |
+
+Eleven zero-test harnesses per workspace run are excluded from the passing test
+counts. These runs exercise actual guest executables, including helper execution;
+they do not establish the new desktop plugin UI workflow, native playback,
+physical GPU/audio or installation acceptance. Historical VSS-host comparison
+and available desktop workflow checks remain required; ADR0008 stays proposed.
+
+The initial Ubuntu workspace compile found two Linux-only `FileFilter::glob`
+calls passing owned strings where ashpd requires borrowed strings. Borrowing the
+formatted extension patterns fixes compilation without changing the filters.
+The corrected full run passes. Windows compiled but could not start the
+`update_batch` integration executable: process creation returned error 740,
+“elevation required.” Two byte-identical-name controls in two directories show
+that a `combined_cue_edits` filename runs both tests normally while an
+`update_batch` filename is refused. The executable is ARM64 (PE machine `0xaa64`),
+SHA256 `aa3e57d3890f37c3d2e1626e8be32a830a53e2a984a8774420cfcd6cde727a91`.
+Renaming the test target to `combined_batch` resolves the ordinary Cargo run;
+all test content/assertions are unchanged. No elevation or security-policy change
+was used. This observed filename-dependent classification is consistent with
+Microsoft's warning about [unexpected installer-detection elevation](https://learn.microsoft.com/en-us/windows/win32/secbp/running-with-administrator-privileges);
+we do not infer its undocumented ARM64 implementation from older 32-bit descriptions.
+The renamed two-test target also passes on Mac, as do Rustfmt and diff checks.
+
+Exact commands (after frontend preparation and the CLI build where required):
+
+```sh
+cargo test --locked -p vsf-plugin-host -p vsf-application -p vsf-cli -- --test-threads=1
+npm ci
+npm run build
+npm test
+cargo test --locked --workspace -- --test-threads=1
+cargo build --locked -p vsf-cli
+npm run tauri -- build --debug --no-bundle -- --locked
+# Set VSF_PLUGIN_DESKTOP_EXECUTABLE to the built guest desktop executable.
+cargo test --locked -p visualsubforge installed_cli_helper_runs_from_desktop_directory_and_relocated_packages -- --ignored --nocapture
+npm run ipc:check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+```
+
+Receipts, drivers and original failures are retained under
+`test-results/plugin-platform-20261018/`. Final runs are
+`linux-dialog-fix-receipt.json` and `windows-test-name-fix-receipt.json`, with
+matching validation logs. The original source archive SHA256 is
+`4b9982680009a3682e8b0a5d1fb51d6a1d991bb64a36534a32427021abdabfaa`.
+Each rerun verifies the original source before applying its recorded patch:
+Linux's two-line filter correction; Windows's same correction and content-identical
+test rename. Linux ran those same two tests under their original name.
+`linux-artifacts.json` and `windows-artifacts.json` pin desktop/CLI SHA256s:
+
+| Guest | Desktop SHA256 | CLI SHA256 |
+| --- | --- | --- |
+| Ubuntu | `aeead8530395a77cd0c48140e458717fd5591cf0ec02cfd19d40ba11bbd298c8` | `c058c52dc2857e4b872cc4b1587946a4e05db6462355df345b74af56b1ea30b4` |
+| Windows | `f9faa885620a320a1ab84d49f662c4127b0f90af1b311444f54b4ea12f5c7c5e` | `5d9291c76a968882a848690d71a6f0e43dc718014daa1e9b0288e5376bfe1cbb` |
+
+An earlier host disk-space interruption is recorded separately: only the
+rebuildable Mac incremental compiler cache was removed, and the stopped guest
+resumed after process and source verification. Windows final receipts/logs were
+copied from the task-owned Downloads staging folder into this evidence directory.
+The staging folder remains for subsequent workflow validation and must be cleaned
+up afterward; the VM's original idle-pausing preference must also be restored.
+
+## Candidate execution boundary
+
+The experiment pins `rquickjs`/`rquickjs-core`/`rquickjs-sys` 0.14.0 and the latter's
+bundled QuickJS-NG 0.16.2 sources. The binding and engine use MIT licenses. Published
+crate checksums are in Cargo.lock. The CLI now links the runtime; its non-dev
+dependency closure includes these components. The source collector retains the
+published engine notices and uses the existing pinned-upstream fallback for
+rquickjs-core, whose published crate omits its root license. A targeted Mac closure
+and archive/notice audit passes; complete release inventory remains required.
+No legacy script implementation is redistributed by this increment.
+
+The candidate exposes a fresh single-threaded runtime in a short-lived helper.
+The parent owns process creation, bounded pipes, cancellation, deadline, kill and
+reap. No native engine object or JavaScript value crosses that boundary. This
+keeps an engine crash or blocked script out of the editor process, but is not an
+OS security sandbox. It does not claim protection from native engine exploits or
+an OS-enforced total RSS limit. This initial host is intended for explicitly
+installed local plugins, not arbitrary remote code execution.
+
+The [versioned rquickjs API](https://docs.rs/rquickjs/0.14.0/rquickjs/struct.Runtime.html)
+provides heap/stack limits and interruption. The default C allocator is retained;
+the binding documents that custom allocator features bypass its memory limit.
+The `std` feature alone is enabled: no module resolver, native module loader,
+async runtime or host file/network/DOM capabilities. The parent clears the helper's
+environment, preserving only SystemRoot on Windows for runtime loading, and uses
+direct executable/argument invocation. Windows launches without a console window.
+The CLI launches its own executable in an early internal worker mode before normal
+startup. The desktop owner launches that installed sibling CLI, avoiding UI
+libraries in the helper. It rejects missing, non-regular and symlink runners and
+never searches PATH. Existing package recipes install the CLI beside the desktop;
+the default dev command now builds it. Custom target/profile builds must build both
+executables together. Plugin installation and automatic discovery remain pending;
+the desktop selects an explicit local package.
+
+The inspected [Boa 0.22.0 runtime limits](https://docs.rs/boa_engine/0.22.0/boa_engine/vm/struct.RuntimeLimits.html)
+cover loop iterations, stack, recursion and backtrace limits. That API does not
+provide a corresponding engine heap cap, so QuickJS is the first measured candidate
+for this contract. This is an API comparison, not a performance or compatibility
+claim about Boa. No Boa dependency was added to the workspace.
+
+## Worker contract and bounds
+
+The experimental protocol accepts one JSON request and returns one versioned JSON
+reply, then exits. Version1 contains source, copied input and explicit limits.
+Source is a synchronous function body receiving `input`; this is a low-level test
+contract, not the final public plugin API. Unknown request/limit fields, invalid
+versions and invalid limits are rejected. A failed invocation returns no result.
+
+| Resource | Default | Enforced range/limit |
+| --- | ---: | --- |
+| Whole invocation deadline | 1000ms | 1–10000ms; parent includes input encoding, process/pipe work and result decoding |
+| Engine heap | 64MiB | 8–128MiB, C allocator accounting; not whole-process RSS |
+| Engine stack | 256KiB | 64–512KiB |
+| JavaScript source | — | 1MiB UTF-8 |
+| Request/reply wire message | — | 32MiB each; bounded reads and serialization |
+| Script diagnostic / helper stderr | — | 4096 bytes each |
+
+The engine interrupt covers evaluation, callbacks, regex work and JavaScript
+serialization hooks. Parent cancellation/deadline can independently kill a helper
+that stops reading/writing or returning. Three scoped pipe threads prevent a full
+pipe from blocking the watchdog. The child guard is dropped inside the scope:
+kill/reap precedes joining pipe threads on success, failure and early return.
+No pipe thread or helper is intentionally detached. Ordinary OS process creation,
+termination and scheduling latency are not a real-time guarantee.
+
+No promise jobs are executed. Returned promises and queued jobs are rejected;
+runtime destruction prevents later side effects. Each invocation gets fresh
+globals. Strings retain JavaScript UTF-16 behavior and exact JSON CRLF/Unicode
+content. Missing/unsupported capabilities do not receive guessed defaults.
+
+## Validation and remaining acceptance
+
+The Mac worker tests cover copied input, UTF-16/CRLF, global reset, unavailable host
+capabilities, exceptions, circular/BigInt/undefined/async results, oversized output,
+bounded errors, loops including catch-and-loop, expensive regexp, infinite toJSON
+and error getters, recursion, actual allocation exhaustion, and 10k tagged Unicode
+cue payloads. Faulty independently authored helpers test blocked input, a valid
+reply followed by a hang, stdout/stderr floods, malformed/versioned replies and
+crash. Cancellation waits until the helper is observed live; OS PID checks verify
+termination/reaping. These are worker guarantees, not document Undo/rollback tests.
+
+Predeclared release benchmark: read-only and proposed-data 10k payloads, one warm-up
+and 20 measured fresh helpers each, <=500ms p95 for parent serialization, process/
+pipe execution, response decoding and full-row checks; <=192MiB additional sampled
+parent+helper RSS above an input-preallocation baseline. The extra process/copies
+are included. Existing pure-application 96MiB gates are unchanged. Sampling can miss
+peaks and does not establish a hard RSS ceiling.
+
+Stage7/ADR0008 acceptance audit, completed 2026-10-18:
+
+- Supported API/behavior acceptance passes against the independently hash-pinned
+  VSS executable and available platforms. Its source-build equivalence is not
+  established; the precise comparison and intentional differences are recorded
+  in the API guide. The pure modern/VSS adapters, captured package loading,
+  settings, neighbor/scene semantics and Rust proposal/history validation now have
+  real-helper tests; the owner and actual Mac workflows now add lifetime evidence.
+  Unresolved-license scripts are tested locally and are not redistributed.
+- Windows/Linux ARM64 workspace/helper and eight-case desktop workflows pass,
+  alongside Mac native/chooser and complete desktop10k acceptance. These are
+  actual execution results, with identities and commands in the desktop guide;
+  they do not establish physical GPU/audio or general installation acceptance.
+
+General actions, columns, UI hooks, split hooks and broad historical-pack
+compatibility remain separately tracked beyond the first rule/fix subset.
+
+## Native desktop acceptance increment — 2026-10-18
+
+All eight modern/VSS × SRT/ASS/SSA/WebVTT native workflows pass, including exact
+format/history/save/recovery, live-loop cancellation/reaping, exception rollback
+and package revalidation. A separate normal-build macOS chooser trial passes
+Unicode paths, draft protection/cancellation, invalid manifests, outside-scope
+neighbor review, atomic Undo/Redo and exact separate-file save. Both finish with
+normal code0 shutdown. Native window observations preserve known preview limits.
+See the [exact commands, artifact identities, retained failures and scope](plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
+The subsequent ten complete desktop10k workloads pass full review paging, five
+check/fix/history/save cycles per combination, reopen, cancellation/stale guards
+and crash recovery. Maximum ordinary interaction708ms and preparation1554ms meet
+the unchanged declared budgets. The [desktop evidence](plugin-desktop.md#complete-desktop10k-workflows--2026-10-18)
+records all timings, RSS scope and the retained mixed-newline oracle failure.
+Pinned historical-host comparison and available platform execution remain required;
+no product owner, dependency or execution-limit changes in these validation steps.
+
+## Desktop controls — 2026-10-18
+
+The [desktop workflow](plugin-desktop.md) now selects local manifests from the
+toolbar or native Tools menu, runs checks or previews fixes, and renders bounded
+findings/change pages, scalar settings, effective context, logs and full UTF-8
+text chunks. PluginSession rejects stale transient inputs and late replies;
+DocumentSession alone adopts the accepted result. Failed acceptance replies
+refresh authoritative state; failed refresh locks continuation until explicit
+retry. Existing App modal, native-video occlusion and focus ownership are reused.
+The Rust owner/history and execution limits are unchanged.
+
+Ten focused harness checks pass in both Chromium and WebKit. App integration also
+covers native-menu/toolbar dispatch, draft preservation and focus/occlusion.
+The full60 browser cases,44 frontend tests and501 Rust workspace tests/32 ignored
+pass (11 zero-test harnesses excluded), as do strict/generated-IPC/default-build
+checks. Browser IPC is modeled; no real plugin window/chooser/native playback or
+new full desktop10k acceptance is claimed in this increment. Linux/Windows picker
+branches are implemented but were not run on those platforms in this increment.
+
+Exact commands, with pinned Node24.21.0/npm11.19.0 and Rust1.98.1:
+
+```sh
+npm run ipc:generate
+npm run check
+npm run test:browser -- --grep 'workflow: (plugins|ass-documents)'
+npm run format:check
+npm run lint
+npm test
+npm run build
+npm run test:browser
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run ipc:check
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+Evidence: `test-results/plugin-ui-20261018/`. The first focused browser run retained
+two harness failures caused by querying the Accept button before asynchronous
+rendering; the corrected explicit wait passes. An initial harness import error is
+also retained. Full desktop/native/chooser/10k, historical-host comparison and
+available VM execution remain required. Stage7 stays in progress, ADR0008 Proposed.
+
+## Desktop owner and typed transport — 2026-10-18
+
+`document::plugins` now owns one job/no queue. Capture and final acceptance use
+the existing document mutex; package IO, script execution and package verification
+do not. Workers own immutable document/source/context copies and cancellation,
+never the document owner. Completed proposals remain private in Rust. Cancelling
+or replacing the document invalidates results without changing history; profile,
+media and scene identity guards cover context changes. Acceptance also compares
+the exact invocation settings, scope, selection and cursor supplied by the caller.
+The upcoming UI must supply its current transient context and cancel stale starts.
+
+Desktop preferences come from the captured effective profile. An absent CPS target
+requires an explicit invocation override; RS target index remains unavailable
+unless explicitly supplied. Completed standard/reduced scene results retain their
+coverage label. Scene before/after values map to StartOffset/StopOffset; the plugin
+filter offset is an explicit invocation value, with no invented legacy preset.
+Missing/partial scene results remain unavailable. The VSS offset mapping follows
+the previously recorded pinned-source inference in the local legacy reference.
+
+Typed review pages contain at most200 findings and200 changes. Each raw text
+preview is at most2048 UTF-8 bytes with an explicit full length/truncation flag.
+The complete before/after text remains available in4–65536-byte UTF-8 chunks;
+invalid byte boundaries are refused. Rust retains all validated rows regardless
+of paging. Effective scalar settings, logs, preferences, coverage and package
+identity are returned without exposing engine values or a mutable proposal.
+
+Acceptance reserves the job while revalidating the package off-lock. Only that
+successful verification can construct the private value consumed by the commit
+method. It rechecks deadline, cancellation, generation/revision/profile key and
+complete source/document/request identity, then applies one domain history batch
+under the media→scene→document guard. A one-shot completion channel lets shutdown
+cancel and wait for in-flight acceptance outside the locks, as it does for worker
+joining. Accepted changes flow through ordinary preview, save, Undo/Redo and
+recovery; no parallel accepted-state owner or plugin-specific recovery format exists.
+
+Nine focused owner tests pass. Their controlled executor uses the real engine
+in-process for deterministic owner/race tests; those cases do not themselves prove
+process isolation. They cover modern/VSS fixes across all four formats, original
+source properties and cue metadata, one Undo/Redo, failed-save preservation,
+save/reopen/recovery, explicit context and neighbor review, long Unicode text,
+edit→Undo staleness, replacement/close/profile changes, production media/scene
+guards, package revalidation, cancellation and shutdown during acceptance,
+single admission, old-job cancellation, errors/panic and redo preservation, and
+installation-only runner resolution. A separate opt-in test passes with the real
+CLI runner copied into three fresh Unicode/spaced installation directories, using
+the production resolver/executor and unchanged1000ms limit. This is a helper and
+owner test, not an actual window/chooser or packaged-install acceptance.
+
+All501 workspace Rust tests pass/32 ignored;11 zero-test harnesses are excluded.
+All44 frontend tests and strict/generated-IPC/default-build checks pass. The
+transport uses finite numeric scalars and safe integer wrappers; actual Serde
+input/review/chunk samples compile against the generated TypeScript boundary.
+The initial generated sample included a random temporary path; fixing that fixture
+makes generation/check deterministic. No browser/native UI workflow or new10k
+owner measurement is claimed. The earlier pure/API/CLI scale evidence remains
+separate; full desktop10k/history/recovery acceptance is still required.
+
+The initial desktop self-spawn experiment passed once but timed out after a fresh
+rebuild at the unchanged one-second parent deadline. A tiny-request probe over
+three fresh binary copies measured495–529ms cold desktop launch versus141–195ms
+for the CLI (warm second launches13–15ms versus7–10ms). The isolated test worker
+measured42–62ms, but distributing another binary is unnecessary: all maintained
+package recipes already install/sign/inventory the CLI next to the desktop. The
+owner now uses only that sibling CLI in its early helper mode. It does not search
+PATH, use a different installation or increase execution limits. The failed
+experiment is retained; no self-spawn fallback remains in desktop startup.
+
+Exact commands (Node24.21.0/npm11.19.0 via the standard nvm setup):
+
+```sh
+cargo test --locked -p visualsubforge document::plugins -- --test-threads=1
+cargo build --locked -p vsf-cli
+VSF_PLUGIN_DESKTOP_EXECUTABLE="$PWD/target/debug/visualsubforge" \
+  cargo test --locked -p visualsubforge document::plugins::tests::installed_cli_helper \
+  -- --ignored --test-threads=1
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run ipc:generate
+npm run ipc:check
+npm run format:check
+npm run lint
+npm test
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+Evidence: `test-results/plugin-owner-20261018/`, including the retained failed
+`desktop-helper-final.log`, `startup-probe.json`, `installed-runner.log`, final
+workspace/strict/IPC/build logs and `summary.json`. Tested CLI SHA256:
+`37195bdbec7627d416089e5dd051b8e8d809ad64c14ff0645f64396a662e8348`.
+User-facing controls, draft/lost-reply reconciliation, browser/native/10k workflows,
+historical-host comparison and Windows/Linux execution remain required. ADR0008
+and stage7 remain proposed/in progress; stage8 and physical-device gates are unchanged.
+
+## CLI and package IO evidence — 2026-10-18
+
+On the same Mac/Rust toolchain, six application IO tests pass: bounded package
+traversal, helpers, invalid encodings/counts/sizes/depth, symlinks and FIFO refusal,
+exact review identity, cancelled/changed/unreadable inputs, competing output lease,
+no-clobber publication and temporary cleanup. These tests inject wire replies;
+they do not claim JavaScript execution by themselves.
+
+Eight separate integration tests run the actual `vsf` executable and its internal
+helper. Modern/VSS check, preview, deterministic rerun and apply pass for all four
+formats, including Unicode/spaces in paths, source labels, raw tags, ASS/SSA
+metadata/attachments and WebVTT timed content. Tests cover explicit scene/cursor/
+selection/settings context, captured helpers, outside-scope neighbor changes and
+markup warnings, invalid timing/precision/timed effects, exceptions after partial
+mutation, absent APIs, nondeterministic review refusal, invalid arguments, existing
+and aliased outputs, source/package/context/scope/setting changes, live SIGINT and
+helper reaping, and source mutation during execution. Unix process/symlink tests
+are explicitly platform-gated; this run is Mac evidence only.
+
+All492 workspace Rust tests pass/31 ignored;11 zero-test harnesses are excluded.
+All44 frontend tests, strict workspace Clippy, Rustfmt, Prettier, ESLint,
+Svelte/TypeScript/Vite, generated-IPC comparison and the default desktop build
+pass. There is no new frontend/IPC or native-editor behavior in this increment;
+browser/native workflows were not rerun. Windows/Linux plugin execution and full
+desktop/recovery acceptance remain open.
+
+Thirty predeclared release workloads cover modern/VSS check, preview and apply on
+five exact10k inputs: dense tagged SRT, ASS, SSA, styled and timed WebVTT. Each has
+one warm-up and20 measured fresh CLI commands. The500ms p95 budget includes
+process startup, package/source IO, helper, validation, full review output or
+atomic publication, and final input verification. Worst p95 is333.31024996005ms
+(timed WebVTT/VSS apply), with a335.46562504488975ms maximum in that workload.
+Sampled totalCLI+helperRSS is120,782,848bytes (115.1875MiB) against192MiB, using
+8278 samples including4082 live helpers. There is no input-baseline subtraction.
+Every finding/change, original bytes, output SHA256 and output reparse through a
+second real CLI check is verified outside the command timer. Sampling adds polling
+latency and can miss RSS peaks; it is not an OS memory cap. Existing pure/API gates
+are unchanged. The default desktop build overlapped part of this passing run.
+
+Commands (repository root; Node commands use `source "$HOME/.nvm/nvm.sh" && nvm use --silent`):
+
+```sh
+cargo test --locked -p vsf-application --test plugin_files
+cargo test --locked -p vsf-cli --test plugins
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+cargo build --locked -p vsf-cli
+cargo build --locked --release -p vsf-cli
+python3 scripts/plugin-cli-benchmark.py
+npm run format:check
+npm run lint
+npm test
+npm run build
+npm run ipc:check
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+Receipts live under `test-results/plugin-cli-20261018/`: application/CLI/workspace
+test logs, strict/build logs, `benchmark.json` and `source-inventory.json`.
+Measured release CLI SHA256:
+`860eb7a351f3b0958fe494c995995bf8052cc5adbeb973ee80f5022ddf70ef90`.
+The targeted source audit uses `cargo metadata --locked --offline --format-version 1
+--filter-platform aarch64-apple-darwin`, the existing non-dev GUI/CLI closure and
+archive/notice functions. All three registry archives match Cargo.lock and local
+unpacked sources; original nested engine notices and the core crate's pinned
+upstream license are retained. This is not a complete release inventory.
+
+Retained failures: the first IO assertion expected `/var` rather than the published
+canonical `/private/var` path; the test now compares canonical paths. Initial CLI
+tests omitted the required VSS name, mistook a structured helper request error for
+a process transport failure, and expected an argument error for a runtime setting
+type mismatch. Those test expectations/fixtures were corrected, with the actual
+helper protocol and API behavior retained. The first targeted license audit
+assumed every crate contained root notices; using the existing pinned-upstream
+fallback resolves the missing rquickjs-core notice. No performance budget was
+relaxed and no desktop/VM acceptance is inferred from these results.
+
+## Mac foundation evidence — 2026-10-18
+
+On macOS27.0 build26A428 / Apple M3 Max, Rust1.98.1, ten focused worker tests pass
+(4.00s initial complete run), including positive controls after every limited or
+failed execution. All 462 workspace tests pass, with 30 opt-in tests ignored and 11
+zero-test harnesses excluded from feature evidence. Strict workspace Clippy,
+Rustfmt, Prettier and ESLint pass. The final protocol-boundary assertions rerun
+the ten focused tests (3.95s debug, 2.73s release) and crate Clippy. Release tests
+also check the optimized engine’s interruption/allocation bounds. No frontend or accepted-document code
+changed; browser/native-editor workflows were not rerun for this isolated crate.
+Windows/Linux runtime tests remain unverified. This does not accept ADR0008.
+
+The release runtime benchmark passes, with input SHA-256
+`48f502414caf9e404b4db0a6b69d4912a6301d19a09ec782791018eec2a8862d`:
+
+| 10k payload | p95 ms | Maximum ms |
+| --- | ---: | ---: |
+| Read-only | 37.309 | 37.599 |
+| Proposed data | 46.512 | 46.985 |
+
+There are 76 RSS snapshots, 60 with a live helper. Parent baseline is 19,791,872
+bytes; combined peak 73,367,552 bytes; increase 53,575,680 bytes versus the declared
+201,326,592-byte limit. These are the complete synchronous parent/worker functions
+and all-row validation, but no subtitle-domain proposal validation, history,
+format serialization, UI or actual legacy compatibility is included yet.
+Worker SHA-256 is
+`4fd565d517242fed583e692b085b46357228edbce17c8916a8ebe350cac28d82`;
+benchmark binary SHA-256 is
+`16b46109beea93c5c057f431ca5e4cca680ec6e3b7e133200c09a3ed84f9c0d1`.
+
+Reproduction from the repository root:
+
+```sh
+cargo test --locked -p vsf-plugin-host -- --test-threads=1
+cargo test --release --locked -p vsf-plugin-host -- --test-threads=1
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+cargo build --release --locked -p vsf-plugin-host --bin vsf-plugin-worker --example runtime-benchmark
+python3 scripts/plugin-runtime-benchmark.py
+source "$HOME/.nvm/nvm.sh"
+nvm use --silent
+npm run format:check
+npm run lint
+```
+
+Logs, feature-tree inspection and benchmark JSON are retained in
+`test-results/plugin-runtime-20261018/`. The initial compile ran zero tests and is
+build evidence only. An initial locked benchmark build correctly refused the new
+development dependency entry; an offline lockfile update followed, then the locked
+build passed. Five packages were added (the three rquickjs crates, allocator-api2
+and relative-path); no existing package version changed. Boa was inspected in the
+registry cache only. The preserved legacy checkout was not changed or executed.
+
+## Pure API/proposal evidence — 2026-10-18
+
+The [API matrix](plugin-api.md) now documents implemented modern/VSS rules and
+fixes, package-local loading/settings, transaction-local neighbors, raw/stripped
+text, scenes and explicit unsupported surfaces. Fourteen real-helper API tests
+pass, plus two combined domain-batch tests. All 478 workspace tests pass, with 31
+opt-in tests ignored; 11 zero-test harnesses are excluded from feature evidence.
+Strict workspace Clippy, Rustfmt, Prettier and ESLint pass. The separately acquired unchanged
+archived overlap rule also passes its opt-in local test; no legacy script is
+redistributed. These tests cover the library proposal and Editor transaction,
+not desktop admission, review, recovery or historical VSS runtime parity.
+
+Twenty exact 10,000-cue workloads exercise both APIs in check/fix modes on five
+fixtures. Each has one warm-up and 20 measured fresh-helper runs. The declared
+500ms p95 includes initial parse, capture/package validation, execution, every
+finding/edit/metadata check and, for fixes, accepted history, serialization,
+reparse, one Undo/Redo and stale rejection. WebVTT fixes retain absolute payload
+timestamps and change only text; other fixes combine text and a 10 ms shift with
+unchanged duration. The dense SRT karaoke fixture retains its expected markup
+review warnings. No filesystem save/recovery, UI or native acceptance is claimed.
+
+| Fixture | Modern check / fix p95 ms | VSS check / fix p95 ms |
+| --- | ---: | ---: |
+| Dense tagged SRT | 80.052 / 159.977 | 109.993 / 218.899 |
+| ASS | 99.022 / 240.446 | 127.120 / 302.633 |
+| SSA | 97.325 / 225.818 | 124.276 / 281.466 |
+| Styled WebVTT | 98.169 / 205.627 | 123.595 / 274.932 |
+| Timed WebVTT | 94.898 / 196.327 | 120.584 / 254.737 |
+
+All pass; the largest p95 is 302.632917 ms and that workload's maximum is 304.23275 ms.
+Combined parent/direct-helper RSS rises from 9,895,936 to 208,142,336 bytes:
+**+198,246,400 bytes (189.0625 MiB)** against the unchanged 192 MiB limit. There are
+2737 samples, 1539 observing a live helper. Only raw fixture allocation precedes
+the baseline; parsed documents, captures, history and protocol copies are included.
+Sampling can miss peaks and does not establish an OS-enforced memory cap. Existing
+pure-application 96 MiB gates have not been relaxed.
+
+The final API benchmark binary SHA256 is
+`c24bce7847fd807b3936c2765a48641bb3e7235fa733d8f3c6d9a998d7cae4b0`;
+the worker is
+`b4348bf2e3caac3aa0fa85cbb479d166e9f55af00116b44e40dfbd6afd31ab62`.
+Exact input identities:
+
+| Fixture | SHA256 |
+| --- | --- |
+| Dense tagged SRT (generated in example) | `c8118a0cc80dc2e2955c68d83401a7cb1e80f0858fc6d5ef45827a3c1bfec6e2` |
+| ASS | `00e4deb1210c47e2943c30744da0e5d0512a57ba159b659d9dd16ef5d47c1c0c` |
+| SSA | `0d2415e1e2d61776e7c9051c3c3c1c10b1c02770e225652b7b0132c57fb79b14` |
+| Styled WebVTT | `783a7ad89406073e0cb6512c9ca9daaac9b7c09baeaa933dada2bd0e67aa339f` |
+| Timed WebVTT | `46430c8e7b374e2bd6ccb3d4bd95cf3489d2571f00ff8c9120c9c59ce5e1c1e6` |
+
+Reproduce with the pinned toolchains, from the repository root:
+
+```sh
+python3 scripts/ass-fixtures.py
+python3 scripts/webvtt-fixtures.py
+cargo test --locked -p subtitle-core --test combined_batch
+cargo test --locked -p vsf-plugin-host --test subtitles -- --test-threads=1
+# Set this to your separately acquired, hash-verified archived file:
+VSF_LEGACY_OVERLAP_SCRIPT=/path/to/jsplugin/overlapping.js cargo test --locked -p vsf-plugin-host --test subtitles unchanged_archived_overlap_rule_and_fix_run_locally -- --ignored --nocapture
+cargo build --release --locked -p vsf-plugin-host --bin vsf-plugin-worker --example api-benchmark
+python3 scripts/plugin-runtime-benchmark.py --api
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run format:check
+npm run lint
+```
+
+Receipts are in `test-results/plugin-api-20261018/`; `benchmark-v4.json` is the
+final passing run. Retained attempts include a benchmark format-string compile
+error, an incorrect oracle that expected no karaoke warning, then actual VSS CPU
+and repeated-run RSS failures. Sharing accessor functions alone was insufficient:
+`benchmark-v3.json` records p95 up to 659.335 ms and +248,627,200 RSS bytes. A bounded
+engine phase probe isolated the legacy callback loop; a key-type microprobe found
+numeric-Map overhead. The final dense wrapper array preserves own properties and
+stable identity. Immutable cue metadata sharing avoids copying every event field
+across captures/history; style replacement remains copy-on-write. All fixture
+contents, iterations, validation steps and CPU/RSS limits remain unchanged.
+An initial SRT test fixture also omitted its canonical final blank line; it was
+corrected to test existing serializer behavior, without changing format policy.
+
+Only workspace-local dev-dependencies were added to compose application and
+runtime tests/examples; no registry package/version changed. The application,
+domain and desktop dependency boundaries are unchanged. Full desktop/CLI owner
+integration and native/VM acceptance still keep stage 7 and ADR0008 open.
+Frontend interaction/browser tests and a new native desktop build were not rerun
+for this pure library increment; no UI/IPC/native workflow implementation changed.

@@ -90,17 +90,47 @@ cargo fmt --all -- --check
 # Whole workspace; build frontend assets before compiling the desktop shell.
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
+cargo build --locked -p vsf-cli
 npm run tauri -- build --debug --no-bundle -- --locked
 ```
 
 `npm run build` includes strict Svelte/TypeScript checking; `npm run check` runs that step alone. `npm run format` and `cargo fmt --all` apply formatting. Prettier covers frontend and configuration files; existing planning Markdown is excluded to preserve its formatting.
 
+The desktop plugin owner runs the `vsf` CLI beside its own executable as a bounded
+helper. Normal `tauri dev` builds that CLI before starting Vite, and the desktop
+test script and maintained package workflows already build/include it. For a
+custom Cargo target, target directory or profile, build `vsf-cli` with matching
+flags so the two binaries are siblings. The desktop never searches PATH for a
+plugin runner. See the [desktop plugin workflow](docs/plugin-desktop.md) for
+current controls and remaining acceptance gates.
+
+The optional desktop `--ass` and `--ass-performance` lanes cover full ASS/SSA,
+tagged SRT and exact 10,000-cue format fixtures. The native lane needs the explicit
+Mac runtime/test build; see [reproduction and evidence limits](tests/desktop/README.md#assssa-documents-and-tagged-srt).
+
 The [real desktop workflow lane](tests/desktop/README.md) additionally builds an
-isolated, optionally instrumented app and exercises actual IPC, edits, Undo/Redo,
+isolated, optionally instrumented app and the CLI, then exercises actual IPC,
+profile Settings, quality metrics/Problems with CLI parity, edits, Undo/Redo,
 failed/cancelled saves, reopen and crash recovery. Run `npm run build:desktop-test`
 then `npm run test:desktop`; headless Linux needs the documented Xvfb/session-bus
 wrapper. This supplies file selections and excludes native dialogs and playback.
 Normal builds do not include the WebDriver server.
+The optional `npm run test:desktop -- --scenes` needs a build with both
+`desktop-e2e,media-prototype` and FFmpeg. It exercises real scene restore/rescan,
+review, acceptance and 10,000-cue interaction; see the desktop lane's instructions.
+Add `--duration` to exercise selected/all duration-speed repairs, exact saves,
+history and 10,000 mixed extensions/trims. The two options can run together.
+Add `--statistics` for read-only whole/range reports, executable CLI parity,
+protected outlier navigation and 10,000-cue statistics. It uses the same native
+test build and can run alone or with the other extensions. See the
+[statistics guide](docs/statistics.md) for its separate release CPU/RSS benchmark.
+The [duration guide](docs/duration-repairs.md) also records the release CPU/RSS
+benchmark and unchanged acceptance budgets.
+The optional `npm run test:desktop -- --performance` extends that lane with the
+declared 10,000-cue quality and text-tool responsiveness checks; its RSS sampler
+uses Unix `ps`. The ordinary lane also checks protected Find/Replace, formatting
+drafts and atomic line repairs. See [text tools](docs/text-editing.md) for the
+separate release proposal benchmark and conservative transformation limits.
 
 After changing a Rust IPC definition, run `npm run ipc:generate`, then `npm run
 check` and the relevant browser workflows. `ipc:check` generates into a temporary
@@ -127,7 +157,8 @@ project save failures, recovery response ordering and gesture cancellation.
 FAIL rows, page errors, incomplete results, zero checks and inconsistent passing
 counts fail the run. Negative controls verify those runner failure modes. Reports,
 failure screenshots and traces are under ignored `playwright-report/` and
-`test-results/`; CI uploads them. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
+`test-results/browser/`; CI uploads them. Browser cleanup leaves real-desktop
+receipts in `test-results/desktop-*` intact. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
 These are production components with modeled IPC and synthetic events, not native
 WebView, filesystem, keyboard, GPU or audio-device acceptance.
 

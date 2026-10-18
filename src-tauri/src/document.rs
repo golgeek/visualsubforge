@@ -8,17 +8,51 @@ use std::{
     sync::{Arc, Mutex},
 };
 use subtitle_core::{CueId, Edit, Editor, Milliseconds};
-use subtitle_formats::srt;
+use subtitle_formats::{Source, srt};
 
 mod autosave;
+mod checks;
+mod plugins;
+#[cfg(test)]
+pub(crate) use plugins::ipc_samples as plugin_ipc_samples;
+mod statistics;
+pub(crate) mod translation;
+#[cfg(test)]
+pub(crate) use statistics::ipc_sample as statistics_ipc_sample;
+mod gaps;
+mod texts;
+#[cfg(test)]
+pub(crate) use texts::conversion_ipc_samples;
+#[cfg(test)]
+pub(crate) use texts::font_ipc_samples;
+#[cfg(test)]
+pub(crate) use texts::style_ipc_samples;
+mod timing_repairs;
+#[cfg(test)]
+pub(crate) use checks::ipc_sample as quality_ipc_sample;
+#[cfg(test)]
+pub(crate) use gaps::ipc_sample as gap_ipc_sample;
+#[cfg(test)]
+pub(crate) use texts::ipc_sample as text_ipc_sample;
+#[cfg(test)]
+pub(crate) use timing_repairs::batch_ipc_sample;
+#[cfg(test)]
+pub(crate) use timing_repairs::duration_ipc_sample as duration_repair_ipc_sample;
+#[cfg(test)]
+pub(crate) use timing_repairs::ipc_sample as scene_repair_ipc_sample;
+mod quality;
 mod resync;
 pub(crate) use resync::Capture;
+#[cfg(test)]
+mod ass_tests;
 #[cfg(test)]
 pub(crate) mod ipc_tests;
 #[cfg(test)]
 mod limits_tests;
 #[cfg(test)]
 mod save_tests;
+#[cfg(test)]
+mod webvtt_tests;
 use autosave::RecoveryControl;
 
 type Result<T> = std::result::Result<T, String>;
@@ -31,10 +65,17 @@ struct Store {
     loaded: Option<Loaded>,
     recovery_root: Option<PathBuf>,
     recovery_error: Option<String>,
+    quality: quality::State,
+    checks: checks::Checks,
+    statistics: statistics::State,
+    gaps: gaps::State,
+    timing_repairs: timing_repairs::State,
+    texts: texts::State,
+    translation: translation::State,
+    plugins: plugins::State,
 }
 struct Loaded {
-    editor: Editor,
-    source: srt::Source,
+    editor: Editor<Source>,
     path: Option<PathBuf>,
     // Used to reject overwriting a file changed outside this application.
     saved_bytes: Vec<u8>,
@@ -42,6 +83,7 @@ struct Loaded {
     // The current path is source provenance until a different file is saved.
     // Independent of editor history: Undo must not remove this protection.
     resynced: bool,
+    translation: translation::Context,
 }
 #[derive(Deserialize, specta::Type)]
 #[serde(
@@ -50,6 +92,19 @@ struct Loaded {
     rename_all_fields = "camelCase"
 )]
 pub enum Action {
+    EditStyled {
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
+        cue_id: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
+        start_ms: u64,
+        #[serde(with = "crate::ipc_number")]
+        #[specta(type = crate::ipc_number::SafeU64)]
+        end_ms: u64,
+        text: String,
+        style: String,
+    },
     Status,
     Recover {
         id: String,
@@ -116,6 +171,10 @@ pub enum Action {
 #[derive(Serialize, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    translation: Option<translation::Summary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<FormatView>,
     #[serde(with = "crate::ipc_number")]
     #[specta(type = crate::ipc_number::SafeU64)]
     generation: u64,
@@ -133,6 +192,8 @@ pub struct Snapshot {
 #[derive(Serialize, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct CueView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    style: Option<String>,
     #[serde(with = "crate::ipc_number")]
     #[specta(type = crate::ipc_number::SafeU64)]
     id: u64,
@@ -145,12 +206,37 @@ struct CueView {
     text: String,
 }
 
+#[derive(Serialize, Debug, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct FormatView {
+    name: String,
+    time_step_ms: u32,
+    styles: Vec<StyleView>,
+    script_info: Vec<(String, String)>,
+}
+#[derive(Serialize, Debug, specta::Type)]
+struct StyleView {
+    name: String,
+    fields: Vec<(String, String)>,
+}
+
 impl Loaded {
+    fn subtitle_dirty(&self) -> bool {
+        self.editor.dirty()
+            || self.recovered
+            || self.resynced
+            || (self.path.is_none() && self.translation.copied_from.is_some())
+    }
+    fn source(&self) -> &Source {
+        self.editor.properties()
+    }
     fn apply_edit(&mut self, revision: u64, edit: Edit) -> Result<()> {
         self.editor
-            .apply_edit(revision, edit, |document| {
-                crate::srt_limits::validate_document(document, &self.source)
-            })
+            .apply_edit_with_properties(
+                revision,
+                edit,
+                vsf_application::subtitle_file::validate_document,
+            )
             .map(|_| ())
     }
 }
@@ -159,13 +245,37 @@ impl Store {
     fn snapshot(&self) -> Snapshot {
         let loaded = self.loaded.as_ref();
         Snapshot {
+            translation: self.translation_summary(),
+            format: loaded.and_then(|d| {
+                if d.source().format() == subtitle_formats::Format::WebVtt {
+                    return Some(FormatView {
+                        name: "vtt".into(),
+                        time_step_ms: 1,
+                        styles: vec![],
+                        script_info: vec![],
+                    });
+                }
+                d.source().ass().map(|source| FormatView {
+                    name: d.source().format().extension().into(),
+                    time_step_ms: 10,
+                    styles: source
+                        .styles()
+                        .iter()
+                        .map(|s| StyleView {
+                            name: s.name.clone(),
+                            fields: s.fields.clone(),
+                        })
+                        .collect(),
+                    script_info: source.script_info().to_vec(),
+                })
+            }),
             generation: self.generation,
             revision: loaded.map_or(0, |d| d.editor.revision()),
             loaded: loaded.is_some(),
             path: loaded
                 .and_then(|d| d.path.as_ref())
                 .map(|p| p.to_string_lossy().into_owned()),
-            dirty: loaded.is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced),
+            dirty: loaded.is_some_and(Loaded::subtitle_dirty),
             requires_save_as: loaded.is_some_and(|d| d.recovered || d.resynced || d.path.is_none()),
             can_undo: loaded.is_some_and(|d| d.editor.can_undo()),
             can_redo: loaded.is_some_and(|d| d.editor.can_redo()),
@@ -175,6 +285,10 @@ impl Store {
                     .cues()
                     .iter()
                     .map(|c| CueView {
+                        style: c
+                            .metadata()
+                            .and_then(|m| m.get("Style"))
+                            .map(|s| s.trim().to_owned()),
                         id: c.id().0,
                         start_ms: c.start().get(),
                         end_ms: c.end().get(),
@@ -194,6 +308,45 @@ impl Store {
             return Err("Subtitle document changed; refresh before retrying this operation".into());
         }
         match action {
+            Action::EditStyled {
+                cue_id,
+                start_ms,
+                end_ms,
+                text,
+                style,
+            } => {
+                let loaded = self.loaded_mut()?;
+                let source = loaded
+                    .source()
+                    .ass()
+                    .ok_or("Style assignment requires ASS/SSA subtitles")?;
+                let current = loaded
+                    .editor
+                    .document()
+                    .cues()
+                    .iter()
+                    .find(|c| c.id() == CueId(cue_id))
+                    .ok_or("Cue no longer exists")?;
+                if current
+                    .metadata()
+                    .and_then(|m| m.get("Style"))
+                    .map(str::trim)
+                    != Some(style.as_str())
+                {
+                    source.validate_style(&style)?;
+                }
+                let text = loaded.source().prepare_text(text)?;
+                loaded.apply_edit(
+                    revision,
+                    Edit::StyledText {
+                        id: CueId(cue_id),
+                        start: Milliseconds::new(start_ms)?,
+                        end: Milliseconds::new(end_ms)?,
+                        text,
+                        style,
+                    },
+                )?;
+            }
             Action::Status => unreachable!(),
             Action::Open { path, discard } => {
                 self.check_discard(discard)?;
@@ -201,15 +354,18 @@ impl Store {
                     .canonicalize()
                     .map_err(|e| format!("Cannot open subtitles: {e}"))?;
                 let bytes = read_file(&path)?;
-                let parsed = vsf_application::subtitle_file::parse(&bytes)?;
+                let parsed = vsf_application::subtitle_file::parse_document(
+                    &bytes,
+                    path.extension().and_then(|s| s.to_str()),
+                )?;
                 // Commit only after every read and parse operation succeeds.
                 self.loaded = Some(Loaded {
-                    editor: Editor::new(parsed.document),
-                    source: parsed.source,
+                    editor: Editor::with_properties(parsed.document, parsed.source),
                     path: Some(path),
                     saved_bytes: bytes,
                     recovered: false,
                     resynced: false,
+                    translation: translation::Context::default(),
                 });
                 self.generation += 1;
             }
@@ -219,17 +375,20 @@ impl Store {
                     .recovery_root
                     .as_ref()
                     .ok_or("Recovery storage is unavailable")?;
-                let record = crate::recovery_store::recover(root, &id)?;
-                let parsed = srt::parse(&record.accepted_srt)?;
+                let crate::recovery_store::Recovered {
+                    record,
+                    parsed,
+                    translation,
+                } = crate::recovery_store::recover(root, &id)?;
                 self.loaded = Some(Loaded {
-                    editor: Editor::new(parsed.document),
-                    source: parsed.source,
+                    editor: Editor::with_properties(parsed.document, parsed.source),
                     path: record.source_path.map(|path| {
                         save_path(Path::new(&path)).unwrap_or_else(|_| PathBuf::from(path))
                     }),
                     saved_bytes: record.saved_srt.into_bytes(),
                     recovered: true,
                     resynced: record.resynced,
+                    translation,
                 });
                 self.generation += 1;
             }
@@ -244,7 +403,7 @@ impl Store {
                 end_ms,
                 text,
             } => {
-                srt::validate_text(&text)?;
+                let text = self.loaded_mut()?.source().prepare_text(text)?;
                 self.loaded_mut()?.apply_edit(
                     revision,
                     Edit::Text {
@@ -264,18 +423,17 @@ impl Store {
                 end_ms,
                 text,
             } => {
-                srt::validate_text(&text)?;
                 // Build the first cue off to the side: invalid input must not
                 // publish an empty document or consume a generation.
                 let mut untitled = if self.loaded.is_none() {
                     let parsed = srt::parse("")?;
                     Some(Loaded {
-                        editor: Editor::new(parsed.document),
-                        source: parsed.source,
+                        editor: Editor::with_properties(parsed.document, parsed.source.into()),
                         path: None,
                         saved_bytes: Vec::new(),
                         recovered: false,
                         resynced: false,
+                        translation: translation::Context::default(),
                     })
                 } else {
                     None
@@ -284,6 +442,8 @@ impl Store {
                     Some(loaded) => loaded,
                     None => self.loaded_mut()?,
                 };
+                let text = loaded.source().prepare_text(text)?;
+                let metadata = loaded.source().default_metadata()?;
                 loaded.apply_edit(
                     revision,
                     Edit::Create {
@@ -291,6 +451,7 @@ impl Store {
                         start: Milliseconds::new(start_ms)?,
                         end: Milliseconds::new(end_ms)?,
                         text,
+                        metadata,
                     },
                 )?;
                 if let Some(loaded) = untitled {
@@ -303,6 +464,18 @@ impl Store {
                     .apply_edit(revision, Edit::Delete { id: CueId(cue_id) })?;
             }
             Action::Split { cue_id, at_ms } => {
+                let loaded = self.loaded_mut()?;
+                let cue = loaded
+                    .editor
+                    .document()
+                    .cues()
+                    .iter()
+                    .find(|c| c.id() == CueId(cue_id))
+                    .ok_or("Cue no longer exists")?;
+                vsf_application::subtitle_operations::validate_split(
+                    cue,
+                    loaded.source().format(),
+                )?;
                 self.loaded_mut()?.apply_edit(
                     revision,
                     Edit::Split {
@@ -315,11 +488,33 @@ impl Store {
                 first_id,
                 second_id,
             } => {
+                let loaded = self.loaded_mut()?;
+                let cues = loaded.editor.document().cues();
+                let first = cues
+                    .iter()
+                    .find(|c| c.id() == CueId(first_id))
+                    .ok_or("Cue no longer exists")?;
+                let second = cues
+                    .iter()
+                    .find(|c| c.id() == CueId(second_id))
+                    .ok_or("Cue no longer exists")?;
+                vsf_application::subtitle_operations::validate_merge(
+                    first,
+                    second,
+                    loaded.source().format(),
+                )?;
+                let separator = if self.loaded_mut()?.source().ass().is_some() {
+                    "\\N{\\r}"
+                } else {
+                    "\n"
+                }
+                .into();
                 self.loaded_mut()?.apply_edit(
                     revision,
                     Edit::Merge {
                         first: CueId(first_id),
                         second: CueId(second_id),
+                        separator,
                     },
                 )?;
             }
@@ -348,7 +543,14 @@ impl Store {
                 if loaded.resynced && loaded.path.as_ref() == Some(&target) {
                     return Err("Choose a different file to preserve the original subtitles".into());
                 }
-                let bytes = srt::serialize(loaded.editor.document(), &loaded.source)?.into_bytes();
+                loaded.translation.protect(&target)?;
+                loaded
+                    .source()
+                    .validate_save_extension(target.extension().and_then(|s| s.to_str()))?;
+                let bytes = loaded
+                    .source()
+                    .serialize(loaded.editor.document())?
+                    .into_bytes();
                 crate::srt_limits::validate_size(bytes.len())?;
                 // Serialize before taking the lease, but compare disk bytes only
                 // while holding it. Retain it through saved-state publication.
@@ -378,11 +580,16 @@ impl Store {
             .ok_or_else(|| "Open subtitles first".into())
     }
     fn check_discard(&self, discard: bool) -> Result<()> {
+        if !discard && self.loaded.as_ref().is_some_and(|d| d.translation.dirty) {
+            return Err(
+                "Save the translation context in a project or explicitly discard it first".into(),
+            );
+        }
         if !discard
             && self
                 .loaded
                 .as_ref()
-                .is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced)
+                .is_some_and(|d| d.subtitle_dirty() || d.translation.dirty)
         {
             return Err("Save or explicitly discard subtitle changes first".into());
         }
@@ -409,6 +616,13 @@ fn save_path(path: &Path) -> Result<PathBuf> {
 }
 
 impl Documents {
+    pub(crate) fn subtitle_extension(&self) -> Result<&'static str> {
+        let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
+        Ok(store
+            .loaded
+            .as_ref()
+            .map_or("srt", |loaded| loaded.source().format().extension()))
+    }
     #[cfg(any(
         test,
         all(
@@ -435,7 +649,9 @@ impl Documents {
             return Ok(None);
         }
         let content = match &store.loaded {
-            Some(loaded) => crate::subtitle_preview::serialize(loaded.editor.document()),
+            Some(loaded) => {
+                crate::subtitle_preview::serialize_source(loaded.editor.document(), loaded.source())
+            }
             _ => Ok(None),
         };
         Ok(Some(Snapshot { revision, content }))
@@ -461,10 +677,13 @@ impl Documents {
     }
 
     pub(crate) fn apply(&self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
-        self.0
+        let mut store = self
+            .0
             .lock()
-            .map_err(|_| "Document worker state is unavailable")?
-            .apply(action, generation, revision)
+            .map_err(|_| "Document worker state is unavailable")?;
+        let result = store.apply(action, generation, revision);
+        store.invalidate_checks();
+        result
     }
 }
 // Save As and no-op resync acceptance can change persistence state without an
@@ -476,6 +695,8 @@ struct CheckpointKey {
     dirty: bool,
     path: Option<PathBuf>,
     resynced: bool,
+    translation_epoch: u64,
+    translation_dirty: bool,
 }
 impl Store {
     fn publish_checkpoint(
@@ -500,9 +721,11 @@ impl Store {
             dirty: self
                 .loaded
                 .as_ref()
-                .is_some_and(|d| d.editor.dirty() || d.recovered || d.resynced),
+                .is_some_and(|d| d.subtitle_dirty() || d.translation.dirty),
             path: self.loaded.as_ref().and_then(|d| d.path.clone()),
             resynced: self.loaded.as_ref().is_some_and(|d| d.resynced),
+            translation_epoch: self.translation.epoch,
+            translation_dirty: self.loaded.as_ref().is_some_and(|d| d.translation.dirty),
         }
     }
 }
@@ -717,7 +940,7 @@ mod tests {
         let record = crate::recovery_store::Record::new(
             None,
             String::new(),
-            srt::serialize(loaded.editor.document(), &loaded.source).unwrap(),
+            loaded.source().serialize(loaded.editor.document()).unwrap(),
             1,
             1,
         )
@@ -838,7 +1061,7 @@ mod tests {
                     .as_ref()
                     .map(|path| path.to_string_lossy().into_owned()),
                 String::from_utf8(loaded.saved_bytes.clone()).unwrap(),
-                srt::serialize(loaded.editor.document(), &loaded.source).unwrap(),
+                loaded.source().serialize(loaded.editor.document()).unwrap(),
                 store.generation,
                 loaded.editor.revision(),
             )
@@ -897,7 +1120,9 @@ mod tests {
 
         let entries = crate::recovery_store::list(&recovery_root).unwrap();
         assert_eq!(entries.len(), 1);
-        let restored = crate::recovery_store::recover(&recovery_root, &entries[0].id).unwrap();
+        let restored = crate::recovery_store::recover(&recovery_root, &entries[0].id)
+            .unwrap()
+            .record;
         assert_eq!(restored.accepted_srt, latest.accepted_srt);
         assert_eq!(restored.saved_srt.as_bytes(), ORIGINAL.as_bytes());
         assert_eq!(restored.generation, 3);
@@ -1094,7 +1319,7 @@ mod tests {
         let loaded = store.loaded.as_ref().unwrap();
         assert_eq!(
             record.accepted_srt,
-            srt::serialize(loaded.editor.document(), &loaded.source).unwrap()
+            loaded.source().serialize(loaded.editor.document()).unwrap()
         );
         assert!(record.accepted_srt.contains(latest));
         assert!(store.recovery_error.is_none());
@@ -1202,7 +1427,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(split.revision, Revision(1, 1));
-        let text = split.content.unwrap().unwrap();
+        let text = split.content.unwrap().unwrap().url;
         assert!(text.contains("00:00:01.000 --> 00:00:01.500"));
         assert!(text.contains("00:00:01.500 --> 00:00:02.000"));
         assert_eq!(text.matches("Héllo").count(), 2);
@@ -1221,7 +1446,16 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(merged.revision, Revision(1, 2));
-        assert_eq!(merged.content.unwrap().unwrap().matches(" --> ").count(), 1);
+        assert_eq!(
+            merged
+                .content
+                .unwrap()
+                .unwrap()
+                .url
+                .matches(" --> ")
+                .count(),
+            1
+        );
         documents.apply(Action::Delete { cue_id: 1 }, 1, 2).unwrap();
         assert!(
             documents
@@ -1238,7 +1472,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(restored.revision, Revision(1, 4));
-        assert!(restored.content.unwrap().unwrap().contains("Héllo"));
+        assert!(restored.content.unwrap().unwrap().url.contains("Héllo"));
     }
     #[test]
     fn structural_operations_save_reopen_and_reject_old_documents_atomically() {
@@ -1322,11 +1556,13 @@ mod tests {
             store.apply(Action::Undo, 1, revision).unwrap();
         }
         assert_eq!(
-            srt::serialize(
-                store.loaded.as_ref().unwrap().editor.document(),
-                &store.loaded.as_ref().unwrap().source
-            )
-            .unwrap(),
+            store
+                .loaded
+                .as_ref()
+                .unwrap()
+                .source()
+                .serialize(store.loaded.as_ref().unwrap().editor.document())
+                .unwrap(),
             ORIGINAL
         );
         for revision in 8..12 {
@@ -1374,8 +1610,8 @@ mod tests {
         let first = documents.preview_since(None).unwrap().unwrap();
         assert_eq!(first.revision, Revision(1, 0));
         assert_eq!(
-            first.content.unwrap().unwrap(),
-            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
+            first.content.unwrap().unwrap().url,
+            "memory://WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
         );
         {
             let mut store = documents.0.lock().unwrap();
@@ -1385,7 +1621,14 @@ mod tests {
             .preview_since(Some(Revision(1, 0)))
             .unwrap()
             .unwrap();
-        assert!(edited.content.unwrap().unwrap().contains("Changed\n世界"));
+        assert!(
+            edited
+                .content
+                .unwrap()
+                .unwrap()
+                .url
+                .contains("Changed\n世界")
+        );
         documents.apply(Action::Undo, 1, 1).unwrap();
         let undo = documents
             .preview_since(Some(Revision(1, 1)))
@@ -1393,8 +1636,8 @@ mod tests {
             .unwrap();
         assert_eq!(undo.revision, Revision(1, 2));
         assert_eq!(
-            undo.content.unwrap().unwrap(),
-            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
+            undo.content.unwrap().unwrap().url,
+            "memory://WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n <i>Héllo</i> \n\n"
         );
         assert!(
             documents
@@ -1418,6 +1661,129 @@ mod tests {
             .unwrap();
         assert_eq!(closed.revision, Revision(2, 0));
         assert!(closed.content.unwrap().is_none());
+    }
+
+    #[test]
+    fn ass_preview_edit_undo_redo_and_save_preserve_original_markup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tagged.srt");
+        let original = "\u{feff}7\r\n00:00:01,001 --> 00:00:02,999\r\n{\\an8\\c&H0000FF&}<i>Original</i>\\N日本語\r\n\r\n";
+        fs::write(&path, original).unwrap();
+        let documents = Documents::default();
+        documents
+            .apply(
+                Action::Open {
+                    path: path.to_string_lossy().into_owned(),
+                    discard: false,
+                },
+                0,
+                0,
+            )
+            .unwrap();
+        let before = documents
+            .preview_since(None)
+            .unwrap()
+            .unwrap()
+            .content
+            .unwrap();
+        assert!(before.as_ref().unwrap().url.starts_with("hex://"));
+        let edited = r"{\a6\t(0,800,\fs40)}Edited <b>bold</b>";
+        documents
+            .apply(
+                Action::Edit {
+                    cue_id: 1,
+                    start_ms: 1001,
+                    end_ms: 2999,
+                    text: edited.into(),
+                },
+                1,
+                0,
+            )
+            .unwrap();
+        let after = documents
+            .preview_since(None)
+            .unwrap()
+            .unwrap()
+            .content
+            .unwrap();
+        assert_ne!(before, after);
+        documents.apply(Action::Undo, 1, 1).unwrap();
+        assert_eq!(
+            documents
+                .preview_since(None)
+                .unwrap()
+                .unwrap()
+                .content
+                .unwrap(),
+            before
+        );
+        documents.apply(Action::Save { path: None }, 1, 2).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        documents.apply(Action::Redo, 1, 2).unwrap();
+        assert_eq!(
+            documents
+                .preview_since(None)
+                .unwrap()
+                .unwrap()
+                .content
+                .unwrap(),
+            after
+        );
+        documents.apply(Action::Save { path: None }, 1, 3).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            original.replace(r"{\an8\c&H0000FF&}<i>Original</i>\N日本語", edited)
+        );
+        let reopened = documents
+            .apply(
+                Action::Open {
+                    path: path.to_string_lossy().into_owned(),
+                    discard: false,
+                },
+                1,
+                3,
+            )
+            .unwrap();
+        assert!(
+            reopened.format.is_none(),
+            "Inline tags must not change SRT format identity"
+        );
+        assert_eq!(
+            (reopened.cues[0].start_ms, reopened.cues[0].end_ms),
+            (1001, 2999)
+        );
+        assert_eq!(reopened.cues[0].text, edited);
+        assert_eq!(
+            documents
+                .preview_since(None)
+                .unwrap()
+                .unwrap()
+                .content
+                .unwrap(),
+            after
+        );
+        assert!(
+            documents
+                .apply(
+                    Action::Split {
+                        cue_id: 1,
+                        at_ms: 1500
+                    },
+                    reopened.generation,
+                    0
+                )
+                .unwrap_err()
+                .contains("cue-relative")
+        );
+        assert_eq!(
+            documents
+                .preview_since(None)
+                .unwrap()
+                .unwrap()
+                .content
+                .unwrap(),
+            after
+        );
     }
 
     #[test]

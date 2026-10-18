@@ -4,7 +4,7 @@
   "version": "0.0.1-alpha",
   "identifier": "com.golgeek.visualsubforge",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "cargo build --locked -p vsf-cli && npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"

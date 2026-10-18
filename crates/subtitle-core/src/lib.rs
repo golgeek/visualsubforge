@@ -1,8 +1,8 @@
 //! Subtitle state and reversible edits. No filesystem, UI or media dependencies.
 mod document;
 mod editor;
-pub use document::{Cue, CueId, Document, Milliseconds};
+pub use document::{Cue, CueId, CueMetadata, Document, Milliseconds};
 
 pub type Result<T> = std::result::Result<T, String>;
 
-pub use editor::{CueTiming, Edit, EditOutcome, Editor};
+pub use editor::{CueText, CueTiming, CueUpdate, Edit, EditOutcome, Editor};

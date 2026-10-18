@@ -3,6 +3,8 @@ mod analysis_worker;
 mod atomic_file;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod audio_smoke;
+mod batch_timing;
+mod conversion_review;
 mod desktop;
 #[cfg(feature = "desktop-e2e")]
 mod desktop_test;
@@ -10,8 +12,11 @@ mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
 mod file_lease;
+mod font_review;
+mod gap_review;
 mod ipc;
 mod ipc_number;
+mod language_tools;
 #[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]
 mod linux_dialog;
 #[cfg(all(feature = "media-prototype", target_os = "linux"))]
@@ -46,13 +51,18 @@ mod native_quit;
 mod native_surface;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod playback_bench;
+mod plugin_review;
 mod preferences;
 mod project;
+mod quality_check;
+mod quality_profile;
 mod recovery_store;
 mod resync;
 mod save_lease;
 mod scenes;
 mod srt_limits;
+mod statistics;
+mod style_review;
 #[cfg(any(
     test,
     all(
@@ -61,7 +71,9 @@ mod srt_limits;
     )
 ))]
 mod subtitle_preview;
+mod text_review;
 mod timing_preset;
+mod timing_review;
 mod waveform;
 mod workflow_trace;
 use std::sync::atomic::Ordering;
@@ -241,6 +253,8 @@ fn diagnostic_exit(app: &tauri::AppHandle, success: bool) {
             .0
             .store(true, Ordering::Release);
         app.state::<resync::Resync>().shutdown();
+        let _ = app.state::<project::Projects>().imports.shutdown();
+        let _ = app.state::<document::Documents>().shutdown_quality();
         app.state::<waveform::Waveforms>().shutdown();
         app.state::<scenes::Scenes>().shutdown();
         // Complete cleanup before asking to exit so failure codes are preserved.

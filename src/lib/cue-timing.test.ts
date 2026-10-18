@@ -18,6 +18,26 @@ const document: DocumentSnapshot = {
   cues: [{ id: 27, startMs: 1000, endMs: 2000, text: '日本語\n<b>café</b>' }],
 };
 
+test('ASS gestures quantize before preview and retain one complete format tick', () => {
+  const styled = {
+    ...document,
+    format: { name: 'ass', timeStepMs: 10, styles: [], scriptInfo: [] },
+  };
+  const edit = beginTimingEdit(styled, 27, 2, false);
+  assert.equal(previewBoundary(edit, 'start', 1006).preview.startMs, 1010);
+  assert.equal(previewBoundary(edit, 'start', 2999).preview.startMs, 1990);
+  assert.equal(previewBoundary(edit, 'end', 1).preview.endMs, 1010);
+  assert.equal(
+    previewBoundary(edit, 'end', 40_000_000_000).preview.endMs,
+    35_999_999_990,
+  );
+  assert.equal(
+    previewBoundary(beginTimingEdit(document, 27, 2, false), 'start', 1006)
+      .preview.startMs,
+    1006,
+  );
+});
+
 test('Boundary previews leave accepted content untouched and produce one exact final edit', () => {
   const original = structuredClone(document);
   assert.ok(original.cues[0]);

@@ -1,0 +1,25 @@
+WEBVTT VSF independent WebVTT fixture
+
+NOTE Source preservation includes comments, settings and markup.
+
+STYLE
+::cue(.accent) { color: lime; }
+
+REGION
+id:bottom
+width:80%
+lines:3
+regionanchor:0%,100%
+viewportanchor:10%,90%
+scroll:up
+
+intro,one
+00:01.001 --> 00:03.999 line:10%,start position:20%,line-left align:start size:60% region:bottom
+<v Alice><lang fr><c.accent>Été &amp; 世界</c></lang></v>
+Second line — 😀
+
+NOTE Keep this between cues.
+
+song
+00:00:02.000 --> 00:00:05.000 align:center future-setting:keep
+<b>Sing</b> <00:02.500>along <00:04.000><ruby>字<rt>じ</rt></ruby>

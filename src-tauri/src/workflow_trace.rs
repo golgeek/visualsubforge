@@ -116,6 +116,7 @@ enum Operation {
     Split,
     Merge,
     Edit,
+    EditStyled,
     Undo,
     Redo,
 }

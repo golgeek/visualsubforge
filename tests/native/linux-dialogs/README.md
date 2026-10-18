@@ -19,7 +19,9 @@ Cases cover a Unicode selection, explicit cancellation, service disconnect,
 owner replacement, bus loss, and a successful retry in the same application
 process after service restart. Failures occur after the method returns its
 request handle but before a Response signal. The mock checks the Open Subtitles
-title, single-selection flag, modality flag and SRT filter. The harness bounds
+title, single-selection flag, modality flag and SRT/ASS/SSA/WebVTT filters. Invalid
+requests receive an explicit D-Bus error so contract drift fails promptly rather
+than leaving an unanswered method call. The harness bounds
 each test to 20 seconds and reaps its own service and bus even after failures.
 This timeout belongs to the test; production pickers have no user-interaction
 deadline. Bus-loss injection terminates only the bus started by this harness.
@@ -27,4 +29,6 @@ deadline. Bus-loss injection terminates only the bus started by this harness.
 These are protocol/lifecycle regressions, not native parenting, modality, Wayland
 handle export, Save As, or visible UI evidence. The ignored Rust test is skipped
 by ordinary test runs; a zero-test run is not a pass. Use actual desktop checks
-for those remaining boundaries. Task003c and decision0011 record their evidence.
+for those remaining boundaries. The Linux desktop CI job runs these six cases
+with system Python/Gio; ordinary Rust tests still ignore this dedicated harness.
+Task003c and decision0011 record their evidence.

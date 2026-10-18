@@ -5,7 +5,6 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use subtitle_formats::srt;
 #[derive(Default)]
 pub(super) struct RecoveryControl {
     pub(super) stop: Arc<std::sync::atomic::AtomicBool>,
@@ -59,9 +58,10 @@ impl Documents {
                             store.loaded.as_ref().map(|d| {
                                 (
                                     d.editor.document().clone(),
-                                    d.source.clone(),
+                                    d.source().clone(),
                                     d.path.clone(),
                                     d.saved_bytes.clone(),
+                                    d.translation.clone(),
                                 )
                             })
                         } else {
@@ -74,17 +74,19 @@ impl Documents {
                         // the document lock. Only the atomic rename/clear holds it.
                         let prepared = (|| -> Result<Option<crate::atomic_file::Prepared>> {
                             match image {
-                                Some((document, source, path, saved)) => {
+                                Some((document, source, path, saved, translation)) => {
                                     let saved =
                                         String::from_utf8(saved).map_err(|e| e.to_string())?;
-                                    let mut record = crate::recovery_store::Record::new(
+                                    let mut record = crate::recovery_store::Record::new_document(
+                                        source.format(),
                                         path.map(|path| path.to_string_lossy().into_owned()),
                                         saved,
-                                        srt::serialize(&document, &source)?,
+                                        source.serialize(&document)?,
                                         key.generation,
                                         key.revision,
                                     )?;
                                     record.resynced = key.resynced;
+                                    record.set_translation(translation.stored()?);
                                     session.prepare(&record).map(Some)
                                 }
                                 None => Ok(None),

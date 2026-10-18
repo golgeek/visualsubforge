@@ -20,7 +20,7 @@
     "test:browser": "playwright test",
     "ipc:generate": "node scripts/generate-ipc.mjs",
     "ipc:check": "node scripts/generate-ipc.mjs --check",
-    "build:desktop-test": "tauri build --debug --no-bundle --features desktop-e2e --config tests/desktop/tauri.test.json -- --locked",
+    "build:desktop-test": "tauri build --debug --no-bundle --features desktop-e2e --config tests/desktop/tauri.test.json -- --locked && cargo build --locked -p vsf-cli",
     "test:desktop": "node tests/desktop/run.mjs"
   },
   "devDependencies": {

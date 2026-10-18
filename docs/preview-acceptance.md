@@ -1,5 +1,13 @@
 # Preview candidate manual acceptance
 
+The Windows x64 and Ubuntu24.04 x64 candidates below are updated to f0dbf68 on
+October18 and include the feature milestones. The Mac downloads in the table
+remain October12 baselines. Use an identified build containing the milestones
+for the extended feature checks below. Their fixture pack must contain `subtitles/`, `plugins/` and
+`legacy.vssprj`; earlier fixture archives do not contain them. Record the fixture
+`provenance.json` and `SHA256SUMS` alongside the application revision. A newer
+fixture pack does not establish that an older app implements these features.
+
 **macOS replacement candidates (2026-10-12):** the links below replace the
 withdrawn apps from run 38205417832. Disabling unused mpv scripts fixes their
 hardened-runtime startup termination. Both replacements pass a hardened native
@@ -14,18 +22,23 @@ includes it. Installation/playback
 acceptance is still open. Do not infer support from a successful CI build.
 
 The following candidates have audited source inventories. Windows and Ubuntu
-artifacts include their source archives; the Windows download is about 6.6 GB,
-although its installer is only about 25 MiB. Actions artifacts have limited
+artifacts include their source archives; the Windows download is about 6.0 GB,
+although its installer is only about 29 MiB. Actions artifacts have limited
 retention; preserve the candidate, matching sources and checksums together.
 
 | Target | Candidate download | Source archives |
 | --- | --- | --- |
 | Apple Silicon, macOS 14+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38334674579/artifacts/11784371040) | [Matching ARM inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11782814984) |
 | Intel, macOS 15+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38335057462/artifacts/11784079472) | [Matching Intel inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11783364443) |
-| Windows x64 | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119) | Included in the same artifact |
-| Ubuntu 24.04 x64 | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11728388564) | Included in the same artifact |
+| Windows x64, f0dbf68 (October18) | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/39142924874/artifacts/12143876134) | Included in the same artifact |
+| Ubuntu 24.04 x64, f0dbf68 (October18) | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12143295022) | Included in the same artifact |
 
 Use the shared [fixtures](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11729128569).
+The October18 Linux run also retains the baseline fixture set; extended feature
+fixtures can be generated from b379885 or later with
+`python3 scripts/package-release-fixtures.py --output /path/to/new-fixture-folder`
+after the three media-generation recipes listed in its provenance. The collector
+records the checkout revision, dirty state and exact input/recipe hashes.
 [Dependency review](dependency-review.md) records package hashes and evidence.
 Windows installation/offline/native smoke passes with a virtual WASAPI device
 and software D3D11; Ubuntu smoke uses a prepared virtual PulseAudio sink. Neither
@@ -70,6 +83,33 @@ Expect exit zero, `status: complete`, and text/timings matching
 `resync/offset.expected.srt`. Repeating that exact command must refuse existing
 outputs and leave their bytes unchanged. Use new output/report names for the
 speed/ad-edit case. No separately installed analysis tools should be needed.
+
+For builds containing the feature milestones, also run these checks. Work on
+separate output files and keep the packaged inputs unchanged. The tiny embedded
+fonts are original test shapes; do not install them as system fonts.
+
+| Check | Input/action | Expected result |
+| --- | --- | --- |
+| ASS/SSA and fonts | Open `subtitles/styles.ass` and `styles.ssa` over the MP4. Inspect missing-font notices, edit a style, assign it to a cue, then Undo/Redo. Open `embedded-font.ass`; inspect its font attachment, replace it with `fixture-font-cff.otf`, remove it, then Undo each operation. | Original metadata and override tags survive save/reopen. Style and attachment edits are reviewed and independently undoable. With the attached TTF, A is a triangle and B a rectangle; the CFF font reverses those shapes. Record missing glyphs, CJK fallback and physical preview separately. `fixture-font-cff2.otf` is an additional format control; its inclusion is not a GPU acceptance claim. |
+| Tagged SRT and batch timing | Open `subtitles/fansub.srt`. Select cues 1 and 3 with the platform selection modifier; preview a +100 ms shift and accept, Undo and Redo. Repeat contiguous keyboard selection. | Exactly the selected cues move. ASS overrides, HTML markup, Unicode and the unselected cue remain unchanged. Each accepted batch is one Undo step. Save the result separately. |
+| Styled resync | Repeat the offset resync with `subtitles/resync.ass`, `.ssa` and `.srt`. Repeat the speed/ad-edit analysis using these original files. | Offset proposals start cues at 6.000 and 7.100 seconds and preserve metadata/tags. Speed changes refuse the first cue's `\k20` timed effect; no partial edit or output is accepted. The existing plain SRT control above still completes. |
+| Language tools | Select English spelling for `subtitles/english.srt`; review a correction of one `helo` to `hello`. Select French for `french.srt` and review `bonjor` to `bonjour`. Exercise Ignore and a personal word, then Undo a correction. | Suggestions use the selected dictionary. Correcting one occurrence preserves the other English occurrence, emoji, markup and timing. Ignore/personal words follow their documented session/persistent scope. Restore any test personal words/settings afterward. |
+| Conversion and WebVTT | Review an ASS-to-SRT export of `styles.ass`, then save a separate output. Open `styles.vtt`, edit ordinary visible text and timing, save separately and reopen. | Conversion reports style/metadata losses before publication and leaves the source/history unchanged. WebVTT identifiers, settings and STYLE/REGION/NOTE blocks survive; unsupported constructs retain their documented preview limitations. |
+| Legacy project import | Import `legacy.vssprj`. In a separate copy, change the video path to a nonexistent file and repeat, locating `h264-1080p.mp4` explicitly. | Review resolves three subtitle cues and the relative video path, reports the unsupported dictionary setting and focused-time interpretation, and resumes paused at 1.250 seconds after creating a new project. Missing media requires relocation; original project/subtitles remain unchanged. |
+| Manual translation | Attach `subtitles/fansub.srt` as a reference, start an independent target copy, set a +100 ms matching offset and edit one target cue. Save subtitles/project separately and reopen. | Reference text remains unchanged; matching uses the chosen offset without retiming either document. Reopened projects retain the reference relationship and target changes. Reference and target markup remain intact. |
+| Modern and VSS plugins | With a fresh `fansub.srt`, select each `plugins/*/manifest.json` in turn, check, preview fixes and accept; Undo/Redo, save separately and reopen. | Each example finds one cue and proposes one text change: remove the two trailing spaces from cue 1. All times, tags and other text remain unchanged. Acceptance is one Undo step. These independently authored examples exercise the documented subset, not historical-host parity. |
+
+The same plugin control can be checked from the installed CLI:
+
+```sh
+vsf plugin preview --subtitles subtitles/fansub.srt --package plugins/trim-trailing/manifest.json --json
+vsf plugin apply --subtitles subtitles/fansub.srt --package plugins/trim-trailing/manifest.json --accept REVIEW_ID_FROM_PREVIEW --output plugin-result.srt --json
+```
+
+Use the actual review ID, then repeat with `plugins/vss-trim-trailing/manifest.json`
+and a different output path. Expect one proposed change and a published receipt;
+reusing an output path must refuse without changing its bytes. CLI publication
+does not persist desktop Undo history.
 
 Keep fixture inputs unchanged and verify their `SHA256SUMS` afterward. Submit a
 pass/fail/not-tested result for each row, expected versus observed behavior,

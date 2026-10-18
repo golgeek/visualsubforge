@@ -37,19 +37,55 @@ def main():
     (output / 'playback.srt').write_text(
         '1\n00:00:01,000 --> 00:00:03,000\nVSF preview: <i>Café</i>\n\n'
         '2\n00:00:06,000 --> 00:00:08,000\nThe colours invert at six seconds.\n\n', encoding='utf-8')
+    # Original, licensed repository fixtures only. In particular, do not copy
+    # the local historical VSS distribution or any installed system font.
+    sources = {}
+    for name in ['styles.ass', 'styles.ssa', 'styles.vtt', 'embedded-font.ass',
+                 'fixture-font.ttf', 'fixture-font-cff.otf', 'fixture-font-cff2.otf',
+                 'resync.ass', 'resync.ssa', 'resync.srt']:
+        source = ROOT / 'tests/fixtures/subtitles' / name
+        target = output / 'subtitles' / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        sources[source.relative_to(ROOT).as_posix()] = digest(source)
+    for package in ['trim-trailing', 'vss-trim-trailing']:
+        for name in ['manifest.json', 'main.js']:
+            source = ROOT / 'examples/plugins' / package / name
+            target = output / 'plugins' / package / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            sources[source.relative_to(ROOT).as_posix()] = digest(source)
+    (output / 'subtitles/fansub.srt').write_text(
+        '1\n00:00:01,000 --> 00:00:03,000\n{\\an8}<i>Café 世界</i>  \n\n'
+        '2\n00:00:06,000 --> 00:00:08,000\n{\\b1}Second line{\\b0}\n\n'
+        '3\n00:00:09,000 --> 00:00:10,500\nA clean line.\n\n', encoding='utf-8')
+    (output / 'subtitles/english.srt').write_text(
+        '1\n00:00:01,000 --> 00:00:04,000\n😀 <i>helo helo</i>\n\n', encoding='utf-8')
+    (output / 'subtitles/french.srt').write_text(
+        '1\n00:00:01,000 --> 00:00:04,000\n{\\an8}<i>bonjor</i> à tous.\n\n', encoding='utf-8')
+    (output / 'legacy.vssprj').write_text(
+        '[VisualSubsync]\nVideoSource=h264-1080p.mp4\n'
+        'SubtitlesFile=subtitles\\fansub.srt\nFocusedTimeMs=1250\n'
+        'WAVDisplayerPositionStartMs=0\nWAVDisplayerPositionStopMs=12000\n'
+        'Dictionary=French\n', encoding='utf-8')
     shutil.copy2(ROOT / 'docs/preview-acceptance.md', output / 'README.md')
     shutil.copy2(ROOT / 'LICENSE', output / 'LICENSE')
     recipes = output / 'recipes'
     recipes.mkdir()
-    for name in ['media-fixtures.py', 'playback-fixtures.py', 'resync-fixtures.py']:
+    for name in ['media-fixtures.py', 'playback-fixtures.py', 'resync-fixtures.py',
+                 'font-fixture.py']:
         shutil.copy2(ROOT / 'scripts' / name, recipes / name)
     (output / 'provenance.json').write_text(json.dumps({
         'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-        'scope': 'Synthetic media from the included VSF generators; no third-party reference films',
+        'scope': 'Original synthetic media, subtitles, fonts and plugin examples; GPL-3.0-or-later. No historical plugins, system fonts or third-party reference films.',
+        'collector_sha256': digest(Path(__file__)),
+        'tracked_checkout_dirty': bool(subprocess.check_output(
+            ['git', 'status', '--porcelain', '--untracked-files=no'], cwd=ROOT, text=True).strip()),
+        'repository_fixture_sources': sources,
         'commands_from_source_checkout': ['python scripts/media-fixtures.py',
                                           'python scripts/playback-fixtures.py',
                                           'python scripts/resync-fixtures.py'],
-        'scope_limit': 'Small deterministic controls; not general resync accuracy or codec/device certification',
+        'scope_limit': 'Small deterministic controls; not general resync accuracy, complete format/plugin compatibility or codec/device certification',
     }, indent=2) + '\n')
     (output / 'SHA256SUMS').write_text(''.join(f'{digest(path)}  {path.relative_to(output).as_posix()}\n'
         for path in sorted(output.rglob('*')) if path.is_file()))

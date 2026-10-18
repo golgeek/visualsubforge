@@ -32,6 +32,7 @@ async function verifyChecks(
 
 for (const name of [
   'projects',
+  'legacy-import',
   'recovery',
   'fast-editing',
   'new-subtitles',
@@ -41,6 +42,19 @@ for (const name of [
   'waveform-selection',
   'workspace-lifecycle',
   'resync',
+  'quality-settings',
+  'quality-checking',
+  'gap-review',
+  'scene-quality',
+  'duration-quality',
+  'statistics',
+  'text-editing',
+  'ass-documents',
+  'style-authoring',
+  'font-authoring',
+  'plugins',
+  'conversion',
+  'batch-timing',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

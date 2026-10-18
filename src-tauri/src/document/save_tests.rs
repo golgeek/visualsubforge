@@ -39,7 +39,7 @@ fn competing_save_preserves_history_recovery_and_both_versions_via_save_as() {
     let recovery_root = directory.path().join("recovery");
     let session = crate::recovery_store::Session::create(&recovery_root).unwrap();
     let loaded = b.loaded.as_ref().unwrap();
-    let accepted = srt::serialize(loaded.editor.document(), &loaded.source).unwrap();
+    let accepted = loaded.source().serialize(loaded.editor.document()).unwrap();
     let record = crate::recovery_store::Record::new(
         Some(path.to_string_lossy().into_owned()),
         ORIGINAL.into(),
@@ -83,6 +83,7 @@ fn competing_save_preserves_history_recovery_and_both_versions_via_save_as() {
     assert_eq!(
         crate::recovery_store::recover(&recovery_root, &entries[0].id)
             .unwrap()
+            .record
             .accepted_srt,
         accepted
     );

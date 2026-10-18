@@ -119,5 +119,26 @@ int main() {
     assert(vsf_mpv::poll_events(nullptr, 0, false, &transition) == 0);
     queue({event(MPV_EVENT_LOG_MESSAGE, &log)});
     assert(vsf_mpv::poll_events(nullptr, 0, true, &transition) == 0);
+    vsf_mpv::FontDiagnostics fonts;
+    mpv_event_log_message missing{"sub/ass", "warn",
+        "fontselect: failed to find any fallback with glyph 0x4E16\n", MPV_LOG_LEVEL_WARN};
+    queue({event(MPV_EVENT_LOG_MESSAGE, &missing), event(MPV_EVENT_LOG_MESSAGE, &missing)});
+    assert(vsf_mpv::poll_events(nullptr, 0, false, &transition, &fonts) == 0);
+    assert(std::strcmp(fonts.text(), "fontselect: failed to find any fallback with glyph 0x4E16\n") == 0);
+    missing.log_level = MPV_LOG_LEVEL_V;
+    missing.text = "Glyph not found, selecting one more font";
+    fonts.observe(&missing); // A successful fallback search isn't a warning.
+    assert(!std::strstr(fonts.text(), "selecting"));
+    missing.log_level = MPV_LOG_LEVEL_WARN;
+    missing.prefix = "osd/ass";
+    fonts.observe(&missing); // Notices must belong to subtitles.
+    assert(!std::strstr(fonts.text(), "selecting"));
+    for (int i = 0; i < 20; ++i) fonts.add((std::to_string(i) + std::string(1000, 'x')).c_str());
+    assert(std::strlen(fonts.text()) < 8 * 512 + 64);
+    assert(std::strstr(fonts.text(), "Further font notices omitted.") != nullptr);
+    fonts.clear();
+    assert(std::strlen(fonts.text()) == 0);
+    fonts.add("new\nsession\rnotice");
+    assert(std::strcmp(fonts.text(), "new session notice\n") == 0);
     std::puts("PASS: common mpv property/event policy");
 }

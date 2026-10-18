@@ -22,6 +22,7 @@ pub async fn choose_file(
     app: tauri::AppHandle,
     kind: FileChoice,
     current: Option<String>,
+    subtitle_extension: &'static str,
 ) -> Result<Option<String>, String> {
     let window = app
         .get_webview_window("main")
@@ -43,7 +44,7 @@ pub async fn choose_file(
         .recv()
         .await
         .ok_or("File picker stopped before replying")??;
-    let result = choose_with_parent(identifier, kind, current.as_deref()).await;
+    let result = choose_with_parent(identifier, kind, current.as_deref(), subtitle_extension).await;
     // Keep the parent wrapper alive for the entire modal request. The existing
     // frontend busy/exit gate prevents normal window closure during a picker.
     drop(window);
@@ -66,6 +67,7 @@ async fn choose_with_parent(
     identifier: WindowIdentifier,
     kind: FileChoice,
     current: Option<&str>,
+    subtitle_extension: &str,
 ) -> Result<Option<String>, String> {
     // Subscribe before sending: ashpd waits for Response even if the service
     // disappears after replying with a request handle. Watch only this request's
@@ -98,7 +100,7 @@ async fn choose_with_parent(
         }
         Err("The desktop file picker connection closed. Check the session bus and FileChooser backend, then reopen the picker.".into())
     };
-    let request = request_file(identifier, kind, current);
+    let request = request_file(identifier, kind, current, subtitle_extension);
     pin_mut!(request, lost_service);
     match select(request, lost_service).await {
         Either::Left((result, _)) | Either::Right((result, _)) => result,
@@ -109,17 +111,37 @@ async fn request_file(
     identifier: WindowIdentifier,
     kind: FileChoice,
     current: Option<&str>,
+    subtitle_extension: &str,
 ) -> Result<Option<String>, String> {
     let path = current.map(Path::new);
     let folder = path.and_then(Path::parent);
     let project = matches!(kind, FileChoice::Project | FileChoice::SaveProject);
+    let legacy_project = matches!(kind, FileChoice::LegacyProject);
+    let font = matches!(kind, FileChoice::Font);
+    let plugin = matches!(kind, FileChoice::Plugin);
+    let conversion = matches!(
+        kind,
+        FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa
+    );
     let preset = matches!(
         kind,
         FileChoice::TimingPreset | FileChoice::SaveTimingPreset
     );
     let saving_preset = matches!(kind, FileChoice::SaveTimingPreset);
+    let quality = matches!(
+        kind,
+        FileChoice::QualityPreset | FileChoice::SaveQualityPreset
+    );
     let filter = || {
-        if preset {
+        if plugin {
+            FileFilter::new("Plugin manifest").glob("*.json")
+        } else if font {
+            FileFilter::new("Single fonts").glob("*.ttf").glob("*.otf")
+        } else if quality {
+            FileFilter::new("VSF quality profile")
+                .glob("*.vsfpreset")
+                .glob("*.json")
+        } else if preset {
             if saving_preset {
                 FileFilter::new("VSF timing preset").glob("*.vsfpreset")
             } else {
@@ -130,15 +152,39 @@ async fn request_file(
             }
         } else if project {
             FileFilter::new("VSF project").glob("*.vsfproject")
+        } else if legacy_project {
+            FileFilter::new("VisualSubSync project").glob("*.vssprj")
+        } else if conversion {
+            FileFilter::new("Converted subtitles").glob(&format!("*.{subtitle_extension}"))
+        } else if matches!(kind, FileChoice::SaveSubtitles) {
+            FileFilter::new("Subtitles (same format)").glob(&format!("*.{subtitle_extension}"))
         } else {
-            FileFilter::new("SubRip subtitles").glob("*.srt")
+            FileFilter::new("Subtitles")
+                .glob("*.srt")
+                .glob("*.ass")
+                .glob("*.ssa")
+                .glob("*.vtt")
         }
     };
+    let default_subtitle_name = format!(
+        "{}.{subtitle_extension}",
+        if conversion { "Converted" } else { "Untitled" }
+    );
     let response = match kind {
-        FileChoice::SaveSubtitles | FileChoice::SaveProject | FileChoice::SaveTimingPreset => {
+        FileChoice::SaveSubtitles
+        | FileChoice::ExportSrt
+        | FileChoice::ExportAss
+        | FileChoice::ExportSsa
+        | FileChoice::SaveProject
+        | FileChoice::SaveTimingPreset
+        | FileChoice::SaveQualityPreset => {
             SelectedFiles::save_file()
                 .identifier(identifier)
-                .title(if preset {
+                .title(if conversion {
+                    "Export Converted Subtitles to a New File"
+                } else if quality {
+                    "Export Quality Profile"
+                } else if preset {
                     "Export Timing Preset"
                 } else if project {
                     "Save VSF Project As"
@@ -149,7 +195,11 @@ async fn request_file(
                 .filter(filter())
                 .current_name(
                     path.and_then(Path::file_name)
-                        .and_then(|name| name.to_str()),
+                        .and_then(|name| name.to_str())
+                        .or_else(|| {
+                            (conversion || matches!(kind, FileChoice::SaveSubtitles))
+                                .then_some(default_subtitle_name.as_str())
+                        }),
                 )
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?
@@ -157,16 +207,28 @@ async fn request_file(
                 .await
         }
         FileChoice::Media
+        | FileChoice::Font
+        | FileChoice::Plugin
         | FileChoice::Subtitles
         | FileChoice::Project
+        | FileChoice::LegacyProject
+        | FileChoice::QualityPreset
         | FileChoice::TimingPreset => {
             let subtitles = matches!(kind, FileChoice::Subtitles);
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
-                .title(if preset {
+                .title(if plugin {
+                    "Choose Subtitle Plugin Manifest"
+                } else if font {
+                    "Choose Font Attachment"
+                } else if quality {
+                    "Import Quality Profile"
+                } else if preset {
                     "Import Timing Preset"
                 } else if project {
                     "Open VSF Project"
+                } else if legacy_project {
+                    "Import VisualSubSync Project"
                 } else if subtitles {
                     "Open Subtitles"
                 } else {
@@ -176,7 +238,7 @@ async fn request_file(
                 .multiple(false)
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?;
-            if subtitles || project || preset {
+            if subtitles || project || legacy_project || preset || quality || font || plugin {
                 request = request.filter(filter());
             }
             request.send().await
@@ -230,6 +292,7 @@ mod tests {
             WindowIdentifier::from_xid(0),
             FileChoice::Subtitles,
             None,
+            "srt",
         ));
         match case.as_str() {
             "success" => assert_eq!(result, Ok(Some("/tmp/café subtitle.srt".into()))),
@@ -246,6 +309,7 @@ mod tests {
                         WindowIdentifier::from_xid(0),
                         FileChoice::Subtitles,
                         None,
+                        "srt",
                     ));
                     if let Ok(path) = retry {
                         assert_eq!(path, Some("/tmp/café subtitle.srt".into()));

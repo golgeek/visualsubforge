@@ -122,11 +122,11 @@ fn process_death_releases_lease_and_preserves_last_commit() {
             let entries = list(&root).unwrap();
             assert_eq!(entries.len(), 1); // Other process's live record stays hidden.
             assert_eq!(entries[0].id, id);
-            let record = recover(&root, &id).unwrap();
+            let record = recover(&root, &id).unwrap().record;
             assert_eq!(record.revision, 7);
             assert_eq!(record.accepted_srt, ORIGINAL.replace("café", "accepted"));
             assert_eq!(record.saved_srt, ORIGINAL);
-            assert_eq!(recover(&root, &id).unwrap().revision, 7); // Non-consuming.
+            assert_eq!(recover(&root, &id).unwrap().record.revision, 7); // Non-consuming.
             discard(&root, &id).unwrap();
             assert!(!root.join(&id).join("snapshot.json").exists());
         }

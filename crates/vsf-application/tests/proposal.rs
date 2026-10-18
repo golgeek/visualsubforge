@@ -55,7 +55,7 @@ fn gaps_and_durations_follow_content_without_changing_source_order() {
             alignment(vec![section(0, 4_000_000, 0, target_end)]),
         );
         assert!(p.is_complete());
-        let parsed = srt::parse(p.srt().unwrap()).unwrap();
+        let parsed = srt::parse(p.subtitles().unwrap()).unwrap();
         assert_eq!(parsed.document.cues()[0].start().get(), expected_start);
         assert_eq!(parsed.document.cues()[1].end().get(), expected_end);
         assert_eq!(expected_start - expected_end, gap);
@@ -63,7 +63,7 @@ fn gaps_and_durations_follow_content_without_changing_source_order() {
             matches!(p.cues()[1].following_gap.as_ref().unwrap().outcome,
             GapOutcome::Mapped { target_ms } if target_ms == gap)
         );
-        assert!(p.srt().unwrap().starts_with("9\n"));
+        assert!(p.subtitles().unwrap().starts_with("9\n"));
         assert!(p.cues()[0].following_gap.is_none());
         let mut editor = Editor::new(p.snapshot().document().clone());
         let accepted = editor
@@ -141,7 +141,7 @@ fn every_endpoint_maps_independently_without_accumulated_rounding_drift() {
             alignment(vec![section(0, 600_000_000, 0, 6_000_000 * percent)]),
         );
         assert!(p.is_complete());
-        let parsed = srt::parse(p.srt().unwrap()).unwrap();
+        let parsed = srt::parse(p.subtitles().unwrap()).unwrap();
         for (index, cue) in parsed.document.cues().iter().enumerate() {
             assert_eq!(cue.start().get(), (starts[index] * percent + 50) / 100);
             assert_eq!(
@@ -177,13 +177,13 @@ fn measured_pal_speed_change_scales_norm_gaps_and_long_pauses_in_both_directions
             GapOutcome::Mapped { target_ms } if target_ms == target_gap)
         );
         let reverse = proposal(
-            p.srt().unwrap(),
+            p.subtitles().unwrap(),
             alignment(vec![section(0, 25_025_000, 0, 24_000_000)]),
         );
         // Millisecond serialization is lossy, so the reverse need not restore
         // every possible input exactly; these explicit examples do round-trip.
         assert_eq!(
-            srt::parse(reverse.srt().unwrap()).unwrap().document,
+            srt::parse(reverse.subtitles().unwrap()).unwrap().document,
             srt::parse(&source).unwrap().document
         );
     }
@@ -207,10 +207,14 @@ fn complete_proposal_preserves_format_text_order_overlap_and_one_undo() {
     let parsed = srt::parse(SOURCE).unwrap();
     assert_eq!(
         srt::serialize(editor.document(), &parsed.source).unwrap(),
-        p.srt().unwrap()
+        p.subtitles().unwrap()
     );
-    assert!(p.srt().unwrap().starts_with("\u{feff}007\r\n"));
-    assert!(p.srt().unwrap().contains("<i>世界</i>\r\n\r\n003\r\n"));
+    assert!(p.subtitles().unwrap().starts_with("\u{feff}007\r\n"));
+    assert!(
+        p.subtitles()
+            .unwrap()
+            .contains("<i>世界</i>\r\n\r\n003\r\n")
+    );
     editor.undo(1).unwrap();
     assert_eq!(
         srt::serialize(editor.document(), &parsed.source).unwrap(),
@@ -219,7 +223,7 @@ fn complete_proposal_preserves_format_text_order_overlap_and_one_undo() {
     editor.redo(2).unwrap();
     assert_eq!(
         srt::serialize(editor.document(), &parsed.source).unwrap(),
-        p.srt().unwrap()
+        p.subtitles().unwrap()
     );
     assert!(matches!(
         p.edit(editor.document()),
@@ -254,8 +258,8 @@ fn gaps_and_boundary_crossings_never_export_mixed_timings() {
         ]),
     );
     assert!(!p.is_complete());
-    assert!(p.srt().is_none());
-    assert!(p.srt_sha256().is_none());
+    assert!(p.subtitles().is_none());
+    assert!(p.subtitles_sha256().is_none());
     assert!(p.edit(p.snapshot().document()).is_err());
     assert!(matches!(
         p.cues()[1].outcome,

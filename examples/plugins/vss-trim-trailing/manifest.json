@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "vsf.vss-trim-trailing",
+  "name": "Trailing whitespace (VSS example)",
+  "api": "vss-1",
+  "entry": "main.js",
+  "requires": ["rules", "fixes"],
+  "settings": {}
+}

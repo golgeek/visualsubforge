@@ -1,5 +1,9 @@
 # Preview dependency review
 
+The current Windows and Ubuntu feature candidates are the October18 builds
+documented below. The initial table preserves the October12 baseline audits;
+the [manual acceptance guide](preview-acceptance.md) links the current downloads.
+
 Runtime correction, 2026-10-12: the original Mac candidates from 38205417832
 are withdrawn after reproducing a hardened-runtime termination in mpv's unused
 LuaJIT `stats` script. The audited replacements below disable those scripts;
@@ -240,3 +244,83 @@ sink. It establishes neither visible pixel correctness nor audible output.
 All platforms still need the [manual acceptance checklist](preview-acceptance.md),
 including clean consumer systems, real display/audio devices and claimed oldest
 OS versions. No release has been published.
+
+## October18 Linux feature validation candidate
+
+[Linux package39142923333](https://github.com/golgeek/visualsubforge/actions/runs/39142923333)
+builds f0dbf68c643d4f9a483389fe07b4103453c26c29. The
+[candidate and both source archives](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12143295022)
+and [installation/native evidence](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12142293247)
+are retained. Downloaded hashes verify:
+
+| File | SHA256 |
+| --- | --- |
+| `VisualSubForge_0.0.1-alpha_amd64_ubuntu24.04.deb` (80,124,236bytes) | `f251f421c04d25bb47e2a2936e46257157d45b81458b8a358aea92f26a5f9379` |
+| `native-sources.tar.gz` | `647c718bb5614755239acafa8cc02c652a66262e03251cb21cd27454d139630b` |
+| `application-sources.tar.gz` | `a538fac817231b1493b23ffc5cc408ec000b32391ae45ef15cbd9c15d842d91e` |
+
+The independent artifact identity check verifies1092 application source/notice
+files and713 installed notices. The inventory contains369 resolved Cargo packages;
+registry crate hashes match the archived lockfile. Four frontend packages remain inventoried. The new rquickjs
+0.14.0 family carries MIT notices, with the missing rquickjs-core notice supplied
+from its recorded upstream revision; rquickjs-sys retains its QuickJS notice.
+Spellbook0.4.2 carries MPL-2.0 notices/source. All nine VSF dictionary data/source/
+notice files are present verbatim in the application source archive. This is
+source and notice identity evidence, not a new blanket redistribution approval.
+
+All124 assembled runtime files and120 observed private images match package
+bytes, including GUI b35e3d49... and libmpv6e5c0f0d.... The custom mpv/libplacebo
+sources and Ubuntu build-input inventory match the receipt. Exact audit script
+and results live under `test-results/native-reliability-20261018/linux-package-f0db-*`.
+Isolated installation, offline CLI and software-renderer/null-sink smoke pass;
+physical GPU/audio, interactive dialogs and oldest-OS acceptance remain separate.
+
+## October18 Windows feature validation candidate
+
+[Windows package39142924874](https://github.com/golgeek/visualsubforge/actions/runs/39142924874)
+builds f0dbf68c643d4f9a483389fe07b4103453c26c29. The
+[installer, portable ZIP and matching sources](https://github.com/golgeek/visualsubforge/actions/runs/39142924874/artifacts/12143876134)
+and [installation/native evidence](https://github.com/golgeek/visualsubforge/actions/runs/39142924874/artifacts/12143337968)
+are retained. The artifact is6,036,615,852bytes including source archives.
+Downloaded hashes verify:
+
+| File | SHA256 |
+| --- | --- |
+| `VisualSubForge_0.0.1-alpha_x64-setup.exe` (30,540,157bytes) | `a468852284375b67c152be0e9f4a2eb214aca835c4a694b88fc8a886d48f0a1b` |
+| `VisualSubForge_0.0.1-alpha_x64_windows.zip` | `34b138e5d6996a8f7e607b675fc03048643793c5e0d17fc7f370f9c0ace5fcf2` |
+| `application-sources.tar.gz` | `ff82e47687ed62f92a4fb55caafcff20a6a12fd5dcfb1e09c4a432cdf21ed296` |
+| `native-sources.tar.gz` | `ae5c533ad78885ed42a24bfd4c0fa6bcb881c6905678945507895d389dc372fc` |
+| `installer-receipt.json` | `bc74fb278f11105d3670a6051707e940e5951a110afce8c121ac41fafb3cd086` |
+
+The independent audit verifies937 application-source/notice files,6290 native
+source-evidence files, all967 packaged files and40 observed private images.
+All5950 logical notice records map to916 byte-identical installed texts and
+their original archive locations. The297-package Cargo inventory is checked
+against the archived lockfile; four frontend packages remain inventoried.
+All nine dictionary source/data/notice files match the tracked revision.
+The native inventory binds112 MSYS2 binary packages,104 matching source packages,
+custom FFmpeg/mpv inputs, MSVC14.44.35207, Windows SDK10.0.26100.0 and the installer
+helper inventory. This is source/notice identity evidence; the existing platform
+source and redistribution limitations remain, and no release is published.
+
+Hosted installation verifies44 native files and all967 installed files. Offline
+CLI resync, input preservation, existing-output refusal, missing bundled-tool
+diagnosis and three DLL unload cycles pass. Outbound isolation applies to four
+executables, with connectivity and cleanup controls; it is not whole-runner
+disconnection. The production GUI smoke exits0 using Microsoft Basic Render
+Driver software D3D11 and the Scream virtual WASAPI device. These checks do not
+establish physical pixels/speaker output, dialog interaction or clean consumer-OS
+acceptance.
+
+The exact packaged CLI, SHA256
+`ba900f168c02053b90b38e9b1b47d80a5f5a2e2e773f548eb38e863bd7b23105`,
+also passes both modern and VSS plugin check/preview/apply on Windows11ARM64
+under x64 emulation. Each proposal changes only the first tagged-SRT cue's two
+trailing spaces; output bytes, reviewed publication, existing-output refusal
+and unchanged source/package hashes verify. This uses the portable CLI without
+installation and adds no GUI or physical-device claim.
+
+Exact downloaded inputs, audit script/results and eight-command plugin receipt
+are retained under `test-results/native-reliability-20261018/` as
+`windows-package-f0db-*`, `audit-windows-package.py`,
+`windows-package-plugin-check.py` and `windows-package-plugin-validation.json`.

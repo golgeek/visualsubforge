@@ -1,5 +1,6 @@
 fn main() {
     println!("cargo:rerun-if-changed=native/mpv_client.hpp");
+    println!("cargo:rerun-if-changed=native/mac_font_fallback.hpp");
     println!("cargo:rerun-if-changed=native/player.mm");
     println!("cargo:rerun-if-changed=native/mac_angle.hpp");
     println!("cargo:rerun-if-changed=native/mac_render_trace.hpp");
@@ -95,6 +96,7 @@ fn main() {
         }
         build.compile("vsf_media_surface");
         println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rustc-link-lib=framework=CoreText");
         println!("cargo:rustc-link-lib=framework=QuartzCore");
     }
 }

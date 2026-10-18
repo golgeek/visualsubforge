@@ -19,6 +19,11 @@ export const commands = {
       'document_action',
       { action, generation, revision },
     ),
+  translationAction: (action: visualsubforge_document_translation_Action) =>
+    __TAURI_INVOKE<visualsubforge_document_translation_Reply_Serialize>(
+      'translation_action',
+      { action },
+    ),
   recoveryStatus: () =>
     __TAURI_INVOKE<visualsubforge_document_RecoveryStatus_Serialize>(
       'recovery_status',
@@ -32,9 +37,289 @@ export const commands = {
   updateMenu: (state: visualsubforge_desktop_MenuState) =>
     __TAURI_INVOKE<null>('update_menu', { state }),
   preferencesGet: () =>
-    __TAURI_INVOKE<visualsubforge_preferences_Preferences>('preferences_get'),
-  preferencesSave: (preferences: visualsubforge_preferences_Preferences) =>
-    __TAURI_INVOKE<null>('preferences_save', { preferences }),
+    __TAURI_INVOKE<visualsubforge_preferences_Preferences_Serialize>(
+      'preferences_get',
+    ),
+  preferencesSave: (
+    preferences: visualsubforge_preferences_Preferences_Deserialize,
+    epoch: number,
+  ) => __TAURI_INVOKE<null>('preferences_save', { preferences, epoch }),
+  qualitySettings: () =>
+    __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
+      'quality_settings',
+    ),
+  languageWords: () =>
+    __TAURI_INVOKE<visualsubforge_language_tools_Words>('language_words'),
+  languageWordsChange: (
+    epoch: number,
+    change: visualsubforge_language_tools_Change,
+  ) => __TAURI_INVOKE<null>('language_words_change', { epoch, change }),
+  languageNotices: () =>
+    __TAURI_INVOKE<visualsubforge_language_tools_Notices>('language_notices'),
+  qualityRead: (request: visualsubforge_quality_check_Request) =>
+    __TAURI_INVOKE<visualsubforge_quality_check_View_Serialize>(
+      'quality_read',
+      { request },
+    ),
+  qualityCancel: (id: number) => __TAURI_INVOKE<null>('quality_cancel', { id }),
+  statisticsStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    selection: vsf_application_quality_statistics_Selection,
+  ) =>
+    __TAURI_INVOKE<number>('statistics_start', {
+      session,
+      generation,
+      revision,
+      selection,
+    }),
+  statisticsView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_statistics_StatisticsView_Serialize>(
+      'statistics_view',
+      { id, offset, limit },
+    ),
+  statisticsCancel: (id: number) =>
+    __TAURI_INVOKE<null>('statistics_cancel', { id }),
+  pluginStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    path: string,
+    input: visualsubforge_plugin_review_Input,
+  ) =>
+    __TAURI_INVOKE<number>('plugin_start', {
+      session,
+      generation,
+      revision,
+      path,
+      input,
+    }),
+  pluginView: (
+    id: number,
+    findingsOffset: number,
+    changesOffset: number,
+    limit: number,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_plugin_review_View>('plugin_view', {
+      id,
+      findingsOffset,
+      changesOffset,
+      limit,
+    }),
+  pluginText: (
+    id: number,
+    row: number,
+    after: boolean,
+    offset: number,
+    limit: number,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_plugin_review_TextChunk>('plugin_text', {
+      id,
+      row,
+      after,
+      offset,
+      limit,
+    }),
+  pluginCancel: (id: number) => __TAURI_INVOKE<null>('plugin_cancel', { id }),
+  pluginAccept: (id: number, input: visualsubforge_plugin_review_Input) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'plugin_accept',
+      { id, input },
+    ),
+  gapStart: (session: number, generation: number, revision: number) =>
+    __TAURI_INVOKE<number>('gap_start', { session, generation, revision }),
+  gapView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_gap_review_GapView_Serialize>('gap_view', {
+      id,
+      offset,
+      limit,
+    }),
+  gapCancel: (id: number) => __TAURI_INVOKE<null>('gap_cancel', { id }),
+  gapAccept: (id: number, acknowledgeNoMedia: boolean) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('gap_accept', {
+      id,
+      acknowledgeNoMedia,
+    }),
+  batchTimingStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    request: visualsubforge_batch_timing_BatchRequest,
+  ) =>
+    __TAURI_INVOKE<number>('batch_timing_start', {
+      session,
+      generation,
+      revision,
+      request,
+    }),
+  batchTimingView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_batch_timing_BatchView>('batch_timing_view', {
+      id,
+      offset,
+      limit,
+    }),
+  batchTimingCancel: (id: number) =>
+    __TAURI_INVOKE<null>('batch_timing_cancel', { id }),
+  batchTimingAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'batch_timing_accept',
+      { id },
+    ),
+  sceneRepairStart: (session: number, generation: number, revision: number) =>
+    __TAURI_INVOKE<number>('scene_repair_start', {
+      session,
+      generation,
+      revision,
+    }),
+  sceneRepairView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_timing_review_SceneRepairView_Serialize>(
+      'scene_repair_view',
+      { id, offset, limit },
+    ),
+  sceneRepairCancel: (id: number) =>
+    __TAURI_INVOKE<null>('scene_repair_cancel', { id }),
+  sceneRepairAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'scene_repair_accept',
+      { id },
+    ),
+  durationRepairStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    selectedCueId: string | null,
+  ) =>
+    __TAURI_INVOKE<number>('duration_repair_start', {
+      session,
+      generation,
+      revision,
+      selectedCueId,
+    }),
+  durationRepairView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_timing_review_DurationRepairView_Serialize>(
+      'duration_repair_view',
+      { id, offset, limit },
+    ),
+  durationRepairCancel: (id: number) =>
+    __TAURI_INVOKE<null>('duration_repair_cancel', { id }),
+  durationRepairAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'duration_repair_accept',
+      { id },
+    ),
+  styleForm: (generation: number, revision: number, name: string | null) =>
+    __TAURI_INVOKE<visualsubforge_style_review_StyleForm>('style_form', {
+      generation,
+      revision,
+      name,
+    }),
+  styleStart: (
+    generation: number,
+    revision: number,
+    operation: vsf_application_authoring_styles_StyleOperation,
+  ) =>
+    __TAURI_INVOKE<number>('style_start', { generation, revision, operation }),
+  styleView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_style_review_StyleReview>('style_view', {
+      id,
+    }),
+  styleCancel: (id: number) => __TAURI_INVOKE<null>('style_cancel', { id }),
+  styleAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('style_accept', {
+      id,
+    }),
+  fontStart: (
+    generation: number,
+    revision: number,
+    operation: visualsubforge_font_review_FontOperation,
+  ) =>
+    __TAURI_INVOKE<number>('font_start', { generation, revision, operation }),
+  fontView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_font_review_FontReview>('font_view', { id }),
+  fontCancel: (id: number) => __TAURI_INVOKE<null>('font_cancel', { id }),
+  fontAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('font_accept', {
+      id,
+    }),
+  conversionStart: (
+    generation: number,
+    revision: number,
+    options: vsf_application_conversion_ConversionOptions,
+  ) =>
+    __TAURI_INVOKE<number>('conversion_start', {
+      generation,
+      revision,
+      options,
+    }),
+  conversionView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_conversion_review_ConversionReview>(
+      'conversion_view',
+      { id },
+    ),
+  conversionCancel: (id: number) =>
+    __TAURI_INVOKE<null>('conversion_cancel', { id }),
+  conversionPublish: (id: number, path: string) =>
+    __TAURI_INVOKE<null>('conversion_publish', { id, path }),
+  textStart: (
+    generation: number,
+    revision: number,
+    operation: vsf_application_text_Operation,
+  ) =>
+    __TAURI_INVOKE<number>('text_start', { generation, revision, operation }),
+  textView: (id: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_text_review_TextView>('text_view', {
+      id,
+      offset,
+      limit,
+    }),
+  textMatches: (id: number, cueIndex: number, offset: number, limit: number) =>
+    __TAURI_INVOKE<visualsubforge_text_review_Match[]>('text_matches', {
+      id,
+      cueIndex,
+      offset,
+      limit,
+    }),
+  textCancel: (id: number) => __TAURI_INVOKE<null>('text_cancel', { id }),
+  textAccept: (
+    id: number,
+    target: {
+      cueIndex: number;
+      matchIndex: number;
+    } | null,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('text_accept', {
+      id,
+      target,
+    }),
+  textFormat: (
+    text: string,
+    start: number,
+    end: number,
+    style: vsf_application_text_formatting_Format,
+    context: {
+      generation: number;
+      revision: number;
+      cueId: number;
+      styleName: string;
+    } | null,
+  ) =>
+    __TAURI_INVOKE<vsf_application_text_formatting_Formatted>('text_format', {
+      text,
+      start,
+      end,
+      style,
+      context,
+    }),
+  qualityProfileOpen: (path: string) =>
+    __TAURI_INVOKE<vsf_application_quality_profile_Profile_Serialize>(
+      'quality_profile_open',
+      { path },
+    ),
+  qualityProfileSave: (
+    path: string,
+    profile: vsf_application_quality_profile_Profile_Deserialize,
+  ) => __TAURI_INVOKE<null>('quality_profile_save', { path, profile }),
   finishExit: (generation: number, revision: number, discard: boolean) =>
     __TAURI_INVOKE<null>('finish_exit', { generation, revision, discard }),
   timingPresetOpen: (path: string) =>
@@ -46,15 +331,27 @@ export const commands = {
     path: string,
     preset: visualsubforge_timing_preset_Preset,
   ) => __TAURI_INVOKE<null>('timing_preset_save', { path, preset }),
-  projectOpen: (path: string) =>
+  projectOpen: (
+    path: string,
+    reference: {
+      path: string | null;
+      reload?: boolean;
+    } | null,
+  ) =>
     __TAURI_INVOKE<visualsubforge_project_store_Opened_Serialize>(
       'project_open',
-      { path },
+      { path, reference },
     ),
-  projectAttach: (token: number) =>
+  projectAttach: (
+    token: number,
+    session: number,
+    generation: number,
+    revision: number,
+    referenceEpoch: number,
+  ) =>
     __TAURI_INVOKE<visualsubforge_project_store_Attachment_Serialize>(
       'project_attach',
-      { token },
+      { token, session, generation, revision, referenceEpoch },
     ),
   projectDetach: () => __TAURI_INVOKE<null>('project_detach'),
   projectSave: (request: visualsubforge_project_SaveRequest_Deserialize) =>
@@ -62,6 +359,18 @@ export const commands = {
       'project_save',
       { request },
     ),
+  projectImportStart: (
+    request: visualsubforge_project_import_api_LegacyImportRequest,
+  ) => __TAURI_INVOKE<number>('project_import_start', { request }),
+  projectImportView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_project_import_api_LegacyImportReview>(
+      'project_import_view',
+      { id },
+    ),
+  projectImportCancel: (id: number) =>
+    __TAURI_INVOKE<null>('project_import_cancel', { id }),
+  projectImportPublish: (id: number, path: string) =>
+    __TAURI_INVOKE<null>('project_import_publish', { id, path }),
   scenesRestore: (
     path: string,
     session: number,
@@ -163,6 +472,32 @@ export type visualsubforge_document_Action =
   | visualsubforge_document_Action_Serialize
   | visualsubforge_document_Action_Deserialize;
 
+export type visualsubforge_document_translation_Action =
+  | { kind: 'status' }
+  | {
+      kind: 'load';
+      key: visualsubforge_document_translation_Key;
+      path: string;
+      copy: boolean;
+    }
+  | {
+      kind: 'query';
+      key: visualsubforge_document_translation_Key;
+      targetCueId: number | null;
+      offset: number;
+      limit: number;
+      selected: number | null;
+    }
+  | { kind: 'view'; id: number }
+  | { kind: 'cancel'; id: number }
+  | { kind: 'accept'; id: number; discard: boolean }
+  | {
+      kind: 'setOffset';
+      key: visualsubforge_document_translation_Key;
+      offsetMs: number;
+    }
+  | { kind: 'detach'; key: visualsubforge_document_translation_Key };
+
 export type visualsubforge_media_Action =
   | { kind: 'occlude'; occluded: boolean }
   | {
@@ -185,6 +520,22 @@ export type visualsubforge_media_Action =
   | { kind: 'decode'; hardware: boolean };
 
 export type visualsubforge_document_Action_Deserialize =
+  | ({
+      kind: 'editStyled';
+      cueId: number;
+      startMs: number;
+      endMs: number;
+      text: string;
+      style: string;
+    } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
   | ({ kind: 'status' } & {
       afterId?: never;
       atMs?: never;
@@ -196,6 +547,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'recover'; id: string; discard: boolean } & {
@@ -207,6 +559,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'open'; path: string; discard: boolean } & {
@@ -218,6 +571,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'close'; discard: boolean } & {
@@ -230,6 +584,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({
@@ -246,6 +601,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({
       kind: 'create';
@@ -261,6 +617,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({ kind: 'delete'; cueId: number } & {
       afterId?: never;
@@ -272,6 +629,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'split'; cueId: number; atMs: number } & {
@@ -283,6 +641,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'merge'; firstId: number; secondId: number } & {
@@ -294,6 +653,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       path?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'undo' } & {
@@ -307,6 +667,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'redo' } & {
@@ -320,6 +681,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'save'; path: string | null } & {
@@ -332,10 +694,27 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     });
 
 export type visualsubforge_document_Action_Serialize =
+  | ({
+      kind: 'editStyled';
+      cueId: number;
+      startMs: number;
+      endMs: number;
+      text: string;
+      style: string;
+    } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
   | ({ kind: 'status' } & {
       afterId?: never;
       atMs?: never;
@@ -347,6 +726,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'recover'; id: string; discard: boolean } & {
@@ -358,6 +738,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'open'; path: string; discard: boolean } & {
@@ -369,6 +750,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'close'; discard: boolean } & {
@@ -381,6 +763,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({
@@ -397,6 +780,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({
       kind: 'create';
@@ -412,6 +796,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({ kind: 'delete'; cueId: number } & {
       afterId?: never;
@@ -423,6 +808,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'split'; cueId: number; atMs: number } & {
@@ -434,6 +820,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'merge'; firstId: number; secondId: number } & {
@@ -445,6 +832,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       path?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'undo' } & {
@@ -458,6 +846,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'redo' } & {
@@ -471,6 +860,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'save'; path: string | null } & {
@@ -483,12 +873,56 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     });
+
+export type vsf_application_quality_statistics_Aggregate = {
+  count: number;
+  minimum: vsf_application_quality_statistics_Extreme | null;
+  maximum: vsf_application_quality_statistics_Extreme | null;
+  mean: number | null;
+};
 
 export type visualsubforge_project_store_Attachment =
   | visualsubforge_project_store_Attachment_Serialize
   | visualsubforge_project_store_Attachment_Deserialize;
+
+export type vsf_application_authoring_attachments_AttachmentAction =
+  'add' | 'replace' | 'remove';
+
+export type vsf_application_authoring_attachments_AttachmentEntry = {
+  id: number;
+  name: string;
+  kind: vsf_application_authoring_attachments_AttachmentType;
+  encodedBytes: number;
+  decodedBytes: number | null;
+  sha256: string | null;
+  font: vsf_application_authoring_fonts_sfnt_FontInfo | null;
+  problem: string | null;
+};
+
+export type vsf_application_authoring_attachments_AttachmentInventory = {
+  entries: vsf_application_authoring_attachments_AttachmentEntry[];
+  total: number;
+  complete: boolean;
+  /**
+   *  Conservative decoded-size upper bound for the displayed font records.
+   *  A partial inventory must never authorize a change.
+   */
+  fontBytesUpperBound: number;
+};
+
+export type vsf_application_authoring_attachments_AttachmentSummary = {
+  action: vsf_application_authoring_attachments_AttachmentAction;
+  before: vsf_application_authoring_attachments_AttachmentEntry | null;
+  after: vsf_application_authoring_attachments_AttachmentEntry | null;
+  documentBytes: number;
+  previewSizeExceeded: boolean;
+};
+
+export type vsf_application_authoring_attachments_AttachmentType =
+  'font' | 'graphic';
 
 export type visualsubforge_project_store_Attachment_Deserialize = {
   path: string;
@@ -506,6 +940,163 @@ export type visualsubforge_media_AudioTrack = {
   audioOrdinal: number;
 };
 
+export type visualsubforge_batch_timing_BatchRequest = {
+  scope: visualsubforge_batch_timing_Scope;
+  change: visualsubforge_batch_timing_Change;
+};
+
+export type visualsubforge_batch_timing_BatchRow = {
+  cueId: string;
+  cueIndex: number;
+  oldStartMs: number;
+  oldEndMs: number;
+  newStartMs: number;
+  newEndMs: number;
+};
+
+export type visualsubforge_batch_timing_BatchView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  error: string | null;
+  total: number;
+  changed: number;
+  offset: number;
+  offsetMs: string | null;
+  alignedMs: number | null;
+  rows: visualsubforge_batch_timing_BatchRow[];
+};
+
+export type visualsubforge_batch_timing_Change =
+  | { kind: 'shift'; earlier: boolean; amountMs: number }
+  | { kind: 'align'; playheadMs: number };
+
+export type visualsubforge_language_tools_Change =
+  | {
+      kind: 'ignore';
+      language: vsf_application_language_Language;
+      word: string;
+    }
+  | {
+      kind: 'remember';
+      language: vsf_application_language_Language;
+      word: string;
+    }
+  | {
+      kind: 'forget';
+      language: vsf_application_language_Language;
+      word: string;
+    }
+  | { kind: 'clearIgnored' };
+
+export type visualsubforge_plugin_review_Content = {
+  startMs: number;
+  endMs: number;
+  text: visualsubforge_plugin_review_TextPreview;
+};
+
+export type visualsubforge_quality_profile_Context =
+  | visualsubforge_quality_profile_Context_Serialize
+  | visualsubforge_quality_profile_Context_Deserialize;
+
+export type visualsubforge_quality_profile_Context_Deserialize = {
+  epoch: number;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  timing: visualsubforge_timing_preset_Settings;
+};
+
+export type visualsubforge_quality_profile_Context_Serialize = {
+  epoch: number;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  timing: visualsubforge_timing_preset_Settings;
+};
+
+export type vsf_application_conversion_ConversionExample = {
+  /**  Source cue identity; never a newly allocated export identity. */
+  cueId: string | null;
+  detail: string;
+};
+
+export type vsf_application_conversion_ConversionFormat = 'srt' | 'ass' | 'ssa';
+
+export type vsf_application_conversion_ConversionIssue = {
+  code: string;
+  severity: vsf_application_conversion_ConversionSeverity;
+  message: string;
+  /**  Exact affected count. Examples are capped, not a complete occurrence list. */
+  count: number;
+  examples: vsf_application_conversion_ConversionExample[];
+};
+
+export type vsf_application_conversion_ConversionOptions = {
+  target: vsf_application_conversion_ConversionFormat;
+  precision: vsf_application_conversion_ConversionPrecision;
+};
+
+export type visualsubforge_conversion_review_ConversionPhase =
+  | 'preparing'
+  | 'reviewing'
+  | 'publishing'
+  | 'published'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
+export type vsf_application_conversion_ConversionPrecision =
+  | 'exact'
+  /**  Round each endpoint to the nearest 10 ms, with ties rounding upward. */
+  | 'nearest';
+
+export type vsf_application_conversion_ConversionReport = {
+  source: vsf_application_conversion_ConversionFormat;
+  options: vsf_application_conversion_ConversionOptions;
+  cues: number;
+  outputBytes: number | null;
+  issues: vsf_application_conversion_ConversionIssue[];
+};
+
+export type visualsubforge_conversion_review_ConversionReview = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_conversion_review_ConversionPhase;
+  options: vsf_application_conversion_ConversionOptions;
+  report: vsf_application_conversion_ConversionReport | null;
+  outputPath: string | null;
+  error: string | null;
+};
+
+export type vsf_application_conversion_ConversionSeverity =
+  'notice' | 'loss' | 'blocked';
+
+export type vsf_application_language_analysis_Coverage = {
+  enabled: boolean;
+  checkedWords: number;
+  skippedWords: number;
+  skippedCues: number;
+  personalized: boolean;
+};
+
+export type vsf_application_quality_check_CueMetrics = {
+  cueId: string;
+  cueIndex: number;
+  startMs: number | null;
+  endMs: number | null;
+  durationMs: number | null;
+  readingStartMs: number | null;
+  effectiveDurationMs: number | null;
+  characters: number;
+  lineCharacters: number[];
+  empty: boolean;
+  cps: vsf_application_quality_metrics_Rate;
+  rs: vsf_application_quality_metrics_Rate;
+  rating: vsf_application_quality_metrics_Rating | null;
+  nextCueId: string | null;
+  gapMs: number | null;
+};
+
 export type visualsubforge_resync_view_CueRow = {
   id: string;
   text: string;
@@ -521,6 +1112,7 @@ export type visualsubforge_document_CueView =
   | visualsubforge_document_CueView_Deserialize;
 
 export type visualsubforge_document_CueView_Deserialize = {
+  style: string | null;
   id: number;
   startMs: number;
   endMs: number;
@@ -528,6 +1120,7 @@ export type visualsubforge_document_CueView_Deserialize = {
 };
 
 export type visualsubforge_document_CueView_Serialize = {
+  style?: string | null;
   id: number;
   startMs: number;
   endMs: number;
@@ -539,6 +1132,87 @@ export type visualsubforge_document_CueView_Serialize = {
  *  projects. Decoder thread count does not change those semantics.
  */
 export type media_analysis_scenes_Detail = 'standard' | 'reduced';
+
+/**
+ *  Offsets refer to original source UTF-16, including markup, like the editor.
+ *  An advisory may remain selectable even when a protected boundary prevents a fix.
+ */
+export type vsf_application_language_analysis_Detail = {
+  start: number;
+  end: number;
+  word: string;
+  replacement: string | null;
+  manualReason: string | null;
+};
+
+export type visualsubforge_quality_check_Draft = {
+  cueId: number;
+  startMs: number;
+  endMs: number;
+  text: string;
+};
+
+export type visualsubforge_quality_check_DraftChange =
+  | { kind: 'clear' }
+  | { kind: 'update'; value: visualsubforge_quality_check_Draft };
+
+export type visualsubforge_timing_review_DurationRepairView =
+  | visualsubforge_timing_review_DurationRepairView_Serialize
+  | visualsubforge_timing_review_DurationRepairView_Deserialize;
+
+export type visualsubforge_timing_review_DurationRepairView_Deserialize = {
+  id: number;
+  selectedCueId: string | null;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_DurationRow[];
+};
+
+export type visualsubforge_timing_review_DurationRepairView_Serialize = {
+  id: number;
+  selectedCueId: string | null;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_DurationRow[];
+};
+
+export type visualsubforge_timing_review_DurationRow = {
+  cueId: string;
+  cueIndex: number;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_duration_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
+};
+
+export type vsf_application_quality_profile_DurationRule = {
+  enabled: boolean;
+  minimumMs: number;
+  maximumMs: number;
+};
 
 export type visualsubforge_recovery_store_Entry =
   | visualsubforge_recovery_store_Entry_Serialize
@@ -560,18 +1234,154 @@ export type visualsubforge_recovery_store_Entry_Serialize = {
   error: string | null;
 };
 
+export type vsf_application_quality_statistics_Extreme = {
+  value: number | null;
+  cueId: string;
+  cueIndex: number;
+  relatedCueId: string | null;
+};
+
 export type visualsubforge_desktop_FileChoice =
   | 'media'
   | 'subtitles'
+  | 'font'
+  | 'plugin'
   | 'saveSubtitles'
+  | 'exportSrt'
+  | 'exportAss'
+  | 'exportSsa'
   | 'project'
+  | 'legacyProject'
   | 'saveProject'
   | 'timingPreset'
-  | 'saveTimingPreset';
+  | 'saveTimingPreset'
+  | 'qualityPreset'
+  | 'saveQualityPreset';
+
+export type visualsubforge_plugin_review_Finding = {
+  cueId: string;
+  message: string;
+};
+
+export type vsf_application_quality_check_Finding = {
+  rule: vsf_application_quality_check_Rule;
+  /**  Decimal identity strings avoid JSON/JavaScript integer precision loss. */
+  cueId: string;
+  cueIndex: number;
+  relatedCueId: string | null;
+  severity: vsf_application_quality_check_Severity;
+  measured: number | null;
+  expected: string;
+  explanation: string;
+  language: vsf_application_language_analysis_Detail | null;
+};
+
+export type vsf_application_authoring_fonts_sfnt_FontInfo = {
+  kind: vsf_application_authoring_fonts_sfnt_FontKind;
+  tables: number;
+  glyphs: number;
+  family: string | null;
+};
+
+export type vsf_application_authoring_fonts_sfnt_FontKind =
+  'trueType' | 'openTypeCff' | 'openTypeCff2';
+
+export type visualsubforge_font_review_FontOperation =
+  | { kind: 'inspect' }
+  | { kind: 'add'; path: string }
+  | { kind: 'replace'; id: number; path: string }
+  | { kind: 'remove'; id: number };
+
+export type visualsubforge_font_review_FontReview = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  operation: visualsubforge_font_review_FontOperation;
+  inventory: vsf_application_authoring_attachments_AttachmentInventory | null;
+  summary: vsf_application_authoring_attachments_AttachmentSummary | null;
+  changed: boolean;
+  error: string | null;
+};
+
+export type vsf_application_text_formatting_Format =
+  'bold' | 'italic' | 'underline';
+
+export type visualsubforge_document_FormatView = {
+  name: string;
+  timeStepMs: number;
+  styles: visualsubforge_document_StyleView[];
+  scriptInfo: [string, string][];
+};
+
+export type vsf_application_text_formatting_Formatted = {
+  text: string;
+  start: number;
+  end: number;
+};
+
+export type visualsubforge_text_review_FormattingContext = {
+  generation: number;
+  revision: number;
+  cueId: number;
+  styleName: string;
+};
+
+export type visualsubforge_gap_review_GapView =
+  | visualsubforge_gap_review_GapView_Serialize
+  | visualsubforge_gap_review_GapView_Deserialize;
+
+export type visualsubforge_gap_review_GapView_Deserialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_gap_review_Row[];
+};
+
+export type visualsubforge_gap_review_GapView_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_gap_review_Row[];
+};
 
 export type visualsubforge_timing_preset_Imported = {
   preset: visualsubforge_timing_preset_Preset;
   warnings: string[];
+};
+
+export type visualsubforge_plugin_review_Input = {
+  mode: visualsubforge_plugin_review_Mode;
+  /**  Empty scope means the whole accepted document. These are stable cue IDs. */
+  scope: string[];
+  selection: string[];
+  cursorMs: number | null;
+  settings: { [key in string]: visualsubforge_plugin_review_Scalar };
+  cpsTarget: number | null;
+  rsTargetIndex: number | null;
+  /**  Explicit plugin context; VSF has no corresponding global filter setting. */
+  sceneFilterOffsetMs: number;
 };
 
 export type visualsubforge_workflow_trace_InputEvent =
@@ -604,6 +1414,103 @@ export type visualsubforge_workflow_trace_InputEvent_Serialize = {
 
 export type visualsubforge_workflow_trace_InputType = 'click' | 'keydown';
 
+export type visualsubforge_document_translation_JobView = {
+  id: number;
+  key: visualsubforge_document_translation_Key;
+  copy: boolean;
+  phase: visualsubforge_document_translation_Phase;
+  reference: visualsubforge_document_translation_ReferenceInfo | null;
+  page: visualsubforge_document_translation_Page | null;
+  error: string | null;
+};
+
+export type visualsubforge_document_translation_Key = {
+  generation: number;
+  revision: number;
+  epoch: number;
+};
+
+export type visualsubforge_quality_check_Key = {
+  generation: number;
+  revision: number;
+  epoch: number;
+  loaded: boolean;
+};
+
+export type vsf_application_quality_profile_Kind = 'quality';
+
+export type vsf_application_language_Language = 'en-US' | 'fr';
+
+export type visualsubforge_project_import_api_LegacyImportPhase =
+  | 'preparing'
+  | 'reviewing'
+  | 'publishing'
+  | 'published'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
+export type visualsubforge_project_import_api_LegacyImportReference = {
+  field: string;
+  original: string | null;
+  candidate: string | null;
+  resolved: string | null;
+  overridden: boolean;
+  issue: string | null;
+};
+
+export type visualsubforge_project_import_api_LegacyImportReport = {
+  sourcePath: string;
+  encoding: string;
+  media: visualsubforge_project_import_api_LegacyImportReference;
+  subtitles: visualsubforge_project_import_api_LegacyImportReference;
+  subtitleFormat: string | null;
+  cueCount: number | null;
+  positionMs: number;
+  waveformStartMs: number;
+  waveformSpanMs: number;
+  qualityProfileName: string;
+  warnings: visualsubforge_project_import_api_LegacyImportWarning[];
+  canPublish: boolean;
+};
+
+export type visualsubforge_project_import_api_LegacyImportRequest = {
+  path: string;
+  mediaPath: string | null;
+  subtitlePath: string | null;
+};
+
+export type visualsubforge_project_import_api_LegacyImportReview = {
+  id: number;
+  phase: visualsubforge_project_import_api_LegacyImportPhase;
+  running: boolean;
+  report: visualsubforge_project_import_api_LegacyImportReport | null;
+  outputPath: string | null;
+  error: string | null;
+};
+
+export type visualsubforge_project_import_api_LegacyImportWarning = {
+  field: string;
+  line: number | null;
+  value: string | null;
+  message: string;
+};
+
+export type vsf_application_quality_profile_LineRule = {
+  enabled: boolean;
+  maximumLines: number;
+  singleLinePreferred: number;
+  maximumCharacters: number;
+};
+
+export type visualsubforge_text_review_Match = {
+  start: number;
+  end: number;
+  skipped: string | null;
+};
+
 export type visualsubforge_project_MediaIdentity =
   | visualsubforge_project_MediaIdentity_Serialize
   | visualsubforge_project_MediaIdentity_Deserialize;
@@ -625,6 +1532,7 @@ export type visualsubforge_desktop_MenuState = {
   available: boolean;
   media: boolean;
   document: boolean;
+  convert: boolean;
   resync: boolean;
   undo: boolean;
   redo: boolean;
@@ -642,17 +1550,35 @@ export type visualsubforge_desktop_MenuState = {
   nextScene: boolean;
 };
 
+export type visualsubforge_quality_check_Metric = {
+  data: vsf_application_quality_check_CueMetrics;
+  lineCount: number;
+  longestLine: number;
+  linesTruncated: boolean;
+};
+
+export type visualsubforge_plugin_review_Mode = 'check' | 'fix';
+
 export type visualsubforge_scenes_Mode = 'keyframes' | 'visual';
+
+export type visualsubforge_language_tools_Notices = {
+  english: string;
+  french: string;
+  mpl: string;
+  sources: string;
+};
 
 export type visualsubforge_project_store_Opened =
   | visualsubforge_project_store_Opened_Serialize
   | visualsubforge_project_store_Opened_Deserialize;
 
 export type visualsubforge_project_store_Opened_Deserialize = {
+  referenceIssue: visualsubforge_document_translation_project_ReferenceIssue | null;
   token: number;
 } & visualsubforge_project_Project_Deserialize;
 
 export type visualsubforge_project_store_Opened_Serialize = {
+  referenceIssue?: visualsubforge_document_translation_project_ReferenceIssue | null;
   token: number;
 } & visualsubforge_project_Project_Serialize;
 
@@ -666,8 +1592,35 @@ export type visualsubforge_workflow_trace_Operation =
   | 'split'
   | 'merge'
   | 'edit'
+  | 'editStyled'
   | 'undo'
   | 'redo';
+
+export type vsf_application_text_Operation =
+  | { kind: 'find'; query: string; caseSensitive: boolean }
+  | {
+      kind: 'replace';
+      query: string;
+      replacement: string;
+      caseSensitive: boolean;
+    }
+  | { kind: 'joinLines' }
+  | { kind: 'reflow' }
+  | {
+      kind: 'languageSuggestions';
+      cueIndex: number;
+      start: number;
+      end: number;
+      original: string;
+    }
+  | {
+      kind: 'languageCorrection';
+      cueIndex: number;
+      start: number;
+      end: number;
+      original: string;
+      replacement: string;
+    };
 
 export type visualsubforge_project_Options =
   | visualsubforge_project_Options_Serialize
@@ -680,6 +1633,7 @@ export type visualsubforge_project_Options_Deserialize = {
   followSubtitle: boolean;
   showScenes: boolean;
   timing?: visualsubforge_timing_preset_Settings;
+  quality?: vsf_application_quality_profile_Profile_Deserialize | null;
 };
 
 export type visualsubforge_project_Options_Serialize = {
@@ -689,10 +1643,59 @@ export type visualsubforge_project_Options_Serialize = {
   followSubtitle: boolean;
   showScenes: boolean;
   timing: visualsubforge_timing_preset_Settings;
+  quality: vsf_application_quality_profile_Profile_Serialize | null;
+};
+
+export type visualsubforge_document_translation_Page = {
+  total: number;
+  offset: number;
+  rows: visualsubforge_document_translation_Row[];
+  selected: visualsubforge_document_translation_Row | null;
 };
 
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
+
+export type visualsubforge_document_translation_Phase =
+  | 'working'
+  | 'ready'
+  | 'accepting'
+  | 'accepted'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
+export type visualsubforge_gap_review_Phase =
+  | 'preparing'
+  | 'reviewing'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'accepted'
+  | 'closed';
+
+export type visualsubforge_plugin_review_Phase =
+  | 'preparing'
+  | 'reviewing'
+  | 'accepting'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'accepted'
+  | 'closed';
+
+export type visualsubforge_quality_check_Phase =
+  | 'idle'
+  | 'checking'
+  | 'ready'
+  | 'cancelling'
+  | 'cancelled'
+  | 'failed'
+  | 'closed';
 
 export type visualsubforge_resync_view_Phase =
   | 'analyzing'
@@ -703,11 +1706,55 @@ export type visualsubforge_resync_view_Phase =
   | 'cancelled'
   | 'failed';
 
-export type visualsubforge_preferences_Preferences = {
+export type visualsubforge_statistics_Phase =
+  | 'preparing'
+  | 'ready'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'closed';
+
+export type visualsubforge_text_review_Phase =
+  | 'preparing'
+  | 'reviewing'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'accepted'
+  | 'closed';
+
+export type visualsubforge_plugin_review_Preferences = {
+  minimumBlankMs: number;
+  minimumDurationMs: number;
+  maximumDurationMs: number;
+  cpsTarget: number;
+  rsTargetIndex: number | null;
+};
+
+export type visualsubforge_preferences_Preferences =
+  | visualsubforge_preferences_Preferences_Serialize
+  | visualsubforge_preferences_Preferences_Deserialize;
+
+export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
+  quality: vsf_application_quality_profile_Profile_Deserialize;
+  showQualityMetrics: boolean;
+  personalWords?: vsf_application_language_dictionary_WordLists;
+};
+
+export type visualsubforge_preferences_Preferences_Serialize = {
+  version: number;
+  autoScanScenes: boolean;
+  sceneDetail: media_analysis_scenes_Detail;
+  timing: visualsubforge_timing_preset_Settings;
+  quality: vsf_application_quality_profile_Profile_Serialize;
+  showQualityMetrics: boolean;
+  personalWords: vsf_application_language_dictionary_WordLists;
 };
 
 export type visualsubforge_timing_preset_Preset = {
@@ -716,15 +1763,88 @@ export type visualsubforge_timing_preset_Preset = {
   timing: visualsubforge_timing_preset_Settings;
 };
 
+export type vsf_application_quality_profile_Profile =
+  | vsf_application_quality_profile_Profile_Serialize
+  | vsf_application_quality_profile_Profile_Deserialize;
+
+export type vsf_application_quality_profile_Profile_Deserialize = {
+  version: number;
+  kind: vsf_application_quality_profile_Kind;
+  id: string;
+  name: string;
+  revision: number;
+  publisher: string;
+  source: string;
+  language: string;
+  textAlgorithm: vsf_application_quality_profile_TextAlgorithm;
+  speedBasis: vsf_application_quality_profile_SpeedBasis;
+  timing: vsf_application_quality_profile_Timing;
+  rules: vsf_application_quality_profile_Rules;
+  /**
+   *  Optional extension to v2. Omission preserves the original serialized
+   *  policy and fingerprint; old profiles never enable language checks.
+   */
+  languageTools?: vsf_application_language_Settings;
+  /**
+   *  Unsupported source semantics. Nonempty means incomplete policy coverage,
+   *  independently of whether supported rules found any problems.
+   */
+  limitations: string[];
+};
+
+export type vsf_application_quality_profile_Profile_Serialize = {
+  version: number;
+  kind: vsf_application_quality_profile_Kind;
+  id: string;
+  name: string;
+  revision: number;
+  publisher: string;
+  source: string;
+  language: string;
+  textAlgorithm: vsf_application_quality_profile_TextAlgorithm;
+  speedBasis: vsf_application_quality_profile_SpeedBasis;
+  timing: vsf_application_quality_profile_Timing;
+  rules: vsf_application_quality_profile_Rules;
+  /**
+   *  Optional extension to v2. Omission preserves the original serialized
+   *  policy and fingerprint; old profiles never enable language checks.
+   */
+  languageTools?: vsf_application_language_Settings;
+  /**
+   *  Unsupported source semantics. Nonempty means incomplete policy coverage,
+   *  independently of whether supported rules found any problems.
+   */
+  limitations: string[];
+};
+
 export type visualsubforge_project_Project =
   | visualsubforge_project_Project_Serialize
   | visualsubforge_project_Project_Deserialize;
 
+export type visualsubforge_document_translation_project_ProjectContext = {
+  reference: visualsubforge_document_translation_project_ProjectReference | null;
+  copiedFrom: visualsubforge_document_translation_project_ProjectOrigin | null;
+};
+
+export type visualsubforge_document_translation_project_ProjectOrigin = {
+  path: string;
+  selected: string;
+};
+
+export type visualsubforge_document_translation_project_ProjectReference = {
+  path: string;
+  format: string;
+  sha256: string;
+  offsetMs: number;
+};
+
 export type visualsubforge_project_Project_Deserialize = {
   version: number;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
-  mediaIdentity: visualsubforge_project_MediaIdentity_Deserialize;
+  subtitleFormat?: string | null;
+  mediaIdentity: visualsubforge_project_MediaIdentity_Deserialize | null;
+  translation?: visualsubforge_document_translation_project_ProjectContext | null;
   positionSeconds: number;
   options: visualsubforge_project_Options_Deserialize;
   scenes: visualsubforge_scenes_Saved_Deserialize | null;
@@ -732,12 +1852,43 @@ export type visualsubforge_project_Project_Deserialize = {
 
 export type visualsubforge_project_Project_Serialize = {
   version: number;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
-  mediaIdentity: visualsubforge_project_MediaIdentity_Serialize;
+  subtitleFormat?: string | null;
+  mediaIdentity: visualsubforge_project_MediaIdentity_Serialize | null;
+  translation?: visualsubforge_document_translation_project_ProjectContext | null;
   positionSeconds: number;
   options: visualsubforge_project_Options_Serialize;
   scenes: visualsubforge_scenes_Saved_Serialize | null;
+};
+
+export type vsf_application_quality_statistics_Range = {
+  first: number;
+  last: number;
+};
+
+export type vsf_application_quality_metrics_Rate =
+  | { status: 'finite'; value: number | null }
+  | {
+      status: 'unavailable';
+      reason: vsf_application_quality_metrics_Unavailable;
+    };
+
+export type vsf_application_quality_metrics_Rating =
+  | 'too_slow'
+  | 'slow_acceptable'
+  | 'a_bit_slow'
+  | 'good_slow'
+  | 'perfect'
+  | 'good_fast'
+  | 'a_bit_fast'
+  | 'fast_acceptable'
+  | 'too_fast';
+
+export type vsf_application_quality_statistics_RatingCount = {
+  rating: vsf_application_quality_metrics_Rating;
+  count: number;
+  percentage: number | null;
 };
 
 export type visualsubforge_document_RecoveryStatus =
@@ -754,6 +1905,149 @@ export type visualsubforge_document_RecoveryStatus_Serialize = {
   error: string | null;
 };
 
+export type visualsubforge_document_translation_ReferenceInfo = {
+  path: string;
+  format: string;
+  sha256: string;
+  cues: number;
+  offsetMs: number;
+};
+
+export type visualsubforge_document_translation_project_ReferenceIssue = {
+  path: string;
+  message: string;
+  canReload: boolean;
+};
+
+export type visualsubforge_document_translation_project_ReferenceOverride = {
+  path: string | null;
+  reload?: boolean;
+};
+
+export type visualsubforge_document_translation_Reply =
+  | visualsubforge_document_translation_Reply_Serialize
+  | visualsubforge_document_translation_Reply_Deserialize;
+
+export type visualsubforge_document_translation_Reply_Deserialize = {
+  key: visualsubforge_document_translation_Key;
+  context: visualsubforge_document_translation_Summary | null;
+  job: visualsubforge_document_translation_JobView | null;
+  document: visualsubforge_document_Snapshot_Deserialize | null;
+};
+
+export type visualsubforge_document_translation_Reply_Serialize = {
+  key: visualsubforge_document_translation_Key;
+  context: visualsubforge_document_translation_Summary | null;
+  job: visualsubforge_document_translation_JobView | null;
+  document: visualsubforge_document_Snapshot_Serialize | null;
+};
+
+export type visualsubforge_quality_check_Request = {
+  session: number;
+  generation: number;
+  revision: number;
+  run: boolean;
+  restart: boolean;
+  offset: number;
+  limit: number;
+  metricsOffset: number;
+  metricsLimit: number;
+  selected: number | null;
+  rule: vsf_application_quality_check_Rule | null;
+  severity: vsf_application_quality_check_Severity | null;
+  draft: visualsubforge_quality_check_DraftChange | null;
+};
+
+export type visualsubforge_document_translation_Row = {
+  index: number;
+  startMs: number;
+  endMs: number;
+  overlapMs: number | null;
+  raw: string;
+  reading: string | null;
+  warning: string | null;
+  timed: boolean;
+  layout: boolean;
+  truncated: boolean;
+};
+
+export type visualsubforge_gap_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  nextCueIndex: number;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_gap_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
+  nextBefore: visualsubforge_quality_check_Metric;
+  nextAfter: visualsubforge_quality_check_Metric;
+};
+
+export type visualsubforge_plugin_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  before: visualsubforge_plugin_review_Content;
+  after: visualsubforge_plugin_review_Content;
+  outsideScope: boolean;
+  warning: string | null;
+};
+
+export type visualsubforge_text_review_Row = {
+  cueId: number;
+  cueIndex: number;
+  before: string;
+  after: string | null;
+  skipped: string | null;
+  matches: visualsubforge_text_review_Match[];
+  matchCount: number;
+};
+
+export type visualsubforge_timing_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  newStartMs: number | null;
+  newEndMs: number | null;
+  skipped: vsf_application_quality_scene_repair_Skip | null;
+  explanation: string | null;
+  before: visualsubforge_quality_check_Metric;
+  after: visualsubforge_quality_check_Metric;
+};
+
+export type vsf_application_quality_check_Rule =
+  | 'empty'
+  | 'duration_short'
+  | 'duration_long'
+  | 'cps_low'
+  | 'cps_high'
+  | 'rs_low'
+  | 'rs_high'
+  | 'speed_unavailable'
+  | 'line_count'
+  | 'line_length'
+  | 'overlap'
+  | 'gap'
+  | 'scene_start'
+  | 'scene_end'
+  | 'spelling'
+  | 'typography'
+  | 'capitalization'
+  | 'dialogue_marker'
+  | 'language_coverage';
+
+export type vsf_application_quality_statistics_RuleCount = {
+  rule: vsf_application_quality_check_Rule;
+  count: number;
+};
+
+export type vsf_application_quality_profile_Rules = {
+  duration: vsf_application_quality_profile_DurationRule;
+  speed: vsf_application_quality_profile_SpeedRule;
+  lines: vsf_application_quality_profile_LineRule;
+  gaps: boolean;
+  empty: boolean;
+};
+
 export type visualsubforge_project_SaveRequest =
   | visualsubforge_project_SaveRequest_Serialize
   | visualsubforge_project_SaveRequest_Deserialize;
@@ -761,7 +2055,7 @@ export type visualsubforge_project_SaveRequest =
 export type visualsubforge_project_SaveRequest_Deserialize = {
   path: string;
   token?: number | null;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
   session: number;
   positionSeconds: number;
@@ -771,7 +2065,7 @@ export type visualsubforge_project_SaveRequest_Deserialize = {
 export type visualsubforge_project_SaveRequest_Serialize = {
   path: string;
   token: number | null;
-  mediaPath: string;
+  mediaPath: string | null;
   subtitlePath: string | null;
   session: number;
   positionSeconds: number;
@@ -794,6 +2088,51 @@ export type visualsubforge_scenes_Saved_Serialize = {
   mode: visualsubforge_scenes_Mode;
   cuts: number[];
   identity: visualsubforge_project_MediaIdentity_Serialize;
+};
+
+export type visualsubforge_plugin_review_Scalar = boolean | number | string;
+
+export type vsf_application_quality_scene_SceneCoverage =
+  'notRequired' | 'checked' | 'reduced' | 'noMedia' | 'unavailable' | 'partial';
+
+export type visualsubforge_timing_review_SceneRepairView =
+  | visualsubforge_timing_review_SceneRepairView_Serialize
+  | visualsubforge_timing_review_SceneRepairView_Deserialize;
+
+export type visualsubforge_timing_review_SceneRepairView_Deserialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_Row[];
+};
+
+export type visualsubforge_timing_review_SceneRepairView_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_Row[];
 };
 
 export type visualsubforge_scenes_SceneView =
@@ -834,6 +2173,12 @@ export type visualsubforge_scenes_SceneView_Serialize = {
   note: string | null;
 };
 
+export type visualsubforge_batch_timing_Scope =
+  | { kind: 'selected'; cueIds: number[] }
+  | { kind: 'all' }
+  | { kind: 'following'; cueId: number }
+  | { kind: 'atOrAfter'; positionMs: number };
+
 export type visualsubforge_resync_view_SectionRow = {
   sourceStartUs: number;
   sourceEndUs: number;
@@ -841,6 +2186,11 @@ export type visualsubforge_resync_view_SectionRow = {
   targetEndUs: number;
   anchors: number;
   maxResidualUs: number;
+};
+
+export type vsf_application_quality_statistics_Selection = {
+  range: vsf_application_quality_statistics_Range | null;
+  excluded: number[];
 };
 
 export type visualsubforge_timing_preset_Settings = {
@@ -853,11 +2203,65 @@ export type visualsubforge_timing_preset_Settings = {
   snapDistancePx: number;
 };
 
+/**  Opt-in editorial aids. Existing profiles retain disabled defaults. */
+export type vsf_application_language_Settings = {
+  dictionary: vsf_application_language_Language;
+  spelling: boolean;
+  typography: boolean;
+  capitalization: boolean;
+  dialogueMarkers: boolean;
+};
+
+export type visualsubforge_quality_profile_SettingsData =
+  | visualsubforge_quality_profile_SettingsData_Serialize
+  | visualsubforge_quality_profile_SettingsData_Deserialize;
+
+export type visualsubforge_quality_profile_SettingsData_Deserialize = {
+  current: visualsubforge_quality_profile_Context_Deserialize;
+  builtins: vsf_application_quality_profile_Profile_Deserialize[];
+};
+
+export type visualsubforge_quality_profile_SettingsData_Serialize = {
+  current: visualsubforge_quality_profile_Context_Serialize;
+  builtins: vsf_application_quality_profile_Profile_Serialize[];
+};
+
+export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
+
+export type vsf_application_quality_duration_Skip =
+  | 'sceneDataUnavailable'
+  | 'ambiguousOverlap'
+  | 'markupNeedsReview'
+  | 'conflictingBounds'
+  | 'neighborConstraint'
+  | 'formatPrecision'
+  | 'sceneExclusion'
+  | 'coupledConstraints'
+  | 'noDirectChange';
+
+export type vsf_application_quality_gap_Skip =
+  | 'ambiguousOverlap'
+  | 'markupNeedsReview'
+  | 'wouldCollapse'
+  | 'minimumDuration'
+  | 'sceneDataUnavailable'
+  | 'sceneExclusion'
+  | 'speedWouldWorsen';
+
+export type vsf_application_quality_scene_repair_Skip =
+  | 'ambiguousOverlap'
+  | 'markupNeedsReview'
+  | 'wouldCollapse'
+  | 'durationConstraint'
+  | 'timingWouldWorsen';
+
 export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Serialize
   | visualsubforge_document_Snapshot_Deserialize;
 
 export type visualsubforge_document_Snapshot_Deserialize = {
+  translation: visualsubforge_document_translation_Summary | null;
+  format: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
   loaded: boolean;
@@ -870,6 +2274,8 @@ export type visualsubforge_document_Snapshot_Deserialize = {
 };
 
 export type visualsubforge_document_Snapshot_Serialize = {
+  translation?: visualsubforge_document_translation_Summary | null;
+  format?: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
   loaded: boolean;
@@ -879,6 +2285,43 @@ export type visualsubforge_document_Snapshot_Serialize = {
   canUndo: boolean;
   canRedo: boolean;
   cues: visualsubforge_document_CueView_Serialize[];
+};
+
+export type vsf_application_quality_profile_SpeedBasis =
+  'ordinary_v1' | 'vss_overlap_v1';
+
+export type vsf_application_quality_profile_SpeedRule = {
+  enabled: boolean;
+  minimumRs: number | null;
+  maximumRsExclusive: number | null;
+  minimumCps: number | null;
+  maximumCps: number | null;
+};
+
+export type visualsubforge_statistics_StatisticsView =
+  | visualsubforge_statistics_StatisticsView_Serialize
+  | visualsubforge_statistics_StatisticsView_Deserialize;
+
+export type visualsubforge_statistics_StatisticsView_Deserialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_statistics_Phase;
+  error: string | null;
+  summary: vsf_application_quality_statistics_Summary_Deserialize | null;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+};
+
+export type visualsubforge_statistics_StatisticsView_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_statistics_Phase;
+  error: string | null;
+  summary: vsf_application_quality_statistics_Summary_Serialize | null;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
 };
 
 export type visualsubforge_media_Status =
@@ -906,6 +2349,7 @@ export type visualsubforge_media_Status_Deserialize = {
   outputDrops: number | null;
   error: string | null;
   subtitlePreviewError: string | null;
+  subtitleFontDiagnostics?: string[];
   previewDocumentGeneration?: number | null;
   previewDocumentRevision?: number | null;
 };
@@ -931,9 +2375,243 @@ export type visualsubforge_media_Status_Serialize = {
   outputDrops: number | null;
   error: string | null;
   subtitlePreviewError: string | null;
+  subtitleFontDiagnostics: string[];
   previewDocumentGeneration: number | null;
   previewDocumentRevision: number | null;
 };
+
+export type vsf_application_authoring_styles_StyleFieldChange = {
+  name: string;
+  before: string | null;
+  after: string;
+};
+
+export type vsf_application_authoring_styles_StyleFieldValue = {
+  name: string;
+  value: string;
+};
+
+export type visualsubforge_style_review_StyleForm = {
+  key: visualsubforge_quality_check_Key;
+  fields: visualsubforge_style_review_StyleFormField[];
+};
+
+export type visualsubforge_style_review_StyleFormField = {
+  name: string;
+  value: string;
+  editable: boolean;
+};
+
+export type vsf_application_authoring_styles_StyleOperation =
+  | {
+      kind: 'create';
+      name: string;
+      copyFrom: string | null;
+      fields: vsf_application_authoring_styles_StyleFieldValue[];
+    }
+  | {
+      kind: 'edit';
+      name: string;
+      fields: vsf_application_authoring_styles_StyleFieldValue[];
+    };
+
+export type visualsubforge_style_review_StyleReview = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  operation: vsf_application_authoring_styles_StyleOperation;
+  summary: vsf_application_authoring_styles_StyleSummary | null;
+  changed: boolean;
+  error: string | null;
+};
+
+export type vsf_application_authoring_styles_StyleSummary = {
+  created: boolean;
+  oldName: string | null;
+  name: string;
+  fields: vsf_application_authoring_styles_StyleFieldChange[];
+  changedCues: number;
+  changedComments: number;
+  affectedCues: number;
+  referenceReviewCues: number;
+};
+
+export type visualsubforge_document_StyleView = {
+  name: string;
+  fields: [string, string][];
+};
+
+export type visualsubforge_document_translation_Summary = {
+  epoch: number;
+  dirty: boolean;
+  reference: visualsubforge_document_translation_ReferenceInfo | null;
+};
+
+export type vsf_application_quality_statistics_Summary =
+  | vsf_application_quality_statistics_Summary_Serialize
+  | vsf_application_quality_statistics_Summary_Deserialize;
+
+export type vsf_application_quality_statistics_Summary_Deserialize = {
+  schemaVersion: number;
+  textInterpretation?: string | null;
+  selection: vsf_application_quality_statistics_Selection;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  complete: boolean;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  languageCoverage: vsf_application_language_analysis_Coverage;
+  totalCues: number;
+  scopeCues: number;
+  outsideScopeCues: number;
+  excludedCues: number;
+  includedCues: number;
+  emptyTextCues: number;
+  durationMs: vsf_application_quality_statistics_Aggregate;
+  cps: vsf_application_quality_statistics_Aggregate;
+  rs: vsf_application_quality_statistics_Aggregate;
+  unavailableCps: vsf_application_quality_statistics_UnavailableCounts;
+  unavailableRs: vsf_application_quality_statistics_UnavailableCounts;
+  ratings: vsf_application_quality_statistics_RatingCount[];
+  lineCount: vsf_application_quality_statistics_Aggregate;
+  longestLine: vsf_application_quality_statistics_Aggregate;
+  gapsMs: vsf_application_quality_statistics_Aggregate;
+  excludedNeighborPairs: number;
+  negativeGaps: number;
+  touchingGaps: number;
+  positiveGaps: number;
+  /**  Exact integer <= 100000*99999/2, safely represented by JSON numbers. */
+  overlappingPairs: number | null;
+  overlappingCues: number;
+  findingsCount: number;
+  affectedCues: number;
+  violations: number;
+  advisories: number;
+  rules: vsf_application_quality_statistics_RuleCount[];
+};
+
+export type vsf_application_quality_statistics_Summary_Serialize = {
+  schemaVersion: number;
+  textInterpretation?: string | null;
+  selection: vsf_application_quality_statistics_Selection;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string;
+  complete: boolean;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  languageCoverage: vsf_application_language_analysis_Coverage;
+  totalCues: number;
+  scopeCues: number;
+  outsideScopeCues: number;
+  excludedCues: number;
+  includedCues: number;
+  emptyTextCues: number;
+  durationMs: vsf_application_quality_statistics_Aggregate;
+  cps: vsf_application_quality_statistics_Aggregate;
+  rs: vsf_application_quality_statistics_Aggregate;
+  unavailableCps: vsf_application_quality_statistics_UnavailableCounts;
+  unavailableRs: vsf_application_quality_statistics_UnavailableCounts;
+  ratings: vsf_application_quality_statistics_RatingCount[];
+  lineCount: vsf_application_quality_statistics_Aggregate;
+  longestLine: vsf_application_quality_statistics_Aggregate;
+  gapsMs: vsf_application_quality_statistics_Aggregate;
+  excludedNeighborPairs: number;
+  negativeGaps: number;
+  touchingGaps: number;
+  positiveGaps: number;
+  /**  Exact integer <= 100000*99999/2, safely represented by JSON numbers. */
+  overlappingPairs: number | null;
+  overlappingCues: number;
+  findingsCount: number;
+  affectedCues: number;
+  violations: number;
+  advisories: number;
+  rules: vsf_application_quality_statistics_RuleCount[];
+};
+
+export type visualsubforge_text_review_Target = {
+  cueIndex: number;
+  matchIndex: number;
+};
+
+export type vsf_application_quality_profile_TextAlgorithm = 'vss_utf16_v1';
+
+export type visualsubforge_plugin_review_TextChunk = {
+  offset: number;
+  nextOffset: number;
+  totalBytes: number;
+  text: string;
+};
+
+export type visualsubforge_plugin_review_TextPreview = {
+  text: string;
+  totalBytes: number;
+  truncated: boolean;
+};
+
+export type visualsubforge_text_review_TextView = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  profileName: string;
+  profileHash: string;
+  operation: vsf_application_text_Operation;
+  error: string | null;
+  total: number;
+  changed: number;
+  matches: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_text_review_Row[];
+  suggestions: string[];
+};
+
+export type vsf_application_quality_profile_Timing = {
+  cueGapMs: number;
+  sceneBeforeMs: number;
+  sceneAfterMs: number;
+};
+
+export type vsf_application_quality_metrics_Unavailable =
+  'empty_text' | 'invalid_duration' | 'reading_allowance';
+
+export type vsf_application_quality_statistics_UnavailableCounts = {
+  total: number;
+  emptyText: number;
+  invalidDuration: number;
+  readingAllowance: number;
+};
+
+export type visualsubforge_plugin_review_View = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_plugin_review_Phase;
+  mode: visualsubforge_plugin_review_Mode;
+  path: string;
+  packageId: string | null;
+  fingerprint: string | null;
+  name: string | null;
+  canFix: boolean;
+  error: string | null;
+  scopeCount: number;
+  selectionCount: number;
+  cursorMs: number | null;
+  preferences: visualsubforge_plugin_review_Preferences;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  sceneFilterOffsetMs: number;
+  settings: { [key in string]: visualsubforge_plugin_review_Scalar };
+  logs: string[];
+  findingsTotal: number;
+  changesTotal: number;
+  findingsOffset: number;
+  changesOffset: number;
+  findings: visualsubforge_plugin_review_Finding[];
+  rows: visualsubforge_plugin_review_Row[];
+};
+
+export type visualsubforge_quality_check_View =
+  | visualsubforge_quality_check_View_Serialize
+  | visualsubforge_quality_check_View_Deserialize;
 
 export type visualsubforge_resync_view_View = {
   id: number;
@@ -941,6 +2619,8 @@ export type visualsubforge_resync_view_View = {
   stage: string;
   error: string | null;
   complete: boolean;
+  format: string;
+  timeStepMs: number;
   totalCues: number;
   unresolvedCues: number;
   totalSections: number;
@@ -948,6 +2628,54 @@ export type visualsubforge_resync_view_View = {
   sectionOffset: number;
   cues: visualsubforge_resync_view_CueRow[];
   sections: visualsubforge_resync_view_SectionRow[];
+};
+
+export type visualsubforge_quality_check_View_Deserialize = {
+  key: visualsubforge_quality_check_Key;
+  id: number;
+  phase: visualsubforge_quality_check_Phase;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string | null;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
+  languageCoverage: vsf_application_language_analysis_Coverage | null;
+  error: string | null;
+  findingsCount: number;
+  affectedCues: number;
+  filteredCount: number;
+  filteredCues: number;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+  metrics: visualsubforge_quality_check_Metric[];
+  selected: visualsubforge_quality_check_Metric | null;
+  previousCue: string | null;
+  nextCue: string | null;
+  draft: visualsubforge_quality_check_Metric | null;
+  draftChecking: boolean;
+  draftError: string | null;
+};
+
+export type visualsubforge_quality_check_View_Serialize = {
+  key: visualsubforge_quality_check_Key;
+  id: number;
+  phase: visualsubforge_quality_check_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string | null;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
+  languageCoverage: vsf_application_language_analysis_Coverage | null;
+  error: string | null;
+  findingsCount: number;
+  affectedCues: number;
+  filteredCount: number;
+  filteredCues: number;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+  metrics: visualsubforge_quality_check_Metric[];
+  selected: visualsubforge_quality_check_Metric | null;
+  previousCue: string | null;
+  nextCue: string | null;
+  draft: visualsubforge_quality_check_Metric | null;
+  draftChecking: boolean;
+  draftError: string | null;
 };
 
 export type visualsubforge_waveform_WaveformView =
@@ -978,17 +2706,32 @@ export type visualsubforge_waveform_WaveformView_Serialize = {
   peaks: [number, number][];
 };
 
+/**  Serializable user data. Never mutate the shared bundled dictionaries. */
+export type vsf_application_language_dictionary_WordLists = {
+  englishUs: string[];
+  french: string[];
+};
+
+export type visualsubforge_language_tools_Words = {
+  epoch: number;
+  personal: vsf_application_language_dictionary_WordLists;
+  ignored: vsf_application_language_dictionary_WordLists;
+};
+
 /**  Shared native-menu/quit payload; the wire event name stays workspace-action. */
 export type visualsubforge_desktop_WorkspaceAction =
   | 'settings'
   | 'timingSettings'
   | 'resync'
+  | 'plugins'
+  | 'translationReference'
   | 'showScenes'
   | 'scanScenes'
   | 'cancelSceneScan'
   | 'previousScene'
   | 'nextScene'
   | 'openProject'
+  | 'importLegacyProject'
   | 'saveProject'
   | 'saveProjectAs'
   | 'createCue'
@@ -1001,6 +2744,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'openSubtitles'
   | 'save'
   | 'saveAs'
+  | 'convertSubtitles'
   | 'closeMedia'
   | 'closeSubtitles'
   | 'undo'

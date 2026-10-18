@@ -17,8 +17,77 @@ import { join, resolve, toNamespacedPath } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
+import { qualitySettings } from './quality.mjs';
+import { qualityChecking } from './checks.mjs';
+import { gapReview } from './gaps.mjs';
+import { textEditing } from './text.mjs';
+import { textPerformance } from './text-performance.mjs';
+import { qualityPerformance } from './performance.mjs';
+import { sceneQuality } from './scene-quality.mjs';
+import { durationQuality } from './duration-quality.mjs';
+import { statisticsWorkflow } from './statistics.mjs';
+import { assDocuments } from './ass-documents.mjs';
+import { assPerformance } from './ass-performance.mjs';
+import { batchTiming } from './batch-timing.mjs';
+import { styledResync } from './resync.mjs';
+import { stylePerformance } from './style-performance.mjs';
+import { styleAuthoring } from './style-authoring.mjs';
+import { fontAuthoring } from './font-authoring.mjs';
+import { fontPerformance } from './font-performance.mjs';
+import { languageTools } from './language.mjs';
+import { languagePerformance } from './language-performance.mjs';
+import { conversionWorkflow } from './conversion.mjs';
+import { conversionPerformance } from './conversion-performance.mjs';
+import { webvttWorkflow } from './webvtt.mjs';
+import { webvttPerformance } from './webvtt-performance.mjs';
+import { legacyImportWorkflow } from './legacy-import.mjs';
+import { legacyImportPerformance } from './legacy-import-performance.mjs';
+import { translationWorkflow } from './translation.mjs';
+import { translationPerformance } from './translation-performance.mjs';
+import { pluginWorkflow } from './plugins.mjs';
+import { pluginPerformance } from './plugin-performance.mjs';
+import { nativeAudioWorkflow } from './native-audio.mjs';
 
-const { values } = parseArgs({ options: { binary: { type: 'string' } } });
+const { values } = parseArgs({
+  options: {
+    binary: { type: 'string' },
+    cli: { type: 'string' },
+    performance: { type: 'boolean', default: false },
+    scenes: { type: 'boolean', default: false },
+    duration: { type: 'boolean', default: false },
+    statistics: { type: 'boolean', default: false },
+    ass: { type: 'boolean', default: false },
+    batch: { type: 'boolean', default: false },
+    resync: { type: 'boolean', default: false },
+    language: { type: 'boolean', default: false },
+    styles: { type: 'boolean', default: false },
+    fonts: { type: 'boolean', default: false },
+    conversion: { type: 'boolean', default: false },
+    webvtt: { type: 'boolean', default: false },
+    translation: { type: 'boolean', default: false },
+    plugins: { type: 'boolean', default: false },
+    'plugins-editor': { type: 'boolean', default: false },
+    'native-audio': { type: 'boolean', default: false },
+    'native-audio-capture-only': { type: 'boolean', default: false },
+    'plugin-performance': { type: 'boolean', default: false },
+    'translation-performance': { type: 'boolean', default: false },
+    'legacy-import': { type: 'boolean', default: false },
+    'legacy-import-performance': { type: 'boolean', default: false },
+    'webvtt-performance': { type: 'boolean', default: false },
+    'conversion-performance': { type: 'boolean', default: false },
+    'font-performance': { type: 'boolean', default: false },
+    'style-performance': { type: 'boolean', default: false },
+    'language-performance': { type: 'boolean', default: false },
+    'ass-performance': { type: 'boolean', default: false },
+  },
+});
+if (values.plugins && values['plugins-editor'])
+  throw new Error('Choose --plugins or --plugins-editor, not both.');
+if (values['native-audio-capture-only'] && !values['native-audio'])
+  throw new Error('--native-audio-capture-only requires --native-audio.');
+const cli = resolve(
+  values.cli ?? `target/debug/vsf${process.platform === 'win32' ? '.exe' : ''}`,
+);
 const binary = resolve(
   values.binary ??
     `target/debug/visualsubforge${process.platform === 'win32' ? '.exe' : ''}`,
@@ -36,6 +105,24 @@ const invalid = join(root, 'missing-parent', 'copy.srt');
 const original =
   '\uFEFF7\r\n00:00:01,000 --> 00:00:02,000\r\n<i>世界</i>\r\n\r\n9\r\n00:00:02,120 --> 00:00:03,000\r\nSecond\r\n\r\n';
 await writeFile(source, original, { flag: 'wx' });
+await writeFile(join(root, 'invalid.vsfpreset'), '{invalid', { flag: 'wx' });
+await writeFile(
+  join(root, 'timing.vsfpreset'),
+  JSON.stringify({
+    version: 1,
+    name: 'Timing only',
+    timing: {
+      enabled: true,
+      snapCues: true,
+      snapScenes: true,
+      cueGapMs: 167,
+      sceneBeforeMs: 120,
+      sceneAfterMs: 120,
+      snapDistancePx: 8,
+    },
+  }),
+  { flag: 'wx' },
+);
 const receipt = {
   binary,
   platform: process.platform,
@@ -48,7 +135,36 @@ let browser;
 let log;
 let exit;
 let launchCount = 0;
-const runDeadline = Date.now() + 180_000;
+const runDeadline =
+  Date.now() +
+  (values.ass ||
+  values.batch ||
+  values.resync ||
+  values.language ||
+  values.styles ||
+  values.fonts ||
+  values.conversion ||
+  values.webvtt ||
+  values.translation ||
+  values.plugins ||
+  values['plugins-editor'] ||
+  values['native-audio'] ||
+  values['plugin-performance'] ||
+  values['translation-performance'] ||
+  values['legacy-import'] ||
+  values['legacy-import-performance'] ||
+  values['webvtt-performance'] ||
+  values['conversion-performance'] ||
+  values['font-performance'] ||
+  values['style-performance'] ||
+  values['language-performance'] ||
+  values['ass-performance']
+    ? 900_000
+    : values.scenes || values.duration || values.statistics
+      ? 480_000
+      : values.performance
+        ? 300_000
+        : 180_000);
 
 async function record(step) {
   receipt.steps.push(step);
@@ -230,17 +346,52 @@ async function terminate() {
 try {
   await launch([
     { kind: 'subtitles', path: source },
+    { kind: 'qualityPreset', path: null },
+    { kind: 'qualityPreset', path: join(root, 'invalid.vsfpreset') },
+    { kind: 'saveQualityPreset', path: join(root, 'exported.vsfpreset') },
+    { kind: 'qualityPreset', path: join(root, 'exported.vsfpreset') },
+    { kind: 'timingPreset', path: join(root, 'timing.vsfpreset') },
     { kind: 'saveSubtitles', path: null },
     { kind: 'saveSubtitles', path: invalid },
     { kind: 'saveSubtitles', path: copy },
     { kind: 'subtitles', path: copy },
   ]);
   await menu('openSubtitles');
-  const opened = await documentIs(
+  let opened = await documentIs(
     'opened source',
     (doc) => doc.loaded && doc.cues.length === 2,
   );
   assert.equal(opened.cues[0].text, '<i>世界</i>');
+  const persistedQuality = await qualitySettings({
+    browser,
+    menu,
+    invoke,
+    status,
+    until,
+    root,
+    evidence,
+    record,
+  });
+  await qualityChecking({
+    browser,
+    invoke,
+    status,
+    until,
+    root,
+    evidence,
+    record,
+    source,
+    cli,
+  });
+  opened = await gapReview({ browser, status, until, evidence, record });
+  opened = await textEditing({
+    browser,
+    status,
+    until,
+    evidence,
+    record,
+    root,
+  });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);
   assert.deepEqual(
@@ -333,8 +484,41 @@ try {
   await launch([
     { kind: 'saveSubtitles', path: copy },
     { kind: 'saveSubtitles', path: recoveredCopy },
+    ...(values.performance
+      ? [{ kind: 'subtitles', path: join(root, 'quality-10000.srt') }]
+      : []),
+    ...(values.scenes
+      ? [
+          { kind: 'project', path: join(root, 'scene-small.vsfproject') },
+          { kind: 'saveSubtitles', path: join(root, 'scene-copy.srt') },
+          { kind: 'subtitles', path: join(root, 'scene-copy.srt') },
+          { kind: 'project', path: join(root, 'scene-large.vsfproject') },
+        ]
+      : []),
+    ...(values.statistics
+      ? [
+          { kind: 'subtitles', path: join(root, 'statistics-small.srt') },
+          { kind: 'project', path: join(root, 'statistics-small.vsfproject') },
+          { kind: 'project', path: join(root, 'statistics-large.vsfproject') },
+        ]
+      : []),
+    ...(values.duration
+      ? [
+          { kind: 'project', path: join(root, 'duration-small.vsfproject') },
+          { kind: 'saveSubtitles', path: join(root, 'duration-copy.srt') },
+          { kind: 'subtitles', path: join(root, 'duration-copy.srt') },
+          { kind: 'project', path: join(root, 'duration-large.vsfproject') },
+        ]
+      : []),
   ]);
   const recover = await browser.$('button=Recover');
+  assert.deepEqual(
+    (await invoke('quality_settings')).current.profile,
+    persistedQuality,
+  );
+  await record({
+    step: 'quality profile restored after actual process restart',
+  });
   await until('recoverable checkpoint', () => recover.isEnabled());
   await recover.click();
   await documentIs(
@@ -365,6 +549,380 @@ try {
   await record({
     step: 'real recovery UI, external conflict and separate Save As',
   });
+  if (values.performance) {
+    await qualityPerformance({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      pid: app.pid,
+    });
+    await textPerformance({ browser, status, until, evidence, record });
+  }
+  if (values.scenes) {
+    await sceneQuality({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+    });
+  }
+  if (values.statistics)
+    await statisticsWorkflow({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      cli,
+    });
+  if (values.duration)
+    await durationQuality({
+      browser,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+    });
+  if (values['native-audio'])
+    await nativeAudioWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      captureOnly: values['native-audio-capture-only'],
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return { browser, pid: app.pid };
+      },
+    });
+  if (values['legacy-import'])
+    await legacyImportWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.translation)
+    await translationWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['plugin-performance'])
+    await pluginPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      getPid: () => app.pid,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.plugins || values['plugins-editor'])
+    await pluginWorkflow({
+      samePath,
+      withNativePreview: values.plugins,
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      getPid: () => app.pid,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.webvtt)
+    await webvttWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['translation-performance'])
+    await translationPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      getPid: () => app.pid,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['legacy-import-performance'])
+    await legacyImportPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['webvtt-performance'])
+    await webvttPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.ass)
+    await assDocuments({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.batch)
+    await batchTiming({
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.resync)
+    await styledResync({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['style-performance'])
+    await stylePerformance({
+      root,
+      evidence,
+      binary,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['font-performance'])
+    await fontPerformance({
+      root,
+      evidence,
+      binary,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.fonts)
+    await fontAuthoring({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.conversion)
+    await conversionWorkflow({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['conversion-performance'])
+    await conversionPerformance({
+      root,
+      evidence,
+      binary,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.styles)
+    await styleAuthoring({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.language)
+    await languageTools({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['language-performance'])
+    await languagePerformance({
+      status,
+      invoke,
+      menu,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['ass-performance'] || values.batch)
+    await assPerformance({
+      batch: values.batch,
+      status,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([
     exit,

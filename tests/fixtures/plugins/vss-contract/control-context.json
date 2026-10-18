@@ -1,0 +1,16 @@
+{
+  "cursorMs": 0,
+  "preferences": {
+    "minimumBlankMs": 80,
+    "minimumDurationMs": 800,
+    "maximumDurationMs": 7000,
+    "cpsTarget": 20,
+    "rsTargetIndex": 2
+  },
+  "scenes": {
+    "cutsMs": [],
+    "startOffsetMs": 130,
+    "stopOffsetMs": 130,
+    "filterOffsetMs": 250
+  }
+}

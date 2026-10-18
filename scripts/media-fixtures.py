@@ -51,6 +51,24 @@ for name, selection in [('cfr-offset.mkv', 'not(mod(n,2))'),
     if [float(s['start_time']) for s in streams] != [0.25, 0.0]:
         raise RuntimeError(f'{name}: unexpected audio offsets: {streams}')
 
+for name, metadata in [('zero-start.wav', []), ('bwf-zero-start.wav',
+        ['-write_bext', '1', '-metadata', 'time_reference=480000'])]:
+    path = args.output / name
+    run(base + ['-f', 'lavfi', '-i',
+        r'aevalsrc=if(between(t\,1.25\,1.27)\,0.75\,0):s=8000:d=4',
+        '-c:a', 'pcm_s16le', *metadata, str(path)])
+    first = json.loads(run([args.ffprobe, '-v', 'error', '-select_streams', 'a:0',
+        '-read_intervals', '%+#1', '-show_entries',
+        'packet=pts:stream=codec_name:format=format_name,nb_streams:format_tags=time_reference',
+        '-of', 'json', str(path)]))
+    if (first['format']['format_name'] != 'wav' or
+            first['format']['nb_streams'] != 1 or
+            first['streams'][0]['codec_name'] != 'pcm_s16le' or
+            first['packets'] != [{'pts': 0}]):
+        raise RuntimeError(f'{name}: unexpected PCM WAV timestamp contract: {first}')
+    if metadata and first['format']['tags'].get('time_reference') != '480000':
+        raise RuntimeError(f'{name}: missing nonzero BWF recording metadata')
+
 run(base + ['-f', 'lavfi', '-i',
     r'aevalsrc=if(between(t\,7199\,7199.02)\,0.75\,0):s=8000:d=7200',
     '-c:a', 'flac', str(args.output / 'long.flac')])
@@ -60,4 +78,4 @@ if abs(long_duration - 7200) > 0.001:
     raise RuntimeError(f'Unexpected long fixture duration: {long_duration}')
 (args.output / 'generation.json').write_text(json.dumps({'versions': versions, 'commands': commands}, indent=2) + '\n')
 print(json.dumps(versions))
-print('Verified CFR/VFR frame timestamps, two audio offsets, and 7200-second duration.')
+print('Verified CFR/VFR timestamps, two audio offsets, PCM WAV/BWF zero PTS, and 7200-second duration.')

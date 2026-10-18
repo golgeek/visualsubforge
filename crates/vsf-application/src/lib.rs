@@ -2,8 +2,22 @@
 //! Filesystem operations block; desktop adapters must dispatch them off the UI.
 //! No Tauri, webview, native playback or frontend DTO dependency belongs here.
 pub mod atomic_file;
+pub mod authoring;
+pub mod batch_timing;
+pub mod conversion;
 pub mod file_lease;
+pub mod language;
+pub mod legacy_project;
+pub mod new_output;
+pub mod plugin_files;
+pub mod plugins;
+pub mod quality;
 pub mod resync;
 pub mod save_lease;
 pub mod srt_limits;
 pub mod subtitle_file;
+mod subtitle_markup;
+pub mod subtitle_operations;
+pub mod subtitle_text;
+pub mod text;
+pub mod translation;

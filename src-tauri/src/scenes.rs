@@ -12,6 +12,8 @@ use std::{
     time::Duration,
 };
 use tauri::Manager;
+mod context;
+pub(crate) use context::{SceneCapture, SceneKey};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -435,16 +437,20 @@ pub async fn scenes_start(
     detail: Option<Detail>,
 ) -> Result<crate::ipc_number::SafeU64> {
     tauri::async_runtime::spawn_blocking(move || {
-        let generation = app.state::<crate::resync::Resync>().admit_scene(|| {
-            app.state::<Scenes>().inner().clone().start(
-                app.clone(),
-                path,
-                session.get(),
-                mode,
-                detail.unwrap_or_default(),
-            )
-        })?;
-        Ok(crate::ipc_number::SafeU64::try_from(generation)?)
+        app.state::<crate::media::Media>()
+            .with_current(session.get(), |selected| {
+                same_media(selected, Path::new(&path))?;
+                let generation = app.state::<crate::resync::Resync>().admit_scene(|| {
+                    app.state::<Scenes>().inner().clone().start(
+                        app.clone(),
+                        path,
+                        session.get(),
+                        mode,
+                        detail.unwrap_or_default(),
+                    )
+                })?;
+                Ok(crate::ipc_number::SafeU64::try_from(generation)?)
+            })
     })
     .await
     .map_err(|error| error.to_string())?
@@ -487,22 +493,46 @@ pub async fn scenes_restore(
     let session = session.get();
     tauri::async_runtime::spawn_blocking(move || {
         saved.validate()?;
-        if crate::project::identify(Path::new(&path))? != saved.identity {
-            return Err("Media changed before restoring scene results".into());
-        }
-        if app.state::<crate::media::Media>().current_session() != session {
-            return Err("Media changed".into());
-        }
-        Ok(crate::ipc_number::SafeU64::try_from(
-            app.state::<Scenes>().restore(session, saved)?,
-        )?)
+        app.state::<crate::media::Media>()
+            .with_current(session, |selected| {
+                same_media(selected, Path::new(&path))?;
+                if crate::project::identify(Path::new(&path))? != saved.identity {
+                    return Err("Media changed before restoring scene results".into());
+                }
+                Ok(crate::ipc_number::SafeU64::try_from(
+                    app.state::<Scenes>().restore(session, saved)?,
+                )?)
+            })
     })
     .await
     .map_err(|e| e.to_string())?
 }
+fn same_media(selected: &Path, requested: &Path) -> Result<()> {
+    let selected = selected
+        .canonicalize()
+        .map_err(|e| format!("Cannot identify selected media: {e}"))?;
+    let requested = requested
+        .canonicalize()
+        .map_err(|e| format!("Cannot identify scene source: {e}"))?;
+    if selected != requested {
+        return Err("Scene source differs from the selected media".into());
+    }
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn scene_source_must_match_selected_media() {
+        let directory = tempfile::tempdir().unwrap();
+        let a = directory.path().join("a.mkv");
+        let b = directory.path().join("b.mkv");
+        std::fs::write(&a, b"same bytes").unwrap();
+        std::fs::write(&b, b"same bytes").unwrap();
+        assert!(same_media(&a, &a).is_ok());
+        assert!(same_media(&a, &b).is_err());
+        assert!(same_media(&a, &directory.path().join("missing")).is_err());
+    }
     #[test]
     fn stale_or_cancelled_results_are_never_published() {
         let mut job = Job {

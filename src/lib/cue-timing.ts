@@ -7,6 +7,7 @@ export interface TimingEdit {
   mediaSession: number;
   original: Cue;
   preview: Cue;
+  timeStepMs?: number;
 }
 const maximumTime = 9_999 * 3_600_000 + 3_599_999;
 
@@ -28,11 +29,13 @@ export function beginTimingEdit(
     mediaSession,
     original: { ...cue },
     preview: { ...cue },
+    timeStepMs: document.format?.timeStepMs ?? 1,
   };
 }
 
 // Pointer seconds are converted by the caller once. All preview adjustments use
-// integer milliseconds and retain at least one millisecond of cue duration.
+// integer milliseconds, quantized to the source format's grid. A cue retains at
+// least one format tick. Manual typed values are validated by Rust without rounding.
 export function previewBoundary(
   edit: TimingEdit,
   boundary: CueBoundary,
@@ -41,12 +44,14 @@ export function previewBoundary(
   if (!Number.isSafeInteger(milliseconds))
     throw new Error('Cue boundary must be a finite integer millisecond.');
   const preview = { ...edit.preview };
+  const step = edit.timeStepMs ?? 1;
+  const rounded = Math.round(milliseconds / step) * step;
   if (boundary === 'start')
-    preview.startMs = Math.max(0, Math.min(milliseconds, preview.endMs - 1));
+    preview.startMs = Math.max(0, Math.min(rounded, preview.endMs - step));
   else
     preview.endMs = Math.max(
-      preview.startMs + 1,
-      Math.min(milliseconds, maximumTime),
+      preview.startMs + step,
+      Math.min(rounded, Math.floor(maximumTime / step) * step),
     );
   return { ...edit, preview };
 }

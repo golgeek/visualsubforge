@@ -39,6 +39,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1606,6 +1612,11 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash",
+]
 
 [[package]]
 name = "heck"
@@ -3050,6 +3061,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "relative-path"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2a073568cd8b9c4825429d3e9fc5f52851b4f97cc1348800689408921e6b8f8"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3102,6 +3122,35 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "rquickjs"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0a22bf72f515cc4189dd7c63d016f6de92a11eee98ddf7dd64794198f6eb34e"
+dependencies = [
+ "rquickjs-core",
+]
+
+[[package]]
+name = "rquickjs-core"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6657979a24d543e5fc66f32cef2f47ca82ce8eb55cec5f7d59a12b7b570bbf24"
+dependencies = [
+ "hashbrown 0.17.1",
+ "relative-path",
+ "rquickjs-sys",
+]
+
+[[package]]
+name = "rquickjs-sys"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cee271d0eeba64f0915b846cb7ae02e16faf3dfdffdca91731101d9d30fe3423"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -3585,6 +3634,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29b1fc02b446f7244a92924fe68c0555921209f1d342990cd1539e9138e69502"
 dependencies = [
  "specta",
+]
+
+[[package]]
+name = "spellbook"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
+dependencies = [
+ "foldhash",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -4503,6 +4562,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
 
 [[package]]
+name = "unicode-normalization"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4595,6 +4663,7 @@ dependencies = [
  "tempfile",
  "url",
  "vsf-application",
+ "vsf-plugin-host",
  "zbus",
 ]
 
@@ -4603,12 +4672,18 @@ name = "vsf-application"
 version = "0.0.1-alpha"
 dependencies = [
  "media-analysis",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
+ "specta",
+ "spellbook",
  "subtitle-core",
  "subtitle-formats",
  "tempfile",
+ "unicode-normalization",
+ "unicode-segmentation",
+ "web_atoms",
 ]
 
 [[package]]
@@ -4620,6 +4695,21 @@ dependencies = [
  "media-analysis",
  "serde",
  "serde_json",
+ "subtitle-formats",
+ "tempfile",
+ "vsf-application",
+ "vsf-plugin-host",
+]
+
+[[package]]
+name = "vsf-plugin-host"
+version = "0.0.1-alpha"
+dependencies = [
+ "rquickjs",
+ "serde",
+ "serde_json",
+ "sha2",
+ "subtitle-core",
  "subtitle-formats",
  "tempfile",
  "vsf-application",

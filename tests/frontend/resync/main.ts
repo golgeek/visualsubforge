@@ -72,6 +72,8 @@ function view(
     stage: 'Matching content',
     error: null,
     complete: true,
+    format: doc.format?.name ?? 'srt',
+    timeStepMs: doc.format?.timeStepMs ?? 1,
     totalCues: doc.cues.length,
     unresolvedCues: 0,
     totalSections: 1,
@@ -122,6 +124,9 @@ async function fixture() {
       if (action.kind === 'save' && action.path)
         doc = { ...doc, path: action.path };
       return doc;
+    },
+    gapAccept: async () => {
+      throw new Error('Gap acceptance is not used in this fixture');
     },
     resyncAccept: async () => {
       state.accepts++;
@@ -683,6 +688,12 @@ async function appCases() {
         button('Accept timings', dialog()!).disabled &&
         dialog()!.textContent?.includes('No reliable matching content'),
       'Incomplete review or applied draft is wrong',
+    );
+    assert(
+      /SRT endpoints round directly to the nearest\s+1 ms tick/.test(
+        dialog()!.textContent!,
+      ) && dialog()!.textContent!.includes('including ASS tags in SRT'),
+      'Source grid and timed-effect policy are missing from review',
     );
     button('Next cues', dialog()!).click();
     await until(

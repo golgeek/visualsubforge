@@ -54,6 +54,10 @@ impl Player {
         self.flag(c"pause")
     }
 
+    pub fn seeking(&mut self) -> bool {
+        self.flag(c"seeking")
+    }
+
     pub fn command(&mut self, args: &[&str]) -> Result<(), String> {
         self.commands
             .push(args.iter().map(|s| (*s).into()).collect());
@@ -66,6 +70,24 @@ impl Player {
         }
         Ok(())
     }
+}
+
+#[test]
+fn resting_cursor_requires_a_settled_pause_at_the_client_boundary() {
+    let mut player = Player::new(true);
+    player.properties.remove("audio-pts");
+    player.properties.insert("time-pos".into(), "2.5".into());
+    assert_eq!(media_transport::position(&mut player, true), Some(2.5));
+
+    player.properties.insert("seeking".into(), "yes".into());
+    assert_eq!(media_transport::position(&mut player, true), None);
+
+    player.properties.insert("seeking".into(), "no".into());
+    player.properties.insert("pause".into(), "no".into());
+    assert_eq!(media_transport::position(&mut player, true), None);
+
+    player.properties.insert("audio-pts".into(), "2.49".into());
+    assert_eq!(media_transport::position(&mut player, true), Some(2.49));
 }
 
 #[test]

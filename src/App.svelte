@@ -1,6 +1,24 @@
 <script lang="ts">
   import SettingsDialog from './lib/SettingsDialog.svelte';
   import ResyncDialog from './lib/ResyncDialog.svelte';
+  import ProblemsPanel from './lib/ProblemsPanel.svelte';
+  import TranslationPanel from './lib/TranslationPanel.svelte';
+  import { TranslationSession } from './lib/translation-session.svelte';
+  import StatisticsDialog from './lib/StatisticsDialog.svelte';
+  import StyleInspector from './lib/StyleInspector.svelte';
+  import FontDialog from './lib/FontDialog.svelte';
+  import ConversionDialog from './lib/ConversionDialog.svelte';
+  import PluginDialog from './lib/PluginDialog.svelte';
+  import LegacyImportDialog from './lib/LegacyImportDialog.svelte';
+  import CueMetrics from './lib/CueMetrics.svelte';
+  import GapDialog from './lib/GapDialog.svelte';
+  import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
+  import DurationRepairDialog from './lib/DurationRepairDialog.svelte';
+  import BatchTimingDialog from './lib/BatchTimingDialog.svelte';
+  import type { SelectionMode } from './lib/cue-selection';
+  import TextDialog from './lib/TextDialog.svelte';
+  import { QualitySession } from './lib/quality-session.svelte';
+  import { rate } from './lib/quality-display';
   import { isTauri } from '@tauri-apps/api/core';
   import {
     defaultTiming,
@@ -19,12 +37,16 @@
   import { onMount, tick, untrack } from 'svelte';
   import {
     traceApplyInput,
+    textFormat,
+    type TextOperation,
+    type TextFormat,
     chooseFile,
     workspaceActions,
     updateMenu,
     recoveryStatus,
     discardRecovery,
     type RecoveryStatus,
+    type ProjectReferenceIssue,
     waveformStart,
     waveformView,
     type MediaAction,
@@ -33,7 +55,7 @@
     type WaveformView,
     type Cue,
   } from './lib/client';
-  import { clamp, formatTime, viewport } from './lib/timeline';
+  import { clamp, formatTime, parseTime, viewport } from './lib/timeline';
   import {
     playbackViewportStart,
     waveformRequestWindow,
@@ -69,6 +91,7 @@
   import ProjectSaveFailureDialog, {
     type ProjectExitChoice,
   } from './lib/ProjectSaveFailureDialog.svelte';
+  import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
   import CueTiming from './lib/CueTiming.svelte';
   import {
     beginTimingEdit,
@@ -78,6 +101,14 @@
     type CueBoundary,
   } from './lib/cue-timing';
   const subtitles = new DocumentSession();
+  const translation = new TranslationSession(subtitles);
+  let translationOpen = $state(false);
+  const quality = new QualitySession();
+  let problemsOpen = $state(false);
+  let showQualityMetrics = $state(false);
+  let qualityContext = $state(0);
+  let pendingProblem = $state<string | null>(null);
+  let pendingProblemVersion = '';
   const media = new MediaSession((failure) => {
     if (alive) error = String(failure);
   });
@@ -382,8 +413,34 @@
     ...defaultPreferences,
     timing: { ...defaultTiming },
   });
+  let statisticsOpen = $state(false);
+  let stylesOpen = $state(false);
+  let fontsOpen = $state(false);
+  let conversionOpen = $state(false);
+  let pluginsOpen = $state(false);
+  let legacyImportOpen = $state(false);
+  let legacyImportReturn: HTMLElement | null = null;
+  let authoringReturn: HTMLElement | null = null;
+  let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
+  let timingOpen = $state(false);
+  let timingReview = $state<'gap' | 'scene' | 'duration' | 'batch'>('gap');
+  const TimingDialog = $derived(
+    timingReview === 'duration'
+      ? DurationRepairDialog
+      : timingReview === 'scene'
+        ? SceneRepairDialog
+        : GapDialog,
+  );
+  let timingReturn: HTMLElement | null = null;
+  let textOpen = $state(false);
+  let textReturn: HTMLElement | null = null;
+  let textOperation = $state<TextOperation>({
+    kind: 'find',
+    query: '',
+    caseSensitive: false,
+  });
   let resyncReturn: HTMLElement | null = null;
   let settingsReturn: HTMLElement | null = null;
   const nativeMenus = isTauri();
@@ -393,6 +450,7 @@
     navigate: (backwards: boolean) => void;
   };
   let sceneState = $state({
+    qualityKey: '',
     running: false,
     pending: false,
     previous: false,
@@ -402,6 +460,8 @@
     if (value) {
       preferences = { ...value, timing: { ...value.timing } };
       timingSettings = { ...value.timing };
+      showQualityMetrics = value.showQualityMetrics;
+      ++qualityContext;
       notice = 'Settings saved';
     }
     settingsOpen = false;
@@ -432,10 +492,322 @@
       if (alive) confirming = false;
     }
   }
+  async function openStatistics() {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.loaded ||
+      cueMenu ||
+      waveformGesture
+    )
+      return;
+    busy = true;
+    error = '';
+    statisticsReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        statisticsOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function openAuthoring(
+    kind: 'styles' | 'fonts' | 'conversion' | 'plugins',
+  ) {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      (kind === 'plugins'
+        ? !doc.loaded
+        : kind === 'conversion'
+          ? !doc.loaded || doc.format?.name === 'vtt'
+          : !subtitles.styled) ||
+      waveformGesture ||
+      cueMenu
+    )
+      return;
+    busy = true;
+    error = '';
+    authoringReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        stylesOpen = kind === 'styles';
+        fontsOpen = kind === 'fonts';
+        conversionOpen = kind === 'conversion';
+        pluginsOpen = kind === 'plugins';
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeAuthoring(accepted = false, outputPath?: string) {
+    const kind = pluginsOpen ? 'Plugin' : fontsOpen ? 'Font' : 'Style';
+    stylesOpen = fontsOpen = conversionOpen = pluginsOpen = false;
+    if (outputPath) notice = `Converted subtitles exported to ${outputPath}`;
+    if (accepted) {
+      notice = `${kind} changes accepted. Undo restores the whole change.`;
+      quality.restart();
+    }
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) {
+        confirming = false;
+        // Restore focus after the toolbar is enabled again.
+        await tick();
+        if (alive && authoringReturn?.isConnected) authoringReturn.focus();
+      }
+    }
+  }
+  async function closeLegacyImport(outputPath?: string, open = false) {
+    legacyImportOpen = false;
+    busy = true;
+    if (outputPath) notice = `Project created at ${outputPath}`;
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      confirming = false;
+      // Restore through the existing preflight/draft protection/attachment flow.
+      if (open && outputPath) await projects.openPath(outputPath);
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) {
+        confirming = false;
+        busy = false;
+        await tick();
+        if (alive && legacyImportReturn?.isConnected)
+          legacyImportReturn.focus();
+      }
+    }
+  }
+  async function closeStatistics(id?: string) {
+    const version = `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`;
+    statisticsOpen = false;
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (statisticsReturn?.isConnected) statisticsReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
+    }
+    if (
+      alive &&
+      id &&
+      version ===
+        `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`
+    ) {
+      problemsOpen = true;
+      requestProblem(id);
+    }
+  }
+  async function openTimingReview(
+    kind: 'gap' | 'scene' | 'duration' | 'batch',
+  ) {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.cues.length ||
+      cueMenu ||
+      waveformGesture
+    )
+      return;
+    busy = true;
+    error = '';
+    suspendCueFollowing();
+    timingReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        timingReview = kind;
+        timingOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function openText(mode?: 'find' | 'replace' | TextOperation) {
+    if (
+      busy ||
+      confirming ||
+      !ready ||
+      !doc.cues.length ||
+      cueMenu ||
+      waveformGesture
+    )
+      return;
+    busy = true;
+    error = '';
+    textReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    if (typeof mode === 'object') {
+      textOperation = mode;
+    } else if (mode) {
+      const old = textOperation;
+      const query =
+        old.kind === 'find' || old.kind === 'replace' ? old.query : '';
+      const caseSensitive =
+        old.kind === 'find' || old.kind === 'replace'
+          ? old.caseSensitive
+          : false;
+      textOperation =
+        mode === 'find'
+          ? { kind: mode, query, caseSensitive }
+          : {
+              kind: mode,
+              query,
+              caseSensitive,
+              replacement: old.kind === 'replace' ? old.replacement : '',
+            };
+    } else if (
+      textOperation.kind === 'languageSuggestions' ||
+      textOperation.kind === 'languageCorrection'
+    ) {
+      textOperation = { kind: 'find', query: '', caseSensitive: false };
+    }
+    try {
+      await occludeVideo(true);
+      if (alive) {
+        confirming = true;
+        textOpen = true;
+      }
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeText(operation: TextOperation, accepted = false) {
+    textOperation = operation;
+    textOpen = false;
+    if (accepted) {
+      notice = 'Text changes accepted. Undo restores the whole change.';
+      quality.restart();
+    }
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (textReturn?.isConnected) textReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
+    }
+  }
+  async function navigateText(
+    id: number,
+    start: number,
+    end: number,
+    operation: TextOperation,
+  ) {
+    // The dialog resolves drafts before searching and checks capture identity
+    // before navigation. Never apply an unexpected draft to leave a search row.
+    if (draftDirty || busy) return;
+    await closeText(operation);
+    if (!alive || draftDirty) return;
+    await selectCue(id);
+    await tick();
+    if (selected === id && textEditor) {
+      textEditor.focus();
+      textEditor.setSelectionRange(start, end);
+    }
+  }
+  async function formatText(style: TextFormat) {
+    if (busy || confirming || !cue || !textEditor) return;
+    const before = subtitles.text;
+    const beforeStyle = subtitles.style;
+    const snapshot = doc;
+    const id = selected;
+    const start = textEditor.selectionStart;
+    const end = textEditor.selectionEnd;
+    busy = true;
+    error = '';
+    try {
+      const result = await textFormat(before, start, end, style, {
+        generation: snapshot.generation,
+        revision: snapshot.revision,
+        cueId: cue.id,
+        styleName: beforeStyle,
+      });
+      if (
+        !alive ||
+        doc !== snapshot ||
+        selected !== id ||
+        subtitles.style !== beforeStyle ||
+        subtitles.text !== before
+      )
+        return;
+      subtitles.text = result.text;
+      await tick();
+      textEditor.focus();
+      textEditor.setSelectionRange(result.start, result.end);
+      notice = 'Formatting updated in the cue draft. Apply edit to accept it.';
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  async function closeTimingReview(accepted = false) {
+    timingOpen = false;
+    if (accepted) {
+      notice = `${timingReview === 'batch' ? 'Batch' : timingReview === 'duration' ? 'Duration and speed' : timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
+      quality.restart();
+    }
+    try {
+      await tick();
+      if (!alive) return;
+      await occludeVideo(diagnostics);
+      if (timingReturn?.isConnected) timingReturn.focus();
+    } catch (e) {
+      if (alive) error = String(e);
+    } finally {
+      if (alive) confirming = false;
+    }
+  }
 
   let hardware = $state(true);
   const selected = $derived(subtitles.selected);
   const cue = $derived(subtitles.cue);
+  const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
+  const textInterpretation = $derived(
+    doc.format?.name === 'vtt' ? 'webvtt_utf16_v1' : 'vss_utf16_v1',
+  );
   const draftDirty = $derived(subtitles.dirty);
   let timingEdit = $state<TimingEdit | null>(null);
   let timingMagnets: {
@@ -542,19 +914,77 @@
   let topPct = $state(32);
   let editorPct = $state(25);
   let wavePct = $state(65);
-  const paneHeight = $derived(Math.max(482, workspaceHeight - 16));
+  let editorBarHeight = $state(0);
+  let editorFooterHeight = $state(0);
+  let qualityReadoutHeight = $state(0);
+  let transportHeight = $state(0);
+  let cueOperationsHeight = $state(0);
+  let cueFollowingHeight = $state(0);
+  function measurePaneControl(
+    node: HTMLElement,
+    measured: (height: number) => void,
+  ) {
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      // These measurements resize an ancestor grid. Commit on the next frame
+      // so layout does not feed back into the current observer delivery.
+      if (!frame)
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          measured(Math.ceil(node.getBoundingClientRect().height));
+        });
+    });
+    observer.observe(node);
+    return {
+      destroy() {
+        observer.disconnect();
+        cancelAnimationFrame(frame);
+      },
+    };
+  }
+  // Reserve measured controls, a usable textarea, padding and gaps before
+  // applying split ratios; wrapped authoring controls must stay in their row.
+  const editorMinimum = $derived(
+    Math.max(
+      showQualityMetrics ? 190 : 130,
+      editorBarHeight +
+        editorFooterHeight +
+        64 +
+        (showQualityMetrics && cue ? qualityReadoutHeight + 6 : 0),
+    ),
+  );
+  // Control wrapping depends on the platform font and available width. Reserve
+  // the measured bars, 25px column header and two complete 32px cue rows.
+  const tableMinimum = $derived(
+    Math.max(
+      220,
+      transportHeight + cueOperationsHeight + cueFollowingHeight + 25 + 64,
+    ),
+  );
+  const paneHeight = $derived(
+    Math.max(132 + tableMinimum + editorMinimum, workspaceHeight - 16),
+  );
   // Reserve room for the table controls and visible rows when either divider
   // grows a neighboring pane. The editor and preview retain usable minima.
   const topPixels = $derived(
-    clamp((paneHeight * topPct) / 100, 120, paneHeight - 362),
+    clamp(
+      (paneHeight * topPct) / 100,
+      120,
+      paneHeight - tableMinimum - 12 - editorMinimum,
+    ),
   );
   const editorPixels = $derived(
-    clamp((paneHeight * editorPct) / 100, 130, paneHeight - topPixels - 232),
+    clamp(
+      (paneHeight * editorPct) / 100,
+      editorMinimum,
+      paneHeight - topPixels - tableMinimum - 12,
+    ),
   );
   let start = $state(0);
   let span = $state(20);
   let range = $state<[number, number] | null>(null);
   const operationContext = $derived({
+    timeStepMs,
     cues: doc.cues,
     selected,
     loaded: doc.loaded,
@@ -616,6 +1046,46 @@
   const visibleCues = $derived(
     doc.cues.slice(firstRow, firstRow + Math.ceil(listHeight / 32) + 6),
   );
+  const draftMetricInput = $derived.by(() => {
+    if (!draftDirty || !cue) return { value: null, error: '' };
+    try {
+      return {
+        value: {
+          cueId: cue.id,
+          startMs: parseTime(subtitles.start),
+          endMs: parseTime(subtitles.end),
+          text: subtitles.text,
+        },
+        error: '',
+      };
+    } catch (failure) {
+      return { value: null, error: String(failure) };
+    }
+  });
+  const qualityRows = $derived(
+    new Map(quality.view?.metrics.map((m) => [m.data.cueId, m]) ?? []),
+  );
+  $effect(() => {
+    quality.configure({
+      session: status.session,
+      enabled: ready && doc.loaded && (problemsOpen || showQualityMetrics),
+      generation: doc.generation,
+      revision: doc.revision,
+      context: `${status.session}/${qualityContext}/${sceneState.qualityKey}`,
+      selected,
+      metricsOffset: firstRow,
+      metricsLimit: showQualityMetrics ? visibleCues.length : 0,
+      draft: showQualityMetrics ? draftMetricInput.value : null,
+    });
+  });
+  $effect(() => {
+    if (
+      pendingProblem &&
+      (pendingProblemVersion !== `${doc.generation}/${doc.revision}` ||
+        !doc.cues.some((c) => String(c.id) === pendingProblem))
+    )
+      pendingProblem = null;
+  });
   const duration = $derived(
     Math.max(status.durationSeconds ?? 0, wave?.durationSeconds ?? 0),
   );
@@ -626,6 +1096,10 @@
   let confirming = $state(false);
   let projectExitError = $state<string | null>(null);
   const projectExitDecision = new PendingDecision<ProjectExitChoice>('cancel');
+  let projectReferenceIssue = $state<ProjectReferenceIssue | null>(null);
+  const projectReferenceDecision = new PendingDecision<
+    'cancel' | 'choose' | 'reload'
+  >('cancel');
   let lastMenu = '';
   let alive = true;
   function docAct(action: DocumentAction, plan?: CueOperationPlan) {
@@ -662,8 +1136,12 @@
     },
     mediaOpened: (path) => {
       mediaPath = path;
+      // Rust resets the policy on media replacement; keep the projection on
+      // defaults until project attachment accepts its saved policy.
+      timingSettings = { ...preferences.timing };
     },
     restoreOptions: (options) => {
+      ++qualityContext;
       follow = options.followPlayback;
       cueFollowing = options.followSubtitle ? 'following' : 'off';
       showScenes = options.showScenes;
@@ -689,6 +1167,7 @@
     protect,
     saveSubtitles: () => save(false),
     saveFailed: projectSaveFailed,
+    referenceIssue: resolveProjectReference,
     notify: (message) => {
       notice = message;
     },
@@ -726,13 +1205,83 @@
       subtitleDecision.answer('cancel');
     }
   }
-  async function protect() {
+  async function protect(saveContext?: () => Promise<boolean>) {
     if (!alive) return false;
-    if (!doc.dirty && !draftDirty) return true;
+    if (!doc.dirty && !draftDirty && !doc.translation?.dirty) return true;
     const choice = await confirmChanges();
     if (!alive || choice === 'cancel') return false;
-    if (choice === 'save') return save(false);
+    if (choice === 'save') {
+      return doc.translation?.dirty
+        ? (saveContext ?? (() => projects.save(false)))()
+        : save(false);
+    }
     return true;
+  }
+  async function referenceOperation(
+    operation: 'attach' | 'copy' | 'offset' | 'detach',
+    offsetMs = 0,
+  ) {
+    if (busy || confirming || !ready) return;
+    busy = true;
+    error = '';
+    try {
+      if (operation === 'attach' || operation === 'copy') {
+        const path = await chooseFile(
+          'subtitles',
+          doc.translation?.reference?.path ?? doc.path,
+        );
+        if (!alive || !path) return;
+        if (operation === 'copy' && !(await protect())) return;
+        if (!alive) return;
+        if (await translation.load(path, operation === 'copy')) {
+          notice =
+            operation === 'copy'
+              ? 'Independent translation target created · Save As required'
+              : 'Reference attached';
+          ++qualityContext;
+        }
+      } else if (operation === 'offset') await translation.setOffset(offsetMs);
+      else await translation.detach();
+    } catch (failure) {
+      if (alive) error = String(failure);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  $effect(() => {
+    if (!translationOpen) translation.request(doc, null, 0, null, false);
+  });
+  async function resolveProjectReference(issue: ProjectReferenceIssue) {
+    confirming = true;
+    try {
+      await occludeVideo(true);
+      if (!alive) {
+        confirming = false;
+        return 'cancel' as const;
+      }
+      const decision = projectReferenceDecision.wait();
+      projectReferenceIssue = issue;
+      return decision;
+    } catch (failure) {
+      confirming = false;
+      throw failure;
+    }
+  }
+  async function answerProjectReference(
+    choice: 'cancel' | 'choose' | 'reload',
+  ) {
+    if (!projectReferenceDecision.pending || projectReferenceIssue === null)
+      return;
+    projectReferenceIssue = null;
+    confirming = false;
+    await tick();
+    try {
+      await occludeVideo(diagnostics);
+      projectReferenceDecision.answer(alive ? choice : 'cancel');
+    } catch (failure) {
+      error = String(failure);
+      projectReferenceDecision.answer('cancel');
+    }
   }
   async function projectSaveFailed(error: unknown): Promise<ProjectExitChoice> {
     confirming = true;
@@ -767,7 +1316,7 @@
     cancelHeldTiming();
     return media.command(action);
   }
-  async function selectCue(id: number) {
+  async function selectCue(id: number, mode: SelectionMode = 'replace') {
     // Rows use aria-disabled so transport commands do not drop keyboard focus.
     // Enforce the pending-operation guard here for both pointer and keyboard use.
     if (busy || cueMenu || !doc.cues.some((c) => c.id === id)) return;
@@ -777,7 +1326,7 @@
     error = '';
     try {
       await applyDraft();
-      subtitles.select(id);
+      subtitles.select(id, mode);
       const selectedCue = subtitles.cue;
       if (selectedCue)
         selectRange([selectedCue.startMs / 1000, selectedCue.endMs / 1000]);
@@ -790,8 +1339,106 @@
       busy = false;
     }
   }
+  function cueSelectionKey(e: KeyboardEvent, id: number) {
+    if (e.isComposing || e.altKey || e.defaultPrevented) return;
+    const modifier = e.ctrlKey || e.metaKey;
+    const index = doc.cues.findIndex((c) => c.id === id);
+    const targetIndex =
+      e.key === 'ArrowUp'
+        ? index - 1
+        : e.key === 'ArrowDown'
+          ? index + 1
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? doc.cues.length - 1
+              : null;
+    if (modifier && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      void selectAllCues();
+    } else if (modifier && e.code === 'Space') {
+      e.preventDefault();
+      void selectCue(id, 'toggle');
+    } else if (targetIndex !== null) {
+      e.preventDefault();
+      const next = doc.cues[clamp(targetIndex, 0, doc.cues.length - 1)];
+      if (next && !busy && !confirming)
+        void moveCueFocus(next.id, modifier, e.shiftKey);
+    }
+  }
+  async function moveCueFocus(id: number, modifier: boolean, extend: boolean) {
+    if (!modifier || extend)
+      await selectCue(
+        id,
+        extend ? (modifier ? 'addRange' : 'range') : 'replace',
+      );
+    await revealSelection(id);
+    await tick();
+    if (alive)
+      list.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)?.focus();
+  }
+  async function selectAllCues() {
+    if (busy || confirming || cueMenu) return;
+    busy = true;
+    error = '';
+    suspendCueFollowing();
+    try {
+      await applyDraft();
+      subtitles.selectAll();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      busy = false;
+    }
+  }
+  function requestProblem(id: string) {
+    if (
+      busy ||
+      confirming ||
+      cueMenu ||
+      !doc.cues.some((c) => String(c.id) === id)
+    )
+      return;
+    if (String(selected) === id) return;
+    suspendCueFollowing();
+    if (draftDirty) {
+      pendingProblemVersion = `${doc.generation}/${doc.revision}`;
+      pendingProblem = id;
+    } else void selectCue(Number(id));
+  }
+  async function resolveProblem(choice: 'apply' | 'discard' | 'cancel') {
+    if (busy || !pendingProblem) return;
+    const id = pendingProblem;
+    if (choice === 'cancel') {
+      pendingProblem = null;
+      return;
+    }
+    busy = true;
+    error = '';
+    try {
+      if (choice === 'apply') await applyDraft();
+      else subtitles.revert();
+      pendingProblem = null;
+    } catch (failure) {
+      error = String(failure);
+      return;
+    } finally {
+      busy = false;
+    }
+    if (alive) await selectCue(Number(id));
+  }
   async function run(action: WorkspaceAction, event?: Event) {
     if (busy || confirming || !ready || cueMenu || waveformGesture) return;
+    if (action === 'plugins') {
+      cancelHeldTiming();
+      await openAuthoring('plugins');
+      return;
+    }
+    if (action === 'convertSubtitles') {
+      cancelHeldTiming();
+      await openAuthoring('conversion');
+      return;
+    }
     if (action === 'showScenes') {
       showScenes = !showScenes;
       return;
@@ -811,9 +1458,12 @@
     cancelHeldTiming();
     if (action === 'apply' && event && cue && draftDirty)
       traceApplyInput(event, doc);
-    // Native menu accelerators still respect the text field's local undo stack.
+    // Menu/keyboard actions respect the text field's local undo stack. Explicit
+    // history buttons use document history even if the platform retains focus
+    // in the editor while dispatching their click.
     const focused = document.activeElement;
     if (
+      !event &&
       (action === 'undo' || action === 'redo') &&
       (focused instanceof HTMLInputElement ||
         focused instanceof HTMLTextAreaElement)
@@ -849,6 +1499,20 @@
           break;
         case 'openProject':
           await projects.open();
+          break;
+        case 'translationReference':
+          translationOpen = !translationOpen;
+          if (translationOpen) problemsOpen = false;
+          break;
+        case 'importLegacyProject':
+          legacyImportReturn =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+          await occludeVideo(true);
+          if (!alive) break;
+          confirming = true;
+          legacyImportOpen = true;
           break;
         case 'saveProject':
           await projects.save(false);
@@ -889,6 +1553,7 @@
           await act({ kind: 'close' });
           mediaPath = '';
           await projects.detach();
+          timingSettings = { ...preferences.timing };
           restoredScenes = null;
           wave = null;
           waveGeneration = null;
@@ -972,10 +1637,10 @@
       busy = false;
     }
   }
-  async function revealSelection() {
+  async function revealSelection(id: number | null = selected) {
     await tick();
     if (!alive || !list) return;
-    const index = doc.cues.findIndex((c) => c.id === selected);
+    const index = doc.cues.findIndex((c) => c.id === id);
     if (index >= 0)
       list.scrollTop = revealCueRow(index, list.scrollTop, list.clientHeight);
   }
@@ -1030,6 +1695,7 @@
       available: status.available,
       media: status.loaded,
       document: doc.loaded,
+      convert: doc.loaded && doc.format?.name !== 'vtt',
       resync: status.loaded && doc.cues.length > 0,
       undo: doc.canUndo || draftDirty || textFocused,
       redo: doc.canRedo || draftDirty || textFocused,
@@ -1144,6 +1810,7 @@
         if (alive) {
           preferences = { ...saved, timing: { ...saved.timing } };
           timingSettings = { ...saved.timing };
+          showQualityMetrics = saved.showQualityMetrics;
         }
       })
       .catch((e) => {
@@ -1244,10 +1911,13 @@
     return () => {
       alive = false;
       projects.dispose();
+      translation.dispose();
       subtitles.dispose();
+      quality.dispose();
       media.dispose();
       subtitleDecision.dispose();
       projectExitDecision.dispose();
+      projectReferenceDecision.dispose();
       waveRequest++;
       unlisten();
       observer.disconnect();
@@ -1281,6 +1951,30 @@
       e.target instanceof HTMLTextAreaElement ||
       (e.target instanceof HTMLElement && e.target.isContentEditable);
     if (e.isComposing || e.defaultPrevented || cueMenu || confirming) return;
+    if (
+      (e.metaKey || e.ctrlKey) &&
+      !e.altKey &&
+      !e.repeat &&
+      ((e.key.toLowerCase() === 'f' && !e.shiftKey) ||
+        (e.key.toLowerCase() === 'h' &&
+          ((e.ctrlKey && !e.shiftKey) || (e.metaKey && e.shiftKey))))
+    ) {
+      e.preventDefault();
+      void openText(e.key.toLowerCase() === 'f' ? 'find' : 'replace');
+      return;
+    }
+    if (
+      problemsOpen &&
+      e.key === 'F4' &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey
+    ) {
+      e.preventDefault();
+      const id = e.shiftKey ? quality.view?.previousCue : quality.view?.nextCue;
+      if (id && !quality.stale) requestProblem(id);
+      return;
+    }
     const shortcut = editingShortcut(e, editing);
     // Enter should activate a focused button/select rather than move focus.
     if (
@@ -1330,18 +2024,24 @@
   aria-busy={busy || !ready}
   class:has-recovery={recovery.entries.length > 0 || !!recovery.error}
   style:--workspace-height={`${workspaceHeight}px`}
+  style:--workspace-min-height={`${148 + tableMinimum + editorMinimum}px`}
+  style:--table-min-height={`${tableMinimum}px`}
 >
   <header class="toolbar">
     <strong>VisualSubForge</strong>
     {#if !nativeMenus}
-      <button
-        disabled={busy || !ready || !status.available}
-        onclick={() => void run('openProject')}>Open Project</button
+      <button disabled={busy || !ready} onclick={() => void run('openProject')}
+        >Open Project</button
       >
       <button
-        disabled={busy || !ready || !status.loaded}
+        disabled={busy || confirming || !ready}
+        onclick={() => void run('importLegacyProject')}
+        >Import VisualSubSync Project</button
+      >
+      <button
+        disabled={busy || !ready || (!status.loaded && !doc.loaded)}
         title={projects.path ??
-          'Save media, scene results, view options and resume position'}
+          'Save subtitle references, media, scene results and workspace options'}
         onclick={() => void run('saveProject')}>Save Project</button
       >
       <button
@@ -1604,7 +2304,10 @@
       onchange={(v) => (topPct = clamp(v, 20, Math.min(55, 80 - editorPct)))}
     />
     <section class="subtitle-panel panel" aria-label="Subtitle table">
-      <div class="transport">
+      <div
+        class="transport"
+        use:measurePaneControl={(height) => (transportHeight = height)}
+      >
         <button
           disabled={!status.loaded || busy}
           onclick={() => void run('play')}
@@ -1638,7 +2341,11 @@
           onclick={() => void run('clearLoop')}>Clear loop</button
         >
       </div>
-      <div class="cue-operationbar" aria-label="Cue operations">
+      <div
+        class="cue-operationbar"
+        aria-label="Cue operations"
+        use:measurePaneControl={(height) => (cueOperationsHeight = height)}
+      >
         {#each cueOperations as op (op.operation)}
           <button
             disabled={!op.plan || busy || confirming}
@@ -1650,7 +2357,66 @@
           >
         {/each}
       </div>
-      <div class="cue-followbar">
+      <div
+        class="cue-followbar"
+        use:measurePaneControl={(height) => (cueFollowingHeight = height)}
+      >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openText()}>Find / Replace…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('gap')}
+          >Enforce minimum gaps…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('scene')}
+          >Repair scene timing…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('duration')}
+          >Repair duration / speed…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.cues.length}
+          onclick={() => void openTimingReview('batch')}
+          >Shift / align cues…</button
+        >
+
+        <button
+          disabled={busy || confirming || !doc.loaded}
+          onclick={() => void openStatistics()}>Statistics…</button
+        >
+        <button
+          disabled={busy || confirming || !doc.loaded}
+          onclick={() => void openAuthoring('plugins')}
+          >Subtitle plugins…</button
+        >
+        <button
+          aria-expanded={problemsOpen}
+          onclick={() => {
+            problemsOpen = !problemsOpen;
+            if (problemsOpen) translationOpen = false;
+            if (!problemsOpen) pendingProblem = null;
+          }}
+          >Problems{quality.view?.profileHash
+            ? ` · ${quality.view.findingsCount}`
+            : ''}</button
+        >
+        <button
+          disabled={busy || confirming || !ready}
+          aria-expanded={translationOpen}
+          onclick={() => {
+            translationOpen = !translationOpen;
+            if (translationOpen) problemsOpen = false;
+          }}>Translation reference{doc.translation?.dirty ? ' •' : ''}</button
+        >
+        <label
+          ><input type="checkbox" bind:checked={showQualityMetrics} /> Cue metrics</label
+        >
         <label
           title="Tap Space to play/pause. While playing, hold Space for at least 400 ms to create a cue and keep timing. Enter edits text; Escape returns to the waveform."
         >
@@ -1697,48 +2463,104 @@
           >
         {/if}
       </div>
-      <div class="table-head">
-        <span>#</span><span>Start</span><span>End</span><span
-          >Subtitle text · {doc.cues.length} cues</span
-        >
-      </div>
       <div
-        class="cue-list"
-        bind:this={list}
-        onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}
+        class="subtitle-review"
+        class:with-problems={problemsOpen || translationOpen}
       >
-        {#if !doc.loaded}<p class="empty">
-            Create a cue to start new subtitles, or open an SRT file.
-          </p>{:else if doc.cues.length === 0}<p class="empty">
-            No cues yet. Create a cue to start editing.
-          </p>{:else}
-          <div style:height={`${doc.cues.length * 32}px`} class="virtual-list">
-            <div style:transform={`translateY(${firstRow * 32}px)`}>
-              {#each visibleCues as item, i (item.id)}<button
-                  class="cue-row"
-                  class:selected={item.id === selected}
-                  class:active={activeIds.includes(item.id)}
-                  aria-current={activeIds.includes(item.id)
-                    ? 'time'
-                    : undefined}
-                  onfocus={suspendCueFollowing}
-                  aria-pressed={item.id === selected}
-                  aria-disabled={busy}
-                  oncontextmenu={(e) => {
-                    e.preventDefault();
-                    void openCueMenu(e.clientX, e.clientY, item.id, false);
-                  }}
-                  onclick={() => void selectCue(item.id)}
-                  ondblclick={() => void focusText()}
-                  ><span>{firstRow + i + 1}</span><span
-                    >{formatTime(item.startMs)}</span
-                  ><span>{formatTime(item.endMs)}</span><span class="cue-text"
-                    >{item.text.replaceAll('\n', ' ↵ ') || '(empty)'}</span
-                  ></button
-                >{/each}
-            </div>
+        <div class="cue-table">
+          <div class="table-head" class:with-metrics={showQualityMetrics}>
+            <span>#</span><span>Start</span><span>End</span><span
+              >Subtitle text · {doc.cues.length} cues · {subtitles.selectedIds
+                .size} selected</span
+            >
+            {#if showQualityMetrics}<span>CPS · RS</span>{/if}
           </div>
-        {/if}
+          <div
+            class="cue-list"
+            bind:this={list}
+            onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}
+          >
+            {#if !doc.loaded}<p class="empty">
+                Create a cue to start new subtitles, or open SRT, ASS, SSA or
+                WebVTT.
+              </p>{:else if doc.cues.length === 0}<p class="empty">
+                No cues yet. Create a cue to start editing.
+              </p>{:else}
+              <div
+                style:height={`${doc.cues.length * 32}px`}
+                class="virtual-list"
+              >
+                <div style:transform={`translateY(${firstRow * 32}px)`}>
+                  {#each visibleCues as item, i (item.id)}<button
+                      class="cue-row"
+                      class:with-metrics={showQualityMetrics}
+                      class:selected={subtitles.selectedIds.has(item.id)}
+                      class:active={activeIds.includes(item.id)}
+                      aria-current={activeIds.includes(item.id)
+                        ? 'time'
+                        : undefined}
+                      onfocus={suspendCueFollowing}
+                      aria-pressed={subtitles.selectedIds.has(item.id)}
+                      data-cue-id={item.id}
+                      aria-disabled={busy}
+                      oncontextmenu={(e) => {
+                        e.preventDefault();
+                        void openCueMenu(e.clientX, e.clientY, item.id, false);
+                      }}
+                      onclick={(e) =>
+                        void selectCue(
+                          item.id,
+                          e.shiftKey
+                            ? e.ctrlKey || e.metaKey
+                              ? 'addRange'
+                              : 'range'
+                            : e.ctrlKey || e.metaKey
+                              ? 'toggle'
+                              : 'replace',
+                        )}
+                      onkeydown={(e) => cueSelectionKey(e, item.id)}
+                      ondblclick={() => void focusText()}
+                      ><span>{firstRow + i + 1}</span><span
+                        >{formatTime(item.startMs)}</span
+                      ><span>{formatTime(item.endMs)}</span><span
+                        class="cue-text"
+                        >{item.text.replaceAll('\n', ' ↵ ') || '(empty)'}</span
+                      >{#if showQualityMetrics}{@const metric = qualityRows.get(
+                          String(item.id),
+                        )}<span
+                          class="row-metrics"
+                          title={`Accepted text · ${textInterpretation} · unrounded values drive checks`}
+                          >{metric
+                            ? `${rate(metric.data.cps)} · ${rate(metric.data.rs)}`
+                            : '—'}</span
+                        >{/if}</button
+                    >{/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        </div>
+        {#if problemsOpen}<ProblemsPanel
+            session={quality}
+            disabled={busy || confirming}
+            pending={pendingProblem !== null}
+            onnavigate={requestProblem}
+            onlanguage={(operation) => void openText(operation)}
+            onresolve={(choice) => void resolveProblem(choice)}
+            onclose={() => {
+              problemsOpen = false;
+              pendingProblem = null;
+            }}
+          />{/if}
+        {#if translationOpen}<TranslationPanel
+            {subtitles}
+            session={translation}
+            disabled={busy || confirming || !ready}
+            onload={(copy) => void referenceOperation(copy ? 'copy' : 'attach')}
+            onoffset={(offset) => void referenceOperation('offset', offset)}
+            ondetach={() => void referenceOperation('detach')}
+            onclose={() => (translationOpen = false)}
+          />{/if}
       </div>
     </section>
     <Splitter
@@ -1753,12 +2575,16 @@
       onfocusin={(e) => {
         editorFocused =
           e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLSelectElement ||
           e.target instanceof HTMLTextAreaElement;
         if (editorFocused) suspendCueFollowing();
       }}
       onfocusout={() => (editorFocused = false)}
     >
-      <div class="editorbar">
+      <div
+        class="editorbar"
+        use:measurePaneControl={(height) => (editorBarHeight = height)}
+      >
         <strong
           >{cue
             ? `Cue ${doc.cues.findIndex((c) => c.id === selected) + 1}`
@@ -1786,7 +2612,10 @@
             status.positionSeconds === null}
           onclick={() => {
             if (status.positionSeconds !== null)
-              subtitles.start = formatTime(status.positionSeconds * 1000);
+              subtitles.start = formatTime(
+                Math.round((status.positionSeconds * 1000) / timeStepMs) *
+                  timeStepMs,
+              );
           }}>Start here</button
         ><button
           disabled={!cue ||
@@ -1795,10 +2624,94 @@
             status.positionSeconds === null}
           onclick={() => {
             if (status.positionSeconds !== null)
-              subtitles.end = formatTime(status.positionSeconds * 1000);
+              subtitles.end = formatTime(
+                Math.round((status.positionSeconds * 1000) / timeStepMs) *
+                  timeStepMs,
+              );
           }}>End here</button
         >
+        {#if doc.format && subtitles.styled}
+          <label
+            >Style <select
+              aria-label="Cue style"
+              bind:value={subtitles.style}
+              disabled={!cue || busy || confirming}
+            >
+              {#if cue && !doc.format.styles.some((style) => style.name === subtitles.style)}<option
+                  value={subtitles.style}>{subtitles.style} (undefined)</option
+                >{/if}
+              {#each doc.format.styles as style (style.name)}<option
+                  value={style.name}>{style.name}</option
+                >{/each}
+            </select></label
+          >
+          <button
+            disabled={busy || confirming || !ready}
+            onclick={() => void openAuthoring('styles')}>Inspect styles…</button
+          >
+          <button
+            type="button"
+            disabled={busy || confirming || !ready}
+            onclick={() => void openAuthoring('fonts')}>Manage fonts…</button
+          >
+          <small
+            >{doc.format.name.toUpperCase()} · {timeStepMs} ms · line breaks save
+            as \N</small
+          >
+        {:else if doc.format?.name === 'vtt'}
+          <small
+            title="WebVTT settings, style/region records and identifiers are preserved. Native preview may omit CSS and region layout or show ruby annotations inline. Timed text may differ from browsers."
+            >WebVTT · 1 ms · Preview may differ from browsers</small
+          >
+        {/if}
+        <button
+          type="button"
+          disabled={!doc.loaded ||
+            doc.format?.name === 'vtt' ||
+            busy ||
+            confirming ||
+            !ready}
+          title={doc.format?.name === 'vtt'
+            ? 'WebVTT conversion is not yet available; use Save As to preserve the source format.'
+            : undefined}
+          onclick={() => void run('convertSubtitles')}
+          >Convert subtitles…</button
+        >
       </div>
+      {#if showQualityMetrics && cue}<div
+          class="quality-readout"
+          use:measurePaneControl={(height) => (qualityReadoutHeight = height)}
+        >
+          {#if quality.view?.selected?.data.cueId === String(cue.id)}<CueMetrics
+              value={quality.view.selected}
+              label="Accepted"
+            />{:else}<span
+              >Accepted metrics {quality.paused ? 'paused' : 'pending'}…</span
+            >{/if}
+          {#if draftDirty}
+            {#if draftMetricInput.error || quality.view?.draftError}<span
+                role="status"
+                >Draft metrics unavailable: {draftMetricInput.error ||
+                  quality.view?.draftError}</span
+              >
+            {:else if quality.view?.draft?.data.cueId === String(cue.id) && !quality.stale}<CueMetrics
+                value={quality.view.draft}
+                label="Draft · not applied"
+              />{:else}<span
+                >Draft metrics {quality.paused ? 'paused' : 'pending'}…</span
+              >{/if}
+          {/if}
+          <small
+            >{doc.format?.name === 'vtt' ? 'Caption text' : 'Source text'}: {textInterpretation}
+            · {quality.view?.profile.speedBasis ?? 'loading profile'}. {doc
+              .format?.name === 'vtt'
+              ? 'Entities are decoded; voice labels and ruby annotations are excluded.'
+              : 'Counting excludes complete tags;'} Rendered wrapping is not measured.</small
+          >
+          {#if quality.error || quality.view?.error}<span role="alert"
+              >{quality.error || quality.view?.error}</span
+            >{/if}
+        </div>{/if}
       <textarea
         aria-label="Subtitle text"
         bind:this={textEditor}
@@ -1808,6 +2721,24 @@
         placeholder="Select a subtitle to edit its text."
         spellcheck="false"
         onkeydown={(e) => {
+          if (
+            (e.metaKey || e.ctrlKey) &&
+            !e.altKey &&
+            !e.shiftKey &&
+            !e.repeat &&
+            !e.isComposing &&
+            ['b', 'i', 'u'].includes(e.key.toLowerCase())
+          ) {
+            e.preventDefault();
+            void formatText(
+              e.key.toLowerCase() === 'b'
+                ? 'bold'
+                : e.key.toLowerCase() === 'i'
+                  ? 'italic'
+                  : 'underline',
+            );
+            return;
+          }
           if (
             (e.metaKey || e.ctrlKey) &&
             e.key === 'Enter' &&
@@ -1820,7 +2751,28 @@
             void run('apply', e);
           }
         }}></textarea>
-      <div class="editorfooter">
+      <div
+        class="editorfooter"
+        use:measurePaneControl={(height) => (editorFooterHeight = height)}
+      >
+        <button
+          disabled={!cue || busy || confirming}
+          title="Bold selection (Ctrl/Cmd+B)"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => void formatText('bold')}>Bold</button
+        >
+        <button
+          disabled={!cue || busy || confirming}
+          title="Italic selection (Ctrl/Cmd+I)"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => void formatText('italic')}>Italic</button
+        >
+        <button
+          disabled={!cue || busy || confirming}
+          title="Underline selection (Ctrl/Cmd+U)"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => void formatText('underline')}>Underline</button
+        >
         <button
           disabled={!draftDirty || busy}
           onclick={(e) => void run('apply', e)}>Apply edit</button
@@ -1829,10 +2781,10 @@
           onclick={() => subtitles.revert()}>Revert draft</button
         ><button
           disabled={!doc.canUndo || draftDirty || busy}
-          onclick={() => void run('undo')}>Undo edit</button
+          onclick={(e) => void run('undo', e)}>Undo edit</button
         ><button
           disabled={!doc.canRedo || draftDirty || busy}
-          onclick={() => void run('redo')}>Redo edit</button
+          onclick={(e) => void run('redo', e)}>Redo edit</button
         ><span class="spacer"></span><span
           >{draftDirty
             ? 'Draft · apply to record in history'
@@ -1843,13 +2795,35 @@
       </div>
     </section>
   </div>
+  {#if status.subtitleFontDiagnostics.length > 0}
+    <details class="shortcut-help" aria-label="Subtitle font notices">
+      <summary
+        >Subtitle font notices ({status.subtitleFontDiagnostics
+          .length})</summary
+      >
+      <p>
+        The renderer reported font issues in this media session. Fallback may
+        still render the text. Check the affected subtitles and make the
+        required fonts available; original document font names are unchanged.
+        These notices include previously displayed cues and clear when media is
+        closed or replaced.
+      </p>
+      <ul>
+        {#each status.subtitleFontDiagnostics as message, index (index)}<li>
+            {message}
+          </li>{/each}
+      </ul>
+    </details>
+  {/if}
   <details class="shortcut-help">
     <summary>Keyboard shortcuts</summary>
     <p>
       ⌘/Ctrl+Alt+Enter: play/pause while typing (Alt+Space also works when the
       OS allows it) · Alt+←/→: seek 1 s (Shift: 5 s) · Alt+↑/↓: edit
-      previous/next cue · Enter: edit selected cue · Escape: return to waveform
-      / cancel held timing. In Timing mode, tap Space to play/pause; hold it for
+      previous/next cue · In cue rows: Shift+click/arrows selects a range;
+      Ctrl/Cmd+click or Space toggles, Ctrl/Cmd+arrows moves focus, Ctrl/Cmd+A
+      selects all · Enter: edit selected cue · Escape: return to waveform /
+      cancel held timing. In Timing mode, tap Space to play/pause; hold it for
       at least 400 ms during playback to create a cue and keep timing. Press
       Enter to edit its text.
     </p>
@@ -1913,20 +2887,38 @@
       e.preventDefault();
       answer('cancel');
     }}
-    aria-label="Unsaved subtitle changes"
+    aria-label={doc.translation?.dirty
+      ? 'Unsaved project changes'
+      : 'Unsaved subtitle changes'}
   >
-    <h2>Save subtitle changes?</h2>
-    <p>Your current document or cue draft has changes.</p>
+    <h2>
+      {doc.translation?.dirty
+        ? 'Save project changes?'
+        : 'Save subtitle changes?'}
+    </h2>
+    <p>
+      {doc.translation?.dirty
+        ? 'Save your subtitle changes and the translation reference and offset in a project.'
+        : 'Your current document or cue draft has changes.'}
+    </p>
     <div class="dialog-actions">
       <button onclick={() => answer('cancel')}>Cancel</button><button
         onclick={() => answer('discard')}>Discard changes</button
-      ><button onclick={() => answer('save')}>Save changes</button>
+      ><button onclick={() => answer('save')}
+        >{doc.translation?.dirty ? 'Save project' : 'Save changes'}</button
+      >
     </div>
   </dialog>
   {#if projectExitError !== null}
     <ProjectSaveFailureDialog
       error={projectExitError}
       onchoose={(choice) => void answerProjectExit(choice)}
+    />
+  {/if}
+  {#if projectReferenceIssue !== null}
+    <ProjectReferenceDialog
+      issue={projectReferenceIssue}
+      onchoose={(choice) => void answerProjectReference(choice)}
     />
   {/if}
   {#if resyncOpen}
@@ -1936,6 +2928,78 @@
       target={mediaPath}
       onclose={() => void closeResync()}
       onaccepted={() => void closeResync(true)}
+    />
+  {/if}
+  {#if statisticsOpen}
+    <StatisticsDialog
+      {subtitles}
+      mediaSession={() => status.session}
+      context={() => `${qualityContext}/${sceneState.qualityKey}`}
+      onclose={() => void closeStatistics()}
+      onnavigate={(id) => void closeStatistics(id)}
+    />
+  {/if}
+  {#if fontsOpen && doc.format && subtitles.styled}
+    <FontDialog
+      {subtitles}
+      onclose={() => void closeAuthoring()}
+      onaccepted={() => void closeAuthoring(true)}
+    />
+  {/if}
+  {#if pluginsOpen}
+    <PluginDialog
+      {subtitles}
+      media={() => status}
+      context={() => `${qualityContext}/${sceneState.qualityKey}`}
+      onclose={() => void closeAuthoring()}
+      onaccepted={() => void closeAuthoring(true)}
+    />
+  {/if}
+  {#if conversionOpen}
+    <ConversionDialog
+      {subtitles}
+      onclose={(path) => void closeAuthoring(false, path)}
+    />
+  {/if}
+  {#if legacyImportOpen}
+    <LegacyImportDialog
+      canOpen={status.available}
+      onclose={(path, open) => void closeLegacyImport(path, open)}
+    />
+  {/if}
+  {#if stylesOpen && doc.format && subtitles.styled}
+    <StyleInspector
+      {subtitles}
+      initial={subtitles.style}
+      onclose={() => void closeAuthoring()}
+      onaccepted={() => void closeAuthoring(true)}
+    />
+  {/if}
+  {#if timingOpen}
+    {#if timingReview === 'batch'}
+      <BatchTimingDialog
+        {subtitles}
+        media={() => status}
+        onclose={() => void closeTimingReview()}
+        onaccepted={() => void closeTimingReview(true)}
+      />
+    {:else}
+      <TimingDialog
+        {subtitles}
+        mediaSession={() => status.session}
+        onclose={() => void closeTimingReview()}
+        onaccepted={() => void closeTimingReview(true)}
+      />
+    {/if}
+  {/if}
+  {#if textOpen}
+    <TextDialog
+      {subtitles}
+      initial={textOperation}
+      onclose={(operation) => void closeText(operation)}
+      onaccepted={(operation) => void closeText(operation, true)}
+      onnavigate={(id, start, end, operation) =>
+        void navigateText(id, start, end, operation)}
     />
   {/if}
   {#if settingsOpen}
@@ -2013,12 +3077,14 @@
     height: 100dvh;
     min-height: 610px;
     display: grid;
-    grid-template-rows: 48px minmax(498px, 1fr) auto 28px;
+    grid-template-rows: 48px minmax(var(--workspace-min-height), 1fr) auto 28px;
     isolation: isolate;
     overflow: auto;
   }
   main.has-recovery {
-    grid-template-rows: 48px auto minmax(498px, 1fr) auto 28px;
+    grid-template-rows:
+      48px auto minmax(var(--workspace-min-height), 1fr)
+      auto 28px;
   }
   main:has(.shortcut-help[open]) {
     min-height: 700px;
@@ -2085,9 +3151,9 @@
   }
   .workspace {
     display: grid;
-    grid-template-rows: var(--top-height) 6px minmax(220px, 1fr) 6px var(
-        --editor-height
-      );
+    grid-template-rows:
+      var(--top-height) 6px minmax(var(--table-min-height), 1fr)
+      6px var(--editor-height);
     min-height: 0;
     padding: 8px;
     gap: 0;
@@ -2195,6 +3261,18 @@
     display: flex;
     flex-direction: column;
   }
+  .subtitle-review {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  .cue-table {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 64px;
+  }
   .transport {
     display: flex;
     align-items: center;
@@ -2202,6 +3280,7 @@
     padding: 5px 8px;
     background: #203542;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .transport output {
     font-variant-numeric: tabular-nums;
@@ -2224,6 +3303,7 @@
     padding: 4px 8px;
     font-size: 11px;
     background: #203542;
+    flex-shrink: 0;
   }
   .cue-followbar label {
     display: flex;
@@ -2271,6 +3351,36 @@
     background: #32566a;
     box-shadow: inset 3px 0 #80dfc8;
   }
+  .table-head.with-metrics,
+  .cue-row.with-metrics {
+    grid-template-columns: 44px 116px 116px minmax(0, 1fr) 110px;
+  }
+  .row-metrics {
+    color: #a4dccf;
+    font-size: 11px;
+  }
+  .with-problems .table-head.with-metrics,
+  .with-problems .cue-row.with-metrics {
+    grid-template-columns: 26px 82px 82px minmax(60px, 1fr) 76px;
+    gap: 5px;
+    font-size: 11px;
+  }
+  .quality-readout {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 100px;
+    flex-shrink: 0;
+    overflow: auto;
+    font-size: 11px;
+  }
+  .quality-readout small {
+    color: #a9c1ce;
+    font-size: 10px;
+  }
+  .quality-readout [role='alert'] {
+    color: #ffb3ad;
+  }
   .cue-row.active {
     border-inline-end: 4px solid #e8c76a;
   }
@@ -2299,6 +3409,7 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .editorbar label {
     display: flex;
@@ -2308,6 +3419,12 @@
   .editorbar input {
     width: 116px;
     font-variant-numeric: tabular-nums;
+  }
+  .editorbar select {
+    max-width: 150px;
+  }
+  .editorbar small {
+    color: #a9c1ce;
   }
   .editor textarea {
     resize: none;
@@ -2386,10 +3503,8 @@
     .subtitle-panel {
       height: 360px;
     }
-    .transport,
-    .cue-operationbar,
-    .cue-followbar {
-      flex-shrink: 0;
+    .subtitle-review {
+      flex-direction: column;
     }
     .editor {
       min-height: 210px;
@@ -2428,6 +3543,10 @@
       grid-template-columns: 32px 100px 100px minmax(0, 1fr);
       gap: 4px;
       padding-inline: 6px;
+    }
+    .table-head.with-metrics,
+    .cue-row.with-metrics {
+      grid-template-columns: 26px 82px 82px minmax(60px, 1fr) 76px;
     }
   }
   .diagnostics label {

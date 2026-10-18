@@ -18,7 +18,7 @@ impl Documents {
         }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let snapshot =
-            SubtitleSnapshot::new(loaded.editor.document().clone(), loaded.source.clone())
+            SubtitleSnapshot::new(loaded.editor.document().clone(), loaded.source().clone())
                 .map_err(|e| e.to_string())?;
         Ok(Capture { key, snapshot })
     }
@@ -40,11 +40,12 @@ impl Documents {
         let edit = proposal
             .edit(loaded.editor.document())
             .map_err(|e| e.to_string())?;
-        // Reuse the domain transaction and accepted-SRT size policy. Only a
+        // Reuse the domain transaction and accepted source-format size policy. Only a
         // successful edit may change save protection; a no-op still requires
         // a new destination, but does not manufacture an undo entry.
         loaded.apply_edit(capture.key.revision, edit)?;
         loaded.resynced = true;
+        store.invalidate_checks();
         Ok(store.snapshot())
     }
 
@@ -55,9 +56,20 @@ impl Documents {
     pub(crate) fn with_project_subtitle<T>(
         &self,
         path: Option<&Path>,
-        publish: impl FnOnce() -> Result<T>,
+        publish: impl FnOnce(
+            &crate::quality_profile::Context,
+            Option<subtitle_formats::Format>,
+            &translation::Context,
+        ) -> Result<T>,
     ) -> Result<T> {
-        let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
+        let mut store = self.0.lock().map_err(|_| "Document worker unavailable")?;
+        if store
+            .loaded
+            .as_ref()
+            .is_some_and(|loaded| !loaded.translation.is_empty() && loaded.path.is_none())
+        {
+            return Err("Save the translation target before saving its project".into());
+        }
         if store.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
             return Err(
                 "Save resynchronized subtitles to a new file before saving the project".into(),
@@ -73,7 +85,23 @@ impl Documents {
                 "Subtitle path changed before project save; retry with the current document".into(),
             );
         }
-        publish()
+        let empty = translation::Context::default();
+        let result = publish(
+            &store.quality.context(),
+            store
+                .loaded
+                .as_ref()
+                .filter(|loaded| loaded.path.is_some())
+                .map(|loaded| loaded.source().format()),
+            store
+                .loaded
+                .as_ref()
+                .map_or(&empty, |loaded| &loaded.translation),
+        )?;
+        if let Some(loaded) = &mut store.loaded {
+            loaded.translation.dirty = false;
+        }
+        Ok(result)
     }
 }
 

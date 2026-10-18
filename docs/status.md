@@ -1,11 +1,533 @@
 # Current implementation and validation status
 
-Updated 2026-10-12 (America/New_York): the first CLI/GUI resync milestone is complete, including generated IPC, local three-OS automated validation and the Mac native workflow.
+Updated 2026-10-18 (America/New_York): ASS/SSA documents, document statistics,
+duration/reading-speed repairs, scene-aware
+quality and timing repair,
+tag-aware text editing and the first subtitle-quality milestone are complete,
+including protected Find/Replace,
+formatting, line repairs, inline ASS/SSA preview, quality profiles, cue metrics,
+Problems review, the shared CLI and minimum-gap preview/acceptance. The first CLI/GUI resync milestone was completed
+on October 12, including local three-OS checks and the Mac native workflow.
 This is the tracked summary of current behavior and evidence. The code is being
 evolved into the product; experimental native playback does not make persistence
 or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
+
+**Umbrella goal authorized 2026-10-17:** the ordered
+[feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
+ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
+formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
+batch timing, ASS/SSA resync, language tools and style/attachment/conversion
+authoring, WebVTT, legacy project import and manual translation are complete
+within their recorded Mac scopes. The initial plugin checker/fix milestone is
+complete within its documented subset; native reliability remains in progress.
+Completed milestones below remain the
+baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**Latest reliability checkpoint (2026-10-18):** all ten hosted application jobs
+and all six native build-contract jobs pass at07260fa. At1e83b2f, all three
+headless jobs additionally pass nine native-feature Rust transport controls;
+all six native-contract jobs pass. The plugin rejection-test
+correction is verified on Mac, Windows x64 and Ubuntu with production limits
+unchanged. All60 browser cases pass. The intermittent statistics paging failure
+is reproduced in both browsers: an unscoped test selector counted the underlying
+Problems panel as well as the dialog. Scoped assertions, deterministic coexistence,
+forward/backward/final-page checks and late-poll controls now pass locally; see
+the [diagnosis and validation](native-reliability.md#statistics-paging-test-correction--2026-10-18).
+The f0dbf68 Ubuntu24.04 x64 package passes
+isolated installation/offline CLI and software-renderer/null-sink native checks;
+downloaded runtime/source/notice identities verify. The matching Windows x64
+package also passes installed/offline CLI, three DLL unload cycles and production
+GUI startup/teardown with software D3D11 and virtual WASAPI. Its downloaded
+source/notice identities and packaged modern/VSS CLI on the Windows ARM64 VM
+verify; the [acceptance guide](preview-acceptance.md) now links both feature builds.
+Linux Pulse interpolation-option content/re-entry/EOF checks add bounded passes,
+while the default capture has an incomplete beginning; production configuration
+is unchanged. The new actual Linux editor lane reproduces a missing paused-seek
+cursor with both Pulse options; raw properties identify an exact transport
+position with unavailable audio PTS. The [diagnosis and retained failures](native-reliability.md#linux-editor-capture-lane-and-paused-seek--2026-10-18)
+now record a corrected resting-cursor policy and all six actual-editor paused
+seeks passing. The default Pulse editor still fails its live loop-clear clock
+check. The interpolation option reports an early EOF position even when one
+captured suffix passes through the source end; independent raw properties also
+reproduce an early transport position. That option remains unadopted. Full native
+acceptance remains open. New CoreAudio buffer-state logging identifies one
+512-frame empty callback during the temporary loop-clear pause despite queued
+audio, with417 exact-zero captured frames. Ten cases pass content/order checks;
+the interruption remains unresolved. See the
+[state diagnosis](native-reliability.md#coreaudio-empty-callback-state-diagnosis--2026-10-18).
+A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
+separate save and normal quit pass. Held-pointer cancellation, dialog lifetime
+and distribution/physical gates remain open.
+See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).
+
+**Plugin stage7 complete within its checker/fix subset (2026-10-18):** the
+[actual VSS comparison](plugin-api.md#historical-vss-comparison--2026-10-18) now
+passes: 63/66 read-only field values match, with the sole difference repeated
+per cue (legacy empty-selection count null versus VSF numeric0). All three saved
+cue texts and exact millisecond endpoints match VSF's actual CLI publication.
+The legacy UTF-8 loading/CESU-8 export defects are documented limitations, not
+behavior to reproduce; VSF's output remains valid UTF-8. Together with the
+recorded worker/rollback/history, Mac native/chooser/desktop10k and Windows/Linux
+ARM64 workflows, this closes Task024 and accepts ADR0008 for the bounded subset.
+Broader actions/columns/hooks/pack compatibility and physical acceptance remain
+separate. No product behavior or execution limits changed in this final audit.
+The following dated increments retain their original evidence and test counts.
+
+**Plugin implementation and progressive validation (2026-10-18):** a separate worker crate pins
+rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
+stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
+focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
+floods and crashes. The latest baseline passes 501 workspace tests/32 ignored,
+strict Clippy, Rustfmt, Prettier and ESLint (zero-test harnesses excluded).
+Two fresh-helper 10k workloads pass p95<=46.513ms and sampled additional combined
+RSS 53,575,680 bytes within predeclared limits. Pure modern/VSS APIs, captured
+packages/settings, read-your-writes neighbors and validated private fix proposals
+now pass 14 real-helper API tests plus two domain batch tests. The unchanged archived
+overlap checker and three integer-safe fixes pass a separate local-only test;
+no unresolved-license code is redistributed. Combined text/timing batches use one
+Undo and retain source metadata; immutable field sharing reduces capture/history
+allocation. Twenty complete API/history 10k workloads pass p95<=302.633ms and
++198,246,400 sampled RSS bytes against 500ms/192MiB. The [API matrix](plugin-api.md)
+and [failed attempts/final evidence](plugin-host.md#pure-apiproposal-evidence--2026-10-18)
+record exact scope. The [local CLI](plugin-cli.md) now supports explicit package
+loading, complete preview and reviewed same-format new-file publication. Six IO
+tests and eight real-executable tests cover all four formats, changed-input/review
+refusal, source protection, timeout, live cancellation and helper reaping. Thirty
+fresh-CLI10k workloads pass p95<=333.311ms and sampled combined RSS120,782,848 bytes
+against500ms/192MiB; complete rows, source/output hashes and output reparse are
+verified. The desktop now has a
+single plugin job owner, bounded typed review/text pages and guarded one-Undo
+acceptance, with nine owner tests and a separate real installed-CLI helper test.
+A desktop self-spawn timeout prompted using the existing sibling CLI without
+relaxing limits; exact evidence is in the [owner record](plugin-host.md#desktop-owner-and-typed-transport--2026-10-18).
+The [desktop controls](plugin-desktop.md) now expose package selection, check/fix
+review, settings, full-text chunks and one-Undo acceptance. Ten focused browser
+checks pass in Chromium/WebKit, and App integration covers draft preservation,
+native-menu/toolbar dispatch, video occlusion and focus. Lost acceptance replies
+reconcile accepted state; failed refresh blocks continuation until retry. All60
+browser cases,44 frontend tests,501 workspace Rust tests/32 ignored, strict checks,
+generated IPC and default desktop build pass. These browser tests use modeled IPC.
+The subsequent actual Mac lane passes all eight modern/VSS × SRT/ASS/SSA/WebVTT
+workflows, with exact preservation, one Undo/Redo, failed saves, reopen, recovery,
+live-helper cancellation/reaping, exception rollback and changed-package refusal.
+Separate native observations and a non-WebDriver real macOS chooser trial pass,
+including a reviewed VSS neighbor edit outside selection, exact separate-file
+save and normal code0 shutdown. Existing WebVTT preview limits remain. See the
+[native/chooser evidence](plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
+Ten complete desktop10k workloads also pass: both APIs across five formats/markup
+fixtures, all4000 UI review pages and50 check/fix/history/save cycles, exact reopen,
+cancellation/stale rejection and durable crash recovery. Maximum measured
+interaction708ms; asynchronous preparation1554ms, with the unchanged1000ms helper
+limit. Sampled app+helper RSS peaks at350,912,512 bytes; this excludes WebKit and is
+descriptive, separate from pure/API/CLI memory gates. The mixed-newline expected-
+byte oracle failure and final full rerun are retained in the desktop guide.
+Pinned VSS-host parity and available VM checks remain required. ADR0008 is proposed.
+See [worker ownership, limits and evidence](plugin-host.md).
+
+**Plugin VM automated checks pass (2026-10-18):** Ubuntu ARM64 passes 503 Rust
+workspace tests/33 ignored; Windows ARM64 passes 491/32 ignored. Both pass the
+plugin/application/CLI tests, frontend build/tests, CLI/default desktop builds,
+installed-helper relocation, generated IPC and strict Clippy. Eleven zero-test
+harnesses per guest are excluded. The Linux subtitle-dialog filter type error is
+fixed; a content-identical test-target rename resolves Windows error740 without
+elevation. New plugin desktop UI workflows and historical-host comparison remain
+open; these checks do not establish physical-device or installation acceptance.
+See [commands, identities and retained failures](plugin-host.md#vm-automated-validation--2026-10-18).
+
+**Plugin desktop VM workflows pass (2026-10-18):** measured wrapped toolbar heights
+fix the cue-list squeeze found in both guests. Ubuntu and Windows ARM64 now pass
+all eight format/API cases, exact review/history/save/reopen/recovery, live-helper
+cancellation/reaping and normal shutdown. A fresh Mac native run also passes all
+eight cases. Both browsers reproduce the old layout failure and pass the new
+regression; all60 browser cases and44 frontend tests pass. A subsequent full
+plugin10k regression exposed a helper deadline in the final timed-WebVTT/VSS
+workload. Validated JSON forwarding and conditional newline conversion correct
+that failure: all ten complete workloads now pass with unchanged limits,
+maximum interaction689ms and preparation1418ms. The correction passes503 Mac,
+505 Ubuntu and493 Windows Rust tests, strict checks and fresh eight-case desktop
+workflows on all three systems. Historical-host comparison remains pending. Exact commands, identities,
+retained failures and scope are in the [desktop record](plugin-desktop.md#wrapped-toolbar-correction-and-complete-vm-editor-acceptance--2026-10-18).
+
+**Native stage8 first correction (2026-10-18):** PCM WAV files lacking a reported
+container start now generate waveforms after a bounded first-packet PTS-zero
+verification. Explicit origins remain authoritative; ambiguous inputs are refused.
+Ordinary/Broadcast-WAV, existing offsets, long timelines and cancellation pass on
+Mac and Windows/Linux ARM64 VMs. The native Mac legacy-import workflow now verifies
+the displayed waveform, with fresh executable/runtime identities and normal
+shutdown. The full Mac suite passes507 Rust tests/33 ignored and strict checks.
+Audio loop/clock, gesture, dialog/lifetime and distribution work remains required;
+see [the correction, commands and remaining scope](native-reliability.md).
+
+**Current CoreAudio boundary audit (2026-10-18):** four exact-candidate 1× captures
+and twelve isolated diagnostic rate/phase/pause cases complete normally. The
+diagnostic changes only read-only submission tracing in one native source file;
+all39 upstream tests and seven production transport-policy tests pass. All12
+native buffer sequences match independent renders and the restart endpoint stays
+within the retained half-source-sample bound. All12 captured suffixes pass in both
+channels. Eight full-sequence comparisons pass; four near-B comparisons remain
+ambiguous because their references repeat content. Separate ordered anchors bound
+those joins within0.166 output samples and reject deletion/repetition/extra-silence
+controls; the original ambiguities remain recorded. No functional runtime patch
+or production policy changed. Midstream rates, re-entry/replacement, other outputs,
+full-editor interaction and physical-device gates remain open. See the
+[exact scope and retained evidence](native-reliability.md#current-coreaudio-clear-boundary-audit--2026-10-18).
+
+**Current rate-change and editor audio evidence (2026-10-18):** eight diagnostic
+0.5×↔1.5× immediate rate-change/clear cases pass old/new submitted-content and
+captured correspondence checks. Three playing cases submit one empty callback;
+four separate uninstrumented controls reproduce an 8.6875ms quiet interval in
+three cases. This remains an unresolved interruption, not a seamless-output pass.
+The new Mac `--native-audio` editor lane passes all five two-channel captures:
+looping, past-B EOF, re-entry, post-lead-in looping and replacement. Stale-session
+refusal, unchanged documents/sources, runtime identity and normal shutdown pass.
+All72 synthetic controls across11 suites pass. These test-only changes do not
+alter the runtime or production transport. Sustained rate/format transitions,
+other outputs, physical interaction and release gates remain open; see
+[reproduction, identities and limitations](native-reliability.md#rate-change-clear-audit--2026-10-18).
+
+**Current Linux output/portal evidence (2026-10-18):** the logged-in ARM64 VM
+reuses the verified candidate without rebuilds; results stay on tmpfs/host storage
+with about613MiBroot free. Pulse clock backsteps reproduce in all three loop/clear
+trials (up to8.698ms), while three direct-PipeWire trials pass. Both outputs pass
+three outside-seek/re-entry and six EOF/replacement cases; one Pulse stream capture
+passes coarse tone content. An existing per-process Pulse interpolation option
+passes six additional trials, but is not adopted without broader content/editor
+evidence. The stale SRT-only portal mock is corrected; all six private-bus lifecycle
+cases and four malformed-request controls pass. Linux CI now includes the dedicated
+portal harness. This is component/VM evidence with retained failures, not physical
+output or native-dialog acceptance. See [commands and scope](native-reliability.md#current-linux-output-and-portal-checks--2026-10-18).
+
+**Manual translation stage6c complete (2026-10-18):** the application foundation
+retains immutable reference bytes, format and cue data; paged time-overlap queries
+support signed offsets and independent target copies. Eight focused tests and all
+434 workspace Rust tests pass (30 opt-in tests ignored), with strict Clippy and
+format/lint checks. Five 10k library workloads pass p95 <=86.801ms and additional
+sampled RSS 99,876,864 bytes, with only 786,432 bytes of memory-budget headroom.
+The subsequent Rust owner adds bounded loading/querying, stale/cancel guards,
+independent target copies, sticky source protection and reference-aware recovery.
+Twelve owner/related conversion cases, a signed-IPC boundary test, all 447 workspace
+Rust tests /30 ignored, 44 frontend tests, strict checks, generated IPC and the
+default desktop build pass. The subsequent project increment now persists reference
+identity/offset/provenance, supports subtitle-only projects, and offers explicit
+missing/changed-reference resolution before draft protection. Five focused project
+tests and all 452 workspace Rust tests /30 ignored pass; 44 frontend tests and
+targeted Chromium/WebKit project checks pass. The wider browser run exposed one
+outdated lifecycle fixture; its corrected project/lifecycle rerun passes all eight
+cases in both engines. Strict checks and the final default desktop build pass.
+The reference panel now exposes attach/replace/detach, independent target copies,
+signed offsets and matching/paged browsing with raw/reading views. Context replies
+preserve target drafts; lost acceptance replies refresh authoritative state.
+Eight focused browser cases pass with 60 project/panel and 32 lifecycle checks per
+ordinary harness. The final full suite passes all 58 browser cases, all 452 workspace
+Rust tests /30 ignored and 44 frontend tests, with strict/IPC/default-build checks.
+The actual Mac desktop lane now passes four-format copy/edit/history/save/project/
+recovery, changed/missing reference resolution, source/external-file protection,
+mixed ASS-target/WebVTT-reference attachment and normal code0 shutdown. Native
+window observations retain target rendering and literal reference text; existing
+WebVTT preview limits remain. Supplied file choices do not test OS sheets.
+An isolated non-WebDriver Mac bundle also passes real Open/Save/Save Project sheets,
+Unicode paths, cancellation, source-overwrite refusal after OS Replace, mixed-format
+reference changes, changed/missing-reference resolution, target-copy draft
+protection and Quit Cancel/Save with code0 shutdown. Exact target/project bytes and
+protected source hashes are checked. All five combined desktop10k workloads now
+pass, including full paging, five edit/history/save/project cycles, project reopen,
+captured-reference recovery, cancellation/stale rejection and source protection.
+The dense case exposed repeated waveform redraws from unchanged playback and scene
+polls; comparing render values fixes the failure without dropping cues or relaxing
+budgets. Maximum dense edit/offset/project-save is 326/289/271ms; project reopen
+815ms and recovery open 415ms. Desktop app RSS is reported separately from the
+unchanged pure-engine memory gate. The corrected native functional lane exits
+normally with code0; all 58 browser cases, 44 frontend tests, strict checks,
+generated IPC and default build pass. ADR0033 is accepted. Stage7 plugins is next;
+stage8 native/distribution reliability and physical-device gates remain open.
+See [the workflow contract and exact foundation evidence](manual-translation.md).
+
+**Legacy project import stage6b complete (2026-10-18):** application parsing supports
+strict UTF-8 and BOM-marked UTF-16, explicit Windows path handling, supported
+references/positions and unsupported-setting diagnostics. Read-only inspection
+supports explicit relocation and all four subtitle formats; revalidation detects
+changed source/subtitle bytes and redirected symlinks. The new File import dialog
+supports review, relocation, protected separate-file publication and explicit Open
+through normal unsaved-work protection. Rust's bounded worker revalidates inputs,
+protects original/competing files and preserves successful receipts after late
+Cancel. Import does not modify the active document, history, policy or attachment.
+425 workspace Rust tests / 30 ignored, 44 frontend tests, all 58 browser cases,
+eight final focused Chromium/WebKit cases and strict/static/default desktop build
+checks pass. Four earlier 10k library/IO workloads
+pass <=36.236ms p95 and +50,724,864 sampled RSS bytes. Actual Mac four-format
+import, relocation, source-change/failed-write protection, unchanged active state,
+save/history/project/recovery and normal shutdown now pass. Separate real macOS
+source/media/subtitle/output chooser checks also pass, including cancellation,
+Unicode paths, exact original preservation and native restored preview. Audio-only
+WAV references restore paused playback. The initially retained unknown-container-
+start waveform failure is now corrected with verified PCM sample zero; see the
+[stage8 Mac/VM evidence](native-reliability.md). Four final
+desktop10k workloads pass five review/publication cycles, full project restoration,
+history/save/recovery and cancel/stale checks. A retained 1656ms project-open
+failure led to faster ASCII boundary scanning with every validation check retained;
+final open/reopen peaks at 831ms, publication at 418ms and recovery at 422ms.
+426 workspace Rust tests / 30 ignored and strict checks pass. Updated library10k
+p95 is <=37.548ms with +48,267,264 sampled RSS bytes. Normal shutdown is code0.
+This accepts stage6b within its recorded scope; translation is now accepted above.
+See [mapping, checks and remaining scope](legacy-project-import.md).
+
+**WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,
+CLI checking/statistics, project references and accepted-state recovery now retain
+format identity, original blocks/settings and exact milliseconds. Text projection
+decodes entities, excludes voice/ruby annotations and preserves literal ASS-looking
+text. Automatic timing tools protect absolute timestamp markers; unsupported
+conversion and named split/merge have explicit refusals. Preview uses the existing
+decoder with visible CSS/region/ruby limitations. 398 Rust tests / 30 ignored,
+44 frontend and 56 browser cases pass; final menu changes pass both browser engines.
+Three expanded pure 10k workloads, including whole-document reviewed replacement
+and quality evaluation, pass p95 <=100.174ms and +54,722,560 sampled RSS bytes.
+Actual Mac workflow, save/reopen/project/recovery and real chooser checks pass,
+including normal code0 shutdown. Independent native images show decoded CJK and
+literal ASS syntax, with omitted CSS/regions, inline ruby and an explicit emoji
+missing-glyph notice. Actual desktop plain/styled/timed 10k workloads pass five
+edit/history/save cycles each, exact reopen/recovery and cancellation/stale guards.
+All measured interactions stay below 1000ms; recovery peaks at 950ms after removing
+a redundant parse. The regression and full workspace pass 399 Rust tests / 30
+ignored, with strict Clippy/lint/formatting and native build checks. This closes
+stage6a within the recorded Mac scope; legacy import and translation remain open.
+See [scope, checks and limits](webvtt.md).
+
+**Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
+have explicit precision/loss/blocking review and protected separate-file export.
+The open source, dirty state, Undo/Redo and recovery remain unchanged. Backend
+validation passes 374 Rust tests / 30 ignored; final UI checks pass 44 frontend
+and 56 browser cases. Native Mac all-six workflows, failure/retry/history/project/
+recovery, safe timed rounding and embedded-font observations pass. Actual macOS
+SRT/ASS/SSA destination sheets, cancellation/retry, exact output and normal quit
+also pass in a build without the automated chooser. A native-discovered wrapped
+editor clipping defect is fixed and covered in both browser engines.
+
+Pure 10k workloads pass p95 <=37.489ms/+81,526,784 sampled RSS bytes. Six native
+10k pairs with five cycles each pass: export confirmation <=500ms, cancellation
+completion <=15ms, stale invalidation <=103ms and complete 10k reopen. Native
+workflow and picker runs both quit normally with code0; identified runtimes,
+retained failed attempts and exact commands are recorded. No new Windows/Linux
+chooser or physical install/GPU/audio acceptance is claimed.
+See [conversion policy and evidence](format-conversion.md).
+
+**Style authoring increment (2026-10-17):** reviewed
+ASS/SSA create/copy/edit/rename now use Rust-owned source/cue transactions and one
+Undo/Redo history. Exact references and original records are preserved; ambiguous
+renames are refused. The shared text/style worker retains existing bounds and
+stale/cancel guards. 344 ordinary Rust tests, 44 frontend tests, all 52 browser
+cases and strict checks pass. Pure 10k create/edit/rename p95 <=25.332ms and
+additional sampled RSS 77,709,312 bytes pass the predeclared gates. Actual Mac create/copy/edit/rename, exact save/project/recovery and native preview
+acknowledgment pass. Native 10k acceptance <=134ms and Undo <=100ms pass the
+unchanged interaction gate. Subsequent attachment and conversion acceptance
+completes stage5. See [style policy and evidence](style-authoring.md).
+
+**Font attachment increment (2026-10-18):**
+reviewed ASS/SSA inventory/add/replace/remove shares the existing bounded review
+worker and source/history owner. Supported single TTF/CFF/CFF2 fonts have explicit
+limits; unsupported records remain read-only. 358 ordinary Rust, 44 frontend and
+54 browser cases plus strict checks pass. Actual Mac both-format save/history/
+project/recovery and same-player replacement/removal pass; independent native
+window observations show changed/restored shapes. Embedded-only software checks
+include CFF2. Pure 10k p95 <=11.569ms/+72,433,664 sampled RSS bytes; native 10k
+acceptance <=129ms, Undo <=101ms and stale invalidation <=107ms pass unchanged
+gates. Final normal quit is code 0. The first harness quit failure and its corrected
+UI mutation are retained. See [scope, exact commands and evidence](style-authoring.md).
+
+**Language tools complete (2026-10-17):** opt-in
+English/French checking, source-mapped Problems, bounded selected suggestions,
+reviewed one-occurrence corrections and persistent/session lexicons now share the
+existing Rust workers, context guards and Undo path. Browser and library tests
+cover Unicode/markup, failed persistence, stale reviews and exact SRT/ASS/SSA
+preservation. The six-format/language 10k workload passes 500ms/96MiB gates after
+fixing findings-buffer retention. Actual Mac six-case language workflows include
+all optional rules, save/reopen, project/recovery, failed writes and lexicon
+persistence. Six native 10k cases pass existing interaction gates: acceptance
+<=122ms, cancellation <=16ms and stale invalidation <=69ms. Final library p95
+analysis/proposal <=76.695/158.380ms with 48,037,888 additional RSS bytes.
+[Scope, exact commands and retained failures](language-tools.md) close stage4;
+Windows/Linux new-feature and physical acceptance remain separate.
+
+**ASS/SSA resync complete (2026-10-17):** shared CLI/GUI analysis preserves source
+styles, metadata, attachments and tags. Rational endpoints round directly to the
+stated source grid. Cues with timed/ambiguous effects can move intact; duration
+changes require manual review and block whole-document acceptance, including
+ASS tags inside SRT. Accepted batches retain source protection and one-step Undo.
+
+Stage3 validation: 313 ordinary Rust tests, 44 frontend tests, 50 browser cases,
+real FFmpeg/CLI matrices and strict static/build/IPC checks pass. Actual Mac
+ASS/SSA/tagged-SRT review, acceptance, exact CLI/save-byte parity, failed-save
+preservation, Undo/Redo, preview acknowledgment and timed-effect refusal pass.
+10k proposal p95 is <=103.088ms with 32,931,840 additional sampled RSS bytes,
+within 500ms/96MiB budgets. See [policy and exact evidence](resynchronization.md#assssa-extension-validation--2026-10-17).
+Windows/Linux new-feature execution and physical installation/GPU/audio acceptance
+remain separate open gates; the approved native runtime strategy is unchanged.
+
+**Selection and batch timing complete (2026-10-17):** mouse/keyboard ranges and
+disjoint selection retain surviving cue IDs through edits/history. Explicit
+selected/all/following-row/from-playhead shifts and selection alignment show exact
+before/after timings. Rust rejects invalid batches atomically and accepts each as
+one Undo step, retaining text/tags/styles/metadata/attachments and format precision.
+The existing bounded timing worker handles cancellation and stale contexts.
+
+308 ordinary Rust tests, 44 frontend tests, all 50 browser cases and strict
+static/build/IPC checks pass. Actual Mac disjoint alignment, save/error/history and
+10k ASS/SSA workflows pass: preview <=317ms, accept <=161ms, Undo <=106ms; release
+p95 <=46.586ms and additional sampled RSS 54,018,048 bytes meet unchanged budgets.
+See [batch timing and exact evidence](batch-timing.md). Windows/Linux execution,
+physical input/presentation and distribution acceptance remain separate gates.
+
+**Font milestone complete (2026-10-17):** the current Mac runtime's generic CJK
+fallback now uses an installed last-resort font without rewriting original font
+names or redistributing fonts. Bounded session notices expose unavailable families,
+substitutions and missing glyphs. Actual Mac generic/explicit/embedded rendering,
+attachment replacement, exact save/Undo, notice reset and normal resource cleanup
+pass. Abrupt termination can leave the private temporary font link for OS cleanup.
+301 ordinary Rust tests, 41 frontend tests, 48 browser cases, strict static/IPC
+checks and the unchanged 10k desktop interaction gate pass. See [font policy and
+exact evidence](preview-fonts.md). Windows/Linux rendering, ANGLE and distribution
+acceptance remain separate; later historical results below describe their original
+runtime state.
+
+**ASS/SSA document milestone complete (2026-10-17):** loss-preserving UTF-8
+ASS v4.00+/SSA v4.00 parsing and same-format serialization retain original script
+headers, styles, event fields, comments, attachments and unknown content. Rust owns
+metadata/history; style inspection/assignment and safe text/timing tools share
+existing owners. Save/Save As, projects and recovery retain format identity.
+Fansub SRT with inline ASS/SSA tags retains exact text and millisecond endpoints.
+
+Final validation passes 300 ordinary Rust tests, 41 frontend tests, 48 Chromium/
+WebKit cases, strict Clippy/lint/format/type/IPC checks and the default desktop
+build. Actual Mac ASS/SSA inspection/edit/Undo/Redo/save/reopen/project/crash-recovery
+workflows and tagged-SRT native/save/history regression pass. Native window
+observations show source-defined style/alignment, position, hard breaks, motion
+and expiry. Generic sans-serif CJK fallback still produces boxes on this runtime;
+an explicit installed Hiragino Sans GB control renders the glyphs correctly.
+
+The exact 10,000-cue desktop gate passes: open 260/285 ms (ASS/SSA), text/style/time
+acceptance <=105 ms, Undo <=96 ms, navigation <=27 ms, cancellation <=15 ms and
+invalidation <=59 ms. Rebuilt release format p95 is 29.723/25.165 ms with 46,333,952
+additional sampled RSS bytes, within unchanged 500 ms/96 MiB budgets. Measurements
+and retained failures are in the [ASS/SSA integration guide](ass-ssa-documents.md).
+Style design, attachment management and conversion were deferred at that milestone;
+their subsequent increments and ASS/SSA resync are recorded above. Windows/Linux feature execution, Linux picker
+filters, installation and physical GPU/audio acceptance remain unverified.
+
+**Statistics milestone complete (2026-10-17):** read-only whole-document or
+inclusive cue-range reports share Rust quality metrics and the active profile
+with `vsf stats`. Counts/denominators, exclusions and unavailable rates are
+explicit. Duration/CPS/RS and line/gap summaries, nine RS categories, all-pair
+overlaps and paged outliers preserve accepted state, tags and drafts. Cue links
+use existing draft protection. One bounded worker rejects stale document/profile/
+media/scene results without interrupting checker or repair jobs.
+
+Validation passes 271 ordinary Rust tests, 39 frontend unit tests, 46 browser
+cases, strict Clippy/lint/type/format/IPC checks and the default desktop build.
+The actual Mac workflow verifies three-scope CLI parity, draft guards, source/
+history preservation, profile/media/rescan invalidation and recovery regression.
+At 10,000 cues/cuts, display takes 449 ms, draft interaction 4 ms, cancellation
+1 ms, invalidation 12 ms and navigation 125 ms. Release document/range p95 is
+11.003/9.675 ms with 21,676,032 additional sampled RSS bytes. The initial RSS
+failure is retained; bounded allocation fixes it without changing the budgets.
+See [statistics](statistics.md) for policy, commands, ownership and limits.
+New Windows/Linux feature execution, clean installs and physical GPU/audio
+acceptance remain open.
+
+**Duration/speed milestone complete (2026-10-17):** selected-cue and whole-document
+previews keep starts fixed and choose the nearest integer-ms end satisfying the
+active duration/CPS/RS limits. Shared whole-document checking protects neighboring
+cues, overlap, gap and scene constraints. Unavailable scenes, ambiguous overlaps,
+timing-sensitive markup and impossible/coupled plans have explicit skips. Static
+text/tags, cue identities/order and save/recovery protections are preserved; each
+accepted batch is one Undo/Redo. Scene and duration review share one bounded
+worker with purpose guards, cancellation and document/profile/media/scene checks.
+
+Validation passes 255 Rust tests, 39 frontend unit tests, 44 Chromium/WebKit cases,
+strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
+Mac workflow passes selected/all review, exact save/reopen, failed saves, history,
+scene/media invalidation and the existing scene/text/recovery regression. With
+10,000 cues/cuts, duration preview takes 418 ms, acceptance 113 ms, draft interaction
+1 ms, cancellation 3 ms and invalidation 13 ms. Release extension/trim p95 is
+23.209/20.371 ms with 40,255,488 additional sampled RSS bytes. The initial RSS
+failure and allocator investigation remain recorded; the unchanged budgets pass.
+See [duration repairs](duration-repairs.md) for policy, ownership and exact evidence.
+Windows/Linux feature execution, installations and physical GPU/audio acceptance
+remain unverified; full ASS/SSA documents/styles remain separate.
+
+**Scene-quality milestone complete (2026-10-17):** shared Rust endpoint checks
+use active profile buffers and current completed scenes. Exact outer buffer
+boundaries are allowed; crossing a cut alone is valid. Problems distinguishes
+missing, partial and heuristic coverage. Immutable previews show inward repairs,
+before/after metrics and explicit skips. Whole-document validation protects
+duration, speed, overlap, gap and scene constraints; text/tags, cue identities,
+order and save/recovery protections are preserved. Each accepted batch is one
+Undo/Redo. Media/scene changes invalidate checks and proposals independently of
+document revisions; bounded workers reject stale/late work.
+
+Validation passes 236 Rust tests, 39 frontend unit tests, 42 Chromium/WebKit cases,
+strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
+media-enabled Mac workflow verifies Problems, static/timed tag handling,
+preview/acceptance, failed saves, exact save/reopen, Undo/Redo, rescan/media
+invalidation and the existing restart/recovery workflow. With 10,000 cues/cuts,
+preview takes 413 ms, acceptance 110 ms, draft interaction 1 ms, cancellation
+3 ms and invalidation 13 ms. Release check/repair p95 is 7.124/22.531 ms, with
+37,257,216 additional sampled RSS bytes; declared budgets pass. Quality report
+schema 2 adds scene coverage: the CLI returns incomplete coverage for nonzero
+scene buffers because it supplies no scene data. See [scene quality](scene-quality.md)
+for exact commands, retained evidence and the Mac OpenGL runtime scope. New
+Windows/Linux feature execution and physical GPU/audio acceptance are unverified.
+
+**Text editing milestone complete (2026-10-17):** literal Unicode Find/Replace
+maps matches back to original source; supported tags/escapes stay protected and
+ambiguous replacements explain why they are skipped. Single-match and Replace
+All acceptance use one atomic Rust history operation. Formatting shortcuts update
+selected draft text; explicit Apply accepts it. Conservative line joining/reflow
+uses the active profile, previews exact changes and leaves positioned text,
+dialogue, karaoke and other ambiguous cases for manual review. Document/profile
+guards, bounded cancellation, failed-save preservation and quality invalidation
+are tested. Full ASS/SSA files/styles remain separate.
+
+Final validation passes 218 Rust tests, 39 frontend unit tests, all 40 browser
+workflows, strict Clippy/lint/type/format/IPC checks and native-media compilation.
+The actual Mac application passes protected navigation, exact tag preservation,
+single/all acceptance, line repairs, formatting, Undo/Redo, failed saves, restart,
+recovery and normal shutdown. With 10,000 cues, text preview takes 849 ms,
+acceptance 114 ms, cancellation 4 ms and edit invalidation 14 ms. Release proposal
+p95 is 16.600–38.144 ms across four workloads, with 30,883,840 additional sampled
+RSS bytes; declared CPU/RSS/interaction budgets pass. See the
+[text tool contract and receipts](text-editing.md). New Windows/Linux text UI
+execution, installations and physical GPU/audio acceptance remain unverified.
+
+**Quality milestone complete (2026-10-17):** shared pure Rust metrics/rules,
+strict version-2 data-only profiles, default/partial archived SW profiles, and
+`vsf check` now have tests. Desktop Settings supports profile selection,
+import/export, customization and transactional Apply; Rust owns the accepted
+policy and project snapshots. Accepted/labeled draft metrics and Problems now
+support filters, paged findings and protected distinct-cue navigation, including
+without media. One cancellable worker rejects obsolete document/profile results;
+checking leaves history and save policy unchanged. Explicit immutable gap proposals
+now have protected desktop review, bounded pages, context guards and one-step
+Undo/Redo acceptance. Safe changes and skipped reasons are shown before acceptance.
+Inline ASS/SSA tag preservation
+and native preview are implemented, with exact millisecond demux and software
+composition checks; full ASS/SSA files/styles remain separate. See the
+[tag contract and validation limits](subtitle-tags.md). The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
+budgets; full-buffer benchmark memory failed and remains recorded. See the
+[quality contract and commands](subtitle-quality.md). Native-platform release
+acceptance remains separate.
+
+At its closeout, the quality milestone passed 203 Rust tests, 39 frontend unit tests and all 38
+Chromium/WebKit workflows, strict Clippy/lint/type/IPC checks and a real Mac
+Settings/metrics/Problems/gap-acceptance/save/restart/recovery workflow. That run compares every
+desktop metric/finding and profile hash with the actual CLI on the same input.
+Its native media configuration compiles. The 10,000-cue debug desktop run measures
+101 ms p95 check IPC round trips, 16 ms draft interaction, 181 ms cancellation and
+56 ms edit/result invalidation; the interaction checks pass the declared one-second
+budget. It also reviews 9,999 gap candidates in bounded pages. A reproduced compact
+window overlap with metrics/recovery is fixed; final browser and desktop checks
+keep history controls reachable. New Windows/Linux quality UI execution and physical
+GPU/audio checks remain unverified. Full ASS/SSA file import remains out of scope.
 
 **Mac preview regression fixed (2026-10-12):** the original signed candidates
 from 38205417832 are withdrawn. A synthetic video reproduced `CODESIGNING /
@@ -20,13 +542,16 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
-| Subtitle editing | Rust owns accepted UTF-8 SRT, cue identity, generation/revision and undo/redo. Text, timing, create/delete/split/merge and format preservation have domain/application regressions. | SRT only; frontend drafts are not accepted state. Native preview has a separate 4 MiB limit. |
+| Subtitle editing | Rust owns accepted UTF-8 SRT/ASS/SSA/WebVTT, cue metadata/identity, generation/revision and undo/redo. Reviewed ASS/SSA style/font authoring shares history. Actual Mac format/save/history/recovery and 10k workflows pass. Separate-file SRT/ASS/SSA conversion also passes native and real chooser checks. | UTF-8 only; ASS/SSA endpoints require 10 ms precision. Unsafe operations are refused. WebVTT settings/blocks are preserved without an authoring UI or conversion; preview has documented CSS/region/ruby/font limits. Native preview has a separate 4 MiB limit. |
+| Duration/speed repair | Selected/all fixed-start previews, exact shared metric bounds, whole-document validation, explicit skips and atomic Undo/Redo. Actual Mac and 10,000-cue workflows pass. | Conservative plan, not a joint optimizer or dialogue synchronization. Completed scenes required with buffers enabled; timed/unknown markup stays manual. |
+| Scene quality | Shared endpoint checks, explicit coverage and paged inward-repair previews use current completed scenes. Safe whole batches preserve text/tags and use one Undo/Redo. Real Mac and 10,000-cue workflows pass. | Heuristic detection can miss cuts. Missing/partial data cannot authorize repair; timed/ambiguous markup stays manual. No new Windows/Linux execution. |
+| Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity/metadata and use one Undo/Redo operation. SRT real Mac and 10,000-cue workflows pass; format-aware ASS/SSA tools have shared/owner/browser coverage. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. ASS/SSA desktop and 10,000-cue validation pass within the format policy above. |
 | Saves and recovery | Acceptance checks the shared 16 MiB persistence limit. Atomic saves compare prior bytes under a stable sibling lease. Conflicting VSF writers preserve the losing edit. Background recovery uses instance leases and stale-checkpoint guards. Local Mac/Ubuntu/Windows ARM64 suites and actual default-app save/recovery workflows pass. | External editors need not honor advisory locks. Recovery excludes unapplied drafts, undo history and edits since the last durable checkpoint; no power-loss guarantee. |
-| Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from SRT/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
+| Projects and settings | Rust owns project attachment tokens and byte baselines; incomplete restore cannot attach. Quit offers retry/copy/cancel/explicit exit after project-save failure. Settings apply only after successful validated persistence. | Project metadata is separate from subtitle documents/recovery. Settings retain last-successful-write behavior across instances. New quit-failure choices have modeled browser coverage; real OS close/modal coverage remains. |
 | Frontend ownership | Scoped document, media and project owners retain projection/draft/response ordering and explicit disposal. One typed IPC client, pure timeline calculations and nine component/lifecycle pages have automated checks. | Modeled IPC/synthetic events do not establish native input, focus, dialogs or presentation. Already-dispatched Rust work can finish after frontend disposal. |
-| Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Four waveform and seven scene integrations run actual FFmpeg. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. |
+| Analysis | Waveform and visual scene analysis use cancellable FFmpeg processes, generation guards, one worker plus one pending request per service, and coalescing. Five waveform and seven scene integrations run actual FFmpeg. PCM WAV/BWF origins have Mac/VM validation and native Mac waveform display evidence. | Cancellation bounds admitted jobs, not the latency of blocking filesystem IO. Scene cuts are heuristic; Reduced detail can miss cuts. Unknown origins outside the verified single-stream PCM WAV case remain refused. |
 | Resynchronization | Independent edit-list fixtures, bounded scene-signature matching, sampled verification and a headless evaluator in `media-analysis`; [commands and criteria](../tests/fixtures/resync/README.md). The v4 verifier passes 29 synthetic cases on Mac/Ubuntu/Windows ARM64 and both reference films on Mac. | Coverage is measured, not universal. Sampled visual evidence can miss indistinguishable edits; ambiguous or unsupported cues remain unresolved. Wider real-programme evaluation is a follow-up. |
-| Shared application and CLI | `vsf-application` owns shared SRT/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. | Blocking filesystem calls can delay cancellation. Bulk minimum-gap enforcement and audio matching are separate unimplemented features. |
+| Shared application and CLI | `vsf-application` owns shared format/persistence policies, immutable resync proposals, bounded/cancellable FFmpeg orchestration, content identities, reports and no-replace output publication. `vsf resync` calls it directly without desktop/native playback dependencies. All cue endpoints and within-section gaps follow measured content timing; nominal FPS alone never determines speed. Hosted headless checks pass on macOS ARM64 and Windows/Ubuntu x64 at `a222eda`. Shared quality checking and conservative gap proposals also power the desktop. | Blocking filesystem calls can delay cancellation. Audio matching remains unimplemented. |
 | Retiming domain operation | One validated batch edit preserves cue text/identity/order and supports atomic Undo/Redo; [ownership walkthrough](resynchronization.md). Rust and modeled-browser tests cover proposal ownership, Save As/recovery and project references. The actual Mac native workflow passes review/accept/Undo/Redo, source-path rejection, save-before-project and reopen. | Native resync dialogs were exercised on Mac only. Recovery tests do not imply power-loss guarantees or restoration of unapplied drafts/history. |
 | Generated IPC | All commands/events use one Rust registry and pinned Tauri Specta bindings behind the client facade. Checked integer/finite-float boundaries and actual Serde samples cover project flattening/defaults and DTO shapes. CI checks drift. Real default-app IPC passes on all three local ARM64 OSes; Mac native resync transport also passes. | The pinned generator has documented naming limitations; upgrades require contract and runtime regression checks. |
 | Native playback | Narrow Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK adapters share transport policy while retaining platform-required rendering ownership. Pinned source recipes, SDK preflight and build/runtime receipts are available. | Native configurations remain experiments. Candidate audio/content, device clocks, composition, lifetime and distribution gates remain in the [native contract](native-runtime.md#remaining-adoption-gates). |
@@ -218,7 +743,8 @@ and end, including long pauses, should follow actual matched programme timing.
 The superseded fixed-ms end adjustment is removed. Reports use schema 2 and
 `content_mapped_endpoints_v1`, with original/resulting gaps and separate section
 boundaries. FPS-only conversion is not treated as a speed change. Preset/minimum
-gap enforcement and audio matching remain separate follow-ups.
+gap enforcement was a separate follow-up (now implemented in the quality milestone);
+audio matching remains deferred.
 
 `cargo test --locked -p vsf-application -p vsf-cli` passed 22 tests, including
 nine proposal tests. Generated sequences cover 256 cues at 46 scales with
@@ -256,12 +782,19 @@ The native maintenance contract is established; native adoption is still blocked
 by its explicit content/clock/composition gates. Repeat affected evidence on the
 exact runtime before accepting it, and run configured CI when a remote is available.
 
-The active direction is shared Rust application operations for a headless CLI
-and desktop resynchronization, with generated JSON IPC bindings. Complete native
-workflow validation and broaden matching evidence; preserve conservative refusal
-at ambiguous or missing content. Broader formats, plugin frameworks and cosmetic
-module rearrangements can wait. Packaging, licensing, physical-device/x64 and
-scale/display coverage remain prerequisites for corresponding release claims.
+The shared application, resync, quality, text-editing, scene-quality,
+duration/speed-repair and statistics milestones are complete within their recorded
+scope. Loss-preserving ASS/SSA documents now also pass their full scoped audit,
+including existing styles, format-aware tools and tagged-SRT regression. The active
+[umbrella roadmap](feature-roadmap.md) has completed fonts, batch timing, ASS/SSA
+resync, language tools, style/font authoring, conversion and WebVTT within their
+recorded Mac scopes, including legacy project import and manual translation.
+The bounded JavaScript checker/fix host is implemented and passes its Mac and
+Windows/Linux VM workflows and the bounded historical checker/fix comparison. Current work
+addresses native audio, interaction/lifetime and distribution reliability.
+Broader matching evidence remains useful; retain conservative
+refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
+and scale/display coverage remain prerequisites for corresponding release claims.
 
 Desktop resync backend validation (2026-10-11, development Mac, pinned Rust/Node,
 FFmpeg 9.0.2): `cargo test --locked --workspace` passed 153 tests, including

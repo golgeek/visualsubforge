@@ -1,34 +1,37 @@
 //! Report-first publication. Each file uses no-replace publication; the pair
-//! cannot be made atomic. A crash/failure can leave a report without an SRT.
+//! cannot be made atomic. A crash/failure can leave a report without subtitles.
 use super::{Analysis, Budget, Error, Result};
 use crate::atomic_file::{self, Prepared};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use crate::new_output;
+#[cfg(test)]
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub struct OutputPaths {
     report: PathBuf,
-    srt: Option<PathBuf>,
+    subtitles: Option<PathBuf>,
 }
 impl OutputPaths {
     /// Validate before expensive analysis. Existing paths, including dangling
     /// symlinks and input aliases, are refused; the same check runs at preparation.
-    pub fn new(report: &Path, srt: Option<&Path>) -> Result<Self> {
-        let report = new_path(report)?;
-        let srt = srt.map(new_path).transpose()?;
-        if srt.as_ref() == Some(&report) {
+    pub fn new(report: &Path, subtitles: Option<&Path>) -> Result<Self> {
+        let report = new_output::resolve(report).map_err(output_error)?;
+        let subtitles = subtitles
+            .map(new_output::resolve)
+            .transpose()
+            .map_err(output_error)?;
+        if subtitles.as_ref() == Some(&report) {
             return Err(Error::InvalidInput(
                 "Report and subtitle outputs must be different paths".into(),
             ));
         }
-        Ok(Self { report, srt })
+        Ok(Self { report, subtitles })
     }
     pub fn report(&self) -> &Path {
         &self.report
     }
-    pub fn srt(&self) -> Option<&Path> {
-        self.srt.as_deref()
+    pub fn subtitles(&self) -> Option<&Path> {
+        self.subtitles.as_deref()
     }
 }
 
@@ -42,9 +45,21 @@ pub enum Publication {
 impl Analysis {
     pub fn publish(&self, paths: &OutputPaths, budget: &Budget<'_>) -> Result<Publication> {
         budget.check()?;
+        if let Some(path) = paths.subtitles() {
+            let format = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .and_then(subtitle_formats::Format::from_extension);
+            if format != Some(self.proposal.snapshot().format()) {
+                return Err(Error::InvalidInput(format!(
+                    "Output must use the source .{} format; conversion is a separate operation",
+                    self.proposal.snapshot().format().extension()
+                )));
+            }
+        }
         // Inputs must remain distinct from outputs even if an input was removed
         // and its former pathname is now absent. Verification below also fails.
-        for path in [&paths.report].into_iter().chain(paths.srt.iter()) {
+        for path in [&paths.report].into_iter().chain(paths.subtitles.iter()) {
             for input in [&self.source_video, &self.target_video]
                 .into_iter()
                 .chain(self.subtitle_file.iter())
@@ -53,15 +68,15 @@ impl Analysis {
                     return Err(Error::InvalidInput("An output aliases an input".into()));
                 }
             }
-            require_absent(path)?;
+            new_output::require_absent(path).map_err(output_error)?;
         }
         let report = self.report_json()?;
         budget.check()?;
         let pending_report = atomic_file::prepare(&paths.report, &report).map_err(Error::Io)?;
         budget.check()?;
-        let pending_srt = match (paths.srt.as_deref(), self.proposal.srt()) {
-            (Some(path), Some(srt)) => {
-                Some(atomic_file::prepare(path, srt.as_bytes()).map_err(Error::Io)?)
+        let pending_subtitles = match (paths.subtitles.as_deref(), self.proposal.subtitles()) {
+            (Some(path), Some(subtitles)) => {
+                Some(atomic_file::prepare(path, subtitles.as_bytes()).map_err(Error::Io)?)
             }
             _ => None,
         };
@@ -70,10 +85,10 @@ impl Analysis {
         // chunks/operations, not by abandoning a worker that owns resources.
         self.verify_inputs(budget)?;
         budget.check()?;
-        commit(pending_report, pending_srt, || {})?;
+        commit(pending_report, pending_subtitles, || {})?;
         Ok(if !self.proposal.is_complete() {
             Publication::NeedsReview
-        } else if paths.srt.is_some() {
+        } else if paths.subtitles.is_some() {
             Publication::Complete
         } else {
             Publication::AnalysisOnly
@@ -81,49 +96,29 @@ impl Analysis {
     }
 }
 
-fn commit(report: Prepared, srt: Option<Prepared>, after_report: impl FnOnce()) -> Result<()> {
+fn commit(
+    report: Prepared,
+    subtitles: Option<Prepared>,
+    after_report: impl FnOnce(),
+) -> Result<()> {
     // Cancellation after this point does not roll back or suppress publication.
     // Complete the requested sequence; never remove an already published file.
     report.commit_new().map_err(Error::Io)?;
     after_report();
-    if let Some(srt) = srt {
-        srt.commit_new()
-            .map_err(|e| Error::Io(format!("Report published, but SRT publication failed: {e}")))?;
+    if let Some(subtitles) = subtitles {
+        subtitles.commit_new().map_err(|e| {
+            Error::Io(format!(
+                "Report published, but subtitle publication failed: {e}"
+            ))
+        })?;
     }
     Ok(())
 }
 
-fn new_path(path: &Path) -> Result<PathBuf> {
-    let absolute = std::path::absolute(path).map_err(|e| Error::Io(e.to_string()))?;
-    let name = absolute
-        .file_name()
-        .ok_or_else(|| Error::InvalidInput("Output needs a file name".into()))?;
-    let parent = absolute
-        .parent()
-        .ok_or_else(|| Error::InvalidInput("Output needs a parent directory".into()))?
-        .canonicalize()
-        .map_err(|e| Error::Io(format!("Cannot resolve output directory: {e}")))?;
-    if !parent.is_dir() {
-        return Err(Error::InvalidInput(
-            "Output parent is not a directory".into(),
-        ));
-    }
-    let path = parent.join(name);
-    require_absent(&path)?;
-    Ok(path)
-}
-
-fn require_absent(path: &Path) -> Result<()> {
-    match fs::symlink_metadata(path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(Error::Io(format!(
-            "Cannot inspect output {}: {error}",
-            path.display()
-        ))),
-        Ok(_) => Err(Error::InvalidInput(format!(
-            "Output already exists: {}",
-            path.display()
-        ))),
+fn output_error(error: new_output::Error) -> Error {
+    match error {
+        new_output::Error::InvalidInput(message) => Error::InvalidInput(message),
+        new_output::Error::Io(message) => Error::Io(message),
     }
 }
 
@@ -136,8 +131,8 @@ mod tests {
     fn publication_crash_child() {
         let directory = PathBuf::from(std::env::var_os("VSF_PUBLICATION_CRASH_DIR").unwrap());
         let report = atomic_file::prepare(&directory.join("report.json"), b"report").unwrap();
-        let srt = atomic_file::prepare(&directory.join("target.srt"), b"subtitles").unwrap();
-        let _ = commit(report, Some(srt), || std::process::exit(23));
+        let subtitles = atomic_file::prepare(&directory.join("target.srt"), b"subtitles").unwrap();
+        let _ = commit(report, Some(subtitles), || std::process::exit(23));
         panic!("Child did not exit at the publication boundary");
     }
 
@@ -179,7 +174,7 @@ mod tests {
             )
             .is_err()
         );
-        // Abrupt exit can leave the owned SRT temporary. It is not a published
+        // Abrupt exit can leave the owned subtitle temporary. It is not a published
         // subtitle and is never found/imported as input by a later invocation.
     }
 
@@ -187,28 +182,28 @@ mod tests {
     fn competing_destination_cannot_be_overwritten_after_preparation() {
         let dir = tempfile::tempdir().unwrap();
         let report = dir.path().join("report.json");
-        let srt = dir.path().join("target.srt");
+        let subtitles = dir.path().join("target.srt");
         let a = atomic_file::prepare(&report, b"report").unwrap();
-        let b = atomic_file::prepare(&srt, b"subtitles").unwrap();
-        let result = commit(a, Some(b), || fs::write(&srt, b"competitor").unwrap());
+        let b = atomic_file::prepare(&subtitles, b"subtitles").unwrap();
+        let result = commit(a, Some(b), || fs::write(&subtitles, b"competitor").unwrap());
         assert!(matches!(result, Err(Error::Io(e)) if e.contains("Report published")));
         assert_eq!(fs::read(&report).unwrap(), b"report");
-        assert_eq!(fs::read(&srt).unwrap(), b"competitor");
+        assert_eq!(fs::read(&subtitles).unwrap(), b"competitor");
         assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 2);
-        assert!(OutputPaths::new(&report, Some(&srt)).is_err());
+        assert!(OutputPaths::new(&report, Some(&subtitles)).is_err());
     }
 
     #[test]
     fn report_failure_leaves_subtitles_absent_and_cleans_owned_temporaries() {
         let dir = tempfile::tempdir().unwrap();
         let report = dir.path().join("report.json");
-        let srt = dir.path().join("target.srt");
+        let subtitles = dir.path().join("target.srt");
         let a = atomic_file::prepare(&report, b"report").unwrap();
-        let b = atomic_file::prepare(&srt, b"subtitles").unwrap();
+        let b = atomic_file::prepare(&subtitles, b"subtitles").unwrap();
         fs::write(&report, b"existing report").unwrap();
         assert!(commit(a, Some(b), || panic!("Report should have failed")).is_err());
         assert_eq!(fs::read(&report).unwrap(), b"existing report");
-        assert!(!srt.exists());
+        assert!(!subtitles.exists());
         assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 

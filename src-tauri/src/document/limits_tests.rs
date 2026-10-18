@@ -65,7 +65,7 @@ fn accepted_boundary_edits_remain_recoverable_saveable_and_reopenable() {
         )
         .unwrap();
         let loaded = store.loaded.as_ref().unwrap();
-        let serialized = srt::serialize(loaded.editor.document(), &loaded.source).unwrap();
+        let serialized = loaded.source().serialize(loaded.editor.document()).unwrap();
         assert_eq!(serialized.len(), MAX_BYTES);
         crate::recovery_store::Record::new(
             Some(path.to_string_lossy().into_owned()),

@@ -10,6 +10,40 @@ const ERROR: &str = "Integer exceeds JavaScript's exact nonnegative number range
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SafeU64(u64);
 
+/// Signed offsets and mapped subtitle times must remain exact in JavaScript too.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SafeI64(i64);
+impl SafeI64 {
+    pub fn get(self) -> i64 {
+        self.0
+    }
+}
+impl TryFrom<i64> for SafeI64 {
+    type Error = &'static str;
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if value.unsigned_abs() > MAX_SAFE_INTEGER {
+            Err("Integer exceeds JavaScript's exact signed number range")
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl Serialize for SafeI64 {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+impl<'de> Deserialize<'de> for SafeI64 {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::try_from(i64::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+impl specta::Type for SafeI64 {
+    fn definition(types: &mut specta::Types) -> specta::datatype::DataType {
+        <specta_typescript::Number as specta::Type>::definition(types)
+    }
+}
+
 impl SafeU64 {
     pub fn get(self) -> u64 {
         self.0
@@ -86,6 +120,33 @@ pub mod optional {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signed_numbers_reject_lossy_extremes_and_fractional_offsets() {
+        for value in [
+            -(MAX_SAFE_INTEGER as i64),
+            -1,
+            0,
+            1,
+            MAX_SAFE_INTEGER as i64,
+        ] {
+            let encoded = serde_json::to_string(&SafeI64::try_from(value).unwrap()).unwrap();
+            assert_eq!(
+                serde_json::from_str::<SafeI64>(&encoded).unwrap().get(),
+                value
+            );
+        }
+        for json in [
+            "-9007199254740992",
+            "9007199254740992",
+            "-9223372036854775808",
+            "1.5",
+            "null",
+            "\"1\"",
+        ] {
+            assert!(serde_json::from_str::<SafeI64>(json).is_err());
+        }
+    }
 
     #[test]
     fn json_numbers_are_exact_and_lossy_or_noninteger_inputs_are_rejected() {

@@ -79,9 +79,19 @@ def main():
         nonlocal requests
         requests += 1
         parent, title, options = parameters.unpack()
-        assert name == "OpenFile" and title == "Open Subtitles"
-        assert options["modal"] and not options["multiple"]
-        assert options["filters"] == [("SubRip subtitles", [(0, "*.srt")])]
+        try:
+            assert name == "OpenFile" and title == "Open Subtitles", (name, title)
+            assert options["modal"] and not options["multiple"], options
+            expected = [("Subtitles", [(0, "*.srt"), (0, "*.ass"),
+                                        (0, "*.ssa"), (0, "*.vtt")])]
+            assert options["filters"] == expected, options["filters"]
+        except (AssertionError, KeyError) as error:
+            # An exception in a Gio callback otherwise leaves the method reply
+            # outstanding, hiding contract drift behind the harness timeout.
+            message = f"Unexpected FileChooser request: {error}"
+            print(json.dumps({"event": "rejected", "message": message}), flush=True)
+            invocation.return_dbus_error("org.visualsubforge.Test.InvalidRequest", message)
+            return
         handle = (
             "/org/freedesktop/portal/desktop/request/"
             + sender[1:].replace(".", "_") + "/" + options["handle_token"]

@@ -196,7 +196,7 @@ remains unverified; the CI Windows x64 environment has not run locally.
 | --- | --- |
 | Candidate captured content | Rate changes, outside-range re-entry and replacement, including near-B and paused cases, on the final built runtime. Earlier isolated traces cannot be reassigned to it. |
 | CoreAudio and AVFoundation | Validate candidate continuation with its defined backend/rate scope; resolve retained AVFoundation discontinuity and EOF/content limits. A successful property transaction is insufficient. |
-| Linux outputs | Resolve PulseAudio backward clock steps (a retained run measured 98 microseconds against a 20.833-microsecond one-frame tolerance) and intermittent PipeWire failures; preserve captured-content and presentation distinctions. |
+| Linux outputs | Resolve PulseAudio backward clock steps (the current VM run reaches8.698ms against a20.833µs one-frame tolerance) and intermittent PipeWire failures. An existing interpolation-option comparison passes six short trials but still needs broader content/editor validation. Preserve captured-content and presentation distinctions. |
 | Windows output | Resolve the retained loop-clear quiet interval and capture-versus-clock discrepancy; repeat affected full-editor workflows with the selected runtime. ARM64 VM evidence does not establish physical or x86-64 behavior. |
 | Editor and lifetime | Verify real pointer/keyboard delivery, draft protection through dialogs, replacement, native resource cleanup and visible presentation. Upstream lifetime tests do not prove compositor/device behavior or absence of leaks. |
 | Distribution | Complete dependency/license inventory, self-contained packaging, signing and the explicitly claimed OS/architecture/display/device matrix before release claims. |
@@ -204,3 +204,16 @@ remains unverified; the CI Windows x64 environment has not run locally.
 These gates preserve the existing acceptance requirements. The local task
 history contains dated investigations; a fresh tracked checkout can reproduce
 the build/control commands above without those intentionally untracked files.
+
+The [2026-10-18 CoreAudio audit](native-reliability.md#current-coreaudio-clear-boundary-audit--2026-10-18)
+adds exact-candidate 1× captures and a separately identified diagnostic build's
+constant-rate/phase/pause submission and process-capture evidence. It retains four
+ambiguous combined-reference comparisons and records their separate ordered-boundary
+checks. It does not substitute for the changing-rate, re-entry/replacement,
+other-output, full-editor or physical presentation gates above.
+
+The subsequent [rate-change and editor audit](native-reliability.md#rate-change-clear-audit--2026-10-18)
+adds immediate 0.5×↔1.5× change/clear evidence and actual Mac editor re-entry/
+replacement captures. It also reproduces an 8.6875ms quiet interval in the
+uninstrumented candidate. These bounded passes do not close the retained
+interruption, sustained rate/format transitions or other-output/device gates.

@@ -1,17 +1,23 @@
 //! Transport policy; called only by the media control worker.
 
 /// A missing live audio clock must not be replaced by the smoothed transport
-/// clock. Once output has drained, the engine's final transport position is a
-/// useful resting cursor, not a claim that audio is still being presented.
+/// clock. After a settled pause or drained EOF, the engine's transport position
+/// is a useful resting cursor, not a claim that audio is being presented. Pulse
+/// may finish a paused seek without queuing output or providing audio PTS.
 pub fn select_position(
     queued_audio: bool,
     audio_only: bool,
     eof: bool,
+    settled_pause: bool,
     audio: Option<f64>,
     transport: Option<f64>,
 ) -> Option<f64> {
     if queued_audio && audio_only {
-        audio.or(if eof { transport } else { None })
+        audio.or(if eof || settled_pause {
+            transport
+        } else {
+            None
+        })
     } else {
         transport
     }
@@ -29,6 +35,7 @@ pub fn position(player: &mut media_player::Player, queued_audio: bool) -> Option
         queued_audio,
         audio_only,
         player.flag(c"eof-reached"),
+        player.paused() && !player.seeking(),
         player.number(c"audio-pts"),
         player.number(c"time-pos"),
     )
@@ -93,34 +100,60 @@ mod tests {
     #[test]
     fn audio_clock_keeps_discontinuities_and_unavailable_state() {
         assert_eq!(
-            select_position(true, true, false, Some(7198.95), Some(7195.0)),
+            select_position(true, true, false, false, Some(7198.95), Some(7195.0)),
             Some(7198.95)
         );
-        assert_eq!(select_position(true, true, false, None, Some(7195.0)), None);
         assert_eq!(
-            select_position(true, true, false, Some(10.0), Some(20.0)),
+            select_position(true, true, false, false, None, Some(7195.0)),
+            None
+        );
+        assert_eq!(
+            select_position(true, true, false, false, Some(10.0), Some(20.0)),
             Some(10.0)
         );
         assert_eq!(
-            select_position(true, true, true, None, Some(7200.0)),
+            select_position(true, true, true, false, None, Some(7200.0)),
             Some(7200.0)
         );
         assert_eq!(
-            select_position(true, true, true, Some(7199.9), Some(7200.0)),
+            select_position(true, true, true, false, Some(7199.9), Some(7200.0)),
             Some(7199.9)
+        );
+    }
+
+    #[test]
+    fn settled_paused_seek_has_a_resting_cursor_without_a_live_clock() {
+        // Pulse can finish a paused seek without queuing output. Its exact
+        // transport position remains usable for editing; playing/seeking state
+        // must still expose the unavailable audio clock.
+        assert_eq!(
+            select_position(true, true, false, true, None, Some(2.5)),
+            Some(2.5)
+        );
+        assert_eq!(
+            select_position(true, true, false, false, None, Some(2.5)),
+            None
+        );
+        assert_eq!(select_position(true, true, false, true, None, None), None);
+        assert_eq!(
+            select_position(true, true, false, true, Some(2.49), Some(2.5)),
+            Some(2.49)
         );
     }
 
     #[test]
     fn video_and_unpatched_playback_keep_the_transport_clock() {
         assert_eq!(
-            select_position(true, false, false, Some(1.5), Some(1.6)),
+            select_position(true, false, false, false, Some(1.5), Some(1.6)),
             Some(1.6)
         );
         assert_eq!(
-            select_position(false, true, false, Some(1.5), Some(1.6)),
+            select_position(false, true, false, false, Some(1.5), Some(1.6)),
             Some(1.6)
         );
-        assert_eq!(select_position(true, false, false, Some(1.5), None), None);
+        assert_eq!(
+            select_position(true, false, false, false, Some(1.5), None),
+            None
+        );
     }
 }

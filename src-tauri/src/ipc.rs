@@ -1,6 +1,7 @@
 //! One command/event registry for desktop dispatch and generated JSON contracts.
 use crate::{
-    desktop, document, media, preferences, project, resync, scenes, timing_preset, waveform,
+    desktop, document, gap_review, media, preferences, project, quality_check, quality_profile,
+    resync, scenes, statistics, text_review, timing_preset, timing_review, waveform,
     workflow_trace,
 };
 
@@ -9,12 +10,64 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
         .commands(tauri_specta::collect_commands![
             media::media_action,
             document::document_action,
+            document::translation::translation_action,
             document::recovery_status,
             document::recovery_discard,
             desktop::choose_file,
             desktop::update_menu,
             preferences::preferences_get,
             preferences::preferences_save,
+            quality_profile::quality_settings,
+            crate::language_tools::language_words,
+            crate::language_tools::language_words_change,
+            crate::language_tools::language_notices,
+            quality_check::quality_read,
+            quality_check::quality_cancel,
+            statistics::statistics_start,
+            statistics::statistics_view,
+            statistics::statistics_cancel,
+            crate::plugin_review::plugin_start,
+            crate::plugin_review::plugin_view,
+            crate::plugin_review::plugin_text,
+            crate::plugin_review::plugin_cancel,
+            crate::plugin_review::plugin_accept,
+            gap_review::gap_start,
+            gap_review::gap_view,
+            gap_review::gap_cancel,
+            gap_review::gap_accept,
+            crate::batch_timing::batch_timing_start,
+            crate::batch_timing::batch_timing_view,
+            crate::batch_timing::batch_timing_cancel,
+            crate::batch_timing::batch_timing_accept,
+            timing_review::scene_repair_start,
+            timing_review::scene_repair_view,
+            timing_review::scene_repair_cancel,
+            timing_review::scene_repair_accept,
+            timing_review::duration_repair_start,
+            timing_review::duration_repair_view,
+            timing_review::duration_repair_cancel,
+            timing_review::duration_repair_accept,
+            crate::style_review::style_form,
+            crate::style_review::style_start,
+            crate::style_review::style_view,
+            crate::style_review::style_cancel,
+            crate::style_review::style_accept,
+            crate::font_review::font_start,
+            crate::font_review::font_view,
+            crate::font_review::font_cancel,
+            crate::font_review::font_accept,
+            crate::conversion_review::conversion_start,
+            crate::conversion_review::conversion_view,
+            crate::conversion_review::conversion_cancel,
+            crate::conversion_review::conversion_publish,
+            text_review::text_start,
+            text_review::text_view,
+            text_review::text_matches,
+            text_review::text_cancel,
+            text_review::text_accept,
+            text_review::text_format,
+            quality_profile::quality_profile_open,
+            quality_profile::quality_profile_save,
             desktop::finish_exit,
             timing_preset::timing_preset_open,
             timing_preset::timing_preset_save,
@@ -22,6 +75,10 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             project::project_attach,
             project::project_detach,
             project::project_save,
+            project::import::project_import_start,
+            project::import::project_import_view,
+            project::import::project_import_cancel,
+            project::import::project_import_publish,
             scenes::scenes_restore,
             scenes::scenes_start,
             scenes::scenes_view,
@@ -65,12 +122,42 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply, PluginInput, PluginReview, PluginTextChunk }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
     let mut samples = document::ipc_tests::samples();
+    samples.extend(document::style_ipc_samples());
+    samples.extend(document::font_ipc_samples());
+    samples.extend(document::conversion_ipc_samples());
+    samples.extend(project::import::ipc_samples());
+    samples.extend(project::translation_ipc_samples());
+    samples.extend(document::translation::ipc_samples());
+    samples.extend(document::plugin_ipc_samples());
     samples.extend([
+        (
+            "statisticsView",
+            "StatisticsView",
+            document::statistics_ipc_sample(),
+        ),
+        ("qualityView", "QualityView", document::quality_ipc_sample()),
+        ("gapView", "GapView", document::gap_ipc_sample()),
+        (
+            "sceneRepairView",
+            "SceneRepairView",
+            document::scene_repair_ipc_sample(),
+        ),
+        (
+            "batchTimingView",
+            "BatchTimingView",
+            document::batch_ipc_sample(),
+        ),
+        (
+            "durationRepairView",
+            "DurationRepairView",
+            document::duration_repair_ipc_sample(),
+        ),
+        ("textView", "TextView", document::text_ipc_sample()),
         ("openedProject", "OpenedProject", project::ipc_sample()),
         ("sceneView", "SceneView", scenes::ipc_sample()),
         ("waveformView", "WaveformView", waveform::ipc_sample()),
@@ -98,4 +185,8 @@ fn export_bindings() {
         ));
     }
     std::fs::write(directory.join("ipc-contract-samples.ts"), sample).unwrap();
+    std::fs::write(directory.join("quality-defaults.ts"), format!(
+        "// Generated from Rust profiles; do not edit.\nimport type {{ QualityProfile }} from '../client';\nexport const builtinQualityProfiles = {} satisfies QualityProfile[];\n",
+        serde_json::to_string_pretty(&quality_profile::Profile::builtins()).unwrap(),
+    )).unwrap();
 }
