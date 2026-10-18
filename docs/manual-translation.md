@@ -1,9 +1,9 @@
 # Manual reference/target translation
 
-Stage6c is in progress. The pure foundation and Rust desktop owner/IPC/recovery
-and project persistence are implemented, with the user-facing reference panel.
-Actual Mac native workflows and real choosers pass; combined scale acceptance
-remains pending. WebVTT and legacy project import are already accepted.
+Stage6c is complete within the recorded Mac scope. The pure foundation, Rust
+desktop owner/IPC/recovery, project persistence and reference panel pass native
+workflows, real choosers and all five combined 10k desktop workloads. WebVTT and
+legacy project import are also accepted. Plugins and native reliability are next.
 
 ## Workflow
 
@@ -141,7 +141,7 @@ for project Save/Discard/Cancel on replacement and quit. Discard on quit skips
 automatic project publication. Subtitle-only projects skip media/scenes/seek and
 work in builds without playback.
 
-ADR0033 remains proposed until the complete native/chooser/scale acceptance passes.
+ADR0033 is accepted after the native/chooser/scale validation recorded below.
 
 ## Acceptance
 
@@ -511,8 +511,104 @@ initial automated path typing attempt produced incomplete Unicode text; selectin
 the exact path through the native text field resolved it before opening any file.
 No product change was needed. The earlier production regression remains applicable.
 
-Combined desktop10k validation remains next. Stage6c and ADR0033 stay open until
-that passes; plugin and native/distribution milestones are still required.
+This chooser receipt predates the canvas-only redraw correction below. No dialog,
+file-selection, persistence or reference-operation code changed in that correction.
+
+## Combined desktop scale and idle redraw correction — 2026-10-18
+
+The complete uninstrumented `--translation-performance` lane passes in
+`test-results/desktop-eSOXTR/`, including normal code0 shutdown. It uses all five
+exact 10k fixtures from the foundation benchmark, visiting all 100 reference pages
+per workload and performing five offset/edit/Undo/Redo/save/project cycles.
+Full project reopen and recovery retain 10k accepted target cues, original source
+hashes, reference bytes and offsets. Recovery works after deleting the reference
+and externally replacing the target. Cancellation/stale adoption, failed source
+saves, separate recovery outputs, detach/reattach and sticky copied-source
+protection pass. Every measured interaction remains below the unchanged 1000ms
+limit; background copy/attachment preparation remains below its separate 10s limit.
+
+The first run (`desktop-0UGfN8`) exceeded the WebDriver transport's 10s deadline
+while grouping 20 dense pages in one call. Groups now contain five pages; every
+individual page still has the same 1000ms gate. The next run (`desktop-EfEKLA`)
+exposed actual dense edit/offset/project-save failures around 1023–1235ms.
+Project reopen also took 1639ms and detach 1229ms.
+A diagnostic dense run (`desktop-sLQpPf`) recorded 659 dense canvas redraws during
+its initial phase, each drawing 10,005 labels and taking about 200ms. Its extra
+instrumentation is diagnostic evidence, not an acceptance measurement.
+
+Fresh playback-status objects invalidated the waveform even when position stayed
+unchanged. `Waveform` now derives the primitive playhead value before drawing.
+The mounted App regression also exposed fresh, identical scene-cut arrays on
+scene polls; `SceneControls` publishes an overlay only when its values change.
+The last published array is transient rendering state, not accepted subtitle or
+scene-analysis ownership. No cues, labels, validation or polling are removed.
+Actual playhead movement and changed/hidden/restored scene overlays still redraw.
+The new idle-redraw test fails in both Chromium and WebKit before correction;
+all 14 focused project/scene/gesture/navigation cases pass afterward, with
+62 project checks and positive controls for changed playback position.
+
+| 10k workload | Maximum page ms | Maximum edit ms | Maximum offset ms | Project reopen ms | Recovery open ms | Maximum additional app RSS MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Plain WebVTT | 87 | 134 | 88 | 318 | 345 | 106.06 |
+| Styled WebVTT | 85 | 183 | 108 | 579 | 613 | 146.80 |
+| Timed WebVTT | 85 | 167 | 110 | 564 | 579 | 115.30 |
+| ASS | 87 | 135 | 107 | 600 | 561 | 229.97 |
+| Dense tagged SRT | 276 | 326 | 289 | 815 | 415 | 152.84 |
+
+Dense project saves now take at most 271ms. Copy preparation takes at most 424ms;
+reattachment at most 380ms. App RSS is sampled every 50ms against a fresh-process
+baseline for initial and recovery phases. It includes native application state
+and excludes WebKit subprocesses. These are descriptive desktop measurements,
+not the separate pure-engine <=96MiB additional-RSS gate. That release benchmark
+is unchanged by the frontend correction. Checkpoint file sizes are 2,170,335;
+6,458,528; 5,688,084; 3,919,568; and 2,304,312 bytes in table order.
+
+Build/runtime identity: macOS27.0 build26A428, Apple M3 Max, Rust1.98.1,
+Node24.21.0/npm11.19.0, existing private audio-integration-master-v1 mpv build.
+The isolated test bundle uses
+`com.golgeek.visualsubforge.translation-redraw-20261018`; binary SHA-256 is
+`5b9375aca9197a7ef73928c0147eb2e5c8f0ac87cdedd6f7296a3ee6b2353048`.
+Its debug native build passes in 16.17s (80.59MiB bundle).
+
+```sh
+source "$HOME/.nvm/nvm.sh"
+nvm use --silent
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/translation-redraw-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/translation-redraw-20261018/VisualSubForgeTranslationRedraw.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs --translation-performance \
+  --binary "$PWD/test-results/translation-redraw-20261018/VisualSubForgeTranslationRedraw.app/Contents/MacOS/visualsubforge"
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs --translation \
+  --binary "$PWD/test-results/translation-redraw-20261018/VisualSubForgeTranslationRedraw.app/Contents/MacOS/visualsubforge"
+npm run test:browser -- --grep 'projects|magnetic-timing|waveform-selection|new-subtitles|workflow: scenes'
+npm run test:browser
+npm run format:check
+npm run lint
+npm test
+npm run ipc:check
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+The corrected bundle also passes the complete native four-format/mixed-format
+functional lane in `desktop-8Ic63U`, with normal code0 shutdown. Native rendering
+observations and real chooser receipts above retain their recorded scope; this
+repeat uses supplied file choices and does not repeat independent native images.
+All scale tests load no media and use DOM input; they do not measure physical
+keyboard latency, GPU/audio devices or Windows/Linux acceptance.
+Logs and retained negative-control browser traces are under
+`test-results/translation-scale-20261018/` and
+`test-results/translation-redraw-20261018/`. Final regression passes all 58 browser
+cases (2.8 minutes), all 44 frontend unit tests, generated IPC drift checks, strict
+Svelte/TypeScript, ESLint, Prettier, script syntax checks and the default desktop
+build (19.55s Rust build). Rust source is unchanged from the panel's recorded
+452-test/30-ignored workspace and strict Clippy/Rustfmt baseline; those full Rust
+checks were not rerun for this canvas-only change. The IPC check executes its one
+contract-export test. Stage6c and ADR0033 are accepted. Plugins and native/
+distribution reliability remain required; the umbrella goal remains active.
 
 ## Legacy source reference
 

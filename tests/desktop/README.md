@@ -445,3 +445,35 @@ events do not establish OS-sheet or physical-input acceptance. Set
 Save and inspect the actual native window before writing `capture-ack.json` with
 the requested `label` within 60 seconds. WebView screenshots omit the native video
 sibling. Real chooser and combined desktop10k acceptance remain separate.
+
+`--translation-performance` extends the ordinary regression with five exact
+10,000-cue reference/target workloads: plain, styled and timed WebVTT, ASS, and
+dense overlapping tagged SRT. Generate the established fixtures with
+`python3 scripts/webvtt-fixtures.py` and `python3 scripts/ass-fixtures.py` first.
+The runner verifies source hashes, visits all 100 reference pages, and performs
+five offset/edit/Undo/Redo/save/project cycles per workload. It reopens the full
+project, checks cancellation/stale acceptance, and recovers captured reference
+bytes after deleting the reference and externally replacing the target. Protected
+source saves, detached-copy provenance, reattachment and exact outputs are checked.
+
+Run against an isolated test bundle using the native recipe above:
+
+```sh
+source "$HOME/.nvm/nvm.sh"
+nvm use --silent
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs --translation-performance \
+  --binary /absolute/path/to/IsolatedTest.app/Contents/MacOS/visualsubforge
+```
+
+`translation-performance.json` records the binary hash, input/output hashes,
+every page and operation duration, checkpoint file sizes and app-process RSS
+sampled every 50ms. Every measured interaction must remain below 1000ms; background
+copy/attachment preparation has a separate 10s deadline. RSS excludes WebKit
+subprocesses and is descriptive, not the separate pure-engine 96MiB budget.
+The pure-engine 500ms p95/96MiB gates remain unchanged. This lane loads no media;
+native playback and real OS-sheet acceptance use their separate workflows.
+
+For diagnosis, `VSF_TRANSLATION_PERFORMANCE_WORKLOADS=dense` selects a subset and
+`VSF_TRANSLATION_PROFILE_DRAW=1` records canvas draw counts/times. Instrumented or
+partial runs do not replace the complete uninstrumented acceptance run.

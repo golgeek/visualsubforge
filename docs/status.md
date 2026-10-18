@@ -19,13 +19,12 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
-authoring, WebVTT and legacy project import are complete within their recorded
-Mac scopes. Manual translation is in progress, followed by
-plugins and native reliability.
+authoring, WebVTT, legacy project import and manual translation are complete
+within their recorded Mac scopes. Plugins are next, followed by native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**Manual translation stage6c in progress (2026-10-18):** the application foundation
+**Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all
 434 workspace Rust tests pass (30 opt-in tests ignored), with strict Clippy and
@@ -57,7 +56,17 @@ An isolated non-WebDriver Mac bundle also passes real Open/Save/Save Project she
 Unicode paths, cancellation, source-overwrite refusal after OS Replace, mixed-format
 reference changes, changed/missing-reference resolution, target-copy draft
 protection and Quit Cancel/Save with code0 shutdown. Exact target/project bytes and
-protected source hashes are checked. Combined desktop10k acceptance remains pending.
+protected source hashes are checked. All five combined desktop10k workloads now
+pass, including full paging, five edit/history/save/project cycles, project reopen,
+captured-reference recovery, cancellation/stale rejection and source protection.
+The dense case exposed repeated waveform redraws from unchanged playback and scene
+polls; comparing render values fixes the failure without dropping cues or relaxing
+budgets. Maximum dense edit/offset/project-save is 326/289/271ms; project reopen
+815ms and recovery open 415ms. Desktop app RSS is reported separately from the
+unchanged pure-engine memory gate. The corrected native functional lane exits
+normally with code0; all 58 browser cases, 44 frontend tests, strict checks,
+generated IPC and default build pass. ADR0033 is accepted. Stage7 plugins is next;
+stage8 native/distribution reliability and physical-device gates remain open.
 See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports
@@ -85,7 +94,7 @@ failure led to faster ASCII boundary scanning with every validation check retain
 final open/reopen peaks at 831ms, publication at 418ms and recovery at 422ms.
 426 workspace Rust tests / 30 ignored and strict checks pass. Updated library10k
 p95 is <=37.548ms with +48,267,264 sampled RSS bytes. Normal shutdown is code0.
-This accepts stage6b within its recorded scope; translation remains next.
+This accepts stage6b within its recorded scope; translation is now accepted above.
 See [mapping, checks and remaining scope](legacy-project-import.md).
 
 **WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,
@@ -603,8 +612,9 @@ scope. Loss-preserving ASS/SSA documents now also pass their full scoped audit,
 including existing styles, format-aware tools and tagged-SRT regression. The active
 [umbrella roadmap](feature-roadmap.md) has completed fonts, batch timing, ASS/SSA
 resync, language tools, style/font authoring, conversion and WebVTT within their
-recorded Mac scopes. Legacy project import is next, followed by manual translation,
-bounded plugins and native/distribution reliability.
+recorded Mac scopes, including legacy project import and manual translation.
+The next feature is the bounded JavaScript checker/fix host with a documented VSS
+subset, followed by native/distribution reliability.
 Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.

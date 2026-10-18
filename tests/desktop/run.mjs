@@ -43,6 +43,7 @@ import { webvttPerformance } from './webvtt-performance.mjs';
 import { legacyImportWorkflow } from './legacy-import.mjs';
 import { legacyImportPerformance } from './legacy-import-performance.mjs';
 import { translationWorkflow } from './translation.mjs';
+import { translationPerformance } from './translation-performance.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -61,6 +62,7 @@ const { values } = parseArgs({
     conversion: { type: 'boolean', default: false },
     webvtt: { type: 'boolean', default: false },
     translation: { type: 'boolean', default: false },
+    'translation-performance': { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
     'legacy-import-performance': { type: 'boolean', default: false },
     'webvtt-performance': { type: 'boolean', default: false },
@@ -132,6 +134,7 @@ const runDeadline =
   values.conversion ||
   values.webvtt ||
   values.translation ||
+  values['translation-performance'] ||
   values['legacy-import'] ||
   values['legacy-import-performance'] ||
   values['webvtt-performance'] ||
@@ -623,6 +626,21 @@ try {
       record,
       binary,
       cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['translation-performance'])
+    await translationPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      getPid: () => app.pid,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

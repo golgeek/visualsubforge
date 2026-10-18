@@ -43,7 +43,7 @@ The editor provides:
   WebVTT references, shows time matches or paged browsing, and applies signed
   matching offsets. Start an independent target copy with protected Save As;
   projects and recovery retain the reference relationship. Native Mac workflows
-  and real choosers pass; combined scale acceptance remains pending.
+  and real choosers pass, as do five combined 10,000-cue desktop workloads.
   See [manual translation](docs/manual-translation.md).
 - Reviewed VisualSubSync `.vssprj` import with explicit missing-file relocation,
   unsupported-setting notices and protected new-project creation. Native Mac
