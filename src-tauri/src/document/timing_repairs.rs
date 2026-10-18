@@ -197,7 +197,7 @@ impl Documents {
         store.timing_repairs.ensure_idle()?;
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let document = loaded.editor.document().clone();
-        let format = loaded.source.format();
+        let format = loaded.source().format();
         let profile = store.quality.context().profile;
         let captured = profile.clone();
         let lexicon = store.quality.lexicon();

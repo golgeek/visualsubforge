@@ -147,7 +147,7 @@ impl Documents {
             {
                 return Err("Subtitles changed before formatting; select the cue again".into());
             }
-            if let Some(source) = loaded.and_then(|loaded| loaded.source.ass()) {
+            if let Some(source) = loaded.and_then(|loaded| loaded.source().ass()) {
                 let context = context
                     .ok_or("ASS/SSA formatting requires a current cue and assigned style")?;
                 let definition = source.styles().iter().find(|style| style.name == context.style_name)
@@ -225,7 +225,7 @@ impl Documents {
         store.texts.ensure_idle()?;
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let document = loaded.editor.document().clone();
-        let format = loaded.source.format();
+        let format = loaded.source().format();
         let profile = store.quality.context().profile;
         let lexicon = store.quality.lexicon();
         let captured = profile.clone();

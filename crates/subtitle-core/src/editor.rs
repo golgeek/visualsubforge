@@ -67,21 +67,25 @@ pub struct EditOutcome {
     pub created: Option<CueId>,
 }
 
-struct Change {
+struct Change<P> {
     index: usize,
     before: Vec<Cue>,
     after: Vec<Cue>,
     before_state: u64,
     after_state: u64,
+    properties: Option<(P, P)>,
 }
 
 /// History stores replaced cue ranges, not copies of the whole document. State IDs
 /// identify saved content across undo/redo; revision advances on every accepted
 /// operation so an old frontend draft cannot overwrite a newer accepted edit.
-pub struct Editor {
+pub struct Editor<P = ()> {
     document: Document,
-    undo: Vec<Change>,
-    redo: Vec<Change>,
+    // Format/application-owned immutable document properties. The domain does
+    // not interpret these; their acceptance shares cue history and state IDs.
+    properties: P,
+    undo: Vec<Change<P>>,
+    redo: Vec<Change<P>>,
     revision: u64,
     state: u64,
     next_state: u64,
@@ -91,6 +95,11 @@ pub struct Editor {
 }
 impl Editor {
     pub fn new(document: Document) -> Self {
+        Self::with_properties(document, ())
+    }
+}
+impl<P: Clone + PartialEq> Editor<P> {
+    pub fn with_properties(document: Document, properties: P) -> Self {
         let next_cue = document
             .cues
             .iter()
@@ -100,6 +109,7 @@ impl Editor {
             .checked_add(1);
         Self {
             document,
+            properties,
             undo: Vec::new(),
             redo: Vec::new(),
             revision: 0,
@@ -111,6 +121,9 @@ impl Editor {
     }
     pub fn document(&self) -> &Document {
         &self.document
+    }
+    pub fn properties(&self) -> &P {
+        &self.properties
     }
     pub fn revision(&self) -> u64 {
         self.revision
@@ -145,6 +158,16 @@ impl Editor {
         expected: u64,
         edit: Edit,
         validate: impl FnOnce(&Document) -> Result<()>,
+    ) -> Result<EditOutcome> {
+        self.apply_edit_with_properties(expected, edit, |document, _| validate(document))
+    }
+    /// Validate a cue edit against the same accepted properties without cloning
+    /// them or exposing a separate mutable owner to the application.
+    pub fn apply_edit_with_properties(
+        &mut self,
+        expected: u64,
+        edit: Edit,
+        validate: impl FnOnce(&Document, &P) -> Result<()>,
     ) -> Result<EditOutcome> {
         self.expect_revision(expected)?;
         let mut created = None;
@@ -352,7 +375,7 @@ impl Editor {
         self.document
             .cues
             .splice(index..index + count, after.clone());
-        if let Err(error) = validate(&self.document) {
+        if let Err(error) = validate(&self.document, &self.properties) {
             self.document
                 .cues
                 .splice(index..index + after.len(), before);
@@ -364,6 +387,7 @@ impl Editor {
             after,
             before_state: self.state,
             after_state: self.next_state,
+            properties: None,
         });
         self.state = self.next_state;
         self.next_state += 1;
@@ -376,6 +400,79 @@ impl Editor {
             changed: true,
             created,
         })
+    }
+
+    /// Accept document properties and related cue updates as one transaction.
+    /// The application validates their meaning together before publication.
+    /// Identity/order changes still use the explicit structural edit operations;
+    /// document-level authoring cannot introduce IDs or silently reorder cues.
+    /// History retains only the changed cue range and changed properties, so a
+    /// properties-only operation stores no cue copies. Prefer shared immutable
+    /// values for large properties such as loss-preserving source records.
+    pub fn apply_document(
+        &mut self,
+        expected: u64,
+        mut document: Document,
+        properties: P,
+        validate: impl FnOnce(&Document, &P) -> Result<()>,
+    ) -> Result<bool> {
+        self.expect_revision(expected)?;
+        if !self
+            .document
+            .cues
+            .iter()
+            .map(Cue::id)
+            .eq(document.cues.iter().map(Cue::id))
+        {
+            return Err("Document-level edits must preserve cue identities and order".into());
+        }
+        if self.document == document && self.properties == properties {
+            return Ok(false);
+        }
+        validate(&document, &properties)?;
+        let first = self
+            .document
+            .cues
+            .iter()
+            .zip(&document.cues)
+            .position(|(before, after)| before != after);
+        let (index, before, after) = if let Some(index) = first {
+            let unchanged_end = self.document.cues[index..]
+                .iter()
+                .rev()
+                .zip(document.cues[index..].iter().rev())
+                .take_while(|(before, after)| before == after)
+                .count();
+            let end = document.cues.len() - unchanged_end;
+            (
+                index,
+                self.document.cues[index..end].to_vec(),
+                document.cues.drain(index..end).collect::<Vec<_>>(),
+            )
+        } else {
+            (0, Vec::new(), Vec::new())
+        };
+        let property_change =
+            (self.properties != properties).then(|| (self.properties.clone(), properties));
+        self.document
+            .cues
+            .splice(index..index + before.len(), after.clone());
+        if let Some((_, after)) = &property_change {
+            self.properties = after.clone();
+        }
+        self.undo.push(Change {
+            index,
+            before,
+            after,
+            before_state: self.state,
+            after_state: self.next_state,
+            properties: property_change,
+        });
+        self.state = self.next_state;
+        self.next_state += 1;
+        self.revision += 1;
+        self.redo.clear();
+        Ok(true)
     }
 
     fn index(&self, id: CueId) -> Result<usize> {
@@ -469,6 +566,9 @@ impl Editor {
             change.index..change.index + change.after.len(),
             change.before.clone(),
         );
+        if let Some((before, _)) = &change.properties {
+            self.properties = before.clone();
+        }
         self.state = change.before_state;
         self.revision += 1;
         self.redo.push(change);
@@ -483,6 +583,9 @@ impl Editor {
             change.index..change.index + change.before.len(),
             change.after.clone(),
         );
+        if let Some((_, after)) = &change.properties {
+            self.properties = after.clone();
+        }
         self.state = change.after_state;
         self.revision += 1;
         self.undo.push(change);
@@ -493,6 +596,151 @@ impl Editor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn document_properties_and_related_cues_share_history_and_saved_state() {
+        let original = editor().document().clone();
+        let mut e = Editor::with_properties(original.clone(), "original properties".to_owned());
+        let changed = Document::new(vec![Cue {
+            text: "New reference".into(),
+            ..original.cues[0].clone()
+        }])
+        .unwrap();
+        assert!(
+            e.apply_document(
+                0,
+                changed.clone(),
+                "new properties".into(),
+                |doc, properties| {
+                    assert_eq!(doc, &changed);
+                    assert_eq!(properties, "new properties");
+                    Ok(())
+                }
+            )
+            .unwrap()
+        );
+        e.mark_saved(1).unwrap();
+        e.edit(
+            1,
+            CueId(1),
+            Milliseconds::new(1000).unwrap(),
+            Milliseconds::new(2000).unwrap(),
+            "Later cue edit".into(),
+        )
+        .unwrap();
+        assert!(e.dirty());
+        e.undo(2).unwrap();
+        assert!(!e.dirty());
+        assert_eq!(e.document(), &changed);
+        assert_eq!(e.properties(), "new properties");
+        e.undo(3).unwrap();
+        assert!(e.dirty());
+        assert_eq!(e.document(), &original);
+        assert_eq!(e.properties(), "original properties");
+        e.redo(4).unwrap();
+        assert!(!e.dirty());
+        assert_eq!(e.document(), &changed);
+        assert_eq!(e.properties(), "new properties");
+        e.redo(5).unwrap();
+        assert_eq!(e.document().cues()[0].text(), "Later cue edit");
+        assert_eq!(e.properties(), "new properties");
+        assert_eq!(e.revision(), 6);
+    }
+
+    #[test]
+    fn document_transaction_rejection_noop_and_stale_preserve_redo_and_identity() {
+        let original = editor().document().clone();
+        let mut e = Editor::with_properties(original.clone(), 0);
+        e.apply_document(0, original.clone(), 1, |_, _| Ok(()))
+            .unwrap();
+        e.undo(1).unwrap();
+        let changed = Document::new(vec![Cue {
+            text: "Candidate".into(),
+            ..original.cues[0].clone()
+        }])
+        .unwrap();
+        assert!(
+            e.apply_document(2, changed, 2, |_, _| Err("Policy rejects candidate".into()))
+                .is_err()
+        );
+        assert!(
+            !e.apply_document(2, original.clone(), 0, |_, _| Ok(()))
+                .unwrap()
+        );
+        assert!(
+            e.apply_document(0, original.clone(), 2, |_, _| Ok(()))
+                .is_err()
+        );
+        let different_id = Document::new(vec![Cue {
+            id: CueId(999),
+            ..original.cues[0].clone()
+        }])
+        .unwrap();
+        assert!(e.apply_document(2, different_id, 2, |_, _| Ok(())).is_err());
+        assert_eq!(e.document(), &original);
+        assert_eq!(*e.properties(), 0);
+        assert_eq!(e.revision(), 2);
+        assert!(!e.dirty());
+        assert!(e.can_redo());
+        e.redo(2).unwrap();
+        assert_eq!(*e.properties(), 1);
+        e.undo(3).unwrap();
+        assert_eq!(
+            e.split(4, CueId(1), Milliseconds::new(1500).unwrap())
+                .unwrap(),
+            CueId(2)
+        );
+        assert!(!e.can_redo());
+    }
+
+    #[test]
+    fn properties_only_history_does_not_retain_unchanged_cues() {
+        let original = editor().document().clone();
+        let mut e = Editor::with_properties(original.clone(), 0);
+        e.apply_document(0, original.clone(), 1, |_, _| Ok(()))
+            .unwrap();
+        let change = e.undo.last().unwrap();
+        assert!(change.before.is_empty() && change.after.is_empty());
+        e.undo(1).unwrap();
+        assert_eq!(e.document(), &original);
+        e.redo(2).unwrap();
+        assert_eq!(e.document(), &original);
+        // An empty document still has meaningful undoable properties.
+        let empty = Document::new(Vec::new()).unwrap();
+        let mut e = Editor::with_properties(empty.clone(), 0);
+        e.apply_document(0, empty, 1, |_, _| Ok(())).unwrap();
+        e.undo(1).unwrap();
+        assert_eq!(*e.properties(), 0);
+    }
+
+    #[test]
+    fn document_transaction_preserves_neighbors_and_rejects_reordering() {
+        let original = Document::new(
+            (1..=6)
+                .map(|id| Cue {
+                    id: CueId(id),
+                    ..editor().document().cues[0].clone()
+                })
+                .collect(),
+        )
+        .unwrap();
+        let mut e = Editor::with_properties(original.clone(), 0);
+        let mut candidate = original.clone();
+        candidate.cues[1].text = "First changed reference".into();
+        candidate.cues[4].text = "Last changed reference".into();
+        e.apply_document(0, candidate.clone(), 0, |_, _| Ok(()))
+            .unwrap();
+        e.undo(1).unwrap();
+        assert_eq!(e.document(), &original);
+        e.redo(2).unwrap();
+        assert_eq!(e.document(), &candidate);
+        let mut reordered = candidate.clone();
+        reordered.cues.swap(0, 1);
+        assert!(e.apply_document(3, reordered, 1, |_, _| Ok(())).is_err());
+        assert_eq!(e.document(), &candidate);
+        assert_eq!(*e.properties(), 0);
+        assert_eq!(e.revision(), 3);
+    }
+
     #[test]
     fn rejected_policy_preserves_document_redo_saved_state_revision_and_next_identity() {
         let mut editor = editor();

@@ -127,7 +127,7 @@ impl Documents {
             .validate(loaded.editor.document().cues().len())
             .map_err(|e| e.to_string())?;
         let document = loaded.editor.document().clone();
-        let format = loaded.source.format();
+        let format = loaded.source().format();
         let lexicon = store.quality.lexicon();
         let profile = store.quality.context().profile;
         store.statistics.launch(key, scenes.key, move |cancel| {

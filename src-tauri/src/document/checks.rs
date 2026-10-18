@@ -290,7 +290,7 @@ impl Documents {
                     .loaded
                     .as_ref()
                     .ok_or("Open subtitles first")?
-                    .source
+                    .source()
                     .format();
                 let capture = store.quality.capture(format);
                 store

@@ -58,7 +58,7 @@ impl Documents {
                             store.loaded.as_ref().map(|d| {
                                 (
                                     d.editor.document().clone(),
-                                    d.source.clone(),
+                                    d.source().clone(),
                                     d.path.clone(),
                                     d.saved_bytes.clone(),
                                 )

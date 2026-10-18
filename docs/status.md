@@ -19,7 +19,7 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync and language tools are complete. Style/attachment/
-conversion authoring is next; later stages are pending. Completed milestones below remain the
+conversion authoring is in progress; later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
 **Language tools complete (2026-10-17):** opt-in

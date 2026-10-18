@@ -101,7 +101,7 @@ fn acceptance_is_one_undo_and_protects_source_through_undo_failed_save_and_save_
         let restored = docs.0.lock().unwrap();
         let loaded = restored.loaded.as_ref().unwrap();
         assert_eq!(
-            loaded.source.serialize(loaded.editor.document()).unwrap(),
+            loaded.source().serialize(loaded.editor.document()).unwrap(),
             original
         );
         drop(restored);

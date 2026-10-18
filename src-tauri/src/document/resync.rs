@@ -18,7 +18,7 @@ impl Documents {
         }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let snapshot =
-            SubtitleSnapshot::new(loaded.editor.document().clone(), loaded.source.clone())
+            SubtitleSnapshot::new(loaded.editor.document().clone(), loaded.source().clone())
                 .map_err(|e| e.to_string())?;
         Ok(Capture { key, snapshot })
     }
@@ -83,7 +83,7 @@ impl Documents {
                 .loaded
                 .as_ref()
                 .filter(|loaded| loaded.path.is_some())
-                .map(|loaded| loaded.source.format()),
+                .map(|loaded| loaded.source().format()),
         )
     }
 }

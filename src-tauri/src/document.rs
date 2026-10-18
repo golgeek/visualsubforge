@@ -61,8 +61,7 @@ struct Store {
     texts: texts::State,
 }
 struct Loaded {
-    editor: Editor,
-    source: Source,
+    editor: Editor<Source>,
     path: Option<PathBuf>,
     // Used to reject overwriting a file changed outside this application.
     saved_bytes: Vec<u8>,
@@ -205,11 +204,16 @@ struct StyleView {
 }
 
 impl Loaded {
+    fn source(&self) -> &Source {
+        self.editor.properties()
+    }
     fn apply_edit(&mut self, revision: u64, edit: Edit) -> Result<()> {
         self.editor
-            .apply_edit(revision, edit, |document| {
-                vsf_application::subtitle_file::validate_document(document, &self.source)
-            })
+            .apply_edit_with_properties(
+                revision,
+                edit,
+                vsf_application::subtitle_file::validate_document,
+            )
             .map(|_| ())
     }
 }
@@ -219,8 +223,8 @@ impl Store {
         let loaded = self.loaded.as_ref();
         Snapshot {
             format: loaded.and_then(|d| {
-                d.source.ass().map(|source| FormatView {
-                    name: d.source.format().extension().into(),
+                d.source().ass().map(|source| FormatView {
+                    name: d.source().format().extension().into(),
                     time_step_ms: 10,
                     styles: source
                         .styles()
@@ -281,7 +285,7 @@ impl Store {
             } => {
                 let loaded = self.loaded_mut()?;
                 let source = loaded
-                    .source
+                    .source()
                     .ass()
                     .ok_or("Style assignment requires ASS/SSA subtitles")?;
                 let current = loaded
@@ -299,7 +303,7 @@ impl Store {
                 {
                     source.validate_style(&style)?;
                 }
-                let text = loaded.source.prepare_text(text)?;
+                let text = loaded.source().prepare_text(text)?;
                 loaded.apply_edit(
                     revision,
                     Edit::StyledText {
@@ -324,8 +328,7 @@ impl Store {
                 )?;
                 // Commit only after every read and parse operation succeeds.
                 self.loaded = Some(Loaded {
-                    editor: Editor::new(parsed.document),
-                    source: parsed.source,
+                    editor: Editor::with_properties(parsed.document, parsed.source),
                     path: Some(path),
                     saved_bytes: bytes,
                     recovered: false,
@@ -345,8 +348,7 @@ impl Store {
                     Some(record.format_extension()),
                 )?;
                 self.loaded = Some(Loaded {
-                    editor: Editor::new(parsed.document),
-                    source: parsed.source,
+                    editor: Editor::with_properties(parsed.document, parsed.source),
                     path: record.source_path.map(|path| {
                         save_path(Path::new(&path)).unwrap_or_else(|_| PathBuf::from(path))
                     }),
@@ -367,7 +369,7 @@ impl Store {
                 end_ms,
                 text,
             } => {
-                let text = self.loaded_mut()?.source.prepare_text(text)?;
+                let text = self.loaded_mut()?.source().prepare_text(text)?;
                 self.loaded_mut()?.apply_edit(
                     revision,
                     Edit::Text {
@@ -392,8 +394,7 @@ impl Store {
                 let mut untitled = if self.loaded.is_none() {
                     let parsed = srt::parse("")?;
                     Some(Loaded {
-                        editor: Editor::new(parsed.document),
-                        source: parsed.source.into(),
+                        editor: Editor::with_properties(parsed.document, parsed.source.into()),
                         path: None,
                         saved_bytes: Vec::new(),
                         recovered: false,
@@ -406,8 +407,8 @@ impl Store {
                     Some(loaded) => loaded,
                     None => self.loaded_mut()?,
                 };
-                let text = loaded.source.prepare_text(text)?;
-                let metadata = loaded.source.default_metadata()?;
+                let text = loaded.source().prepare_text(text)?;
+                let metadata = loaded.source().default_metadata()?;
                 loaded.apply_edit(
                     revision,
                     Edit::Create {
@@ -436,7 +437,10 @@ impl Store {
                     .iter()
                     .find(|c| c.id() == CueId(cue_id))
                     .ok_or("Cue no longer exists")?;
-                vsf_application::subtitle_operations::validate_split(cue, loaded.source.format())?;
+                vsf_application::subtitle_operations::validate_split(
+                    cue,
+                    loaded.source().format(),
+                )?;
                 self.loaded_mut()?.apply_edit(
                     revision,
                     Edit::Split {
@@ -462,9 +466,9 @@ impl Store {
                 vsf_application::subtitle_operations::validate_merge(
                     first,
                     second,
-                    loaded.source.format(),
+                    loaded.source().format(),
                 )?;
-                let separator = if self.loaded_mut()?.source.ass().is_some() {
+                let separator = if self.loaded_mut()?.source().ass().is_some() {
                     "\\N{\\r}"
                 } else {
                     "\n"
@@ -505,10 +509,10 @@ impl Store {
                     return Err("Choose a different file to preserve the original subtitles".into());
                 }
                 loaded
-                    .source
+                    .source()
                     .validate_save_extension(target.extension().and_then(|s| s.to_str()))?;
                 let bytes = loaded
-                    .source
+                    .source()
                     .serialize(loaded.editor.document())?
                     .into_bytes();
                 crate::srt_limits::validate_size(bytes.len())?;
@@ -576,7 +580,7 @@ impl Documents {
         Ok(store
             .loaded
             .as_ref()
-            .map_or("srt", |loaded| loaded.source.format().extension()))
+            .map_or("srt", |loaded| loaded.source().format().extension()))
     }
     #[cfg(any(
         test,
@@ -605,7 +609,7 @@ impl Documents {
         }
         let content = match &store.loaded {
             Some(loaded) => {
-                crate::subtitle_preview::serialize_source(loaded.editor.document(), &loaded.source)
+                crate::subtitle_preview::serialize_source(loaded.editor.document(), loaded.source())
             }
             _ => Ok(None),
         };
@@ -891,7 +895,7 @@ mod tests {
         let record = crate::recovery_store::Record::new(
             None,
             String::new(),
-            loaded.source.serialize(loaded.editor.document()).unwrap(),
+            loaded.source().serialize(loaded.editor.document()).unwrap(),
             1,
             1,
         )
@@ -1012,7 +1016,7 @@ mod tests {
                     .as_ref()
                     .map(|path| path.to_string_lossy().into_owned()),
                 String::from_utf8(loaded.saved_bytes.clone()).unwrap(),
-                loaded.source.serialize(loaded.editor.document()).unwrap(),
+                loaded.source().serialize(loaded.editor.document()).unwrap(),
                 store.generation,
                 loaded.editor.revision(),
             )
@@ -1268,7 +1272,7 @@ mod tests {
         let loaded = store.loaded.as_ref().unwrap();
         assert_eq!(
             record.accepted_srt,
-            loaded.source.serialize(loaded.editor.document()).unwrap()
+            loaded.source().serialize(loaded.editor.document()).unwrap()
         );
         assert!(record.accepted_srt.contains(latest));
         assert!(store.recovery_error.is_none());
@@ -1509,7 +1513,7 @@ mod tests {
                 .loaded
                 .as_ref()
                 .unwrap()
-                .source
+                .source()
                 .serialize(store.loaded.as_ref().unwrap().editor.document())
                 .unwrap(),
             ORIGINAL

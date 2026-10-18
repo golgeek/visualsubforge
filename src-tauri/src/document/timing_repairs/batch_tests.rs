@@ -159,7 +159,7 @@ fn batch_format_roundtrips_recovery_and_failed_save_preserve_source_and_effects(
         let saved_bytes = {
             let store = docs.0.lock().unwrap();
             let loaded = store.loaded.as_ref().unwrap();
-            loaded.source.serialize(loaded.editor.document()).unwrap()
+            loaded.source().serialize(loaded.editor.document()).unwrap()
         };
         let parsed = subtitle_formats::parse(
             &saved_bytes,
@@ -213,7 +213,7 @@ fn batch_format_roundtrips_recovery_and_failed_save_preserve_source_and_effects(
         assert!(recovered.requires_save_as);
         let loaded = restored.loaded.as_ref().unwrap();
         assert_eq!(
-            loaded.source.serialize(loaded.editor.document()).unwrap(),
+            loaded.source().serialize(loaded.editor.document()).unwrap(),
             saved_bytes
         );
         assert!(
@@ -267,7 +267,7 @@ fn batch_format_roundtrips_recovery_and_failed_save_preserve_source_and_effects(
         let restored = {
             let store = docs.0.lock().unwrap();
             let loaded = store.loaded.as_ref().unwrap();
-            loaded.source.serialize(loaded.editor.document()).unwrap()
+            loaded.source().serialize(loaded.editor.document()).unwrap()
         };
         assert_eq!(restored, bytes);
         let reopened = Documents::default()

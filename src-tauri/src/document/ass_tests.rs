@@ -4,6 +4,111 @@ pub(super) const ASS: &str = include_str!("../../../tests/fixtures/subtitles/sty
 pub(super) const SSA: &str = include_str!("../../../tests/fixtures/subtitles/styles.ssa");
 
 #[test]
+fn source_properties_share_owner_history_save_and_recovery_serialization() {
+    for (extension, source) in [("ass", ASS), ("ssa", SSA)] {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(format!("original.{extension}"));
+        fs::write(&path, source).unwrap();
+        let mut store = Store::default();
+        open(&mut store, &path);
+        let updated = source
+            .replace("sans-serif,36", "sans-serif,42")
+            .replace("Red title", "New title");
+        let candidate = subtitle_formats::parse(&updated, None).unwrap();
+        let loaded = store.loaded.as_mut().unwrap();
+        loaded
+            .editor
+            .apply_document(
+                0,
+                candidate.document,
+                candidate.source,
+                vsf_application::subtitle_file::validate_document,
+            )
+            .unwrap();
+        assert_eq!(bytes(&store), updated);
+        let snapshot = store.snapshot();
+        assert_eq!(snapshot.revision, 1);
+        assert!(snapshot.dirty && snapshot.can_undo);
+        assert!(
+            snapshot
+                .format
+                .unwrap()
+                .styles
+                .iter()
+                .find(|s| s.name == "Title")
+                .unwrap()
+                .fields
+                .iter()
+                .any(|(name, value)| name == "Fontsize" && value == "42")
+        );
+        let record = crate::recovery_store::Record::new_document(
+            store.loaded.as_ref().unwrap().source().format(),
+            Some(path.to_string_lossy().into_owned()),
+            source.into(),
+            bytes(&store),
+            1,
+            1,
+        )
+        .unwrap();
+        let recovery_root = root.path().join("recovery");
+        let session = crate::recovery_store::Session::create(&recovery_root).unwrap();
+        session.prepare(&record).unwrap().commit().unwrap();
+        drop(session);
+        let entries = crate::recovery_store::list(&recovery_root).unwrap();
+        let mut recovered = Store {
+            recovery_root: Some(recovery_root),
+            ..Store::default()
+        };
+        recovered
+            .apply(
+                Action::Recover {
+                    id: entries[0].id.clone(),
+                    discard: true,
+                },
+                0,
+                0,
+            )
+            .unwrap();
+        assert_eq!(bytes(&recovered), updated);
+        assert!(recovered.snapshot().requires_save_as);
+        assert!(!recovered.snapshot().can_undo);
+        assert!(
+            apply(
+                &mut store,
+                Action::Save {
+                    path: Some(
+                        root.path()
+                            .join("missing")
+                            .join(format!("bad.{extension}"))
+                            .to_string_lossy()
+                            .into_owned()
+                    )
+                }
+            )
+            .is_err()
+        );
+        assert_eq!(bytes(&store), updated);
+        assert_eq!(fs::read_to_string(&path).unwrap(), source);
+        let saved = root.path().join(format!("saved.{extension}"));
+        apply(
+            &mut store,
+            Action::Save {
+                path: Some(saved.to_string_lossy().into_owned()),
+            },
+        )
+        .unwrap();
+        assert_eq!(fs::read_to_string(&saved).unwrap(), updated);
+        apply(&mut store, Action::Undo).unwrap();
+        assert_eq!(bytes(&store), source);
+        assert!(store.snapshot().dirty);
+        apply(&mut store, Action::Redo).unwrap();
+        assert_eq!(bytes(&store), updated);
+        assert!(!store.snapshot().dirty);
+        assert_eq!(fs::read_to_string(&path).unwrap(), source);
+    }
+}
+
+#[test]
 fn draft_formatting_captures_style_defaults_and_rejects_stale_context() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("source.ass");
@@ -61,7 +166,7 @@ fn apply(store: &mut Store, action: Action) -> Result<Snapshot> {
 }
 fn bytes(store: &Store) -> String {
     let loaded = store.loaded.as_ref().unwrap();
-    loaded.source.serialize(loaded.editor.document()).unwrap()
+    loaded.source().serialize(loaded.editor.document()).unwrap()
 }
 fn edit(style: &str, start_ms: u64, text: &str) -> Action {
     Action::EditStyled {
