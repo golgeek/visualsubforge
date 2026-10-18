@@ -7,6 +7,7 @@ pub mod batch_timing;
 pub mod conversion;
 pub mod file_lease;
 pub mod language;
+pub mod legacy_project;
 pub mod new_output;
 pub mod quality;
 pub mod resync;

@@ -24,6 +24,16 @@ import is next, followed by manual translation, plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
+**Legacy project import foundation (2026-10-18):** application parsing supports
+strict UTF-8 and BOM-marked UTF-16, explicit Windows path handling, supported
+references/positions and unsupported-setting diagnostics. Read-only inspection
+supports explicit relocation and all four subtitle formats; revalidation detects
+changed source/subtitle bytes and redirected symlinks. 413 workspace Rust tests /
+30 ignored and strict Clippy pass. Four 10k library/IO workloads pass <=36.236ms
+p95 and +50,724,864 sampled RSS bytes. The desktop review owner, guarded export,
+UI and native acceptance remain pending; users cannot import through the editor
+yet. See [mapping, checks and remaining scope](legacy-project-import.md).
+
 **WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,
 CLI checking/statistics, project references and accepted-state recovery now retain
 format identity, original blocks/settings and exact milliseconds. Text projection

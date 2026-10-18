@@ -34,6 +34,12 @@ writing a receipt. These independently authored inputs use the same repository
 license and contain no third-party subtitle text. See
 [scope, commands and evidence](../../docs/webvtt.md).
 
+Legacy project tests independently author INI data and UTF-16 encodings in
+`crates/vsf-application/src/legacy_project/tests.rs`. The import benchmark wraps
+the generated WebVTT and ASS inputs in temporary UTF-16LE projects and checks
+unchanged source bytes; no historical project, plugin or script content is copied.
+See [legacy import scope and measurements](../../docs/legacy-project-import.md).
+
 ## Generate and validate
 
 Install FFmpeg/ffprobe, then run from the repository root:
