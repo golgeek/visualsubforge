@@ -79,8 +79,10 @@ See [worker ownership, limits and evidence](plugin-host.md).
 **Plugin VM progress (2026-10-18):** the pinned plugin/application/CLI tests,
 frontend build and frontend tests now pass on Ubuntu and Windows ARM64 VMs.
 Ubuntu full-workspace compilation exposed two Linux subtitle-dialog filter type
-errors; the borrowing correction compiles and its workspace tests are running.
-The Windows workspace build is still running. Full platform, installed-helper,
+errors; the borrowing correction now passes the full workspace tests and CLI
+build. The Linux desktop build is running. Windows compilation passes, but the
+workspace run stops before launching the `update_batch` test with Windows error
+740 (elevation required); this launch failure is being investigated. Full platform, installed-helper,
 desktop and historical-host acceptance remain open; see the
 [source identities and retained failures](plugin-host.md#vm-validation-progress--2026-10-18).
 

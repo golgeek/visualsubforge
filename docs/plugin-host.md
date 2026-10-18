@@ -24,10 +24,14 @@ npm test
 
 The initial Ubuntu full-workspace compile found two Linux-only `FileFilter::glob`
 calls passing owned strings where ashpd requires borrowed strings. Borrowing the
-formatted extension patterns fixes compilation; the corrected workspace test
-binary is running. The Windows full-workspace build is also still running.
-Neither full platform run, installed-helper relocation check nor desktop UI
-acceptance is claimed complete at this checkpoint. `cargo fmt --all -- --check`
+formatted extension patterns fixes compilation; the corrected full workspace
+tests and CLI build pass. The default Linux desktop build is running. Windows
+compiles the workspace but stops before executing the `update_batch` integration
+test: process creation returns Windows error 740, “The requested operation requires
+elevation.” This is a test-executable launch failure, not a failed assertion; its
+cause and a non-elevated execution path remain to be investigated. Neither full
+platform run, installed-helper relocation check nor desktop UI acceptance is
+claimed complete at this checkpoint. `cargo fmt --all -- --check`
 and `git diff --check` pass on the host for the two-line correction.
 
 Receipts and drivers are retained under
@@ -40,8 +44,9 @@ in `linux-dialog-fix-receipt.json`. The original failed compile is retained in
 `linux-validation.log`. An earlier host disk-space interruption is recorded
 separately: only the rebuildable Mac incremental compiler cache was removed,
 and the stopped guest resumed after process and source verification. Windows
-receipts are temporarily in the task-owned Downloads staging folder recorded by
-`windows-staging.json`; final evidence must be retained before staging cleanup.
+receipts/logs have been copied from the task-owned Downloads staging folder
+recorded by `windows-staging.json` into the evidence directory. The staging folder
+is retained for subsequent validation and must be cleaned up when finished.
 These VM checks do not establish physical GPU/audio or installation acceptance.
 
 ## Candidate execution boundary
