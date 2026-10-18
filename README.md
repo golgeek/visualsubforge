@@ -86,7 +86,8 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
 The [JavaScript plugin host](docs/plugin-host.md) is in progress. Its bounded
 worker, modern/VSS API subset and [local CLI check/preview/apply](docs/plugin-cli.md)
 have Mac tests. The desktop job owner, typed commands and [review controls](docs/plugin-desktop.md)
-are implemented; full desktop acceptance remains pending. See the
+are implemented; native Mac format/history/recovery and real chooser workflows
+pass. Full desktop10k, historical-host and platform acceptance remain pending. See the
 [supported API subset](docs/plugin-api.md).
 
 ## Build, test and understand the code

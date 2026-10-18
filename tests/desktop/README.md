@@ -477,3 +477,24 @@ native playback and real OS-sheet acceptance use their separate workflows.
 For diagnosis, `VSF_TRANSLATION_PERFORMANCE_WORKLOADS=dense` selects a subset and
 `VSF_TRANSLATION_PROFILE_DRAW=1` records canvas draw counts/times. Instrumented or
 partial runs do not replace the complete uninstrumented acceptance run.
+
+### Subtitle plugins
+
+`--plugins` uses the native-feature test bundle and installed sibling CLI to run
+modern/VSS checker and fix workflows on SRT, ASS, SSA and WebVTT. It checks draft
+and chooser cancellation, read-only findings, exact source/metadata preservation,
+one-transaction Undo/Redo, cancelled/failed/exact saves, reopen and durable recovery
+after owned-process termination. Controls observe a live looping helper, cancel
+and verify reaping, reject package changes after review and preserve accepted
+state after script exceptions. Each format also reaches an acknowledged native
+preview frame. FFmpeg generates a short video; process inspection uses Unix `ps`.
+
+See the [native build commands and evidence](../../docs/plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
+`plugins.json` records app/CLI/input/output hashes, exact-state assertions and
+native snapshots; the ordinary receipt requires normal code0 shutdown. Supplied
+chooser results and DOM events do not test real OS sheets or physical input.
+`VSF_PLUGIN_CAPTURE=1` with optional comma-separated `VSF_PLUGIN_CAPTURE_LABELS`
+pauses selected captures for up to60s. Inspect and save the actual native window,
+then write `capture-ack.json` with the requested `label`; WebView screenshots omit
+the native video sibling. The separate normal-build chooser trial and remaining
+desktop10k/historical-host/platform gates are recorded in the plugin guide.

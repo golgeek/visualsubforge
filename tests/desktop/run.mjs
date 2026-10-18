@@ -44,6 +44,7 @@ import { legacyImportWorkflow } from './legacy-import.mjs';
 import { legacyImportPerformance } from './legacy-import-performance.mjs';
 import { translationWorkflow } from './translation.mjs';
 import { translationPerformance } from './translation-performance.mjs';
+import { pluginWorkflow } from './plugins.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -62,6 +63,7 @@ const { values } = parseArgs({
     conversion: { type: 'boolean', default: false },
     webvtt: { type: 'boolean', default: false },
     translation: { type: 'boolean', default: false },
+    plugins: { type: 'boolean', default: false },
     'translation-performance': { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
     'legacy-import-performance': { type: 'boolean', default: false },
@@ -134,6 +136,7 @@ const runDeadline =
   values.conversion ||
   values.webvtt ||
   values.translation ||
+  values.plugins ||
   values['translation-performance'] ||
   values['legacy-import'] ||
   values['legacy-import-performance'] ||
@@ -609,6 +612,23 @@ try {
       evidence,
       record,
       binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.plugins)
+    await pluginWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      getPid: () => app.pid,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

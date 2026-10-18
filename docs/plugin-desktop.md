@@ -1,9 +1,9 @@
 # Desktop subtitle plugins
 
-Stage7 remains in progress. The desktop controls and browser-tested session now
-compose the existing bounded Rust owner and helper. Real desktop workflow/chooser,
-full desktop10k, historical-host comparison and available Windows/Linux execution
-are still required; this guide does not claim those acceptance gates.
+Stage7 remains in progress. The desktop controls compose the bounded Rust owner
+and helper. Eight actual Mac format/API workflows and a separate real macOS
+chooser workflow pass. Full desktop10k, historical-host comparison and available
+Windows/Linux execution remain required; ADR0008 is still Proposed.
 
 ## Workflow
 
@@ -80,3 +80,81 @@ and the [host guide](plugin-host.md). The initial browser failure came from a te
 assertion querying the Accept button before asynchronous review rendering; that
 failure is retained and the harness now waits for the actual review. ADR0008
 remains Proposed pending the complete stage7 acceptance.
+
+## Native workflows and real chooser — 2026-10-18
+
+The `--plugins` desktop lane passes modern/VSS check and fix workflows across
+SRT, ASS, SSA and WebVTT in the actual WebView with the installed sibling CLI.
+Each case protects drafts, checks without mutation, reviews literal text/tags,
+accepts one transaction, verifies every cue and format property, performs one
+Undo/Redo, and checks cancelled/failed Save As, byte-exact save/reopen and recovery
+after abruptly terminating only its owned app. Original sources remain unchanged.
+The first case also observes a live looping helper, cancels it through the UI and
+verifies reaping; thrown fixes and package changes after review preserve exact
+accepted state. Every format reaches a native rendered frame acknowledging its
+accepted generation/revision. The lane supplies file choices and DOM events.
+
+`test-results/desktop-Mqq8Ir/plugins.json` and `receipt.json` retain all eight
+passing cases and normal code0 shutdown. Independently observed native-window
+captures show raw-tag review, modal video occlusion and accepted tagged-SRT/CJK
+rendering. WebVTT's existing CSS/region preview differences and an emoji missing
+glyph remain visible; preservation does not imply browser-equivalent rendering.
+Native PNGs and full media/document snapshots accompany the report.
+A final complete rerun after correcting a report field also passes in
+`test-results/desktop-HejUnC/`; native status records configured video output and
+hardware decoder fields instead of an unavailable backend field. No product code
+changed. Node syntax, pinned Prettier/ESLint and diff whitespace checks pass.
+
+A separate **non-WebDriver** bundle passes actual macOS Open Subtitles, JSON
+manifest selection and Save As sheets, including Unicode paths and cancellation.
+An invalid manifest produces a useful error; an unapplied draft blocks execution,
+survives chooser cancellation/dialog close, and regains focus. The native Tools
+menu and toolbar both work. An independently authored VSS plugin checks one
+selected cue, then proposes changes to it and its neighbor. The second row is
+labeled **Outside selected scope**. Acceptance changes both; one Undo restores
+both and the saved state, and one Redo reapplies both. Native Save As writes a
+separate exact-byte output, retaining BOM, CRLF, Unicode and ASS/HTML tags. The
+source remains unchanged, and normal Cmd-Q exits code0. Receipt and observations
+are in `test-results/plugin-picker-20261018/`.
+
+Identities on Apple M3 Max, macOS27.0 build26A428, Rust1.98.1 and Node24.21.0:
+
+| Artifact | SHA256 |
+| --- | --- |
+| Native test executable | `568294c89666aba1bdd55b2135d745bcbb2eaaed706fe33dae9eb680fdd86be4` |
+| Normal picker executable | `58997891ca40b566d1ab1f6a87b46dfbab221c3fa792a6b3ebbf61fd14bc71ce` |
+| Sibling CLI in both bundles | `a08952ff324f5ca22258243c2a26d46d04f42e52442abeec7806177f0f9e3054` |
+| Native chooser source (125 bytes) | `4fe27f41f819ca203c4cb8b60dbeee4d218e5f33669b317bc1790c2a951c0fb9` |
+| Native chooser output (136 bytes) | `663554449841d98931857b522352f77d14aec17072fa627fa5f314fd61878872` |
+
+Build logs/configurations are in `test-results/plugin-native-20261018/` and
+`test-results/plugin-picker-20261018/`. With pinned toolchains, reproduce the
+instrumented lane using the private runtime identified in the [Mac build guide](build-macos.md):
+
+```sh
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app \
+  --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/plugin-native-20261018/tauri.json" -- --locked
+cargo build --locked -p vsf-cli
+# Copy the app to an isolated test location and copy target/debug/vsf into its
+# Contents/MacOS directory before launching. Keep both binaries together.
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs --plugins \
+  --binary "$PWD/test-results/plugin-native-20261018/VisualSubForgePlugins.app/Contents/MacOS/visualsubforge"
+```
+
+The normal picker build uses only `--features media-prototype` with its separate
+identifier/configuration; it has no test server or supplied chooser queue. The
+native lane's optional capture handshake is documented in the [runner guide](../tests/desktop/README.md#subtitle-plugins).
+The helper process observation currently uses Unix `ps`; Windows needs a separate
+process observation implementation before claiming this complete lane there.
+
+Earlier failures are retained: `desktop-bm9Oob` started a review while automatic
+scene analysis was still changing context, so stale protection invalidated it.
+The harness now waits for completed scene context and a settled paused cursor.
+`desktop-cTi2cM` passed cancellation/error controls, then hit an incorrect singular
+DOM selector for two review articles. The assertion now checks both rows. No
+product guard, execution deadline or fixture content was relaxed. Full desktop
+scale and historical/platform acceptance remain open; these runs do not establish
+physical Windows/Linux GPU/audio or release readiness.

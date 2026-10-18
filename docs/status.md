@@ -59,8 +59,15 @@ native-menu/toolbar dispatch, video occlusion and focus. Lost acceptance replies
 reconcile accepted state; failed refresh blocks continuation until retry. All60
 browser cases,44 frontend tests,501 workspace Rust tests/32 ignored, strict checks,
 generated IPC and default desktop build pass. These browser tests use modeled IPC.
-Pinned VSS-host parity, available VM checks and real desktop/native/chooser/full10k
-acceptance remain required. ADR0008 is proposed.
+The subsequent actual Mac lane passes all eight modern/VSS × SRT/ASS/SSA/WebVTT
+workflows, with exact preservation, one Undo/Redo, failed saves, reopen, recovery,
+live-helper cancellation/reaping, exception rollback and changed-package refusal.
+Separate native observations and a non-WebDriver real macOS chooser trial pass,
+including a reviewed VSS neighbor edit outside selection, exact separate-file
+save and normal code0 shutdown. Existing WebVTT preview limits remain. See the
+[native/chooser evidence](plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
+Pinned VSS-host parity, available VM checks and full desktop10k acceptance remain
+required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation
