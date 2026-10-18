@@ -3,8 +3,8 @@
 Stage7 is in progress. The bounded worker in `crates/plugin-host`, pure
 [modern/VSS APIs and validated proposals](plugin-api.md), and
 [local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
-The desktop job owner and typed commands are implemented and tested; user-facing
-review controls and complete desktop acceptance remain required. ADR0008 is still proposed.
+The desktop job owner, typed commands and [review controls](plugin-desktop.md) are
+implemented and tested; complete desktop acceptance remains required. ADR0008 is still proposed.
 
 ## Candidate execution boundary
 
@@ -37,7 +37,8 @@ startup. The desktop owner launches that installed sibling CLI, avoiding UI
 libraries in the helper. It rejects missing, non-regular and symlink runners and
 never searches PATH. Existing package recipes install the CLI beside the desktop;
 the default dev command now builds it. Custom target/profile builds must build both
-executables together. Plugin installation/discovery and desktop controls remain pending.
+executables together. Plugin installation and automatic discovery remain pending;
+the desktop selects an explicit local package.
 
 The inspected [Boa 0.22.0 runtime limits](https://docs.rs/boa_engine/0.22.0/boa_engine/vm/struct.RuntimeLimits.html)
 cover loop iterations, stack, recursion and backtrace limits. That API does not
@@ -110,6 +111,49 @@ Required before stage7/ADR0008 acceptance:
 
 General actions, columns, UI hooks, split hooks and broad historical-pack
 compatibility remain separately tracked beyond the first rule/fix subset.
+
+## Desktop controls — 2026-10-18
+
+The [desktop workflow](plugin-desktop.md) now selects local manifests from the
+toolbar or native Tools menu, runs checks or previews fixes, and renders bounded
+findings/change pages, scalar settings, effective context, logs and full UTF-8
+text chunks. PluginSession rejects stale transient inputs and late replies;
+DocumentSession alone adopts the accepted result. Failed acceptance replies
+refresh authoritative state; failed refresh locks continuation until explicit
+retry. Existing App modal, native-video occlusion and focus ownership are reused.
+The Rust owner/history and execution limits are unchanged.
+
+Ten focused harness checks pass in both Chromium and WebKit. App integration also
+covers native-menu/toolbar dispatch, draft preservation and focus/occlusion.
+The full60 browser cases,44 frontend tests and501 Rust workspace tests/32 ignored
+pass (11 zero-test harnesses excluded), as do strict/generated-IPC/default-build
+checks. Browser IPC is modeled; no real plugin window/chooser/native playback or
+new full desktop10k acceptance is claimed in this increment. Linux/Windows picker
+branches are implemented but were not run on those platforms in this increment.
+
+Exact commands, with pinned Node24.21.0/npm11.19.0 and Rust1.98.1:
+
+```sh
+npm run ipc:generate
+npm run check
+npm run test:browser -- --grep 'workflow: (plugins|ass-documents)'
+npm run format:check
+npm run lint
+npm test
+npm run build
+npm run test:browser
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run ipc:check
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+Evidence: `test-results/plugin-ui-20261018/`. The first focused browser run retained
+two harness failures caused by querying the Accept button before asynchronous
+rendering; the corrected explicit wait passes. An initial harness import error is
+also retained. Full desktop/native/chooser/10k, historical-host comparison and
+available VM execution remain required. Stage7 stays in progress, ADR0008 Proposed.
 
 ## Desktop owner and typed transport — 2026-10-18
 

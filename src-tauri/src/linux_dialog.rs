@@ -118,6 +118,7 @@ async fn request_file(
     let project = matches!(kind, FileChoice::Project | FileChoice::SaveProject);
     let legacy_project = matches!(kind, FileChoice::LegacyProject);
     let font = matches!(kind, FileChoice::Font);
+    let plugin = matches!(kind, FileChoice::Plugin);
     let conversion = matches!(
         kind,
         FileChoice::ExportSrt | FileChoice::ExportAss | FileChoice::ExportSsa
@@ -132,7 +133,9 @@ async fn request_file(
         FileChoice::QualityPreset | FileChoice::SaveQualityPreset
     );
     let filter = || {
-        if font {
+        if plugin {
+            FileFilter::new("Plugin manifest").glob("*.json")
+        } else if font {
             FileFilter::new("Single fonts").glob("*.ttf").glob("*.otf")
         } else if quality {
             FileFilter::new("VSF quality profile")
@@ -205,6 +208,7 @@ async fn request_file(
         }
         FileChoice::Media
         | FileChoice::Font
+        | FileChoice::Plugin
         | FileChoice::Subtitles
         | FileChoice::Project
         | FileChoice::LegacyProject
@@ -213,7 +217,9 @@ async fn request_file(
             let subtitles = matches!(kind, FileChoice::Subtitles);
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
-                .title(if font {
+                .title(if plugin {
+                    "Choose Subtitle Plugin Manifest"
+                } else if font {
                     "Choose Font Attachment"
                 } else if quality {
                     "Import Quality Profile"
@@ -232,7 +238,7 @@ async fn request_file(
                 .multiple(false)
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?;
-            if subtitles || project || legacy_project || preset || quality || font {
+            if subtitles || project || legacy_project || preset || quality || font || plugin {
                 request = request.filter(filter());
             }
             request.send().await

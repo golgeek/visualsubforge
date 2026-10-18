@@ -2841,6 +2841,7 @@ export const workspaceActions = [
   'settings',
   'timingSettings',
   'resync',
+  'plugins',
   'translationReference',
   'showScenes',
   'scanScenes',

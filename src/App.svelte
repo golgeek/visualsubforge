@@ -8,6 +8,7 @@
   import StyleInspector from './lib/StyleInspector.svelte';
   import FontDialog from './lib/FontDialog.svelte';
   import ConversionDialog from './lib/ConversionDialog.svelte';
+  import PluginDialog from './lib/PluginDialog.svelte';
   import LegacyImportDialog from './lib/LegacyImportDialog.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
@@ -416,6 +417,7 @@
   let stylesOpen = $state(false);
   let fontsOpen = $state(false);
   let conversionOpen = $state(false);
+  let pluginsOpen = $state(false);
   let legacyImportOpen = $state(false);
   let legacyImportReturn: HTMLElement | null = null;
   let authoringReturn: HTMLElement | null = null;
@@ -518,14 +520,18 @@
       if (alive) busy = false;
     }
   }
-  async function openAuthoring(kind: 'styles' | 'fonts' | 'conversion') {
+  async function openAuthoring(
+    kind: 'styles' | 'fonts' | 'conversion' | 'plugins',
+  ) {
     if (
       busy ||
       confirming ||
       !ready ||
-      (kind === 'conversion'
-        ? !doc.loaded || doc.format?.name === 'vtt'
-        : !subtitles.styled) ||
+      (kind === 'plugins'
+        ? !doc.loaded
+        : kind === 'conversion'
+          ? !doc.loaded || doc.format?.name === 'vtt'
+          : !subtitles.styled) ||
       waveformGesture ||
       cueMenu
     )
@@ -543,6 +549,7 @@
         stylesOpen = kind === 'styles';
         fontsOpen = kind === 'fonts';
         conversionOpen = kind === 'conversion';
+        pluginsOpen = kind === 'plugins';
       }
     } catch (e) {
       if (alive) error = String(e);
@@ -551,8 +558,8 @@
     }
   }
   async function closeAuthoring(accepted = false, outputPath?: string) {
-    const kind = fontsOpen ? 'Font' : 'Style';
-    stylesOpen = fontsOpen = conversionOpen = false;
+    const kind = pluginsOpen ? 'Plugin' : fontsOpen ? 'Font' : 'Style';
+    stylesOpen = fontsOpen = conversionOpen = pluginsOpen = false;
     if (outputPath) notice = `Converted subtitles exported to ${outputPath}`;
     if (accepted) {
       notice = `${kind} changes accepted. Undo restores the whole change.`;
@@ -1407,6 +1414,11 @@
   }
   async function run(action: WorkspaceAction, event?: Event) {
     if (busy || confirming || !ready || cueMenu || waveformGesture) return;
+    if (action === 'plugins') {
+      cancelHeldTiming();
+      await openAuthoring('plugins');
+      return;
+    }
     if (action === 'convertSubtitles') {
       cancelHeldTiming();
       await openAuthoring('conversion');
@@ -2353,6 +2365,11 @@
           onclick={() => void openStatistics()}>Statistics…</button
         >
         <button
+          disabled={busy || confirming || !doc.loaded}
+          onclick={() => void openAuthoring('plugins')}
+          >Subtitle plugins…</button
+        >
+        <button
           aria-expanded={problemsOpen}
           onclick={() => {
             problemsOpen = !problemsOpen;
@@ -2899,6 +2916,15 @@
   {#if fontsOpen && doc.format && subtitles.styled}
     <FontDialog
       {subtitles}
+      onclose={() => void closeAuthoring()}
+      onaccepted={() => void closeAuthoring(true)}
+    />
+  {/if}
+  {#if pluginsOpen}
+    <PluginDialog
+      {subtitles}
+      media={() => status}
+      context={() => `${qualityContext}/${sceneState.qualityKey}`}
       onclose={() => void closeAuthoring()}
       onaccepted={() => void closeAuthoring(true)}
     />

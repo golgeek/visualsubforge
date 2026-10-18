@@ -544,6 +544,37 @@ async function run() {
       'WebVTT formatting committed before Apply',
     );
     passed('WebVTT formatting remains a versioned draft until explicit Apply');
+    const pluginButton = button('Subtitle plugins…');
+    pluginButton.focus();
+    pluginButton.click();
+    await until(
+      () =>
+        !!host.querySelector('dialog[open][aria-labelledby="plugin-title"]'),
+    );
+    assert(
+      occluded && button('Run checker').disabled && !!button('Apply cue draft'),
+      'Plugin dialog bypassed draft/modal protection',
+    );
+    button('Close plugins').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        document.activeElement === pluginButton,
+    );
+    assert(
+      !occluded && vttEditor.value.includes('<b>Bonjour</b>'),
+      'Closing plugins lost draft or video/focus restoration',
+    );
+    callbacks.get(eventHandler)!({ payload: 'plugins' });
+    await until(
+      () =>
+        !!host.querySelector('dialog[open][aria-labelledby="plugin-title"]'),
+    );
+    button('Close plugins').click();
+    await until(() => !host.querySelector('dialog[open]') && !occluded);
+    passed(
+      'Plugin toolbar and native-menu actions preserve cue drafts, occlude video and restore focus',
+    );
     heading.textContent = `PASS: all ${output.querySelectorAll('li').length} ASS/SSA/WebVTT editor checks`;
   } catch (error) {
     heading.textContent = `FAIL: ${String(error)}`;

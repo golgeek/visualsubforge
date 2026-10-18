@@ -9,6 +9,8 @@ import {
   textAccept,
   styleAccept,
   fontAccept,
+  pluginAccept,
+  type PluginInput,
   translationAction,
   type TranslationAction,
   type TextTarget,
@@ -41,12 +43,14 @@ const client = {
   textAccept,
   styleAccept,
   fontAccept,
+  pluginAccept,
   translationAction,
 };
 type Client = Omit<
   typeof client,
   | 'styleAccept'
   | 'fontAccept'
+  | 'pluginAccept'
   | 'textAccept'
   | 'sceneRepairAccept'
   | 'durationRepairAccept'
@@ -58,6 +62,7 @@ type Client = Omit<
       typeof client,
       | 'styleAccept'
       | 'fontAccept'
+      | 'pluginAccept'
       | 'textAccept'
       | 'sceneRepairAccept'
       | 'durationRepairAccept'
@@ -227,6 +232,19 @@ export class DocumentSession {
         new Error('Subtitles or the cue draft changed; preview again.'),
       );
     return this.update(() => (this.client.fontAccept ?? fontAccept)(id));
+  }
+  acceptPlugin(
+    id: number,
+    expected: DocumentSnapshot,
+    input: PluginInput,
+  ): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; run the plugin again.'),
+      );
+    return this.update(() =>
+      (this.client.pluginAccept ?? pluginAccept)(id, input),
+    );
   }
   acceptSceneRepair(id: number, expected: DocumentSnapshot): Promise<boolean> {
     if (this.accepted !== expected || this.dirty)

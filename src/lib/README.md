@@ -297,3 +297,14 @@ is retained despite cancellation or a changed document. Closing is disabled duri
 the picker/publication, and unmount cancels an eventual late job ID. Export never
 changes accepted state, saved identity or history. See
 [conversion](../../docs/format-conversion.md) for policies and validation scope.
+
+`PluginDialog`/`PluginSession` keeps explicit package/scope/preferences/settings
+drafts and bounded report projections. Rust's plugin owner retains the proposal.
+The session serializes page/chunk reads, invalidates old epochs, cancels late starts,
+and compares the current accepted snapshot plus transient invocation context.
+`DocumentSession.acceptPlugin` shares the ordinary snapshot/history adoption path.
+A failed acceptance reply triggers an authoritative status refresh, preserving
+drafts if the accepted version is unchanged. Failed refresh locks continuation
+until an explicit retry succeeds. App uses the authoring modal gate, native-video
+occlusion and focus restoration. See [desktop plugins](../../docs/plugin-desktop.md)
+for options, complete-text access and validation boundaries.

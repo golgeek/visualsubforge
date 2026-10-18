@@ -1,8 +1,9 @@
 # Initial plugin API and VSS compatibility
 
 This is the implemented **application-library subset**, with a tested
-[local CLI workflow](plugin-cli.md). The desktop owner/typed transport now exists;
-plugin UI and complete desktop acceptance remain pending. It is not a claim
+[local CLI workflow](plugin-cli.md). The desktop owner/typed transport and
+[review controls](plugin-desktop.md) now exist; complete desktop acceptance
+remains pending. It is not a claim
 of complete VisualSubSync compatibility. The [host guide](plugin-host.md) records
 runtime limits and remaining integration gates; ADR0008 remains proposed.
 
@@ -13,7 +14,7 @@ JavaScript filenames to captured UTF-8 source strings. The library does no IO.
 The separate `plugin_files` application module performs bounded local package IO
 and protected publication for the CLI. The examples under `examples/plugins/` use
 `manifest.json` plus `main.js`. No installed-plugin directory or package installer
-exists yet; the CLI requires an explicitly selected local manifest.
+exists yet; the CLI and desktop require an explicitly selected local manifest.
 
 Manifest version 1 requires `id`, `name`, `api` (`vsf-1` or `vss-1`) and `entry`.
 `requires` and scalar `settings` are optional. IDs use lowercase ASCII letters,

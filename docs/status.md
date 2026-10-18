@@ -47,15 +47,20 @@ tests and eight real-executable tests cover all four formats, changed-input/revi
 refusal, source protection, timeout, live cancellation and helper reaping. Thirty
 fresh-CLI10k workloads pass p95<=333.311ms and sampled combined RSS120,782,848 bytes
 against500ms/192MiB; complete rows, source/output hashes and output reparse are
-verified. All44 frontend tests, strict checks and the default desktop build pass;
-no frontend/native UI behavior changed or was retested. The desktop now has a
+verified. The desktop now has a
 single plugin job owner, bounded typed review/text pages and guarded one-Undo
 acceptance, with nine owner tests and a separate real installed-CLI helper test.
 A desktop self-spawn timeout prompted using the existing sibling CLI without
 relaxing limits; exact evidence is in the [owner record](plugin-host.md#desktop-owner-and-typed-transport--2026-10-18).
-User-facing plugin controls, draft reconciliation, pinned VSS-host parity,
-available VM checks and complete
-desktop/native/recovery 10k acceptance remain required. ADR0008 is proposed.
+The [desktop controls](plugin-desktop.md) now expose package selection, check/fix
+review, settings, full-text chunks and one-Undo acceptance. Ten focused browser
+checks pass in Chromium/WebKit, and App integration covers draft preservation,
+native-menu/toolbar dispatch, video occlusion and focus. Lost acceptance replies
+reconcile accepted state; failed refresh blocks continuation until retry. All60
+browser cases,44 frontend tests,501 workspace Rust tests/32 ignored, strict checks,
+generated IPC and default desktop build pass. These browser tests use modeled IPC.
+Pinned VSS-host parity, available VM checks and real desktop/native/chooser/full10k
+acceptance remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation

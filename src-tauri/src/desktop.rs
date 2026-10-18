@@ -16,6 +16,7 @@ pub enum WorkspaceAction {
     Settings,
     TimingSettings,
     Resync,
+    Plugins,
     TranslationReference,
     ShowScenes,
     ScanScenes,
@@ -148,6 +149,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
     let tools = SubmenuBuilder::new(app, "Tools")
         .text("resync", "Resynchronize Subtitles…")
+        .text("plugins", "Subtitle Plugins…")
         .separator()
         .text("scanScenes", "Scan Scene Changes")
         .text("cancelSceneScan", "Cancel Scene Scan")
@@ -201,6 +203,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
     if let Some(menu) = app.menu() {
         for (id, enabled) in [
             ("resync", state.resync),
+            ("plugins", state.document),
             ("translationReference", true),
             ("settings", true),
             ("timingSettings", true),
@@ -274,6 +277,7 @@ pub enum FileChoice {
     Media,
     Subtitles,
     Font,
+    Plugin,
     SaveSubtitles,
     ExportSrt,
     ExportAss,
@@ -370,6 +374,10 @@ pub async fn choose_file(
                 .set_title("Choose Font Attachment")
                 .add_filter("Single fonts", &["ttf", "otf"])
                 .blocking_pick_file(),
+            FileChoice::Plugin => dialog
+                .set_title("Choose Subtitle Plugin Manifest")
+                .add_filter("Plugin manifest", &["json"])
+                .blocking_pick_file(),
             FileChoice::Subtitles => dialog
                 .set_title("Open Subtitles")
                 .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt"])
@@ -428,6 +436,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "settings",
         "timingSettings",
         "resync",
+        "plugins",
         "translationReference",
         "showScenes",
         "scanScenes",

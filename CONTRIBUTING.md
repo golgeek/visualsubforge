@@ -101,7 +101,8 @@ helper. Normal `tauri dev` builds that CLI before starting Vite, and the desktop
 test script and maintained package workflows already build/include it. For a
 custom Cargo target, target directory or profile, build `vsf-cli` with matching
 flags so the two binaries are siblings. The desktop never searches PATH for a
-plugin runner. User-facing plugin controls are still under implementation.
+plugin runner. See the [desktop plugin workflow](docs/plugin-desktop.md) for
+current controls and remaining acceptance gates.
 
 The optional desktop `--ass` and `--ass-performance` lanes cover full ASS/SSA,
 tagged SRT and exact 10,000-cue format fixtures. The native lane needs the explicit

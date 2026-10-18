@@ -52,6 +52,7 @@ for (const name of [
   'ass-documents',
   'style-authoring',
   'font-authoring',
+  'plugins',
   'conversion',
   'batch-timing',
 ]) {
