@@ -552,4 +552,43 @@ The preceding source commit0a1769b independently passes all ten jobs in
 and all six in [Native39144967483](https://github.com/golgeek/visualsubforge/actions/runs/39144967483).
 Those hosted results predate this test-only correction; its hosted rerun remains
 to be recorded.
+
+## Windows feature package verification — 2026-10-18
+
+[Package39142924874](https://github.com/golgeek/visualsubforge/actions/runs/39142924874)
+atf0dbf68 completes successfully. Installation checks verify967 files, offline
+resync and protected-output/missing-tool behavior, plus three native DLL unload
+cycles. The production GUI smoke passes with normal exit0, Microsoft Basic Render
+Driver software D3D11 and a Scream virtual WASAPI device. No physical GPU/audio,
+interactive-dialog or clean consumer-OS acceptance is claimed.
+
+Independent downloaded-artifact verification checks all five outer hashes,
+937 application-source/notice files,6290 native source-evidence files, all967
+portable files,5950 notice mappings and40 loaded private images. Cargo registry
+archives match the pinned lockfile; all nine dictionary data/source/notice files
+match the application revision. The [dependency review](dependency-review.md#october18-windows-feature-validation-candidate)
+records exact artifact IDs, hashes, source scope and remaining limitations.
+
+The exact packaged x64 CLI additionally passes eight plugin commands in the
+Windows11ARM64 VM under x64 emulation. Modern and VSS check each report one
+finding; preview/apply remove only two trailing spaces from one fansub-SRT cue.
+Both refuse an existing output and preserve source/package hashes. This is a
+portable CLI check, separate from the hosted installer and GUI checks.
+
+Reproduction and receipts are retained under `test-results/native-reliability-20261018/`:
+
+```sh
+gh run download 39142924874 -n windows-preview-x64 -D test-results/native-reliability-20261018/windows-package-f0db
+gh run download 39142924874 -n windows-package-evidence-x64 -D test-results/native-reliability-20261018/windows-package-f0db-evidence
+python3 test-results/native-reliability-20261018/audit-windows-package.py
+```
+
+The plugin dispatch receipt records the host share, guest script and exact
+`prlctl exec` command; `windows-package-plugin-check.py` stages fresh inputs in
+the guest's temporary directory and records all eight executable calls/results.
+No Linux VM root space, installation, system settings or legacy files are changed.
+The manual acceptance guide now links both Windows/Linux feature candidates;
+its extended fixture collector and separate physical-device gate remain applicable.
+Historical-host comparison, retained audio defects, native held-gesture and
+resource-lifetime acceptance remain open. Stage8 and the umbrella goal stay active.
 No Linux VM root-space install/build or production audio-option change occurred.

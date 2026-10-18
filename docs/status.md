@@ -35,7 +35,11 @@ forward/backward/final-page checks and late-poll controls now pass locally; see
 the [diagnosis and validation](native-reliability.md#statistics-paging-test-correction--2026-10-18).
 The f0dbf68 Ubuntu24.04 x64 package passes
 isolated installation/offline CLI and software-renderer/null-sink native checks;
-downloaded runtime/source/notice identities verify. Windows packaging is running.
+downloaded runtime/source/notice identities verify. The matching Windows x64
+package also passes installed/offline CLI, three DLL unload cycles and production
+GUI startup/teardown with software D3D11 and virtual WASAPI. Its downloaded
+source/notice identities and packaged modern/VSS CLI on the Windows ARM64 VM
+verify; the [acceptance guide](preview-acceptance.md) now links both feature builds.
 Linux Pulse interpolation-option content/re-entry/EOF checks add bounded passes,
 while the default capture has an incomplete beginning; production configuration
 is unchanged. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,

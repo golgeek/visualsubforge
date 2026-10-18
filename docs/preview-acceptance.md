@@ -1,7 +1,7 @@
 # Preview candidate manual acceptance
 
-The Ubuntu24.04 x64 candidate below is updated to f0dbf68 on October18 and
-includes the feature milestones. The Mac and Windows downloads in the table
+The Windows x64 and Ubuntu24.04 x64 candidates below are updated to f0dbf68 on
+October18 and include the feature milestones. The Mac downloads in the table
 remain October12 baselines. Use an identified build containing the milestones
 for the extended feature checks below. Their fixture pack must contain `subtitles/`, `plugins/` and
 `legacy.vssprj`; earlier fixture archives do not contain them. Record the fixture
@@ -22,15 +22,15 @@ includes it. Installation/playback
 acceptance is still open. Do not infer support from a successful CI build.
 
 The following candidates have audited source inventories. Windows and Ubuntu
-artifacts include their source archives; the Windows download is about 6.6 GB,
-although its installer is only about 25 MiB. Actions artifacts have limited
+artifacts include their source archives; the Windows download is about 6.0 GB,
+although its installer is only about 29 MiB. Actions artifacts have limited
 retention; preserve the candidate, matching sources and checksums together.
 
 | Target | Candidate download | Source archives |
 | --- | --- | --- |
 | Apple Silicon, macOS 14+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38334674579/artifacts/11784371040) | [Matching ARM inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11782814984) |
 | Intel, macOS 15+ build floor | [Signed/notarized app](https://github.com/golgeek/visualsubforge/actions/runs/38335057462/artifacts/11784079472) | [Matching Intel inventory/sources](https://github.com/golgeek/visualsubforge/actions/runs/38331848710/artifacts/11783364443) |
-| Windows x64 | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/38227273736/artifacts/11738654119) | Included in the same artifact |
+| Windows x64, f0dbf68 (October18) | [Unsigned installer and portable ZIP](https://github.com/golgeek/visualsubforge/actions/runs/39142924874/artifacts/12143876134) | Included in the same artifact |
 | Ubuntu 24.04 x64, f0dbf68 (October18) | [Debian package](https://github.com/golgeek/visualsubforge/actions/runs/39142923333/artifacts/12143295022) | Included in the same artifact |
 
 Use the shared [fixtures](https://github.com/golgeek/visualsubforge/actions/runs/38208853449/artifacts/11729128569).
