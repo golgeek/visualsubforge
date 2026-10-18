@@ -498,3 +498,22 @@ pauses selected captures for up to60s. Inspect and save the actual native window
 then write `capture-ack.json` with the requested `label`; WebView screenshots omit
 the native video sibling. The separate normal-build chooser trial and remaining
 desktop10k/historical-host/platform gates are recorded in the plugin guide.
+
+`--plugin-performance` exercises the five exact plugin API/CLI10k inputs (dense
+tagged SRT, ASS, SSA, styled and timed WebVTT), each with both APIs. Generate ASS/SSA
+and WebVTT inputs using `scripts/ass-fixtures.py` and `scripts/webvtt-fixtures.py`.
+The runner verifies hashes, all200 finding pages and all200 change pages, then
+five complete check/fix/accept/Undo/Redo/save cycles per combination. Non-WebVTT
+fixes combine a10ms shift with text edits; WebVTT fixes retain embedded absolute
+timestamps. Exact bytes/cues/format properties, source protection, failed saves,
+full reopen, cancellation/stale rejection and durable crash recovery are checked.
+
+Run this lane by itself against the isolated bundle and sibling CLI above, with
+the same explicit private runtime. `plugin-performance.json` records timings,
+hashes and owned app/direct-helper RSS samples (Unix `ps`,50ms intervals). All
+measured ordinary interactions must stay below1000ms. Complete asynchronous
+check/fix preparation must stay below10000ms; start feedback remains below1000ms
+and the helper's1000ms execution deadline is unchanged. RSS is descriptive and
+excludes WebKit/native subprocesses; the separate500ms p95/192MiB API/CLI gates
+are unchanged. This lane loads no media. `VSF_PLUGIN_PERFORMANCE_WORKLOADS=dense`
+selects a diagnostic subset; it cannot replace the complete ten-combination run.

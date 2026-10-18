@@ -2,8 +2,9 @@
 
 Stage7 remains in progress. The desktop controls compose the bounded Rust owner
 and helper. Eight actual Mac format/API workflows and a separate real macOS
-chooser workflow pass. Full desktop10k, historical-host comparison and available
-Windows/Linux execution remain required; ADR0008 is still Proposed.
+chooser workflow pass, along with ten complete desktop10k workloads. Historical-
+host comparison and available Windows/Linux execution remain required; ADR0008
+is still Proposed.
 
 ## Workflow
 
@@ -155,6 +156,74 @@ scene analysis was still changing context, so stale protection invalidated it.
 The harness now waits for completed scene context and a settled paused cursor.
 `desktop-cTi2cM` passed cancellation/error controls, then hit an incorrect singular
 DOM selector for two review articles. The assertion now checks both rows. No
-product guard, execution deadline or fixture content was relaxed. Full desktop
-scale and historical/platform acceptance remain open; these runs do not establish
-physical Windows/Linux GPU/audio or release readiness.
+product guard, execution deadline or fixture content was relaxed. Native workflow
+evidence alone does not establish desktop scale or historical/platform acceptance;
+see the scale results below. Physical Windows/Linux GPU/audio and release readiness
+remain separate gates.
+
+## Complete desktop10k workflows — 2026-10-18
+
+The full `--plugin-performance` lane passes both APIs on the five hash-pinned
+plugin API/CLI fixtures: dense tagged SRT, ASS, SSA, styled WebVTT and timed WebVTT.
+Every combination visits all200 finding pages and200 change pages, checking each
+cue identity, raw before/after text and timing. Five complete checker/fix/accept/
+Undo/Redo/save cycles verify the full read-only snapshot, every accepted cue and
+format property, exact output bytes, failed-save preservation and unchanged source.
+Non-WebVTT fixes combine text edits with a10ms shift; WebVTT fixes preserve embedded
+absolute timestamps. Full reopen, cancellation/stale rejection and durable crash
+recovery pass. Recovered state requires Save As and has no restored Undo history.
+The run ends with normal code0 shutdown. No media is loaded in this scale lane.
+
+Budgets were recorded before measurement: all ordinary measured interactions and
+start feedback below1000ms; complete asynchronous check/fix preparation below10s.
+The helper's1000ms deadline, pure/API/CLI500ms p95/192MiB gates, fixtures and cycle
+counts are unchanged. Results are maxima, not p95 values:
+
+| Fixture | Modern interaction / preparation ms | VSS interaction / preparation ms |
+| --- | ---: | ---: |
+| Dense tagged SRT | 708 / 1034 | 707 / 1026 |
+| ASS | 371 / 985 | 419 / 1304 |
+| SSA | 379 / 984 | 374 / 1159 |
+| Styled WebVTT | 413 / 1410 | 418 / 1554 |
+| Timed WebVTT | 386 / 1079 | 384 / 1422 |
+
+Across4000 review pages and50 ordinary cycles, the largest interaction is708ms
+and largest complete preparation1554ms. Unix `ps` sampling records4955 samples,
+699 observing a direct helper, and never observes multiple admitted helpers.
+Peak combined app/direct-helper RSS is350,912,512 bytes (334.65625MiB). This is a
+descriptive desktop measurement including accepted state/history and excludes
+WebKit/native subprocesses; it is not the separate pure/API/CLI memory budget or
+a hard memory cap. Sampling may miss transient peaks.
+
+Reproduce with the same pinned tools, isolated app/CLI hashes and private runtime
+as the native workflow above, after generating the established fixtures:
+
+```sh
+python3 scripts/ass-fixtures.py
+python3 scripts/webvtt-fixtures.py
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs --plugin-performance \
+  --binary "$PWD/test-results/plugin-native-20261018/VisualSubForgePlugins.app/Contents/MacOS/visualsubforge"
+node --check tests/desktop/plugin-performance.mjs
+npm run format:check
+npm run lint
+git diff --check
+```
+
+The final complete pass is `test-results/desktop-Eo4kNB/plugin-performance.json`,
+with normal shutdown in its `receipt.json`; the log and compact summary are
+`test-results/plugin-native-20261018/scale-final.log` and `scale-final-summary.json`.
+All individual timings, per-phase RSS, source/output/recovery hashes and checkpoint
+sizes remain in the full report. Node syntax, Prettier, ESLint and diff checks pass.
+These changes affect only tests/docs; the501 Rust/44 frontend/60 browser baseline
+from the controls increment remains separate evidence rather than a claimed rerun.
+
+The first full attempt, `desktop-ZXnKqr`, passed eight combinations but failed its
+timed-WebVTT expected-byte assertion. That fixture deliberately mixesCR/LF/CRLF;
+the initial independent oracle assumed one newline style. Removing only the10000
+appended markers from the actual saved file restores the source byte-for-byte,
+including every mixed separator. `scale-first-oracle-diagnosis.json` records that
+proof. The corrected oracle retains each separator and requires exactly10000
+payload changes; the final run repeats all ten combinations. No product code,
+execution limit or input was changed to pass. Historical-host and available
+Windows/Linux checks still keep stage7 and ADR0008 open.

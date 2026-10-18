@@ -66,8 +66,14 @@ Separate native observations and a non-WebDriver real macOS chooser trial pass,
 including a reviewed VSS neighbor edit outside selection, exact separate-file
 save and normal code0 shutdown. Existing WebVTT preview limits remain. See the
 [native/chooser evidence](plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
-Pinned VSS-host parity, available VM checks and full desktop10k acceptance remain
-required. ADR0008 is proposed.
+Ten complete desktop10k workloads also pass: both APIs across five formats/markup
+fixtures, all4000 UI review pages and50 check/fix/history/save cycles, exact reopen,
+cancellation/stale rejection and durable crash recovery. Maximum measured
+interaction708ms; asynchronous preparation1554ms, with the unchanged1000ms helper
+limit. Sampled app+helper RSS peaks at350,912,512 bytes; this excludes WebKit and is
+descriptive, separate from pure/API/CLI memory gates. The mixed-newline expected-
+byte oracle failure and final full rerun are retained in the desktop guide.
+Pinned VSS-host parity and available VM checks remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation

@@ -5,8 +5,8 @@ Stage7 is in progress. The bounded worker in `crates/plugin-host`, pure
 [local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
 The desktop job owner, typed commands and [review controls](plugin-desktop.md) are
 implemented and tested. Actual Mac format/history/recovery and real chooser
-workflows pass; desktop10k, historical-host and available platform acceptance
-remain required. ADR0008 is still proposed.
+workflows and ten complete desktop10k workloads pass; historical-host and available
+platform acceptance remain required. ADR0008 is still proposed.
 
 ## Candidate execution boundary
 
@@ -103,9 +103,6 @@ Required before stage7/ADR0008 acceptance:
   settings, neighbor/scene semantics and Rust proposal/history validation now have
   real-helper tests; the owner and actual Mac workflows now add lifetime evidence.
   Unresolved-license scripts are tested locally and are not redistributed.
-- Final desktop10k behavior/performance and races with real APIs, complete document
-  history/save/recovery and bounded pages. Pure API/CLI10k and native functional
-  workflows have passed; they do not replace this full desktop scale gate.
 - Available Windows/Linux VM/CI validation. Bindings
   present in a crate are not successful platform builds or execution evidence.
 
@@ -121,8 +118,13 @@ Unicode paths, draft protection/cancellation, invalid manifests, outside-scope
 neighbor review, atomic Undo/Redo and exact separate-file save. Both finish with
 normal code0 shutdown. Native window observations preserve known preview limits.
 See the [exact commands, artifact identities, retained failures and scope](plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
-Desktop10k, pinned historical-host comparison and available platform execution
-remain required; no additional product owner or dependency changes in this step.
+The subsequent ten complete desktop10k workloads pass full review paging, five
+check/fix/history/save cycles per combination, reopen, cancellation/stale guards
+and crash recovery. Maximum ordinary interaction708ms and preparation1554ms meet
+the unchanged declared budgets. The [desktop evidence](plugin-desktop.md#complete-desktop10k-workflows--2026-10-18)
+records all timings, RSS scope and the retained mixed-newline oracle failure.
+Pinned historical-host comparison and available platform execution remain required;
+no product owner, dependency or execution-limit changes in these validation steps.
 
 ## Desktop controls — 2026-10-18
 

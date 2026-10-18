@@ -163,8 +163,11 @@ plugin-host tests/examples also compose those boundaries. The desktop now owns
 one plugin worker/no queue and private validated proposals, with tested admission,
 paging, revision/context guards, single Undo and existing save/recovery integration.
 Package verification reserves acceptance off-lock; media→scene→document checks
-protect final commit. Frontend review/draft reconciliation and full native/browser/
-10k/recovery workflows remain required; owner tests do not close those gates.
+protect final commit. Frontend review/draft reconciliation, browser races and
+actual Mac format/history/save/recovery/chooser workflows now pass their recorded
+checks; ten complete desktop10k workloads now add full review/history/persistence
+and race coverage. See the [desktop guide](plugin-desktop.md). Historical/platform
+acceptance remains required; owner tests alone do not close those gates.
 
 ## Provenance and validation scope
 
