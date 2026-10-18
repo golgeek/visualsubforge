@@ -25,6 +25,16 @@ native reliability work is now in progress.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
+**Latest reliability checkpoint (2026-10-18):** all six hosted native build-contract
+jobs pass at71cf014. The application workflow still has Windows x64 plugin
+rejection-test failures and a WebKit statistics paging failure under investigation.
+Linux Pulse interpolation-option content/re-entry/EOF checks add bounded passes,
+while the default capture has an incomplete beginning; production configuration
+is unchanged. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
+separate save and normal quit pass. Held-pointer cancellation, dialog lifetime,
+historical VSS-host comparison and distribution/physical gates remain open.
+See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).
+
 **Plugin stage7 in progress (2026-10-18):** a separate worker crate pins
 rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
 stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten

@@ -363,7 +363,7 @@ try {
   await until(() => host.textContent?.includes('101–200 of 205') ?? false);
   assert(
     host.querySelectorAll('.finding').length === 100,
-    'Second page not bounded',
+    `Second page not bounded: ${host.querySelectorAll('.finding').length} rendered rows; ${host.querySelector('[aria-label="Statistics pages"]')?.textContent}`,
   );
   await close();
   passed(

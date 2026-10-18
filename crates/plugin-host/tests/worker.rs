@@ -46,13 +46,15 @@ fn result_transport_preserves_json_values_and_rejects_excessive_nesting() {
     assert_eq!(execute("return input;", input.clone()).unwrap(), input);
     // JSON text forwarding must not bypass the parent's normal parser depth
     // limit or turn an invalid reply into an accepted result.
-    assert!(matches!(
-        execute(
-            "let value = 1; for (let i=0; i<160; ++i) value=[value]; return value;",
-            Value::Null,
-        ),
-        Err(Failure::Protocol(_))
-    ));
+    let result = execute(
+        "let value = 1; for (let i=0; i<160; ++i) value=[value]; return value;",
+        Value::Null,
+    );
+    assert!(
+        matches!(result, Err(Failure::Protocol(_))),
+        "Expected a nesting protocol rejection; actual error: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -169,10 +171,12 @@ fn recursion_and_allocations_are_bounded_and_worker_remains_reusable() {
 fn oversized_javascript_result_is_refused() {
     let mut request = Request::new("return 'x'.repeat(33*1024*1024);", Value::Null);
     request.limits.heap_bytes = 128 * 1024 * 1024;
-    assert!(matches!(
-        run(worker(), &[], &request, &AtomicBool::new(false)),
-        Err(Failure::Protocol(_))
-    ));
+    let result = run(worker(), &[], &request, &AtomicBool::new(false));
+    assert!(
+        matches!(result, Err(Failure::Protocol(_))),
+        "Expected a size protocol rejection; actual error: {:?}",
+        result.err()
+    );
 }
 
 #[test]

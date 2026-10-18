@@ -342,3 +342,66 @@ player identities are absent; no player remains for either owned tmpfs workload.
 Captured sink-input/source-output cleanup is recorded. Original portal failure
 and default-Pulse failures remain evidence, not passing results. Physical Linux,
 Windows output, native gesture/lifetime and distribution gates remain open.
+
+## Linux Pulse content extension — 2026-10-18
+
+The same executable and two deterministic four-second stereo48kHz fixtures now
+have process-specific Pulse captures. With `--pulse-latency-hacks=no`, ordinary
+playback, the1.013–1.336s loop and a complete replacement-source suffix pass the
+unchanged fractional fingerprint checks in both channels. The ordinary default
+control fails: its first matched source frame is2048, so the captured beginning
+is incomplete. Monitor startup and cold/warm ordering remain confounded; this
+does not establish lost physical output or a causal option fix. The replacement
+check covers the new source, not the old/new join or transition latency. Capture
+timestamps identify monitor receipt, not presentation.
+
+All three outside-range seek/re-entry cases pass with the option. The first EOF
+attempt omitted `audio-eof-observer.lua` from local staging; the retained logs
+explicitly report that missing script. After copying that unchanged observer,
+all six ordinary/pause/seek/reload EOF cases pass. These are setup failures and a
+corrected rerun, not a repaired player. Sustained mixed-rate checks and actual
+Linux editor integration remain pending; the staging protocol's proposed mixed-
+rate check was not executed. Production runtime/configuration is unchanged.
+
+The reproduction is `run-linux-pulse-content.py`, followed by
+`analyze-linux-pulse-content.py HOST_STAGING` with bundled Python/NumPy. The index,
+analysis and corrected EOF logs are under
+`test-results/native-reliability-20261018/linux-pulse-*`; source/captures, commands,
+original failures and `content-analysis.json` are in host staging
+`Downloads/VisualSubForge-native-audio-k6f2faxo/pulse-content-v1/`.
+The final receipt verifies77 exported artifacts (10,489,789bytes), all four capture
+player PIDs absent and no owned player/recorder remaining. Root retains
+642,576,384bytes free; temporary guest outputs remain in tmpfs. No Linux install
+or rebuild was performed.
+
+## Native Mac pointer and keyboard check — 2026-10-18
+
+The identified2c431dab... app with fd572d9e... libmpv opened an isolated three-cue
+SRT and four-second WAV. Actual native input dragged the first end handle from
+1.000s to1.221s and released below the waveform. One Undo restored1.000s and the
+saved state with Undo disabled; Redo restored1.221s. Native Save As produced an
+exact separate-file result. Focusing that boundary and pressing Right moved it
+10ms; one Undo restored the saved result. Command-Q exited0, its PID is absent,
+and source subtitle/media hashes remain unchanged.
+
+The receipt is `test-results/native-reliability-20261018/mac-native-gesture-v1/verified-result.json`;
+the accessibility/screenshot observations are retained in the conversation.
+File selections were supplied to the isolated test app. This establishes native
+pointer release outside the canvas and keyboard/history/save behavior; it does
+not establish held-pointer Escape, focus-loss cancellation, native chooser
+parenting or physical-platform acceptance.
+
+## Hosted checks checkpoint — 2026-10-18
+
+Commit71cf014 passes all six jobs in
+[Native build contracts39141646095](https://github.com/golgeek/visualsubforge/actions/runs/39141646095),
+including three pinned mpv build/upstream-test variants and three platform
+adapter compilation jobs. Compilation is not runtime acceptance.
+[Checks39141646080](https://github.com/golgeek/visualsubforge/actions/runs/39141646080)
+has retained failures: Windows x64 expects a Protocol error for oversized/deep
+plugin results, and WebKit reports an incorrect second statistics page count.
+These did not reproduce in the Windows ARM64 direct worker probe or ten local
+WebKit statistics runs. Eleven local worker tests pass. Assertions now report
+the actual rejection error and rendered count without changing their criteria;
+hosted diagnosis is pending. Original logs and browser trace are retained under
+`test-results/native-reliability-20261018/ci-*`.
