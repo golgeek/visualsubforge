@@ -709,3 +709,78 @@ recorded editor/driver/recorder PIDs absent. This is an owned-process check, not
 a census of system helpers. Root free space is642351104bytes. The final harness
 passes pinned Prettier/ESLint/Node syntax and diff checks; all original failures
 and test-input snapshots remain available.
+
+## Pulse delay diagnosis and proposed maintenance scope — 2026-10-18
+
+An isolated C interposer logs the existing Pulse latency/cork/flush calls and
+cached timing metadata. It forwards the original arguments and return values,
+never changes options/timestamps, and adds no production patch. The actual
+candidate binary hash remains898a311a… from the preceding record. The interposer
+build passes `cc -shared -fPIC -std=c11 -Wall -Wextra -Werror` with the existing
+libpulse headers/libraries; no package installation occurs. Exact source,
+build receipt, runtime/file hashes and three raw runs are retained under shared
+`VisualSubForge-linux-native-sis0_t4d/pulse-delay-*`; the source/driver/dispatch
+are also in `test-results/native-reliability-20261018`.
+
+One uninstrumented interpolated Pulse control ends at3.896492s for the4s source.
+Two logging-only runs end at3.879322s and3.901475s. Their libpulse delay estimates
+freeze at120678us and98525us respectively, exactly accounting for each deficit.
+Both estimates persist to the end of the5s probe after timing reports playing0
+and equal read/write indices. Each retains791/792 complete trace records.
+The cached sink latency is85333us; these observations do not measure DAC output
+or prove that a server-buffer underrun means the device has drained. The earlier
+independent past-B capture covers the complete source suffix, but no new complete
+editor/content pass follows from these traces.
+
+Source inspection ties the result to `ao_pulse.c`'s delay estimate plus its
+underflow/reset path and `player/playloop.c`'s final audio position. The existing
+interpolation option still keeps `PA_STREAM_NOT_MONOTONIC`; its earlier passes
+are not the result of removing that flag. Pulse documents interpolation as an
+estimate and allows nonmonotonic corrections; see the [official stream flags](https://www.freedesktop.org/software/pulseaudio/doxygen/def_8h.html).
+A monotonic clamp, forced duration endpoint or elapsed-time substitute would not
+establish correct output timing and is not proposed.
+
+**Proposed additional scope, awaiting the user's maintenance decision:** allow
+repairs for two distinct Linux Pulse behaviors: backward live-clock steps in the
+default delay path, and stale EOF delay with the existing interpolation option.
+Keep the current mpv engine, queued-source mapper and native boundary. First
+separate client interpolation, server timing and mpv lifecycle causes; only carry
+a narrowly explained backend/lifecycle correction if evidence supports it.
+This proposal authorizes no second scheduler, new media engine, global audio
+settings, guessed clock offset, relaxed tolerance or unverified default change.
+
+Before adoption, require pinned source/patch identity, meaningful upstream tests,
+the unchanged clock and content controls, actual editor loop/paused-seek/clear/
+replacement/EOF and shutdown checks, and affected cross-platform regressions.
+Preserve both original failures, retain a rollback to the current runtime, and
+update the patch footprint and package/source inventories. Physical presentation
+remains a separately named gate. Stop and report if the correction cannot stay
+within this scope; do not reinterpret fewer failures as acceptance.
+
+The explicit additional-scope decision is required by local decision0007's
+maintenance boundary: a fourth functional dependency issue returns to the user
+with evidence and a revised maintenance case. The existing three additions cover
+CoreAudio continuation, stretched EOF availability and queued-EOF pause/resume;
+they do not authorize arbitrary Pulse delay changes. No additional functional
+dependency change has been made here.
+
+### Standalone policy harness follow-up
+
+The paused-cursor product correction also requires the standalone fake client to
+provide `seeking()`. Cargo's508-test pass does not compile this separate harness;
+its missing method reproduces rustcE0599. The fake now mirrors the existing native
+method, and a new test calls the actual `position()` policy to require a settled
+pause, reject in-flight seek/live fallback and preserve available audio PTS.
+All nine standalone tests pass with:
+
+```sh
+rustc --edition=2024 --test --cfg 'feature="media-prototype"' tests/native/media-transport-test.rs -o /tmp/vsf-transport-07260fa-corrected
+/tmp/vsf-transport-07260fa-corrected
+```
+
+Removing only the `!player.seeking()` guard in a separate temporary source copy
+makes that new boundary test fail. Production source is unchanged by the control.
+The original compile error, successful nine-test log and negative-control receipt
+remain in `paused-cursor-native-harness-*` and
+`vsf-paused-guard-negative-66335cy1`. Rustfmt and diff checks pass. The actual Mac
+workspace and Linux native results from the preceding checkpoint remain separate.
