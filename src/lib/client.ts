@@ -52,6 +52,23 @@ export async function statisticsCancel(id: number): Promise<void> {
   await commands.statisticsCancel(id);
 }
 
+export type StyleForm = Awaited<ReturnType<typeof commands.styleForm>>;
+export type StyleReview = Awaited<ReturnType<typeof commands.styleView>>;
+export type StyleOperation = Parameters<typeof commands.styleStart>[2];
+export const styleForm = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  name: string | null,
+) => commands.styleForm(document.generation, document.revision, name);
+export const styleStart = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  operation: StyleOperation,
+) => commands.styleStart(document.generation, document.revision, operation);
+export const styleView = (id: number) => commands.styleView(id);
+export async function styleCancel(id: number): Promise<void> {
+  await commands.styleCancel(id);
+}
+export const styleAccept = (id: number) => commands.styleAccept(id);
+
 export type TextView = Awaited<ReturnType<typeof commands.textView>>;
 export type TextOperation = Parameters<typeof commands.textStart>[2];
 export type TextTarget = Parameters<typeof commands.textAccept>[1];

@@ -18,6 +18,8 @@ import type {
   BatchTimingView,
   StatisticsView,
   TextView,
+  StyleForm,
+  StyleReview,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -253,6 +255,294 @@ export const recovery = {
   ],
   error: null,
 } satisfies RecoveryStatus;
+export const styleForm = {
+  fields: [
+    {
+      editable: true,
+      name: 'Name',
+      value: 'Title',
+    },
+    {
+      editable: true,
+      name: 'Fontname',
+      value: 'sans-serif',
+    },
+    {
+      editable: true,
+      name: 'Fontsize',
+      value: '36',
+    },
+    {
+      editable: true,
+      name: 'PrimaryColour',
+      value: '&H000000FF',
+    },
+    {
+      editable: true,
+      name: 'SecondaryColour',
+      value: '&H000000FF',
+    },
+    {
+      editable: true,
+      name: 'OutlineColour',
+      value: '&H00000000',
+    },
+    {
+      editable: true,
+      name: 'BackColour',
+      value: '&H00000000',
+    },
+    {
+      editable: true,
+      name: 'Bold',
+      value: '-1',
+    },
+    {
+      editable: true,
+      name: 'Italic',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Underline',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'StrikeOut',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'ScaleX',
+      value: '100',
+    },
+    {
+      editable: true,
+      name: 'ScaleY',
+      value: '100',
+    },
+    {
+      editable: true,
+      name: 'Spacing',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Angle',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'BorderStyle',
+      value: '1',
+    },
+    {
+      editable: true,
+      name: 'Outline',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Shadow',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Alignment',
+      value: '8',
+    },
+    {
+      editable: true,
+      name: 'MarginL',
+      value: '10',
+    },
+    {
+      editable: true,
+      name: 'MarginR',
+      value: '10',
+    },
+    {
+      editable: true,
+      name: 'MarginV',
+      value: '25',
+    },
+    {
+      editable: true,
+      name: 'Encoding',
+      value: '1',
+    },
+  ],
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+} satisfies StyleForm;
+export const styleDefaults = {
+  fields: [
+    {
+      editable: true,
+      name: 'Name',
+      value: 'Default',
+    },
+    {
+      editable: true,
+      name: 'Fontname',
+      value: 'sans-serif',
+    },
+    {
+      editable: true,
+      name: 'Fontsize',
+      value: '24',
+    },
+    {
+      editable: true,
+      name: 'PrimaryColour',
+      value: '&H00FFFFFF',
+    },
+    {
+      editable: true,
+      name: 'SecondaryColour',
+      value: '&H000000FF',
+    },
+    {
+      editable: true,
+      name: 'OutlineColour',
+      value: '&H00000000',
+    },
+    {
+      editable: true,
+      name: 'BackColour',
+      value: '&H00000000',
+    },
+    {
+      editable: true,
+      name: 'Bold',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Italic',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Underline',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'StrikeOut',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'ScaleX',
+      value: '100',
+    },
+    {
+      editable: true,
+      name: 'ScaleY',
+      value: '100',
+    },
+    {
+      editable: true,
+      name: 'Spacing',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Angle',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'BorderStyle',
+      value: '1',
+    },
+    {
+      editable: true,
+      name: 'Outline',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Shadow',
+      value: '0',
+    },
+    {
+      editable: true,
+      name: 'Alignment',
+      value: '2',
+    },
+    {
+      editable: true,
+      name: 'MarginL',
+      value: '10',
+    },
+    {
+      editable: true,
+      name: 'MarginR',
+      value: '10',
+    },
+    {
+      editable: true,
+      name: 'MarginV',
+      value: '15',
+    },
+    {
+      editable: true,
+      name: 'Encoding',
+      value: '1',
+    },
+  ],
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+} satisfies StyleForm;
+export const styleReview = {
+  changed: true,
+  error: null,
+  id: 1,
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+  operation: {
+    fields: [
+      {
+        name: 'Fontsize',
+        value: '42',
+      },
+    ],
+    kind: 'edit',
+    name: 'Title',
+  },
+  phase: 'reviewing',
+  summary: {
+    affectedCues: 1,
+    changedComments: 0,
+    changedCues: 0,
+    created: false,
+    fields: [
+      {
+        after: '42',
+        before: '36',
+        name: 'Fontsize',
+      },
+    ],
+    name: 'Title',
+    oldName: 'Title',
+    referenceReviewCues: 0,
+  },
+} satisfies StyleReview;
 export const statisticsView = {
   error: null,
   findings: [

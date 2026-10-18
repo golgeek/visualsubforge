@@ -157,6 +157,27 @@ export const commands = {
       'duration_repair_accept',
       { id },
     ),
+  styleForm: (generation: number, revision: number, name: string | null) =>
+    __TAURI_INVOKE<visualsubforge_style_review_StyleForm>('style_form', {
+      generation,
+      revision,
+      name,
+    }),
+  styleStart: (
+    generation: number,
+    revision: number,
+    operation: vsf_application_authoring_styles_StyleOperation,
+  ) =>
+    __TAURI_INVOKE<number>('style_start', { generation, revision, operation }),
+  styleView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_style_review_StyleReview>('style_view', {
+      id,
+    }),
+  styleCancel: (id: number) => __TAURI_INVOKE<null>('style_cancel', { id }),
+  styleAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('style_accept', {
+      id,
+    }),
   textStart: (
     generation: number,
     revision: number,
@@ -1880,6 +1901,62 @@ export type visualsubforge_media_Status_Serialize = {
   subtitleFontDiagnostics: string[];
   previewDocumentGeneration: number | null;
   previewDocumentRevision: number | null;
+};
+
+export type vsf_application_authoring_styles_StyleFieldChange = {
+  name: string;
+  before: string | null;
+  after: string;
+};
+
+export type vsf_application_authoring_styles_StyleFieldValue = {
+  name: string;
+  value: string;
+};
+
+export type visualsubforge_style_review_StyleForm = {
+  key: visualsubforge_quality_check_Key;
+  fields: visualsubforge_style_review_StyleFormField[];
+};
+
+export type visualsubforge_style_review_StyleFormField = {
+  name: string;
+  value: string;
+  editable: boolean;
+};
+
+export type vsf_application_authoring_styles_StyleOperation =
+  | {
+      kind: 'create';
+      name: string;
+      copyFrom: string | null;
+      fields: vsf_application_authoring_styles_StyleFieldValue[];
+    }
+  | {
+      kind: 'edit';
+      name: string;
+      fields: vsf_application_authoring_styles_StyleFieldValue[];
+    };
+
+export type visualsubforge_style_review_StyleReview = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  operation: vsf_application_authoring_styles_StyleOperation;
+  summary: vsf_application_authoring_styles_StyleSummary | null;
+  changed: boolean;
+  error: string | null;
+};
+
+export type vsf_application_authoring_styles_StyleSummary = {
+  created: boolean;
+  oldName: string | null;
+  name: string;
+  fields: vsf_application_authoring_styles_StyleFieldChange[];
+  changedCues: number;
+  changedComments: number;
+  affectedCues: number;
+  referenceReviewCues: number;
 };
 
 export type visualsubforge_document_StyleView = {

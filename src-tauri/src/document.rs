@@ -17,6 +17,8 @@ mod statistics;
 pub(crate) use statistics::ipc_sample as statistics_ipc_sample;
 mod gaps;
 mod texts;
+#[cfg(test)]
+pub(crate) use texts::style_ipc_samples;
 mod timing_repairs;
 #[cfg(test)]
 pub(crate) use checks::ipc_sample as quality_ipc_sample;

@@ -15,9 +15,11 @@ The editor provides:
 
 - UTF-8 SRT and loss-preserving ASS/SSA text/timing edits, cue operations and undo/redo.
   Rust owns accepted state; unapplied frontend drafts remain separate.
-- ASS/SSA style inspection and cue assignment, original script/style/event metadata,
+- Reviewed ASS/SSA style creation/copy/editing, inspection and cue assignment,
+  original script/style/event metadata,
   same-format save, projects and recovery. Unsafe structural/text/timing operations
-  are explained or refused. Fansub SRT containing ASS/SSA tags remains supported.
+  are explained or refused. [Style authoring](docs/style-authoring.md) records
+  reference safety and remaining attachment/conversion work. Fansub SRT containing ASS/SSA tags remains supported.
 - Atomic subtitle saves, conflict protection between VSF instances and accepted-state
   recovery snapshots. Recovery requires Save As and does not restore drafts or
   undo history.

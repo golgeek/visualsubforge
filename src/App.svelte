@@ -533,8 +533,12 @@
       if (alive) busy = false;
     }
   }
-  async function closeStyles() {
+  async function closeStyles(accepted = false) {
     stylesOpen = false;
+    if (accepted) {
+      notice = 'Style changes accepted. Undo restores the whole change.';
+      quality.restart();
+    }
     try {
       await tick();
       if (!alive) return;
@@ -2635,9 +2639,10 @@
   {/if}
   {#if stylesOpen && doc.format}
     <StyleInspector
-      format={doc.format}
+      {subtitles}
       initial={subtitles.style}
       onclose={() => void closeStyles()}
+      onaccepted={() => void closeStyles(true)}
     />
   {/if}
   {#if timingOpen}

@@ -313,3 +313,14 @@ revision acknowledgment, protected saving and Undo/Redo. It retains per-format
 review/refusal screenshots and SHA256 output digests. The ordinary persistence
 and crash-recovery workflow runs first. Native frame composition and physical
 GPU/audio acceptance are not established by these webview screenshots.
+
+
+### Style authoring
+
+`--styles` runs both ASS/SSA create/copy/edit/rename workflows with exact reference,
+Undo/Redo, save, failed-write, project and source-property crash recovery checks.
+`--style-performance` measures real 10k form/accept/Undo and owner cancellation/
+stale rejection. They can run together with the native-enabled test binary and
+explicit private runtime. See [the exact recipe, budgets and evidence](../../docs/style-authoring.md).
+Generated DOM events and preview revision acknowledgments do not establish
+physical input, GPU presentation or platform installation acceptance.

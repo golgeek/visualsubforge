@@ -389,7 +389,7 @@ fn validate_field(variant: Variant, name: &str, value: &str) -> Result<()> {
     }
 }
 
-fn default_style(variant: Variant) -> Style {
+pub fn default_style(variant: Variant) -> Style {
     let common = "Name,Fontname,Fontsize,PrimaryColour,SecondaryColour";
     let (names, values) = if variant == Variant::Ass {
         (

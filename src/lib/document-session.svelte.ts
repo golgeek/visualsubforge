@@ -7,6 +7,7 @@ import {
   durationRepairAccept,
   batchTimingAccept,
   textAccept,
+  styleAccept,
   type TextTarget,
   emptyDocument,
   type DocumentAction,
@@ -35,9 +36,11 @@ const client = {
   durationRepairAccept,
   batchTimingAccept,
   textAccept,
+  styleAccept,
 };
 type Client = Omit<
   typeof client,
+  | 'styleAccept'
   | 'textAccept'
   | 'sceneRepairAccept'
   | 'durationRepairAccept'
@@ -46,6 +49,7 @@ type Client = Omit<
   Partial<
     Pick<
       typeof client,
+      | 'styleAccept'
       | 'textAccept'
       | 'sceneRepairAccept'
       | 'durationRepairAccept'
@@ -157,6 +161,13 @@ export class DocumentSession {
     return this.update(() =>
       (this.client.textAccept ?? textAccept)(id, target),
     );
+  }
+  acceptStyle(id: number, expected: DocumentSnapshot): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty)
+      return Promise.reject(
+        new Error('Subtitles or the cue draft changed; preview again.'),
+      );
+    return this.update(() => (this.client.styleAccept ?? styleAccept)(id));
   }
   acceptSceneRepair(id: number, expected: DocumentSnapshot): Promise<boolean> {
     if (this.accepted !== expected || this.dirty)

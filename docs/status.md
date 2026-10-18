@@ -22,6 +22,16 @@ batch timing, ASS/SSA resync and language tools are complete. Style/attachment/
 conversion authoring is in progress; later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
+**Style authoring increment (2026-10-17; stage5 remains in progress):** reviewed
+ASS/SSA create/copy/edit/rename now use Rust-owned source/cue transactions and one
+Undo/Redo history. Exact references and original records are preserved; ambiguous
+renames are refused. The shared text/style worker retains existing bounds and
+stale/cancel guards. 344 ordinary Rust tests, 44 frontend tests, all 52 browser
+cases and strict checks pass. Pure 10k create/edit/rename p95 <=25.332ms and
+additional sampled RSS 77,709,312 bytes pass the predeclared gates. Actual Mac create/copy/edit/rename, exact save/project/recovery and native preview
+acknowledgment pass. Native 10k acceptance <=134ms and Undo <=100ms pass the
+unchanged interaction gate; attachment management and conversion remain required. See [style policy and evidence](style-authoring.md).
+
 **Language tools complete (2026-10-17):** opt-in
 English/French checking, source-mapped Problems, bounded selected suggestions,
 reviewed one-occurrence corrections and persistent/session lexicons now share the

@@ -30,6 +30,8 @@ import { assDocuments } from './ass-documents.mjs';
 import { assPerformance } from './ass-performance.mjs';
 import { batchTiming } from './batch-timing.mjs';
 import { styledResync } from './resync.mjs';
+import { stylePerformance } from './style-performance.mjs';
+import { styleAuthoring } from './style-authoring.mjs';
 import { languageTools } from './language.mjs';
 import { languagePerformance } from './language-performance.mjs';
 
@@ -45,6 +47,8 @@ const { values } = parseArgs({
     batch: { type: 'boolean', default: false },
     resync: { type: 'boolean', default: false },
     language: { type: 'boolean', default: false },
+    styles: { type: 'boolean', default: false },
+    'style-performance': { type: 'boolean', default: false },
     'language-performance': { type: 'boolean', default: false },
     'ass-performance': { type: 'boolean', default: false },
   },
@@ -105,6 +109,8 @@ const runDeadline =
   values.batch ||
   values.resync ||
   values.language ||
+  values.styles ||
+  values['style-performance'] ||
   values['language-performance'] ||
   values['ass-performance']
     ? 900_000
@@ -588,6 +594,35 @@ try {
       until,
       record,
       cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['style-performance'])
+    await stylePerformance({
+      root,
+      evidence,
+      binary,
+      record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.styles)
+    await styleAuthoring({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

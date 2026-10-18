@@ -330,7 +330,7 @@ fn cancellation_reaps_workers_and_old_cancel_cannot_cancel_new_proposal() {
         let profile = store.quality.context().profile;
         store
             .texts
-            .launch(key, operation(), profile, move |cancel| {
+            .launch(key, Request::Text(operation()), profile, move |cancel| {
                 entered.send(cancel).unwrap();
                 wait.recv_timeout(Duration::from_secs(5)).unwrap();
                 Err("Obsolete failure".into())
@@ -452,7 +452,7 @@ fn worker_failure_can_be_retried_and_shutdown_cancels_and_joins_outside_document
         let profile = store.quality.context().profile;
         store
             .texts
-            .launch(key, operation(), profile, move |cancel| {
+            .launch(key, Request::Text(operation()), profile, move |cancel| {
                 entered.send(()).unwrap();
                 let deadline = Instant::now() + Duration::from_secs(5);
                 while !cancel.load(Ordering::Relaxed) && Instant::now() < deadline {

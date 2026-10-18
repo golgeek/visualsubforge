@@ -11,9 +11,30 @@ use std::{
     time::{Duration, Instant},
 };
 use vsf_application::{
+    authoring::styles as style_engine,
     quality::{self as engine, Profile},
     text::{self, Proposal},
 };
+
+mod styles;
+
+enum Request {
+    Text(Operation),
+    Style(style_engine::StyleOperation),
+}
+enum Prepared {
+    Text(Proposal),
+    Style(style_engine::Proposal),
+}
+impl Prepared {
+    fn text(&self) -> Option<&Proposal> {
+        if let Self::Text(proposal) = self {
+            Some(proposal)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Default)]
 pub(super) struct State {
@@ -24,12 +45,12 @@ pub(super) struct State {
 struct Job {
     id: u64,
     key: Key,
-    operation: Operation,
+    operation: Request,
     profile: Profile,
     hash: String,
     cancel: Arc<AtomicBool>,
-    worker: Option<JoinHandle<Result<Proposal>>>,
-    proposal: Option<Proposal>,
+    worker: Option<JoinHandle<Result<Prepared>>>,
+    proposal: Option<Prepared>,
     error: Option<String>,
     stale: bool,
     accepted: bool,
@@ -43,7 +64,7 @@ impl Job {
         if let Some(worker) = self.worker.take_if(|w| w.is_finished()) {
             let result = worker
                 .join()
-                .unwrap_or_else(|_| Err("Text proposal worker stopped unexpectedly".into()));
+                .unwrap_or_else(|_| Err("Document review worker stopped unexpectedly".into()));
             if !self.cancel.load(Ordering::Relaxed) {
                 match result {
                     Ok(proposal) => self.proposal = Some(proposal),
@@ -77,33 +98,33 @@ impl State {
             job.refresh();
         }
         if self.closed {
-            return Err("Text preview is shutting down".into());
+            return Err("Document review is shutting down".into());
         }
         if self.job.as_ref().is_some_and(|j| j.worker.is_some()) {
-            return Err("Wait for the current text proposal to finish cancelling".into());
+            return Err("Wait for the current document review to finish cancelling".into());
         }
         Ok(())
     }
     fn launch(
         &mut self,
         key: Key,
-        operation: Operation,
+        operation: Request,
         profile: Profile,
-        run: impl FnOnce(Arc<AtomicBool>) -> Result<Proposal> + Send + 'static,
+        run: impl FnOnce(Arc<AtomicBool>) -> Result<Prepared> + Send + 'static,
     ) -> Result<u64> {
         self.ensure_idle()?;
         let id = self
             .next_id
             .checked_add(1)
             .filter(|i| *i <= crate::ipc_number::MAX_SAFE_INTEGER)
-            .ok_or("Text identities exhausted")?;
+            .ok_or("Document review identities exhausted")?;
         let hash = profile.fingerprint().map_err(|e| e.to_string())?;
         let cancel = Arc::new(AtomicBool::new(false));
         let token = cancel.clone();
         let worker = std::thread::Builder::new()
-            .name("text-proposal".into())
+            .name("document-review".into())
             .spawn(move || run(token))
-            .map_err(|e| format!("Cannot start text proposal: {e}"))?;
+            .map_err(|e| format!("Cannot start document review: {e}"))?;
         self.job = Some(Job {
             id,
             key,
@@ -200,6 +221,7 @@ impl Documents {
         let row = job
             .proposal
             .as_ref()
+            .and_then(Prepared::text)
             .and_then(|p| p.rows().iter().find(|r| r.cue_index == cue_index as usize))
             .ok_or("Search result unavailable")?;
         Ok(row
@@ -230,26 +252,29 @@ impl Documents {
         let lexicon = store.quality.lexicon();
         let captured = profile.clone();
         let request = operation.clone();
-        store.texts.launch(key, operation, profile, move |cancel| {
-            let start = Instant::now();
-            let context = engine::Evaluation {
-                profile: &captured,
-                format,
-                lexicon: Some(&lexicon),
-            };
-            text::propose_for_format(document, format, context, &request, || {
-                if cancel.load(Ordering::Relaxed) {
-                    return Err(engine::Error::Cancelled);
-                }
-                if start.elapsed() > Duration::from_secs(10) {
-                    return Err(engine::Error::Limit(
-                        "Text preview exceeded its 10 second deadline".into(),
-                    ));
-                }
-                Ok(())
+        store
+            .texts
+            .launch(key, Request::Text(operation), profile, move |cancel| {
+                let start = Instant::now();
+                let context = engine::Evaluation {
+                    profile: &captured,
+                    format,
+                    lexicon: Some(&lexicon),
+                };
+                text::propose_for_format(document, format, context, &request, || {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(engine::Error::Cancelled);
+                    }
+                    if start.elapsed() > Duration::from_secs(10) {
+                        return Err(engine::Error::Limit(
+                            "Text preview exceeded its 10 second deadline".into(),
+                        ));
+                    }
+                    Ok(())
+                })
+                .map(Prepared::Text)
+                .map_err(|e| e.to_string())
             })
-            .map_err(|e| e.to_string())
-        })
     }
     pub(crate) fn text_view(&self, id: u64, offset: u32, limit: u32) -> Result<TextView> {
         if limit > 200 {
@@ -270,7 +295,12 @@ impl Documents {
     }
     pub(crate) fn text_cancel(&self, id: u64) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
-        if let Some(job) = store.texts.job.as_mut().filter(|j| j.id == id) {
+        if let Some(job) = store
+            .texts
+            .job
+            .as_mut()
+            .filter(|j| j.id == id && matches!(j.operation, Request::Text(_)))
+        {
             job.cancel();
         }
         Ok(())
@@ -280,7 +310,7 @@ impl Documents {
         let key = store.quality_key()?;
         store.texts.invalidate(key);
         if store.texts.closed {
-            return Err("Text preview is shutting down".into());
+            return Err("Document review is shutting down".into());
         }
         let job = store
             .texts
@@ -297,6 +327,7 @@ impl Documents {
             .job
             .as_ref()
             .and_then(|j| j.proposal.as_ref())
+            .and_then(Prepared::text)
             .ok_or("Wait for a completed text preview")?;
         let edit = proposal
             .edit(
@@ -338,8 +369,8 @@ fn match_view(found: &text::Match) -> Match {
         skipped: found.skipped.map(str::to_owned),
     }
 }
-fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView> {
-    let phase = if closed {
+fn phase(job: &Job, closed: bool) -> Phase {
+    if closed {
         Phase::Closed
     } else if job.accepted {
         Phase::Accepted
@@ -357,14 +388,19 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView>
         Phase::Reviewing
     } else {
         Phase::Preparing
+    }
+}
+fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView> {
+    let Request::Text(operation) = &job.operation else {
+        return Err("This proposal belongs to style review".into());
     };
     let mut view = TextView {
         id: job.id.try_into()?,
         key: job.key,
-        phase,
+        phase: phase(job, closed),
         profile_name: job.profile.name.clone(),
         profile_hash: job.hash.clone(),
-        operation: job.operation.clone(),
+        operation: operation.clone(),
         error: job.error.clone(),
         total: 0,
         changed: 0,
@@ -375,7 +411,7 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView>
         rows: vec![],
         suggestions: vec![],
     };
-    if let Some(p) = &job.proposal {
+    if let Some(p) = job.proposal.as_ref().and_then(Prepared::text) {
         view.suggestions = p.suggestions().to_vec();
         view.total = p.rows().len() as u32;
         view.changed = p.changed() as u32;
@@ -419,3 +455,6 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
     let id = tests::start(&docs);
     serde_json::to_value(tests::ready(&docs, id)).unwrap()
 }
+
+#[cfg(test)]
+pub(crate) use styles::ipc_samples as style_ipc_samples;
