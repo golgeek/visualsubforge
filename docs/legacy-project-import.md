@@ -2,8 +2,9 @@
 
 Stage6b is in progress. File → Import VisualSubSync Project now provides an
 explicit review, file relocation and publication of a new `.vsfproject`.
-The Rust owner and browser workflows are implemented; actual native, chooser and
-desktop 10k acceptance remain pending. WebVTT is already accepted; translation
+The Rust owner and browser workflows are implemented; actual Mac native workflows
+and real choosers pass, while desktop 10k acceptance remains pending.
+WebVTT is already accepted; translation
 remains the next increment. This is not a release/platform acceptance claim.
 
 Choose a `.vssprj`, then Review import. Locate missing media/subtitles explicitly
@@ -15,6 +16,11 @@ a fresh review. After creation, Open created project uses normal protected proje
 restoration; creating the file does not apply or discard an active cue draft.
 Import remains available without native playback; opening the resulting project
 requires a build with playback support, which the dialog explains.
+Stored positions preserve legacy milliseconds. Normal project restoration can
+quantize the displayed position to a decoded frame and adjust the viewport for
+playback following or media bounds; subsequent project saves retain that current
+view. Raw WAV playback restores, but waveform generation currently refuses the
+fixture's unknown container start time. This is retained for stage8 reliability.
 
 ## Reference and supported mapping
 
@@ -215,3 +221,94 @@ Next: actual native import/relink/retry/source-change/open/history/recovery and
 normal shutdown, real project/subtitle/media/output chooser checks, and desktop10k
 review/publication/reopen timings using the predeclared fixtures and budgets.
 Stage6b/ADR0032 remain in progress/proposed; translation and stages7–8 remain open.
+
+## Native workflows and real macOS choosers — 2026-10-18
+
+Same pinned Mac toolchains and existing private mpv runtime; no runtime update.
+The native test config copies `tests/desktop/tauri.test.json`, changing only the
+identifier to `com.golgeek.visualsubforge.legacy-import-native-20261018`.
+The picker config contains only the identifier override
+`com.golgeek.visualsubforge.legacy-import-picker-20261018`; it has neither
+desktop-e2e nor global Tauri access. Build and launch commands:
+
+```sh
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/legacy-import-native-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/legacy-import-native-20261018/VisualSubForgeLegacyImport.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  VSF_LEGACY_IMPORT_CAPTURE=1 VSF_LEGACY_IMPORT_CAPTURE_LABELS=import-audio-restored \
+  node tests/desktop/run.mjs --legacy-import \
+  --binary "$PWD/test-results/legacy-import-native-20261018/VisualSubForgeLegacyImport.app/Contents/MacOS/visualsubforge"
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features media-prototype \
+  --config "$PWD/test-results/legacy-import-picker-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/legacy-import-picker-20261018/VisualSubForgeLegacyImportPicker.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  "$PWD/test-results/legacy-import-picker-20261018/VisualSubForgeLegacyImportPicker.app/Contents/MacOS/visualsubforge"
+```
+
+The native lane supplies chooser results and DOM events but uses real WebView,
+Rust, files and playback. Final `desktop-PSOVDS` passes all four formats and normal
+code0 shutdown. It independently authors UTF-8/BOM/UTF-16LE/BE wrappers and media;
+checks explicit foreign-Windows relocation, Unicode references, literal warnings,
+cancelled/failed/competing destinations and stale project/subtitle/media inputs;
+and verifies that publication leaves the existing draft, accepted document,
+Undo/Redo, media session, policy and project bytes unchanged. Explicit Open uses
+unsaved-work protection, restores native preview and permits exact edit/history/
+Save As/reopen. Crash recovery requires a matching checkpoint and preserves an
+external source edit through failed Save As, followed by successful separate-file
+save. Real IPC cancellation drains before another review is admitted.
+
+WAVFile-only import also restores its audio track and paused 1.250s position.
+The independent native image exposes **“Container start time is unknown”** instead
+of a waveform. Import/reference restoration passes; waveform generation and
+speaker output are not accepted by this case. Task025/stage8 retains this issue.
+For video, initial project JSON retains 1.501s and a 1–6s waveform interval;
+following displays 0–5s and frame quantization displays 1.500s after Open.
+
+Two failed harness attempts remain with their logs. `desktop-1Miw9g` acted on a
+backend-loaded media state before frontend readiness, so Save Project correctly
+did nothing. The harness now waits for enabled playback and reconciled UI state.
+`desktop-I8kvsr` matched an older ASS recovery checkpoint before killing the SSA
+process. The wait now requires exact path, format, generation, revision and full
+accepted bytes. Neither correction changed product code. Valid independent native
+images from the second run remain evidence only for their observed states: SRT
+review/notice layout and restored red ASS title with CJK. Runtime receipts for
+PIDs78097/78152 each identify 46 backing images, none unavailable, including the
+expected private libmpv and exact executable. The third run separately establishes
+the complete workflow pass; its audio image does not have a per-PID runtime receipt.
+
+The separate picker trial uses actual File/Open/Save sheets, not the test chooser.
+Source cancellation/retry and file filtering, explicit media/Unicode SRT
+relocation, destination cancellation with no output and successful retry all pass.
+Independent checks before Open confirm relative references, exact stored position/
+viewport/default policy, no scene cache and unchanged SHA256 hashes for all three
+original inputs. Open restores native top-aligned italic CJK, populated waveform
+and paused video. Cmd-Q exits normally with code0; originals remain unchanged.
+PID80262's runtime receipt records 46 backing images, none unavailable, with both
+expected executable and private libmpv verified before quit. Normal project autosave
+then records the current 1.500s/0–5s view, distinct from the captured initial JSON.
+
+Executable SHA256 identities:
+
+- Native workflow: `83113ded46ca521c500ecf54a76f4556a742246f566031d8150efc0dc62ea9e9`.
+- Real chooser: `2aa6083b24b0b81dfe101a6b3ddc640a1650bad4de7e3bfbd9e9c8444f075781`.
+
+Runtime inspection uses `python3 scripts/record-native-runtime.py --pid PID
+--expect /absolute/app/executable --expect /absolute/private/libmpv.2.dylib
+--output receipt.json` while each observed process is alive. Build/run logs are in
+`test-results/legacy-import-native-20261018/`; workflow JSON, original/output
+hashes and images are in the named desktop directories. Real picker source/input
+hashes, pre-open project JSON, runtime identity, native images and `receipt.json`
+remain in `test-results/legacy-import-picker-20261018/`.
+
+Both native builds, Node syntax, ESLint, Prettier and `git diff --check` pass.
+No product code changed in this acceptance increment, so the prior 425 Rust,
+44 frontend and 58 browser results remain the implementation evidence, not new
+runs. Desktop10k review/publication/reopen/cancel/stale measurements remain next;
+stage6b/ADR0032 are still open. No Windows/Linux chooser, installation or physical
+GPU/audio acceptance is inferred from these Mac checks.

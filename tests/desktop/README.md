@@ -393,3 +393,24 @@ background preparation retains its ten-second deadline. `webvtt-performance.json
 records individual timings, source/output hashes and the executable identity.
 No media is loaded during this lane; pure CPU/RSS measurements and actual native
 preview/chooser observations are separate evidence in the WebVTT guide.
+
+### Legacy project import
+
+`--legacy-import` runs the ordinary persistence regression, then native import
+review/publication/restoration for SRT/ASS/SSA/WebVTT and WAVFile-only media.
+It checks relocation, Unicode/UTF-16 paths, unsupported notices, cancelled/failed/
+competing destinations, stale inputs, unchanged active document/draft/history/
+policy, protected opening, exact save/reopen and crash recovery conflicts.
+`legacy-import.json` retains hashes, original project data and native status;
+the runner requires normal code0 shutdown. See [the build recipe, retained failures
+and scope](../../docs/legacy-project-import.md).
+
+Use the native-feature test bundle and explicit private runtime. Supplied chooser
+results and generated DOM events do not test OS sheets or physical input.
+`VSF_LEGACY_IMPORT_CAPTURE=1` and optional comma-separated
+`VSF_LEGACY_IMPORT_CAPTURE_LABELS` pause for an independent native observation.
+Inspect/save the actual window before writing `capture-ack.json` with the matching
+`label` within 60 seconds. WebView images alone omit sibling native video.
+Audio load/paused-position status does not establish waveform or speaker output;
+the current raw-WAV fixture exposes an unknown-start waveform limitation.
+Desktop10k import acceptance remains a separate pending gate.

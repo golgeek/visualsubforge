@@ -37,8 +37,14 @@ Cancel. Import does not modify the active document, history, policy or attachmen
 425 workspace Rust tests / 30 ignored, 44 frontend tests, all 58 browser cases,
 eight final focused Chromium/WebKit cases and strict/static/default desktop build
 checks pass. Four earlier 10k library/IO workloads
-pass <=36.236ms p95 and +50,724,864 sampled RSS bytes. Actual native workflow,
-real chooser and desktop10k acceptance remain pending; the milestone stays open.
+pass <=36.236ms p95 and +50,724,864 sampled RSS bytes. Actual Mac four-format
+import, relocation, source-change/failed-write protection, unchanged active state,
+save/history/project/recovery and normal shutdown now pass. Separate real macOS
+source/media/subtitle/output chooser checks also pass, including cancellation,
+Unicode paths, exact original preservation and native restored preview. Audio-only
+WAV references restore paused playback, but waveform generation reports an unknown
+container start time; stage8 must address this retained limitation. Desktop10k
+acceptance remains pending, so the import milestone stays open.
 See [mapping, checks and remaining scope](legacy-project-import.md).
 
 **WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,

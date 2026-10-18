@@ -39,8 +39,9 @@ The editor provides:
   options and paused resume position. Save subtitles separately for interchange.
   Normal quit updates an attached project and offers explicit choices on failure.
 - Reviewed VisualSubSync `.vssprj` import with explicit missing-file relocation,
-  unsupported-setting notices and protected new-project creation. Native/chooser
-  and desktop scale acceptance remain pending; see [the supported subset](docs/legacy-project-import.md).
+  unsupported-setting notices and protected new-project creation. Native Mac
+  workflows and real choosers pass; desktop scale acceptance remains pending.
+  See [the supported subset](docs/legacy-project-import.md).
 - Experimental subtitle resynchronization through a headless CLI or Tools →
   Resynchronize Subtitles for SRT/ASS/SSA, with format-aware timing review,
   safe timed-effect refusal, one-step Undo and protected Save As. The desktop workflow uses the loaded target video and a selected source.
