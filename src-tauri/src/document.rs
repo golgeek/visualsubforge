@@ -12,6 +12,9 @@ use subtitle_formats::{Source, srt};
 
 mod autosave;
 mod checks;
+mod plugins;
+#[cfg(test)]
+pub(crate) use plugins::ipc_samples as plugin_ipc_samples;
 mod statistics;
 pub(crate) mod translation;
 #[cfg(test)]
@@ -69,6 +72,7 @@ struct Store {
     timing_repairs: timing_repairs::State,
     texts: texts::State,
     translation: translation::State,
+    plugins: plugins::State,
 }
 struct Loaded {
     editor: Editor<Source>,

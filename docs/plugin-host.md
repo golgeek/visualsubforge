@@ -3,7 +3,8 @@
 Stage7 is in progress. The bounded worker in `crates/plugin-host`, pure
 [modern/VSS APIs and validated proposals](plugin-api.md), and
 [local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
-Desktop review, ownership and integration remain required. ADR0008 is still proposed.
+The desktop job owner and typed commands are implemented and tested; user-facing
+review controls and complete desktop acceptance remain required. ADR0008 is still proposed.
 
 ## Candidate execution boundary
 
@@ -32,7 +33,11 @@ async runtime or host file/network/DOM capabilities. The parent clears the helpe
 environment, preserving only SystemRoot on Windows for runtime loading, and uses
 direct executable/argument invocation. Windows launches without a console window.
 The CLI launches its own executable in an early internal worker mode before normal
-startup. Desktop startup integration and package installation remain unimplemented.
+startup. The desktop owner launches that installed sibling CLI, avoiding UI
+libraries in the helper. It rejects missing, non-regular and symlink runners and
+never searches PATH. Existing package recipes install the CLI beside the desktop;
+the default dev command now builds it. Custom target/profile builds must build both
+executables together. Plugin installation/discovery and desktop controls remain pending.
 
 The inspected [Boa 0.22.0 runtime limits](https://docs.rs/boa_engine/0.22.0/boa_engine/vm/struct.RuntimeLimits.html)
 cover loop iterations, stack, recursion and backtrace limits. That API does not
@@ -105,6 +110,100 @@ Required before stage7/ADR0008 acceptance:
 
 General actions, columns, UI hooks, split hooks and broad historical-pack
 compatibility remain separately tracked beyond the first rule/fix subset.
+
+## Desktop owner and typed transport — 2026-10-18
+
+`document::plugins` now owns one job/no queue. Capture and final acceptance use
+the existing document mutex; package IO, script execution and package verification
+do not. Workers own immutable document/source/context copies and cancellation,
+never the document owner. Completed proposals remain private in Rust. Cancelling
+or replacing the document invalidates results without changing history; profile,
+media and scene identity guards cover context changes. Acceptance also compares
+the exact invocation settings, scope, selection and cursor supplied by the caller.
+The upcoming UI must supply its current transient context and cancel stale starts.
+
+Desktop preferences come from the captured effective profile. An absent CPS target
+requires an explicit invocation override; RS target index remains unavailable
+unless explicitly supplied. Completed standard/reduced scene results retain their
+coverage label. Scene before/after values map to StartOffset/StopOffset; the plugin
+filter offset is an explicit invocation value, with no invented legacy preset.
+Missing/partial scene results remain unavailable. The VSS offset mapping follows
+the previously recorded pinned-source inference in the local legacy reference.
+
+Typed review pages contain at most200 findings and200 changes. Each raw text
+preview is at most2048 UTF-8 bytes with an explicit full length/truncation flag.
+The complete before/after text remains available in4–65536-byte UTF-8 chunks;
+invalid byte boundaries are refused. Rust retains all validated rows regardless
+of paging. Effective scalar settings, logs, preferences, coverage and package
+identity are returned without exposing engine values or a mutable proposal.
+
+Acceptance reserves the job while revalidating the package off-lock. Only that
+successful verification can construct the private value consumed by the commit
+method. It rechecks deadline, cancellation, generation/revision/profile key and
+complete source/document/request identity, then applies one domain history batch
+under the media→scene→document guard. A one-shot completion channel lets shutdown
+cancel and wait for in-flight acceptance outside the locks, as it does for worker
+joining. Accepted changes flow through ordinary preview, save, Undo/Redo and
+recovery; no parallel accepted-state owner or plugin-specific recovery format exists.
+
+Nine focused owner tests pass. Their controlled executor uses the real engine
+in-process for deterministic owner/race tests; those cases do not themselves prove
+process isolation. They cover modern/VSS fixes across all four formats, original
+source properties and cue metadata, one Undo/Redo, failed-save preservation,
+save/reopen/recovery, explicit context and neighbor review, long Unicode text,
+edit→Undo staleness, replacement/close/profile changes, production media/scene
+guards, package revalidation, cancellation and shutdown during acceptance,
+single admission, old-job cancellation, errors/panic and redo preservation, and
+installation-only runner resolution. A separate opt-in test passes with the real
+CLI runner copied into three fresh Unicode/spaced installation directories, using
+the production resolver/executor and unchanged1000ms limit. This is a helper and
+owner test, not an actual window/chooser or packaged-install acceptance.
+
+All501 workspace Rust tests pass/32 ignored;11 zero-test harnesses are excluded.
+All44 frontend tests and strict/generated-IPC/default-build checks pass. The
+transport uses finite numeric scalars and safe integer wrappers; actual Serde
+input/review/chunk samples compile against the generated TypeScript boundary.
+The initial generated sample included a random temporary path; fixing that fixture
+makes generation/check deterministic. No browser/native UI workflow or new10k
+owner measurement is claimed. The earlier pure/API/CLI scale evidence remains
+separate; full desktop10k/history/recovery acceptance is still required.
+
+The initial desktop self-spawn experiment passed once but timed out after a fresh
+rebuild at the unchanged one-second parent deadline. A tiny-request probe over
+three fresh binary copies measured495–529ms cold desktop launch versus141–195ms
+for the CLI (warm second launches13–15ms versus7–10ms). The isolated test worker
+measured42–62ms, but distributing another binary is unnecessary: all maintained
+package recipes already install/sign/inventory the CLI next to the desktop. The
+owner now uses only that sibling CLI in its early helper mode. It does not search
+PATH, use a different installation or increase execution limits. The failed
+experiment is retained; no self-spawn fallback remains in desktop startup.
+
+Exact commands (Node24.21.0/npm11.19.0 via the standard nvm setup):
+
+```sh
+cargo test --locked -p visualsubforge document::plugins -- --test-threads=1
+cargo build --locked -p vsf-cli
+VSF_PLUGIN_DESKTOP_EXECUTABLE="$PWD/target/debug/visualsubforge" \
+  cargo test --locked -p visualsubforge document::plugins::tests::installed_cli_helper \
+  -- --ignored --test-threads=1
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run ipc:generate
+npm run ipc:check
+npm run format:check
+npm run lint
+npm test
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+Evidence: `test-results/plugin-owner-20261018/`, including the retained failed
+`desktop-helper-final.log`, `startup-probe.json`, `installed-runner.log`, final
+workspace/strict/IPC/build logs and `summary.json`. Tested CLI SHA256:
+`37195bdbec7627d416089e5dd051b8e8d809ad64c14ff0645f64396a662e8348`.
+User-facing controls, draft/lost-reply reconciliation, browser/native/10k workflows,
+historical-host comparison and Windows/Linux execution remain required. ADR0008
+and stage7 remain proposed/in progress; stage8 and physical-device gates are unchanged.
 
 ## CLI and package IO evidence — 2026-10-18
 

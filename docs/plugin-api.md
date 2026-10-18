@@ -1,7 +1,8 @@
 # Initial plugin API and VSS compatibility
 
 This is the implemented **application-library subset**, with a tested
-[local CLI workflow](plugin-cli.md). Desktop plugin integration remains pending. It is not a claim
+[local CLI workflow](plugin-cli.md). The desktop owner/typed transport now exists;
+plugin UI and complete desktop acceptance remain pending. It is not a claim
 of complete VisualSubSync compatibility. The [host guide](plugin-host.md) records
 runtime limits and remaining integration gates; ADR0008 remains proposed.
 
@@ -157,9 +158,12 @@ stable wrappers; their own enumerable properties and write guards are retained.
 
 No engine/native dependency enters the domain or application crate. The CLI now
 composes the shared application with the worker through an injected executor;
-plugin-host tests/examples also compose those boundaries. Desktop admission,
-one worker/no queue, job lifetime, paging/review,
-close/replacement cancellation and recovery remain to be implemented and tested.
+plugin-host tests/examples also compose those boundaries. The desktop now owns
+one plugin worker/no queue and private validated proposals, with tested admission,
+paging, revision/context guards, single Undo and existing save/recovery integration.
+Package verification reserves acceptance off-lock; media→scene→document checks
+protect final commit. Frontend review/draft reconciliation and full native/browser/
+10k/recovery workflows remain required; owner tests do not close those gates.
 
 ## Provenance and validation scope
 

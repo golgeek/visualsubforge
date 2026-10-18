@@ -4663,6 +4663,7 @@ dependencies = [
  "tempfile",
  "url",
  "vsf-application",
+ "vsf-plugin-host",
  "zbus",
 ]
 

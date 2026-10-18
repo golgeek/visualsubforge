@@ -29,7 +29,7 @@ baseline. Physical Windows/Linux acceptance is a separate open release gate.
 rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
 stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
 focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
-floods and crashes. The latest baseline passes 492 workspace tests/31 ignored,
+floods and crashes. The latest baseline passes 501 workspace tests/32 ignored,
 strict Clippy, Rustfmt, Prettier and ESLint (zero-test harnesses excluded).
 Two fresh-helper 10k workloads pass p95<=46.513ms and sampled additional combined
 RSS 53,575,680 bytes within predeclared limits. Pure modern/VSS APIs, captured
@@ -48,8 +48,12 @@ refusal, source protection, timeout, live cancellation and helper reaping. Thirt
 fresh-CLI10k workloads pass p95<=333.311ms and sampled combined RSS120,782,848 bytes
 against500ms/192MiB; complete rows, source/output hashes and output reparse are
 verified. All44 frontend tests, strict checks and the default desktop build pass;
-no frontend/native UI behavior changed or was retested. There is still no desktop
-plugin entry point, Rust job owner or review UI. Those, pinned VSS-host parity,
+no frontend/native UI behavior changed or was retested. The desktop now has a
+single plugin job owner, bounded typed review/text pages and guarded one-Undo
+acceptance, with nine owner tests and a separate real installed-CLI helper test.
+A desktop self-spawn timeout prompted using the existing sibling CLI without
+relaxing limits; exact evidence is in the [owner record](plugin-host.md#desktop-owner-and-typed-transport--2026-10-18).
+User-facing plugin controls, draft reconciliation, pinned VSS-host parity,
 available VM checks and complete
 desktop/native/recovery 10k acceptance remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).

@@ -61,6 +61,41 @@ export async function statisticsCancel(id: number): Promise<void> {
   await commands.statisticsCancel(id);
 }
 
+export type PluginInput = Parameters<typeof commands.pluginStart>[4];
+export type PluginReview = Awaited<ReturnType<typeof commands.pluginView>>;
+export type PluginTextChunk = Awaited<ReturnType<typeof commands.pluginText>>;
+export const pluginStart = (
+  session: number,
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  path: string,
+  input: PluginInput,
+) =>
+  commands.pluginStart(
+    session,
+    document.generation,
+    document.revision,
+    path,
+    input,
+  );
+export const pluginView = (
+  id: number,
+  findingsOffset = 0,
+  changesOffset = 0,
+  limit = 100,
+) => commands.pluginView(id, findingsOffset, changesOffset, limit);
+export const pluginText = (
+  id: number,
+  row: number,
+  after: boolean,
+  offset = 0,
+  limit = 65536,
+) => commands.pluginText(id, row, after, offset, limit);
+export const pluginAccept = (id: number, input: PluginInput) =>
+  commands.pluginAccept(id, input);
+export async function pluginCancel(id: number): Promise<void> {
+  await commands.pluginCancel(id);
+}
+
 export type StyleForm = Awaited<ReturnType<typeof commands.styleForm>>;
 export type StyleReview = Awaited<ReturnType<typeof commands.styleView>>;
 export type StyleOperation = Parameters<typeof commands.styleStart>[2];

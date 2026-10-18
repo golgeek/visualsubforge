@@ -26,6 +26,11 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             statistics::statistics_start,
             statistics::statistics_view,
             statistics::statistics_cancel,
+            crate::plugin_review::plugin_start,
+            crate::plugin_review::plugin_view,
+            crate::plugin_review::plugin_text,
+            crate::plugin_review::plugin_cancel,
+            crate::plugin_review::plugin_accept,
             gap_review::gap_start,
             gap_review::gap_view,
             gap_review::gap_cancel,
@@ -117,7 +122,7 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply, PluginInput, PluginReview, PluginTextChunk }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
@@ -128,6 +133,7 @@ fn export_bindings() {
     samples.extend(project::import::ipc_samples());
     samples.extend(project::translation_ipc_samples());
     samples.extend(document::translation::ipc_samples());
+    samples.extend(document::plugin_ipc_samples());
     samples.extend([
         (
             "statisticsView",

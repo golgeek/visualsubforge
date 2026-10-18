@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 vsf-application = { path = "../crates/vsf-application", features = ["specta"] }
+vsf-plugin-host = { path = "../crates/plugin-host" }
 subtitle-core = { path = "../crates/subtitle-core" }
 subtitle-formats = { path = "../crates/subtitle-formats" }
 tempfile = "3"

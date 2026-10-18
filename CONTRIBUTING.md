@@ -90,10 +90,18 @@ cargo fmt --all -- --check
 # Whole workspace; build frontend assets before compiling the desktop shell.
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
+cargo build --locked -p vsf-cli
 npm run tauri -- build --debug --no-bundle -- --locked
 ```
 
 `npm run build` includes strict Svelte/TypeScript checking; `npm run check` runs that step alone. `npm run format` and `cargo fmt --all` apply formatting. Prettier covers frontend and configuration files; existing planning Markdown is excluded to preserve its formatting.
+
+The desktop plugin owner runs the `vsf` CLI beside its own executable as a bounded
+helper. Normal `tauri dev` builds that CLI before starting Vite, and the desktop
+test script and maintained package workflows already build/include it. For a
+custom Cargo target, target directory or profile, build `vsf-cli` with matching
+flags so the two binaries are siblings. The desktop never searches PATH for a
+plugin runner. User-facing plugin controls are still under implementation.
 
 The optional desktop `--ass` and `--ass-performance` lanes cover full ASS/SSA,
 tagged SRT and exact 10,000-cue format fixtures. The native lane needs the explicit

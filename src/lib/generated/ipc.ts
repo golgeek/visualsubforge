@@ -81,6 +81,52 @@ export const commands = {
     ),
   statisticsCancel: (id: number) =>
     __TAURI_INVOKE<null>('statistics_cancel', { id }),
+  pluginStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    path: string,
+    input: visualsubforge_plugin_review_Input,
+  ) =>
+    __TAURI_INVOKE<number>('plugin_start', {
+      session,
+      generation,
+      revision,
+      path,
+      input,
+    }),
+  pluginView: (
+    id: number,
+    findingsOffset: number,
+    changesOffset: number,
+    limit: number,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_plugin_review_View>('plugin_view', {
+      id,
+      findingsOffset,
+      changesOffset,
+      limit,
+    }),
+  pluginText: (
+    id: number,
+    row: number,
+    after: boolean,
+    offset: number,
+    limit: number,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_plugin_review_TextChunk>('plugin_text', {
+      id,
+      row,
+      after,
+      offset,
+      limit,
+    }),
+  pluginCancel: (id: number) => __TAURI_INVOKE<null>('plugin_cancel', { id }),
+  pluginAccept: (id: number, input: visualsubforge_plugin_review_Input) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'plugin_accept',
+      { id, input },
+    ),
   gapStart: (session: number, generation: number, revision: number) =>
     __TAURI_INVOKE<number>('gap_start', { session, generation, revision }),
   gapView: (id: number, offset: number, limit: number) =>
@@ -944,6 +990,12 @@ export type visualsubforge_language_tools_Change =
     }
   | { kind: 'clearIgnored' };
 
+export type visualsubforge_plugin_review_Content = {
+  startMs: number;
+  endMs: number;
+  text: visualsubforge_plugin_review_TextPreview;
+};
+
 export type visualsubforge_quality_profile_Context =
   | visualsubforge_quality_profile_Context_Serialize
   | visualsubforge_quality_profile_Context_Deserialize;
@@ -1205,6 +1257,11 @@ export type visualsubforge_desktop_FileChoice =
   | 'qualityPreset'
   | 'saveQualityPreset';
 
+export type visualsubforge_plugin_review_Finding = {
+  cueId: string;
+  message: string;
+};
+
 export type vsf_application_quality_check_Finding = {
   rule: vsf_application_quality_check_Rule;
   /**  Decimal identity strings avoid JSON/JavaScript integer precision loss. */
@@ -1311,6 +1368,19 @@ export type visualsubforge_gap_review_GapView_Serialize = {
 export type visualsubforge_timing_preset_Imported = {
   preset: visualsubforge_timing_preset_Preset;
   warnings: string[];
+};
+
+export type visualsubforge_plugin_review_Input = {
+  mode: visualsubforge_plugin_review_Mode;
+  /**  Empty scope means the whole accepted document. These are stable cue IDs. */
+  scope: string[];
+  selection: string[];
+  cursorMs: number | null;
+  settings: { [key in string]: visualsubforge_plugin_review_Scalar };
+  cpsTarget: number | null;
+  rsTargetIndex: number | null;
+  /**  Explicit plugin context; VSF has no corresponding global filter setting. */
+  sceneFilterOffsetMs: number;
 };
 
 export type visualsubforge_workflow_trace_InputEvent =
@@ -1486,6 +1556,8 @@ export type visualsubforge_quality_check_Metric = {
   linesTruncated: boolean;
 };
 
+export type visualsubforge_plugin_review_Mode = 'check' | 'fix';
+
 export type visualsubforge_scenes_Mode = 'keyframes' | 'visual';
 
 export type visualsubforge_language_tools_Notices = {
@@ -1604,6 +1676,17 @@ export type visualsubforge_gap_review_Phase =
   | 'accepted'
   | 'closed';
 
+export type visualsubforge_plugin_review_Phase =
+  | 'preparing'
+  | 'reviewing'
+  | 'accepting'
+  | 'cancelling'
+  | 'cancelled'
+  | 'stale'
+  | 'failed'
+  | 'accepted'
+  | 'closed';
+
 export type visualsubforge_quality_check_Phase =
   | 'idle'
   | 'checking'
@@ -1640,6 +1723,14 @@ export type visualsubforge_text_review_Phase =
   | 'failed'
   | 'accepted'
   | 'closed';
+
+export type visualsubforge_plugin_review_Preferences = {
+  minimumBlankMs: number;
+  minimumDurationMs: number;
+  maximumDurationMs: number;
+  cpsTarget: number;
+  rsTargetIndex: number | null;
+};
 
 export type visualsubforge_preferences_Preferences =
   | visualsubforge_preferences_Preferences_Serialize
@@ -1892,6 +1983,15 @@ export type visualsubforge_gap_review_Row = {
   nextAfter: visualsubforge_quality_check_Metric;
 };
 
+export type visualsubforge_plugin_review_Row = {
+  cueId: string;
+  cueIndex: number;
+  before: visualsubforge_plugin_review_Content;
+  after: visualsubforge_plugin_review_Content;
+  outsideScope: boolean;
+  warning: string | null;
+};
+
 export type visualsubforge_text_review_Row = {
   cueId: number;
   cueIndex: number;
@@ -1988,6 +2088,8 @@ export type visualsubforge_scenes_Saved_Serialize = {
   cuts: number[];
   identity: visualsubforge_project_MediaIdentity_Serialize;
 };
+
+export type visualsubforge_plugin_review_Scalar = boolean | number | string;
 
 export type vsf_application_quality_scene_SceneCoverage =
   'notRequired' | 'checked' | 'reduced' | 'noMedia' | 'unavailable' | 'partial';
@@ -2431,6 +2533,19 @@ export type visualsubforge_text_review_Target = {
 
 export type vsf_application_quality_profile_TextAlgorithm = 'vss_utf16_v1';
 
+export type visualsubforge_plugin_review_TextChunk = {
+  offset: number;
+  nextOffset: number;
+  totalBytes: number;
+  text: string;
+};
+
+export type visualsubforge_plugin_review_TextPreview = {
+  text: string;
+  totalBytes: number;
+  truncated: boolean;
+};
+
 export type visualsubforge_text_review_TextView = {
   id: number;
   key: visualsubforge_quality_check_Key;
@@ -2463,6 +2578,34 @@ export type vsf_application_quality_statistics_UnavailableCounts = {
   emptyText: number;
   invalidDuration: number;
   readingAllowance: number;
+};
+
+export type visualsubforge_plugin_review_View = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_plugin_review_Phase;
+  mode: visualsubforge_plugin_review_Mode;
+  path: string;
+  packageId: string | null;
+  fingerprint: string | null;
+  name: string | null;
+  canFix: boolean;
+  error: string | null;
+  scopeCount: number;
+  selectionCount: number;
+  cursorMs: number | null;
+  preferences: visualsubforge_plugin_review_Preferences;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  sceneFilterOffsetMs: number;
+  settings: { [key in string]: visualsubforge_plugin_review_Scalar };
+  logs: string[];
+  findingsTotal: number;
+  changesTotal: number;
+  findingsOffset: number;
+  changesOffset: number;
+  findings: visualsubforge_plugin_review_Finding[];
+  rows: visualsubforge_plugin_review_Row[];
 };
 
 export type visualsubforge_quality_check_View =

@@ -51,6 +51,7 @@ mod native_quit;
 mod native_surface;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod playback_bench;
+mod plugin_review;
 mod preferences;
 mod project;
 mod quality_check;

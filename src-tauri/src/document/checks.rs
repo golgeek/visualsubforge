@@ -193,6 +193,7 @@ impl Store {
             self.gaps.invalidate(key);
             self.timing_repairs.invalidate(key);
             self.texts.invalidate(key);
+            self.plugins.invalidate(key);
         } else {
             self.checks.cancel_worker();
             self.checks.report = None;
@@ -327,7 +328,8 @@ impl Documents {
         self.shutdown_gaps()?;
         self.shutdown_timing_repairs()?;
         self.shutdown_texts()?;
-        self.shutdown_translation()
+        self.shutdown_translation()?;
+        self.shutdown_plugins()
     }
 }
 fn project_view(

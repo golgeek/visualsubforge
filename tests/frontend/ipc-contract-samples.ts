@@ -25,6 +25,9 @@ import type {
   LegacyImportReview,
   TranslationAction,
   TranslationReply,
+  PluginInput,
+  PluginReview,
+  PluginTextChunk,
 } from '../../src/lib/client';
 export const preset = {
   version: 1,
@@ -1085,6 +1088,123 @@ export const translationActions = [
     kind: 'detach',
   },
 ] satisfies TranslationAction[];
+export const pluginInput = {
+  cpsTarget: null,
+  cursorMs: 1234,
+  mode: 'fix',
+  rsTargetIndex: null,
+  sceneFilterOffsetMs: 0,
+  scope: [],
+  selection: [],
+  settings: {
+    flag: true,
+    name: 'Été',
+    number: 3.5,
+  },
+} satisfies PluginInput;
+export const pluginReview = {
+  canFix: true,
+  changesOffset: 0,
+  changesTotal: 2,
+  cursorMs: 1234,
+  error: null,
+  findings: [
+    {
+      cueId: '1',
+      message: 'append',
+    },
+    {
+      cueId: '2',
+      message: 'append',
+    },
+  ],
+  findingsOffset: 0,
+  findingsTotal: 2,
+  fingerprint:
+    '4fb36d69f1f03116c4f621521fd8db9088824d0e979cac092cf01c84106217ed',
+  id: 1,
+  key: {
+    epoch: 0,
+    generation: 1,
+    loaded: true,
+    revision: 0,
+  },
+  logs: [],
+  mode: 'fix',
+  name: 'Append marker',
+  packageId: 'test.append',
+  path: '/fixtures/plugin/manifest.json',
+  phase: 'reviewing',
+  preferences: {
+    cpsTarget: 20.0,
+    maximumDurationMs: 7000,
+    minimumBlankMs: 80,
+    minimumDurationMs: 800,
+    rsTargetIndex: null,
+  },
+  rows: [
+    {
+      after: {
+        endMs: 2000,
+        startMs: 1000,
+        text: {
+          text: '{\\i1}Été 😀{\\i0}!',
+          totalBytes: 21,
+          truncated: false,
+        },
+      },
+      before: {
+        endMs: 2000,
+        startMs: 1000,
+        text: {
+          text: '{\\i1}Été 😀{\\i0}',
+          totalBytes: 20,
+          truncated: false,
+        },
+      },
+      cueId: '1',
+      cueIndex: 0,
+      outsideScope: false,
+      warning: null,
+    },
+    {
+      after: {
+        endMs: 4000,
+        startMs: 3000,
+        text: {
+          text: '<i>世界</i>!',
+          totalBytes: 14,
+          truncated: false,
+        },
+      },
+      before: {
+        endMs: 4000,
+        startMs: 3000,
+        text: {
+          text: '<i>世界</i>',
+          totalBytes: 13,
+          truncated: false,
+        },
+      },
+      cueId: '2',
+      cueIndex: 1,
+      outsideScope: false,
+      warning: null,
+    },
+  ],
+  sceneCoverage: 'checked',
+  sceneFilterOffsetMs: 0,
+  scopeCount: 2,
+  selectionCount: 0,
+  session: 7,
+  settings: {},
+} satisfies PluginReview;
+export const pluginTextChunk = {
+  nextOffset: 21,
+  offset: 0,
+  text: '{\\i1}Été 😀{\\i0}!',
+  totalBytes: 21,
+} satisfies PluginTextChunk;
 export const statisticsView = {
   error: null,
   findings: [
