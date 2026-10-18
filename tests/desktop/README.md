@@ -301,3 +301,15 @@ the requested video seek), binary/input hashes and the unchanged one-second
 budget. See [batch policy and receipts](../../docs/batch-timing.md). The native
 feature is required for the small playhead workflow; screenshots of WebKit do
 not establish native video composition.
+
+## Styled resynchronization lane
+
+After generating `python3 scripts/resync-fixtures.py`, build the CLI and current
+native desktop test application, then run `node tests/desktop/run.mjs --resync
+--binary /absolute/path/to/visualsubforge`. The optional lane copies media inside
+the isolated picker root, uses actual menu/dialog/IPC analysis and the real CLI,
+and checks ASS/SSA/tagged-SRT output parity, timed-effect refusal, native preview
+revision acknowledgment, protected saving and Undo/Redo. It retains per-format
+review/refusal screenshots and SHA256 output digests. The ordinary persistence
+and crash-recovery workflow runs first. Native frame composition and physical
+GPU/audio acceptance are not established by these webview screenshots.

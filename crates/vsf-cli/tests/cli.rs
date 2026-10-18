@@ -137,6 +137,119 @@ fn fixtures() -> PathBuf {
 
 #[test]
 #[ignore = "Requires python3 scripts/resync-fixtures.py and FFmpeg/ffprobe"]
+fn styled_and_tagged_resync_preserves_sources_and_refuses_unsafe_or_cross_format_outputs() {
+    let subtitles =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/subtitles");
+    for extension in ["ass", "ssa", "srt"] {
+        let original = fs::read_to_string(subtitles.join(format!("resync.{extension}"))).unwrap();
+        // Offset preserves timed tags; rate change refuses timed effects. A
+        // separate static input demonstrates actual grid-rounded rate changes.
+        for (target, timed, output_extension, expected_code) in [
+            ("offset.mkv", true, extension, 0),
+            ("speed-ads.mkv", true, extension, 3),
+            ("speed-ads.mkv", false, extension, 0),
+            ("offset.mkv", true, "vtt", 2),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = dir.path().join(format!("original.{extension}"));
+            let input = if timed {
+                original.clone()
+            } else {
+                original.replace(r"{\k20}", "")
+            };
+            fs::write(&source, &input).unwrap();
+            let output_path = dir.path().join(format!("output.{output_extension}"));
+            let report_path = dir.path().join("report.json");
+            let output = run(vsf()
+                .args(["resync", "--source-video"])
+                .arg(fixtures().join("source.mkv"))
+                .arg("--target-video")
+                .arg(fixtures().join(target))
+                .arg("--source-subtitles")
+                .arg(&source)
+                .arg("--output")
+                .arg(&output_path)
+                .arg("--report")
+                .arg(&report_path)
+                .arg("--json"));
+            assert_eq!(
+                output.status.code(),
+                Some(expected_code),
+                "{extension} {target}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(fs::read_to_string(&source).unwrap(), input);
+            if expected_code == 2 {
+                assert!(!report_path.exists() && !output_path.exists());
+                assert!(String::from_utf8_lossy(&output.stderr).contains("source ."));
+                continue;
+            }
+            let report: serde_json::Value =
+                serde_json::from_slice(&fs::read(&report_path).unwrap()).unwrap();
+            assert_eq!(report["schema_version"], 3);
+            assert_eq!(report["subtitle_format"], extension);
+            assert_eq!(
+                report["time_step_ms"],
+                if extension == "srt" { 1 } else { 10 }
+            );
+            assert_eq!(
+                report["endpoint_rounding"],
+                "nearest_source_tick_ties_later"
+            );
+            if expected_code == 3 {
+                assert!(!output_path.exists());
+                assert_eq!(report["complete"], false);
+                assert!(report["proposed_subtitle_sha256"].is_null());
+                assert_eq!(
+                    report["cues"][0]["outcome"]["reason"],
+                    "timed_effects_need_review"
+                );
+                assert_eq!(report["cues"][1]["outcome"]["status"], "mapped");
+                continue;
+            }
+            let result = fs::read_to_string(&output_path).unwrap();
+            let before = subtitle_formats::parse(&input, None).unwrap();
+            let after = subtitle_formats::parse(&result, None).unwrap();
+            assert_eq!(after.source.format(), before.source.format());
+            let expected = if target == "offset.mkv" {
+                [(6000, 7000), (7100, 8000)]
+            } else if extension == "srt" {
+                [(1960, 2920), (3016, 3880)]
+            } else {
+                [(1960, 2920), (3020, 3880)]
+            };
+            for ((a, b), (start, end)) in before
+                .document
+                .cues()
+                .iter()
+                .zip(after.document.cues())
+                .zip(expected)
+            {
+                assert_eq!((b.start().get(), b.end().get()), (start, end));
+                assert_eq!(a.text(), b.text());
+                assert_eq!(a.metadata(), b.metadata());
+            }
+            assert_eq!(after.source.serialize(&after.document).unwrap(), result);
+            if extension == "ass" {
+                assert!(result.contains("[Fonts]"));
+            }
+            // Only live Dialogue timestamps may change. Comments and all
+            // remaining records, including encoded attachment bytes, are exact.
+            if extension != "srt" {
+                let opaque = |s: &str| {
+                    s.lines()
+                        .filter(|l| !l.starts_with("Dialogue:"))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                };
+                assert_eq!(opaque(&input), opaque(&result));
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "Requires python3 scripts/resync-fixtures.py and FFmpeg/ffprobe"]
 fn real_binary_publishes_round_trip_srt_and_json_and_refuses_retry() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("original.srt");

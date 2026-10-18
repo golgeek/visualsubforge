@@ -54,7 +54,7 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
             Publication::Complete
         );
         assert_eq!(fs::read_to_string(&source).unwrap(), SUBTITLES);
-        let output = fs::read_to_string(paths.srt().unwrap()).unwrap();
+        let output = fs::read_to_string(paths.subtitles().unwrap()).unwrap();
         let parsed = srt::parse(&output).unwrap();
         for (cue, (start, end)) in parsed.document.cues().iter().zip(expected) {
             assert_eq!(
@@ -67,12 +67,12 @@ fn shared_operation_maps_content_and_publishes_preserved_srt_and_report() {
         assert!(output.starts_with("7\n"));
         let report: serde_json::Value =
             serde_json::from_slice(&fs::read(paths.report()).unwrap()).unwrap();
-        assert_eq!(report["schema_version"], 2);
+        assert_eq!(report["schema_version"], 3);
         assert_eq!(report["complete"], true);
         assert_eq!(report["cue_gap_policy"], "content_mapped_endpoints_v1");
         assert_eq!(
-            report["proposed_srt_sha256"],
-            result.proposal().srt_sha256().unwrap()
+            report["proposed_subtitle_sha256"],
+            result.proposal().subtitles_sha256().unwrap()
         );
         assert_eq!(report["cues"][0]["cue_id"], "1");
         assert_eq!(report["cues"][0]["following_gap"]["source_ms"], 100);
@@ -132,7 +132,7 @@ fn unresolved_and_changed_inputs_cannot_publish_subtitles() {
         Publication::NeedsReview
     );
     assert!(paths.report().is_file());
-    assert!(!paths.srt().unwrap().exists());
+    assert!(!paths.subtitles().unwrap().exists());
     let other = OutputPaths::new(&dir.path().join("other.json"), None).unwrap();
     fs::write(&source, SUBTITLES).unwrap();
     assert!(

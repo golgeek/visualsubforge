@@ -35,8 +35,8 @@ New cues use Default, or the first existing style, with zero layer/margins,
 Marked=0 for SSA and otherwise empty metadata. Splits copy metadata. Merges require
 matching metadata and insert an ASS line break/style reset. Structural operations
 reject cue-relative effects, ambiguous markup and unsafe merged positioning or
-mixed SRT/ASS contexts. The current resynchronization operation explicitly accepts
-only SRT; extending its alignment/publication policy is separate from these repairs.
+mixed SRT/ASS contexts. The [resynchronization operation](resynchronization.md) also supports ASS/SSA
+with direct source-grid rounding and refusal of unsafe timed-effect duration changes.
 
 ## Style editing and safe tools
 

@@ -29,8 +29,8 @@ The editor provides:
   options and paused resume position. Save subtitles separately for interchange.
   Normal quit updates an attached project and offers explicit choices on failure.
 - Experimental subtitle resynchronization through a headless CLI or Tools →
-  Resynchronize Subtitles, with proposal review, one-step Undo and protected Save
-  As. The desktop workflow uses the loaded target video and a selected source.
+  Resynchronize Subtitles for SRT/ASS/SSA, with format-aware timing review,
+  safe timed-effect refusal, one-step Undo and protected Save As. The desktop workflow uses the loaded target video and a selected source.
 - Persistent settings, portable timing and quality profiles, and native menus.
   Settings drafts are committed with Apply; projects retain their effective
   quality rules and timing options independently of workspace defaults.

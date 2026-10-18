@@ -99,7 +99,7 @@ fn run(args: Resync, cancel: &Cancellation) -> resync::Result<u8> {
                 schema_version: 1,
                 status,
                 report: paths.report(),
-                output: if complete { paths.srt() } else { None },
+                output: if complete { paths.subtitles() } else { None },
                 unresolved_cues: analysis
                     .proposal()
                     .cues()
@@ -117,7 +117,8 @@ fn run(args: Resync, cancel: &Cancellation) -> resync::Result<u8> {
         Publication::Complete => "Published report and retimed subtitles".to_string(),
         Publication::AnalysisOnly => "Published proposal report (analysis only)".to_string(),
         Publication::NeedsReview => {
-            "Published report; unresolved cues require review. No SRT was created".to_string()
+            "Published report; unresolved cues require review. No subtitle file was created"
+                .to_string()
         }
     });
     if let Some(json) = json {

@@ -55,7 +55,11 @@ pub fn analyze(
     let (snapshot, subtitle_file) = match request.subtitles {
         Subtitles::File(path) => {
             let (identity, bytes) = identity::read_subtitles(&path, &budget)?;
-            let parsed = crate::subtitle_file::parse(&bytes).map_err(Error::InvalidInput)?;
+            let parsed = crate::subtitle_file::parse_document(
+                &bytes,
+                path.extension().and_then(|e| e.to_str()),
+            )
+            .map_err(Error::InvalidInput)?;
             (
                 SubtitleSnapshot::new(parsed.document, parsed.source)?,
                 Some(identity),
@@ -186,6 +190,10 @@ impl Analysis {
             video_stream_selection: &'a str,
             timestamp_origin: &'a str,
             cue_gap_policy: &'a str,
+            subtitle_format: &'a str,
+            time_step_ms: u64,
+            endpoint_rounding: &'a str,
+            timed_effect_policy: &'a str,
             source_video: &'a FileIdentity,
             target_video: &'a FileIdentity,
             source_subtitle_file: &'a Option<FileIdentity>,
@@ -194,15 +202,19 @@ impl Analysis {
             alignment: &'a alignment::Alignment,
             cues: &'a [super::CueProposal],
             complete: bool,
-            proposed_srt_sha256: Option<&'a str>,
+            proposed_subtitle_sha256: Option<&'a str>,
             publication: &'a str,
         }
         let report = Report {
-            schema_version: 2,
+            schema_version: 3,
             algorithm_version: ALGORITHM_VERSION,
             video_stream_selection: "first_video_stream",
             timestamp_origin: "container_start",
             cue_gap_policy: "content_mapped_endpoints_v1",
+            subtitle_format: self.proposal.snapshot().format().extension(),
+            time_step_ms: self.proposal.snapshot().format().time_step_ms(),
+            endpoint_rounding: "nearest_source_tick_ties_later",
+            timed_effect_policy: "preserve_tags_refuse_duration_changes_for_timed_or_ambiguous_cues",
             source_video: &self.source_video,
             target_video: &self.target_video,
             source_subtitle_file: &self.subtitle_file,
@@ -211,8 +223,8 @@ impl Analysis {
             alignment: self.proposal.alignment(),
             cues: self.proposal.cues(),
             complete: self.proposal.is_complete(),
-            proposed_srt_sha256: self.proposal.srt_sha256(),
-            publication: "Proposal only; this report does not prove SRT publication",
+            proposed_subtitle_sha256: self.proposal.subtitles_sha256(),
+            publication: "Proposal only; this report does not prove subtitle publication",
         };
         let mut writer = ReportWriter(Vec::new());
         serde_json::to_writer_pretty(&mut writer, &report)

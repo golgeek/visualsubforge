@@ -292,3 +292,20 @@ python3 scripts/scene-benchmark.py /path/to/video --seconds 60 --repeats 3 --out
 The script records tool versions, metadata, timings and cut timestamps. OS cache
 and background activity are uncontrolled. See task 008's performance note for
 actual commands, results and accuracy limits.
+
+## Styled resync fixtures — Task020
+
+`subtitles/resync.ass`, `.ssa` and `.srt` are original fixtures derived from
+Task016 style/opaque-record controls and Task018's original two-glyph embedded
+font. No external fonts are added. Two cues at 3–4s and 4.1–5s fit the synthetic
+resync corpus's independently known matching intervals. The first cue has a
+`\k20` tag; the second is static. Offset output is 6–7s and 7.1–8s. A measured
+0.96 speed map refuses the karaoke row; removing that tag in the static control
+yields 1.960–2.920s and 3.020–3.880s in ASS/SSA (3.016s SRT second start).
+CLI and desktop tests compare tags, source protection, opaque records, history
+and output bytes. The font's existing generation/license instructions still apply.
+
+The 10k resync benchmark uses Task016's full fixture with only timestamps halved
+to fit the existing four-hour analysis limit; it records both parent/derived
+SHA256. All cues, text, styles and unknown records remain. CPU/RSS budgets remain
+500ms p95 / 96MiB additional sampled RSS. Original generated files stay unchanged.

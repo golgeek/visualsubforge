@@ -122,6 +122,12 @@
   </p>
   {#if session.error}<p class="error" role="alert">{session.error}</p>{/if}
   {#if view?.phase === 'reviewing'}
+    <p>
+      {view.format.toUpperCase()} endpoints round directly to the nearest
+      {view.timeStepMs} ms tick; ties round later. Tags, styles and attachments stay
+      unchanged. Timed or ambiguous cues whose duration would change need manual review,
+      including ASS tags in SRT.
+    </p>
     {#if !view.complete}
       <p class="error">
         {view.unresolvedCues} cues could not be mapped safely. This proposal cannot
@@ -376,6 +382,11 @@
     min-width: 12em;
     max-width: 28em;
     overflow-wrap: anywhere;
+  }
+  .unresolved td:last-child {
+    white-space: normal;
+    min-width: 14em;
+    max-width: 28em;
   }
   @media (max-width: 600px) {
     dl {

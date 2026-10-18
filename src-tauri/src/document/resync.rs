@@ -17,11 +17,9 @@ impl Documents {
             return Err("Subtitle document changed before analysis started".into());
         }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
-        let Source::Srt(source) = &loaded.source else {
-            return Err("Resynchronization currently supports SRT documents; ASS/SSA has not been validated for this operation".into());
-        };
-        let snapshot = SubtitleSnapshot::new(loaded.editor.document().clone(), source.clone())
-            .map_err(|e| e.to_string())?;
+        let snapshot =
+            SubtitleSnapshot::new(loaded.editor.document().clone(), loaded.source.clone())
+                .map_err(|e| e.to_string())?;
         Ok(Capture { key, snapshot })
     }
 
@@ -42,7 +40,7 @@ impl Documents {
         let edit = proposal
             .edit(loaded.editor.document())
             .map_err(|e| e.to_string())?;
-        // Reuse the domain transaction and accepted-SRT size policy. Only a
+        // Reuse the domain transaction and accepted source-format size policy. Only a
         // successful edit may change save protection; a no-op still requires
         // a new destination, but does not manufacture an undo entry.
         loaded.apply_edit(capture.key.revision, edit)?;

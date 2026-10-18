@@ -18,8 +18,24 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 [feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
-batch timing is complete, and ASS/SSA resync is in progress. Later stages are pending. Completed milestones below remain the
+batch timing and ASS/SSA resync are complete. Language tools are in progress;
+later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**ASS/SSA resync complete (2026-10-17):** shared CLI/GUI analysis preserves source
+styles, metadata, attachments and tags. Rational endpoints round directly to the
+stated source grid. Cues with timed/ambiguous effects can move intact; duration
+changes require manual review and block whole-document acceptance, including
+ASS tags inside SRT. Accepted batches retain source protection and one-step Undo.
+
+313 ordinary Rust tests in current source, 44 frontend tests, 50 browser cases,
+real FFmpeg/CLI matrices and strict static/build/IPC checks pass. Actual Mac
+ASS/SSA/tagged-SRT review, acceptance, exact CLI/save-byte parity, failed-save
+preservation, Undo/Redo, preview acknowledgment and timed-effect refusal pass.
+10k proposal p95 is <=103.088ms with 32,931,840 additional sampled RSS bytes,
+within 500ms/96MiB budgets. See [policy and exact evidence](resynchronization.md#assssa-extension-validation--2026-10-17).
+Windows/Linux new-feature execution and physical installation/GPU/audio acceptance
+remain separate open gates; the approved native runtime strategy is unchanged.
 
 **Selection and batch timing complete (2026-10-17):** mouse/keyboard ranges and
 disjoint selection retain surviving cue IDs through edits/history. Explicit
@@ -68,7 +84,7 @@ invalidation <=59 ms. Rebuilt release format p95 is 29.723/25.165 ms with 46,333
 additional sampled RSS bytes, within unchanged 500 ms/96 MiB budgets. Measurements
 and retained failures are in the [ASS/SSA integration guide](ass-ssa-documents.md).
 Comprehensive style design, attachment management and conversion remain deferred;
-resync remains explicitly SRT-only. Windows/Linux feature execution, Linux picker
+resync was SRT-only at that milestone and is extended above. Windows/Linux feature execution, Linux picker
 filters, installation and physical GPU/audio acceptance remain unverified.
 
 **Statistics milestone complete (2026-10-17):** read-only whole-document or

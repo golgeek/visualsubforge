@@ -1,29 +1,30 @@
 //! Pure proposal construction: no files, processes, desktop state or IPC.
 use super::{Budget, Error, Result};
-use crate::srt_limits;
+use crate::subtitle_file;
 use media_analysis::alignment::{Alignment, Segment};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use subtitle_core::{CueTiming, Document, Edit, Editor, Milliseconds};
-use subtitle_formats::srt;
+use subtitle_formats::{Format, Source};
 
 /// An immutable accepted document copy, including format metadata. GUI callers
 /// capture generation/revision separately; this never reads frontend drafts.
 #[derive(Clone)]
 pub struct SubtitleSnapshot {
     document: Document,
-    source: srt::Source,
+    source: Source,
     sha256: String,
 }
 impl SubtitleSnapshot {
-    pub fn new(document: Document, source: srt::Source) -> Result<Self> {
-        srt_limits::validate_document(&document, &source).map_err(Error::InvalidInput)?;
+    pub fn new(document: Document, source: impl Into<Source>) -> Result<Self> {
+        let source = source.into();
+        subtitle_file::validate_document(&document, &source).map_err(Error::InvalidInput)?;
         if document.cues().is_empty() {
             return Err(Error::InvalidInput(
                 "Resynchronization needs at least one cue".into(),
             ));
         }
-        let normalized = srt::serialize(&document, &source).map_err(Error::InvalidInput)?;
+        let normalized = source.serialize(&document).map_err(Error::InvalidInput)?;
         let sha256 = format!("{:x}", Sha256::digest(normalized.as_bytes()));
         Ok(Self {
             document,
@@ -31,10 +32,13 @@ impl SubtitleSnapshot {
             sha256,
         })
     }
+    pub fn format(&self) -> Format {
+        self.source.format()
+    }
     pub fn document(&self) -> &Document {
         &self.document
     }
-    /// Digest of the normalized SRT snapshot, not necessarily the file bytes.
+    /// Digest of the source-format snapshot, not necessarily the file bytes.
     pub fn sha256(&self) -> &str {
         &self.sha256
     }
@@ -47,6 +51,7 @@ pub enum UnresolvedReason {
     UnsupportedCoverage,
     CrossesDiscontinuity,
     InvalidMappedRange,
+    TimedEffectsNeedReview,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,7 +90,7 @@ pub struct CueProposal {
     pub source_end_ms: u64,
     pub outcome: CueOutcome,
     /// Nonnegative gap to the next cue by source start time. Overlaps are not
-    /// repaired; array order/IDs stay unchanged even for unsorted input SRTs.
+    /// repaired; array order/IDs stay unchanged even for unsorted source rows.
     pub following_gap: Option<CueGap>,
 }
 
@@ -96,8 +101,8 @@ pub struct Proposal {
     alignment: Alignment,
     cues: Vec<CueProposal>,
     timings: Option<Vec<CueTiming>>,
-    srt: Option<String>,
-    srt_sha256: Option<String>,
+    subtitles: Option<String>,
+    subtitles_sha256: Option<String>,
 }
 impl Proposal {
     pub fn build(
@@ -110,7 +115,22 @@ impl Proposal {
         let mut cues = Vec::with_capacity(snapshot.document.cues().len());
         for cue in snapshot.document.cues() {
             budget.check()?;
-            let outcome = map_cue(cue.start(), cue.end(), &alignment);
+            let mut outcome = map_cue(
+                cue.start(),
+                cue.end(),
+                &alignment,
+                snapshot.format().time_step_ms(),
+            );
+            if let CueOutcome::Mapped {
+                start_ms, end_ms, ..
+            } = outcome
+                && end_ms - start_ms != cue.end().get() - cue.start().get()
+                && crate::subtitle_markup::retiming_is_ambiguous(cue, snapshot.format())
+            {
+                outcome = CueOutcome::Unresolved {
+                    reason: UnresolvedReason::TimedEffectsNeedReview,
+                };
+            }
             cues.push(CueProposal {
                 cue_id: cue.id().0.to_string(),
                 source_start_ms: cue.start().get(),
@@ -135,7 +155,7 @@ impl Proposal {
             }
         }
         let complete = timings.len() == cues.len();
-        let srt = if complete {
+        let subtitles = if complete {
             // Exercise the same atomic domain acceptance used later by desktop.
             let mut editor = Editor::new(snapshot.document.clone());
             editor
@@ -144,14 +164,19 @@ impl Proposal {
                     Edit::Retime {
                         timings: timings.clone(),
                     },
-                    |document| srt_limits::validate_document(document, &snapshot.source),
+                    |document| subtitle_file::validate_document(document, &snapshot.source),
                 )
                 .map_err(Error::InvalidInput)?;
-            Some(srt::serialize(editor.document(), &snapshot.source).map_err(Error::InvalidInput)?)
+            Some(
+                snapshot
+                    .source
+                    .serialize(editor.document())
+                    .map_err(Error::InvalidInput)?,
+            )
         } else {
             None
         };
-        let srt_sha256 = srt
+        let subtitles_sha256 = subtitles
             .as_ref()
             .map(|s| format!("{:x}", Sha256::digest(s.as_bytes())));
         budget.check()?;
@@ -160,8 +185,8 @@ impl Proposal {
             alignment,
             cues,
             timings: complete.then_some(timings),
-            srt,
-            srt_sha256,
+            subtitles,
+            subtitles_sha256,
         })
     }
     pub fn is_complete(&self) -> bool {
@@ -176,11 +201,11 @@ impl Proposal {
     pub fn snapshot(&self) -> &SubtitleSnapshot {
         &self.snapshot
     }
-    pub fn srt(&self) -> Option<&str> {
-        self.srt.as_deref()
+    pub fn subtitles(&self) -> Option<&str> {
+        self.subtitles.as_deref()
     }
-    pub fn srt_sha256(&self) -> Option<&str> {
-        self.srt_sha256.as_deref()
+    pub fn subtitles_sha256(&self) -> Option<&str> {
+        self.subtitles_sha256.as_deref()
     }
 
     /// The desktop must additionally check its captured generation/revision and
@@ -274,7 +299,12 @@ fn validate_map(alignment: &Alignment) -> Result<()> {
     Ok(())
 }
 
-fn map_cue(start: Milliseconds, end: Milliseconds, alignment: &Alignment) -> CueOutcome {
+fn map_cue(
+    start: Milliseconds,
+    end: Milliseconds,
+    alignment: &Alignment,
+    step_ms: u64,
+) -> CueOutcome {
     let unresolved = |reason| CueOutcome::Unresolved { reason };
     if alignment.reordered {
         return unresolved(UnresolvedReason::ReorderedContent);
@@ -295,7 +325,10 @@ fn map_cue(start: Milliseconds, end: Milliseconds, alignment: &Alignment) -> Cue
             UnresolvedReason::UnsupportedCoverage
         });
     }
-    match (map_ms(section, start_us), map_ms(section, end_us)) {
+    match (
+        map_ms(section, start_us, step_ms),
+        map_ms(section, end_us, step_ms),
+    ) {
         (Some(start_ms), Some(end_ms)) if end_ms > start_ms => CueOutcome::Mapped {
             start_ms,
             end_ms,
@@ -305,19 +338,22 @@ fn map_cue(start: Milliseconds, end: Milliseconds, alignment: &Alignment) -> Cue
     }
 }
 
-/// Exact rational mapping, rounded once to milliseconds (positive ties up).
+/// Exact rational mapping, rounded once to source-format ticks (positive ties up).
 /// No float-to-microsecond intermediate or nominal frame-rate conversion.
-fn map_ms(section: &Segment, source_us: u64) -> Option<u64> {
+fn map_ms(section: &Segment, source_us: u64, step_ms: u64) -> Option<u64> {
     let source_span = u128::from(section.source_end_us.checked_sub(section.source_start_us)?);
     let target_span = u128::from(section.target_end_us.checked_sub(section.target_start_us)?);
     let offset = u128::from(source_us.checked_sub(section.source_start_us)?);
     let numerator = u128::from(section.target_start_us)
         .checked_mul(source_span)?
         .checked_add(offset.checked_mul(target_span)?)?;
-    let denominator = source_span.checked_mul(1_000)?;
+    let denominator = source_span
+        .checked_mul(1_000)?
+        .checked_mul(u128::from(step_ms))?;
     let rounded = numerator
         .checked_add(denominator / 2)?
-        .checked_div(denominator)?;
+        .checked_div(denominator)?
+        .checked_mul(u128::from(step_ms))?;
     u64::try_from(rounded)
         .ok()
         .filter(|value| *value <= Milliseconds::MAX)

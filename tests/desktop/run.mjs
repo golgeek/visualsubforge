@@ -29,6 +29,7 @@ import { statisticsWorkflow } from './statistics.mjs';
 import { assDocuments } from './ass-documents.mjs';
 import { assPerformance } from './ass-performance.mjs';
 import { batchTiming } from './batch-timing.mjs';
+import { styledResync } from './resync.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -40,6 +41,7 @@ const { values } = parseArgs({
     statistics: { type: 'boolean', default: false },
     ass: { type: 'boolean', default: false },
     batch: { type: 'boolean', default: false },
+    resync: { type: 'boolean', default: false },
     'ass-performance': { type: 'boolean', default: false },
   },
 });
@@ -95,7 +97,7 @@ let exit;
 let launchCount = 0;
 const runDeadline =
   Date.now() +
-  (values.ass || values.batch || values['ass-performance']
+  (values.ass || values.batch || values.resync || values['ass-performance']
     ? 900_000
     : values.scenes || values.duration || values.statistics
       ? 480_000
@@ -560,6 +562,23 @@ try {
       status,
       until,
       record,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.resync)
+    await styledResync({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      cli,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

@@ -1,0 +1,45 @@
+[Script Info]
+; Synthetic Task016 style/format preservation fixture, authored in this repo.
+Title: Unicode 世界
+ScriptType: v4.00+
+PlayResX: 640
+PlayResY: 360
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+YCbCr Matrix: None
+UnknownSetting: retain me
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,VSF Fixture Font,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,10,10,15,1
+Style: Title,VSF Fixture Font,36,&H000000FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,8,10,10,25,1
+[Events]
+Format: Style, End, Start, Layer, Name, MarginL, MarginR, MarginV, Effect, Extra, Text
+Comment: Default,0:00:02.00,0:00:01.00,0,comment,0,0,0,,opaque,Keep this comment
+Dialogue: Title,0:00:04.00,0:00:03.00,2,actor,0000,0000,0000,,retain,{\k20}AB
+Dialogue: Default,0:00:05.00,0:00:04.10,0,,0000,0000,0000,,retain,BA
+[Unknown]
+Opaque: exact bytes,untouched
+
+[Fonts]
+fontname: VSFFixtureFont.ttf
+!!%!!!!+!)!!!Q!A4V-P-E5B1^)!!!%I!!!!9'.N98!!$!#6!!!"E!!!!$2H<(FGRGK6-1!!!=Q!!!")
+;'6B:&F6J*Q!!!#M!!!!.GBI:7%&&A&A!!!!Z!!!!#2I<82Y!C9!:!!!!9A!!!!)<'^D91!8!#]!!!(%
+!!!!#'VB?(!!"1!'!!!"#!!!!#"O97VF]S:=9!!!!B1!!!*W='^T>%62Q+Y!!!3-!!!!/!!"!!!!!1!!
+8"V>G6]0005!!Q0I!!!!!(QFM)!!!!!!@#7QA!!S!!!"QA+]!!!!!Q!#!!!!!!!!!!%!!!-A`TA!!!(U
+!$)!-A(#!!%!!!!!!!!!!!!!!!!!!!!"!!%!!!!$!!1!!1!!!!!!!A!!!!!!!!!!!!!!!!!!!!!!!Q(U
+!:!!"1!%!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"!!!!!!!!!!!!!!!!0T]`0Q!!
+!%%!1A-A`TA!!!-A!-A!!!!!!!!!!!!!!!!!!!!A!!!"^!!S!$)!-A!!!!)!!!!$!!!!&!!$!!%!!!!5
+!!1!)!!!!!1!"!!"!!!!1P``!!!!1@```]!!!1!!!!!!!!!,!"=!*!!"!$)!!!#7!-A!!Q!!-T5T&4*E
+S-A!!1!S!!!"QA+]!!)!!$-B!T)"E-A#P!!!!1!S!!!"QA+]!!-!!$-B%3%S!:$_=!+]!!!!!!Y!LA!"
+!!!!!!!!!$9!!!!"!!!!!!!"!"!!.A!"!!!!!!!#!!=!2A!"!!!!!!!$!")!41!"!!!!!!!%!"A!8Q!"
+!!!!!!!&!!M!>Q!"!!!!!!!'!"9!AA!$!!%%#1!!!'Q!G!!$!!%%#1!"!#!""!!$!!%%#1!#!!Y"*!!$
+!!%%#1!$!#1"-A!$!!%%#1!%!$!"6A!$!!%%#1!&!"9"BA!$!!%%#1!'!#Q"H%^S;7>J<G&M)&:J=X6B
+<&.V9E:P=G>F)(2F=X1A:GFY>(6S:4MA2V"-,4-O-#VP=CVM982F=F:42C"';8BU>8*F)%:P<H23:7>V
+<'&S6F.')%:J?(2V=G5A2G^O>#!R6F.')%:J?(2V=G5A2G^O>#"3:7>V<'&S6G6S=WFP<C!R,D"75U:'
+;8BU>8*F2G^O>#V3:7>V<'&S!%]!=A"J!'=!;1"O!'%!<!!A!&9!;1"T!(5!91"M!&-!>1"C!%9!<Q"S
+!'=!:1!A!(1!:1"T!(1!)!"G!'E!?!"U!(5!=A"F!$M!)!"(!&!!4!!N!$-!,A!Q!#U!<Q"S!#U!<!"B
+!(1!:1"S!&9!5Q"'!#!!2A"J!(A!>!"V!()!:1!A!%9!<Q"O!(1!5A"F!'=!>1"M!'%!=A"7!&-!2A!A
+!%9!;1"Y!(1!>1"S!'5!)!"'!']!<A"U!#!!-1"7!&-!2A!A!%9!;1"Y!(1!>1"S!'5!)!"'!']!<A"U
+!#!!5A"F!'=!>1"M!'%!=A"7!'5!=A"T!'E!<Q"O!#!!-1!O!$!!6A"4!%9!2A"J!(A!>!"V!()!:1"'
+!']!<A"U!#U!5A"F!'=!>1"M!'%!=A!!!!)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Q!!
+!1)"!QBU=GFB<G>M:1:T=86B=G5

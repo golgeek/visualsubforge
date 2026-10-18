@@ -1,4 +1,4 @@
-//! Bounded review pages; the browser receives no candidate SRT or mutable proposal.
+//! Bounded review pages; the browser receives no candidate subtitle file or mutable proposal.
 use super::*;
 use crate::ipc_number::{SafeU64, finite::FiniteF64};
 use serde::Serialize;
@@ -26,6 +26,8 @@ pub struct View {
     stage: String,
     error: Option<String>,
     complete: bool,
+    format: String,
+    time_step_ms: u32,
     total_cues: u32,
     unresolved_cues: u32,
     total_sections: u32,
@@ -109,6 +111,8 @@ impl Resync {
             stage,
             error: job.error.clone(),
             complete: false,
+            format: job.capture.snapshot.format().extension().into(),
+            time_step_ms: job.capture.snapshot.format().time_step_ms() as u32,
             total_cues: 0,
             unresolved_cues: 0,
             total_sections: 0,
@@ -155,6 +159,9 @@ impl Resync {
                                 }
                                 UnresolvedReason::CrossesDiscontinuity => {
                                     "Cue crosses an edit or unsupported section"
+                                }
+                                UnresolvedReason::TimedEffectsNeedReview => {
+                                    "Duration change affects timed tags, event effects or ambiguous markup; manual review required"
                                 }
                                 UnresolvedReason::InvalidMappedRange => {
                                     "Mapped cue has no valid duration"
@@ -220,6 +227,8 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         stage: stage_text(Stage::Propose).into(),
         error: None,
         complete: false,
+        format: "srt".into(),
+        time_step_ms: 1,
         total_cues: 2,
         unresolved_cues: 1,
         total_sections: 1,

@@ -1773,6 +1773,8 @@ export type visualsubforge_resync_view_View = {
   stage: string;
   error: string | null;
   complete: boolean;
+  format: string;
+  timeStepMs: number;
   totalCues: number;
   unresolvedCues: number;
   totalSections: number;
