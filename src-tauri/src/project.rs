@@ -390,7 +390,7 @@ mod tests {
         }
     }
     #[test]
-    fn project_retains_ass_ssa_identity_and_rejects_conflicts() {
+    fn project_retains_ass_ssa_webvtt_identity_and_rejects_conflicts() {
         for (extension, source) in [
             (
                 "ass",
@@ -399,6 +399,10 @@ mod tests {
             (
                 "ssa",
                 include_str!("../../tests/fixtures/subtitles/styles.ssa"),
+            ),
+            (
+                "vtt",
+                include_str!("../../tests/fixtures/subtitles/styles.vtt"),
             ),
         ] {
             let dir = tempfile::tempdir().unwrap();

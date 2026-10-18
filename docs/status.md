@@ -24,14 +24,18 @@ by legacy project import, manual translation, plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**WebVTT foundation (2026-10-18):** the pure format adapter preserves original
-blocks, cue identifiers/settings and line endings through exact-millisecond edits
-and history. Invalid boundaries, timestamps and metadata reject atomically.
-Desktop/CLI dispatch, markup-aware tools, preview, projects and recovery remain
-pending; WebVTT cannot yet be opened in the editor. This does not complete stage6a.
-384 Rust tests / 30 ignored and strict checks pass. Three pure 10k workloads pass
-p95 <=51.506ms and +26,230,784 sampled RSS bytes; these are not desktop measurements.
-See [the implemented boundary, checks and remaining acceptance](webvtt.md).
+**WebVTT integration (2026-10-18):** open/edit/save, shared markup-aware tools,
+CLI checking/statistics, project references and accepted-state recovery now retain
+format identity, original blocks/settings and exact milliseconds. Text projection
+decodes entities, excludes voice/ruby annotations and preserves literal ASS-looking
+text. Automatic timing tools protect absolute timestamp markers; unsupported
+conversion and named split/merge have explicit refusals. Preview uses the existing
+decoder with visible CSS/region/ruby limitations. 398 Rust tests / 30 ignored,
+44 frontend and 56 browser cases pass; final menu changes pass both browser engines.
+Three expanded pure 10k workloads, including whole-document reviewed replacement
+and quality evaluation, pass p95 <=100.174ms and +54,722,560 sampled RSS bytes.
+Actual native workflow/visual/chooser and desktop10k acceptance remain pending;
+this does not complete stage6a. See [scope, checks and limits](webvtt.md).
 
 **Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
 have explicit precision/loss/blocking review and protected separate-file export.

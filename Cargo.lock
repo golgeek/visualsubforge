@@ -4633,6 +4633,7 @@ dependencies = [
  "tempfile",
  "unicode-normalization",
  "unicode-segmentation",
+ "web_atoms",
 ]
 
 [[package]]

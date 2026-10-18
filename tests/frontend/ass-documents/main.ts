@@ -29,6 +29,7 @@ const edits: DocumentAction[] = [];
 let fontNotices = ['Font missing: <b>VSF Test Font</b>; fallback may be used'];
 let occluded = false;
 let eventHandler = 0;
+let menuConversion: boolean | undefined;
 const callbacks = new Map<number, (value: unknown) => void>();
 function assert(value: unknown, message: string) {
   if (!value) throw new Error(message);
@@ -94,6 +95,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         text?: string;
         start?: number;
         end?: number;
+        state?: { convert: boolean };
       },
     ) => {
       switch (command) {
@@ -101,7 +103,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           eventHandler = args.handler!;
           return 1;
         case 'plugin:event|unlisten':
+          return;
         case 'update_menu':
+          menuConversion = args.state!.convert;
           return;
         case 'preferences_get':
           return structuredClone(defaultPreferences);
@@ -120,6 +124,25 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'choose_file':
           return null;
         case 'text_format': {
+          if (doc.format?.name === 'vtt') {
+            assert(
+              args.context?.generation === doc.generation &&
+                args.context.revision === doc.revision,
+              'WebVTT formatting lost version context',
+            );
+            const start = args.start!,
+              end = args.end!;
+            return {
+              text:
+                args.text!.slice(0, start) +
+                '<b>' +
+                args.text!.slice(start, end) +
+                '</b>' +
+                args.text!.slice(end),
+              start: start + 3,
+              end: end + 3,
+            };
+          }
           assert(
             args.context?.generation === doc.generation &&
               args.context.revision === doc.revision &&
@@ -160,6 +183,27 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               ),
             };
             after = structuredClone(doc);
+          } else if (action.kind === 'edit' && doc.format?.name === 'vtt') {
+            edits.push(action);
+            before = structuredClone(doc);
+            doc = {
+              ...doc,
+              revision: doc.revision + 1,
+              dirty: true,
+              canUndo: true,
+              canRedo: false,
+              cues: doc.cues.map((c) =>
+                c.id === action.cueId
+                  ? {
+                      ...c,
+                      startMs: action.startMs,
+                      endMs: action.endMs,
+                      text: action.text,
+                    }
+                  : c,
+              ),
+            };
+            after = structuredClone(doc);
           } else if (action.kind === 'undo')
             doc = { ...before, revision: doc.revision + 1, canRedo: true };
           else if (action.kind === 'redo')
@@ -177,7 +221,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     },
   },
 });
-const app = mount(App, { target: host });
+let app = mount(App, { target: host });
 async function run() {
   try {
     await until(() => host.querySelectorAll('.cue-row').length === 2);
@@ -413,7 +457,94 @@ async function run() {
       'Disposed owner adopted a late styled edit',
     );
     passed('A late styled-edit reply cannot replace a disposed document owner');
-    heading.textContent = `PASS: all ${output.querySelectorAll('li').length} ASS/SSA editor checks`;
+    await unmount(app);
+    doc = {
+      ...structuredClone(original),
+      generation: 42,
+      path: '/fixture.vtt',
+      format: { name: 'vtt', timeStepMs: 1, styles: [], scriptInfo: [] },
+      cues: original.cues.map((cue, i) => ({
+        id: cue.id,
+        startMs: 1001 + i * 3000,
+        endMs: 2999 + i * 3000,
+        text: i ? 'Second' : '<v Alice>Bonjour &amp; 世界</v>',
+      })),
+    };
+    const vtt = structuredClone(doc);
+    app = mount(App, { target: host });
+    await until(
+      () =>
+        host.querySelectorAll('.cue-row').length === 2 &&
+        host.textContent!.includes('WebVTT · 1 ms'),
+    );
+    assert(
+      !host.querySelector('[aria-label="Cue style"]') &&
+        !host.textContent!.includes('Inspect styles…') &&
+        button('Convert subtitles…').disabled,
+      'WebVTT exposed ASS controls or conversion',
+    );
+    assert(
+      host.textContent!.includes('Preview may differ from browsers'),
+      'WebVTT preview limits missing',
+    );
+    await until(() => menuConversion === false);
+    callbacks.get(eventHandler)!({ payload: 'convertSubtitles' });
+    await tick();
+    assert(
+      !host.querySelector('dialog[open]') && !occluded,
+      'A stale native conversion action opened an unsupported WebVTT dialog',
+    );
+    passed(
+      'WebVTT has millisecond timing and explicit preview limits without ASS authoring controls',
+    );
+    input('Cue start', '00:00:01,002');
+    input('Subtitle text', '<v Alice>Bonjour</v>\n{\\b1}literal\\N');
+    await tick();
+    button('Apply edit').click();
+    await until(
+      () =>
+        doc.revision === 1 &&
+        button('Apply edit').disabled &&
+        !button('Undo edit').disabled,
+    );
+    assert(
+      edits.at(-1)?.kind === 'edit' &&
+        doc.cues[0]!.startMs === 1002 &&
+        doc.cues[0]!.text.endsWith('\n{\\b1}literal\\N'),
+      'WebVTT edit used styled assignment or rewrote literal text',
+    );
+    passed(
+      'WebVTT commits an ordinary edit with exact milliseconds, LF and literal ASS-looking text',
+    );
+    button('Undo edit').click();
+    await until(() => field('Subtitle text').value === vtt.cues[0]!.text);
+    assert(
+      field('Cue start').value === '00:00:01,001',
+      'WebVTT Undo lost millisecond precision',
+    );
+    await until(() => !button('Redo edit').disabled);
+    button('Redo edit').click();
+    await until(
+      () =>
+        field('Cue start').value === '00:00:01,002' && !button('Bold').disabled,
+    );
+    passed('WebVTT Undo and Redo reconcile accepted text and exact timing');
+    const vttEditor = field('Subtitle text') as HTMLTextAreaElement;
+    vttEditor.focus();
+    vttEditor.setSelectionRange(9, 16);
+    button('Bold').click();
+    await until(
+      () =>
+        vttEditor.value.includes('<b>Bonjour</b>') &&
+        !button('Apply edit').disabled,
+    );
+    assert(
+      doc.cues[0]!.text.includes('<v Alice>Bonjour</v>') &&
+        !button('Apply edit').disabled,
+      'WebVTT formatting committed before Apply',
+    );
+    passed('WebVTT formatting remains a versioned draft until explicit Apply');
+    heading.textContent = `PASS: all ${output.querySelectorAll('li').length} ASS/SSA/WebVTT editor checks`;
   } catch (error) {
     heading.textContent = `FAIL: ${String(error)}`;
     console.error(error);

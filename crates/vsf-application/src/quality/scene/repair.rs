@@ -25,7 +25,7 @@ impl Skip {
                 "Nested intervals or equal starts make this overlap group ambiguous."
             }
             Self::MarkupNeedsReview => {
-                "Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review."
+                "Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review."
             }
             Self::WouldCollapse => {
                 "The scene buffers leave no positive cue duration within the original interval at this format's precision."

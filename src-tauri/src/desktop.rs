@@ -174,6 +174,7 @@ pub struct MenuState {
     available: bool,
     media: bool,
     document: bool,
+    convert: bool,
     resync: bool,
     undo: bool,
     redo: bool,
@@ -221,7 +222,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
             ("mergePrevious", state.merge_previous),
             ("mergeNext", state.merge_next),
             ("saveAs", state.document),
-            ("convertSubtitles", state.document),
+            ("convertSubtitles", state.document && state.convert),
             ("closeSubtitles", state.document),
             ("closeMedia", state.media),
             ("undo", state.undo),
@@ -360,7 +361,7 @@ pub async fn choose_file(
                 .blocking_pick_file(),
             FileChoice::Subtitles => dialog
                 .set_title("Open Subtitles")
-                .add_filter("Subtitles", &["srt", "ass", "ssa"])
+                .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt"])
                 .blocking_pick_file(),
             FileChoice::SaveSubtitles => dialog
                 .set_title("Save Subtitles As")

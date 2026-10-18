@@ -124,7 +124,11 @@ impl Proposal {
             if let CueOutcome::Mapped {
                 start_ms, end_ms, ..
             } = outcome
-                && end_ms - start_ms != cue.end().get() - cue.start().get()
+                && (if snapshot.format() == Format::WebVtt {
+                    start_ms != cue.start().get() || end_ms != cue.end().get()
+                } else {
+                    end_ms - start_ms != cue.end().get() - cue.start().get()
+                })
                 && crate::subtitle_markup::retiming_is_ambiguous(cue, snapshot.format())
             {
                 outcome = CueOutcome::Unresolved {

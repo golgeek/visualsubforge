@@ -26,11 +26,31 @@ pub(crate) fn serialize_source(
     document: &subtitle_core::Document,
     source: &subtitle_formats::Source,
 ) -> Result<Option<Source>, String> {
-    match source.ass() {
-        Some(source) => {
+    match source {
+        subtitle_formats::Source::Ass(source) => {
             Ok(ass::serialize_document(document, source)?.map(|url| Source { url, styled: true }))
         }
-        None => serialize(document),
+        subtitle_formats::Source::Srt(_) => serialize(document),
+        subtitle_formats::Source::WebVtt(_) => {
+            if document.cues().is_empty() {
+                return Ok(None);
+            }
+            if source.serialized_len(document)? > 4 * 1024 * 1024 {
+                return Err("Document exceeds the 4 MiB native preview limit; editing and saving remain available".into());
+            }
+            // Native WebVTT decoding owns markup interpretation. Never route
+            // literal ASS-looking text through SRT's fansub override encoder.
+            // Normalize only this presentation copy for demuxer line handling.
+            let text = source
+                .serialize(document)?
+                .trim_start_matches('\u{feff}')
+                .replace("\r\n", "\n")
+                .replace('\r', "\n");
+            Ok(Some(Source {
+                url: format!("memory://{text}"),
+                styled: false,
+            }))
+        }
     }
 }
 
@@ -159,6 +179,44 @@ impl Renderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn webvtt_transport_keeps_literal_ass_and_normalizes_only_preview_endings() {
+        let input = "\u{feff}WEBVTT\r\n\r\n00:01.001 --> 00:02.999\r\n{\\an8}literal\\N &amp; <v Alice>voice</v>\r\n";
+        let parsed =
+            subtitle_formats::parse(input, Some(subtitle_formats::Format::WebVtt)).unwrap();
+        let preview = serialize_source(&parsed.document, &parsed.source)
+            .unwrap()
+            .unwrap();
+        assert!(!preview.styled);
+        assert_eq!(
+            preview.url,
+            format!(
+                "memory://{}",
+                input.trim_start_matches('\u{feff}').replace("\r\n", "\n")
+            )
+        );
+        assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), input);
+        let empty =
+            subtitle_formats::parse("WEBVTT", Some(subtitle_formats::Format::WebVtt)).unwrap();
+        assert!(
+            serialize_source(&empty.document, &empty.source)
+                .unwrap()
+                .is_none()
+        );
+        let large = subtitle_formats::parse(
+            &format!(
+                "WEBVTT\n\n00:01.001 --> 00:02.999\n{}",
+                "x".repeat(4 * 1024 * 1024)
+            ),
+            Some(subtitle_formats::Format::WebVtt),
+        )
+        .unwrap();
+        assert!(
+            serialize_source(&large.document, &large.source)
+                .unwrap_err()
+                .contains("4 MiB")
+        );
+    }
     #[derive(Default)]
     struct Fake {
         commands: Vec<Vec<String>>,

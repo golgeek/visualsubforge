@@ -1337,6 +1337,7 @@ export type visualsubforge_desktop_MenuState = {
   available: boolean;
   media: boolean;
   document: boolean;
+  convert: boolean;
   resync: boolean;
   undo: boolean;
   redo: boolean;
@@ -2128,6 +2129,7 @@ export type vsf_application_quality_statistics_Summary =
 
 export type vsf_application_quality_statistics_Summary_Deserialize = {
   schemaVersion: number;
+  textInterpretation?: string | null;
   selection: vsf_application_quality_statistics_Selection;
   profile: vsf_application_quality_profile_Profile_Deserialize;
   profileHash: string;
@@ -2165,6 +2167,7 @@ export type vsf_application_quality_statistics_Summary_Deserialize = {
 
 export type vsf_application_quality_statistics_Summary_Serialize = {
   schemaVersion: number;
+  textInterpretation?: string | null;
   selection: vsf_application_quality_statistics_Selection;
   profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;

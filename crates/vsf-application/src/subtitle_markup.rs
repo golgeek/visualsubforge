@@ -1,5 +1,6 @@
 //! Editable source mapping, deliberately separate from historical quality counting.
 use std::ops::Range;
+pub(crate) mod webvtt;
 
 pub(crate) const MAX_CUE_BYTES: usize = 64 * 1024;
 
@@ -37,6 +38,7 @@ pub(super) struct Projection {
     pub escapes: bool,
     pub timed: bool,
     pub ass_document: bool,
+    pub format: subtitle_formats::Format,
     unbalanced: bool,
 }
 
@@ -53,11 +55,42 @@ impl Projection {
         Self::parse(source, false, true)
     }
     pub fn for_format(source: &str, format: subtitle_formats::Format) -> Self {
-        if format == subtitle_formats::Format::Srt {
-            Self::new(source)
-        } else {
-            Self::for_ass_document(source)
+        match format {
+            subtitle_formats::Format::Srt => Self::new(source),
+            subtitle_formats::Format::Ass | subtitle_formats::Format::Ssa => {
+                Self::for_ass_document(source)
+            }
+            subtitle_formats::Format::WebVtt => Self::for_webvtt(source),
         }
+    }
+    pub fn for_webvtt(source: &str) -> Self {
+        let mut result = Self {
+            visible: String::new(),
+            units: vec![],
+            protected: vec![],
+            ambiguous: None,
+            layout: false,
+            escapes: false,
+            timed: false,
+            ass_document: false,
+            format: subtitle_formats::Format::WebVtt,
+            unbalanced: false,
+        };
+        let summary = webvtt::walk(source, |event| -> Result<(), std::convert::Infallible> {
+            match event {
+                webvtt::Event::Visible(c, range) => result.push(c, range),
+                webvtt::Event::Protected(range) => result.protected.push(range),
+            }
+            Ok(())
+        });
+        let summary = match summary {
+            Ok(summary) => summary,
+            Err(never) => match never {},
+        };
+        result.ambiguous = summary.ambiguous;
+        result.layout = summary.layout;
+        result.timed = summary.timed;
+        result
     }
     fn parse(source: &str, hide_html: bool, ass_document: bool) -> Self {
         let mut result = Self {
@@ -69,6 +102,11 @@ impl Projection {
             escapes: false,
             timed: false,
             ass_document,
+            format: if ass_document {
+                subtitle_formats::Format::Ass
+            } else {
+                subtitle_formats::Format::Srt
+            },
             unbalanced: false,
         };
         let mut at = 0;

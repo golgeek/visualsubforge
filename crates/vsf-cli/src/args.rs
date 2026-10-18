@@ -18,7 +18,7 @@ pub enum Command {
     Check(Check),
     /// Summarize accepted subtitle metrics without changing the file.
     Stats(Stats),
-    /// Transfer SRT/ASS/SSA timings between versions of the same programme.
+    /// Transfer SRT/ASS/SSA/WebVTT timings between versions of the same programme.
     Resync(Resync),
 }
 
@@ -27,7 +27,7 @@ pub enum Command {
     after_help = "Profiles: vsf-default, sw3-uk-vo-subset, or a version-2 .vsfpreset path.\nThe archived SW profile is explicitly partial; unsupported checks never count as passing.\nNo media tools, GUI, or desktop settings are required. Input files are never modified.\nExit codes: 0 no findings and complete coverage, 1 findings, 2 invalid input/limit, 3 incomplete coverage (possibly with findings), 5 IO, 130 cancelled."
 )]
 pub struct Check {
-    /// UTF-8 SRT, ASS or SSA to check.
+    /// UTF-8 SRT, ASS, SSA or WebVTT to check.
     #[arg(long, value_name = "FILE")]
     pub subtitles: PathBuf,
     /// Explicit built-in ID or quality-preset path. Prefix a colliding filename with ./.
@@ -46,7 +46,7 @@ pub struct Resync {
     /// Video to which the existing subtitles are timed.
     #[arg(long, value_name = "FILE")]
     pub source_video: PathBuf,
-    /// Correctly timed UTF-8 SRT, ASS or SSA for the source video.
+    /// Correctly timed UTF-8 SRT, ASS, SSA or WebVTT for the source video.
     #[arg(long, value_name = "FILE")]
     pub source_subtitles: PathBuf,
     /// Destination version of the programme.
@@ -79,7 +79,7 @@ pub struct Resync {
     after_help = "Scope uses one-based source cue positions, not SRT labels. Metrics keep full-document reading context.\nExcluded/unavailable values have explicit counts and denominators. No media decoding or desktop settings.\nExit codes: 0 report with complete quality coverage, 3 partial coverage, 2 invalid input/limit, 5 IO, 130 cancelled. Findings do not change these codes."
 )]
 pub struct Stats {
-    /// UTF-8 SRT, ASS or SSA to summarize.
+    /// UTF-8 SRT, ASS, SSA or WebVTT to summarize.
     #[arg(long, value_name = "FILE")]
     pub subtitles: PathBuf,
     /// Built-in ID or version-2 .vsfpreset path.

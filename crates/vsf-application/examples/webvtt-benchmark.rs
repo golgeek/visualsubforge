@@ -1,4 +1,5 @@
-//! Pure WebVTT parse/edit/serialize/reopen/history measurement. No desktop IO.
+//! WebVTT parse/edit/reviewed replacement/serialize/reopen/history measurement.
+//! Replacement includes whole-document quality checks before and after. No IO.
 //! Input generation precedes the RSS baseline; parsed state is measured.
 use sha2::{Digest, Sha256};
 use std::{
@@ -7,6 +8,7 @@ use std::{
 };
 use subtitle_core::{Edit, Editor, Milliseconds};
 use subtitle_formats::webvtt;
+use vsf_application::{quality, text};
 
 fn fixture(kind: &str) -> Result<String, String> {
     let mut raw = String::from("WEBVTT independent 10k fixture\n\n");
@@ -97,6 +99,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             editor.apply_edit_with_properties(0, edit, |d, s| {
                 webvtt::serialized_len(d, s).map(|_| ())
             })?;
+            let proposal = text::propose_for_format(
+                editor.document().clone(),
+                subtitle_formats::Format::WebVtt,
+                &quality::Profile::default(),
+                &text::Operation::Replace {
+                    query: if kind == "plain" { "Bonjour" } else { "Été" }.into(),
+                    replacement: "Salut".into(),
+                    case_sensitive: true,
+                },
+                || Ok(()),
+            )?;
+            assert_eq!(proposal.changed(), 10_000);
+            editor.apply_edit_with_properties(
+                editor.revision(),
+                proposal.edit(editor.document(), None)?,
+                |d, s| webvtt::serialized_len(d, s).map(|_| ()),
+            )?;
+            drop(proposal);
             let output = webvtt::serialize(editor.document(), editor.properties())?;
             assert_eq!(
                 output.len(),
@@ -104,12 +124,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             let reopened = webvtt::parse(&output)?;
             assert_eq!(&reopened.document, editor.document());
+            drop(reopened);
+            editor.undo(editor.revision())?;
             editor.undo(editor.revision())?;
             assert_eq!(
                 webvtt::serialize(editor.document(), editor.properties())?,
                 original
             );
             assert!(!editor.dirty());
+            editor.redo(editor.revision())?;
             editor.redo(editor.revision())?;
             assert_eq!(
                 webvtt::serialize(editor.document(), editor.properties())?,

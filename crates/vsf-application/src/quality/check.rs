@@ -77,6 +77,10 @@ pub struct CueMetrics {
 #[serde(rename_all = "camelCase")]
 pub struct Report {
     pub schema_version: u32,
+    /// Format-specific interpretation overrides the profile's historical source
+    /// stripping. Omitted in existing SRT/ASS/SSA reports for compatibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_interpretation: Option<String>,
     pub profile: Profile,
     pub profile_hash: String,
     pub complete: bool,
@@ -127,7 +131,11 @@ pub fn evaluate_with_scenes<'a>(
     checkpoint(0, total)?;
     let mut texts = Vec::with_capacity(total);
     for (index, cue) in cues.iter().enumerate() {
-        texts.push(metrics::text(cue.text(), || checkpoint(index, total))?);
+        texts.push(metrics::text_for_format(
+            cue.text(),
+            context.format,
+            || checkpoint(index, total),
+        )?);
     }
     let mut chronological: Vec<usize> = (0..total).collect();
     chronological.sort_by_key(|&i| (cues[i].start().get(), i));
@@ -163,6 +171,8 @@ pub fn evaluate_with_scenes<'a>(
     }
     let mut report = Report {
         schema_version: 3,
+        text_interpretation: (context.format == subtitle_formats::Format::WebVtt)
+            .then(|| "webvtt_utf16_v1".into()),
         profile: profile.clone(),
         profile_hash: profile.fingerprint()?,
         complete: profile.limitations.is_empty() && windows.coverage().available(),

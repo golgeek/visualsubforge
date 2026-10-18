@@ -1,5 +1,5 @@
 //! Source-format dispatch. The accepted document is never silently converted.
-use crate::{ass, srt};
+use crate::{ass, srt, webvtt};
 use subtitle_core::{CueMetadata, Document, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -7,6 +7,7 @@ pub enum Format {
     Srt,
     Ass,
     Ssa,
+    WebVtt,
 }
 impl Format {
     pub fn extension(self) -> &'static str {
@@ -14,6 +15,7 @@ impl Format {
             Self::Srt => "srt",
             Self::Ass => "ass",
             Self::Ssa => "ssa",
+            Self::WebVtt => "vtt",
         }
     }
     pub fn from_extension(extension: &str) -> Option<Self> {
@@ -21,17 +23,22 @@ impl Format {
             "srt" => Some(Self::Srt),
             "ass" => Some(Self::Ass),
             "ssa" => Some(Self::Ssa),
+            "vtt" => Some(Self::WebVtt),
             _ => None,
         }
     }
     pub fn time_step_ms(self) -> u64 {
-        if self == Self::Srt { 1 } else { 10 }
+        match self {
+            Self::Srt | Self::WebVtt => 1,
+            Self::Ass | Self::Ssa => 10,
+        }
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Source {
     Srt(srt::Source),
     Ass(ass::Source),
+    WebVtt(webvtt::Source),
 }
 impl From<srt::Source> for Source {
     fn from(source: srt::Source) -> Self {
@@ -47,6 +54,15 @@ pub struct Parsed {
 /// A known extension constrains interpretation. Content sniffing is only for
 /// callers without format identity; inline ASS tags never change an SRT format.
 pub fn parse(input: &str, expected: Option<Format>) -> Result<Parsed> {
+    if expected == Some(Format::WebVtt)
+        || (expected.is_none() && input.trim_start_matches('\u{feff}').starts_with("WEBVTT"))
+    {
+        let parsed = webvtt::parse(input)?;
+        return Ok(Parsed {
+            document: parsed.document,
+            source: Source::WebVtt(parsed.source),
+        });
+    }
     let first = input
         .trim_start_matches('\u{feff}')
         .lines()
@@ -80,6 +96,7 @@ impl Source {
     pub fn format(&self) -> Format {
         match self {
             Self::Srt(_) => Format::Srt,
+            Self::WebVtt(_) => Format::WebVtt,
             Self::Ass(source) => match source.variant() {
                 ass::Variant::Ass => Format::Ass,
                 ass::Variant::Ssa => Format::Ssa,
@@ -90,12 +107,14 @@ impl Source {
         match self {
             Self::Srt(source) => srt::serialize(document, source),
             Self::Ass(source) => ass::serialize(document, source),
+            Self::WebVtt(source) => webvtt::serialize(document, source),
         }
     }
     pub fn serialized_len(&self, document: &Document) -> Result<usize> {
         match self {
             Self::Srt(source) => srt::serialized_len(document, source),
             Self::Ass(source) => ass::serialized_len(document, source),
+            Self::WebVtt(source) => webvtt::serialized_len(document, source),
         }
     }
     pub fn ass(&self) -> Option<&ass::Source> {
@@ -108,6 +127,7 @@ impl Source {
         match self {
             Self::Srt(_) => Ok(None),
             Self::Ass(source) => source.default_metadata().map(Some),
+            Self::WebVtt(_) => webvtt::default_metadata().map(Some),
         }
     }
     /// Textarea line breaks have a lossless explicit ASS representation. Existing
@@ -119,6 +139,10 @@ impl Source {
                 Ok(text)
             }
             Self::Ass(_) => Ok(text.replace('\n', "\\N")),
+            Self::WebVtt(_) => {
+                webvtt::validate_payload(&text)?;
+                Ok(text)
+            }
         }
     }
     pub fn validate_save_extension(&self, extension: Option<&str>) -> Result<()> {

@@ -41,11 +41,42 @@ fn build(
 fn script(format: Format, text: &str, effect: &str) -> String {
     match format {
         Format::Srt => format!("1\n00:00:01,000 --> 00:00:02,000\n{text}\n"),
+        Format::WebVtt => format!("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n{text}\n"),
         Format::Ass | Format::Ssa => format!(
             "[Script Info]\nScriptType: v4.00{}\n[{} Styles]\nFormat: Name, Fontname\nStyle: Default,Arial\n[Events]\nFormat: Start, End, Style, Effect, Text\nDialogue: 0:00:01.00,0:00:02.00,Default,{effect},{text}\n",
             if format == Format::Ass { "+" } else { "" },
             if format == Format::Ass { "V4+" } else { "V4" },
         ),
+    }
+}
+
+#[test]
+fn webvtt_offsets_preserve_literal_ass_and_refuse_changed_absolute_markers() {
+    for text in ["<v Alice>Bonjour</v>", r"{\k20}Literal\N braces"] {
+        let source = script(Format::WebVtt, text, "");
+        let p = build(&source, Format::WebVtt, 10_000_000, 1_000, 10_001_000);
+        assert!(p.is_complete());
+        assert_eq!(
+            p.subtitles().unwrap(),
+            source
+                .replace("01.000", "01.001")
+                .replace("02.000", "02.001")
+        );
+    }
+    let source = script(Format::WebVtt, "<v Alice>A<00:01.500>B</v>", "");
+    let identity = build(&source, Format::WebVtt, 10_000_000, 0, 10_000_000);
+    assert!(identity.is_complete());
+    assert_eq!(identity.subtitles().unwrap(), source);
+    for (start, end) in [(1_000, 10_001_000), (0, 11_000_000)] {
+        let p = build(&source, Format::WebVtt, 10_000_000, start, end);
+        assert!(!p.is_complete());
+        assert!(p.subtitles().is_none());
+        assert!(matches!(
+            p.cues()[0].outcome,
+            CueOutcome::Unresolved {
+                reason: UnresolvedReason::TimedEffectsNeedReview
+            }
+        ));
     }
 }
 

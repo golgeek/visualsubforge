@@ -169,7 +169,7 @@ pub(super) fn row(
                     .iter()
                     .all(|line| line.encode_utf16().count() <= maximum)
         } else {
-            metrics::text(&after, || Ok(())).is_ok_and(|m| {
+            metrics::text_for_format(&after, p.format, || Ok(())).is_ok_and(|m| {
                 m.lines.len() <= max_lines && m.lines.iter().all(|&n| n as usize <= maximum)
             })
         };

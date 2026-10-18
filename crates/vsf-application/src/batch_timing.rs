@@ -134,6 +134,11 @@ pub fn propose(
     let mut rows = Vec::with_capacity(indices.len());
     for i in indices {
         checkpoint()?;
+        if format == Format::WebVtt
+            && crate::subtitle_markup::retiming_is_ambiguous(&cues[i], format)
+        {
+            return Err(Error::Invalid("WebVTT timestamp markers use absolute media time; timed or ambiguous cues require manual timing review. No cues were changed".into()));
+        }
         let before = timing(&cues[i]);
         let after = CueTiming {
             id: before.id,
@@ -150,6 +155,22 @@ pub fn propose(
             before,
             after,
         });
+    }
+    if format == Format::WebVtt {
+        let mut changed = rows.iter().peekable();
+        let mut previous = None;
+        for (i, cue) in cues.iter().enumerate() {
+            checkpoint()?;
+            let start = if changed.peek().is_some_and(|row| row.cue_index == i) {
+                changed.next().expect("peeked row").after.start
+            } else {
+                cue.start()
+            };
+            if previous.is_some_and(|before| before > start) {
+                return Err(Error::Invalid("This shift would put WebVTT cues out of start-time order; select a wider range or a smaller offset".into()));
+            }
+            previous = Some(start);
+        }
     }
     checkpoint()?;
     Ok(Proposal {

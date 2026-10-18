@@ -161,7 +161,11 @@ impl Resync {
                                     "Cue crosses an edit or unsupported section"
                                 }
                                 UnresolvedReason::TimedEffectsNeedReview => {
-                                    "Duration change affects timed tags, event effects or ambiguous markup; manual review required"
+                                    if proposal.snapshot().format() == subtitle_formats::Format::WebVtt {
+                                        "Timing change affects absolute WebVTT markers or ambiguous markup; manual review required"
+                                    } else {
+                                        "Duration change affects timed tags, event effects or ambiguous markup; manual review required"
+                                    }
                                 }
                                 UnresolvedReason::InvalidMappedRange => {
                                     "Mapped cue has no valid duration"

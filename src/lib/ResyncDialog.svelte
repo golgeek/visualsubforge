@@ -125,8 +125,10 @@
     <p>
       {view.format.toUpperCase()} endpoints round directly to the nearest
       {view.timeStepMs} ms tick; ties round later. Tags, styles and attachments stay
-      unchanged. Timed or ambiguous cues whose duration would change need manual review,
-      including ASS tags in SRT.
+      unchanged. {#if view.format === 'vtt'}WebVTT timestamp markers use
+        absolute media time. Any timing change to a timed or ambiguous cue needs
+        manual review.{:else}Timed or ambiguous cues whose duration would change
+        need manual review, including ASS tags in SRT.{/if}
     </p>
     {#if !view.complete}
       <p class="error">

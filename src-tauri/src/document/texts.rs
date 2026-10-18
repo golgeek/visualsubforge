@@ -168,7 +168,7 @@ impl Documents {
         style: text::Format,
         context: Option<&crate::text_review::FormattingContext>,
     ) -> Result<text::Formatted> {
-        let inherited = {
+        let (format, inherited) = {
             let store = self.0.lock().map_err(|_| "Document state unavailable")?;
             let loaded = store.loaded.as_ref();
             if let Some(context) = context
@@ -185,7 +185,15 @@ impl Documents {
             {
                 return Err("Subtitles changed before formatting; select the cue again".into());
             }
-            if let Some(source) = loaded.and_then(|loaded| loaded.source().ass()) {
+            let format = loaded.map_or(subtitle_formats::Format::Srt, |loaded| {
+                loaded.source().format()
+            });
+            if format == subtitle_formats::Format::WebVtt && context.is_none() {
+                return Err(
+                    "WebVTT formatting requires a current cue; select the cue again".into(),
+                );
+            }
+            let inherited = if let Some(source) = loaded.and_then(|loaded| loaded.source().ass()) {
                 let context = context
                     .ok_or("ASS/SSA formatting requires a current cue and assigned style")?;
                 let definition = source.styles().iter().find(|style| style.name == context.style_name)
@@ -208,11 +216,15 @@ impl Documents {
                 )
             } else {
                 None
-            }
+            };
+            (format, inherited)
         };
-        match inherited {
-            Some(inherited) => text::format_ass_selection(text, start, end, style, inherited),
-            None => text::format_selection(text, start, end, style),
+        match (format, inherited) {
+            (subtitle_formats::Format::WebVtt, _) => {
+                text::format_webvtt_selection(text, start, end, style)
+            }
+            (_, Some(inherited)) => text::format_ass_selection(text, start, end, style, inherited),
+            (_, None) => text::format_selection(text, start, end, style),
         }
         .map_err(|error| error.to_string())
     }

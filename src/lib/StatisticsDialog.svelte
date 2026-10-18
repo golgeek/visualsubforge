@@ -263,11 +263,11 @@
     <details>
       <summary>Counting and coverage</summary>
       <p>
-        {summary.profile.textAlgorithm} · {summary.profile.speedBasis}. Reading
-        time uses full-document context before filtering. Text counting
-        preserves the checker's tag, UTF-16 and line-break policy. Empty text
-        still contributes to duration and line summaries; the text “0” is not
-        empty.
+        {summary.textInterpretation ?? summary.profile.textAlgorithm} · {summary
+          .profile.speedBasis}. Reading time uses full-document context before
+        filtering. Text counting preserves the checker's tag, UTF-16 and
+        line-break policy. Empty text still contributes to duration and line
+        summaries; the text “0” is not empty.
       </p>
       <ul>
         {#each summary.profile.limitations as limitation, index (index)}<li>

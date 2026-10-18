@@ -73,6 +73,56 @@ pub struct TextMetrics {
     pub empty: bool,
 }
 
+/// WebVTT counts decoded caption text, excluding voice/language/class labels and
+/// ruby annotations. Literal ASS-looking braces remain text. No source map is
+/// allocated, so a large cue does not multiply memory by its character count.
+pub fn text_for_format(
+    source: &str,
+    format: subtitle_formats::Format,
+    mut checkpoint: impl FnMut() -> Result<()>,
+) -> Result<TextMetrics> {
+    if format != subtitle_formats::Format::WebVtt {
+        return text(source, checkpoint);
+    }
+    if source.len() > super::MAX_TEXT_BYTES {
+        return Err(super::Error::Limit("Quality text exceeds 16 MiB".into()));
+    }
+    use crate::subtitle_markup::webvtt::{Event, walk};
+    let mut result = TextMetrics {
+        count: 0,
+        lines: vec![0],
+        empty: true,
+    };
+    let mut checked = 0;
+    let mut cr = false;
+    walk(source, |event| {
+        let at = match &event {
+            Event::Visible(_, range) | Event::Protected(range) => range.start,
+        };
+        if at >= checked {
+            checkpoint()?;
+            checked = at.saturating_add(4096);
+        }
+        if let Event::Visible(c, _) = event {
+            if c == '\r' || c == '\n' {
+                if c != '\n' || !cr {
+                    result.count += 2;
+                    result.lines.push(0);
+                }
+            } else {
+                let units = c.len_utf16() as u32;
+                result.count += units;
+                *result.lines.last_mut().expect("initial line") += units;
+                result.empty &= c.is_whitespace();
+            }
+            cr = c == '\r';
+        }
+        Ok(())
+    })?;
+    checkpoint()?;
+    Ok(result)
+}
+
 /// Independently implemented from the pinned host behavior described in the
 /// contract. A retained newline counts as CRLF for speed and zero within a line.
 /// Cancellation is checked at least every 4096 input bytes, including inside tags.

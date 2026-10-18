@@ -29,7 +29,7 @@ impl Skip {
                 "Equal starts or nested intervals make this overlapping group ambiguous."
             }
             Self::MarkupNeedsReview => {
-                "Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review."
+                "Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review."
             }
             Self::WouldCollapse => "The required gap would leave no positive cue duration.",
             Self::MinimumDuration => "Shortening would violate the enabled minimum duration.",

@@ -23,13 +23,15 @@ impl ConversionFormat {
         }
     }
 }
-impl From<Format> for ConversionFormat {
-    fn from(value: Format) -> Self {
-        match value {
+impl TryFrom<Format> for ConversionFormat {
+    type Error = String;
+    fn try_from(value: Format) -> Result<Self> {
+        Ok(match value {
             Format::Srt => Self::Srt,
             Format::Ass => Self::Ass,
             Format::Ssa => Self::Ssa,
-        }
+            Format::WebVtt => return Err("WebVTT conversion is not implemented; save this document as .vtt to preserve its settings, styles and timestamp markers".into()),
+        })
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -160,7 +162,7 @@ pub fn propose(
     crate::subtitle_file::validate_document(document, source)?;
     checkpoint()?;
     let mut report = ConversionReport {
-        source: source.format().into(),
+        source: source.format().try_into()?,
         options,
         cues: document.cues().len() as u32,
         output_bytes: None,

@@ -22,7 +22,29 @@ pub struct Formatted {
 /// Pure draft transformation. Offsets are UTF-16 textarea boundaries. It does
 /// not accept a document edit; the ordinary explicit Apply operation does that.
 pub fn format_selection(source: &str, start: u32, end: u32, style: Format) -> Result<Formatted> {
-    format_selection_inherited(source, start, end, style, None)
+    format_selection_inherited(
+        source,
+        start,
+        end,
+        style,
+        None,
+        subtitle_formats::Format::Srt,
+    )
+}
+pub fn format_webvtt_selection(
+    source: &str,
+    start: u32,
+    end: u32,
+    style: Format,
+) -> Result<Formatted> {
+    format_selection_inherited(
+        source,
+        start,
+        end,
+        style,
+        None,
+        subtitle_formats::Format::WebVtt,
+    )
 }
 pub fn format_ass_selection(
     source: &str,
@@ -31,7 +53,14 @@ pub fn format_ass_selection(
     style: Format,
     inherited: bool,
 ) -> Result<Formatted> {
-    format_selection_inherited(source, start, end, style, Some(inherited))
+    format_selection_inherited(
+        source,
+        start,
+        end,
+        style,
+        Some(inherited),
+        subtitle_formats::Format::Ass,
+    )
 }
 fn format_selection_inherited(
     source: &str,
@@ -39,6 +68,7 @@ fn format_selection_inherited(
     end: u32,
     style: Format,
     inherited: Option<bool>,
+    format: subtitle_formats::Format,
 ) -> Result<Formatted> {
     if source.len() > MAX_CUE_BYTES || source.contains(['\r', '\0']) {
         return Err(Error::Invalid(
@@ -62,13 +92,7 @@ fn format_selection_inherited(
     if a >= b {
         return Err(Error::Invalid("Select the text to format first.".into()));
     }
-    let projection = |text: &str| {
-        if inherited.is_some() {
-            Projection::for_ass_document(text)
-        } else {
-            Projection::new(text)
-        }
-    };
+    let projection = |text: &str| Projection::for_format(text, format);
     let p = projection(source);
     if let Some(reason) = p.ambiguous {
         return Err(Error::Invalid(reason.into()));

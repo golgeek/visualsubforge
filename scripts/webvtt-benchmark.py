@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure pure WebVTT format work against the unchanged 10k CPU/RSS budgets."""
+"""Measure WebVTT format and text proposals against the unchanged 10k budgets."""
 from proposal_benchmark import main
 
 if __name__ == "__main__":

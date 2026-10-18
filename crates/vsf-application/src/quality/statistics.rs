@@ -148,6 +148,8 @@ pub struct RuleCount {
 #[serde(rename_all = "camelCase")]
 pub struct Summary {
     pub schema_version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_interpretation: Option<String>,
     pub selection: Selection,
     pub profile: Profile,
     pub profile_hash: String,
@@ -327,6 +329,7 @@ pub fn summarize(
     Ok(Report {
         summary: Summary {
             schema_version: 1,
+            text_interpretation: report.text_interpretation,
             selection: selection.clone(),
             profile: report.profile,
             profile_hash: report.profile_hash,

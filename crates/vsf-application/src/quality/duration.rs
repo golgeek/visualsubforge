@@ -38,7 +38,7 @@ impl Skip {
                 "Equal starts or nested intervals make this overlapping group ambiguous."
             }
             Self::MarkupNeedsReview => {
-                "Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review."
+                "Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review."
             }
             Self::ConflictingBounds => {
                 "The enabled duration and speed limits have no common integer-millisecond endpoint within the time range."

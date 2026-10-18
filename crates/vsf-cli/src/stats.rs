@@ -59,6 +59,9 @@ pub fn run(args: Stats, cancel: &Cancellation) -> quality::Result<u8> {
             summary.total_cues
         )
         .map_err(io_error)?;
+        if let Some(interpretation) = &summary.text_interpretation {
+            writeln!(stdout, "Text interpretation: {interpretation}").map_err(io_error)?;
+        }
         writeln!(
             stdout,
             "Scope: {} cues; {} explicitly excluded; {} outside scope; {} empty text",

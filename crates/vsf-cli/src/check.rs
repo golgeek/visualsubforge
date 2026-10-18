@@ -52,6 +52,10 @@ pub fn run(args: Check, cancel: &Cancellation) -> quality::Result<u8> {
             report.affected_cues
         )
         .map_err(|e| Error::Io(e.to_string()))?;
+        if let Some(interpretation) = &report.text_interpretation {
+            writeln!(stdout, "Text interpretation: {interpretation}")
+                .map_err(|e| Error::Io(e.to_string()))?;
+        }
         writeln!(
             stdout,
             "Coverage: {}",

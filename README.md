@@ -15,6 +15,9 @@ The editor provides:
 
 - UTF-8 SRT and loss-preserving ASS/SSA text/timing edits, cue operations and undo/redo.
   Rust owns accepted state; unapplied frontend drafts remain separate.
+- WebVTT open/edit/save, markup-aware text/quality tools, projects and recovery
+  preserve identifiers, settings and original blocks. Native workflow/preview
+  acceptance is still pending; see [WebVTT scope and limitations](docs/webvtt.md).
 - Reviewed ASS/SSA style creation/copy/editing, inspection and cue assignment,
   reviewed font attachment management, original script/style/event metadata,
   same-format save, projects and recovery. Unsafe structural/text/timing operations
@@ -99,10 +102,10 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   desktop/CLI parity and measured responsiveness.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
-handles SRT/ASS/SSA parsing/serialization without filesystem access. See the
+handles SRT/ASS/SSA/WebVTT parsing/serialization without filesystem access. See the
 [ASS/SSA preservation policy and validation](docs/ass-ssa-documents.md), including
-encoding, fonts and format limits. The [WebVTT format foundation](docs/webvtt.md)
-is in progress and is not yet exposed by the editor. `vsf-application`
+encoding, fonts and format limits. [WebVTT integration](docs/webvtt.md)
+is implemented with native acceptance pending. `vsf-application`
 shares bounded subtitle reads, size policy and atomic file persistence with headless
 callers. `src-tauri` coordinates accepted desktop state and background services,
 while `media-analysis` and

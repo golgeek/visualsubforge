@@ -514,7 +514,9 @@
       busy ||
       confirming ||
       !ready ||
-      (kind === 'conversion' ? !doc.loaded : !doc.format) ||
+      (kind === 'conversion'
+        ? !doc.loaded || doc.format?.name === 'vtt'
+        : !subtitles.styled) ||
       waveformGesture ||
       cueMenu
     )
@@ -764,6 +766,9 @@
   const selected = $derived(subtitles.selected);
   const cue = $derived(subtitles.cue);
   const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
+  const textInterpretation = $derived(
+    doc.format?.name === 'vtt' ? 'webvtt_utf16_v1' : 'vss_utf16_v1',
+  );
   const draftDirty = $derived(subtitles.dirty);
   let timingEdit = $state<TimingEdit | null>(null);
   let timingMagnets: {
@@ -1542,6 +1547,7 @@
       available: status.available,
       media: status.loaded,
       document: doc.loaded,
+      convert: doc.loaded && doc.format?.name !== 'vtt',
       resync: status.loaded && doc.cues.length > 0,
       undo: doc.canUndo || draftDirty || textFocused,
       redo: doc.canRedo || draftDirty || textFocused,
@@ -2340,7 +2346,7 @@
                           String(item.id),
                         )}<span
                           class="row-metrics"
-                          title="Accepted text · vss_utf16_v1 · unrounded values drive checks"
+                          title={`Accepted text · ${textInterpretation} · unrounded values drive checks`}
                           >{metric
                             ? `${rate(metric.data.cps)} · ${rate(metric.data.rs)}`
                             : '—'}</span
@@ -2432,7 +2438,7 @@
               );
           }}>End here</button
         >
-        {#if doc.format}
+        {#if doc.format && subtitles.styled}
           <label
             >Style <select
               aria-label="Cue style"
@@ -2460,10 +2466,22 @@
             >{doc.format.name.toUpperCase()} · {timeStepMs} ms · line breaks save
             as \N</small
           >
+        {:else if doc.format?.name === 'vtt'}
+          <small
+            title="WebVTT settings, style/region records and identifiers are preserved. Native preview may omit CSS and region layout or show ruby annotations inline. Timed text may differ from browsers."
+            >WebVTT · 1 ms · Preview may differ from browsers</small
+          >
         {/if}
         <button
           type="button"
-          disabled={!doc.loaded || busy || confirming || !ready}
+          disabled={!doc.loaded ||
+            doc.format?.name === 'vtt' ||
+            busy ||
+            confirming ||
+            !ready}
+          title={doc.format?.name === 'vtt'
+            ? 'WebVTT conversion is not yet available; use Save As to preserve the source format.'
+            : undefined}
           onclick={() => void run('convertSubtitles')}
           >Convert subtitles…</button
         >
@@ -2492,9 +2510,11 @@
               >{/if}
           {/if}
           <small
-            >Source text: vss_utf16_v1 · {quality.view?.profile.speedBasis ??
-              'loading profile'}. Counting excludes complete tags; it does not
-            measure rendered wrapping.</small
+            >{doc.format?.name === 'vtt' ? 'Caption text' : 'Source text'}: {textInterpretation}
+            · {quality.view?.profile.speedBasis ?? 'loading profile'}. {doc
+              .format?.name === 'vtt'
+              ? 'Entities are decoded; voice labels and ruby annotations are excluded.'
+              : 'Counting excludes complete tags;'} Rendered wrapping is not measured.</small
           >
           {#if quality.error || quality.view?.error}<span role="alert"
               >{quality.error || quality.view?.error}</span
@@ -2709,7 +2729,7 @@
       onnavigate={(id) => void closeStatistics(id)}
     />
   {/if}
-  {#if fontsOpen && doc.format}
+  {#if fontsOpen && doc.format && subtitles.styled}
     <FontDialog
       {subtitles}
       onclose={() => void closeAuthoring()}
@@ -2722,7 +2742,7 @@
       onclose={(path) => void closeAuthoring(false, path)}
     />
   {/if}
-  {#if stylesOpen && doc.format}
+  {#if stylesOpen && doc.format && subtitles.styled}
     <StyleInspector
       {subtitles}
       initial={subtitles.style}

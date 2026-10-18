@@ -4,7 +4,9 @@ mod formatting;
 mod reflow;
 use crate::quality::{self, Error, Profile, Result};
 use crate::subtitle_markup::Projection;
-pub use formatting::{Format, Formatted, format_ass_selection, format_selection};
+pub use formatting::{
+    Format, Formatted, format_ass_selection, format_selection, format_webvtt_selection,
+};
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use subtitle_core::{Cue, CueText, Document, Edit};
@@ -178,8 +180,10 @@ pub fn propose_for_format<'a>(
     let profile = context.profile;
     checkpoint()?;
     let (search, replacement) = search(operation)?;
-    if format != subtitle_formats::Format::Srt
-        && replacement.is_some_and(|text| text.contains('\n'))
+    if matches!(
+        format,
+        subtitle_formats::Format::Ass | subtitle_formats::Format::Ssa
+    ) && replacement.is_some_and(|text| text.contains('\n'))
     {
         return Err(Error::Invalid("ASS/SSA replacement accepts plain text without line breaks; use Join/Reflow or the cue editor to change breaks explicitly.".into()));
     }
@@ -275,7 +279,13 @@ pub fn propose_for_format<'a>(
             output_bytes += source.len();
             continue;
         }
-        let projection = Projection::for_format(source, format);
+        let mut projection = Projection::for_format(source, format);
+        if format == subtitle_formats::Format::WebVtt {
+            projection.layout |= cue
+                .metadata()
+                .and_then(|m| m.get("Settings"))
+                .is_some_and(|s| !s.is_empty());
+        }
         let mut row = if let Operation::LanguageCorrection {
             start,
             end,
@@ -458,12 +468,7 @@ fn correction_row(
         replacement,
         &source[range.end..]
     );
-    let format = if projection.ass_document {
-        subtitle_formats::Format::Ass
-    } else {
-        subtitle_formats::Format::Srt
-    };
-    if after.len() > MAX_CUE_BYTES || !same_markup(source, &after, format) {
+    if after.len() > MAX_CUE_BYTES || !same_markup(source, &after, projection.format) {
         return Err(Error::Invalid(
             "Correction would alter markup or exceed the cue limit.".into(),
         ));
@@ -553,15 +558,7 @@ fn replace_row(
         }
         after.push_str(&source[at..]);
         if after != source {
-            if !same_markup(
-                source,
-                &after,
-                if projection.ass_document {
-                    subtitle_formats::Format::Ass
-                } else {
-                    subtitle_formats::Format::Srt
-                },
-            ) {
+            if !same_markup(source, &after, projection.format) {
                 for found in &mut row.matches {
                     found.skipped =
                         Some("Replacement would create or change markup; edit manually.");

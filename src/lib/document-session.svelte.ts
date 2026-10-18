@@ -70,6 +70,9 @@ type CommandOptions = {
 // Rust owns the document and history. This owner replaces accepted projections;
 // Only selection and cue draft fields are editable frontend state.
 export class DocumentSession {
+  get styled() {
+    return ['ass', 'ssa'].includes(this.accepted.format?.name ?? '');
+  }
   private accepted = $state.raw<DocumentSnapshot>({ ...emptyDocument });
   private selection = $state<number | null>(null);
   private multi = $state.raw<CueSelection>(selectAllCues([], null));
@@ -257,7 +260,7 @@ export class DocumentSession {
       text: this.text,
     };
     return this.command(
-      this.accepted.format
+      this.styled
         ? { kind: 'editStyled', ...fields, style: this.style }
         : { kind: 'edit', ...fields },
     );

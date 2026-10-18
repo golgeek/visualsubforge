@@ -47,6 +47,8 @@ pub(crate) mod ipc_tests;
 mod limits_tests;
 #[cfg(test)]
 mod save_tests;
+#[cfg(test)]
+mod webvtt_tests;
 use autosave::RecoveryControl;
 
 type Result<T> = std::result::Result<T, String>;
@@ -229,6 +231,14 @@ impl Store {
         let loaded = self.loaded.as_ref();
         Snapshot {
             format: loaded.and_then(|d| {
+                if d.source().format() == subtitle_formats::Format::WebVtt {
+                    return Some(FormatView {
+                        name: "vtt".into(),
+                        time_step_ms: 1,
+                        styles: vec![],
+                        script_info: vec![],
+                    });
+                }
                 d.source().ass().map(|source| FormatView {
                     name: d.source().format().extension().into(),
                     time_step_ms: 10,

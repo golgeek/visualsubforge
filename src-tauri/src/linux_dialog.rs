@@ -157,6 +157,7 @@ async fn request_file(
                 .glob("*.srt")
                 .glob("*.ass")
                 .glob("*.ssa")
+                .glob("*.vtt")
         }
     };
     let default_subtitle_name = format!(

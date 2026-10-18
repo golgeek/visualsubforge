@@ -97,7 +97,9 @@
       Counting: {value.textAlgorithm}. Complete HTML and ASS/SSA blocks are
       excluded. UTF-16 units count characters; retained physical breaks count as
       two units. ASS text escapes and drawing text are counted literally. These
-      are source line lengths, not rendered wrapping or pixel widths.
+      are source line lengths, not rendered wrapping or pixel widths. WebVTT
+      instead uses decoded caption text (webvtt_utf16_v1), excluding voice
+      labels and ruby annotations while preserving literal ASS-looking text.
     </p>
     <p>
       RS uses a 500 ms reading allowance. Empty text and short durations can

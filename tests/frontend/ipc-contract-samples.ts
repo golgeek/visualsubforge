@@ -1929,7 +1929,7 @@ export const sceneRepairView = {
       cueId: '3',
       cueIndex: 2,
       explanation:
-        'Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review.',
+        'Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review.',
       newEndMs: null,
       newStartMs: null,
       skipped: 'markupNeedsReview',
@@ -2227,7 +2227,7 @@ export const durationRepairView = {
       cueId: '3',
       cueIndex: 2,
       explanation:
-        'Timing-sensitive ASS tags or event effects, ambiguous markup or a cue over 64 KiB require manual timing review.',
+        'Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review.',
       newEndMs: null,
       skipped: 'markupNeedsReview',
     },
