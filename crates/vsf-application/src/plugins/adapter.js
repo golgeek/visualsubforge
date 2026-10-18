@@ -71,15 +71,19 @@ function pluginAdapter(input) {
       enumerable: true,
       get() {
         const index = identity.get(this);
-        return field === 'text'
-          ? state[index].text.replace(/\r?\n/g, '\r\n')
-          : state[index][field];
+        if (field !== 'text') return state[index][field];
+        const text = state[index].text;
+        // Most cues are one line. Avoid constructing/running a RegExp when
+        // there is no newline to normalize; literal ASS escapes stay literal.
+        return text.includes('\n') ? text.replace(/\r?\n/g, '\r\n') : text;
       },
       set(value) {
         set(
           identity.get(this),
           field,
-          field === 'text' && typeof value === 'string'
+          field === 'text' &&
+            typeof value === 'string' &&
+            value.includes('\r\n')
             ? value.replace(/\r\n/g, '\n')
             : value,
         );

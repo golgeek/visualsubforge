@@ -106,9 +106,9 @@ impl From<std::io::Error> for Failure {
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Reply {
+pub(crate) struct Reply<T = Value> {
     pub version: u32,
-    pub result: Result<Value, Failure>,
+    pub result: Result<T, Failure>,
 }
 
 pub(crate) fn read_bounded(reader: impl Read, limit: usize) -> Result<Vec<u8>, Failure> {
@@ -137,7 +137,7 @@ pub fn serve(input: impl Read, mut output: impl Write) -> Result<(), Failure> {
         result,
     })
     .or_else(|_| {
-        encode_bounded(&Reply {
+        encode_bounded(&Reply::<Value> {
             version: VERSION,
             result: Err(Failure::Protocol(
                 "Plugin result exceeds its byte limit".into(),

@@ -37,6 +37,25 @@ fn copied_json_unicode_and_fresh_global_lifetime() {
 }
 
 #[test]
+fn result_transport_preserves_json_values_and_rejects_excessive_nesting() {
+    let input = json!({
+        "text": "quoted \"\\\r\nÉté 世界 😀\u{2028}",
+        "number": 9_007_199_254_740_991_u64,
+        "nested": [{"empty": {}, "values": [true, false, null, -0.5]}],
+    });
+    assert_eq!(execute("return input;", input.clone()).unwrap(), input);
+    // JSON text forwarding must not bypass the parent's normal parser depth
+    // limit or turn an invalid reply into an accepted result.
+    assert!(matches!(
+        execute(
+            "let value = 1; for (let i=0; i<160; ++i) value=[value]; return value;",
+            Value::Null,
+        ),
+        Err(Failure::Protocol(_))
+    ));
+}
+
+#[test]
 fn no_ambient_file_network_process_or_native_module_capabilities() {
     let names = json!([
         "fetch",

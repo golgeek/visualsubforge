@@ -216,6 +216,39 @@ fn utf16_crlf_stripping_alias_and_unclosed_tag_semantics_are_explicit() {
 }
 
 #[test]
+fn vss_text_readback_preserves_unicode_and_normalizes_only_line_endings() {
+    let p = fixture();
+    let mut r = request(&p, Mode::Fix);
+    r.scope = vec![CueId(1)];
+    for (written, accepted) in [
+        (
+            "{\\i1}Été 世界 😀{\\i0}\\Nliteral",
+            "{\\i1}Été 世界 😀{\\i0}\\Nliteral",
+        ),
+        ("Été\r\n世界\n😀", "Été\n世界\n😀"),
+    ] {
+        let visible = accepted.replace('\n', "\r\n");
+        let script = vss(&format!(
+            "HasError(){{return 'edit'}},FixError(c){{c.Text={};if(c.Text!=={}||VSSCore.GetSubAt(c.Index-1).Text!=={})throw Error('line readback')}}",
+            json!(written),
+            json!(visible),
+            json!(visible),
+        ));
+        let proposal = invoke(&p, script, &r).unwrap();
+        assert_eq!(proposal.rows().len(), 1);
+        assert_eq!(proposal.rows()[0].after.text, accepted);
+    }
+    assert!(
+        invoke(
+            &p,
+            vss("HasError(){return 'edit'},FixError(c){c.Text='bare\\rCR'}"),
+            &r
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn exceptions_and_caught_invalid_mutations_publish_nothing() {
     let p = fixture();
     let r = request(&p, Mode::Fix);

@@ -266,8 +266,114 @@ Local `npm run build`, `npm run lint`, `npm run format:check`, `npm test` (44 te
 command is `npm run test:browser -- --grep 'workflow: quality-checking'`; its
 before/after logs and full-suite logs are retained with the VM evidence. No Rust
 code or IPC contract changed, so the previously passing workspace suites were not
-rerun for this layout change. The complete plugin10k regression is running;
-historical-host comparison remains pending because Parallels UI input fails.
+rerun for this layout change. The subsequent complete plugin10k regression
+`desktop-jweQbK` passed nine workloads, then exceeded the unchanged1000ms helper
+deadline during the fourth fix preview of timed-WebVTT/VSS. This failure is retained
+in `layout-plugin-scale.log` and that run's report; the earlier complete pass below
+does not establish current regression acceptance. The worker transport and VSS
+newline fast paths are corrected and the complete Mac rerun passes, as recorded
+below. Windows/Linux reruns of the corrected worker also pass.
+Historical-host comparison remains pending because guest UI input is unresponsive.
+
+## Plugin deadline correction — 2026-10-18
+
+The retained `desktop-jweQbK` failure above triggered a measured correction;
+no execution limit, workload, assertion or preparation budget changed. The helper
+now retains the engine's serialized result as validated `serde_json::RawValue`,
+avoiding an intermediate Rust object tree and its reserialization. The parent
+still parses the entire reply into `Value` under its existing depth/byte/deadline
+bounds, and Rust independently validates every proposed edit. No JS value leaves
+the helper. Only the `raw_value` feature of already-locked serde_json is enabled;
+there is no dependency version change. VSS text getters/setters avoid newline
+regex work when no newline conversion is needed. Unicode, literal ASS escapes,
+CRLF/LF normalization, read-your-writes and bare-CR refusal remain tested.
+
+Fifteen real-helper API tests and eleven worker tests pass; one separately
+acquired historical-script test remains ignored in that command. New transport
+coverage checks JSON escaping/Unicode/nested values and rejection of excessive
+nesting by the parent. Twenty diagnostic runs using the actual timed-WebVTT10k
+input and current adapter preserve all 10,000 expected changes each. Same-profile
+control p95 is 655.314 ms; corrected p95 is 476.105 ms (maximum 705.895 ms). This helper
+diagnostic retains the 1000 ms engine limit but does not run the parent watchdog;
+it is not desktop acceptance. Raw JSON alone measured p95 587.717 ms. All requests,
+binary hashes, failed probes and measurements remain in
+`test-results/plugin-platform-20261018/`.
+
+Fresh native workflows pass all eight API/format combinations in
+`test-results/desktop-NeysT7/`. The complete scale rerun passes in
+`test-results/desktop-mpaa7v/`: ten combinations, 4000 full review pages, 50 cycles,
+exact history/save/reopen/recovery, cancellation/stale refusal, and normal code0
+shutdown. Maximum interactions and complete asynchronous preparations are:
+
+| Fixture | Modern interaction / preparation ms | VSS interaction / preparation ms |
+| --- | ---: | ---: |
+| Dense tagged SRT | 689 / 964 | 678 / 1055 |
+| ASS | 362 / 1001 | 357 / 1012 |
+| SSA | 319 / 1001 | 317 / 1004 |
+| Styled WebVTT | 345 / 1203 | 357 / 1418 |
+| Timed WebVTT | 323 / 1063 | 329 / 1145 |
+
+The unchanged interaction/preparation budgets are 1000/10000 ms; helper limit is
+still 1000 ms. The 4609 RSS samples peak at 340,230,144 bytes for app plus direct helper,
+excluding WebKit; this is descriptive and does not replace the separate pure/API/
+CLI memory gates. Complete records and compact results are in
+`deadline-scale-summary.json`; native executable and sibling CLI SHA256s are
+`01ab7fb0777c7d90a517779de97d1b13f8cced6109e6b5b36050e1cb3ffd3089` and
+`7fd26b50249333f84bded8953881a335d18ea9a285d5edeef312246777d21b4b`.
+
+Build uses the same isolated dev target/profile, native features/configuration and
+private runtime as the layout increment above. Run `--plugins` and
+`--plugin-performance` against that rebuilt bundle after copying its matching
+`target/debug/vsf` alongside the app executable. Logs are
+`deadline-mac-native-{build,workflow,scale}.log`; `deadline-native-identity.json`
+pins source patch and binaries. Focused command:
+
+```sh
+CARGO_TARGET_DIR="$PWD/test-results/plugin-layout-native-build/target" \
+  CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_BUILD_JOBS=4 \
+  cargo test --locked -p vsf-plugin-host --test worker --test subtitles -- --test-threads=1
+```
+
+The full local suite passes 503 Rust tests/32 ignored, strict Clippy, Rustfmt,
+Prettier, ESLint,44 frontend tests, strict frontend build, generated IPC and the
+default desktop build. Eleven zero-test harnesses are excluded. The separately
+hash-verified archived overlap checker passes again, including all three supported
+integer-safe fix modes and Undo. Exact commands/results are in
+`deadline-local-checks.json`, its numbered logs and `deadline-legacy-rule.log`.
+No browser component changed in this correction; the60-case layout regression
+baseline remains separate evidence, not a claimed rerun.
+
+Ubuntu ARM64 passes505 Rust tests/33 ignored; Windows ARM64 passes493/32 ignored.
+Both pass strict Clippy, the strict frontend/instrumented desktop/CLI builds and
+all eight subtitle-only plugin workflows, including live-helper cancellation/
+reaping, rollback, exact history/save/reopen/recovery and normal code0 shutdown.
+Eleven zero-test harnesses per guest are excluded. Both verify all790 source-file
+hashes before execution: base564f897 plus the recorded correction, archive SHA256
+`b40b353b6dd627a05cc50c26ce95d5c4ce76f11919540b313e49dd42dce4adf4`.
+Guest commands are:
+
+```sh
+cargo test --locked --workspace -- --test-threads=1
+cargo clippy --locked --workspace --all-targets -- -D warnings
+npm run build:desktop-test
+# Windows:
+node tests/desktop/run.mjs --plugins-editor
+# Ubuntu, GDK_BACKEND=x11:
+xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- node tests/desktop/run.mjs --plugins-editor
+```
+
+| Guest | Workflow evidence | Desktop SHA256 | CLI SHA256 |
+| --- | --- | --- | --- |
+| Ubuntu ARM64 | `linux-deadline-results/desktop-thcja5` | `7c0c8615b812094ab318761b3f697db85b067ed010d1f4a8663c15f7ce8a7cd4` | `e8604b6bd4628e2f401cbbbff58d736c85fdfc8321a55857295f57fa86f6544d` |
+| Windows ARM64 | `windows-deadline-results/desktop-j3Is7t` | `22138c684f970a036e378c37de48dd06ec673f8854b25949274817839251c0fa` | `7f5b7b0b4408aa85c6bb1bf983ea00c49298f367ce12556e8c98997f383b5463` |
+
+Paths are relative to `test-results/plugin-platform-20261018/`; each guest's
+`*-deadline-receipt.json` and validation log record exact tools, commands and
+durations. A Parallels Window-menu selection corrects the mismatched VM menu bar,
+but guest clicks/keys still produce no observed response to the restart reminder;
+the dedicated VM app binding times out and its toolbar action fails. No historical
+report or fixed-file comparison is claimed. Historical-host comparison and
+physical-platform acceptance remain open; no OS update or restart was performed.
 
 ## Complete desktop10k workflows — 2026-10-18
 

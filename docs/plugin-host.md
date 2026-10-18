@@ -9,6 +9,16 @@ workflows and ten complete desktop10k workloads pass. Windows/Linux ARM64 automa
 suites and complete subtitle-only plugin editor workflows pass. Historical-host
 comparison and physical platform acceptance remain required. ADR0008 is still proposed.
 
+The latest [deadline correction and full revalidation](plugin-desktop.md#plugin-deadline-correction--2026-10-18)
+passes all ten complete Mac desktop10k workloads and eight plugin desktop workflows
+per system (native playback on Mac only). Full Rust counts are503 Mac,505 Ubuntu ARM64 and493 Windows ARM64,
+with strict Clippy and matching desktop/CLI builds. The correction removes an
+intermediate worker JSON object tree and unnecessary VSS newline regex work;
+parent parsing, application validation and all execution limits remain unchanged.
+The earlier failure and all final source/binary identities remain in the linked
+record. This supersedes the earlier worker baseline below, without closing the
+historical-host comparison or native/physical-platform gates.
+
 ## VM automated validation — 2026-10-18
 
 Isolated Ubuntu 26.04 ARM64 and Windows 11 ARM64 runs verify all 781 tracked

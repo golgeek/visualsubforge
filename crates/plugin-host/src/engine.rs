@@ -1,8 +1,9 @@
 use crate::{Failure, MAX_MESSAGE_BYTES, Request, protocol::MAX_DIAGNOSTIC_BYTES};
 use rquickjs::{Context, Ctx, Function, Runtime, Value};
+use serde_json::value::RawValue;
 use std::time::{Duration, Instant};
 
-pub(crate) fn execute(request: &Request) -> Result<serde_json::Value, Failure> {
+pub(crate) fn execute(request: &Request) -> Result<Box<RawValue>, Failure> {
     let deadline = Instant::now() + Duration::from_millis(u64::from(request.limits.timeout_ms));
     let runtime = Runtime::new().map_err(|e| Failure::Worker(e.to_string()))?;
     // The default C allocator is intentional: custom Rust allocators bypass
@@ -12,7 +13,7 @@ pub(crate) fn execute(request: &Request) -> Result<serde_json::Value, Failure> {
     runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() >= deadline)));
     let context = Context::full(&runtime).map_err(|e| Failure::Worker(e.to_string()))?;
     let result = context.with(|ctx| {
-        let run = || -> Result<serde_json::Value, Failure> {
+        let run = || -> Result<Box<RawValue>, Failure> {
             let input = serde_json::to_vec(&request.input)
                 .map_err(|e| Failure::InvalidRequest(e.to_string()))?;
             let input = ctx
@@ -42,7 +43,12 @@ pub(crate) fn execute(request: &Request) -> Result<serde_json::Value, Failure> {
                     "Plugin result exceeds its byte limit".into(),
                 ));
             }
-            serde_json::from_str(bytes.as_str()).map_err(|e| Failure::Protocol(e.to_string()))
+            // Keep one validated JSON value for the reply envelope. Building a
+            // Rust object tree here only to serialize it again wastes bounded
+            // execution time; the parent still parses the complete reply into
+            // Value before application validation. No engine value escapes.
+            RawValue::from_string(bytes.as_str().to_owned())
+                .map_err(|e| Failure::Protocol(e.to_string()))
         };
         run()
     });

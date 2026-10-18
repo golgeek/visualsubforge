@@ -91,8 +91,13 @@ fix the cue-list squeeze found in both guests. Ubuntu and Windows ARM64 now pass
 all eight format/API cases, exact review/history/save/reopen/recovery, live-helper
 cancellation/reaping and normal shutdown. A fresh Mac native run also passes all
 eight cases. Both browsers reproduce the old layout failure and pass the new
-regression; all60 browser cases and44 frontend tests pass. Full plugin10k regression
-is running; historical-host comparison remains pending. Exact commands, identities,
+regression; all60 browser cases and44 frontend tests pass. A subsequent full
+plugin10k regression exposed a helper deadline in the final timed-WebVTT/VSS
+workload. Validated JSON forwarding and conditional newline conversion correct
+that failure: all ten complete workloads now pass with unchanged limits,
+maximum interaction689ms and preparation1418ms. The correction passes503 Mac,
+505 Ubuntu and493 Windows Rust tests, strict checks and fresh eight-case desktop
+workflows on all three systems. Historical-host comparison remains pending. Exact commands, identities,
 retained failures and scope are in the [desktop record](plugin-desktop.md#wrapped-toolbar-correction-and-complete-vm-editor-acceptance--2026-10-18).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation
