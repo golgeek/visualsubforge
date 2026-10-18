@@ -917,7 +917,10 @@
   let editorBarHeight = $state(0);
   let editorFooterHeight = $state(0);
   let qualityReadoutHeight = $state(0);
-  function measureEditorControl(
+  let transportHeight = $state(0);
+  let cueOperationsHeight = $state(0);
+  let cueFollowingHeight = $state(0);
+  function measurePaneControl(
     node: HTMLElement,
     measured: (height: number) => void,
   ) {
@@ -928,7 +931,7 @@
       if (!frame)
         frame = requestAnimationFrame(() => {
           frame = 0;
-          measured(node.clientHeight);
+          measured(Math.ceil(node.getBoundingClientRect().height));
         });
     });
     observer.observe(node);
@@ -950,19 +953,31 @@
         (showQualityMetrics && cue ? qualityReadoutHeight + 6 : 0),
     ),
   );
+  // Control wrapping depends on the platform font and available width. Reserve
+  // the measured bars, 25px column header and two complete 32px cue rows.
+  const tableMinimum = $derived(
+    Math.max(
+      220,
+      transportHeight + cueOperationsHeight + cueFollowingHeight + 25 + 64,
+    ),
+  );
   const paneHeight = $derived(
-    Math.max(352 + editorMinimum, workspaceHeight - 16),
+    Math.max(132 + tableMinimum + editorMinimum, workspaceHeight - 16),
   );
   // Reserve room for the table controls and visible rows when either divider
   // grows a neighboring pane. The editor and preview retain usable minima.
   const topPixels = $derived(
-    clamp((paneHeight * topPct) / 100, 120, paneHeight - 232 - editorMinimum),
+    clamp(
+      (paneHeight * topPct) / 100,
+      120,
+      paneHeight - tableMinimum - 12 - editorMinimum,
+    ),
   );
   const editorPixels = $derived(
     clamp(
       (paneHeight * editorPct) / 100,
       editorMinimum,
-      paneHeight - topPixels - 232,
+      paneHeight - topPixels - tableMinimum - 12,
     ),
   );
   let start = $state(0);
@@ -2009,7 +2024,8 @@
   aria-busy={busy || !ready}
   class:has-recovery={recovery.entries.length > 0 || !!recovery.error}
   style:--workspace-height={`${workspaceHeight}px`}
-  style:--workspace-min-height={`${368 + editorMinimum}px`}
+  style:--workspace-min-height={`${148 + tableMinimum + editorMinimum}px`}
+  style:--table-min-height={`${tableMinimum}px`}
 >
   <header class="toolbar">
     <strong>VisualSubForge</strong>
@@ -2288,7 +2304,10 @@
       onchange={(v) => (topPct = clamp(v, 20, Math.min(55, 80 - editorPct)))}
     />
     <section class="subtitle-panel panel" aria-label="Subtitle table">
-      <div class="transport">
+      <div
+        class="transport"
+        use:measurePaneControl={(height) => (transportHeight = height)}
+      >
         <button
           disabled={!status.loaded || busy}
           onclick={() => void run('play')}
@@ -2322,7 +2341,11 @@
           onclick={() => void run('clearLoop')}>Clear loop</button
         >
       </div>
-      <div class="cue-operationbar" aria-label="Cue operations">
+      <div
+        class="cue-operationbar"
+        aria-label="Cue operations"
+        use:measurePaneControl={(height) => (cueOperationsHeight = height)}
+      >
         {#each cueOperations as op (op.operation)}
           <button
             disabled={!op.plan || busy || confirming}
@@ -2334,7 +2357,10 @@
           >
         {/each}
       </div>
-      <div class="cue-followbar">
+      <div
+        class="cue-followbar"
+        use:measurePaneControl={(height) => (cueFollowingHeight = height)}
+      >
         <button
           disabled={busy || confirming || !doc.cues.length}
           onclick={() => void openText()}>Find / Replace…</button
@@ -2557,7 +2583,7 @@
     >
       <div
         class="editorbar"
-        use:measureEditorControl={(height) => (editorBarHeight = height)}
+        use:measurePaneControl={(height) => (editorBarHeight = height)}
       >
         <strong
           >{cue
@@ -2654,7 +2680,7 @@
       </div>
       {#if showQualityMetrics && cue}<div
           class="quality-readout"
-          use:measureEditorControl={(height) => (qualityReadoutHeight = height)}
+          use:measurePaneControl={(height) => (qualityReadoutHeight = height)}
         >
           {#if quality.view?.selected?.data.cueId === String(cue.id)}<CueMetrics
               value={quality.view.selected}
@@ -2727,7 +2753,7 @@
         }}></textarea>
       <div
         class="editorfooter"
-        use:measureEditorControl={(height) => (editorFooterHeight = height)}
+        use:measurePaneControl={(height) => (editorFooterHeight = height)}
       >
         <button
           disabled={!cue || busy || confirming}
@@ -3125,9 +3151,9 @@
   }
   .workspace {
     display: grid;
-    grid-template-rows: var(--top-height) 6px minmax(220px, 1fr) 6px var(
-        --editor-height
-      );
+    grid-template-rows:
+      var(--top-height) 6px minmax(var(--table-min-height), 1fr)
+      6px var(--editor-height);
     min-height: 0;
     padding: 8px;
     gap: 0;
@@ -3254,6 +3280,7 @@
     padding: 5px 8px;
     background: #203542;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .transport output {
     font-variant-numeric: tabular-nums;
@@ -3276,6 +3303,7 @@
     padding: 4px 8px;
     font-size: 11px;
     background: #203542;
+    flex-shrink: 0;
   }
   .cue-followbar label {
     display: flex;
@@ -3477,11 +3505,6 @@
     }
     .subtitle-review {
       flex-direction: column;
-    }
-    .transport,
-    .cue-operationbar,
-    .cue-followbar {
-      flex-shrink: 0;
     }
     .editor {
       min-height: 210px;

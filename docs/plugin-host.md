@@ -5,8 +5,9 @@ Stage7 is in progress. The bounded worker in `crates/plugin-host`, pure
 [local CLI check/preview/apply](plugin-cli.md) are implemented and tested on Mac.
 The desktop job owner, typed commands and [review controls](plugin-desktop.md) are
 implemented and tested. Actual Mac format/history/recovery and real chooser
-workflows and ten complete desktop10k workloads pass; historical-host and available
-platform acceptance remain required. ADR0008 is still proposed.
+workflows and ten complete desktop10k workloads pass. Windows/Linux ARM64 automated
+suites and complete subtitle-only plugin editor workflows pass. Historical-host
+comparison and physical platform acceptance remain required. ADR0008 is still proposed.
 
 ## VM automated validation — 2026-10-18
 

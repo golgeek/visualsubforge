@@ -87,8 +87,9 @@ The [JavaScript plugin host](docs/plugin-host.md) is in progress. Its bounded
 worker, modern/VSS API subset and [local CLI check/preview/apply](docs/plugin-cli.md)
 have Mac tests. The desktop job owner, typed commands and [review controls](docs/plugin-desktop.md)
 are implemented; native Mac format/history/recovery and real chooser workflows
-pass, as do ten complete desktop10k workloads. Historical-host and platform
-acceptance remain pending. See the
+pass, as do ten complete desktop10k workloads. Windows/Linux ARM64 automated
+suites and subtitle-only plugin editor workflows also pass. Historical-host
+comparison and physical platform acceptance remain pending. See the
 [supported API subset](docs/plugin-api.md).
 
 ## Build, test and understand the code

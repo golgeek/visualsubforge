@@ -2,9 +2,10 @@
 
 Stage7 remains in progress. The desktop controls compose the bounded Rust owner
 and helper. Eight actual Mac format/API workflows and a separate real macOS
-chooser workflow pass, along with ten complete desktop10k workloads. Historical-
-host comparison and available Windows/Linux execution remain required; ADR0008
-is still Proposed.
+chooser workflow pass, along with ten complete desktop10k workloads. Windows/Linux
+ARM64 automated suites and complete subtitle-only plugin editor workflows pass.
+Historical-host comparison remains required; ADR0008 is still Proposed. Physical
+GPU/audio, real guest OS choosers and installation acceptance remain separate.
 
 ## Workflow
 
@@ -209,6 +210,64 @@ exception rollback, package revalidation and normal code0 shutdown in
 `test-results/desktop-6YUUrg/`. It uses the unchanged native executable/CLI hashes
 listed above and the same private runtime. Local JavaScript syntax, ESLint and
 Prettier checks pass. Historical VSS-host comparison and stage8 remain open.
+
+## Wrapped toolbar correction and complete VM editor acceptance — 2026-10-18
+
+The shared workspace now measures transport, cue-operation and tool/following
+bar heights instead of assuming a fixed allowance. The table keeps its column
+header and two full cue rows; preview and editor minima still apply. The existing
+ResizeObserver action commits rounded-up measurements on the next animation frame
+and disconnects/cancels on unmount. These are transient layout measurements only;
+document ownership, IPC, plugin limits and native resource ownership are unchanged.
+
+A production-App regression naturally wraps controls at1100→820→1100px while
+Problems and metrics are visible and following is suspended. It requires two
+complete cue rows, a usable textarea and no overlap with toolbars/editor/footer.
+Both Chromium and WebKit fail on the old implementation at820px, then pass after
+the correction. The original failure traces are retained in
+`test-results/plugin-platform-20261018/layout-before-browser/`.
+
+The complete subtitle-only lanes now pass on both guests: eight modern/VSS ×
+SRT/ASS/SSA/WebVTT cases each, all review rows, exact source/output/format state,
+one Undo/Redo, cancelled and failed saves, reopen and durable crash recovery.
+Live looping helper observation, UI cancellation/reaping, exception rollback and
+package revalidation pass. Both applications exit normally with code0. Supplied
+chooser queues and generated DOM events do not prove real OS-sheet or physical
+input behavior; no media is loaded in these guest lanes.
+
+| Run | Evidence directory | Desktop SHA256 | Observed cue-list height |
+| --- | --- | --- | --- |
+| Ubuntu ARM64/Xvfb/X11 | `linux-desktop-layout-results/desktop-OdOvOn` | `7cf8b0694a32a4646f176d0ba5009300e61a229385f0a7ef4b2fb123533d607a` |64px|
+| Windows11 ARM64/WebView2 | `windows-desktop-layout-results/desktop-tNC3fd` | `a3d05536e427bc2b972de5eb455f906923d6fb6762d52fe0de7dc8396f7e5354` |64.5px|
+
+Paths above are under `test-results/plugin-platform-20261018/`; sibling CLI hashes
+remain those in the automated VM record. Both guests verify790 source-file hashes
+from base779eab8 plus `src/App.svelte` and the browser regression. Archive SHA256:
+`fc88263e06026cdf5e432ff7c23e9484c31bea87c5ebb55a4a394d469790a94a`.
+The `*-desktop-layout-receipt.json` files retain exact build/run commands, tool
+paths, durations and binary identities. Commands are the same as the preceding
+checkpoint; no assertion, fixture, helper deadline or test timeout was relaxed.
+
+A fresh Mac native build also passes all eight complete workflows and normal
+shutdown in `test-results/desktop-vz2qP0/`, including acknowledged preview updates.
+Its SHA256 is `d97e25c821cf4f0c134b137e53070cbcbf816f6cbf97923014b9753ae3233056`;
+the sibling CLI remains `a08952ff324f5ca22258243c2a26d46d04f42e52442abeec7806177f0f9e3054`.
+Build uses the same native configuration/runtime above, with an isolated
+`CARGO_TARGET_DIR=test-results/plugin-layout-native-build/target`,
+`CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=0` and `CARGO_BUILD_JOBS=4` to bound
+rebuild storage. The unoptimized dev profile has no debug symbols. Full commands
+and identity are in `layout-mac-native-build.log` and
+`test-results/plugin-layout-native-build/identity.json`. The native run uses
+`--plugins --binary` pointing to that target's bundled executable and the same
+process-local private runtime.
+
+Local `npm run build`, `npm run lint`, `npm run format:check`, `npm test` (44 tests),
+`npm run test:browser` (60 cases), and `git diff --check` pass. The focused browser
+command is `npm run test:browser -- --grep 'workflow: quality-checking'`; its
+before/after logs and full-suite logs are retained with the VM evidence. No Rust
+code or IPC contract changed, so the previously passing workspace suites were not
+rerun for this layout change. The complete plugin10k regression is running;
+historical-host comparison remains pending because Parallels UI input fails.
 
 ## Complete desktop10k workflows — 2026-10-18
 

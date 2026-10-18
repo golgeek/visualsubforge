@@ -86,13 +86,14 @@ elevation. New plugin desktop UI workflows and historical-host comparison remain
 open; these checks do not establish physical-device or installation acceptance.
 See [commands, identities and retained failures](plugin-host.md#vm-automated-validation--2026-10-18).
 
-**Plugin desktop VM checkpoint (2026-10-18):** both instrumented guest builds and
-the real-helper process-observer test pass. Both complete desktop attempts stop
-at the prerequisite cue-list layout assertion before reaching plugin cases.
-The Mac native regression passes all eight cases and normal shutdown. Next:
-account for wrapped toolbar heights, rerun both VM workflows and complete the
-historical-host comparison. Exact commands, retained screenshots and scope are
-in the [desktop checkpoint](plugin-desktop.md#subtitle-only-vm-workflow-checkpoint--2026-10-18).
+**Plugin desktop VM workflows pass (2026-10-18):** measured wrapped toolbar heights
+fix the cue-list squeeze found in both guests. Ubuntu and Windows ARM64 now pass
+all eight format/API cases, exact review/history/save/reopen/recovery, live-helper
+cancellation/reaping and normal shutdown. A fresh Mac native run also passes all
+eight cases. Both browsers reproduce the old layout failure and pass the new
+regression; all60 browser cases and44 frontend tests pass. Full plugin10k regression
+is running; historical-host comparison remains pending. Exact commands, identities,
+retained failures and scope are in the [desktop record](plugin-desktop.md#wrapped-toolbar-correction-and-complete-vm-editor-acceptance--2026-10-18).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries

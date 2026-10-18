@@ -271,6 +271,37 @@ async function run() {
     passed(
       'Filtered navigation visits distinct related cues and works without media',
     );
+    const workspace = host as HTMLElement;
+    const originalWidth = workspace.style.width;
+    try {
+      // Exercise natural toolbar wrapping, including the suspended-following
+      // controls, without changing font metrics or substituting layout CSS.
+      for (const width of [1100, 820, 1100]) {
+        workspace.style.width = `${width}px`;
+        await until(() => {
+          const rect = (selector: string) =>
+            host.querySelector(selector)!.getBoundingClientRect();
+          const list = rect('.cue-list');
+          const table = rect('.subtitle-panel');
+          const editor = rect('.editor');
+          const text = rect('[aria-label="Subtitle text"]');
+          return (
+            list.height >= 64 &&
+            text.height >= 34 &&
+            list.top >= rect('.cue-followbar').bottom &&
+            list.bottom <= table.bottom &&
+            table.bottom <= editor.top &&
+            text.bottom <= rect('.editorfooter').top &&
+            rect('.editorfooter').bottom <= editor.bottom
+          );
+        }, `Wrapped controls squeeze or overlap editing panes at ${width}px`);
+      }
+    } finally {
+      workspace.style.width = originalWidth;
+    }
+    passed(
+      'Wrapped controls preserve two cue rows and a usable editor without overlap',
+    );
     input('Subtitle text', 'Unapplied quality draft');
     await until(
       () =>
