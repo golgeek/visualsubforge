@@ -20,10 +20,20 @@ ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
 authoring, WebVTT and legacy project import are complete within their recorded
-Mac scopes. Next are manual translation,
+Mac scopes. Manual translation is in progress, followed by
 plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**Manual translation stage6c in progress (2026-10-18):** the application foundation
+retains immutable reference bytes, format and cue data; paged time-overlap queries
+support signed offsets and independent target copies. Eight focused tests and all
+434 workspace Rust tests pass (30 opt-in tests ignored), with strict Clippy and
+format/lint checks. Five 10k library workloads pass p95 <=86.801ms and additional
+sampled RSS 99,876,864 bytes, with only 786,432 bytes of memory-budget headroom.
+This is not a desktop feature yet: Rust desktop adoption, UI, source guards,
+project persistence/recovery and native/chooser/desktop10k acceptance remain.
+See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports
 strict UTF-8 and BOM-marked UTF-16, explicit Windows path handling, supported

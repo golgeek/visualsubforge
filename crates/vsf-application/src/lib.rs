@@ -18,3 +18,4 @@ mod subtitle_markup;
 pub mod subtitle_operations;
 pub mod subtitle_text;
 pub mod text;
+pub mod translation;
