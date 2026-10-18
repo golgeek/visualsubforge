@@ -137,6 +137,18 @@ alter the runtime or production transport. Sustained rate/format transitions,
 other outputs, physical interaction and release gates remain open; see
 [reproduction, identities and limitations](native-reliability.md#rate-change-clear-audit--2026-10-18).
 
+**Current Linux output/portal evidence (2026-10-18):** the logged-in ARM64 VM
+reuses the verified candidate without rebuilds; results stay on tmpfs/host storage
+with about613MiBroot free. Pulse clock backsteps reproduce in all three loop/clear
+trials (up to8.698ms), while three direct-PipeWire trials pass. Both outputs pass
+three outside-seek/re-entry and six EOF/replacement cases; one Pulse stream capture
+passes coarse tone content. An existing per-process Pulse interpolation option
+passes six additional trials, but is not adopted without broader content/editor
+evidence. The stale SRT-only portal mock is corrected; all six private-bus lifecycle
+cases and four malformed-request controls pass. Linux CI now includes the dedicated
+portal harness. This is component/VM evidence with retained failures, not physical
+output or native-dialog acceptance. See [commands and scope](native-reliability.md#current-linux-output-and-portal-checks--2026-10-18).
+
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all

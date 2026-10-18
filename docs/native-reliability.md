@@ -265,3 +265,80 @@ The lane uses supplied file choices and typed actions. It does not establish
 physical pointer/keyboard delivery, OS-sheet behavior, speaker presentation,
 sample-exact acoustic timing or acceptance on other operating systems. It does
 not close the separate rate-change interruption. Stage8 remains in progress.
+
+## Current Linux output and portal checks — 2026-10-18
+
+After the user logged into Ubuntu26.04 ARM64, PipeWire1.6.2 and its PulseAudio
+compatibility server were available on the virtual HDA output. Root had only
+613MiB available. These checks reused the existing candidate executable, wrote
+fixtures/results to tmpfs and exported them to the host share; no install,
+rebuild, system audio setting or unrelated file cleanup was performed. Root free
+space remained approximately613MiB afterward.
+
+The selected executable SHA256 is
+`898a311a2f6eae6256d7a589ed2925f76eb93e448711f228d2329039068c9fd2`.
+All961 source inputs match the prepared candidate. Separate live Pulse/PipeWire
+receipts verify212 mapped backing images each, with no missing expected image.
+The current commands run the maintained component probes with system Python:
+
+```sh
+python3 tests/native/audio-transport-regression.py --mpv "$PLAYER" --ao pulse --output-dir "$NEW_OUTPUT"
+python3 tests/native/audio-transport-regression.py --mpv "$PLAYER" --ao pipewire --output-dir "$NEW_OUTPUT"
+python3 tests/native/audio-loop-seek-regression.py --mpv "$PLAYER" --ao "$BACKEND" --output-dir "$NEW_OUTPUT"
+python3 tests/native/audio-eof-regression.py --mpv "$PLAYER" --ao "$BACKEND" --paused-reset --output-dir "$NEW_OUTPUT"
+python3 tests/native/audio-transport-regression.py --mpv "$PLAYER" --ao pulse --capture-pulse --output-dir "$NEW_OUTPUT"
+```
+
+The first two commands run three times each. `BACKEND` is separately `pulse` and
+`pipewire`; each command creates its own result subdirectory. Results:
+
+| Check | Pulse | Direct PipeWire |
+| --- | --- | --- |
+| Three loop/pause/resume/clear clock trials | All fail only the backward-clock assertion: maximum steps0.480,0.794,8.698ms | All three pass sampled clock checks |
+| Past-B exact/approximate seek and before-A re-entry | All three pass | All three pass |
+| Ordinary/paused-tail EOF, seek and replacement | All six pass | All six pass |
+| One explicit single-stream monitor capture | Clock and coarse440→660→880Hz content pass | Not run in this matrix |
+
+The tolerance remains one48kHz frame (20.833µs). Failing clock pairs have neither
+seek nor EOF active. One passing monitored run does not erase the three unmonitored
+failures: monitoring can alter scheduling. Tone order/duration checks do not
+establish sample continuity, playhead-to-presentation accuracy or physical output.
+Three direct-PipeWire passes do not resolve its historical intermittent failures.
+
+A separate comparison keeps that tolerance and changes only the existing
+per-process option `--pulse-latency-hacks=no`. Three default ordinary-playback
+controls fail with0.130,0.270,0.884ms backsteps. Three ordinary and three loop/clear
+trials with the option pass. The selected source uses libpulse interpolation for
+this option while retaining `PA_STREAM_NOT_MONOTONIC`; no application clock clamp
+was added. This narrows the investigation to a possible supported configuration,
+not a validated production fix. Longer/rate/seek/replacement content and actual
+editor checks remain required before adopting it.
+
+The private-bus portal regression initially times out because its mock still
+expects the old SRT-only filter. The application correctly requests all four
+supported subtitle formats. The mock now validates those exact filters and
+returns an explicit D-Bus error for malformed requests, avoiding an unanswered
+method call. All six maintained success/cancel/disconnect/owner-replacement/
+bus-loss/restart cases pass. Four malformed filter/title/modality/missing-field
+controls receive the expected error in under1ms. Production dialog code is unchanged.
+
+To avoid a large link with little free space, the VM reused the existing
+`91e6ee1` application test executable
+`19199a9c2607252d1c37b772dea6def157ddf94156f4ab2e4736ebd82720403d`.
+Its prior build/workspace-test log identifies the executable; current dialog
+source, Cargo manifest and lock hashes are rechecked. This is a focused rerun,
+not a fresh whole-app build. The Linux desktop CI job now invokes the maintained
+`/usr/bin/python3 -I tests/native/linux-dialogs/check.py` after its fresh workspace
+build so future format changes exercise this otherwise-ignored test. Protocol
+checks do not establish native parenting, real modality or forced parent death.
+
+Exact commands, source/tool identities, raw successes/failures,212-image receipts
+and156 verified exported artifacts (13,309,893bytes) are under host staging
+`Downloads/VisualSubForge-native-audio-k6f2faxo/`; the stable local index and logs
+are `test-results/native-reliability-20261018/linux-*.json`/`linux-*.log`.
+`run-linux-audio.py`, `run-linux-followup.py`, the retained corrected v2 script
+and `portal-negative.py` record the bounded reproduction. All25 first-matrix
+player identities are absent; no player remains for either owned tmpfs workload.
+Captured sink-input/source-output cleanup is recorded. Original portal failure
+and default-Pulse failures remain evidence, not passing results. Physical Linux,
+Windows output, native gesture/lifetime and distribution gates remain open.

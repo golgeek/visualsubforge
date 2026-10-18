@@ -171,7 +171,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus python3-gi
       - name: Install pinned Rust
         run: rustup show
       - run: npm ci
@@ -183,6 +183,9 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
+      - name: Linux private-bus file chooser lifecycle (no desktop service)
+        if: runner.os == 'Linux'
+        run: /usr/bin/python3 -I tests/native/linux-dialogs/check.py
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'

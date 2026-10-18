@@ -196,7 +196,7 @@ remains unverified; the CI Windows x64 environment has not run locally.
 | --- | --- |
 | Candidate captured content | Rate changes, outside-range re-entry and replacement, including near-B and paused cases, on the final built runtime. Earlier isolated traces cannot be reassigned to it. |
 | CoreAudio and AVFoundation | Validate candidate continuation with its defined backend/rate scope; resolve retained AVFoundation discontinuity and EOF/content limits. A successful property transaction is insufficient. |
-| Linux outputs | Resolve PulseAudio backward clock steps (a retained run measured 98 microseconds against a 20.833-microsecond one-frame tolerance) and intermittent PipeWire failures; preserve captured-content and presentation distinctions. |
+| Linux outputs | Resolve PulseAudio backward clock steps (the current VM run reaches8.698ms against a20.833µs one-frame tolerance) and intermittent PipeWire failures. An existing interpolation-option comparison passes six short trials but still needs broader content/editor validation. Preserve captured-content and presentation distinctions. |
 | Windows output | Resolve the retained loop-clear quiet interval and capture-versus-clock discrepancy; repeat affected full-editor workflows with the selected runtime. ARM64 VM evidence does not establish physical or x86-64 behavior. |
 | Editor and lifetime | Verify real pointer/keyboard delivery, draft protection through dialogs, replacement, native resource cleanup and visible presentation. Upstream lifetime tests do not prove compositor/device behavior or absence of leaks. |
 | Distribution | Complete dependency/license inventory, self-contained packaging, signing and the explicitly claimed OS/architecture/display/device matrix before release claims. |
