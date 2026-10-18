@@ -19,6 +19,7 @@ command/event policy without a real player. Neither proves device behavior.
 | `linux-dialogs/` | Private-bus portal lifecycle regression; requires Linux, dbus-daemon and Python Gio. |
 | `scene-candidates/` | Bounded compressed-scene investigation, separate from native playback acceptance. |
 | Audio/capture scripts | Content, continuity and clock analysis with synthetic negative controls. Retain exact input/runtime/device identity for actual capture results. |
+| `audio-editor-content.py` | Two-channel content verification for the [actual Mac editor audio lane](../desktop/README.md#native-audio-re-entry-and-replacement-macos). Validates capture/source identity, repeated-loop content and uninterrupted suffix start/EOF/order. Its five controls reject wrong sources, omitted/repeated content and inserted silence; they do not prove physical presentation. |
 
 Experiment documents retain dated results, limitations and links into intentionally
 untracked local task/research notes. Those links may be absent in a fresh checkout.

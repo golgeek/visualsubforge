@@ -177,8 +177,91 @@ files; system cache images are not individually hashed. All 50 owned capture and
 reference-render processes across both stages exit normally and are absent.
 The production policy, candidate library and functional patch series are unchanged.
 
-The Linux VM currently has no logged-in user audio session: `/run/user/1000` and
-its Pulse/PipeWire services are absent. That is an environment precondition, not
+At this audit the Linux VM had no logged-in user audio session: `/run/user/1000` and
+its Pulse/PipeWire services were absent. That was an environment precondition, not
 a reproduced clock failure or a pass. The historical 98 µs Pulse backstep remains
 open. Next audio work must cover midstream rate changes, outside-range re-entry
 and replacement, then current Linux/Windows output and full-editor behavior.
+
+## Rate-change clear audit — 2026-10-18
+
+Eight new diagnostic cases change 0.5×→1.5× or 1.5×→0.5× immediately before
+production clear, at the loop interior or near B, while playing or already
+paused. They use the same separately identified `2762bb8a…` tracing library and
+current production Rust from the preceding audit. The harness now disables all
+ten builtin scripts, matching the production adapter. All nonempty pre-clear
+buffers match independent old-rate renders before deriving a submitted endpoint;
+all post-clear buffers match independent new-rate exact-seek renders through EOF.
+The endpoint stays within the unchanged half-source-sample bound. All eight
+state/EOF, two-channel captured-suffix and complete submitted-sequence checks pass;
+full-sequence coverage is 92.43–99.15%, with unchanged matcher thresholds.
+
+This still reproduces a quiet interval. Three of four playing diagnostic cases
+submit one empty 512-frame callback (10.6667ms). Held cases submit 29,184 zero
+frames around their intentional pauses. Four additional playing controls use the
+exact uninstrumented `fd572d9e…` candidate: state/EOF and new-rate suffixes pass,
+but three contain 417 consecutive exactly-zero captured frames (8.6875ms), in
+both channels. The capture and native callback counts describe different points
+in the output path. The uninstrumented controls have no callback instrumentation
+and do not independently establish the old submitted endpoint.
+
+The quiet interval is unresolved. Source-order correspondence is not seamless
+output or physical speaker evidence. No timing tolerance was relaxed, delay
+added, clock clamped or functional runtime/transport change made. Both tested
+rates use float output; sustained mixed-rate playback and transitions between
+1× and non-unity output formats still need separate evidence.
+
+Evidence under `test-results/native-reliability-20261018/`:
+
+- `coreaudio-rate-change-v1/`: declared eight-case protocol, exact harness/source
+  snapshots, captures, native traces, independent renders and all analyses.
+- `coreaudio-rate-exact-v1/`: four separately identified uninstrumented controls.
+- `inspect-rate-gaps.py`, `rate-gap-observations.json` and its log: descriptive
+  zero-run measurements without changing the content verdicts.
+- `finalize-rate-editor.py` and its log: all 961 original/diagnostic source inputs
+  reverified, only the original tracing file differs, both library hashes match,
+  45 non-system loaded backing files verified per variant, and all 36 owned
+  player/recorder/reference-render PIDs exited normally and are absent. Each
+  directory has a cleanup/runtime receipt and file-hash manifest.
+
+The retained scripts run with the same Python/NumPy and Rust toolchains as the
+preceding audit. For each new evidence directory, the sequence is `capture.py`,
+`render-current.py suffix`, `analyze-state.py` and `analyze-suffix.py`; the
+diagnostic additionally runs `analyze-native-current.py` and
+`analyze-submission-current.py`. Existing baseline render identities are retained.
+These scripts and their exact command receipts are local evidence, not a promise
+that an archived output directory can be rerun in place.
+
+## Editor audio re-entry and replacement — 2026-10-18
+
+The maintained [Mac desktop audio lane](../tests/desktop/README.md#native-audio-re-entry-and-replacement-macos)
+now exercises the actual WebView, Tauri IPC, media worker and selected runtime,
+using deterministic four-second stereo PCM WAVs. `test-results/desktop-JiO4mU/`
+passes all five process-only captures in both channels: initial looping,
+past-B playback through EOF, re-entry, looping after a before-A seek, and
+replacement audio through EOF. Replacement clears the old loop and refuses an
+old-session seek. Exact paused seeks, original subtitle revision/text/clean state
+and all source hashes remain correct. The before-A lead-in is observed through
+status; its complete PCM is not captured.
+
+The content oracle reuses the maintained fractional fingerprint and loop checks.
+Uninterrupted suffixes require their requested beginning and EOF, sufficient
+matched windows, no unexplained source deletion/repetition, and no detected
+interior silence. Five new controls cover valid capture-edge silence, wrong start,
+missing EOF, deleted/repeated content, wrong replacement/empty audio and inserted
+silence. The complete `tests/native/check-controls.py` run passes 72 tests across
+11 suites. ESLint, Prettier, Python compilation and `git diff --check` pass.
+No production code changed; the earlier 507-test Rust result is not a fresh run.
+
+The live receipt verifies 46 mapped backing images, including unchanged desktop
+`2c431dab…` and exact candidate `fd572d9e…` from the WAV audit. All five recorder
+exits and application shutdown are code0; the app and recorders are absent after
+cleanup. Input/tool hashes, raw PCM/metadata, status rows, separate content verdict,
+runtime identity and cleanup receipts are retained. The first successful run
+`desktop-s2ovN7` and the initial ESLint failure remain recorded separately; the
+final run includes strict interior-silence/PID checks and runtime identity.
+
+The lane uses supplied file choices and typed actions. It does not establish
+physical pointer/keyboard delivery, OS-sheet behavior, speaker presentation,
+sample-exact acoustic timing or acceptance on other operating systems. It does
+not close the separate rate-change interruption. Stage8 remains in progress.

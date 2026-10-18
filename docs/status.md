@@ -124,6 +124,19 @@ or production policy changed. Midstream rates, re-entry/replacement, other outpu
 full-editor interaction and physical-device gates remain open. See the
 [exact scope and retained evidence](native-reliability.md#current-coreaudio-clear-boundary-audit--2026-10-18).
 
+**Current rate-change and editor audio evidence (2026-10-18):** eight diagnostic
+0.5×↔1.5× immediate rate-change/clear cases pass old/new submitted-content and
+captured correspondence checks. Three playing cases submit one empty callback;
+four separate uninstrumented controls reproduce an 8.6875ms quiet interval in
+three cases. This remains an unresolved interruption, not a seamless-output pass.
+The new Mac `--native-audio` editor lane passes all five two-channel captures:
+looping, past-B EOF, re-entry, post-lead-in looping and replacement. Stale-session
+refusal, unchanged documents/sources, runtime identity and normal shutdown pass.
+All72 synthetic controls across11 suites pass. These test-only changes do not
+alter the runtime or production transport. Sustained rate/format transitions,
+other outputs, physical interaction and release gates remain open; see
+[reproduction, identities and limitations](native-reliability.md#rate-change-clear-audit--2026-10-18).
+
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all
@@ -714,8 +727,9 @@ including existing styles, format-aware tools and tagged-SRT regression. The act
 [umbrella roadmap](feature-roadmap.md) has completed fonts, batch timing, ASS/SSA
 resync, language tools, style/font authoring, conversion and WebVTT within their
 recorded Mac scopes, including legacy project import and manual translation.
-The next feature is the bounded JavaScript checker/fix host with a documented VSS
-subset, followed by native/distribution reliability.
+The bounded JavaScript checker/fix host is implemented and passes its Mac and
+Windows/Linux VM workflows; historical VSS-host comparison remains. Current work
+addresses native audio, interaction/lifetime and distribution reliability.
 Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.

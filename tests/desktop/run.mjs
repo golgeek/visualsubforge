@@ -46,6 +46,7 @@ import { translationWorkflow } from './translation.mjs';
 import { translationPerformance } from './translation-performance.mjs';
 import { pluginWorkflow } from './plugins.mjs';
 import { pluginPerformance } from './plugin-performance.mjs';
+import { nativeAudioWorkflow } from './native-audio.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -66,6 +67,7 @@ const { values } = parseArgs({
     translation: { type: 'boolean', default: false },
     plugins: { type: 'boolean', default: false },
     'plugins-editor': { type: 'boolean', default: false },
+    'native-audio': { type: 'boolean', default: false },
     'plugin-performance': { type: 'boolean', default: false },
     'translation-performance': { type: 'boolean', default: false },
     'legacy-import': { type: 'boolean', default: false },
@@ -143,6 +145,7 @@ const runDeadline =
   values.translation ||
   values.plugins ||
   values['plugins-editor'] ||
+  values['native-audio'] ||
   values['plugin-performance'] ||
   values['translation-performance'] ||
   values['legacy-import'] ||
@@ -592,6 +595,22 @@ try {
       root,
       evidence,
       record,
+    });
+  if (values['native-audio'])
+    await nativeAudioWorkflow({
+      menu,
+      invoke,
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return { browser, pid: app.pid };
+      },
     });
   if (values['legacy-import'])
     await legacyImportWorkflow({

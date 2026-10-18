@@ -211,3 +211,9 @@ constant-rate/phase/pause submission and process-capture evidence. It retains fo
 ambiguous combined-reference comparisons and records their separate ordered-boundary
 checks. It does not substitute for the changing-rate, re-entry/replacement,
 other-output, full-editor or physical presentation gates above.
+
+The subsequent [rate-change and editor audit](native-reliability.md#rate-change-clear-audit--2026-10-18)
+adds immediate 0.5×↔1.5× change/clear evidence and actual Mac editor re-entry/
+replacement captures. It also reproduces an 8.6875ms quiet interval in the
+uninstrumented candidate. These bounded passes do not close the retained
+interruption, sustained rate/format transitions or other-output/device gates.

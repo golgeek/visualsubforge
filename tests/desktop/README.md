@@ -478,6 +478,48 @@ For diagnosis, `VSF_TRANSLATION_PERFORMANCE_WORKLOADS=dense` selects a subset an
 `VSF_TRANSLATION_PROFILE_DRAW=1` records canvas draw counts/times. Instrumented or
 partial runs do not replace the complete uninstrumented acceptance run.
 
+### Native audio re-entry and replacement (macOS)
+
+`--native-audio` uses an actual `desktop-e2e,media-prototype` bundle and the
+selected private libmpv. It creates two deterministic stereo WAV files and checks
+initial looping, seeking beyond B through EOF, re-entering the loop, looping after
+a before-A seek, and replacing playing media. It also rejects an old-session seek
+and verifies unchanged subtitle state and source files. The before-A lead-in is
+checked through status; its complete PCM is not captured.
+
+Build the process-only capture helper on macOS 14.2 or newer:
+
+```sh
+clang++ -std=c++17 -fobjc-arc -mmacosx-version-min=14.2 -Wall -Wextra -Werror \
+  tests/native/process-audio-capture.mm -framework Foundation -framework CoreAudio \
+  -Wl,-sectcreate,__TEXT,__info_plist,tests/native/audio-capture-info.plist \
+  -o tests/fixtures/generated/process-audio-capture
+
+VSF_PROCESS_AUDIO_CAPTURE="$PWD/tests/fixtures/generated/process-audio-capture" \
+VSF_AUDIO_ANALYSIS_PYTHON=/absolute/path/to/python-with-numpy \
+VSF_EXPECT_MPV=/absolute/path/to/selected/libmpv.2.dylib \
+DYLD_LIBRARY_PATH=/absolute/path/to/selected/library-directory \
+node tests/desktop/run.mjs --native-audio \
+  --binary /absolute/path/to/native/VisualSubForge.app/Contents/MacOS/visualsubforge \
+  --cli /absolute/path/to/native/VisualSubForge.app/Contents/MacOS/vsf
+```
+
+Use the [native build recipe](../../docs/build-macos.md), the pinned Node version,
+and Python with `tests/native/requirements.txt` installed. The helper may need
+macOS audio-capture consent. It captures only the owned editor PID through a
+private process tap; it does not select a system device or record a microphone.
+Each recorder is stopped and reaped even when an assertion fails. The runner
+requires normal app shutdown and independently analyzes all five captures in
+both channels with `tests/native/audio-editor-content.py`.
+
+`native-audio.json` records input hashes, observed state and recorder exits;
+`native-audio-runtime.json` verifies loaded executable/library backing files;
+`native-audio-content.json` records the separate content verdict. A completed
+state report alone is not a content pass. Supplied chooser results and typed IPC
+exercise the real editor/media worker but do not establish physical pointer,
+real-sheet, DAC/speaker, changing-rate or other-platform acceptance. See the
+[dated evidence and limits](../../docs/native-reliability.md#editor-audio-re-entry-and-replacement--2026-10-18).
+
 ### Subtitle plugins
 
 `--plugins` uses the native-feature test bundle and installed sibling CLI to run
