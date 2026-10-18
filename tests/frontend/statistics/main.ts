@@ -353,21 +353,57 @@ try {
     cueId: String(i + 1),
   }));
   view.summary!.findingsCount = 205;
+  // Earlier outlier navigation opens Problems. Its asynchronous findings use
+  // the same CSS class: make their presence deterministic and count only the
+  // dialog's own outliers below.
+  await until(
+    () =>
+      host.querySelectorAll('[aria-label="Subtitle Problems"] .finding')
+        .length === qualitySample.findings.length,
+  );
   await open();
   await report();
+  const findings = () => [
+    ...host.querySelectorAll('[aria-label="Statistics outliers"] .finding'),
+  ];
   assert(
-    host.querySelectorAll('.finding').length === 100,
-    'First page not bounded',
+    findings().length === 100,
+    `First page not bounded: ${findings().length} statistics rows`,
   );
   button('Next findings').click();
   await until(() => host.textContent?.includes('101–200 of 205') ?? false);
   assert(
-    host.querySelectorAll('.finding').length === 100,
-    `Second page not bounded: ${host.querySelectorAll('.finding').length} rendered rows; ${host.querySelector('[aria-label="Statistics pages"]')?.textContent}`,
+    findings().length === 100,
+    `Second page not bounded: ${findings().length} statistics rows; ${host.querySelector('[aria-label="Statistics pages"]')?.textContent}`,
   );
+  for (const [action, first, last] of [
+    ['Next findings', 201, 205],
+    ['Previous findings', 101, 200],
+    ['Previous findings', 1, 100],
+  ] as const) {
+    button(action).click();
+    await until(
+      () => host.textContent?.includes(`${first}–${last} of 205`) ?? false,
+    );
+    const rows = findings();
+    assert(
+      rows.length === last - first + 1 &&
+        rows.every((finding, i) =>
+          finding
+            .querySelector('button')
+            ?.textContent?.startsWith(`Cue ${first + i} ·`),
+        ),
+      `Page ${first}–${last} does not contain exactly the requested cues: ${rows.length} statistics rows; ${host.querySelector('[aria-label="Statistics pages"]')?.textContent}`,
+    );
+    assert(
+      button('Next findings').disabled === (last === 205) &&
+        button('Previous findings').disabled === (first === 1),
+      `Page ${first}–${last} has incorrect navigation bounds`,
+    );
+  }
   await close();
   passed(
-    'Outliers page 100 findings at a time without changing accepted state',
+    'Outliers page forward and backward with exact rows and a bounded final page',
   );
   view = {
     ...structuredClone(sample),

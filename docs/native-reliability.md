@@ -508,4 +508,48 @@ pack; only README literal-tag spelling and committed provenance differ.
 `feature-fixture-application-validation.log` and the validation scaffolds retain
 exact commands and identities. The running f0dbf68 package workflows predate this
 fixture expansion; their attached fixture set remains the earlier baseline.
+
+## Statistics paging test correction — 2026-10-18
+
+The earlier hosted WebKit failure is a test-selector race. Statistics outlier
+navigation opens the underlying Problems panel, whose asynchronous results also
+use the `.finding` class. The harness counted that class across the whole app.
+Forty local WebKit repetitions passed before extending navigation through the
+final page and back; the extension failed in both engines with108 rendered rows.
+Waiting explicitly for Problems to populate then reproduces the failure on the
+first page in both Chromium and WebKit:100 statistics rows plus8 Problems rows.
+The dialog itself remains correctly bounded.
+
+The test now requires both panels to coexist and scopes row assertions to the
+Statistics outliers region. It checks the100/100/5 page sizes, exact cue sequence
+on backward navigation and endpoint button states. Two deterministic session
+controls verify that an older polling reply cannot replace a newly selected page
+and that pending paging excludes additional navigation/polling. Temporarily
+removing the late-read epoch guard makes both browsers fail with the expected
+“Late polling response replaced the requested page”; the production file is
+restored byte-for-byte afterward. No product behavior or dependency changes.
+
+With Node24.21.0/npm11.19.0, validation passes:
+
+```sh
+npm run test:browser -- --grep 'workflow: statistics' # 2 engines, 15 checks each
+npm run test:browser                                # all60 cases, 2.8 minutes
+npm run check                                      # zero errors/warnings
+npx eslint tests/frontend/statistics/main.ts tests/frontend/statistics/lifecycle.ts --max-warnings 0
+npx prettier --check tests/frontend/statistics/main.ts tests/frontend/statistics/lifecycle.ts
+git diff --check
+```
+
+Retained evidence under `test-results/native-reliability-20261018/` includes
+`statistics-webkit-diagnostic-40.log`, `statistics-paging-before/`, the
+`statistics-selector-{before,after}.log` files, the epoch-negative log/identity
+receipt and `statistics-paging-browser-full.log`. The initial hosted failure is
+retained. These are production-component/session tests with modeled IPC, not
+native gesture or physical-device acceptance.
+
+The preceding source commit0a1769b independently passes all ten jobs in
+[Checks39144967541](https://github.com/golgeek/visualsubforge/actions/runs/39144967541)
+and all six in [Native39144967483](https://github.com/golgeek/visualsubforge/actions/runs/39144967483).
+Those hosted results predate this test-only correction; its hosted rerun remains
+to be recorded.
 No Linux VM root-space install/build or production audio-option change occurred.

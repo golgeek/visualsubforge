@@ -118,6 +118,41 @@ export async function lifecycle(
   await session.start();
   assert(session.view?.phase === 'ready', 'Failure prevented retry');
   passed('Calculation failure remains read-only and retry recovers');
+  const firstPage = structuredClone(next);
+  held = new Promise((r) => {
+    release = r;
+  });
+  const oldPage = session.poll();
+  held = null;
+  next = { ...next, offset: 100 };
+  await session.page(100);
+  assert(session.view?.offset === 100, 'Page change did not publish');
+  release(firstPage);
+  await oldPage;
+  assert(
+    session.view?.offset === 100 && !session.pending && session.current,
+    'Late polling response replaced the requested page',
+  );
+  passed('Paging retires an older in-flight polling response');
+  held = new Promise((r) => {
+    release = r;
+  });
+  const beforePage = reads;
+  const pendingPage = session.page(200);
+  await session.page(0);
+  await session.poll();
+  assert(
+    reads === beforePage + 1 && session.pending,
+    'Paging admitted a second request while pending',
+  );
+  release({ ...next, offset: 200 });
+  await pendingPage;
+  held = null;
+  assert(
+    session.view?.offset === 200 && !session.pending,
+    'Pending page did not settle',
+  );
+  passed('Pending paging excludes overlapping navigation and polling');
   held = new Promise((r) => {
     release = r;
   });
