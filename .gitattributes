@@ -2,3 +2,5 @@
 *.png binary
 *.ico binary
 *.icns binary
+# Cross-host byte fixture intentionally retains its UTF-8 BOM and CRLF records.
+tests/fixtures/plugins/vss-contract/source.srt -text whitespace=cr-at-eol,-blank-at-eof
