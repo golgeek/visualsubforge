@@ -23,6 +23,11 @@ pub enum Rule {
     Gap,
     SceneStart,
     SceneEnd,
+    Spelling,
+    Typography,
+    Capitalization,
+    DialogueMarker,
+    LanguageCoverage,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -44,6 +49,7 @@ pub struct Finding {
     pub measured: Option<f64>,
     pub expected: String,
     pub explanation: String,
+    pub language: Option<crate::language::Detail>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -75,6 +81,7 @@ pub struct Report {
     pub profile_hash: String,
     pub complete: bool,
     pub scene_coverage: super::scene::SceneCoverage,
+    pub language_coverage: crate::language::Coverage,
     pub affected_cues: u32,
     pub metrics: Vec<CueMetrics>,
     pub findings: Vec<Finding>,
@@ -83,9 +90,9 @@ pub struct Report {
 /// Full evaluation is bounded by cue/text/finding limits. Caller-supplied
 /// checkpoints permit cancellation/progress without importing a job framework.
 /// Output remains in document order; time neighbors are found chronologically.
-pub fn evaluate(
+pub fn evaluate<'a>(
     document: &Document,
-    profile: &Profile,
+    profile: impl Into<super::Evaluation<'a>>,
     checkpoint: impl FnMut(usize, usize) -> Result<()>,
 ) -> Result<Report> {
     evaluate_with_scenes(
@@ -96,12 +103,14 @@ pub fn evaluate(
     )
 }
 
-pub fn evaluate_with_scenes(
+pub fn evaluate_with_scenes<'a>(
     document: &Document,
-    profile: &Profile,
+    profile: impl Into<super::Evaluation<'a>>,
     scenes: &super::scene::Scenes,
     mut checkpoint: impl FnMut(usize, usize) -> Result<()>,
 ) -> Result<Report> {
+    let context = profile.into();
+    let profile = context.profile;
     profile.validate()?;
     let windows = super::scene::Windows::new(profile, scenes, || checkpoint(0, 0))?;
     let cues = document.cues();
@@ -153,18 +162,32 @@ pub fn evaluate_with_scenes(
         }
     }
     let mut report = Report {
-        schema_version: 2,
+        schema_version: 3,
         profile: profile.clone(),
         profile_hash: profile.fingerprint()?,
         complete: profile.limitations.is_empty() && windows.coverage().available(),
         scene_coverage: windows.coverage(),
+        language_coverage: crate::language::Coverage::default(),
         affected_cues: 0,
         metrics: Vec::with_capacity(total),
-        // Start from the bounded cue count. Dense repeated proposals otherwise
-        // grow through large power-of-two allocations retained by the allocator;
-        // the 10k duration benchmark verifies the resulting process RSS.
-        findings: Vec::with_capacity(total),
+        // Dense language checks need several findings per cue. Reserve bounded
+        // headroom once: repeated vector growth otherwise retains large allocator
+        // regions across proposals. The 10k language/duration gates measure RSS.
+        findings: Vec::with_capacity(
+            total
+                .saturating_mul(if profile.language_tools.enabled() {
+                    10
+                } else {
+                    1
+                })
+                .min(MAX_FINDINGS),
+        ),
     };
+    let empty_lexicon = crate::language::Lexicon::default();
+    let mut language = crate::language::Analysis::new(
+        &profile.language_tools,
+        context.lexicon.unwrap_or(&empty_lexicon),
+    );
     for (i, cue) in cues.iter().enumerate() {
         checkpoint(i, total)?;
         let text = &texts[i];
@@ -190,6 +213,9 @@ pub fn evaluate_with_scenes(
         };
         check_cue(&row, text, profile, &mut report.findings);
         windows.check(&row, &mut report.findings);
+        language.check(cue, i, context.format, &mut report.findings, || {
+            checkpoint(i, total)
+        })?;
         if profile.rules.gaps {
             if let Some(prior) = overlaps[i] {
                 report.findings.push(Finding {
@@ -198,6 +224,7 @@ pub fn evaluate_with_scenes(
                     measured: Some((cue.start().get() as i64 - cues[prior].end().get() as i64) as f64),
                     expected: "Non-overlapping half-open cue intervals".into(),
                     explanation: "A preceding cue remains visible when this cue starts; this representative pair also detects nested overlaps.".into(),
+                    language: None,
                 });
             }
             if let Some(gap) = row.gap_ms
@@ -222,6 +249,9 @@ pub fn evaluate_with_scenes(
         }
         report.metrics.push(row);
     }
+    report.language_coverage = language.coverage;
+    report.complete &=
+        report.language_coverage.skipped_cues == 0 && report.language_coverage.skipped_words == 0;
     report.findings.sort_by_key(|f| f.cue_index);
     let affected: HashSet<&str> = report
         .findings
@@ -249,6 +279,7 @@ fn finding(
         measured,
         expected,
         explanation: explanation.into(),
+        language: None,
     }
 }
 

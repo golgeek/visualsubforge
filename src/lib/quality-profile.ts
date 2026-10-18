@@ -1,5 +1,15 @@
 import type { QualityProfile, TimingSettings } from './client';
 
+export const defaultLanguageTools: NonNullable<
+  QualityProfile['languageTools']
+> = {
+  dictionary: 'en-US',
+  spelling: false,
+  typography: false,
+  capitalization: false,
+  dialogueMarkers: false,
+};
+
 // Draft transformations only. Rust validates and accepts the effective policy.
 // JSON copying also unwraps a Svelte proxy without retaining nested references.
 export function copyProfile(profile: QualityProfile): QualityProfile {

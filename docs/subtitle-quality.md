@@ -196,12 +196,16 @@ vsf check --subtitles episode.srt --profile sw3-uk-vo-subset --json
 vsf check --subtitles episode.srt --profile ./publisher.vsfpreset --json
 ```
 
-JSON schema 2 contains the effective profile/hash, complete-coverage flag,
-explicit `sceneCoverage`,
+JSON schema 3 contains the effective profile/hash, complete-coverage flag,
+explicit `sceneCoverage` and `languageCoverage`,
 accepted cue metrics, findings and distinct affected-cue count. Cue identities
 are decimal strings; indices are zero-based, while human output uses cue numbers
 starting at one. Numeric times are exact millisecond projections of the domain's
 bounded timestamps. Displayed rounded rates never determine findings.
+Optional [language checks](language-tools.md) carry original-source UTF-16 ranges
+and reviewed correction metadata. Unsupported markup and skipped words make
+coverage incomplete. CLI language checking uses bundled dictionaries without
+desktop personal/session words; human output identifies the word and source range.
 
 Exit 0 means no findings with complete requested coverage; 1 means findings;
 3 means incomplete coverage, possibly with findings; 2 invalid input/limits;

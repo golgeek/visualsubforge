@@ -58,10 +58,21 @@ pub fn run(args: Check, cancel: &Cancellation) -> quality::Result<u8> {
             if report.complete {
                 "all requested rules checked"
             } else {
-                "partial — unsupported rules or missing scene data"
+                "partial — unsupported rules, skipped text or missing scene data"
             }
         )
         .map_err(|e| Error::Io(e.to_string()))?;
+        if report.language_coverage.enabled {
+            writeln!(
+                stdout,
+                "Language tools: {}; {} checked words, {} skipped words, {} skipped cues",
+                profile.language_tools.dictionary.name(),
+                report.language_coverage.checked_words,
+                report.language_coverage.skipped_words,
+                report.language_coverage.skipped_cues
+            )
+            .map_err(|e| Error::Io(e.to_string()))?;
+        }
         writeln!(
             stdout,
             "Scene coverage: {:?} (completed visual detection remains heuristic)",
@@ -86,6 +97,21 @@ pub fn run(args: Check, cancel: &Cancellation) -> quality::Result<u8> {
                 finding.expected
             )
             .map_err(|e| Error::Io(e.to_string()))?;
+            if let Some(detail) = &finding.language {
+                writeln!(
+                    stdout,
+                    "  Text {:?}, source UTF-16 {}..{}{}",
+                    detail.word,
+                    detail.start,
+                    detail.end,
+                    detail
+                        .manual_reason
+                        .as_deref()
+                        .map(|r| format!("; {r}"))
+                        .unwrap_or_default()
+                )
+                .map_err(|e| Error::Io(e.to_string()))?;
+            }
         }
     }
     stdout.flush().map_err(|e| Error::Io(e.to_string()))?;

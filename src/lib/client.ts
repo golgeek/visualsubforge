@@ -90,9 +90,10 @@ export type ProjectAttachment =
   IPC.visualsubforge_project_store_Attachment_Serialize;
 export type SaveProjectRequest =
   IPC.visualsubforge_project_SaveRequest_Deserialize;
-export type Preferences = IPC.visualsubforge_preferences_Preferences;
-export type QualityProfile = IPC.vsf_application_quality_profile_Profile;
-export type QualityView = IPC.visualsubforge_quality_check_View;
+export type Preferences = IPC.visualsubforge_preferences_Preferences_Serialize;
+export type QualityProfile =
+  IPC.vsf_application_quality_profile_Profile_Serialize;
+export type QualityView = IPC.visualsubforge_quality_check_View_Serialize;
 export type QualityRequest = IPC.visualsubforge_quality_check_Request;
 export type QualityMetric = QualityView['metrics'][number];
 export type QualityDraft = IPC.visualsubforge_quality_check_Draft;
@@ -416,6 +417,7 @@ export const defaultPreferences: Preferences = {
   timing: defaultTiming,
   quality: builtinQualityProfiles[0]!,
   showQualityMetrics: false,
+  personalWords: { englishUs: [], french: [] },
 };
 export function getPreferences(): Promise<Preferences> {
   return commands.preferencesGet();
@@ -429,6 +431,20 @@ export async function savePreferences(
 export function getQualitySettings(): Promise<QualitySettingsData> {
   return commands.qualitySettings();
 }
+export type LanguageWords = Awaited<ReturnType<typeof commands.languageWords>>;
+export type LanguageWordChange = Parameters<
+  typeof commands.languageWordsChange
+>[1];
+export type LanguageNotices =
+  ReturnType<typeof commands.languageNotices> extends Promise<infer T>
+    ? T
+    : never;
+export const getLanguageWords = () => commands.languageWords();
+export const changeLanguageWords = (
+  epoch: number,
+  change: LanguageWordChange,
+) => commands.languageWordsChange(epoch, change);
+export const getLanguageNotices = () => commands.languageNotices();
 export function readQuality(request: QualityRequest): Promise<QualityView> {
   return commands.qualityRead(request);
 }

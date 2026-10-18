@@ -9,8 +9,13 @@ import {
   type TextView,
   type TextOperation,
   type TextTarget,
+  type QualityView,
+  type LanguageWordChange,
 } from '../../../src/lib/client';
-import { textView as sample } from '../ipc-contract-samples';
+import {
+  textView as sample,
+  qualityView as qualitySample,
+} from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
 const host = document.querySelector('#test')!;
 const heading = document.querySelector('#result')!;
@@ -38,6 +43,11 @@ let failApply = false,
   failAccept = false;
 let heldStart: Promise<number> | null = null;
 const cancelled: number[] = [];
+let languageEnabled = false,
+  ignoredWord = false,
+  rememberedWord = false,
+  wordFailure = false;
+let wordEpoch = 1;
 function assert(value: unknown, message: string) {
   if (!value) throw new Error(message);
 }
@@ -61,6 +71,13 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+}
+async function actionable(label: string) {
+  await until(() =>
+    [...host.querySelectorAll('button')].some(
+      (b) => b.textContent?.trim() === label && !b.disabled,
+    ),
+  );
 }
 function input(label: string, value: string) {
   const e = host.querySelector<HTMLInputElement | HTMLTextAreaElement>(
@@ -102,6 +119,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         text?: string;
         start?: number;
         end?: number;
+        epoch?: number;
+        change?: LanguageWordChange;
       },
     ) => {
       switch (command) {
@@ -117,7 +136,77 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'media_action':
           return structuredClone(emptyStatus);
         case 'quality_read':
-          throw new Error('Quality disabled in this fixture');
+          if (!languageEnabled)
+            throw new Error('Quality disabled in this fixture');
+          {
+            const at = doc.cues[0]!.text.indexOf('helo');
+            const findings: QualityView['findings'] =
+              at < 0 || ignoredWord || rememberedWord
+                ? []
+                : [
+                    {
+                      rule: 'spelling',
+                      cueId: String(doc.cues[0]!.id),
+                      cueIndex: 0,
+                      relatedCueId: null,
+                      severity: 'advisory',
+                      measured: null,
+                      expected: 'Review spelling',
+                      explanation: 'Fixture spelling finding',
+                      language: {
+                        start: at,
+                        end: at + 4,
+                        word: 'helo',
+                        replacement: null,
+                        manualReason: null,
+                      },
+                    },
+                  ];
+            return {
+              ...structuredClone(qualitySample),
+              key: {
+                loaded: true,
+                generation: doc.generation,
+                revision: doc.revision,
+                epoch: wordEpoch,
+              },
+              id: wordEpoch + doc.revision + 100,
+              phase: 'ready',
+              profile: {
+                ...defaultPreferences.quality,
+                languageTools: {
+                  dictionary: 'en-US',
+                  spelling: true,
+                  typography: false,
+                  capitalization: false,
+                  dialogueMarkers: false,
+                },
+              },
+              findings,
+              findingsCount: findings.length,
+              affectedCues: findings.length,
+              filteredCount: findings.length,
+              filteredCues: findings.length,
+              languageCoverage: {
+                enabled: true,
+                checkedWords: 2,
+                skippedWords: 0,
+                skippedCues: 0,
+                personalized: ignoredWord || rememberedWord,
+              },
+            };
+          }
+        case 'quality_cancel':
+          return;
+        case 'language_words_change':
+          if (wordFailure)
+            throw new Error('Injected personal-word save failure');
+          assert(args.epoch === wordEpoch, 'Word update used a stale epoch');
+          if (args.change?.kind === 'ignore') ignoredWord = true;
+          if (args.change?.kind === 'remember') rememberedWord = true;
+          if (args.change?.kind === 'clearIgnored') ignoredWord = false;
+          wordEpoch++;
+          return;
         case 'text_start': {
           starts++;
           const find = args.operation?.kind === 'find';
@@ -136,6 +225,41 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               after: find ? null : r.after,
             })),
           };
+          if (args.operation?.kind === 'languageSuggestions') {
+            view = {
+              ...view,
+              changed: 0,
+              total: 0,
+              matches: 0,
+              rows: [],
+              suggestions: ['hello'],
+            };
+          } else if (args.operation?.kind === 'languageCorrection') {
+            const op = args.operation;
+            const cue = doc.cues[op.cueIndex]!;
+            const after =
+              cue.text.slice(0, op.start) +
+              op.replacement +
+              cue.text.slice(op.end);
+            view = {
+              ...view,
+              changed: 1,
+              total: 1,
+              matches: 1,
+              suggestions: [],
+              rows: [
+                {
+                  cueId: cue.id,
+                  cueIndex: op.cueIndex,
+                  before: cue.text,
+                  after,
+                  skipped: null,
+                  matches: [{ start: op.start, end: op.end, skipped: null }],
+                  matchCount: 1,
+                },
+              ],
+            };
+          }
           return heldStart ?? starts;
         }
         case 'text_view':
@@ -372,6 +496,97 @@ async function run() {
     button('Close text tools').click();
     await until(() => !button('Find / Replace…').disabled);
     passed('Find and replace keyboard entry preserves the Mac Cmd+H shortcut');
+    languageEnabled = true;
+    input('Subtitle text', '😀 <i>helo helo</i>');
+    await tick();
+    button('Apply edit').click();
+    await until(
+      () =>
+        doc.cues[0]!.text === '😀 <i>helo helo</i>' &&
+        !button('Find / Replace…').disabled,
+    );
+    const problems = [...host.querySelectorAll('button')].find((b) =>
+      b.textContent?.trim().startsWith('Problems'),
+    )!;
+    if (problems.getAttribute('aria-expanded') !== 'true') problems.click();
+    await until(() => host.textContent!.includes('Fixture spelling finding'));
+    const startingAccepts = accepts;
+    button('Suggestions').click();
+    await until(() => !!host.querySelector('dialog[open]'));
+    button('Get spelling suggestions').click();
+    await until(() => host.textContent!.includes('Preview “hello”'));
+    assert(
+      button('Accept text repairs').disabled && accepts === startingAccepts,
+      'Suggestions performed an edit',
+    );
+    button('Preview “hello”').click();
+    await until(() => !button('Accept text repairs').disabled);
+    assert(
+      host
+        .querySelector('[aria-label="Text proposal"]')!
+        .textContent!.includes('😀 <i>hello helo</i>') &&
+        doc.cues[0]!.text === '😀 <i>helo helo</i>',
+      'Correction preview did not preserve exact tags/occurrence',
+    );
+    button('Accept text repairs').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        !button('Find / Replace…').disabled,
+    );
+    assert(
+      doc.cues[0]!.text === '😀 <i>hello helo</i>' &&
+        accepts === startingAccepts + 1,
+      'Reviewed correction was not reconciled',
+    );
+    button('Undo edit').click();
+    await until(
+      () =>
+        doc.cues[0]!.text === '😀 <i>helo helo</i>' &&
+        host.textContent!.includes('Fixture spelling finding'),
+    );
+    passed(
+      'Problems suggestions are read-only; exact correction preview preserves markup and acceptance uses the undoable document owner',
+    );
+    await actionable('Ignore word this session');
+    button('Ignore word this session').click();
+    await until(
+      () =>
+        ignoredWord && !host.textContent!.includes('Fixture spelling finding'),
+    );
+    assert(
+      ignoredWord && !rememberedWord,
+      'Session ignore persisted a personal word',
+    );
+    await actionable('Clear session ignored words');
+    button('Clear session ignored words').click();
+    await until(() => host.textContent!.includes('Fixture spelling finding'));
+    wordFailure = true;
+    await actionable('Add personal word');
+    button('Add personal word').click();
+    await until(() =>
+      host.textContent!.includes('Injected personal-word save failure'),
+    );
+    assert(
+      !rememberedWord && host.textContent!.includes('Fixture spelling finding'),
+      'Failed personal save removed the finding',
+    );
+    wordFailure = false;
+    await actionable('Add personal word');
+    button('Add personal word').click();
+    await until(() => !host.textContent!.includes('Fixture spelling finding'));
+    assert(rememberedWord && !ignoredWord, 'Personal word was not adopted');
+    passed(
+      'Session ignores, clearing ignores and personal-word failures preserve their distinct lifetimes',
+    );
+    await open();
+    assert(
+      host.querySelector<HTMLSelectElement>('dialog[open] select')!.value ===
+        'find',
+      'General text tools reopened a stale language operation',
+    );
+    button('Close text tools').click();
+    await until(() => !host.querySelector('dialog[open]'));
     await lifecycle(sample, original, passed);
     const count = output.querySelectorAll('li').length;
     heading.textContent = `PASS: all ${count} text editing checks`;

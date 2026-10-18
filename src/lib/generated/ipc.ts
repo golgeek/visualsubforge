@@ -32,19 +32,30 @@ export const commands = {
   updateMenu: (state: visualsubforge_desktop_MenuState) =>
     __TAURI_INVOKE<null>('update_menu', { state }),
   preferencesGet: () =>
-    __TAURI_INVOKE<visualsubforge_preferences_Preferences>('preferences_get'),
+    __TAURI_INVOKE<visualsubforge_preferences_Preferences_Serialize>(
+      'preferences_get',
+    ),
   preferencesSave: (
-    preferences: visualsubforge_preferences_Preferences,
+    preferences: visualsubforge_preferences_Preferences_Deserialize,
     epoch: number,
   ) => __TAURI_INVOKE<null>('preferences_save', { preferences, epoch }),
   qualitySettings: () =>
     __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
       'quality_settings',
     ),
+  languageWords: () =>
+    __TAURI_INVOKE<visualsubforge_language_tools_Words>('language_words'),
+  languageWordsChange: (
+    epoch: number,
+    change: visualsubforge_language_tools_Change,
+  ) => __TAURI_INVOKE<null>('language_words_change', { epoch, change }),
+  languageNotices: () =>
+    __TAURI_INVOKE<visualsubforge_language_tools_Notices>('language_notices'),
   qualityRead: (request: visualsubforge_quality_check_Request) =>
-    __TAURI_INVOKE<visualsubforge_quality_check_View>('quality_read', {
-      request,
-    }),
+    __TAURI_INVOKE<visualsubforge_quality_check_View_Serialize>(
+      'quality_read',
+      { request },
+    ),
   qualityCancel: (id: number) => __TAURI_INVOKE<null>('quality_cancel', { id }),
   statisticsStart: (
     session: number,
@@ -59,7 +70,7 @@ export const commands = {
       selection,
     }),
   statisticsView: (id: number, offset: number, limit: number) =>
-    __TAURI_INVOKE<visualsubforge_statistics_StatisticsView>(
+    __TAURI_INVOKE<visualsubforge_statistics_StatisticsView_Serialize>(
       'statistics_view',
       { id, offset, limit },
     ),
@@ -68,7 +79,7 @@ export const commands = {
   gapStart: (session: number, generation: number, revision: number) =>
     __TAURI_INVOKE<number>('gap_start', { session, generation, revision }),
   gapView: (id: number, offset: number, limit: number) =>
-    __TAURI_INVOKE<visualsubforge_gap_review_GapView>('gap_view', {
+    __TAURI_INVOKE<visualsubforge_gap_review_GapView_Serialize>('gap_view', {
       id,
       offset,
       limit,
@@ -111,7 +122,7 @@ export const commands = {
       revision,
     }),
   sceneRepairView: (id: number, offset: number, limit: number) =>
-    __TAURI_INVOKE<visualsubforge_timing_review_SceneRepairView>(
+    __TAURI_INVOKE<visualsubforge_timing_review_SceneRepairView_Serialize>(
       'scene_repair_view',
       { id, offset, limit },
     ),
@@ -135,7 +146,7 @@ export const commands = {
       selectedCueId,
     }),
   durationRepairView: (id: number, offset: number, limit: number) =>
-    __TAURI_INVOKE<visualsubforge_timing_review_DurationRepairView>(
+    __TAURI_INVOKE<visualsubforge_timing_review_DurationRepairView_Serialize>(
       'duration_repair_view',
       { id, offset, limit },
     ),
@@ -197,13 +208,13 @@ export const commands = {
       context,
     }),
   qualityProfileOpen: (path: string) =>
-    __TAURI_INVOKE<vsf_application_quality_profile_Profile>(
+    __TAURI_INVOKE<vsf_application_quality_profile_Profile_Serialize>(
       'quality_profile_open',
       { path },
     ),
   qualityProfileSave: (
     path: string,
-    profile: vsf_application_quality_profile_Profile,
+    profile: vsf_application_quality_profile_Profile_Deserialize,
   ) => __TAURI_INVOKE<null>('quality_profile_save', { path, profile }),
   finishExit: (generation: number, revision: number, discard: boolean) =>
     __TAURI_INVOKE<null>('finish_exit', { generation, revision, discard }),
@@ -776,20 +787,46 @@ export type visualsubforge_batch_timing_Change =
   | { kind: 'shift'; earlier: boolean; amountMs: number }
   | { kind: 'align'; playheadMs: number };
 
+export type visualsubforge_language_tools_Change =
+  | {
+      kind: 'ignore';
+      language: vsf_application_language_Language;
+      word: string;
+    }
+  | {
+      kind: 'remember';
+      language: vsf_application_language_Language;
+      word: string;
+    }
+  | {
+      kind: 'forget';
+      language: vsf_application_language_Language;
+      word: string;
+    }
+  | { kind: 'clearIgnored' };
+
 export type visualsubforge_quality_profile_Context =
   | visualsubforge_quality_profile_Context_Serialize
   | visualsubforge_quality_profile_Context_Deserialize;
 
 export type visualsubforge_quality_profile_Context_Deserialize = {
   epoch: number;
-  profile: vsf_application_quality_profile_Profile;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
   timing: visualsubforge_timing_preset_Settings;
 };
 
 export type visualsubforge_quality_profile_Context_Serialize = {
   epoch: number;
-  profile: vsf_application_quality_profile_Profile;
+  profile: vsf_application_quality_profile_Profile_Serialize;
   timing: visualsubforge_timing_preset_Settings;
+};
+
+export type vsf_application_language_analysis_Coverage = {
+  enabled: boolean;
+  checkedWords: number;
+  skippedWords: number;
+  skippedCues: number;
+  personalized: boolean;
 };
 
 export type vsf_application_quality_check_CueMetrics = {
@@ -846,6 +883,18 @@ export type visualsubforge_document_CueView_Serialize = {
  */
 export type media_analysis_scenes_Detail = 'standard' | 'reduced';
 
+/**
+ *  Offsets refer to original source UTF-16, including markup, like the editor.
+ *  An advisory may remain selectable even when a protected boundary prevents a fix.
+ */
+export type vsf_application_language_analysis_Detail = {
+  start: number;
+  end: number;
+  word: string;
+  replacement: string | null;
+  manualReason: string | null;
+};
+
 export type visualsubforge_quality_check_Draft = {
   cueId: number;
   startMs: number;
@@ -857,13 +906,36 @@ export type visualsubforge_quality_check_DraftChange =
   | { kind: 'clear' }
   | { kind: 'update'; value: visualsubforge_quality_check_Draft };
 
-export type visualsubforge_timing_review_DurationRepairView = {
+export type visualsubforge_timing_review_DurationRepairView =
+  | visualsubforge_timing_review_DurationRepairView_Serialize
+  | visualsubforge_timing_review_DurationRepairView_Deserialize;
+
+export type visualsubforge_timing_review_DurationRepairView_Deserialize = {
   id: number;
   selectedCueId: string | null;
   key: visualsubforge_quality_check_Key;
   session: number;
   phase: visualsubforge_gap_review_Phase;
-  profile: vsf_application_quality_profile_Profile;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_DurationRow[];
+};
+
+export type visualsubforge_timing_review_DurationRepairView_Serialize = {
+  id: number;
+  selectedCueId: string | null;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;
   error: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
@@ -940,6 +1012,7 @@ export type vsf_application_quality_check_Finding = {
   measured: number | null;
   expected: string;
   explanation: string;
+  language: vsf_application_language_analysis_Detail | null;
 };
 
 export type vsf_application_text_formatting_Format =
@@ -965,12 +1038,34 @@ export type visualsubforge_text_review_FormattingContext = {
   styleName: string;
 };
 
-export type visualsubforge_gap_review_GapView = {
+export type visualsubforge_gap_review_GapView =
+  | visualsubforge_gap_review_GapView_Serialize
+  | visualsubforge_gap_review_GapView_Deserialize;
+
+export type visualsubforge_gap_review_GapView_Deserialize = {
   id: number;
   key: visualsubforge_quality_check_Key;
   session: number;
   phase: visualsubforge_gap_review_Phase;
-  profile: vsf_application_quality_profile_Profile;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_gap_review_Row[];
+};
+
+export type visualsubforge_gap_review_GapView_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;
   error: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
@@ -1026,6 +1121,8 @@ export type visualsubforge_quality_check_Key = {
 };
 
 export type vsf_application_quality_profile_Kind = 'quality';
+
+export type vsf_application_language_Language = 'en-US' | 'fr';
 
 export type vsf_application_quality_profile_LineRule = {
   enabled: boolean;
@@ -1087,6 +1184,13 @@ export type visualsubforge_quality_check_Metric = {
 
 export type visualsubforge_scenes_Mode = 'keyframes' | 'visual';
 
+export type visualsubforge_language_tools_Notices = {
+  english: string;
+  french: string;
+  mpl: string;
+  sources: string;
+};
+
 export type visualsubforge_project_store_Opened =
   | visualsubforge_project_store_Opened_Serialize
   | visualsubforge_project_store_Opened_Deserialize;
@@ -1122,7 +1226,22 @@ export type vsf_application_text_Operation =
       caseSensitive: boolean;
     }
   | { kind: 'joinLines' }
-  | { kind: 'reflow' };
+  | { kind: 'reflow' }
+  | {
+      kind: 'languageSuggestions';
+      cueIndex: number;
+      start: number;
+      end: number;
+      original: string;
+    }
+  | {
+      kind: 'languageCorrection';
+      cueIndex: number;
+      start: number;
+      end: number;
+      original: string;
+      replacement: string;
+    };
 
 export type visualsubforge_project_Options =
   | visualsubforge_project_Options_Serialize
@@ -1135,7 +1254,7 @@ export type visualsubforge_project_Options_Deserialize = {
   followSubtitle: boolean;
   showScenes: boolean;
   timing?: visualsubforge_timing_preset_Settings;
-  quality?: vsf_application_quality_profile_Profile | null;
+  quality?: vsf_application_quality_profile_Profile_Deserialize | null;
 };
 
 export type visualsubforge_project_Options_Serialize = {
@@ -1145,7 +1264,7 @@ export type visualsubforge_project_Options_Serialize = {
   followSubtitle: boolean;
   showScenes: boolean;
   timing: visualsubforge_timing_preset_Settings;
-  quality: vsf_application_quality_profile_Profile | null;
+  quality: vsf_application_quality_profile_Profile_Serialize | null;
 };
 
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
@@ -1198,13 +1317,28 @@ export type visualsubforge_text_review_Phase =
   | 'accepted'
   | 'closed';
 
-export type visualsubforge_preferences_Preferences = {
+export type visualsubforge_preferences_Preferences =
+  | visualsubforge_preferences_Preferences_Serialize
+  | visualsubforge_preferences_Preferences_Deserialize;
+
+export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
-  quality: vsf_application_quality_profile_Profile;
+  quality: vsf_application_quality_profile_Profile_Deserialize;
   showQualityMetrics: boolean;
+  personalWords?: vsf_application_language_dictionary_WordLists;
+};
+
+export type visualsubforge_preferences_Preferences_Serialize = {
+  version: number;
+  autoScanScenes: boolean;
+  sceneDetail: media_analysis_scenes_Detail;
+  timing: visualsubforge_timing_preset_Settings;
+  quality: vsf_application_quality_profile_Profile_Serialize;
+  showQualityMetrics: boolean;
+  personalWords: vsf_application_language_dictionary_WordLists;
 };
 
 export type visualsubforge_timing_preset_Preset = {
@@ -1213,7 +1347,11 @@ export type visualsubforge_timing_preset_Preset = {
   timing: visualsubforge_timing_preset_Settings;
 };
 
-export type vsf_application_quality_profile_Profile = {
+export type vsf_application_quality_profile_Profile =
+  | vsf_application_quality_profile_Profile_Serialize
+  | vsf_application_quality_profile_Profile_Deserialize;
+
+export type vsf_application_quality_profile_Profile_Deserialize = {
   version: number;
   kind: vsf_application_quality_profile_Kind;
   id: string;
@@ -1226,6 +1364,36 @@ export type vsf_application_quality_profile_Profile = {
   speedBasis: vsf_application_quality_profile_SpeedBasis;
   timing: vsf_application_quality_profile_Timing;
   rules: vsf_application_quality_profile_Rules;
+  /**
+   *  Optional extension to v2. Omission preserves the original serialized
+   *  policy and fingerprint; old profiles never enable language checks.
+   */
+  languageTools?: vsf_application_language_Settings;
+  /**
+   *  Unsupported source semantics. Nonempty means incomplete policy coverage,
+   *  independently of whether supported rules found any problems.
+   */
+  limitations: string[];
+};
+
+export type vsf_application_quality_profile_Profile_Serialize = {
+  version: number;
+  kind: vsf_application_quality_profile_Kind;
+  id: string;
+  name: string;
+  revision: number;
+  publisher: string;
+  source: string;
+  language: string;
+  textAlgorithm: vsf_application_quality_profile_TextAlgorithm;
+  speedBasis: vsf_application_quality_profile_SpeedBasis;
+  timing: vsf_application_quality_profile_Timing;
+  rules: vsf_application_quality_profile_Rules;
+  /**
+   *  Optional extension to v2. Omission preserves the original serialized
+   *  policy and fingerprint; old profiles never enable language checks.
+   */
+  languageTools?: vsf_application_language_Settings;
   /**
    *  Unsupported source semantics. Nonempty means incomplete policy coverage,
    *  independently of whether supported rules found any problems.
@@ -1366,7 +1534,12 @@ export type vsf_application_quality_check_Rule =
   | 'overlap'
   | 'gap'
   | 'scene_start'
-  | 'scene_end';
+  | 'scene_end'
+  | 'spelling'
+  | 'typography'
+  | 'capitalization'
+  | 'dialogue_marker'
+  | 'language_coverage';
 
 export type vsf_application_quality_statistics_RuleCount = {
   rule: vsf_application_quality_check_Rule;
@@ -1426,12 +1599,34 @@ export type visualsubforge_scenes_Saved_Serialize = {
 export type vsf_application_quality_scene_SceneCoverage =
   'notRequired' | 'checked' | 'reduced' | 'noMedia' | 'unavailable' | 'partial';
 
-export type visualsubforge_timing_review_SceneRepairView = {
+export type visualsubforge_timing_review_SceneRepairView =
+  | visualsubforge_timing_review_SceneRepairView_Serialize
+  | visualsubforge_timing_review_SceneRepairView_Deserialize;
+
+export type visualsubforge_timing_review_SceneRepairView_Deserialize = {
   id: number;
   key: visualsubforge_quality_check_Key;
   session: number;
   phase: visualsubforge_gap_review_Phase;
-  profile: vsf_application_quality_profile_Profile;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string;
+  error: string | null;
+  coverage: vsf_application_quality_scene_SceneCoverage | null;
+  total: number;
+  changed: number;
+  skipped: number;
+  beforeFindings: number;
+  afterFindings: number;
+  offset: number;
+  rows: visualsubforge_timing_review_Row[];
+};
+
+export type visualsubforge_timing_review_SceneRepairView_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_gap_review_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;
   error: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
@@ -1512,18 +1707,27 @@ export type visualsubforge_timing_preset_Settings = {
   snapDistancePx: number;
 };
 
+/**  Opt-in editorial aids. Existing profiles retain disabled defaults. */
+export type vsf_application_language_Settings = {
+  dictionary: vsf_application_language_Language;
+  spelling: boolean;
+  typography: boolean;
+  capitalization: boolean;
+  dialogueMarkers: boolean;
+};
+
 export type visualsubforge_quality_profile_SettingsData =
   | visualsubforge_quality_profile_SettingsData_Serialize
   | visualsubforge_quality_profile_SettingsData_Deserialize;
 
 export type visualsubforge_quality_profile_SettingsData_Deserialize = {
   current: visualsubforge_quality_profile_Context_Deserialize;
-  builtins: vsf_application_quality_profile_Profile[];
+  builtins: vsf_application_quality_profile_Profile_Deserialize[];
 };
 
 export type visualsubforge_quality_profile_SettingsData_Serialize = {
   current: visualsubforge_quality_profile_Context_Serialize;
-  builtins: vsf_application_quality_profile_Profile[];
+  builtins: vsf_application_quality_profile_Profile_Serialize[];
 };
 
 export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
@@ -1596,13 +1800,28 @@ export type vsf_application_quality_profile_SpeedRule = {
   maximumCps: number | null;
 };
 
-export type visualsubforge_statistics_StatisticsView = {
+export type visualsubforge_statistics_StatisticsView =
+  | visualsubforge_statistics_StatisticsView_Serialize
+  | visualsubforge_statistics_StatisticsView_Deserialize;
+
+export type visualsubforge_statistics_StatisticsView_Deserialize = {
   id: number;
   key: visualsubforge_quality_check_Key;
   session: number;
   phase: visualsubforge_statistics_Phase;
   error: string | null;
-  summary: vsf_application_quality_statistics_Summary | null;
+  summary: vsf_application_quality_statistics_Summary_Deserialize | null;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+};
+
+export type visualsubforge_statistics_StatisticsView_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  session: number;
+  phase: visualsubforge_statistics_Phase;
+  error: string | null;
+  summary: vsf_application_quality_statistics_Summary_Serialize | null;
   offset: number;
   findings: vsf_application_quality_check_Finding[];
 };
@@ -1668,13 +1887,55 @@ export type visualsubforge_document_StyleView = {
   fields: [string, string][];
 };
 
-export type vsf_application_quality_statistics_Summary = {
+export type vsf_application_quality_statistics_Summary =
+  | vsf_application_quality_statistics_Summary_Serialize
+  | vsf_application_quality_statistics_Summary_Deserialize;
+
+export type vsf_application_quality_statistics_Summary_Deserialize = {
   schemaVersion: number;
   selection: vsf_application_quality_statistics_Selection;
-  profile: vsf_application_quality_profile_Profile;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
   profileHash: string;
   complete: boolean;
   sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  languageCoverage: vsf_application_language_analysis_Coverage;
+  totalCues: number;
+  scopeCues: number;
+  outsideScopeCues: number;
+  excludedCues: number;
+  includedCues: number;
+  emptyTextCues: number;
+  durationMs: vsf_application_quality_statistics_Aggregate;
+  cps: vsf_application_quality_statistics_Aggregate;
+  rs: vsf_application_quality_statistics_Aggregate;
+  unavailableCps: vsf_application_quality_statistics_UnavailableCounts;
+  unavailableRs: vsf_application_quality_statistics_UnavailableCounts;
+  ratings: vsf_application_quality_statistics_RatingCount[];
+  lineCount: vsf_application_quality_statistics_Aggregate;
+  longestLine: vsf_application_quality_statistics_Aggregate;
+  gapsMs: vsf_application_quality_statistics_Aggregate;
+  excludedNeighborPairs: number;
+  negativeGaps: number;
+  touchingGaps: number;
+  positiveGaps: number;
+  /**  Exact integer <= 100000*99999/2, safely represented by JSON numbers. */
+  overlappingPairs: number | null;
+  overlappingCues: number;
+  findingsCount: number;
+  affectedCues: number;
+  violations: number;
+  advisories: number;
+  rules: vsf_application_quality_statistics_RuleCount[];
+};
+
+export type vsf_application_quality_statistics_Summary_Serialize = {
+  schemaVersion: number;
+  selection: vsf_application_quality_statistics_Selection;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string;
+  complete: boolean;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage;
+  languageCoverage: vsf_application_language_analysis_Coverage;
   totalCues: number;
   scopeCues: number;
   outsideScopeCues: number;
@@ -1726,6 +1987,7 @@ export type visualsubforge_text_review_TextView = {
   afterFindings: number;
   offset: number;
   rows: visualsubforge_text_review_Row[];
+  suggestions: string[];
 };
 
 export type vsf_application_quality_profile_Timing = {
@@ -1744,28 +2006,9 @@ export type vsf_application_quality_statistics_UnavailableCounts = {
   readingAllowance: number;
 };
 
-export type visualsubforge_quality_check_View = {
-  key: visualsubforge_quality_check_Key;
-  id: number;
-  phase: visualsubforge_quality_check_Phase;
-  profile: vsf_application_quality_profile_Profile;
-  profileHash: string | null;
-  sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
-  error: string | null;
-  findingsCount: number;
-  affectedCues: number;
-  filteredCount: number;
-  filteredCues: number;
-  offset: number;
-  findings: vsf_application_quality_check_Finding[];
-  metrics: visualsubforge_quality_check_Metric[];
-  selected: visualsubforge_quality_check_Metric | null;
-  previousCue: string | null;
-  nextCue: string | null;
-  draft: visualsubforge_quality_check_Metric | null;
-  draftChecking: boolean;
-  draftError: string | null;
-};
+export type visualsubforge_quality_check_View =
+  | visualsubforge_quality_check_View_Serialize
+  | visualsubforge_quality_check_View_Deserialize;
 
 export type visualsubforge_resync_view_View = {
   id: number;
@@ -1782,6 +2025,54 @@ export type visualsubforge_resync_view_View = {
   sectionOffset: number;
   cues: visualsubforge_resync_view_CueRow[];
   sections: visualsubforge_resync_view_SectionRow[];
+};
+
+export type visualsubforge_quality_check_View_Deserialize = {
+  key: visualsubforge_quality_check_Key;
+  id: number;
+  phase: visualsubforge_quality_check_Phase;
+  profile: vsf_application_quality_profile_Profile_Deserialize;
+  profileHash: string | null;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
+  languageCoverage: vsf_application_language_analysis_Coverage | null;
+  error: string | null;
+  findingsCount: number;
+  affectedCues: number;
+  filteredCount: number;
+  filteredCues: number;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+  metrics: visualsubforge_quality_check_Metric[];
+  selected: visualsubforge_quality_check_Metric | null;
+  previousCue: string | null;
+  nextCue: string | null;
+  draft: visualsubforge_quality_check_Metric | null;
+  draftChecking: boolean;
+  draftError: string | null;
+};
+
+export type visualsubforge_quality_check_View_Serialize = {
+  key: visualsubforge_quality_check_Key;
+  id: number;
+  phase: visualsubforge_quality_check_Phase;
+  profile: vsf_application_quality_profile_Profile_Serialize;
+  profileHash: string | null;
+  sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
+  languageCoverage: vsf_application_language_analysis_Coverage | null;
+  error: string | null;
+  findingsCount: number;
+  affectedCues: number;
+  filteredCount: number;
+  filteredCues: number;
+  offset: number;
+  findings: vsf_application_quality_check_Finding[];
+  metrics: visualsubforge_quality_check_Metric[];
+  selected: visualsubforge_quality_check_Metric | null;
+  previousCue: string | null;
+  nextCue: string | null;
+  draft: visualsubforge_quality_check_Metric | null;
+  draftChecking: boolean;
+  draftError: string | null;
 };
 
 export type visualsubforge_waveform_WaveformView =
@@ -1810,6 +2101,18 @@ export type visualsubforge_waveform_WaveformView_Serialize = {
   startSeconds: number;
   secondsPerPeak: number;
   peaks: [number, number][];
+};
+
+/**  Serializable user data. Never mutate the shared bundled dictionaries. */
+export type vsf_application_language_dictionary_WordLists = {
+  englishUs: string[];
+  french: string[];
+};
+
+export type visualsubforge_language_tools_Words = {
+  epoch: number;
+  personal: vsf_application_language_dictionary_WordLists;
+  ignored: vsf_application_language_dictionary_WordLists;
 };
 
 /**  Shared native-menu/quit payload; the wire event name stays workspace-action. */

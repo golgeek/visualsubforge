@@ -78,6 +78,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(defaultPreferences);
       switch (command) {
+        case 'language_words':
+          return {
+            epoch: settingsEpoch,
+            personal: structuredClone(
+              savedSettings?.personalWords ?? defaultPreferences.personalWords,
+            ),
+            ignored: { englishUs: [], french: [] },
+          };
         case 'plugin:event|listen':
           eventHandler = args.handler!;
           return 1;

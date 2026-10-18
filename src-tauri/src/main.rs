@@ -14,6 +14,7 @@ mod file_lease;
 mod gap_review;
 mod ipc;
 mod ipc_number;
+mod language_tools;
 #[cfg(all(target_os = "linux", not(feature = "desktop-e2e")))]
 mod linux_dialog;
 #[cfg(all(feature = "media-prototype", target_os = "linux"))]

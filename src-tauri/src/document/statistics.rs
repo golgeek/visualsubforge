@@ -127,20 +127,32 @@ impl Documents {
             .validate(loaded.editor.document().cues().len())
             .map_err(|e| e.to_string())?;
         let document = loaded.editor.document().clone();
+        let format = loaded.source.format();
+        let lexicon = store.quality.lexicon();
         let profile = store.quality.context().profile;
         store.statistics.launch(key, scenes.key, move |cancel| {
             let began = Instant::now();
-            engine::evaluate(&document, &profile, &scenes.data, selection, || {
-                if cancel.load(Ordering::Relaxed) {
-                    return Err(vsf_application::quality::Error::Cancelled);
-                }
-                if began.elapsed() > Duration::from_secs(10) {
-                    return Err(vsf_application::quality::Error::Limit(
-                        "Statistics exceeded its 10 second deadline".into(),
-                    ));
-                }
-                Ok(())
-            })
+            engine::evaluate(
+                &document,
+                vsf_application::quality::Evaluation {
+                    profile: &profile,
+                    format,
+                    lexicon: Some(&lexicon),
+                },
+                &scenes.data,
+                selection,
+                || {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(vsf_application::quality::Error::Cancelled);
+                    }
+                    if began.elapsed() > Duration::from_secs(10) {
+                        return Err(vsf_application::quality::Error::Limit(
+                            "Statistics exceeded its 10 second deadline".into(),
+                        ));
+                    }
+                    Ok(())
+                },
+            )
             .map_err(|e| e.to_string())
         })
     }

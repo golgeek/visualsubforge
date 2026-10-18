@@ -121,14 +121,16 @@ pub fn propose(
     propose_for_format(document, Format::Srt, profile, scenes, checkpoint)
 }
 
-pub fn propose_for_format(
+pub fn propose_for_format<'a>(
     document: Document,
     format: Format,
-    profile: &Profile,
+    profile: impl Into<crate::quality::Evaluation<'a>>,
     scenes: &Scenes,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
-    let before = evaluate_with_scenes(&document, profile, scenes, |_, _| checkpoint())?;
+    let context = profile.into().with_format(format);
+    let profile = context.profile;
+    let before = evaluate_with_scenes(&document, context, scenes, |_, _| checkpoint())?;
     let windows = super::scene::Windows::for_format(profile, scenes, format, &mut checkpoint)?;
     let coverage = windows.coverage();
     let cues = document.cues();
@@ -192,7 +194,7 @@ pub fn propose_for_format(
     let mut after = None;
     if rows.iter().any(|r| r.new_end.is_some()) {
         let candidate = retimed(&document, &rows, &mut checkpoint)?;
-        let report = evaluate_with_scenes(&candidate, profile, scenes, |_, _| checkpoint())?;
+        let report = evaluate_with_scenes(&candidate, context, scenes, |_, _| checkpoint())?;
         let mut rejected = vec![false; ambiguous.len()];
         let old = speed_findings(&before);
         for finding in &report.findings {
@@ -217,7 +219,7 @@ pub fn propose_for_format(
             // overlap with another group. Recheck the actual retained plan.
             drop(report);
             let candidate = retimed(&document, &rows, &mut checkpoint)?;
-            let report = evaluate_with_scenes(&candidate, profile, scenes, |_, _| checkpoint())?;
+            let report = evaluate_with_scenes(&candidate, context, scenes, |_, _| checkpoint())?;
             if report
                 .findings
                 .iter()

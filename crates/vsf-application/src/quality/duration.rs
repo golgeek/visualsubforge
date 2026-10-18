@@ -150,15 +150,17 @@ pub fn propose(
     propose_for_format(document, Format::Srt, profile, scenes, scope, checkpoint)
 }
 
-pub fn propose_for_format(
+pub fn propose_for_format<'a>(
     document: Document,
     format: Format,
-    profile: &Profile,
+    profile: impl Into<crate::quality::Evaluation<'a>>,
     scenes: &Scenes,
     scope: Scope,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
-    let before = evaluate_with_scenes(&document, profile, scenes, |_, _| checkpoint())?;
+    let context = profile.into().with_format(format);
+    let profile = context.profile;
+    let before = evaluate_with_scenes(&document, context, scenes, |_, _| checkpoint())?;
     let windows = Windows::for_format(profile, scenes, format, &mut checkpoint)?;
     let cues = document.cues();
     if let Scope::Cue(id) = scope
@@ -226,7 +228,7 @@ pub fn propose_for_format(
     let mut after = None;
     if rows.iter().any(|r| r.new_end.is_some()) {
         let candidate = retimed(&document, &rows, &mut checkpoint)?;
-        let report = evaluate_with_scenes(&candidate, profile, scenes, |_, _| checkpoint())?;
+        let report = evaluate_with_scenes(&candidate, context, scenes, |_, _| checkpoint())?;
         let old = timing_findings(&before);
         let changed: Vec<bool> = (0..cues.len())
             .map(|i| candidate.cues()[i].end() != cues[i].end())
@@ -255,7 +257,7 @@ pub fn propose_for_format(
         } else if rows.iter().any(|r| r.new_end.is_some()) {
             drop(report);
             let candidate = retimed(&document, &rows, &mut checkpoint)?;
-            let report = evaluate_with_scenes(&candidate, profile, scenes, |_, _| checkpoint())?;
+            let report = evaluate_with_scenes(&candidate, context, scenes, |_, _| checkpoint())?;
             for finding in &report.findings {
                 checkpoint()?;
                 let i = finding.cue_index as usize;

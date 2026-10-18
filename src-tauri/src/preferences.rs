@@ -20,6 +20,8 @@ pub struct Preferences {
     timing: Timing,
     quality: crate::quality_profile::Profile,
     show_quality_metrics: bool,
+    #[serde(default)]
+    pub(crate) personal_words: vsf_application::language::WordLists,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -30,6 +32,7 @@ impl Default for Preferences {
             timing: Timing::default(),
             quality: Default::default(),
             show_quality_metrics: false,
+            personal_words: Default::default(),
         }
     }
 }
@@ -38,13 +41,14 @@ impl Preferences {
         if self.version != 1 {
             return Err("Unsupported settings version".into());
         }
+        self.personal_words.validate().map_err(|e| e.to_string())?;
         self.policy().map(|_| ())
     }
     fn policy(&self) -> Result<crate::quality_profile::Policy> {
         crate::quality_profile::Policy::new(self.quality.clone(), self.timing.clone())
     }
 }
-fn read(path: &Path) -> Result<Preferences> {
+pub(crate) fn read(path: &Path) -> Result<Preferences> {
     let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Preferences::default()),
@@ -82,7 +86,7 @@ fn read(path: &Path) -> Result<Preferences> {
     value.validate()?;
     Ok(value)
 }
-fn write(path: &Path, value: &Preferences) -> Result<()> {
+pub(crate) fn write(path: &Path, value: &Preferences) -> Result<()> {
     value.validate()?;
     let bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
     if bytes.len() > 256 * 1024 {
@@ -98,7 +102,7 @@ pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
     tauri::async_runtime::spawn_blocking(move || {
         let value = read(&settings_path(&app)?)?;
         app.state::<crate::document::Documents>()
-            .initialize_quality(value.policy()?)?;
+            .initialize_preferences(value.policy()?, value.personal_words.clone())?;
         Ok(value)
     })
     .await
@@ -114,14 +118,18 @@ pub async fn preferences_save(
     tauri::async_runtime::spawn_blocking(move || {
         let path = settings_path(&app)?;
         let policy = preferences.policy()?;
-        app.state::<crate::document::Documents>()
-            .apply_quality_defaults(epoch.get(), policy, || write(&path, &preferences))
+        app.state::<crate::document::Documents>().apply_preferences(
+            epoch.get(),
+            policy,
+            preferences.personal_words.clone(),
+            || write(&path, &preferences),
+        )
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
+pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
     #[cfg(feature = "desktop-e2e")]
     return Ok(app
         .state::<crate::desktop_test::Driver>()
@@ -136,6 +144,95 @@ fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn personal_words_roundtrip_but_ignores_are_session_only_and_failed_writes_preserve_both() {
+        use crate::{document::Documents, language_tools::Change};
+        use vsf_application::language::{Language, WordLists};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let preferences = Preferences {
+            personal_words: WordLists {
+                french: vec!["Élodiex".into()],
+                ..WordLists::default()
+            },
+            ..Preferences::default()
+        };
+        write(&path, &preferences).unwrap();
+        let docs = Documents::default();
+        let restored = read(&path).unwrap();
+        docs.initialize_preferences(restored.policy().unwrap(), restored.personal_words)
+            .unwrap();
+        let epoch = docs.quality_context().unwrap().epoch;
+        docs.language_words_change(
+            epoch,
+            Change::Ignore {
+                language: Language::French,
+                word: "Fanword".into(),
+            },
+            |_| panic!("session ignores must not write"),
+        )
+        .unwrap();
+        let epoch = docs.quality_context().unwrap().epoch;
+        let before = fs::read(&path).unwrap();
+        assert!(
+            docs.language_words_change(
+                epoch,
+                Change::Remember {
+                    language: Language::French,
+                    word: "Namex".into()
+                },
+                |_| Err("injected failure".into())
+            )
+            .is_err()
+        );
+        assert_eq!(docs.quality_context().unwrap().epoch, epoch);
+        assert_eq!(fs::read(&path).unwrap(), before);
+        docs.language_words_change(
+            epoch,
+            Change::Remember {
+                language: Language::French,
+                word: "Namex".into(),
+            },
+            |words| {
+                let mut p = read(&path)?;
+                p.personal_words = words.clone();
+                write(&path, &p)
+            },
+        )
+        .unwrap();
+        let fresh = Documents::default();
+        let restored = read(&path).unwrap();
+        fresh
+            .initialize_preferences(restored.policy().unwrap(), restored.personal_words)
+            .unwrap();
+        let words = fresh.language_words().unwrap();
+        assert_eq!(words.personal.french, ["Élodiex", "Namex"]);
+        assert!(words.ignored.french.is_empty());
+        assert_eq!(docs.language_words().unwrap().ignored.french, ["Fanword"]);
+        let saved = fs::read(&path).unwrap();
+        let mut oversized = read(&path).unwrap();
+        oversized.personal_words.english_us = (0..2046u32)
+            .map(|i| {
+                let mut word: String = [i / 676, i / 26 % 26, i % 26]
+                    .into_iter()
+                    .map(|n| char::from_u32(0x10428 + n).unwrap())
+                    .collect();
+                word.push_str(&"\u{10428}".repeat(29));
+                word
+            })
+            .collect();
+        oversized.personal_words.validate().unwrap();
+        assert!(
+            write(&path, &oversized)
+                .unwrap_err()
+                .contains("exceeds limit")
+        );
+        assert_eq!(fs::read(&path).unwrap(), saved);
+        let mut legacy = serde_json::to_value(Preferences::default()).unwrap();
+        legacy.as_object_mut().unwrap().remove("personalWords");
+        fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        assert_eq!(read(&path).unwrap().personal_words, WordLists::default());
+    }
     #[test]
     fn old_timing_preferences_migrate_without_writes_and_invalid_profiles_preserve_bytes() {
         let dir = tempfile::tempdir().unwrap();

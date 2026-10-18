@@ -261,6 +261,7 @@ export const statisticsView = {
       cueIndex: 0,
       expected: 'At least 5 RS',
       explanation: 'Unrounded speed is below the inclusive minimum.',
+      language: null,
       measured: 1.5,
       relatedCueId: null,
       rule: 'rs_low',
@@ -272,6 +273,7 @@ export const statisticsView = {
       expected: 'Non-overlapping half-open cue intervals',
       explanation:
         'A preceding cue remains visible when this cue starts; this representative pair also detects nested overlaps.',
+      language: null,
       measured: -500.0,
       relatedCueId: '2',
       rule: 'overlap',
@@ -282,6 +284,7 @@ export const statisticsView = {
       cueIndex: 1,
       expected: 'At least 800 ms',
       explanation: 'Actual cue duration is below the inclusive minimum.',
+      language: null,
       measured: 400.0,
       relatedCueId: null,
       rule: 'duration_short',
@@ -293,6 +296,7 @@ export const statisticsView = {
       expected: 'Finite RS',
       explanation:
         'Effective reading duration is too short for this metric; it is not a passing result.',
+      language: null,
       measured: null,
       relatedCueId: null,
       rule: 'speed_unavailable',
@@ -304,6 +308,7 @@ export const statisticsView = {
       expected: 'Endpoint outside (3870, 4130) ms; outer edges allowed',
       explanation:
         'Start is strictly inside a configured scene buffer. Completed visual detection is heuristic; crossing a cut alone is allowed.',
+      language: null,
       measured: 4000.0,
       relatedCueId: null,
       rule: 'scene_start',
@@ -377,6 +382,13 @@ export const statisticsView = {
       },
     },
     includedCues: 3,
+    languageCoverage: {
+      checkedWords: 0,
+      enabled: false,
+      personalized: false,
+      skippedCues: 0,
+      skippedWords: 0,
+    },
     lineCount: {
       count: 3,
       maximum: {
@@ -580,6 +592,7 @@ export const qualityView = {
       cueIndex: 0,
       expected: 'At most 20 CPS',
       explanation: "Unrounded speed exceeds the profile's permitted range.",
+      language: null,
       measured: 41.0,
       relatedCueId: null,
       rule: 'cps_high',
@@ -590,6 +603,7 @@ export const qualityView = {
       cueIndex: 0,
       expected: 'Below 35 RS',
       explanation: "Unrounded speed exceeds the profile's permitted range.",
+      language: null,
       measured: 82.0,
       relatedCueId: null,
       rule: 'rs_high',
@@ -601,6 +615,7 @@ export const qualityView = {
       expected: 'Prefer at most 40 UTF-16 units',
       explanation:
         'The single line exceeds the preferred limit but remains within the strict limit.',
+      language: null,
       measured: 41.0,
       relatedCueId: null,
       rule: 'line_length',
@@ -612,6 +627,7 @@ export const qualityView = {
       expected: 'At least 80 ms',
       explanation:
         'Gap to the next chronological cue is below the profile minimum.',
+      language: null,
       measured: 50.0,
       relatedCueId: '2',
       rule: 'gap',
@@ -622,6 +638,7 @@ export const qualityView = {
       cueIndex: 1,
       expected: 'At least 800 ms',
       explanation: 'Actual cue duration is below the inclusive minimum.',
+      language: null,
       measured: 400.0,
       relatedCueId: null,
       rule: 'duration_short',
@@ -633,6 +650,7 @@ export const qualityView = {
       expected: 'Finite RS',
       explanation:
         'Effective reading duration is too short for this metric; it is not a passing result.',
+      language: null,
       measured: null,
       relatedCueId: null,
       rule: 'speed_unavailable',
@@ -644,6 +662,7 @@ export const qualityView = {
       expected: 'Non-overlapping half-open cue intervals',
       explanation:
         'A preceding cue remains visible when this cue starts; this representative pair also detects nested overlaps.',
+      language: null,
       measured: -150.0,
       relatedCueId: '3',
       rule: 'overlap',
@@ -654,6 +673,7 @@ export const qualityView = {
       cueIndex: 2,
       expected: 'At least 5 RS',
       explanation: 'Unrounded speed is below the inclusive minimum.',
+      language: null,
       measured: 4.166666666666667,
       relatedCueId: null,
       rule: 'rs_low',
@@ -667,6 +687,13 @@ export const qualityView = {
     generation: 1,
     loaded: true,
     revision: 3,
+  },
+  languageCoverage: {
+    checkedWords: 0,
+    enabled: false,
+    personalized: false,
+    skippedCues: 0,
+    skippedWords: 0,
   },
   metrics: [
     {
@@ -1751,6 +1778,7 @@ export const textView = {
       skipped: null,
     },
   ],
+  suggestions: [],
   total: 2,
 } satisfies TextView;
 export const openedProject = {
@@ -1919,6 +1947,10 @@ export const mediaStatus = {
 } satisfies MediaStatus;
 export const preferences = {
   autoScanScenes: true,
+  personalWords: {
+    englishUs: [],
+    french: [],
+  },
   quality: {
     id: 'vsf-default',
     kind: 'quality',

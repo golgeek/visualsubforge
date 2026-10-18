@@ -39,6 +39,10 @@ pub struct Profile {
     pub speed_basis: SpeedBasis,
     pub timing: Timing,
     pub rules: Rules,
+    /// Optional extension to v2. Omission preserves the original serialized
+    /// policy and fingerprint; old profiles never enable language checks.
+    #[serde(default, skip_serializing_if = "crate::language::Settings::is_default")]
+    pub language_tools: crate::language::Settings,
     /// Unsupported source semantics. Nonempty means incomplete policy coverage,
     /// independently of whether supported rules found any problems.
     pub limitations: Vec<String>,
@@ -268,6 +272,7 @@ impl Default for Profile {
                 empty: true,
             },
             limitations: Vec::new(),
+            language_tools: crate::language::Settings::default(),
         }
     }
 }

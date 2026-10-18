@@ -69,6 +69,7 @@ pub(crate) struct TextView {
     pub after_findings: u32,
     pub offset: u32,
     pub rows: Vec<Row>,
+    pub suggestions: Vec<String>,
 }
 #[tauri::command]
 #[specta::specta]

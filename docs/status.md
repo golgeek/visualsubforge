@@ -22,13 +22,22 @@ batch timing and ASS/SSA resync are complete. Language tools are in progress;
 later stages are pending. Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
+**Language integration implemented; acceptance in progress (2026-10-17):** opt-in
+English/French checking, source-mapped Problems, bounded selected suggestions,
+reviewed one-occurrence corrections and persistent/session lexicons now share the
+existing Rust workers, context guards and Undo path. Browser and library tests
+cover Unicode/markup, failed persistence, stale reviews and exact SRT/ASS/SSA
+preservation. The six-format/language 10k workload passes 500ms/96MiB gates after
+fixing findings-buffer retention. Native workflow, project/recovery and interaction
+acceptance remain pending; [scope and evidence](language-tools.md) track stage4.
+
 **ASS/SSA resync complete (2026-10-17):** shared CLI/GUI analysis preserves source
 styles, metadata, attachments and tags. Rational endpoints round directly to the
 stated source grid. Cues with timed/ambiguous effects can move intact; duration
 changes require manual review and block whole-document acceptance, including
 ASS tags inside SRT. Accepted batches retain source protection and one-step Undo.
 
-313 ordinary Rust tests in current source, 44 frontend tests, 50 browser cases,
+Stage3 validation: 313 ordinary Rust tests, 44 frontend tests, 50 browser cases,
 real FFmpeg/CLI matrices and strict static/build/IPC checks pass. Actual Mac
 ASS/SSA/tagged-SRT review, acceptance, exact CLI/save-byte parity, failed-save
 preservation, Undo/Redo, preview acknowledgment and timed-effect refusal pass.

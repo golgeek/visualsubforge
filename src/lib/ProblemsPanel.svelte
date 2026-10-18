@@ -1,6 +1,12 @@
 <script lang="ts">
   import type { QualitySession } from './quality-session.svelte';
   import type { QualityRequest } from './client';
+  import {
+    changeLanguageWords,
+    type LanguageWordChange,
+    type TextOperation,
+    type QualityView,
+  } from './client';
   import { qualityRules, sceneCoverage } from './quality-display';
   let {
     session,
@@ -9,6 +15,7 @@
     onnavigate,
     onresolve,
     onclose,
+    onlanguage,
   }: {
     session: QualitySession;
     disabled: boolean;
@@ -16,9 +23,40 @@
     onnavigate: (id: string) => void;
     onresolve: (choice: 'apply' | 'discard' | 'cancel') => void;
     onclose: () => void;
+    onlanguage: (operation: TextOperation) => void;
   } = $props();
   const view = $derived(session.view);
   const usable = $derived(!!view?.profileHash && !session.stale && !disabled);
+  let wordPending = $state(false);
+  let wordError = $state('');
+  async function wordChange(change: LanguageWordChange) {
+    if (!view || !usable || wordPending) return;
+    wordPending = true;
+    wordError = '';
+    try {
+      await changeLanguageWords(view.key.epoch, change);
+      session.restart();
+    } catch (e) {
+      wordError = String(e);
+    } finally {
+      wordPending = false;
+    }
+  }
+  function review(finding: QualityView['findings'][number]) {
+    const d = finding.language;
+    if (!d || d.manualReason) return;
+    const target = {
+      cueIndex: finding.cueIndex,
+      start: d.start,
+      end: d.end,
+      original: d.word,
+    };
+    onlanguage(
+      d.replacement === null
+        ? { kind: 'languageSuggestions', ...target }
+        : { kind: 'languageCorrection', ...target, replacement: d.replacement },
+    );
+  }
 </script>
 
 <section class="problems" aria-label="Subtitle Problems">
@@ -47,12 +85,30 @@
   {#if session.error || view?.error}<p role="alert">
       {session.error || view?.error}
     </p>{/if}
+  {#if wordError}<p role="alert">{wordError}</p>{/if}
   {#if view}
     <p class="policy">
       {view.profile.name} · {view.profile.textAlgorithm} · {view.profile
         .speedBasis}
     </p>
     <p class="policy">{sceneCoverage(view.sceneCoverage)}</p>
+    {#if view.languageCoverage?.enabled}
+      <p class="policy">
+        {view.profile.languageTools?.dictionary === 'fr'
+          ? 'French Classique 7.7'
+          : 'English US SCOWL 2020.12.07'} · {view.languageCoverage
+          .checkedWords} words checked · {view.languageCoverage.skippedWords} words
+        and {view.languageCoverage.skippedCues} cues skipped{view
+          .languageCoverage.personalized
+          ? ' · includes personal/session words'
+          : ''}.
+      </p>
+      <button
+        disabled={!usable || wordPending}
+        onclick={() => void wordChange({ kind: 'clearIgnored' })}
+        >Clear session ignored words</button
+      >
+    {/if}
     {#if view.profile.limitations.length}<details>
         <summary>Partial coverage — unsupported rules are not checked</summary>
         <ul>
@@ -148,6 +204,39 @@
               >Related cue</button
             >{/if}
           <small>{finding.explanation}</small>
+          {#if finding.language}
+            <span>“{finding.language.word}”</span>
+            {#if finding.language.manualReason}<small
+                >{finding.language.manualReason}</small
+              >
+            {:else}<button
+                disabled={!usable || wordPending}
+                onclick={() => review(finding)}
+                >{finding.rule === 'spelling'
+                  ? 'Suggestions'
+                  : 'Review correction'}</button
+              >{/if}
+            {#if finding.rule === 'spelling'}
+              <button
+                disabled={!usable || wordPending}
+                onclick={() =>
+                  void wordChange({
+                    kind: 'ignore',
+                    language: view.profile.languageTools?.dictionary ?? 'en-US',
+                    word: finding.language!.word,
+                  })}>Ignore word this session</button
+              >
+              <button
+                disabled={!usable || wordPending}
+                onclick={() =>
+                  void wordChange({
+                    kind: 'remember',
+                    language: view.profile.languageTools?.dictionary ?? 'en-US',
+                    word: finding.language!.word,
+                  })}>Add personal word</button
+              >
+            {/if}
+          {/if}
         </div>
       {/each}
     {/if}

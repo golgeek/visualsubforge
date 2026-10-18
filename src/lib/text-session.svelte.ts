@@ -23,7 +23,21 @@ export class TextSession {
   query = $state('');
   replacement = $state('');
   caseSensitive = $state(false);
+  languageTarget = $state<{
+    cueIndex: number;
+    start: number;
+    end: number;
+    original: string;
+  }>({ cueIndex: 0, start: 0, end: 0, original: '' });
   get operation(): TextOperation {
+    if (this.mode === 'languageSuggestions')
+      return { kind: this.mode, ...this.languageTarget };
+    if (this.mode === 'languageCorrection')
+      return {
+        kind: this.mode,
+        ...this.languageTarget,
+        replacement: this.replacement,
+      };
     if (this.mode === 'find')
       return {
         kind: 'find',

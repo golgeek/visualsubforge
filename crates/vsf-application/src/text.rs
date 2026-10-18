@@ -33,6 +33,19 @@ pub enum Operation {
     },
     JoinLines,
     Reflow,
+    LanguageSuggestions {
+        cue_index: u32,
+        start: u32,
+        end: u32,
+        original: String,
+    },
+    LanguageCorrection {
+        cue_index: u32,
+        start: u32,
+        end: u32,
+        original: String,
+        replacement: String,
+    },
 }
 #[derive(Clone, Debug)]
 pub struct Match {
@@ -57,8 +70,12 @@ pub struct Proposal {
     after_findings: usize,
     matches: usize,
     replacement: Option<String>,
+    suggestions: Vec<String>,
 }
 impl Proposal {
+    pub fn suggestions(&self) -> &[String] {
+        &self.suggestions
+    }
     pub fn document(&self) -> &Document {
         &self.document
     }
@@ -150,13 +167,15 @@ pub fn propose(
         checkpoint,
     )
 }
-pub fn propose_for_format(
+pub fn propose_for_format<'a>(
     document: Document,
     format: subtitle_formats::Format,
-    profile: &Profile,
+    profile: impl Into<crate::quality::Evaluation<'a>>,
     operation: &Operation,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
+    let context = profile.into().with_format(format);
+    let profile = context.profile;
     checkpoint()?;
     let (search, replacement) = search(operation)?;
     if format != subtitle_formats::Format::Srt
@@ -164,15 +183,88 @@ pub fn propose_for_format(
     {
         return Err(Error::Invalid("ASS/SSA replacement accepts plain text without line breaks; use Join/Reflow or the cue editor to change breaks explicitly.".into()));
     }
-    let before_findings = quality::evaluate(&document, profile, |_, _| checkpoint())?
-        .findings
-        .len();
+    let before = quality::evaluate(&document, context, |_, _| checkpoint())?;
+    let before_findings = before.findings.len();
+    if let Operation::LanguageSuggestions {
+        cue_index,
+        start,
+        end,
+        original,
+    } = operation
+    {
+        let valid = before.findings.iter().any(|f| {
+            f.rule == quality::Rule::Spelling
+                && f.cue_index == *cue_index
+                && f.language.as_ref().is_some_and(|d| {
+                    d.start == *start
+                        && d.end == *end
+                        && d.word == *original
+                        && d.manual_reason.is_none()
+                })
+        });
+        if !valid {
+            return Err(Error::Invalid(
+                "Spelling finding changed or requires manual editing; run checks again.".into(),
+            ));
+        }
+        let suggestions = crate::language::suggestions(
+            profile.language_tools.dictionary,
+            original,
+            &mut checkpoint,
+        )?;
+        return Ok(Proposal {
+            format,
+            document,
+            rows: vec![],
+            before_findings,
+            after_findings: before_findings,
+            matches: 0,
+            replacement: None,
+            suggestions,
+        });
+    }
+    if let Operation::LanguageCorrection {
+        cue_index,
+        start,
+        end,
+        original,
+        replacement,
+    } = operation
+    {
+        let valid = before.findings.iter().any(|f| {
+            f.cue_index == *cue_index
+                && f.language.as_ref().is_some_and(|d| {
+                    d.start == *start
+                        && d.end == *end
+                        && d.word == *original
+                        && d.manual_reason.is_none()
+                        && (f.rule == quality::Rule::Spelling
+                            || d.replacement.as_deref() == Some(replacement.as_str()))
+                })
+        });
+        if !valid {
+            return Err(Error::Invalid(
+                "Language finding changed or requires manual editing; run checks again.".into(),
+            ));
+        }
+    }
+    // Only the count and selected-finding validation remain necessary. Release
+    // the full first report before allocating candidate/after reports.
+    drop(before);
     let mut rows = vec![];
     let mut matches = 0;
     let mut output_bytes = 0;
     for (cue_index, cue) in document.cues().iter().enumerate() {
         checkpoint()?;
         let source = cue.text();
+        if let Operation::LanguageCorrection {
+            cue_index: target, ..
+        } = operation
+            && cue_index != *target as usize
+        {
+            output_bytes += source.len();
+            continue;
+        }
         if source.len() > MAX_CUE_BYTES {
             rows.push(Row {
                 cue_index,
@@ -184,7 +276,25 @@ pub fn propose_for_format(
             continue;
         }
         let projection = Projection::for_format(source, format);
-        let mut row = if let Some(regex) = &search {
+        let mut row = if let Operation::LanguageCorrection {
+            start,
+            end,
+            original,
+            replacement,
+            ..
+        } = operation
+        {
+            matches += 1;
+            correction_row(
+                cue_index,
+                source,
+                &projection,
+                *start,
+                *end,
+                original,
+                replacement,
+            )?
+        } else if let Some(regex) = &search {
             replace_row(
                 cue_index,
                 source,
@@ -203,7 +313,7 @@ pub fn propose_for_format(
                 matches!(operation, Operation::JoinLines),
             )
         };
-        if search.is_none()
+        if matches!(operation, Operation::JoinLines | Operation::Reflow)
             && cue
                 .metadata()
                 .and_then(|m| m.get("Effect"))
@@ -243,7 +353,7 @@ pub fn propose_for_format(
             cues.push(candidate);
         }
         let candidate = Document::new(cues).map_err(Error::Invalid)?;
-        quality::evaluate(&candidate, profile, |_, _| checkpoint())?
+        quality::evaluate(&candidate, context, |_, _| checkpoint())?
             .findings
             .len()
     } else {
@@ -258,10 +368,12 @@ pub fn propose_for_format(
         after_findings,
         matches,
         replacement: replacement.map(str::to_owned),
+        suggestions: vec![],
     })
 }
 fn search(operation: &Operation) -> Result<(Option<Regex>, Option<&str>)> {
     let (query, sensitive, replacement) = match operation {
+        Operation::LanguageCorrection { replacement, .. } => return Ok((None, Some(replacement))),
         Operation::Find {
             query,
             case_sensitive,
@@ -291,6 +403,82 @@ fn search(operation: &Operation) -> Result<(Option<Regex>, Option<&str>)> {
         .build()
         .map_err(|e| Error::Invalid(format!("Cannot search: {e}")))?;
     Ok((Some(regex), replacement))
+}
+
+fn correction_row(
+    cue_index: usize,
+    source: &str,
+    projection: &Projection,
+    start: u32,
+    end: u32,
+    original: &str,
+    replacement: &str,
+) -> Result<Row> {
+    if replacement.is_empty()
+        || replacement.len() > 128
+        || replacement.chars().any(char::is_control)
+        || replacement.contains(['<', '>', '{', '}', '\\'])
+    {
+        return Err(Error::Invalid("Language corrections require 1–128 UTF-8 bytes of plain text without controls or markup delimiters.".into()));
+    }
+    let mut units = 0;
+    let mut first = None;
+    let mut last = None;
+    for (at, c) in source
+        .char_indices()
+        .chain(std::iter::once((source.len(), '\0')))
+    {
+        if units == start {
+            first = Some(at);
+        }
+        if units == end {
+            last = Some(at);
+            break;
+        }
+        units += c.len_utf16() as u32;
+    }
+    let range = first
+        .zip(last)
+        .filter(|(a, b)| a < b)
+        .map(|(a, b)| a..b)
+        .ok_or_else(|| {
+            Error::Invalid("Correction range is not on Unicode character boundaries.".into())
+        })?;
+    if &source[range.clone()] != original
+        || !projection.safe_range(source, range.clone())
+        || projection.ambiguous.is_some()
+    {
+        return Err(Error::Invalid(
+            "Correction source changed or crosses protected markup.".into(),
+        ));
+    }
+    let after = format!(
+        "{}{}{}",
+        &source[..range.start],
+        replacement,
+        &source[range.end..]
+    );
+    let format = if projection.ass_document {
+        subtitle_formats::Format::Ass
+    } else {
+        subtitle_formats::Format::Srt
+    };
+    if after.len() > MAX_CUE_BYTES || !same_markup(source, &after, format) {
+        return Err(Error::Invalid(
+            "Correction would alter markup or exceed the cue limit.".into(),
+        ));
+    }
+    Ok(Row {
+        cue_index,
+        matches: vec![Match {
+            start,
+            end,
+            skipped: None,
+            source: range,
+        }],
+        after: (after != source).then_some(after),
+        skipped: None,
+    })
 }
 fn replace_row(
     cue_index: usize,

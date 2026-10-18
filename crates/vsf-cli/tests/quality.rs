@@ -15,6 +15,85 @@ fn run(args: &[&str]) -> Output {
 }
 
 #[test]
+fn english_french_language_profiles_check_all_formats_without_desktop_preferences_or_source_writes()
+{
+    use vsf_application::{language::Language, subtitle_file};
+    let dir = tempfile::tempdir().unwrap();
+    for language in [Language::EnglishUs, Language::French] {
+        let mut profile = Profile::default().custom("language-cli".into(), "Language CLI".into());
+        profile.language_tools.dictionary = language;
+        profile.language_tools.spelling = true;
+        profile.rules.duration.enabled = false;
+        profile.rules.speed.enabled = false;
+        profile.rules.lines.enabled = false;
+        profile.rules.gaps = false;
+        profile.timing.scene_before_ms = 0;
+        profile.timing.scene_after_ms = 0;
+        let preset = dir.path().join("language.vsfpreset");
+        quality::write_profile(&preset, &profile).unwrap();
+        let typo = if language == Language::French {
+            "bonjor"
+        } else {
+            "helo"
+        };
+        for (extension, template) in [
+            ("srt", "1\n00:00:01,001 --> 00:00:04,999\nHello\n\n"),
+            (
+                "ass",
+                include_str!("../../../tests/fixtures/subtitles/styles.ass"),
+            ),
+            (
+                "ssa",
+                include_str!("../../../tests/fixtures/subtitles/styles.ssa"),
+            ),
+        ] {
+            let line = format!(r"{{\i1}}😀 {typo}{{\i0}}");
+            let source = template
+                .replace("Hello", &line)
+                .replace("Red title", &line)
+                .replace(r"Second line\N世界", &line);
+            let parsed = subtitle_file::parse_document(source.as_bytes(), Some(extension)).unwrap();
+            let path = dir.path().join(format!("input.{extension}"));
+            fs::write(&path, &source).unwrap();
+            let args = [
+                "check",
+                "--subtitles",
+                path.to_str().unwrap(),
+                "--profile",
+                preset.to_str().unwrap(),
+            ];
+            let output = run(&[args.as_slice(), &["--json"]].concat());
+            assert_eq!(
+                output.status.code(),
+                Some(1),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let report: quality::Report = serde_json::from_slice(&output.stdout).unwrap();
+            assert!(
+                report.complete
+                    && report.language_coverage.enabled
+                    && !report.language_coverage.personalized
+            );
+            assert_eq!(report.findings.len(), parsed.document.cues().len());
+            assert!(
+                report
+                    .findings
+                    .iter()
+                    .all(|f| f.rule == quality::Rule::Spelling
+                        && f.language.as_ref().is_some_and(|d| d.word == typo
+                            && d.start == 8
+                            && d.end == 8 + typo.len() as u32))
+            );
+            let output = run(&args);
+            let human = String::from_utf8(output.stdout).unwrap();
+            assert!(human.contains(language.name()) && human.contains(&format!("Text \"{typo}\"")));
+            assert_eq!(fs::read(&path).unwrap(), source.as_bytes());
+        }
+    }
+}
+
+#[test]
 fn check_cli_matches_shared_report_preserves_inputs_and_distinguishes_partial_coverage() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("input.srt");
@@ -79,7 +158,7 @@ fn check_cli_matches_shared_report_preserves_inputs_and_distinguishes_partial_co
     ]);
     assert_eq!(output.status.code(), Some(0));
     let report: quality::Report = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(report.schema_version, 2);
+    assert_eq!(report.schema_version, 3);
     assert!(report.complete);
     assert_eq!(
         report.scene_coverage,

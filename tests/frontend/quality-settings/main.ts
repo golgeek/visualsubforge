@@ -33,6 +33,19 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) => {
       switch (command) {
+        case 'language_words':
+          return {
+            epoch,
+            personal: structuredClone(current.personalWords),
+            ignored: { englishUs: [], french: [] },
+          };
+        case 'language_notices':
+          return {
+            english: 'English license notice fixture',
+            french: 'French license notice fixture',
+            mpl: 'MPL-2.0 fixture',
+            sources: 'Pinned source fixture',
+          };
         case 'quality_settings':
           return (
             reads ?? {
@@ -277,6 +290,61 @@ async function run() {
   check(
     host.childElementCount === 0 && applied.length === 1,
     'Late loading responses cannot revive a closed Settings draft',
+  );
+  reads = null;
+  await open();
+  button('Customize a copy').click();
+  await tick();
+  const dictionary = host.querySelector<HTMLSelectElement>(
+    '[aria-label="Language dictionary"]',
+  )!;
+  dictionary.value = 'fr';
+  dictionary.dispatchEvent(new Event('change', { bubbles: true }));
+  await tick();
+  for (const label of [
+    'Check spelling',
+    'Check typography',
+    'Check conservative sentence capitalization',
+    'Check existing dialogue markers',
+  ]) {
+    field(label).click();
+    await tick();
+  }
+  const personal = host.querySelector<HTMLTextAreaElement>(
+    '[aria-label="French personal words"]',
+  )!;
+  personal.value = 'Élodiex\nFanword';
+  personal.dispatchEvent(new Event('input', { bubbles: true }));
+  await tick();
+  check(
+    !accepted.quality.languageTools?.spelling &&
+      accepted.personalWords.french.length === 0,
+    'Language toggles and personal words remain a Settings draft',
+  );
+  button('Read bundled license notices').click();
+  await until(() =>
+    host.textContent!.includes('English license notice fixture'),
+  );
+  check(
+    host.textContent!.includes('French license notice fixture') &&
+      host.textContent!.includes('MPL-2.0 fixture'),
+    'Bundled dictionary identities and complete license notices are available in Settings',
+  );
+  button('Apply settings').click();
+  await until(() => applied.length === 2);
+  const language = accepted.quality.languageTools;
+  check(
+    language?.dictionary === 'fr' &&
+      language.spelling &&
+      language.typography &&
+      language.capitalization &&
+      language.dialogueMarkers &&
+      accepted.personalWords.french.join(',') === 'Élodiex,Fanword',
+    'French policy and exact personal Unicode words are accepted together',
+  );
+  check(
+    JSON.stringify(input) === JSON.stringify(initial),
+    'Language drafting preserves original nested preferences',
   );
   const count = document.querySelectorAll('#checks li').length;
   document.querySelector('#result')!.textContent =

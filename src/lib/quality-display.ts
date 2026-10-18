@@ -14,6 +14,11 @@ export const qualityRules: { id: QualityRule; label: string }[] = [
   { id: 'gap', label: 'Minimum gap' },
   { id: 'scene_start', label: 'Start near scene cut' },
   { id: 'scene_end', label: 'End near scene cut' },
+  { id: 'spelling', label: 'Spelling' },
+  { id: 'typography', label: 'Typography' },
+  { id: 'capitalization', label: 'Capitalization' },
+  { id: 'dialogue_marker', label: 'Dialogue marker' },
+  { id: 'language_coverage', label: 'Language coverage' },
 ];
 export function sceneCoverage(
   coverage: GapView['coverage'] | undefined,

@@ -2,6 +2,22 @@
 //! guard one document/profile revision atomically. It is not subtitle undo state.
 use super::*;
 use crate::quality_profile::{Context, Policy};
+use vsf_application::language::{Lexicon, WordLists};
+
+pub(super) struct Capture {
+    profile: vsf_application::quality::Profile,
+    format: subtitle_formats::Format,
+    lexicon: Arc<Lexicon>,
+}
+impl Capture {
+    pub(super) fn evaluation(&self) -> vsf_application::quality::Evaluation<'_> {
+        vsf_application::quality::Evaluation {
+            profile: &self.profile,
+            format: self.format,
+            lexicon: Some(&self.lexicon),
+        }
+    }
+}
 
 #[derive(Default)]
 pub(super) struct State {
@@ -9,8 +25,21 @@ pub(super) struct State {
     epoch: u64,
     defaults: Policy,
     current: Policy,
+    personal: WordLists,
+    ignored: WordLists,
+    lexicon: Arc<Lexicon>,
 }
 impl State {
+    pub(super) fn capture(&self, format: subtitle_formats::Format) -> Capture {
+        Capture {
+            profile: self.current.profile.clone(),
+            format,
+            lexicon: self.lexicon(),
+        }
+    }
+    pub(super) fn lexicon(&self) -> Arc<Lexicon> {
+        self.lexicon.clone()
+    }
     pub(super) fn epoch(&self) -> u64 {
         self.epoch
     }
@@ -30,6 +59,57 @@ impl State {
 }
 
 impl Documents {
+    pub(crate) fn language_words(&self) -> Result<crate::language_tools::Words> {
+        let store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        Ok(crate::language_tools::Words {
+            epoch: store.quality.epoch.try_into()?,
+            personal: store.quality.personal.clone(),
+            ignored: store.quality.ignored.clone(),
+        })
+    }
+    pub(crate) fn language_words_change(
+        &self,
+        epoch: u64,
+        change: crate::language_tools::Change,
+        persist: impl FnOnce(&WordLists) -> Result<()>,
+    ) -> Result<()> {
+        use crate::language_tools::Change;
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        if store.quality.epoch != epoch {
+            return Err("Language settings changed; refresh before changing words".into());
+        }
+        if !store.quality.initialized {
+            return Err("Load user settings before changing language words".into());
+        }
+        let mut personal = store.quality.personal.clone();
+        let mut ignored = store.quality.ignored.clone();
+        match change {
+            Change::Ignore { language, word } => {
+                ignored.insert(language, &word).map_err(|e| e.to_string())?
+            }
+            Change::Remember { language, word } => personal
+                .insert(language, &word)
+                .map_err(|e| e.to_string())?,
+            Change::Forget { language, word } => personal
+                .remove(language, &word)
+                .map_err(|e| e.to_string())?,
+            Change::ClearIgnored => ignored = WordLists::default(),
+        }
+        if personal == store.quality.personal && ignored == store.quality.ignored {
+            return Ok(());
+        }
+        let next = store.quality.next_epoch()?;
+        let lexicon = Lexicon::new(&personal, &ignored).map_err(|e| e.to_string())?;
+        if personal != store.quality.personal {
+            persist(&personal)?;
+        }
+        store.quality.personal = personal;
+        store.quality.ignored = ignored;
+        store.quality.lexicon = Arc::new(lexicon);
+        store.quality.epoch = next;
+        store.invalidate_checks();
+        Ok(())
+    }
     pub(crate) fn quality_context(&self) -> Result<Context> {
         Ok(self
             .0
@@ -38,13 +118,17 @@ impl Documents {
             .quality
             .context())
     }
-    pub(crate) fn initialize_quality(&self, policy: Policy) -> Result<()> {
+    pub(crate) fn initialize_preferences(&self, policy: Policy, personal: WordLists) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         if !store.quality.initialized {
+            let lexicon =
+                Lexicon::new(&personal, &store.quality.ignored).map_err(|e| e.to_string())?;
             store.quality.epoch = store.quality.next_epoch()?;
             store.quality.current = policy.clone();
             store.quality.defaults = policy;
             store.quality.initialized = true;
+            store.quality.personal = personal;
+            store.quality.lexicon = Arc::new(lexicon);
             store.invalidate_checks();
         }
         Ok(())
@@ -52,10 +136,11 @@ impl Documents {
     /// Called on a blocking worker. Reserve the identity and perform persistence
     /// before changing either defaults or the current workspace. Locking serializes
     /// this with project attach, checks and edits; failed writes leave all intact.
-    pub(crate) fn apply_quality_defaults(
+    pub(crate) fn apply_preferences(
         &self,
         epoch: u64,
         policy: Policy,
+        personal: WordLists,
         persist: impl FnOnce() -> Result<()>,
     ) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
@@ -65,13 +150,29 @@ impl Documents {
             );
         }
         let next = store.quality.next_epoch()?;
+        let lexicon = Lexicon::new(&personal, &store.quality.ignored).map_err(|e| e.to_string())?;
         persist()?;
         store.quality.defaults = policy.clone();
         store.quality.current = policy;
         store.quality.epoch = next;
         store.quality.initialized = true;
+        store.quality.personal = personal;
+        store.quality.lexicon = Arc::new(lexicon);
         store.invalidate_checks();
         Ok(())
+    }
+    #[cfg(test)]
+    pub(crate) fn initialize_quality(&self, policy: Policy) -> Result<()> {
+        self.initialize_preferences(policy, WordLists::default())
+    }
+    #[cfg(test)]
+    pub(crate) fn apply_quality_defaults(
+        &self,
+        epoch: u64,
+        policy: Policy,
+        persist: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        self.apply_preferences(epoch, policy, WordLists::default(), persist)
     }
     pub(crate) fn reset_quality(&self) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;

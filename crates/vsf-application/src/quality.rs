@@ -12,6 +12,30 @@ pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_
 pub use profile::Profile;
 use std::{fmt, fs, io::Read, path::Path};
 
+/// Immutable inputs shared by Problems, statistics and before/after review counts.
+/// A bare profile retains the historical SRT/no-personal-words API. Adapters that
+/// own a source or user lexicon must capture them explicitly in this context.
+#[derive(Clone, Copy)]
+pub struct Evaluation<'a> {
+    pub profile: &'a Profile,
+    pub format: subtitle_formats::Format,
+    pub lexicon: Option<&'a crate::language::Lexicon>,
+}
+impl<'a> From<&'a Profile> for Evaluation<'a> {
+    fn from(profile: &'a Profile) -> Self {
+        Self {
+            profile,
+            format: subtitle_formats::Format::Srt,
+            lexicon: None,
+        }
+    }
+}
+impl Evaluation<'_> {
+    pub fn with_format(self, format: subtitle_formats::Format) -> Self {
+        Self { format, ..self }
+    }
+}
+
 pub const MAX_PROFILE_BYTES: usize = 256 * 1024;
 pub const MAX_CUES: usize = 100_000;
 pub const MAX_TEXT_BYTES: usize = 16 * 1024 * 1024;
@@ -86,7 +110,11 @@ pub fn check_file(
         path.extension().and_then(|extension| extension.to_str()),
     )
     .map_err(Error::Invalid)?;
-    evaluate(&parsed.document, profile, checkpoint)
+    evaluate(
+        &parsed.document,
+        Evaluation::from(profile).with_format(parsed.source.format()),
+        checkpoint,
+    )
 }
 
 pub fn write_profile(path: &Path, profile: &Profile) -> Result<()> {

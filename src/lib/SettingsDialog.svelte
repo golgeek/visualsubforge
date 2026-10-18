@@ -9,6 +9,7 @@
     exportTimingPreset,
     savePreferences,
     getQualitySettings,
+    getLanguageWords,
     importQualityProfile,
     exportQualityProfile,
     type QualityProfile,
@@ -41,12 +42,21 @@
   let ready = $state(false);
   let epoch: number | null = null;
   let builtins = $state<QualityProfile[]>([]);
+  const wordLanguages = [
+    ['englishUs', 'English (US) personal words'],
+    ['french', 'French personal words'],
+  ] as const;
   let alive = true;
   onMount(() => {
     dialog.showModal();
-    void getQualitySettings()
-      .then((data) => {
+    void Promise.all([getQualitySettings(), getLanguageWords()])
+      .then(([data, words]) => {
         if (!alive) return;
+        if (data.current.epoch !== words.epoch)
+          throw new Error(
+            'Settings changed while opening; close and reopen Settings.',
+          );
+        draft.personalWords = words.personal;
         draft.quality = copyProfile(data.current.profile);
         draft.timing = { ...data.current.timing };
         builtins = data.builtins;
@@ -200,6 +210,32 @@
           onimport={() => void qualityPreset(true)}
           onexport={() => void qualityPreset(false)}
         />
+        <details>
+          <summary>Personal spelling words</summary>
+          <p>
+            One word per line, up to 32 characters each and 2048 total. These
+            words persist for this user when you Apply. Session ignores can be
+            cleared from Problems.
+          </p>
+          {#each wordLanguages as [key, label] (key)}
+            <label
+              >{label}<textarea
+                aria-label={label}
+                rows="4"
+                disabled={busy}
+                value={draft.personalWords[key].join('\n')}
+                oninput={(e) => {
+                  draft.personalWords = {
+                    ...draft.personalWords,
+                    [key]: e.currentTarget.value
+                      .split('\n')
+                      .map((w) => w.trim())
+                      .filter(Boolean),
+                  };
+                }}></textarea></label
+            >
+          {/each}
+        </details>
       {/if}
       <TimingSettingsPanel
         value={draft.timing}

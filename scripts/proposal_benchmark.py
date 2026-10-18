@@ -18,6 +18,7 @@ def main(binary_name="text-benchmark"):
     baseline = None
     peak = 0
     samples = 0
+    phases = {}
     with tempfile.TemporaryFile(mode="w+") as stdout, tempfile.TemporaryFile(mode="w+") as stderr:
         child = subprocess.Popen([str(binary)], stdout=stdout, stderr=stderr, text=True)
         try:
@@ -25,7 +26,9 @@ def main(binary_name="text-benchmark"):
                 if time.monotonic() > deadline:
                     raise RuntimeError("Proposal benchmark exceeded 90-second observation limit")
                 stdout.seek(0)
-                ready = stdout.read().startswith("fixture_ready ")
+                progress = stdout.read()
+                ready = progress.startswith("fixture_ready ")
+                phase = next((line.removeprefix("phase ") for line in reversed(progress.splitlines()) if line.startswith("phase ")), "fixture")
                 memory = subprocess.run(
                     ["ps", "-o", "rss=", "-p", str(child.pid)],
                     capture_output=True, text=True, timeout=2, check=False,
@@ -36,6 +39,7 @@ def main(binary_name="text-benchmark"):
                         baseline = rss
                     peak = max(peak, rss)
                     samples += 1
+                    phases[phase] = max(phases.get(phase, 0), rss)
                 time.sleep(0.01)
             stdout.seek(0)
             output = stdout.read()
@@ -48,6 +52,7 @@ def main(binary_name="text-benchmark"):
                 raise RuntimeError("Insufficient RSS observations")
             result.update({
                 "rss_baseline_bytes": baseline,
+                "rss_phase_peaks_bytes": phases,
                 "rss_peak_bytes": peak,
                 "rss_increase_bytes": peak - baseline,
                 "rss_samples": samples,

@@ -24,6 +24,144 @@ fn operation() -> Operation {
         case_sensitive: false,
     }
 }
+
+#[test]
+fn language_review_is_atomic_undoable_and_invalidated_by_word_policy_changes() {
+    use crate::language_tools::Change;
+    use vsf_application::language::{Language, WordLists};
+    let (_dir, docs) = fixture();
+    let before = docs.apply(Action::Status, 0, 0).unwrap();
+    let edited = docs
+        .apply(
+            Action::Edit {
+                cue_id: 1,
+                start_ms: 1001,
+                end_ms: 2999,
+                text: "😀 <i>helo helo</i>".into(),
+            },
+            before.generation,
+            before.revision,
+        )
+        .unwrap();
+    let mut profile =
+        engine::Profile::default().custom("language-review".into(), "Language review".into());
+    profile.language_tools.spelling = true;
+    docs.initialize_preferences(
+        Policy::new(profile, Default::default()).unwrap(),
+        WordLists::default(),
+    )
+    .unwrap();
+    let correction = || Operation::LanguageCorrection {
+        cue_index: 0,
+        start: 6,
+        end: 10,
+        original: "helo".into(),
+        replacement: "hello".into(),
+    };
+    let id = docs
+        .text_start(
+            edited.generation,
+            edited.revision,
+            Operation::LanguageSuggestions {
+                cue_index: 0,
+                start: 6,
+                end: 10,
+                original: "helo".into(),
+            },
+        )
+        .unwrap();
+    assert!(ready(&docs, id).suggestions.iter().any(|w| w == "hello"));
+    assert!(docs.text_accept(id, None).is_err());
+    let id = docs
+        .text_start(edited.generation, edited.revision, correction())
+        .unwrap();
+    assert_eq!(ready(&docs, id).changed, 1);
+    let accepted = docs.text_accept(id, None).unwrap();
+    assert_eq!(accepted.cues[0].text, "😀 <i>hello helo</i>");
+    let undone = docs
+        .apply(Action::Undo, accepted.generation, accepted.revision)
+        .unwrap();
+    assert_eq!(undone.cues[0].text, edited.cues[0].text);
+    let redone = docs
+        .apply(Action::Redo, undone.generation, undone.revision)
+        .unwrap();
+    assert_eq!(redone.cues[0].text, accepted.cues[0].text);
+    let undone = docs
+        .apply(Action::Undo, redone.generation, redone.revision)
+        .unwrap();
+    let id = docs
+        .text_start(undone.generation, undone.revision, correction())
+        .unwrap();
+    ready(&docs, id);
+    let epoch = docs.quality_context().unwrap().epoch;
+    let state = value(&docs);
+    assert!(
+        docs.language_words_change(
+            epoch,
+            Change::Remember {
+                language: Language::EnglishUs,
+                word: "helo".into()
+            },
+            |_| Err("injected persistence failure".into())
+        )
+        .is_err()
+    );
+    assert_eq!(docs.quality_context().unwrap().epoch, epoch);
+    assert!(
+        docs.language_words()
+            .unwrap()
+            .personal
+            .english_us
+            .is_empty()
+    );
+    assert_eq!(ready(&docs, id).changed, 1);
+    docs.language_words_change(
+        epoch,
+        Change::Ignore {
+            language: Language::EnglishUs,
+            word: "helo".into(),
+        },
+        |_| panic!("session ignores must not write preferences"),
+    )
+    .unwrap();
+    assert_eq!(value(&docs), state);
+    assert_eq!(docs.text_view(id, 0, 100).unwrap().phase, Phase::Stale);
+    assert!(docs.text_accept(id, None).is_err());
+    assert!(
+        docs.language_words_change(
+            epoch,
+            Change::Remember {
+                language: Language::EnglishUs,
+                word: "name".into()
+            },
+            |_| panic!("stale changes must not persist")
+        )
+        .is_err()
+    );
+    let id = docs
+        .text_start(undone.generation, undone.revision, correction())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let view = docs.text_view(id, 0, 100).unwrap();
+        if view.phase == Phase::Failed {
+            assert!(view.error.unwrap().contains("finding changed"));
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let epoch = docs.quality_context().unwrap().epoch;
+    docs.language_words_change(epoch, Change::ClearIgnored, |_| {
+        panic!("clearing ignores must not persist")
+    })
+    .unwrap();
+    let id = docs
+        .text_start(undone.generation, undone.revision, correction())
+        .unwrap();
+    assert_eq!(ready(&docs, id).changed, 1);
+    docs.shutdown_texts().unwrap();
+}
 pub(super) fn start(docs: &Documents) -> u64 {
     let before = docs.apply(Action::Status, 0, 0).unwrap();
     docs.text_start(before.generation, before.revision, operation())

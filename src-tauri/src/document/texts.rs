@@ -227,11 +227,17 @@ impl Documents {
         let document = loaded.editor.document().clone();
         let format = loaded.source.format();
         let profile = store.quality.context().profile;
+        let lexicon = store.quality.lexicon();
         let captured = profile.clone();
         let request = operation.clone();
         store.texts.launch(key, operation, profile, move |cancel| {
             let start = Instant::now();
-            text::propose_for_format(document, format, &captured, &request, || {
+            let context = engine::Evaluation {
+                profile: &captured,
+                format,
+                lexicon: Some(&lexicon),
+            };
+            text::propose_for_format(document, format, context, &request, || {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(engine::Error::Cancelled);
                 }
@@ -367,8 +373,10 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView>
         after_findings: 0,
         offset,
         rows: vec![],
+        suggestions: vec![],
     };
     if let Some(p) = &job.proposal {
+        view.suggestions = p.suggestions().to_vec();
         view.total = p.rows().len() as u32;
         view.changed = p.changed() as u32;
         view.matches = p.matches() as u32;

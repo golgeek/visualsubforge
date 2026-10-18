@@ -80,7 +80,8 @@ responsiveness claims at every ceiling.
 
 ## Headless reports
 
-Shared quality reports now use schema version 2 and include `sceneCoverage`.
+This milestone introduced quality-report schema 2 with `sceneCoverage`.
+Current language tools extend it to [schema 3](language-tools.md), retaining that field.
 `complete` requires both complete profile coverage and available scene input
 when buffers are nonzero. `vsf check` does not decode media or invent scene data;
 it reports `noMedia` and exit 3 for such profiles, even with zero findings.

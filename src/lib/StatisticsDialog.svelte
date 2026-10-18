@@ -165,6 +165,14 @@
         .revision}
     </p>
     <p class="notice">{sceneCoverage(summary.sceneCoverage)}</p>
+    {#if summary.languageCoverage.enabled}<p class="notice">
+        Whole-document language coverage: {summary.languageCoverage
+          .checkedWords} checked words; {summary.languageCoverage.skippedWords} skipped
+        words and {summary.languageCoverage.skippedCues} skipped cues{summary
+          .languageCoverage.personalized
+          ? '; personal/session words included'
+          : ''}.
+      </p>{/if}
     {#if !summary.complete}<p class="notice">
         Quality coverage is partial. Unchecked rules are not passing results.
       </p>{/if}

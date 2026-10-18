@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { QualityProfile } from './client';
-  import { copyProfile, customizeProfile } from './quality-profile';
+  import {
+    copyProfile,
+    customizeProfile,
+    defaultLanguageTools,
+  } from './quality-profile';
+  import LanguageNotices from './LanguageNotices.svelte';
   let {
     value,
     builtins,
@@ -18,6 +23,13 @@
   } = $props();
   let editableId = $state<string | null>(null);
   const readOnly = $derived(disabled || editableId !== value.id);
+  const language = $derived(value.languageTools ?? defaultLanguageTools);
+  const languageRules = [
+    ['spelling', 'Check spelling'],
+    ['typography', 'Check typography'],
+    ['capitalization', 'Check conservative sentence capitalization'],
+    ['dialogueMarkers', 'Check existing dialogue markers'],
+  ] as const;
   const speeds = [
     ['minimumRs', 'Minimum RS (inclusive)'],
     ['maximumRsExclusive', 'Maximum RS (exclusive)'],
@@ -93,6 +105,36 @@
     </p>
   </details>
   <fieldset disabled={readOnly} class="rules">
+    <label class="wide"
+      >Language dictionary
+      <select
+        aria-label="Language dictionary"
+        value={language.dictionary}
+        onchange={(e) =>
+          edit((p) => {
+            p.languageTools = {
+              ...language,
+              dictionary: e.currentTarget.value as typeof language.dictionary,
+            };
+          })}
+      >
+        <option value="en-US">English (US) · SCOWL 2020.12.07</option>
+        <option value="fr">French Classique · Grammalecte 7.7</option>
+      </select>
+    </label>
+    {#each languageRules as [key, label] (key)}
+      <label class="wide"
+        ><input
+          type="checkbox"
+          checked={language[key]}
+          onchange={(e) =>
+            edit((p) => {
+              p.languageTools = { ...language, [key]: e.currentTarget.checked };
+            })}
+        />
+        {label}</label
+      >
+    {/each}
     <label class="wide"
       >Custom profile name <input
         required
@@ -257,6 +299,13 @@
     creates a custom copy and preserves the other rules. Apply never retimes
     cues.
   </p>
+  <p>
+    Typography covers apostrophes, ellipses and language-specific punctuation
+    spaces. Capitalization checks the document start and text after ! or ?,
+    including across cues; periods remain ambiguous. Dialogue checks normalize
+    existing markers only.
+  </p>
+  <LanguageNotices />
 </section>
 
 <style>

@@ -601,7 +601,7 @@
       if (alive) busy = false;
     }
   }
-  async function openText(mode?: 'find' | 'replace') {
+  async function openText(mode?: 'find' | 'replace' | TextOperation) {
     if (
       busy ||
       confirming ||
@@ -617,7 +617,9 @@
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    if (mode) {
+    if (typeof mode === 'object') {
+      textOperation = mode;
+    } else if (mode) {
       const old = textOperation;
       const query =
         old.kind === 'find' || old.kind === 'replace' ? old.query : '';
@@ -634,6 +636,11 @@
               caseSensitive,
               replacement: old.kind === 'replace' ? old.replacement : '',
             };
+    } else if (
+      textOperation.kind === 'languageSuggestions' ||
+      textOperation.kind === 'languageCorrection'
+    ) {
+      textOperation = { kind: 'find', query: '', caseSensitive: false };
     }
     try {
       await occludeVideo(true);
@@ -2293,6 +2300,7 @@
             disabled={busy || confirming}
             pending={pendingProblem !== null}
             onnavigate={requestProblem}
+            onlanguage={(operation) => void openText(operation)}
             onresolve={(choice) => void resolveProblem(choice)}
             onclose={() => {
               problemsOpen = false;

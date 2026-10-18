@@ -138,19 +138,30 @@ impl Documents {
         let format = loaded.source.format();
         let profile = store.quality.context().profile;
         let captured = profile.clone();
+        let lexicon = store.quality.lexicon();
         store.gaps.launch(key, scenes.key, profile, move |cancel| {
             let start = Instant::now();
-            engine::gap::propose_for_format(document, format, &captured, &scenes.data, || {
-                if cancel.load(Ordering::Relaxed) {
-                    return Err(engine::Error::Cancelled);
-                }
-                if start.elapsed() > Duration::from_secs(10) {
-                    return Err(engine::Error::Limit(
-                        "Gap preview exceeded its 10 second deadline".into(),
-                    ));
-                }
-                Ok(())
-            })
+            engine::gap::propose_for_format(
+                document,
+                format,
+                engine::Evaluation {
+                    profile: &captured,
+                    format,
+                    lexicon: Some(&lexicon),
+                },
+                &scenes.data,
+                || {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(engine::Error::Cancelled);
+                    }
+                    if start.elapsed() > Duration::from_secs(10) {
+                        return Err(engine::Error::Limit(
+                            "Gap preview exceeded its 10 second deadline".into(),
+                        ));
+                    }
+                    Ok(())
+                },
+            )
             .map_err(|e| e.to_string())
         })
     }

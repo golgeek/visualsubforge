@@ -125,6 +125,7 @@ impl Windows {
                 out.push(Finding {
                     rule, cue_id: row.cue_id.clone(), cue_index: row.cue_index,
                     related_cue_id: None, severity: Severity::Violation,
+                    language: None,
                     measured: Some(time),
                     expected: format!("Endpoint outside ({left}, {right}) ms; outer edges allowed"),
                     explanation: format!("{endpoint} is strictly inside a configured scene buffer. Completed visual detection is heuristic; crossing a cut alone is allowed."),

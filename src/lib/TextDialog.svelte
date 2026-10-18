@@ -29,11 +29,28 @@
       s.caseSensitive = initial.caseSensitive;
       if (initial.kind === 'replace') s.replacement = initial.replacement;
     }
+    if (
+      initial.kind === 'languageSuggestions' ||
+      initial.kind === 'languageCorrection'
+    ) {
+      s.languageTarget = {
+        cueIndex: initial.cueIndex,
+        start: initial.start,
+        end: initial.end,
+        original: initial.original,
+      };
+      if (initial.kind === 'languageCorrection')
+        s.replacement = initial.replacement;
+    }
     return s;
   });
   const view = $derived(session.view);
   const searchable = $derived(
     session.mode === 'find' || session.mode === 'replace',
+  );
+  const language = $derived(
+    session.mode === 'languageSuggestions' ||
+      session.mode === 'languageCorrection',
   );
   let dialog: HTMLDialogElement;
   let focus: HTMLSelectElement;
@@ -84,7 +101,9 @@
     if (session.canClose) onclose(session.operation);
   }}
 >
-  <h2 id="text-title">Find, replace and repair text</h2>
+  <h2 id="text-title">
+    {language ? 'Review language correction' : 'Find, replace and repair text'}
+  </h2>
   <p>Review accepted subtitles. Every accepted batch creates one Undo step.</p>
   {#if subtitles.dirty}
     <section aria-label="Unapplied cue draft" class="draft">
@@ -110,7 +129,7 @@
       >Operation <select
         bind:this={focus}
         bind:value={session.mode}
-        disabled={session.pending || session.accepting}
+        disabled={session.pending || session.accepting || language}
       >
         <option value="find">Find</option><option value="replace"
           >Find and replace</option
@@ -118,6 +137,9 @@
         <option value="joinLines">Join lines</option><option value="reflow"
           >Reflow lines</option
         >
+        {#if language}<option value="languageSuggestions"
+            >Spelling suggestions</option
+          ><option value="languageCorrection">Language correction</option>{/if}
       </select></label
     >
     {#if searchable}
@@ -136,7 +158,11 @@
         /> Match case</label
       >
     {/if}
-    {#if session.mode === 'replace'}
+    {#if language}<p>
+        Cue {session.languageTarget.cueIndex + 1}: “{session.languageTarget
+          .original}”
+      </p>{/if}
+    {#if session.mode === 'replace' || session.mode === 'languageCorrection'}
       <label
         >Replace with <input
           aria-label="Replace with"
@@ -151,7 +177,11 @@
         (searchable && !session.query)}
       onclick={() => void start()}
     >
-      {session.mode === 'find' ? 'Find matches' : 'Preview text changes'}
+      {session.mode === 'find'
+        ? 'Find matches'
+        : session.mode === 'languageSuggestions'
+          ? 'Get spelling suggestions'
+          : 'Preview text changes'}
     </button>
     {#if session.running}<button
         disabled={session.pending || session.accepting}
@@ -188,6 +218,24 @@
   </p>
   {#if session.error}<p role="alert" class="error">{session.error}</p>{/if}
   {#if view?.phase === 'reviewing' && session.current}
+    {#if session.mode === 'languageSuggestions'}
+      <section aria-label="Spelling suggestions">
+        {#if !view.suggestions.length}<p>
+            No bounded dictionary suggestions. Edit this word manually or add it
+            to your personal words.
+          </p>{/if}
+        {#each view.suggestions as suggestion (suggestion)}
+          <button
+            disabled={!session.canStart}
+            onclick={() => {
+              session.replacement = suggestion;
+              session.mode = 'languageCorrection';
+              void start();
+            }}>Preview “{suggestion}”</button
+          >
+        {/each}
+      </section>
+    {/if}
     <p>
       {view.profileName} · Quality findings: {view.beforeFindings} before → {view.afterFindings}
       after (whole preview).

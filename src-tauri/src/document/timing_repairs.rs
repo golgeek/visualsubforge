@@ -200,6 +200,7 @@ impl Documents {
         let format = loaded.source.format();
         let profile = store.quality.context().profile;
         let captured = profile.clone();
+        let lexicon = store.quality.lexicon();
         store
             .timing_repairs
             .launch(key, scenes.key, operation.clone(), profile, move |cancel| {
@@ -222,7 +223,11 @@ impl Documents {
                     Operation::Scene => engine::scene::propose_for_format(
                         document,
                         format,
-                        &captured,
+                        engine::Evaluation {
+                            profile: &captured,
+                            format,
+                            lexicon: Some(&lexicon),
+                        },
                         &scenes.data,
                         checkpoint,
                     )
@@ -230,7 +235,11 @@ impl Documents {
                     Operation::Duration(scope) => engine::duration::propose_for_format(
                         document,
                         format,
-                        &captured,
+                        engine::Evaluation {
+                            profile: &captured,
+                            format,
+                            lexicon: Some(&lexicon),
+                        },
                         &scenes.data,
                         scope,
                         checkpoint,

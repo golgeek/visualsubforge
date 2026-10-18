@@ -153,6 +153,7 @@ pub struct Summary {
     pub profile_hash: String,
     pub complete: bool,
     pub scene_coverage: SceneCoverage,
+    pub language_coverage: crate::language::Coverage,
     pub total_cues: u32,
     pub scope_cues: u32,
     pub outside_scope_cues: u32,
@@ -331,6 +332,7 @@ pub fn summarize(
             profile_hash: report.profile_hash,
             complete: report.complete,
             scene_coverage: report.scene_coverage,
+            language_coverage: report.language_coverage,
             total_cues: total,
             scope_cues: scope,
             outside_scope_cues: total - scope,
@@ -362,9 +364,9 @@ pub fn summarize(
     })
 }
 
-pub fn evaluate(
+pub fn evaluate<'a>(
     document: &subtitle_core::Document,
-    profile: &Profile,
+    profile: impl Into<super::Evaluation<'a>>,
     scenes: &super::scene::Scenes,
     mut selection: Selection,
     mut checkpoint: impl FnMut() -> Result<()>,

@@ -87,6 +87,7 @@ pub(crate) struct View {
     pub profile: Profile,
     pub profile_hash: Option<String>,
     pub scene_coverage: Option<vsf_application::quality::scene::SceneCoverage>,
+    pub language_coverage: Option<vsf_application::language::Coverage>,
     pub error: Option<String>,
     pub findings_count: u32,
     pub affected_cues: u32,

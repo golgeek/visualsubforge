@@ -96,7 +96,7 @@ impl Checks {
         &mut self,
         key: Key,
         document: subtitle_core::Document,
-        profile: engine::Profile,
+        capture: super::quality::Capture,
         draft: Option<Draft>,
         scenes: engine::scene::Scenes,
     ) -> Result<()> {
@@ -114,7 +114,8 @@ impl Checks {
                 )?;
                 document = editor.document().clone();
             }
-            let report = engine::evaluate_with_scenes(&document, &profile, &scenes, |_, _| {
+            let context = capture.evaluation();
+            let report = engine::evaluate_with_scenes(&document, context, &scenes, |_, _| {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(engine::Error::Cancelled);
                 }
@@ -285,9 +286,16 @@ impl Documents {
                     .editor
                     .document()
                     .clone();
+                let format = store
+                    .loaded
+                    .as_ref()
+                    .ok_or("Open subtitles first")?
+                    .source
+                    .format();
+                let capture = store.quality.capture(format);
                 store
                     .checks
-                    .launch(key, document, profile.clone(), draft, scenes.data)?;
+                    .launch(key, document, capture, draft, scenes.data)?;
             }
         }
         project_view(&store.checks, key, profile, &request)
@@ -350,6 +358,7 @@ fn project_view(
         profile,
         profile_hash: None,
         scene_coverage: None,
+        language_coverage: None,
         error: checks.error.clone(),
         findings_count: 0,
         affected_cues: 0,
@@ -373,6 +382,7 @@ fn project_view(
     };
     view.profile_hash = Some(report.profile_hash.clone());
     view.scene_coverage = Some(report.scene_coverage);
+    view.language_coverage = Some(report.language_coverage.clone());
     view.findings_count = report.findings.len() as u32;
     view.affected_cues = report.affected_cues;
     let filtered: Vec<_> = report
