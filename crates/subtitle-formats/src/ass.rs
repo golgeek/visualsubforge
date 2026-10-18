@@ -3,7 +3,7 @@
 //! records so history does not copy an entire script for a style change.
 mod styles;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 use subtitle_core::{Cue, CueId, CueMetadata, Document, Milliseconds, Result};
@@ -28,9 +28,10 @@ pub struct Style {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Source(Arc<SourceData>, Arc<Authoring>);
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Authoring {
     styles: Option<Vec<Style>>,
+    records: BTreeMap<usize, String>,
 }
 #[derive(Debug, PartialEq, Eq)]
 struct SourceData {
@@ -398,7 +399,11 @@ impl Source {
                 events = trimmed.eq_ignore_ascii_case("[Events]");
             }
             if !events {
-                header.push_str(&self.style_line(line));
+                if let Some(raw) = self.1.records.get(&i) {
+                    header.push_str(raw);
+                } else {
+                    header.push_str(&self.style_line(line));
+                }
             }
         }
         header.push_str("\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
@@ -542,7 +547,10 @@ fn write_document(document: &Document, source: &Source, mut write: impl FnMut(&s
             }
             ended = !original.ending.is_empty();
         } else {
-            let raw = source.style_line(line);
+            let raw = source.1.records.get(&i).map_or_else(
+                || source.style_line(line),
+                |raw| std::borrow::Cow::Borrowed(raw.as_str()),
+            );
             write(&raw);
             ended = raw.ends_with('\n');
         }

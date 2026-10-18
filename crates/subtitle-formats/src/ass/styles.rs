@@ -56,8 +56,10 @@ impl Source {
         if style.name.is_empty()
             || style.name.trim() != style.name
             || style.name.len() > 128
+            || style.name.starts_with('*')
+            || (style.name.eq_ignore_ascii_case("Default") && style.name != "Default")
             || style.name.chars().any(char::is_control)
-            || style.name.contains([',', '\\', '{', '}'])
+            || style.name.contains([',', '\\', '{', '}', '(', ')'])
             || style
                 .fields
                 .iter()
@@ -65,13 +67,13 @@ impl Source {
                 .map(|(_, v)| v.trim())
                 != Some(style.name.as_str())
         {
-            return Err("Style name must match its Name field, fit 128 UTF-8 bytes and contain no control characters, commas, braces or backslashes".into());
+            return Err("Style name must match its Name field, fit 128 UTF-8 bytes and avoid controls, commas, braces, parentheses, backslashes, leading stars and case variants of Default".into());
         }
         if self
             .styles()
             .iter()
             .enumerate()
-            .any(|(i, s)| Some(i) != index && s.name == style.name)
+            .any(|(i, s)| Some(i) != index && s.name.trim_start_matches('*') == style.name)
         {
             return Err(format!("Style {:?} already exists", style.name));
         }
@@ -99,7 +101,83 @@ impl Source {
             Arc::clone(&self.0),
             Arc::new(Authoring {
                 styles: Some(styles),
+                ..self.1.as_ref().clone()
             }),
+        ))
+    }
+    /// Update valid Comment event references for an explicit style rename.
+    /// Opaque/malformed comments remain readable and saveable; renaming refuses
+    /// them because their references cannot be proven safe. The application
+    /// supplies its same markup-aware text transformation used for Dialogue.
+    pub fn rename_comment_references(
+        &self,
+        old: &str,
+        new: &str,
+        mut text: impl FnMut(&str) -> Result<String>,
+        mut checkpoint: impl FnMut() -> Result<()>,
+    ) -> Result<(Self, usize)> {
+        let mut records = self.1.records.clone();
+        let mut in_events = false;
+        let mut format = None;
+        let mut changed = 0;
+        for (index, line) in self.0.lines.iter().enumerate() {
+            checkpoint()?;
+            let raw = self.1.records.get(&index).unwrap_or(&line.raw);
+            let body = raw
+                .strip_suffix("\r\n")
+                .or_else(|| raw.strip_suffix('\n'))
+                .unwrap_or(raw);
+            let ending = &raw[body.len()..];
+            let trimmed = body.trim_start_matches('\u{feff}').trim();
+            if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                in_events = trimmed.eq_ignore_ascii_case("[Events]");
+            }
+            if let Some(columns) = &line.format {
+                format = Some(columns);
+            }
+            if !in_events {
+                continue;
+            }
+            let Some((prefix, fields)) = body.split_once(':') else {
+                if trimmed.to_ascii_lowercase().starts_with("comment") {
+                    return Err("Cannot rename a style while a Comment event is malformed".into());
+                }
+                continue;
+            };
+            if !prefix.trim().eq_ignore_ascii_case("Comment") {
+                continue;
+            }
+            let columns = format.ok_or("Cannot rename a style: Comment has no Format")?;
+            let mut values = super::values(fields, columns, true)
+                .map_err(|_| "Cannot rename a style while a Comment event is malformed")?;
+            let mut dirty = false;
+            for (column, value) in columns.iter().zip(&mut values) {
+                if column.eq_ignore_ascii_case("Style")
+                    && value.trim().trim_start_matches('*') == old
+                {
+                    let stars = value.trim().len() - value.trim().trim_start_matches('*').len();
+                    *value = replace_value(value, &format!("{}{new}", "*".repeat(stars)));
+                    dirty = true;
+                } else if column.eq_ignore_ascii_case("Text") {
+                    let updated = text(value)?;
+                    dirty |= *value != updated;
+                    *value = updated;
+                }
+            }
+            if dirty {
+                records.insert(index, format!("{prefix}:{}{ending}", values.join(",")));
+                changed += 1;
+            }
+        }
+        Ok((
+            Self(
+                Arc::clone(&self.0),
+                Arc::new(Authoring {
+                    records,
+                    ..self.1.as_ref().clone()
+                }),
+            ),
+            changed,
         ))
     }
     pub(super) fn style_line<'a>(&'a self, line: &'a Line) -> Cow<'a, str> {

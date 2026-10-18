@@ -81,3 +81,45 @@ passes after replacing an unnecessary test clone with `slice::from_ref`.
 The tests cover both variants, BOM/CRLF, empty/absent/EOF style sections, added
 styles with independent columns, exact unrelated records and shared base identity.
 Native authoring, field/reference proposals and scale acceptance remain open.
+
+## Shared style proposals
+
+Pure application proposals now create complete ASS/SSA definitions or copies,
+edit declared supported fields and rename ordinary named styles. They preserve
+unknown columns, existing record padding, cue IDs/order/times and all unrelated
+source. A rename updates exact Dialogue assignments, valid Comment assignments
+and named reset tags together; repeated renames use the current overlays. Event
+style references with leading stars retain those stars. Default's fallback
+identity stays stable; create a named copy instead of renaming to/from Default.
+
+Authoring uses explicit limits: 1024 styles, 64 fields/style, 1024 UTF-8 bytes/value,
+128 bytes/name and 100,000 cues, within the existing whole-file size ceiling.
+Names exclude control/comma/brace/backslash/parenthesis syntax, leading stars and
+case variants of Default. Font names fit 256 bytes; font size is >0 through 1000;
+scale/outline/shadow 0–1000; spacing ±1000; angle ±360000; margins 0–99999;
+charset/SSA alpha 0–255; flag values -1/0/1; border style 1/3. Alignment follows
+each variant's numbered set. Colors accept bounded 32-bit hex or signed/unsigned
+decimal. Existing unsupported fields are retained read-only. These are authoring
+limits, not a claim that every other imported value is invalid ASS/SSA.
+
+Malformed Comment events and incomplete, nested, transformed, padded, spaced,
+parenthesized or oversized reset syntax block renaming with an actionable error.
+Definition edits that do not rename retain such text and report its reference
+coverage limit. Legacy starred definition aliases cannot be edited ambiguously;
+a uniquely named copy remains available. Review counts identify known direct cue
+references, not simulated renderer output or all possible fallback effects.
+
+Primary source inspection checked [libass 0.17.4 event style lookup](https://raw.githubusercontent.com/libass/libass/0.17.4/libass/ass_utils.c)
+and [strict reset lookup/parser](https://raw.githubusercontent.com/libass/libass/0.17.4/libass/ass_parse.c).
+Their distinct star/Default/reset handling motivated explicit guards instead of
+blind text replacement. No upstream implementation code was copied.
+
+Validation: `cargo test --locked --workspace` passed 340 ordinary tests (30
+ignored) before the additional alias regression; strict workspace Clippy passed.
+Final targeted `cargo test --locked -p vsf-application --test style_authoring`
+passes all 5 tests, `cargo test --locked -p subtitle-formats` passes all 16, and
+`cargo clippy --locked -p vsf-application -p subtitle-formats --all-targets -- -D warnings`
+passes. Initial compilation exposed unconditional use of the optional Specta
+derive; the module now uses the existing `specta` feature gate. No new dependency
+was added. UI/owner review integration, native acceptance, attachment management,
+conversion and the full scale gate are still required.
