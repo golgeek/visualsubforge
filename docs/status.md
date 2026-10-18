@@ -19,12 +19,12 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
-authoring are complete within their recorded Mac scopes. WebVTT is in progress, followed
-by legacy project import, manual translation, plugins and native reliability.
+authoring and WebVTT are complete within their recorded Mac scopes. Legacy project
+import is next, followed by manual translation, plugins and native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**WebVTT integration (2026-10-18):** open/edit/save, shared markup-aware tools,
+**WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,
 CLI checking/statistics, project references and accepted-state recovery now retain
 format identity, original blocks/settings and exact milliseconds. Text projection
 decodes entities, excludes voice/ruby annotations and preserves literal ASS-looking
@@ -37,8 +37,13 @@ and quality evaluation, pass p95 <=100.174ms and +54,722,560 sampled RSS bytes.
 Actual Mac workflow, save/reopen/project/recovery and real chooser checks pass,
 including normal code0 shutdown. Independent native images show decoded CJK and
 literal ASS syntax, with omitted CSS/regions, inline ruby and an explicit emoji
-missing-glyph notice. Desktop10k acceptance remains pending; this does not
-complete stage6a. See [scope, checks and limits](webvtt.md).
+missing-glyph notice. Actual desktop plain/styled/timed 10k workloads pass five
+edit/history/save cycles each, exact reopen/recovery and cancellation/stale guards.
+All measured interactions stay below 1000ms; recovery peaks at 950ms after removing
+a redundant parse. The regression and full workspace pass 399 Rust tests / 30
+ignored, with strict Clippy/lint/formatting and native build checks. This closes
+stage6a within the recorded Mac scope; legacy import and translation remain open.
+See [scope, checks and limits](webvtt.md).
 
 **Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
 have explicit precision/loss/blocking review and protected separate-file export.
@@ -288,7 +293,7 @@ migration is needed. [Replacement downloads and remaining manual gates](preview-
 
 | Area | Implemented foundation and reproducible checks | Remaining limit or gate |
 | --- | --- | --- |
-| Subtitle editing | Rust owns accepted UTF-8 SRT/ASS/SSA, cue metadata/identity, generation/revision and undo/redo. Reviewed style authoring and supported font management preserve source records and share history. Actual Mac format/save/history workflows pass. Separate-file conversion now has engine, owner and browser coverage. | UTF-8 only; ASS/SSA endpoints require 10 ms precision. Unsafe operations are refused. Conversion native/desktop10k acceptance remains pending; fonts depend on the runtime. Native preview has a separate 4 MiB limit. |
+| Subtitle editing | Rust owns accepted UTF-8 SRT/ASS/SSA/WebVTT, cue metadata/identity, generation/revision and undo/redo. Reviewed ASS/SSA style/font authoring shares history. Actual Mac format/save/history/recovery and 10k workflows pass. Separate-file SRT/ASS/SSA conversion also passes native and real chooser checks. | UTF-8 only; ASS/SSA endpoints require 10 ms precision. Unsafe operations are refused. WebVTT settings/blocks are preserved without an authoring UI or conversion; preview has documented CSS/region/ruby/font limits. Native preview has a separate 4 MiB limit. |
 | Duration/speed repair | Selected/all fixed-start previews, exact shared metric bounds, whole-document validation, explicit skips and atomic Undo/Redo. Actual Mac and 10,000-cue workflows pass. | Conservative plan, not a joint optimizer or dialogue synchronization. Completed scenes required with buffers enabled; timed/unknown markup stays manual. |
 | Scene quality | Shared endpoint checks, explicit coverage and paged inward-repair previews use current completed scenes. Safe whole batches preserve text/tags and use one Undo/Redo. Real Mac and 10,000-cue workflows pass. | Heuristic detection can miss cuts. Missing/partial data cannot authorize repair; timed/ambiguous markup stays manual. No new Windows/Linux execution. |
 | Text tools | Protected literal Find/Replace, Unicode source navigation, formatting drafts and previewable join/reflow share Rust transformations. Whole batches preserve timing/identity/metadata and use one Undo/Redo operation. SRT real Mac and 10,000-cue workflows pass; format-aware ASS/SSA tools have shared/owner/browser coverage. | No regex or cross-cue search; ambiguous transformations are skipped. Text tools skip individual cues above 64 KiB; global persistence remains 16 MiB. ASS/SSA desktop and 10,000-cue validation pass within the format policy above. |
@@ -533,9 +538,9 @@ duration/speed-repair and statistics milestones are complete within their record
 scope. Loss-preserving ASS/SSA documents now also pass their full scoped audit,
 including existing styles, format-aware tools and tagged-SRT regression. The active
 [umbrella roadmap](feature-roadmap.md) has completed fonts, batch timing, ASS/SSA
-resync and language tools. Style and font authoring are validated; finish native
-conversion and desktop10k acceptance next, followed by WebVTT, legacy project
-import, manual translation, bounded plugins and native/distribution reliability.
+resync, language tools, style/font authoring, conversion and WebVTT within their
+recorded Mac scopes. Legacy project import is next, followed by manual translation,
+bounded plugins and native/distribution reliability.
 Broader matching evidence remains useful; retain conservative
 refusal at ambiguous or missing content. Packaging, licensing, physical-device/x64
 and scale/display coverage remain prerequisites for corresponding release claims.

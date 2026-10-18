@@ -27,7 +27,12 @@ GPL-3.0-or-later license. It covers cue identifiers/settings, comments, CSS/regi
 records, voice/language/class/ruby markup, entities, Unicode and internal timestamp
 markers. No legacy or third-party subtitle text is included. The pure WebVTT
 benchmark generates three further deterministic 10,000-cue inputs in memory;
-see [scope, commands and evidence](../../docs/webvtt.md).
+`python3 scripts/webvtt-fixtures.py` writes byte-identical plain, styled BOM/CRLF
+and timed mixed-ending files to ignored `generated/webvtt/` for desktop validation.
+The generator asserts the library benchmark's recorded SHA256 hashes before
+writing a receipt. These independently authored inputs use the same repository
+license and contain no third-party subtitle text. See
+[scope, commands and evidence](../../docs/webvtt.md).
 
 ## Generate and validate
 

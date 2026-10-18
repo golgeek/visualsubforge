@@ -279,7 +279,9 @@ fn actual_checkpoint_and_recovery_keep_retimed_content_and_source_protection() {
         worker.join().unwrap();
         let entries = crate::recovery_store::list(&root).unwrap();
         assert_eq!(entries.len(), 1);
-        let record = crate::recovery_store::recover(&root, &entries[0].id).unwrap();
+        let record = crate::recovery_store::recover(&root, &entries[0].id)
+            .unwrap()
+            .record;
         assert!(record.resynced);
         let recovered = Documents::default();
         recovered.0.lock().unwrap().recovery_root = Some(root);

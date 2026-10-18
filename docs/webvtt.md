@@ -1,11 +1,11 @@
 # WebVTT editing
 
-Stage6a is in progress. The format adapter and application integration are
+Stage6a is complete within the recorded Mac scope. The format adapter and application integration are
 implemented: desktop open/edit/save, projects, accepted-state recovery, shared
 text/timing/quality tools and CLI check/statistics dispatch recognize WebVTT.
-Library, owner, browser, native Mac workflow and pure 10k checks pass. Bounded
+Library, owner, browser, native Mac workflow, pure and desktop 10k checks pass. Bounded
 native visual observations confirm the preview limitations below, and actual
-macOS file choosers pass. Desktop 10k acceptance remains pending. The rest of Task023
+macOS file choosers pass. The rest of Task023
 (legacy projects and translation) remains required.
 
 ## Implemented format foundation
@@ -111,13 +111,15 @@ native or IO dependency. Existing proposal/checker workers, cancellation,
 generation/revision guards and off-lock evaluation remain unchanged; no new
 worker, mutable document sidecar or native library is introduced.
 
-## Acceptance still required
+## Acceptance boundaries
 
-- Desktop 10k save/recovery and interaction measurements. Retain existing <=500ms
-  pure p95, <=96MiB additional sampled RSS and <1000ms interactive gates;
-  background work retains existing deadlines.
+- The final desktop 10k save/recovery and interaction measurements below pass.
+  Existing <=500ms pure p95, <=96MiB additional sampled RSS and <1000ms interactive
+  gates are unchanged; background work retains existing deadlines.
+- CSS/region/ruby/emoji and timed-highlight limits remain explicit. Windows/Linux
+  feature and physical-device acceptance are separate open release gates.
 
-No new worker, native rendering library or mutable accepted-state owner is planned.
+No new worker, native rendering library or mutable accepted-state owner was added.
 
 ## Foundation validation — 2026-10-18
 
@@ -357,3 +359,91 @@ editor hint listing only SRT/ASS/SSA; it now includes WebVTT. The wording change
 is checked separately and does not change the identified picker binary above.
 Windows/Linux choosers and physical acceptance remain unverified. Desktop10k
 validation is the remaining stage6a acceptance gate.
+
+## Desktop 10k validation — 2026-10-18
+
+`scripts/webvtt-fixtures.py` reproduces the three library benchmark inputs and
+asserts their recorded SHA256 hashes. The native WebDriver lane runs five
+edit/Undo/Redo/save cycles per input, comparing all 10,000 cues after history
+operations and exact independently expected bytes after saves. It also checks
+full reopen, last-cue navigation with bounded rendered rows, typing during a
+background query, cancellation, stale-proposal rejection and real interrupted-
+process recovery followed by a separate exact Save As. Original files remain
+unchanged. The unchanged limits are <1000 ms for each measured interaction and
+ten seconds for preparation; pure CPU/RSS measurements remain separate above.
+
+Retained first run `desktop-0SS3f2` failed a harness selector that expected a
+space after the recovery filename; the rendered text contained a newline. The
+test now matches the exact source path on the recovery entry. The next run,
+`desktop-mjZRM2`, passed plain recovery but measured styled recovery at 1349 ms,
+exceeding the declared limit. Its other styled interactions and exact output
+checks passed. Both failed receipts and binaries remain available under the
+ignored `test-results/` evidence directories; neither run is accepted as a pass.
+
+Investigation found the accepted document was parsed during recovery validation
+and then parsed again for adoption. Recovery now transfers that validated parsed
+document into the existing editor. Saved and accepted text still both undergo
+full format/size validation under the same lease/read operation, with no second
+read, cache or new state owner. A regression verifies exact SRT/ASS/SSA/WebVTT
+restoration, refusal of either corrupt text field and durable snapshot retention.
+The complete workspace passes 399 Rust tests with 30 ignored; strict Clippy,
+repository lint and formatting pass. Native remeasurement is required below
+before accepting this change against the desktop performance gate.
+
+### Final desktop result
+
+The rebuilt debug app passes `desktop-59LdC7`, including final normal exit code0.
+The isolated identifier remains
+`com.golgeek.visualsubforge.webvtt-performance-20261018`, with the same test
+capabilities as `tests/desktop/tauri.test.json`. Executable SHA256 is
+`0d18eb7a4a23d3254bf57b79027621dc466f82dac881e0684799e421fa0e63d6`.
+The private runtime selection is unchanged. No media is loaded in the measurement;
+generated DOM input, supplied file choices and a final animation frame measure
+application response, not physical input or compositor presentation. Desktop
+CPU/RSS is not inferred from these timings; the separate pure results above apply.
+
+| 10,000-cue input | Open | Max Apply of five | Max Undo/Redo/restore of five | Max save of five | Reopen | Recovery open | Recovery Save As | Preparation |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Plain Unicode | 257ms | 124ms | 36ms | 143ms | 195ms | 414ms | 98ms | 75ms |
+| Styled BOM/CRLF | 536ms | 250ms | 55ms | 254ms | 502ms | 950ms | 257ms | 208ms |
+| Timed/mixed endings | 489ms | 222ms | 54ms | 239ms | 471ms | 862ms | 225ms | 137ms |
+
+All other interactions pass: draft/typing <=2ms, cancellation <=16ms, stale
+invalidation <=196ms, last-cue navigation <=39ms and recovery-edit acceptance
+<=190ms. Each list renders six rows after last-cue navigation. All prepared queries
+find 10,000 matches with pages capped at 200 rows. Full cue comparisons, exact
+saved/recovered bytes and unchanged source hashes pass for all three workloads.
+The styled recovery measurement has only 50ms of headroom: this is bounded
+evidence for this development Mac and debug build, not a cross-device guarantee.
+
+With the pinned Node 24.21.0/npm 11.19.0 and Rust 1.98.1 toolchains:
+
+```sh
+python3 scripts/webvtt-fixtures.py
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+npm run format:check
+npm run lint
+node --check tests/desktop/webvtt-performance.mjs
+node --check tests/desktop/run.mjs
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/test-results/webvtt-performance-20261018/tauri.json" -- --locked
+ditto target/debug/bundle/macos/VisualSubForge.app \
+  test-results/webvtt-performance-20261018/VisualSubForgeWebVTTRecovery.app
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  node tests/desktop/run.mjs \
+  --binary "$PWD/test-results/webvtt-performance-20261018/VisualSubForgeWebVTTRecovery.app/Contents/MacOS/visualsubforge" \
+  --webvtt-performance
+git diff --check
+```
+
+The native build includes strict Svelte/TypeScript checks and the frontend
+production build; both pass. Logs are retained in
+`test-results/webvtt-performance-20261018/`, with the final native report,
+screenshots and exit receipt in `test-results/desktop-59LdC7/`. No UI or IPC
+contract changed in this recovery optimization, so the prior 44 frontend and
+56 browser cases remain its integration baseline, not newly rerun evidence.
+Stage6a and ADR0031 are accepted within this scope. Legacy project import,
+translation, plugins and the final native/distribution milestone remain required.

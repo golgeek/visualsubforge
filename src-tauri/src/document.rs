@@ -358,11 +358,8 @@ impl Store {
                     .recovery_root
                     .as_ref()
                     .ok_or("Recovery storage is unavailable")?;
-                let record = crate::recovery_store::recover(root, &id)?;
-                let parsed = vsf_application::subtitle_file::parse_document(
-                    record.accepted_srt.as_bytes(),
-                    Some(record.format_extension()),
-                )?;
+                let crate::recovery_store::Recovered { record, parsed } =
+                    crate::recovery_store::recover(root, &id)?;
                 self.loaded = Some(Loaded {
                     editor: Editor::with_properties(parsed.document, parsed.source),
                     path: record.source_path.map(|path| {
@@ -1091,7 +1088,9 @@ mod tests {
 
         let entries = crate::recovery_store::list(&recovery_root).unwrap();
         assert_eq!(entries.len(), 1);
-        let restored = crate::recovery_store::recover(&recovery_root, &entries[0].id).unwrap();
+        let restored = crate::recovery_store::recover(&recovery_root, &entries[0].id)
+            .unwrap()
+            .record;
         assert_eq!(restored.accepted_srt, latest.accepted_srt);
         assert_eq!(restored.saved_srt.as_bytes(), ORIGINAL.as_bytes());
         assert_eq!(restored.generation, 3);

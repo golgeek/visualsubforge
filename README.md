@@ -17,7 +17,7 @@ The editor provides:
   Rust owns accepted state; unapplied frontend drafts remain separate.
 - WebVTT open/edit/save, markup-aware text/quality tools, projects and recovery
   preserve identifiers, settings and original blocks. Native Mac workflows and
-  choosers pass with documented preview limits; desktop 10k acceptance is pending.
+  choosers and 10,000-cue desktop checks pass with documented preview limits.
   See [WebVTT scope and limitations](docs/webvtt.md).
 - Reviewed ASS/SSA style creation/copy/editing, inspection and cue assignment,
   reviewed font attachment management, original script/style/event metadata,
@@ -106,7 +106,7 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
 handles SRT/ASS/SSA/WebVTT parsing/serialization without filesystem access. See the
 [ASS/SSA preservation policy and validation](docs/ass-ssa-documents.md), including
 encoding, fonts and format limits. [WebVTT integration](docs/webvtt.md)
-is implemented with desktop 10k acceptance pending. `vsf-application`
+is validated within its documented Mac scope. `vsf-application`
 shares bounded subtitle reads, size policy and atomic file persistence with headless
 callers. `src-tauri` coordinates accepted desktop state and background services,
 while `media-analysis` and

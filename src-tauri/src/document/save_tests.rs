@@ -83,6 +83,7 @@ fn competing_save_preserves_history_recovery_and_both_versions_via_save_as() {
     assert_eq!(
         crate::recovery_store::recover(&recovery_root, &entries[0].id)
             .unwrap()
+            .record
             .accepted_srt,
         accepted
     );

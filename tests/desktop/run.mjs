@@ -39,6 +39,7 @@ import { languagePerformance } from './language-performance.mjs';
 import { conversionWorkflow } from './conversion.mjs';
 import { conversionPerformance } from './conversion-performance.mjs';
 import { webvttWorkflow } from './webvtt.mjs';
+import { webvttPerformance } from './webvtt-performance.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -56,6 +57,7 @@ const { values } = parseArgs({
     fonts: { type: 'boolean', default: false },
     conversion: { type: 'boolean', default: false },
     webvtt: { type: 'boolean', default: false },
+    'webvtt-performance': { type: 'boolean', default: false },
     'conversion-performance': { type: 'boolean', default: false },
     'font-performance': { type: 'boolean', default: false },
     'style-performance': { type: 'boolean', default: false },
@@ -123,6 +125,7 @@ const runDeadline =
   values.fonts ||
   values.conversion ||
   values.webvtt ||
+  values['webvtt-performance'] ||
   values['conversion-performance'] ||
   values['font-performance'] ||
   values['style-performance'] ||
@@ -579,6 +582,20 @@ try {
       record,
       binary,
       cli,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['webvtt-performance'])
+    await webvttPerformance({
+      status,
+      until,
+      root,
+      evidence,
+      record,
+      binary,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

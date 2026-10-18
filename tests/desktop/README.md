@@ -383,3 +383,13 @@ acceptance. Set `VSF_WEBVTT_CAPTURE=1` and optionally comma-separated
 The observer must save and inspect an actual native-window image before writing
 `capture-ack.json` with the matching `label`; WebView-only images omit the video
 sibling. Preview limitations and the separate desktop10k gate remain explicit.
+
+Generate the exact library benchmark inputs with `python3 scripts/webvtt-fixtures.py`,
+then add `--webvtt-performance` to the runner for the three 10,000-cue workloads.
+It verifies their hashes before measuring five edit/Undo/Redo/save cycles, full
+reopen and crash recovery, virtualized navigation, background cancellation and
+stale-proposal rejection. Every measured interaction must stay below 1000 ms;
+background preparation retains its ten-second deadline. `webvtt-performance.json`
+records individual timings, source/output hashes and the executable identity.
+No media is loaded during this lane; pure CPU/RSS measurements and actual native
+preview/chooser observations are separate evidence in the WebVTT guide.

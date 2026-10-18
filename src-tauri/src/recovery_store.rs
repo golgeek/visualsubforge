@@ -82,7 +82,9 @@ impl Record {
     pub fn format_extension(&self) -> &str {
         self.format.as_deref().unwrap_or("srt")
     }
-    fn validate(&self) -> Result<()> {
+    // Return the validated accepted document so recovery can adopt it directly.
+    // Re-parsing after this boundary repeats the most expensive part of recovery.
+    fn validate(&self) -> Result<subtitle_formats::Parsed> {
         if !matches!(self.version, 1..=4)
             || (self.version < 3 && self.resynced)
             || (self.version < 4 && self.format.is_some())
@@ -104,13 +106,14 @@ impl Record {
             }
             _ => {}
         }
-        for text in [&self.saved_srt, &self.accepted_srt] {
-            vsf_application::subtitle_file::parse_document(
-                text.as_bytes(),
-                Some(self.format_extension()),
-            )?;
-        }
-        Ok(())
+        vsf_application::subtitle_file::parse_document(
+            self.saved_srt.as_bytes(),
+            Some(self.format_extension()),
+        )?;
+        vsf_application::subtitle_file::parse_document(
+            self.accepted_srt.as_bytes(),
+            Some(self.format_extension()),
+        )
     }
 }
 
@@ -222,7 +225,12 @@ fn lease(path: &Path) -> Result<Option<crate::file_lease::FileLease>> {
         Err(e) => Err(format!("Cannot acquire recovery lease: {e}")),
     }
 }
-fn read(path: &Path) -> Result<Record> {
+pub(crate) struct Recovered {
+    pub record: Record,
+    pub parsed: subtitle_formats::Parsed,
+}
+
+fn read(path: &Path) -> Result<Recovered> {
     let path = path.join("snapshot.json");
     if !fs::symlink_metadata(&path)
         .map_err(|e| e.to_string())?
@@ -241,8 +249,8 @@ fn read(path: &Path) -> Result<Record> {
     }
     let record: Record =
         serde_json::from_slice(&bytes).map_err(|e| format!("Cannot read recovery record: {e}"))?;
-    record.validate()?;
-    Ok(record)
+    let parsed = record.validate()?;
+    Ok(Recovered { record, parsed })
 }
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -294,7 +302,7 @@ pub(crate) fn list(root: &Path) -> Result<Vec<Entry>> {
             {
                 return Ok(None);
             }
-            read(&path).map(Some)
+            read(&path).map(|recovered| Some(recovered.record))
         })();
         let mut item = Entry {
             id,
@@ -322,7 +330,7 @@ pub(crate) fn list(root: &Path) -> Result<Vec<Entry>> {
     result.sort_by(|a, b| b.captured_ms.cmp(&a.captured_ms).then(a.id.cmp(&b.id)));
     Ok(result)
 }
-pub(crate) fn recover(root: &Path, id: &str) -> Result<Record> {
+pub(crate) fn recover(root: &Path, id: &str) -> Result<Recovered> {
     let path = directory(root, id)?;
     let _lease = lease(&path)?.ok_or("That recovery session is still running")?;
     // Reading does not consume the only durable copy. Explicit discard is separate.
@@ -408,7 +416,7 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].revision, Some(9));
         fs::write(&original, "externally changed").unwrap();
-        let restored = recover(root.path(), &id).unwrap();
+        let restored = recover(root.path(), &id).unwrap().record;
         assert_eq!(restored.saved_srt, SRT);
         assert!(restored.accepted_srt.contains("edited"));
         assert_eq!(fs::read_to_string(&original).unwrap(), "externally changed");
@@ -417,6 +425,69 @@ mod tests {
         assert!(list(root.path()).unwrap().is_empty());
         assert_eq!(fs::read_to_string(&original).unwrap(), "externally changed");
     }
+
+    #[test]
+    fn recovery_returns_exact_accepted_document_and_validates_both_texts() {
+        use subtitle_formats::Format;
+        for (format, saved, from) in [
+            (Format::Srt, SRT, "café"),
+            (
+                Format::Ass,
+                include_str!("../../tests/fixtures/subtitles/styles.ass"),
+                "Red title",
+            ),
+            (
+                Format::Ssa,
+                include_str!("../../tests/fixtures/subtitles/styles.ssa"),
+                "Red title",
+            ),
+            (
+                Format::WebVtt,
+                include_str!("../../tests/fixtures/subtitles/styles.vtt"),
+                "Été",
+            ),
+        ] {
+            assert!(saved.contains(from));
+            let accepted = saved.replace(from, "Recovered");
+            let root = tempfile::tempdir().unwrap();
+            let session = Session::create(root.path()).unwrap();
+            let record =
+                Record::new_document(format, None, saved.into(), accepted.clone(), 1, 1).unwrap();
+            session.write(Some(&record)).unwrap();
+            let path = session.directory.join("snapshot.json");
+            let id = session
+                .directory
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
+            let bytes = fs::read(&path).unwrap();
+            drop(session);
+            let restored = recover(root.path(), &id).unwrap();
+            assert_eq!(restored.record.saved_srt, saved);
+            assert_eq!(restored.parsed.source.format(), format);
+            assert_eq!(
+                restored
+                    .parsed
+                    .source
+                    .serialize(&restored.parsed.document)
+                    .unwrap(),
+                accepted
+            );
+            assert_eq!(fs::read(&path).unwrap(), bytes);
+            for field in ["saved_srt", "accepted_srt"] {
+                let mut corrupt = serde_json::to_value(&record).unwrap();
+                corrupt[field] = "invalid subtitle data".into();
+                let corrupt = serde_json::to_vec(&corrupt).unwrap();
+                fs::write(&path, &corrupt).unwrap();
+                assert!(list(root.path()).unwrap()[0].error.is_some());
+                assert!(recover(root.path(), &id).is_err());
+                assert_eq!(fs::read(&path).unwrap(), corrupt);
+            }
+        }
+    }
+
     #[test]
     fn styled_record_validates_format_before_replacing_checkpoint() {
         let root = tempfile::tempdir().unwrap();
@@ -547,7 +618,7 @@ mod tests {
         assert_eq!(entry.revision, None);
         assert!(serde_json::to_value(&entries).is_ok());
         assert_eq!(
-            recover(root.path(), &id).unwrap().accepted_srt,
+            recover(root.path(), &id).unwrap().record.accepted_srt,
             data.accepted_srt
         );
         assert_eq!(fs::read(snapshot_path).unwrap(), before);

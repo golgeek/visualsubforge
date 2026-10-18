@@ -189,6 +189,7 @@ fn reviewed_export_uses_exact_bytes_and_preserves_dirty_history_path_and_recover
         assert_eq!(
             crate::recovery_store::recover(&recovery_root, &entries[0].id)
                 .unwrap()
+                .record
                 .accepted_srt,
             recovery.2
         );
