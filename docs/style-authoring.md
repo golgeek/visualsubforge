@@ -1,11 +1,11 @@
 # Style, attachment and conversion milestone
 
-Task022 is in progress. Reviewed ASS/SSA style creation, copying and editing now
+Task022 is complete within its recorded Mac runtime scope. Reviewed ASS/SSA style creation, copying and editing now
 join style inspection/assignment and loss-preserving same-format editing. Reviewed
 font attachment management is also validated on the recorded Mac runtime.
-The [reviewed conversion workflow](format-conversion.md) is implemented;
-native conversion and desktop 10k acceptance remain required. This document
-tracks implementation and acceptance; the full milestone is not yet complete.
+The [reviewed conversion workflow](format-conversion.md) also passes native,
+actual macOS chooser and desktop 10k acceptance. The evidence below records the
+individual increments; Windows/Linux feature/device acceptance remains separate.
 
 Document-level source properties now participate in Rust's existing Undo history. A style edit and any required cue-reference changes must succeed or
 fail together. The domain stays format-independent; format/application code owns
@@ -13,7 +13,7 @@ style validation and source-record preservation. Frontend controls remain drafts
 until a reviewed transaction is accepted. Existing cue-only history retains its
 range storage, and context-only history must not copy all subtitle cues.
 
-Milestone scope (style and attachment increments accepted below; conversion pending):
+Accepted milestone scope:
 
 - Create/copy/edit ASS/SSA styles, with precise field validation, safe named style
   references and explicit handling of reset tags and commented events.

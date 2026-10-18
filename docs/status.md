@@ -18,25 +18,31 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 [feature and reliability roadmap](feature-roadmap.md) covers fonts, batch timing,
 ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
-batch timing, ASS/SSA resync and language tools are complete. Style/attachment/
-conversion authoring is in progress; later stages are pending. Completed milestones below remain the
+batch timing, ASS/SSA resync, language tools and style/attachment/conversion
+authoring are complete within their recorded Mac scopes. WebVTT is next, followed
+by legacy project import, manual translation, plugins and native reliability.
+Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
 
-**Conversion foundation (2026-10-18; stage5 remains in progress):** pure
-SRT/ASS/SSA export proposals cover all six directions with explicit precision,
-loss and blocking reports. The open document/source/history is unchanged. Eight
-new cases and the complete 366-test Rust suite pass; strict workspace checks pass.
-Eight 10k workloads pass p95 <=37.489ms and +81,526,784 sampled RSS bytes.
-Typed desktop review/publication commands now pass source/history/recovery,
-no-clobber/retry and cancellation/shutdown race checks; the complete suite is
-374 Rust tests. The conversion dialog now adds exact-default review, target-specific
-new-file selection, bounded escaped loss examples, failed-export retry and receipt
-tracking without adopting a document. Full 374 Rust / 30 ignored, 44 frontend and
-56 browser cases pass, including workflow/lifetime checks in both engines;
-native conversion and desktop 10k acceptance remain required.
+**Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
+have explicit precision/loss/blocking review and protected separate-file export.
+The open source, dirty state, Undo/Redo and recovery remain unchanged. Backend
+validation passes 374 Rust tests / 30 ignored; final UI checks pass 44 frontend
+and 56 browser cases. Native Mac all-six workflows, failure/retry/history/project/
+recovery, safe timed rounding and embedded-font observations pass. Actual macOS
+SRT/ASS/SSA destination sheets, cancellation/retry, exact output and normal quit
+also pass in a build without the automated chooser. A native-discovered wrapped
+editor clipping defect is fixed and covered in both browser engines.
+
+Pure 10k workloads pass p95 <=37.489ms/+81,526,784 sampled RSS bytes. Six native
+10k pairs with five cycles each pass: export confirmation <=500ms, cancellation
+completion <=15ms, stale invalidation <=103ms and complete 10k reopen. Native
+workflow and picker runs both quit normally with code0; identified runtimes,
+retained failed attempts and exact commands are recorded. No new Windows/Linux
+chooser or physical install/GPU/audio acceptance is claimed.
 See [conversion policy and evidence](format-conversion.md).
 
-**Style authoring increment (2026-10-17; stage5 remains in progress):** reviewed
+**Style authoring increment (2026-10-17):** reviewed
 ASS/SSA create/copy/edit/rename now use Rust-owned source/cue transactions and one
 Undo/Redo history. Exact references and original records are preserved; ambiguous
 renames are refused. The shared text/style worker retains existing bounds and
@@ -44,9 +50,10 @@ stale/cancel guards. 344 ordinary Rust tests, 44 frontend tests, all 52 browser
 cases and strict checks pass. Pure 10k create/edit/rename p95 <=25.332ms and
 additional sampled RSS 77,709,312 bytes pass the predeclared gates. Actual Mac create/copy/edit/rename, exact save/project/recovery and native preview
 acknowledgment pass. Native 10k acceptance <=134ms and Undo <=100ms pass the
-unchanged interaction gate; attachment management and conversion remain required. See [style policy and evidence](style-authoring.md).
+unchanged interaction gate. Subsequent attachment and conversion acceptance
+completes stage5. See [style policy and evidence](style-authoring.md).
 
-**Font attachment increment (2026-10-18; stage5 conversion remains open):**
+**Font attachment increment (2026-10-18):**
 reviewed ASS/SSA inventory/add/replace/remove shares the existing bounded review
 worker and source/history owner. Supported single TTF/CFF/CFF2 fonts have explicit
 limits; unsupported records remain read-only. 358 ordinary Rust, 44 frontend and

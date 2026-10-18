@@ -870,7 +870,42 @@
   let topPct = $state(32);
   let editorPct = $state(25);
   let wavePct = $state(65);
-  const editorMinimum = $derived(showQualityMetrics ? 190 : 130);
+  let editorBarHeight = $state(0);
+  let editorFooterHeight = $state(0);
+  let qualityReadoutHeight = $state(0);
+  function measureEditorControl(
+    node: HTMLElement,
+    measured: (height: number) => void,
+  ) {
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      // These measurements resize an ancestor grid. Commit on the next frame
+      // so layout does not feed back into the current observer delivery.
+      if (!frame)
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          measured(node.clientHeight);
+        });
+    });
+    observer.observe(node);
+    return {
+      destroy() {
+        observer.disconnect();
+        cancelAnimationFrame(frame);
+      },
+    };
+  }
+  // Reserve measured controls, a usable textarea, padding and gaps before
+  // applying split ratios; wrapped authoring controls must stay in their row.
+  const editorMinimum = $derived(
+    Math.max(
+      showQualityMetrics ? 190 : 130,
+      editorBarHeight +
+        editorFooterHeight +
+        64 +
+        (showQualityMetrics && cue ? qualityReadoutHeight + 6 : 0),
+    ),
+  );
   const paneHeight = $derived(
     Math.max(352 + editorMinimum, workspaceHeight - 16),
   );
@@ -2348,7 +2383,10 @@
       }}
       onfocusout={() => (editorFocused = false)}
     >
-      <div class="editorbar">
+      <div
+        class="editorbar"
+        use:measureEditorControl={(height) => (editorBarHeight = height)}
+      >
         <strong
           >{cue
             ? `Cue ${doc.cues.findIndex((c) => c.id === selected) + 1}`
@@ -2430,7 +2468,10 @@
           >Convert subtitles…</button
         >
       </div>
-      {#if showQualityMetrics && cue}<div class="quality-readout">
+      {#if showQualityMetrics && cue}<div
+          class="quality-readout"
+          use:measureEditorControl={(height) => (qualityReadoutHeight = height)}
+        >
           {#if quality.view?.selected?.data.cueId === String(cue.id)}<CueMetrics
               value={quality.view.selected}
               label="Accepted"
@@ -2498,7 +2539,10 @@
             void run('apply', e);
           }
         }}></textarea>
-      <div class="editorfooter">
+      <div
+        class="editorfooter"
+        use:measureEditorControl={(height) => (editorFooterHeight = height)}
+      >
         <button
           disabled={!cue || busy || confirming}
           title="Bold selection (Ctrl/Cmd+B)"
@@ -3118,6 +3162,7 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .editorbar label {
     display: flex;

@@ -36,6 +36,8 @@ import { fontAuthoring } from './font-authoring.mjs';
 import { fontPerformance } from './font-performance.mjs';
 import { languageTools } from './language.mjs';
 import { languagePerformance } from './language-performance.mjs';
+import { conversionWorkflow } from './conversion.mjs';
+import { conversionPerformance } from './conversion-performance.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -51,6 +53,8 @@ const { values } = parseArgs({
     language: { type: 'boolean', default: false },
     styles: { type: 'boolean', default: false },
     fonts: { type: 'boolean', default: false },
+    conversion: { type: 'boolean', default: false },
+    'conversion-performance': { type: 'boolean', default: false },
     'font-performance': { type: 'boolean', default: false },
     'style-performance': { type: 'boolean', default: false },
     'language-performance': { type: 'boolean', default: false },
@@ -115,6 +119,8 @@ const runDeadline =
   values.language ||
   values.styles ||
   values.fonts ||
+  values.conversion ||
+  values['conversion-performance'] ||
   values['font-performance'] ||
   values['style-performance'] ||
   values['language-performance'] ||
@@ -641,6 +647,35 @@ try {
       until,
       record,
       binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values.conversion)
+    await conversionWorkflow({
+      samePath,
+      root,
+      evidence,
+      menu,
+      invoke,
+      status,
+      until,
+      record,
+      binary,
+      restart: async (choices) => {
+        await terminate();
+        await launch(choices);
+        return browser;
+      },
+    });
+  if (values['conversion-performance'])
+    await conversionPerformance({
+      root,
+      evidence,
+      binary,
+      record,
       restart: async (choices) => {
         await terminate();
         await launch(choices);

@@ -22,8 +22,8 @@ The editor provides:
   reference safety and supported fonts. Fansub SRT containing ASS/SSA tags remains supported.
 - Explicit SRT/ASS/SSA conversion reviews precision and content losses before
   exporting a separate file. The original document and history remain unchanged.
-  [Conversion policy](docs/format-conversion.md) records supported mappings and
-  pending native acceptance.
+  [Conversion policy](docs/format-conversion.md) records supported mappings,
+  native Mac/chooser validation and 10,000-cue measurements.
 - Atomic subtitle saves, conflict protection between VSF instances and accepted-state
   recovery snapshots. Recovery requires Save As and does not restore drafts or
   undo history.

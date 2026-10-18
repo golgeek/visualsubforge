@@ -11,7 +11,7 @@ import {
 } from '../../../src/lib/client';
 import { styledDocument } from '../ipc-contract-samples';
 
-const host = document.querySelector('#test')!;
+const host = document.querySelector<HTMLElement>('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
 const original: DocumentSnapshot = {
@@ -258,6 +258,32 @@ async function run() {
     await until(() => !host.querySelector('dialog[open]') && !convert.disabled);
     passed(
       'Conversion toolbar and menu share protected modal lifetime and restore native video and focus',
+    );
+
+    host.style.width = '820px';
+    host.querySelector('main')!.style.height = '610px';
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    await until(() => {
+      const panel = host.querySelector('.editor')!.getBoundingClientRect();
+      const bar = host.querySelector('.editorbar')!.getBoundingClientRect();
+      const text = field('Subtitle text').getBoundingClientRect();
+      const footer = host
+        .querySelector('.editorfooter')!
+        .getBoundingClientRect();
+      return (
+        bar.bottom <= text.top &&
+        text.height >= 34 &&
+        text.bottom <= footer.top &&
+        footer.bottom <= panel.bottom
+      );
+    });
+    host.style.width = '';
+    host.querySelector('main')!.style.height = '';
+    await tick();
+    passed(
+      'Wrapped authoring controls, the textarea and history buttons stay inside the editor panel',
     );
 
     input('Cue style', 'Default');

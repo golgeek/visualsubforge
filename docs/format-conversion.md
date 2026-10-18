@@ -1,8 +1,10 @@
 # Deliberate subtitle conversion
 
-Stage5 is in progress. Shared proposals, the desktop review/export dialog and
-protected new-file publication are implemented. Native workflow and desktop 10k
-acceptance remain required. Ordinary Save keeps its same-format restriction.
+Stage5 is complete within the recorded Mac runtime scope. Shared proposals, the
+desktop review/export dialog and protected new-file publication pass native,
+actual macOS chooser and desktop 10k acceptance. Ordinary Save keeps its
+same-format restriction. Windows/Linux feature execution and physical-device
+acceptance remain separate gates.
 
 Open **File → Convert Subtitles…** or use **Convert subtitles…** in the cue editor.
 Apply or discard an unapplied cue draft, choose a different output format, then
@@ -240,3 +242,106 @@ branch has not been compiled or executed here. Conversion native workflow,
 appearance, actual destination picker and desktop10k measurements remain pending.
 Logs, including the initial browser/focus/lint and Rust cleanup failure receipts,
 are retained under ignored `tests/fixtures/generated/authoring-research/`.
+
+### Native workflow and desktop scale — 2026-10-18
+
+```sh
+source "$HOME/.nvm/nvm.sh" && nvm use --silent
+npm run check
+npm test
+npm run test:browser
+npm run lint
+npm run format:check
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features desktop-e2e,media-prototype \
+  --config "$PWD/tests/fixtures/generated/fonts/tauri.native.json" -- --locked
+DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
+  VSF_CONVERSION_CAPTURE=1 VSF_CONVERSION_CAPTURE_LABELS=conversion-ass-ssa-output \
+  node tests/desktop/run.mjs \
+  --binary "$PWD/target/debug/bundle/macos/VisualSubForge.app/Contents/MacOS/visualsubforge" \
+  --conversion --conversion-performance
+```
+
+Final `desktop-ZhyYDN` passes all six directions, exact source/history/dirty and
+project preservation, cancelled/missing-parent/existing destinations, separate
+output reopen, attachment retention, ASS→SSA recovery and safe timed rounding.
+Each native preview acknowledges the exported generation/revision. Independent
+CUA imagery confirms the embedded font's green triangle/rectangle glyphs and
+separate lower Unicode lines after ASS→SSA. The earlier independent ASS→SRT
+image in `desktop-SIGyQy` shows ordinary glyphs, consistent with its reported
+style/font losses; that run itself failed the observer-acknowledgment timeout.
+WebView captures alone do not prove native-video content.
+
+The final executable SHA256 is
+`7b4f34384ff64792d62e9d151c40ef2ab577ad447b335ee255baf1c45b11f7f4`.
+`conversion-runtime.json` records PID22871 and 46 loaded backing-file identities,
+including the expected executable and private `audio-integration-master-v1`
+libmpv, with none unavailable. This is the existing Mac OpenGL runtime; it does
+not adopt ANGLE or establish physical Windows/Linux GPU/audio acceptance.
+
+All six accepted 10k workloads pass five review/export cycles each. Maximum
+open/dialog/preparation/publication/close times are **321/22/400/500/24 ms**.
+Cancellation completion is **<=15 ms** and stale-edit invalidation **<=103 ms**.
+The unchanged one-second interaction and separate ten-second preparation gates
+pass. Reports retain at most eight examples per issue; repeated outputs are
+byte-identical, rejected outputs absent, inputs unchanged and every exported file
+reopens with all 10,000 cues and expected exact/explicitly rounded endpoints.
+`conversion-performance.json` retains hashes and raw timings. These measure real
+WebView/Rust/files with generated DOM events and supplied file choices, not
+physical input or OS chooser latency. Final application shutdown is code0.
+
+Native inspection exposed clipped wrapped authoring/history controls. The editor
+now measures its control rows, reserves a usable textarea and computes pane minima
+from those heights. Measurement commits on the next animation frame to avoid
+ancestor-grid changes during ResizeObserver delivery; observers and pending
+frames are disposed with their elements. Accepted state is unchanged. A focused
+small-window regression failed before the fix; the first synchronous measurement
+fix triggered a WebKit ResizeObserver error. Final 44 frontend tests, all 56
+browser cases, type/lint/format checks and native build pass; native images and
+geometry checks confirm the complete editor in a 1100×720 window with recovery
+and font notices. The prior 374 Rust tests remain the backend baseline; no Rust
+production code changed in this increment.
+
+Retained attempts distinguish harness failures from product evidence:
+`desktop-5FMuJn` needed to await the frontend's media readiness before saving its
+project; `desktop-SIGyQy` missed the 60-second independent-observer acknowledgment;
+`desktop-vBIhWm` passed all six directions before the layout fix. Final evidence
+and the before/failing/final layout logs remain available; no deadline or
+performance gate was relaxed. Actual OS chooser acceptance is separate below.
+
+### Actual macOS chooser acceptance — 2026-10-18
+
+```sh
+PKG_CONFIG_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build/meson-uninstalled" \
+  npm run tauri -- build --debug --bundles app --features media-prototype \
+  --config "$PWD/test-results/conversion-picker-20261018/tauri.json" -- --locked
+```
+
+The configuration changes only the identifier to
+`com.golgeek.visualsubforge.conversion-picker-20261018`, isolating recovery and
+preferences. This build excludes `desktop-e2e`, global Tauri access and WebDriver;
+the ordinary OS chooser executes. A byte-identical bundle copy at
+`test-results/conversion-picker-20261018/VisualSubForgePicker.app` avoids the
+inspection tool's stale identity for the rebuilt original path. Its executable
+SHA256 is `0c129af9a469eca7f53aa6763c216ee20789ef747d174ef3855775cc00383393`.
+Launch JSON and `runtime.json` identify PID24706, the executable and the same
+private libmpv among 46 loaded backing files; none is unavailable.
+
+CUA native input opens the independent SRT/ASS fixtures, reviews SRT→ASS,
+SRT→SSA and ASS→SRT, and opens the actual macOS Save sheet for each. Titles,
+source-directory defaults and `.converted.ass`/`.ssa`/`.srt` filenames are correct.
+Cancelling the ASS sheet returns to its review; retry and all three exports
+succeed. Original filenames, tags, saved state and disabled Undo/Redo remain in
+the editor. Source hashes are unchanged; outputs exactly match the automated
+workflow after accounting for its known accepted-text suffix. Panel images,
+accessibility observations, output hashes and checks are in the same directory.
+Cmd-Q closes normally with code0. No mocked chooser or supplied path queue is
+used in this acceptance. Windows/Linux OS choosers remain unverified here.
+
+The first launch could not be bound by CUA after the bundle identifier changed.
+Only that verified owned process was terminated with SIGTERM before any picker
+action; its -15 result and binding limitation remain recorded. The distinct
+bundle's complete native run supersedes that setup attempt, not its cleanup
+history. Stage5/Task022 acceptance includes the previously validated style/font
+increments and these conversion/native/scale results; the umbrella goal remains
+active for stages6–8.

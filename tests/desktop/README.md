@@ -339,3 +339,27 @@ style-authoring.md. Optional `VSF_FONT_DESKTOP_CAPTURE=1` uses the same matching
 `capture-request.json`/`capture-ack.json` native-window observation lane as ASS,
 with optional `VSF_FONT_DESKTOP_CAPTURE_LABELS`. Webview images omit sibling
 native video. Physical platform acceptance remains separate.
+
+### Deliberate conversion
+
+`--conversion` exercises all six SRT/ASS/SSA export directions, including reviewed
+losses, cancelled/failed destinations, unchanged source/history/project bytes,
+reopen, ASS→SSA crash recovery, attachment-backed native preview and safe timed
+rounding. It needs the native-feature bundle and generated resync video described
+in [conversion evidence](../../docs/format-conversion.md). Editor geometry checks
+cover wrapped controls and recovery notices.
+
+`--conversion-performance` runs the same six accepted 10k workloads as the pure
+benchmark, with five review/export cycles each, bounded report examples, exact
+repeated output, cancel/stale rejection, Undo and reopen. Preparation retains its
+ten-second worker deadline; interactive operations retain the one-second gate.
+Input/binary/output hashes and raw timings are in `conversion-performance.json`.
+Generate ASS/SSA inputs with `python3 scripts/ass-fixtures.py` first.
+
+Both flags use supplied file choices and generated DOM events. They do not test
+the OS file picker or physical input. For an independent native-video observation,
+set `VSF_CONVERSION_CAPTURE=1` and optionally comma-separated
+`VSF_CONVERSION_CAPTURE_LABELS`. The lane writes `capture-request.json` and waits
+up to 60 seconds for `capture-ack.json` containing the same `label`; acknowledge
+only after inspecting and saving the actual native window image. WebView images
+alone omit the native video sibling. The JSON reports retain those scope limits.
