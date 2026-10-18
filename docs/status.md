@@ -76,6 +76,14 @@ byte oracle failure and final full rerun are retained in the desktop guide.
 Pinned VSS-host parity and available VM checks remain required. ADR0008 is proposed.
 See [worker ownership, limits and evidence](plugin-host.md).
 
+**Plugin VM progress (2026-10-18):** the pinned plugin/application/CLI tests,
+frontend build and frontend tests now pass on Ubuntu and Windows ARM64 VMs.
+Ubuntu full-workspace compilation exposed two Linux subtitle-dialog filter type
+errors; the borrowing correction compiles and its workspace tests are running.
+The Windows workspace build is still running. Full platform, installed-helper,
+desktop and historical-host acceptance remain open; see the
+[source identities and retained failures](plugin-host.md#vm-validation-progress--2026-10-18).
+
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries
 support signed offsets and independent target copies. Eight focused tests and all

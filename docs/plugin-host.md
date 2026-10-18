@@ -8,6 +8,42 @@ implemented and tested. Actual Mac format/history/recovery and real chooser
 workflows and ten complete desktop10k workloads pass; historical-host and available
 platform acceptance remain required. ADR0008 is still proposed.
 
+## VM validation progress — 2026-10-18
+
+Isolated Ubuntu 26.04 ARM64 and Windows 11 ARM64 runs verify all 781 tracked
+source files from `8443600` before execution. The subsequent `a6482b3` changes
+only tests/docs. Both VMs pass the pinned Rust 1.98.1 plugin/application/CLI test
+command, Node 24.21.0/npm 11.19.0 setup, frontend build and frontend tests:
+
+```sh
+cargo test --locked -p vsf-plugin-host -p vsf-application -p vsf-cli -- --test-threads=1
+npm ci
+npm run build
+npm test
+```
+
+The initial Ubuntu full-workspace compile found two Linux-only `FileFilter::glob`
+calls passing owned strings where ashpd requires borrowed strings. Borrowing the
+formatted extension patterns fixes compilation; the corrected workspace test
+binary is running. The Windows full-workspace build is also still running.
+Neither full platform run, installed-helper relocation check nor desktop UI
+acceptance is claimed complete at this checkpoint. `cargo fmt --all -- --check`
+and `git diff --check` pass on the host for the two-line correction.
+
+Receipts and drivers are retained under
+`test-results/plugin-platform-20261018/`. The original source archive SHA256 is
+`4b9982680009a3682e8b0a5d1fb51d6a1d991bb64a36534a32427021abdabfaa`.
+The corrected Linux rerun first verifies the original source, then records the
+single patched file SHA256
+`91b30613218511e4cba4fd6493547fcfbf8eca037dc2472510e90a9f69d08ed3`
+in `linux-dialog-fix-receipt.json`. The original failed compile is retained in
+`linux-validation.log`. An earlier host disk-space interruption is recorded
+separately: only the rebuildable Mac incremental compiler cache was removed,
+and the stopped guest resumed after process and source verification. Windows
+receipts are temporarily in the task-owned Downloads staging folder recorded by
+`windows-staging.json`; final evidence must be retained before staging cleanup.
+These VM checks do not establish physical GPU/audio or installation acceptance.
+
 ## Candidate execution boundary
 
 The experiment pins `rquickjs`/`rquickjs-core`/`rquickjs-sys` 0.14.0 and the latter's

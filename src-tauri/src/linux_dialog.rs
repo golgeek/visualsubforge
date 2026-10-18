@@ -155,9 +155,9 @@ async fn request_file(
         } else if legacy_project {
             FileFilter::new("VisualSubSync project").glob("*.vssprj")
         } else if conversion {
-            FileFilter::new("Converted subtitles").glob(format!("*.{subtitle_extension}"))
+            FileFilter::new("Converted subtitles").glob(&format!("*.{subtitle_extension}"))
         } else if matches!(kind, FileChoice::SaveSubtitles) {
-            FileFilter::new("Subtitles (same format)").glob(format!("*.{subtitle_extension}"))
+            FileFilter::new("Subtitles (same format)").glob(&format!("*.{subtitle_extension}"))
         } else {
             FileFilter::new("Subtitles")
                 .glob("*.srt")
