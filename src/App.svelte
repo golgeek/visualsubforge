@@ -2,6 +2,8 @@
   import SettingsDialog from './lib/SettingsDialog.svelte';
   import ResyncDialog from './lib/ResyncDialog.svelte';
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
+  import TranslationPanel from './lib/TranslationPanel.svelte';
+  import { TranslationSession } from './lib/translation-session.svelte';
   import StatisticsDialog from './lib/StatisticsDialog.svelte';
   import StyleInspector from './lib/StyleInspector.svelte';
   import FontDialog from './lib/FontDialog.svelte';
@@ -98,6 +100,8 @@
     type CueBoundary,
   } from './lib/cue-timing';
   const subtitles = new DocumentSession();
+  const translation = new TranslationSession(subtitles);
+  let translationOpen = $state(false);
   const quality = new QualitySession();
   let problemsOpen = $state(false);
   let showQualityMetrics = $state(false);
@@ -1191,6 +1195,40 @@
     }
     return true;
   }
+  async function referenceOperation(
+    operation: 'attach' | 'copy' | 'offset' | 'detach',
+    offsetMs = 0,
+  ) {
+    if (busy || confirming || !ready) return;
+    busy = true;
+    error = '';
+    try {
+      if (operation === 'attach' || operation === 'copy') {
+        const path = await chooseFile(
+          'subtitles',
+          doc.translation?.reference?.path ?? doc.path,
+        );
+        if (!alive || !path) return;
+        if (operation === 'copy' && !(await protect())) return;
+        if (!alive) return;
+        if (await translation.load(path, operation === 'copy')) {
+          notice =
+            operation === 'copy'
+              ? 'Independent translation target created · Save As required'
+              : 'Reference attached';
+          ++qualityContext;
+        }
+      } else if (operation === 'offset') await translation.setOffset(offsetMs);
+      else await translation.detach();
+    } catch (failure) {
+      if (alive) error = String(failure);
+    } finally {
+      if (alive) busy = false;
+    }
+  }
+  $effect(() => {
+    if (!translationOpen) translation.request(doc, null, 0, null, false);
+  });
   async function resolveProjectReference(issue: ProjectReferenceIssue) {
     confirming = true;
     try {
@@ -1434,6 +1472,10 @@
           break;
         case 'openProject':
           await projects.open();
+          break;
+        case 'translationReference':
+          translationOpen = !translationOpen;
+          if (translationOpen) problemsOpen = false;
           break;
         case 'importLegacyProject':
           legacyImportReturn =
@@ -1842,6 +1884,7 @@
     return () => {
       alive = false;
       projects.dispose();
+      translation.dispose();
       subtitles.dispose();
       quality.dispose();
       media.dispose();
@@ -2313,11 +2356,20 @@
           aria-expanded={problemsOpen}
           onclick={() => {
             problemsOpen = !problemsOpen;
+            if (problemsOpen) translationOpen = false;
             if (!problemsOpen) pendingProblem = null;
           }}
           >Problems{quality.view?.profileHash
             ? ` · ${quality.view.findingsCount}`
             : ''}</button
+        >
+        <button
+          disabled={busy || confirming || !ready}
+          aria-expanded={translationOpen}
+          onclick={() => {
+            translationOpen = !translationOpen;
+            if (translationOpen) problemsOpen = false;
+          }}>Translation reference{doc.translation?.dirty ? ' •' : ''}</button
         >
         <label
           ><input type="checkbox" bind:checked={showQualityMetrics} /> Cue metrics</label
@@ -2368,7 +2420,10 @@
           >
         {/if}
       </div>
-      <div class="subtitle-review" class:with-problems={problemsOpen}>
+      <div
+        class="subtitle-review"
+        class:with-problems={problemsOpen || translationOpen}
+      >
         <div class="cue-table">
           <div class="table-head" class:with-metrics={showQualityMetrics}>
             <span>#</span><span>Start</span><span>End</span><span
@@ -2453,6 +2508,15 @@
               problemsOpen = false;
               pendingProblem = null;
             }}
+          />{/if}
+        {#if translationOpen}<TranslationPanel
+            {subtitles}
+            session={translation}
+            disabled={busy || confirming || !ready}
+            onload={(copy) => void referenceOperation(copy ? 'copy' : 'attach')}
+            onoffset={(offset) => void referenceOperation('offset', offset)}
+            ondetach={() => void referenceOperation('detach')}
+            onclose={() => (translationOpen = false)}
           />{/if}
       </div>
     </section>

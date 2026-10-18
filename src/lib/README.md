@@ -9,6 +9,7 @@ mount and are disposed on unmount; they are not global stores.
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
+| `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
@@ -50,6 +51,18 @@ After attachment/save, a document status reply refreshes accepted context.
 Context-only dirty changes prompt for project save before replacement/quit;
 discarding them on quit skips automatic project publication. Subtitle-only
 projects skip media loading, scenes and seeking, including in playback-free builds.
+
+TranslationPanel owns browse/match mode, page and selected reference row. Its
+inputs follow accepted target timing and visibly label unapplied drafts. App
+gates reference changes and protects independent target-copy replacement.
+TranslationSession serializes query work, coalesces desired selection, cancels
+late job identities and drains obsolete work before mutation. Hidden/disposed
+panels cancel reading; accepted references remain Rust-owned. Reference acceptance
+uses DocumentSession's existing serialization: context-only replies preserve text,
+timing/style drafts, while a new target generation reconciles normally. A status
+refresh after a failed acceptance reply accounts for a potentially successful
+Rust commit without retrying the change. Operation errors survive background
+query resumption. The panel never executes source HTML, CSS or ASS markup.
 
 Legacy import is independent of the active document/media projection. Relocation
 retires old reviews; choosing a different project clears earlier relocations.

@@ -2579,6 +2579,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'settings'
   | 'timingSettings'
   | 'resync'
+  | 'translationReference'
   | 'showScenes'
   | 'scanScenes'
   | 'cancelSceneScan'

@@ -3,6 +3,10 @@ import { DocumentSession } from '../../../src/lib/document-session.svelte';
 import { MediaSession } from '../../../src/lib/media-session.svelte';
 import { ProjectWorkflow } from '../../../src/lib/project-workflow.svelte';
 import {
+  TranslationSession,
+  referenceKey,
+} from '../../../src/lib/translation-session.svelte';
+import {
   emptyDocument,
   emptyStatus,
   type DocumentAction,
@@ -10,6 +14,7 @@ import {
   type MediaStatus,
   type OpenedProject,
   type ProjectOptions,
+  type TranslationReply,
 } from '../../../src/lib/client';
 
 const heading = document.getElementById('result')!;
@@ -551,10 +556,294 @@ async function projectCases() {
   );
 }
 
+async function translationCases() {
+  let current = snapshot();
+  let loseReply = false;
+  let copy = false;
+  const reference = {
+    path: '/reference.ass',
+    format: 'ass',
+    sha256: 'a'.repeat(64),
+    cues: 3,
+    offsetMs: -1500,
+  };
+  const session = new DocumentSession({
+    documentAction: async () => structuredClone(current),
+    chooseFile: async () => null,
+    resyncAccept: async () => {
+      throw new Error('unused');
+    },
+    gapAccept: async () => {
+      throw new Error('unused');
+    },
+    translationAction: async (action): Promise<TranslationReply> => {
+      const epoch = (current.translation?.epoch ?? 0) + 1;
+      current = {
+        ...current,
+        translation: {
+          epoch,
+          dirty: true,
+          reference: action.kind === 'detach' ? null : reference,
+        },
+      };
+      if (copy)
+        current = {
+          ...current,
+          generation: current.generation + 1,
+          revision: 0,
+          path: null,
+          requiresSaveAs: true,
+          cues: [cue(7, 'Independent target')],
+          canUndo: false,
+          canRedo: false,
+        };
+      if (loseReply) throw new Error('Lost acceptance reply');
+      return {
+        key: {
+          generation: current.generation,
+          revision: current.revision,
+          epoch,
+        },
+        context: current.translation!,
+        job: null,
+        document: copy ? structuredClone(current) : null,
+      };
+    },
+  });
+  await session.command({ kind: 'status' });
+  session.text = 'Unapplied translation';
+  session.start = '00:00:01.234';
+  session.style = 'Unapplied style';
+  const initial = session.snapshot;
+  await session.changeTranslation(
+    { kind: 'accept', id: 1, discard: false },
+    initial,
+  );
+  assert(
+    session.dirty &&
+      session.text === 'Unapplied translation' &&
+      session.start === '00:00:01.234' &&
+      session.style === 'Unapplied style',
+    'Attaching reference lost the target draft',
+  );
+  assert(
+    session.snapshot.revision === initial.revision &&
+      session.snapshot.canUndo === initial.canUndo,
+    'Reference context altered target history',
+  );
+  passed(
+    'reference context reconciliation preserves text, timing and style drafts and target history',
+  );
+  await rejects(
+    session.changeTranslation(
+      { kind: 'accept', id: 1, discard: false },
+      initial,
+    ),
+    'Obsolete target projection was accepted',
+  );
+  passed('reference mutations reject an obsolete accepted projection');
+  loseReply = true;
+  await rejects(
+    session.changeTranslation(
+      {
+        kind: 'detach',
+        key: {
+          generation: current.generation,
+          revision: current.revision,
+          epoch: current.translation!.epoch,
+        },
+      },
+      session.snapshot,
+    ),
+    'Lost reference reply was not reported',
+  );
+  assert(
+    session.snapshot.translation?.reference === null &&
+      session.text === 'Unapplied translation',
+    'Lost reply did not refresh context while retaining the draft',
+  );
+  passed(
+    'lost context replies refresh accepted reference state without discarding a target draft',
+  );
+  copy = true;
+  await rejects(
+    session.changeTranslation(
+      { kind: 'accept', id: 2, discard: true },
+      session.snapshot,
+    ),
+    'Lost copy reply was not reported',
+  );
+  assert(
+    session.snapshot.requiresSaveAs &&
+      session.text === 'Independent target' &&
+      !session.dirty,
+    'Lost copy reply left the old target projection visible',
+  );
+  passed(
+    'lost target-copy replies recover the accepted replacement through the same document owner',
+  );
+  session.dispose();
+}
+
+async function referenceQueryCases() {
+  const current = {
+    ...snapshot(),
+    translation: {
+      epoch: 1,
+      dirty: false,
+      reference: {
+        path: '/reference.srt',
+        format: 'srt',
+        sha256: 'a'.repeat(64),
+        cues: 2,
+        offsetMs: 0,
+      },
+    },
+  };
+  const docs = new DocumentSession({
+    documentAction: async () => current,
+    chooseFile: async () => null,
+    resyncAccept: async () => {
+      throw new Error('unused');
+    },
+    gapAccept: async () => {
+      throw new Error('unused');
+    },
+  });
+  await docs.command({ kind: 'status' });
+  let next = 0,
+    job: TranslationReply['job'] = null,
+    queries = 0,
+    active = 0,
+    peak = 0;
+  const firstReply = deferred<void>();
+  const cancelled: number[] = [];
+  const reader = new TranslationSession(docs, async (action) => {
+    if (action.kind === 'query') {
+      ++queries;
+      ++active;
+      peak = Math.max(peak, active);
+      job = {
+        id: ++next,
+        key: referenceKey(current),
+        copy: false,
+        phase: 'ready',
+        reference: null,
+        error: null,
+        page: {
+          total: action.targetCueId ?? 0,
+          offset: 0,
+          rows: [],
+          selected: null,
+        },
+      };
+      if (queries === 1) await firstReply.promise;
+      --active;
+    } else if (action.kind === 'cancel') {
+      cancelled.push(action.id);
+      if (job?.id === action.id) job.phase = 'cancelled';
+    }
+    return {
+      key: referenceKey(current),
+      context: current.translation,
+      job: structuredClone(job),
+      document: null,
+    };
+  });
+  reader.request(current, 1, 0, null, true);
+  await until(() => queries === 1);
+  reader.request(current, 2, 0, null, true);
+  firstReply.resolve();
+  await until(() => reader.page?.total === 2);
+  assert(
+    peak === 1 && cancelled.includes(1),
+    'Obsolete reference queries overlapped or were adopted',
+  );
+  passed(
+    'reference query serialization cancels late starts and publishes only the latest target selection',
+  );
+  reader.dispose();
+
+  const started = deferred<void>(),
+    release = deferred<void>();
+  let loads = 0;
+  const loading = new TranslationSession(docs, async (action) => {
+    if (action.kind === 'status') {
+      started.resolve();
+      await release.promise;
+    }
+    if (action.kind === 'load') ++loads;
+    return {
+      key: referenceKey(current),
+      context: current.translation,
+      job: null,
+      document: null,
+    };
+  });
+  const preparation = loading.load('/reference.srt', false);
+  await started.promise;
+  loading.cancel();
+  release.resolve();
+  assert(
+    !(await preparation) && loads === 0,
+    'Cancel during reference preflight dispatched a load',
+  );
+  loading.dispose();
+  passed(
+    'cancelling reference preflight prevents later load and acceptance dispatch',
+  );
+
+  const late = deferred<void>();
+  let issued = false,
+    retired = false;
+  const disposed = new TranslationSession(docs, async (action) => {
+    if (action.kind === 'query') {
+      issued = true;
+      await late.promise;
+      return {
+        key: referenceKey(current),
+        context: current.translation,
+        document: null,
+        job: {
+          id: 99,
+          key: referenceKey(current),
+          copy: false,
+          phase: 'ready',
+          reference: null,
+          page: { total: 99, offset: 0, rows: [], selected: null },
+          error: null,
+        },
+      };
+    }
+    if (action.kind === 'cancel' && action.id === 99) retired = true;
+    return {
+      key: referenceKey(current),
+      context: current.translation,
+      job: null,
+      document: null,
+    };
+  });
+  disposed.request(current, 1, 0, null, true);
+  await until(() => issued);
+  disposed.dispose();
+  late.resolve();
+  await until(() => retired);
+  assert(
+    disposed.page === null,
+    'Disposed reference query published its late page',
+  );
+  passed(
+    'disposing reference queries cancels a late job identity and suppresses its page',
+  );
+  docs.dispose();
+}
+
 try {
   await documentCases();
   await mediaCases();
   await projectCases();
+  await translationCases();
+  await referenceQueryCases();
   heading.textContent = `PASS: all ${checks.children.length} workspace lifecycle checks`;
 } catch (error) {
   heading.textContent = `FAIL: ${String(error)}`;

@@ -16,6 +16,7 @@ pub enum WorkspaceAction {
     Settings,
     TimingSettings,
     Resync,
+    TranslationReference,
     ShowScenes,
     ScanScenes,
     CancelSceneScan,
@@ -123,6 +124,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .item(&item("settings", "Settings…", "CmdOrCtrl+,")?);
     let edit = edit.build()?;
     let view = SubmenuBuilder::new(app, "View")
+        .text("translationReference", "Translation Reference")
         .item(
             &CheckMenuItemBuilder::with_id("showScenes", "Show Scene Changes")
                 .checked(true)
@@ -199,6 +201,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
     if let Some(menu) = app.menu() {
         for (id, enabled) in [
             ("resync", state.resync),
+            ("translationReference", true),
             ("settings", true),
             ("timingSettings", true),
             (
@@ -425,6 +428,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "settings",
         "timingSettings",
         "resync",
+        "translationReference",
         "showScenes",
         "scanScenes",
         "cancelSceneScan",

@@ -1,11 +1,25 @@
 # Manual reference/target translation
 
 Stage6c is in progress. The pure foundation and Rust desktop owner/IPC/recovery
-and project persistence are implemented. The user-facing translation panel and
-native/combined scale acceptance remain pending. WebVTT and legacy project import
+and project persistence are implemented, with the user-facing reference panel.
+Native/chooser/combined scale acceptance remains pending. WebVTT and legacy project import
 are already accepted.
 
-## Intended workflow
+## Workflow
+
+Open **View → Translation Reference** or the **Translation reference** button
+above the cue list. Attach/replace a reference for the current target, or choose
+**Start target copy…** to make an independent target from a selected source file.
+Copying asks to save/discard/cancel current work before replacement. Reference
+attachment/offset/detachment preserve unapplied text, timing and style drafts.
+The panel and Problems share the available side-pane space.
+
+Choose **Matching cues** for the accepted target selection or **Browse all** for
+independent paging. Select a reference row to inspect its raw and reading text;
+the view never interprets source markup as HTML. An explicit signed integer offset
+uses milliseconds. Closing the panel cancels its reading work without detaching
+the reference. Refresh restarts a cancelled/failed query. Failed reference changes
+stay visible while background reading resumes.
 
 Open an existing target and attach a read-only reference, or start a translation
 from a separate copy of a reference. Both documents may be SRT, ASS, SSA or WebVTT.
@@ -77,9 +91,17 @@ optional selected row capped at 64 KiB. Truncation and projection limits are
 explicit. Source text always remains complete in Rust and in recovery.
 
 The thin typed `translation_action` command delegates to blocking application
-work; generated contracts and `client.ts` expose its actions/replies. The pending
-frontend will own only selection, paging, visibility, drafts and reply epochs.
-It must reconcile context replies without replacing an unapplied target draft.
+work; generated contracts and `client.ts` expose its actions/replies. The frontend
+TranslationSession owns only paging, pending-operation state and reply epochs.
+It coalesces desired queries, serializes query work and drains cancelled jobs
+before reference changes. Late starts are cancelled; stale/disposed pages are
+never adopted. App gates reference mutations through its workspace operation and
+protects target replacement. DocumentSession serializes acceptance with document
+commands; context replies replace only the accepted context while keeping drafts.
+A target copy returns a new generation through the same document reconciliation.
+After an acceptance error, a status refresh reconciles potentially committed Rust
+state, preserving drafts when the target version is unchanged. This covers a lost
+reply without blindly retrying the mutation. No new Rust worker/dependency is added.
 
 Recovery v5 retains exact reference text, format, SHA-256, paths, offset and copy
 provenance. Restore validates all data without reading the original reference.
@@ -119,8 +141,7 @@ for project Save/Discard/Cancel on replacement and quit. Discard on quit skips
 automatic project publication. Subtitle-only projects skip media/scenes/seek and
 work in builds without playback.
 
-No menu or panel yet creates a translation relationship. ADR0033 remains proposed
-until the complete project/UI/native/scale acceptance passes.
+ADR0033 remains proposed until the complete native/chooser/scale acceptance passes.
 
 ## Acceptance
 
@@ -332,6 +353,55 @@ The other wider-suite cases already passed; no unrelated failure remains.
 The translation panel/start-copy entry point and actual native/chooser/combined10k
 acceptance remain pending. Project persistence does not close stage6c or ADR0033.
 No native runtime, physical-platform acceptance or performance limit changed.
+
+## Reference panel increment — 2026-10-18
+
+The View menu and inline panel expose attach/replace/detach, independent target
+copy, signed offsets, accepted-time matching, bounded 100-row paging and selected
+raw/reading views. Target draft/history ownership remains in DocumentSession/Rust.
+Browser coverage includes markup rendered as literal text, draft preservation,
+copy Cancel/Discard, failed load preservation, cancellation and source retention.
+Controlled lifecycle cases cover stale accepted projections, lost context/copy
+replies, serial latest-selection queries, cancellation before load dispatch and
+disposal before a job identity arrives.
+
+Evidence: `test-results/translation-panel-20261018/`. Pinned Rust 1.98.1 and
+Node 24.21.0/npm11.19.0. Commands:
+
+```sh
+cargo fmt --all -- --check
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
+source "$HOME/.nvm/nvm.sh"
+nvm use --silent
+npm run ipc:generate
+npm run ipc:check
+npm run check
+npm run lint
+npm test
+npm run build
+npm run format:check
+npm run test:browser -- --grep workspace-lifecycle
+npm run test:browser -- --grep projects
+npm run test:browser -- --grep 'projects|workspace-lifecycle'
+npm run test:browser
+npm run tauri -- build --debug --no-bundle -- --locked
+```
+
+The initial panel run exposed operation errors being cleared when background
+queries resumed. Separate mutation/query error state fixes the defect without
+changing reference or target acceptance. The failed log and representative
+screenshot/trace are retained in `retained-reference-error-failure/`. The final
+targeted run passes eight Chromium/WebKit cases in 51.5s, with 60 project/panel and 32
+lifecycle checks per ordinary harness. The full run passes all 58 browser cases
+in 2.7m. All 452 workspace Rust tests pass /30 ignored; eight zero-test harnesses
+are not feature evidence. Strict Clippy, Rustfmt, ESLint, Prettier, generated IPC,
+Svelte/TypeScript and 44 frontend unit tests pass. The default desktop build passes
+in 29.35s and was not launched. Exact logs retain the checks and initial failure.
+
+Actual native Mac workflows, real source/destination choosers and combined
+target/reference/project/recovery10k validation remain required; browser fixtures
+use modeled IPC and do not establish native acceptance. Stage6c stays open.
 
 ## Legacy source reference
 

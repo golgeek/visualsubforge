@@ -42,8 +42,14 @@ tests and all 452 workspace Rust tests /30 ignored pass; 44 frontend tests and
 targeted Chromium/WebKit project checks pass. The wider browser run exposed one
 outdated lifecycle fixture; its corrected project/lifecycle rerun passes all eight
 cases in both engines. Strict checks and the final default desktop build pass.
-The panel and native/chooser/combined
-desktop10k translation acceptance remain pending.
+The reference panel now exposes attach/replace/detach, independent target copies,
+signed offsets and matching/paged browsing with raw/reading views. Context replies
+preserve target drafts; lost acceptance replies refresh authoritative state.
+Eight focused browser cases pass with 60 project/panel and 32 lifecycle checks per
+ordinary harness. The final full suite passes all 58 browser cases, all 452 workspace
+Rust tests /30 ignored and 44 frontend tests, with strict/IPC/default-build checks.
+Native/chooser/combined desktop10k translation acceptance remains
+pending.
 See [the workflow contract and exact foundation evidence](manual-translation.md).
 
 **Legacy project import stage6b complete (2026-10-18):** application parsing supports

@@ -9,6 +9,8 @@ import {
   textAccept,
   styleAccept,
   fontAccept,
+  translationAction,
+  type TranslationAction,
   type TextTarget,
   emptyDocument,
   type DocumentAction,
@@ -39,6 +41,7 @@ const client = {
   textAccept,
   styleAccept,
   fontAccept,
+  translationAction,
 };
 type Client = Omit<
   typeof client,
@@ -48,6 +51,7 @@ type Client = Omit<
   | 'sceneRepairAccept'
   | 'durationRepairAccept'
   | 'batchTimingAccept'
+  | 'translationAction'
 > &
   Partial<
     Pick<
@@ -58,6 +62,7 @@ type Client = Omit<
       | 'sceneRepairAccept'
       | 'durationRepairAccept'
       | 'batchTimingAccept'
+      | 'translationAction'
     >
   >;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
@@ -65,6 +70,7 @@ type CommandOptions = {
   plan?: CueOperationPlan;
   version?: Version;
   preferred?: number | null;
+  preserveDraft?: boolean;
 };
 
 // Rust owns the document and history. This owner replaces accepted projections;
@@ -137,6 +143,45 @@ export class DocumentSession {
       (before) => this.client.documentAction(action, options.version ?? before),
       options,
     );
+  }
+  async changeTranslation(
+    action: Extract<
+      TranslationAction,
+      { kind: 'accept' | 'setOffset' | 'detach' }
+    >,
+    expected: DocumentSnapshot,
+  ): Promise<boolean> {
+    if (this.accepted !== expected)
+      return Promise.reject(
+        new Error('The target or reference changed; try again.'),
+      );
+    try {
+      return await this.update(
+        async (before) => {
+          const reply = await (
+            this.client.translationAction ?? translationAction
+          )(action);
+          if (reply.document) return reply.document;
+          if (
+            reply.key.generation !== before.generation ||
+            reply.key.revision !== before.revision
+          )
+            throw new Error(
+              'The target changed during the reference operation; reopen its current state.',
+            );
+          return { ...before, translation: reply.context };
+        },
+        { preserveDraft: true },
+      );
+    } catch (failure) {
+      // A lost acceptance reply can follow a successful Rust commit. Refresh
+      // accepted state, retaining the draft when the target version is unchanged.
+      if (this.alive && this.accepted === expected)
+        await this.command({ kind: 'status' }, { preserveDraft: true }).catch(
+          () => {},
+        );
+      throw failure;
+    }
   }
   acceptResync(id: number, expected: DocumentSnapshot): Promise<boolean> {
     if (this.accepted !== expected || this.dirty)
@@ -243,7 +288,12 @@ export class DocumentSession {
           ? selectCues(next.cues, this.multi, this.selection, 'replace')
           : reconcileSelection(next.cues, this.multi, this.selection);
       this.accepted = next;
-      this.revert();
+      if (
+        !options.preserveDraft ||
+        next.generation !== before.generation ||
+        next.revision !== before.revision
+      )
+        this.revert();
       return true;
     } finally {
       this.pending = false;

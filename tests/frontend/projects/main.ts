@@ -4,6 +4,8 @@ import type {
   LegacyImportReview,
   ProjectReferenceIssue,
   ProjectReferenceOverride,
+  TranslationAction,
+  TranslationReply,
 } from '../../../src/lib/client';
 import { legacyImportReview } from '../ipc-contract-samples';
 import { mount, unmount, tick } from 'svelte';
@@ -45,6 +47,24 @@ const referenceSummary = {
   },
 };
 let attachReference = false;
+let translationJob: TranslationReply['job'] = null;
+let translationId = 0;
+let holdReferenceLoad = false;
+const referenceRows = Array.from({ length: 201 }, (_, index) => ({
+  index,
+  startMs: index * 1000 - 500,
+  endMs: index * 1000 + 500,
+  overlapMs: 500,
+  raw:
+    index === 0
+      ? '{\\an8}<i>Été 世界</i><img src=x onerror=alert(1)>'
+      : `Reference ${index + 1}`,
+  reading: index === 0 ? 'Été 世界' : `Reference ${index + 1}`,
+  warning: index === 0 ? 'Layout is omitted from the reading view' : null,
+  timed: false,
+  layout: index === 0,
+  truncated: false,
+}));
 const calls: string[] = [];
 const saves: Record<string, unknown>[] = [];
 const callbacks = new Map<number, (value: unknown) => void>();
@@ -99,7 +119,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     async invoke(
       command: string,
       args: {
-        action?: MediaAction | DocumentAction;
+        action?: MediaAction | DocumentAction | TranslationAction;
         handler?: number;
         generation?: number;
         state?: Parameters<typeof updateMenu>[0];
@@ -163,6 +183,119 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           saves.push(args.request!);
           if (doc.translation) doc.translation.dirty = false;
           return { path: args.request!.path, token: 42 };
+        case 'translation_action': {
+          const action = args.action as TranslationAction;
+          const key = () => ({
+            generation: doc.generation,
+            revision: doc.revision,
+            epoch: doc.translation?.epoch ?? 0,
+          });
+          let replacement = false;
+          if (action.kind === 'load') {
+            if (action.path === '/invalid.srt')
+              throw new Error('Invalid reference file');
+            translationJob = {
+              id: ++translationId,
+              key: key(),
+              copy: action.copy,
+              phase: 'working',
+              reference: { ...referenceSummary.reference, path: action.path },
+              page: null,
+              error: null,
+            };
+          } else if (action.kind === 'query') {
+            const rows =
+              action.targetCueId === null
+                ? referenceRows
+                : action.targetCueId === 1
+                  ? referenceRows.slice(0, 2)
+                  : [];
+            translationJob = {
+              id: ++translationId,
+              key: key(),
+              copy: false,
+              phase: 'ready',
+              reference: null,
+              page: {
+                total: rows.length,
+                offset: action.offset,
+                rows: rows.slice(action.offset, action.offset + action.limit),
+                selected:
+                  action.selected === null
+                    ? null
+                    : (referenceRows[action.selected] ?? null),
+              },
+              error: null,
+            };
+          } else if (
+            action.kind === 'cancel' &&
+            translationJob?.id === action.id
+          )
+            translationJob.phase = 'cancelled';
+          else if (
+            action.kind === 'view' &&
+            translationJob?.id === action.id &&
+            translationJob.phase === 'working' &&
+            !holdReferenceLoad
+          )
+            translationJob.phase = 'ready';
+          else if (
+            action.kind === 'accept' &&
+            translationJob?.id === action.id
+          ) {
+            if (translationJob.phase !== 'ready' || !translationJob.reference)
+              throw new Error('Reference is not ready');
+            doc.translation = {
+              epoch: key().epoch + 1,
+              dirty: true,
+              reference: translationJob.reference,
+            };
+            if (translationJob.copy) {
+              replacement = true;
+              doc = {
+                ...doc,
+                generation: doc.generation + 1,
+                revision: 0,
+                path: null,
+                loaded: true,
+                requiresSaveAs: true,
+                dirty: false,
+                canUndo: false,
+                canRedo: false,
+                cues: [
+                  {
+                    id: 1,
+                    startMs: 1000,
+                    endMs: 2000,
+                    text: 'Copied original text',
+                  },
+                ],
+              };
+            }
+            translationJob.phase = 'accepted';
+          } else if (action.kind === 'setOffset' && doc.translation?.reference)
+            doc.translation = {
+              ...doc.translation,
+              epoch: key().epoch + 1,
+              dirty: true,
+              reference: {
+                ...doc.translation.reference,
+                offsetMs: action.offsetMs,
+              },
+            };
+          else if (action.kind === 'detach')
+            doc.translation = {
+              epoch: key().epoch + 1,
+              dirty: true,
+              reference: null,
+            };
+          return structuredClone({
+            key: key(),
+            context: doc.translation ?? null,
+            job: translationJob,
+            document: replacement ? doc : null,
+          } satisfies TranslationReply);
+        }
         case 'scenes_restore':
           if (restoreFailure === 'scenes')
             throw new Error('Injected scenes failure');
@@ -772,6 +905,137 @@ async function run() {
         `Subtitle-only save omits media and position with playback available=${available}`,
       );
     }
+    attachReference = false;
+    await freshProject();
+    menuAction('translationReference');
+    await until(
+      () => !!host.querySelector('[aria-label="Translation reference"]'),
+    );
+    const targetDraft = host.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Subtitle text"]',
+    )!;
+    targetDraft.value = 'Keep my translated draft';
+    targetDraft.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    chosenPath = '/reference.ass';
+    button('Attach reference…');
+    await until(() => !!doc.translation?.reference && workspaceReady());
+    await until(
+      () => !!host.querySelector('[aria-label="Reference cues"] button'),
+    );
+    assert(
+      targetDraft.value === 'Keep my translated draft' &&
+        host.textContent!.includes('unapplied draft'),
+      'Attaching a reference preserves the target draft and labels accepted-timing matches',
+    );
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Reference cues"] button')!
+      .click();
+    await until(
+      () => !!host.querySelector('[aria-label="Selected reference cue"]'),
+    );
+    const selectedReference = host.querySelector(
+      '[aria-label="Selected reference cue"]',
+    )!;
+    assert(
+      selectedReference.textContent!.includes('{\\an8}<i>Été 世界</i><img') &&
+        !selectedReference.querySelector('img'),
+      'Reference raw markup is literal text alongside its reading projection',
+    );
+    const offsetInput = host.querySelector<HTMLInputElement>(
+      '[aria-label="Reference offset in milliseconds"]',
+    )!;
+    offsetInput.value = '-2500';
+    offsetInput.dispatchEvent(new Event('input', { bubbles: true }));
+    button('Apply offset');
+    await until(
+      () => doc.translation?.reference?.offsetMs === -2500 && workspaceReady(),
+    );
+    assert(
+      targetDraft.value === 'Keep my translated draft' &&
+        doc.cues[0]?.startMs === 1000,
+      'Signed reference offsets preserve target timing and its unapplied draft',
+    );
+    const referenceView = host.querySelector<HTMLSelectElement>(
+      '[aria-label="Reference view"]',
+    )!;
+    referenceView.selectedIndex = 1;
+    referenceView.dispatchEvent(new Event('change', { bubbles: true }));
+    await until(() => host.textContent!.includes('201 reference cues'));
+    button('Next reference page');
+    await until(
+      () =>
+        host
+          .querySelector('[aria-label="Reference cues"] button')
+          ?.textContent?.includes('#101') === true,
+    );
+    assert(
+      host.querySelectorAll('[aria-label="Reference cues"] button').length ===
+        100,
+      'Reference browsing pages bounded rows independently of the selected target',
+    );
+    button('Close reference panel');
+    await until(
+      () => !host.querySelector('[aria-label="Translation reference"]'),
+    );
+    assert(
+      !!doc.translation?.reference &&
+        targetDraft.value === 'Keep my translated draft',
+      'Closing the reference panel preserves accepted context and the target draft',
+    );
+    menuAction('translationReference');
+    await until(
+      () => !!host.querySelector('[aria-label="Translation reference"]'),
+    );
+    chosenPath = '/invalid.srt';
+    button('Replace reference…');
+    await until(
+      () =>
+        host.textContent!.includes('Invalid reference file') &&
+        workspaceReady(),
+    );
+    assert(
+      doc.translation?.reference?.path === '/reference.ass' &&
+        targetDraft.value === 'Keep my translated draft',
+      'Failed reference replacement preserves the original context and draft',
+    );
+    holdReferenceLoad = true;
+    chosenPath = '/cancelled.srt';
+    button('Replace reference…');
+    await until(() => translationJob?.phase === 'working');
+    button('Cancel reference operation');
+    await until(workspaceReady);
+    holdReferenceLoad = false;
+    assert(
+      doc.translation?.reference?.path === '/reference.ass' &&
+        targetDraft.value === 'Keep my translated draft',
+      'Cancelling reference preparation does not attach it or replace the draft',
+    );
+    button('Detach reference');
+    await until(() => !doc.translation?.reference && workspaceReady());
+    assert(
+      targetDraft.value === 'Keep my translated draft',
+      'Reference detachment preserves the target draft',
+    );
+    chosenPath = '/original.srt';
+    button('Start target copy…');
+    await until(() => !!unsavedProject());
+    button('Cancel');
+    await until(workspaceReady);
+    assert(
+      targetDraft.value === 'Keep my translated draft',
+      'Cancelling target replacement retains the current translation',
+    );
+    button('Start target copy…');
+    await until(() => !!unsavedProject());
+    button('Discard changes');
+    await until(() => doc.requiresSaveAs && workspaceReady());
+    assert(
+      targetDraft.value === 'Copied original text' &&
+        doc.path === null &&
+        doc.translation?.reference?.path === '/original.srt',
+      'An authorized independent target copy requires Save As and retains its original as reference',
+    );
     document.querySelector('#result')!.textContent =
       `PASS: all ${document.querySelectorAll('#checks li').length} project checks`;
   } catch (e) {

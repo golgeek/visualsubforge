@@ -38,8 +38,12 @@ The editor provides:
 - `.vsfproject` references to media/subtitles, completed scene results, view/timing
   options and paused resume position. Save subtitles separately for interchange.
   Normal quit updates an attached project and offers explicit choices on failure.
-  Subtitle-only projects also work without native playback. Translation reference
-  persistence is implemented; its authoring panel remains in progress.
+  Subtitle-only projects also work without native playback.
+- A manual translation reference panel attaches/replaces/detaches SRT/ASS/SSA/
+  WebVTT references, shows time matches or paged browsing, and applies signed
+  matching offsets. Start an independent target copy with protected Save As;
+  projects and recovery retain the reference relationship. Native and combined
+  scale acceptance are pending. See [manual translation](docs/manual-translation.md).
 - Reviewed VisualSubSync `.vssprj` import with explicit missing-file relocation,
   unsupported-setting notices and protected new-project creation. Native Mac
   workflows, real choosers and 10,000-cue desktop acceptance pass within the
