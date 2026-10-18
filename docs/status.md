@@ -20,9 +20,22 @@ ASS/SSA resync, language tools, style/attachment/conversion authoring, broader
 formats/workflows, initial plugins and native reliability. Font rendering is complete within its recorded Mac runtime scope; selection and
 batch timing, ASS/SSA resync, language tools and style/attachment/conversion
 authoring, WebVTT, legacy project import and manual translation are complete
-within their recorded Mac scopes. Plugins are next, followed by native reliability.
+within their recorded Mac scopes. Plugin runtime/API work is in progress, followed
+by native reliability.
 Completed milestones below remain the
 baseline. Physical Windows/Linux acceptance is a separate open release gate.
+
+**Plugin stage7 in progress (2026-10-18):** a separate worker crate pins
+rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
+stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
+focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
+floods and crashes. All 462 workspace tests/30 ignored and strict checks pass.
+Two fresh-helper 10k workloads pass p95<=46.513ms and sampled additional combined
+RSS 53,575,680 bytes within predeclared limits. This is runtime foundation only:
+no editor/CLI plugin entry point, modern/VSS subtitle API, reviewed fixes or Undo
+integration exists yet. Those, unchanged legacy-script behavior, available VM
+checks and complete native/10k acceptance remain required. ADR0008 is proposed.
+See [worker ownership, limits and evidence](plugin-host.md).
 
 **Manual translation stage6c complete (2026-10-18):** the application foundation
 retains immutable reference bytes, format and cue data; paged time-overlap queries

@@ -83,6 +83,10 @@ experiments. The maintained mpv recipes have pinned sources and recorded build
 checks, but candidate audio/content, device, composition and distribution gates
 remain open. A build, property smoke test or VM trial is not platform acceptance.
 
+The [JavaScript plugin host](docs/plugin-host.md) is in progress. Its bounded
+worker foundation passes Mac runtime tests; plugin APIs and editor integration
+are not yet available.
+
 ## Build, test and understand the code
 
 - [Development workflow](CONTRIBUTING.md): pinned toolchains, default shell,

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/subtitle-core", "crates/subtitle-formats", "crates/media-analysis", "crates/media-player", "crates/vsf-application", "crates/vsf-cli", "src-tauri"]
+members = ["crates/subtitle-core", "crates/subtitle-formats", "crates/media-analysis", "crates/media-player", "crates/vsf-application", "crates/vsf-cli", "crates/plugin-host", "src-tauri"]
 default-members = ["crates/subtitle-core"]
 resolver = "3"
 
