@@ -27,6 +27,58 @@ pub(super) fn has_markup(text: &str) -> bool {
 /// The bounded source URL is the only object handed to the existing command
 /// boundary. No disk files, custom native callbacks or background resources.
 pub(super) fn serialize(document: &Document) -> Result<Option<String>, String> {
+    // Preserve the established Mac preview font when Default is authoritative.
+    let header = if cfg!(target_os = "macos") {
+        HEADER.replace("Default,sans-serif,", "Default,Hiragino Sans,")
+    } else {
+        HEADER.to_owned()
+    };
+    packets(document, &header, "S_TEXT/ASS", |index, cue| {
+        Ok(format!(
+            "{index},0,Default,,0,0,0,,{}",
+            preview_text(cue.text())
+        ))
+    })
+}
+
+pub(super) fn serialize_document(
+    document: &Document,
+    source: &subtitle_formats::ass::Source,
+) -> Result<Option<String>, String> {
+    let ssa = source.variant() == subtitle_formats::ass::Variant::Ssa;
+    packets(
+        document,
+        &source.preview_header(),
+        if ssa { "S_TEXT/SSA" } else { "S_TEXT/ASS" },
+        |index, cue| {
+            let metadata = cue
+                .metadata()
+                .ok_or("ASS/SSA preview requires event metadata")?;
+            let get = |name, fallback| metadata.get(name).map(str::trim).unwrap_or(fallback);
+            Ok(format!(
+                "{index},{},{},{},{},{},{},{},{}",
+                if ssa { "" } else { get("Layer", "0") },
+                get("Style", "Default"),
+                get("Name", ""),
+                get("MarginL", "0"),
+                get("MarginR", "0"),
+                get("MarginV", "0"),
+                get("Effect", ""),
+                cue.text()
+            ))
+        },
+    )
+}
+
+fn packets(
+    document: &Document,
+    header: &str,
+    codec: &str,
+    packet: impl Fn(usize, &subtitle_core::Cue) -> Result<String, String>,
+) -> Result<Option<String>, String> {
+    if header.len() > MAX_BYTES / 2 {
+        return Err(limit());
+    }
     let mut cues: Vec<_> = document
         .cues()
         .iter()
@@ -63,14 +115,7 @@ pub(super) fn serialize(document: &Document) -> Result<Option<String>, String> {
     for (id, value) in [(0xd7, 1), (0x73c5, 1), (0x83, 17), (0x9c, 0)] {
         uint(id, value, &mut track);
     }
-    element(0x86, b"S_TEXT/ASS", &mut track);
-    // Preserve the established Mac preview font when Default is authoritative.
-    // Explicit font overrides still win.
-    let header = if cfg!(target_os = "macos") {
-        HEADER.replace("Default,sans-serif,", "Default,Hiragino Sans,")
-    } else {
-        HEADER.to_owned()
-    };
+    element(0x86, codec.as_bytes(), &mut track);
     element(0x63a2, header.as_bytes(), &mut track);
     let mut tracks = Vec::new();
     element(0xae, &track, &mut tracks);
@@ -78,8 +123,7 @@ pub(super) fn serialize(document: &Document) -> Result<Option<String>, String> {
 
     for (index, cue) in cues {
         let mut block = vec![0x81, 0, 0, 0]; // track 1, relative timestamp 0, no lacing
-        block.extend_from_slice(format!("{index},0,Default,,0,0,0,,").as_bytes());
-        block.extend_from_slice(preview_text(cue.text()).as_bytes());
+        block.extend_from_slice(packet(index, cue)?.as_bytes());
         let mut group = Vec::new();
         element(0xa1, &block, &mut group);
         uint(0x9b, cue.end().get() - cue.start().get(), &mut group);
@@ -282,6 +326,134 @@ mod tests {
             r"<font color=red>x</font> &lt;",
         ] {
             assert_eq!(preview_text(text), text);
+        }
+    }
+
+    #[test]
+    fn document_packets_use_source_styles_script_settings_and_event_fields() {
+        for (extension, text) in [
+            (
+                "ass",
+                include_str!("../../../tests/fixtures/subtitles/styles.ass"),
+            ),
+            (
+                "ssa",
+                include_str!("../../../tests/fixtures/subtitles/styles.ssa"),
+            ),
+        ] {
+            let parsed =
+                subtitle_formats::parse(text, subtitle_formats::Format::from_extension(extension))
+                    .unwrap();
+            let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
+                .unwrap()
+                .unwrap();
+            let bytes = decode_url(&url);
+            let contains = |text: &str| {
+                bytes
+                    .windows(text.len())
+                    .any(|window| window == text.as_bytes())
+            };
+            assert!(contains("PlayResX: 640"));
+            assert!(contains("Style: Title,sans-serif,36"));
+            assert!(!contains("PlayResX: 384"));
+            assert!(!contains("Dialogue:"));
+            assert!(contains(if extension == "ass" {
+                "0,2,Title,actor,0000,0000,0000,,Red title"
+            } else {
+                "0,,Title,actor,0000,0000,0000,,Red title"
+            }));
+            assert!(contains("Second line\\N世界"));
+            assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), text);
+        }
+    }
+
+    fn decode_url(url: &str) -> Vec<u8> {
+        url.as_bytes()[6..]
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect()
+    }
+    fn probe_data(value: &serde_json::Value) -> String {
+        let hex: String = value
+            .as_str()
+            .unwrap()
+            .lines()
+            .filter_map(|line| line.split_once(": "))
+            .flat_map(|(_, data)| data.split("  ").next().unwrap().split_whitespace())
+            .collect();
+        String::from_utf8(decode_url(&format!("hex://{hex}"))).unwrap()
+    }
+
+    #[test]
+    #[ignore = "requires FFprobe; writes generated native evidence"]
+    fn native_demux_retains_ass_ssa_headers_and_normalized_event_packets() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../tests/fixtures/generated/ass-ssa/native");
+        std::fs::create_dir_all(&dir).unwrap();
+        for (extension, source) in [
+            (
+                "ass",
+                include_str!("../../../tests/fixtures/subtitles/styles.ass"),
+            ),
+            (
+                "ssa",
+                include_str!("../../../tests/fixtures/subtitles/styles.ssa"),
+            ),
+        ] {
+            let parsed = subtitle_formats::parse(
+                source,
+                subtitle_formats::Format::from_extension(extension),
+            )
+            .unwrap();
+            let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
+                .unwrap()
+                .unwrap();
+            let path = dir.join(format!("{extension}.mks"));
+            std::fs::write(&path, decode_url(&url)).unwrap();
+            std::fs::write(dir.join(format!("{extension}.url")), &url).unwrap();
+            let output = std::process::Command::new("ffprobe")
+                .args([
+                    "-v",
+                    "error",
+                    "-show_streams",
+                    "-show_packets",
+                    "-show_data",
+                    "-of",
+                    "json",
+                ])
+                .arg(&path)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            std::fs::write(
+                dir.join(format!("{extension}-ffprobe.json")),
+                &output.stdout,
+            )
+            .unwrap();
+            let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            let header = probe_data(&json["streams"][0]["extradata"]);
+            assert!(header.contains("PlayResY: 360"));
+            assert!(header.contains("Style: Title,sans-serif,36"));
+            let packets = json["packets"].as_array().unwrap();
+            assert_eq!(packets.len(), 2);
+            assert_eq!(packets[0]["pts"], 1000);
+            assert_eq!(packets[0]["duration"], 2000);
+            assert_eq!(packets[1]["duration"], 3000);
+            assert_eq!(
+                probe_data(&packets[0]["data"]),
+                if extension == "ass" {
+                    "0,2,Title,actor,0000,0000,0000,,Red title"
+                } else {
+                    "0,,Title,actor,0000,0000,0000,,Red title"
+                }
+            );
+            assert!(probe_data(&packets[1]["data"]).ends_with("Second line\\N世界"));
         }
     }
 

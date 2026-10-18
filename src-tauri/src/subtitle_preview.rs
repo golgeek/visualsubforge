@@ -22,6 +22,18 @@ pub(crate) fn serialize(document: &subtitle_core::Document) -> Result<Option<Sou
     Ok(url.map(|url| Source { url, styled }))
 }
 
+pub(crate) fn serialize_source(
+    document: &subtitle_core::Document,
+    source: &subtitle_formats::Source,
+) -> Result<Option<Source>, String> {
+    match source.ass() {
+        Some(source) => {
+            Ok(ass::serialize_document(document, source)?.map(|url| Source { url, styled: true }))
+        }
+        None => serialize(document),
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Revision(pub u64, pub u64);
 

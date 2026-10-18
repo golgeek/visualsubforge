@@ -165,20 +165,21 @@ fn unchanged_proposal_still_changes_checkpoint_identity_and_blocks_stale_project
     assert!(accepted.requires_save_as);
     assert!(docs.0.lock().unwrap().checkpoint_key() != key);
     assert!(
-        docs.with_project_subtitle::<()>(Some(&source), |_| panic!("Must not publish"))
+        docs.with_project_subtitle::<()>(Some(&source), |_, _| panic!("Must not publish"))
             .is_err()
     );
     let copy = dir.path().join("copy.srt");
     save(&docs, Some(&copy), 1).unwrap();
     assert!(
-        docs.with_project_subtitle::<()>(Some(&source), |_| panic!(
+        docs.with_project_subtitle::<()>(Some(&source), |_, _| panic!(
             "Stale source must not publish"
         ))
         .is_err()
     );
     let copy = copy.canonicalize().unwrap();
     assert_eq!(
-        docs.with_project_subtitle(Some(&copy), |_| Ok(42)).unwrap(),
+        docs.with_project_subtitle(Some(&copy), |_, _| Ok(42))
+            .unwrap(),
         42
     );
 }

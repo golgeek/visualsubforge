@@ -5,7 +5,6 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use subtitle_formats::srt;
 #[derive(Default)]
 pub(super) struct RecoveryControl {
     pub(super) stop: Arc<std::sync::atomic::AtomicBool>,
@@ -77,10 +76,11 @@ impl Documents {
                                 Some((document, source, path, saved)) => {
                                     let saved =
                                         String::from_utf8(saved).map_err(|e| e.to_string())?;
-                                    let mut record = crate::recovery_store::Record::new(
+                                    let mut record = crate::recovery_store::Record::new_document(
+                                        source.format(),
                                         path.map(|path| path.to_string_lossy().into_owned()),
                                         saved,
-                                        srt::serialize(&document, &source)?,
+                                        source.serialize(&document)?,
                                         key.generation,
                                         key.revision,
                                     )?;

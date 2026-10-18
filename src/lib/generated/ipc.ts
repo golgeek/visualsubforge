@@ -328,6 +328,22 @@ export type visualsubforge_media_Action =
   | { kind: 'decode'; hardware: boolean };
 
 export type visualsubforge_document_Action_Deserialize =
+  | ({
+      kind: 'editStyled';
+      cueId: number;
+      startMs: number;
+      endMs: number;
+      text: string;
+      style: string;
+    } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
   | ({ kind: 'status' } & {
       afterId?: never;
       atMs?: never;
@@ -339,6 +355,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'recover'; id: string; discard: boolean } & {
@@ -350,6 +367,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'open'; path: string; discard: boolean } & {
@@ -361,6 +379,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'close'; discard: boolean } & {
@@ -373,6 +392,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({
@@ -389,6 +409,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({
       kind: 'create';
@@ -404,6 +425,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({ kind: 'delete'; cueId: number } & {
       afterId?: never;
@@ -415,6 +437,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'split'; cueId: number; atMs: number } & {
@@ -426,6 +449,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'merge'; firstId: number; secondId: number } & {
@@ -437,6 +461,7 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       path?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'undo' } & {
@@ -450,6 +475,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'redo' } & {
@@ -463,6 +489,7 @@ export type visualsubforge_document_Action_Deserialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'save'; path: string | null } & {
@@ -475,10 +502,27 @@ export type visualsubforge_document_Action_Deserialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     });
 
 export type visualsubforge_document_Action_Serialize =
+  | ({
+      kind: 'editStyled';
+      cueId: number;
+      startMs: number;
+      endMs: number;
+      text: string;
+      style: string;
+    } & {
+      afterId?: never;
+      atMs?: never;
+      discard?: never;
+      firstId?: never;
+      id?: never;
+      path?: never;
+      secondId?: never;
+    })
   | ({ kind: 'status' } & {
       afterId?: never;
       atMs?: never;
@@ -490,6 +534,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'recover'; id: string; discard: boolean } & {
@@ -501,6 +546,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'open'; path: string; discard: boolean } & {
@@ -512,6 +558,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'close'; discard: boolean } & {
@@ -524,6 +571,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({
@@ -540,6 +588,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({
       kind: 'create';
@@ -555,6 +604,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       path?: never;
       secondId?: never;
+      style?: never;
     })
   | ({ kind: 'delete'; cueId: number } & {
       afterId?: never;
@@ -566,6 +616,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'split'; cueId: number; atMs: number } & {
@@ -577,6 +628,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'merge'; firstId: number; secondId: number } & {
@@ -588,6 +640,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       path?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'undo' } & {
@@ -601,6 +654,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'redo' } & {
@@ -614,6 +668,7 @@ export type visualsubforge_document_Action_Serialize =
       path?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     })
   | ({ kind: 'save'; path: string | null } & {
@@ -626,6 +681,7 @@ export type visualsubforge_document_Action_Serialize =
       id?: never;
       secondId?: never;
       startMs?: never;
+      style?: never;
       text?: never;
     });
 
@@ -705,6 +761,7 @@ export type visualsubforge_document_CueView =
   | visualsubforge_document_CueView_Deserialize;
 
 export type visualsubforge_document_CueView_Deserialize = {
+  style: string | null;
   id: number;
   startMs: number;
   endMs: number;
@@ -712,6 +769,7 @@ export type visualsubforge_document_CueView_Deserialize = {
 };
 
 export type visualsubforge_document_CueView_Serialize = {
+  style?: string | null;
   id: number;
   startMs: number;
   endMs: number;
@@ -822,6 +880,13 @@ export type vsf_application_quality_check_Finding = {
 
 export type vsf_application_text_formatting_Format =
   'bold' | 'italic' | 'underline';
+
+export type visualsubforge_document_FormatView = {
+  name: string;
+  timeStepMs: number;
+  styles: visualsubforge_document_StyleView[];
+  scriptInfo: [string, string][];
+};
 
 export type vsf_application_text_formatting_Formatted = {
   text: string;
@@ -973,6 +1038,7 @@ export type visualsubforge_workflow_trace_Operation =
   | 'split'
   | 'merge'
   | 'edit'
+  | 'editStyled'
   | 'undo'
   | 'redo';
 
@@ -1104,6 +1170,7 @@ export type visualsubforge_project_Project_Deserialize = {
   version: number;
   mediaPath: string;
   subtitlePath: string | null;
+  subtitleFormat?: string | null;
   mediaIdentity: visualsubforge_project_MediaIdentity_Deserialize;
   positionSeconds: number;
   options: visualsubforge_project_Options_Deserialize;
@@ -1114,6 +1181,7 @@ export type visualsubforge_project_Project_Serialize = {
   version: number;
   mediaPath: string;
   subtitlePath: string | null;
+  subtitleFormat?: string | null;
   mediaIdentity: visualsubforge_project_MediaIdentity_Serialize;
   positionSeconds: number;
   options: visualsubforge_project_Options_Serialize;
@@ -1413,6 +1481,7 @@ export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Deserialize;
 
 export type visualsubforge_document_Snapshot_Deserialize = {
+  format: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
   loaded: boolean;
@@ -1425,6 +1494,7 @@ export type visualsubforge_document_Snapshot_Deserialize = {
 };
 
 export type visualsubforge_document_Snapshot_Serialize = {
+  format?: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
   loaded: boolean;
@@ -1510,6 +1580,11 @@ export type visualsubforge_media_Status_Serialize = {
   subtitlePreviewError: string | null;
   previewDocumentGeneration: number | null;
   previewDocumentRevision: number | null;
+};
+
+export type visualsubforge_document_StyleView = {
+  name: string;
+  fields: [string, string][];
 };
 
 export type vsf_application_quality_statistics_Summary = {

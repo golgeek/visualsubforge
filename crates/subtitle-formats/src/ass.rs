@@ -358,6 +358,24 @@ impl Source {
     pub fn script_info(&self) -> &[(String, String)] {
         &self.0.script_info
     }
+    /// Header for a packet renderer. Events are supplied separately with their
+    /// own timestamps; retained comments/unknown data remain in saved source.
+    /// This does not import or resolve external resources.
+    pub fn preview_header(&self) -> String {
+        let mut header = String::new();
+        let mut events = false;
+        for line in &self.0.lines {
+            let trimmed = line.raw.trim_start_matches('\u{feff}').trim();
+            if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                events = trimmed.eq_ignore_ascii_case("[Events]");
+            }
+            if !events {
+                header.push_str(&line.raw);
+            }
+        }
+        header.push_str("\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
+        header
+    }
     pub fn default_metadata(&self) -> Result<CueMetadata> {
         let style = self
             .0

@@ -1,4 +1,4 @@
-//! Versioned project metadata; subtitle bytes remain in separately saved SRT files.
+//! Versioned project metadata; subtitle bytes remain in separately saved files.
 //! All filesystem work is dispatched off the UI thread and saves replace atomically.
 use serde::{Deserialize, Serialize};
 use std::{
@@ -85,6 +85,8 @@ pub struct Project {
     version: u32,
     pub media_path: String,
     pub subtitle_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle_format: Option<String>,
     pub media_identity: MediaIdentity,
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
@@ -100,6 +102,22 @@ impl Project {
         }
         if self.version != 1 {
             return Err("Unsupported VSF project version".into());
+        }
+        if let Some(format) = &self.subtitle_format {
+            let format = subtitle_formats::Format::from_extension(format)
+                .ok_or("Unknown project subtitle format")?;
+            let path = self
+                .subtitle_path
+                .as_ref()
+                .ok_or("Project subtitle format requires a path")?;
+            if Path::new(path)
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .and_then(subtitle_formats::Format::from_extension)
+                .is_some_and(|extension| extension != format)
+            {
+                return Err("Project subtitle extension and format disagree".into());
+            }
         }
         if ![
             self.position_seconds,
@@ -176,12 +194,15 @@ fn resolve(path: &Path, bytes: &[u8]) -> Result<Project> {
             .map_err(|e| format!("Project subtitles are unavailable: {e}"))?;
         // Opening the project must not touch the active workspace until references validate.
         let bytes = crate::document::read_file(&subtitle)?;
-        let parsed = subtitle_formats::srt::parse(
-            std::str::from_utf8(&bytes)
-                .map_err(|e| format!("Project subtitles must be UTF-8: {e}"))?,
+        let parsed = vsf_application::subtitle_file::parse_document(
+            &bytes,
+            project
+                .subtitle_format
+                .as_deref()
+                .or_else(|| subtitle.extension().and_then(|s| s.to_str())),
         )
         .map_err(|e| format!("Project subtitles: {e}"))?;
-        crate::srt_limits::validate_document(&parsed.document, &parsed.source)?;
+        project.subtitle_format = Some(parsed.source.format().extension().into());
         project.subtitle_path = Some(subtitle.to_string_lossy().into_owned());
     }
     Ok(project)
@@ -282,6 +303,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         version: 1,
         media_path: portable(base, &media),
         subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
+        subtitle_format: None,
         media_identity: identity,
         position_seconds: request.position_seconds,
         options: request.options,
@@ -297,11 +319,12 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                 return Err("Project references differ from the selected media".into());
             }
             app.state::<crate::document::Documents>()
-                .with_project_subtitle(subtitle.as_deref(), |context| {
+                .with_project_subtitle(subtitle.as_deref(), |context, format| {
                     // Only Rust's accepted effective rules may be persisted.
                     // Ignore optional frontend profile and stale timing fields.
                     project.options.quality = Some(context.profile.clone());
                     project.options.timing = context.timing.clone();
+                    project.subtitle_format = format.map(|format| format.extension().into());
                     app.state::<Projects>()
                         .save(&destination, request.token, &project)
                 })
@@ -351,6 +374,7 @@ mod tests {
             version: 1,
             media_path: "clip.mkv".into(),
             subtitle_path: None,
+            subtitle_format: None,
             media_identity: identify(&media).unwrap(),
             position_seconds: 12.5,
             options: Options {
@@ -363,6 +387,46 @@ mod tests {
                 quality: None,
             },
             scenes: None,
+        }
+    }
+    #[test]
+    fn project_retains_ass_ssa_identity_and_rejects_conflicts() {
+        for (extension, source) in [
+            (
+                "ass",
+                include_str!("../../tests/fixtures/subtitles/styles.ass"),
+            ),
+            (
+                "ssa",
+                include_str!("../../tests/fixtures/subtitles/styles.ssa"),
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut project = fixture(dir.path());
+            let filename = format!("captions.{extension}");
+            fs::write(dir.path().join(&filename), source).unwrap();
+            project.subtitle_path = Some(filename);
+            let path = dir.path().join("styles.vsfproject");
+            // Old projects omit identity and still resolve by the actual file.
+            write(&path, &project).unwrap();
+            let mut loaded = read(&path).unwrap();
+            assert_eq!(loaded.subtitle_format.as_deref(), Some(extension));
+            write(&path, &loaded).unwrap();
+            let before = fs::read(&path).unwrap();
+            assert_eq!(
+                read(&path).unwrap().subtitle_format.as_deref(),
+                Some(extension)
+            );
+            loaded.subtitle_format = Some("srt".into());
+            assert!(write(&path, &loaded).is_err());
+            assert_eq!(fs::read(&path).unwrap(), before);
+            // A file replaced by a different format must not silently reinterpret it.
+            fs::write(
+                dir.path().join(format!("captions.{extension}")),
+                "1\n00:00:01,000 --> 00:00:02,000\nSRT\n",
+            )
+            .unwrap();
+            assert!(read(&path).is_err());
         }
     }
     #[test]

@@ -14,6 +14,15 @@ or maintainability disposable. There is no release or daily-use acceptance yet.
 
 ## Implementation, checks and limits
 
+**ASS/SSA documents in progress (2026-10-17):** pure loss-preserving adapters,
+Rust-owned metadata/history and format-aware desktop save/project/recovery paths
+are implemented. Native packet and software-composition checks pass for document
+styles/settings and existing tagged SRT; generic-font CJK fallback failed on the
+tested runtime and remains recorded. Style UI, format-aware text/timing tools,
+actual desktop workflows and 10,000-cue validation remain required. This is not
+a completed document-support or platform-acceptance claim. See
+[ASS/SSA integration](ass-ssa-documents.md) for policy, ownership and limits.
+
 **Statistics milestone complete (2026-10-17):** read-only whole-document or
 inclusive cue-range reports share Rust quality metrics and the active profile
 with `vsf stats`. Counts/denominators, exclusions and unavailable rates are

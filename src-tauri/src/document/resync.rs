@@ -17,9 +17,11 @@ impl Documents {
             return Err("Subtitle document changed before analysis started".into());
         }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
-        let snapshot =
-            SubtitleSnapshot::new(loaded.editor.document().clone(), loaded.source.clone())
-                .map_err(|e| e.to_string())?;
+        let Source::Srt(source) = &loaded.source else {
+            return Err("Resynchronization currently supports SRT documents; ASS/SSA has not been validated for this operation".into());
+        };
+        let snapshot = SubtitleSnapshot::new(loaded.editor.document().clone(), source.clone())
+            .map_err(|e| e.to_string())?;
         Ok(Capture { key, snapshot })
     }
 
@@ -56,7 +58,10 @@ impl Documents {
     pub(crate) fn with_project_subtitle<T>(
         &self,
         path: Option<&Path>,
-        publish: impl FnOnce(&crate::quality_profile::Context) -> Result<T>,
+        publish: impl FnOnce(
+            &crate::quality_profile::Context,
+            Option<subtitle_formats::Format>,
+        ) -> Result<T>,
     ) -> Result<T> {
         let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
         if store.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
@@ -74,7 +79,14 @@ impl Documents {
                 "Subtitle path changed before project save; retry with the current document".into(),
             );
         }
-        publish(&store.quality.context())
+        publish(
+            &store.quality.context(),
+            store
+                .loaded
+                .as_ref()
+                .filter(|loaded| loaded.path.is_some())
+                .map(|loaded| loaded.source.format()),
+        )
     }
 }
 

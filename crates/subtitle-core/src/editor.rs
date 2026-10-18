@@ -18,6 +18,13 @@ pub struct CueText {
 
 /// Domain edits use validated times and identities, independently of any IPC or format.
 pub enum Edit {
+    StyledText {
+        id: CueId,
+        start: Milliseconds,
+        end: Milliseconds,
+        text: String,
+        style: String,
+    },
     Style {
         id: CueId,
         name: String,
@@ -51,6 +58,7 @@ pub enum Edit {
     Merge {
         first: CueId,
         second: CueId,
+        separator: String,
     },
 }
 
@@ -141,6 +149,39 @@ impl Editor {
         self.expect_revision(expected)?;
         let mut created = None;
         let (index, count, after) = match edit {
+            Edit::StyledText {
+                id,
+                start,
+                end,
+                text,
+                style,
+            } => {
+                Cue::validate(start, end, &text)?;
+                let index = self.index(id)?;
+                let original = self.document.cues[index]
+                    .metadata
+                    .as_ref()
+                    .ok_or("This cue has no assignable style")?;
+                let metadata = if original
+                    .get("Style")
+                    .is_some_and(|name| name.trim() == style)
+                {
+                    original.clone()
+                } else {
+                    original.with_style(style)?
+                };
+                (
+                    index,
+                    1,
+                    vec![Cue {
+                        id,
+                        start,
+                        end,
+                        text,
+                        metadata: Some(metadata),
+                    }],
+                )
+            }
             Edit::Style { id, name } => {
                 let index = self.index(id)?;
                 let original = &self.document.cues[index];
@@ -266,7 +307,11 @@ impl Editor {
                     ],
                 )
             }
-            Edit::Merge { first, second } => {
+            Edit::Merge {
+                first,
+                second,
+                separator,
+            } => {
                 let index = self.index(first)?;
                 let left = &self.document.cues[index];
                 let right = self
@@ -281,8 +326,9 @@ impl Editor {
                 let text = match (left.text.is_empty(), right.text.is_empty()) {
                     (true, _) => right.text.clone(),
                     (_, true) => left.text.clone(),
-                    _ => format!("{}\n{}", left.text, right.text),
+                    _ => format!("{}{separator}{}", left.text, right.text),
                 };
+                Cue::validate(left.start.min(right.start), left.end.max(right.end), &text)?;
                 (
                     index,
                     2,
@@ -403,8 +449,16 @@ impl Editor {
     }
     /// Both identities are required so a stale caller cannot merge a new neighbor.
     pub fn merge(&mut self, expected: u64, first: CueId, second: CueId) -> Result<()> {
-        self.apply_edit(expected, Edit::Merge { first, second }, |_| Ok(()))
-            .map(|_| ())
+        self.apply_edit(
+            expected,
+            Edit::Merge {
+                first,
+                second,
+                separator: "\n".into(),
+            },
+            |_| Ok(()),
+        )
+        .map(|_| ())
     }
     pub fn undo(&mut self, expected: u64) -> Result<bool> {
         self.expect_revision(expected)?;

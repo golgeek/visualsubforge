@@ -25,8 +25,13 @@ pub(crate) struct Record {
     // default to ordinary recovery behavior, without changing their bytes.
     #[serde(default)]
     pub resynced: bool,
+    // Version 4 retains source format. The legacy *_srt JSON keys now contain
+    // exact source-format text; old SRT records remain readable without rewriting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    format: Option<String>,
 }
 impl Record {
+    #[cfg(test)]
     pub fn new(
         source_path: impl Into<Option<String>>,
         saved_srt: String,
@@ -34,8 +39,30 @@ impl Record {
         generation: u64,
         revision: u64,
     ) -> Result<Self> {
+        Self::new_document(
+            subtitle_formats::Format::Srt,
+            source_path,
+            saved_srt,
+            accepted_srt,
+            generation,
+            revision,
+        )
+    }
+    pub fn new_document(
+        format: subtitle_formats::Format,
+        source_path: impl Into<Option<String>>,
+        saved_srt: String,
+        accepted_srt: String,
+        generation: u64,
+        revision: u64,
+    ) -> Result<Self> {
         let record = Self {
-            version: 3,
+            version: if format == subtitle_formats::Format::Srt {
+                3
+            } else {
+                4
+            },
+            format: (format != subtitle_formats::Format::Srt).then(|| format.extension().into()),
             source_path: source_path.into(),
             saved_srt,
             accepted_srt,
@@ -52,8 +79,20 @@ impl Record {
         record.validate()?;
         Ok(record)
     }
+    pub fn format_extension(&self) -> &str {
+        self.format.as_deref().unwrap_or("srt")
+    }
     fn validate(&self) -> Result<()> {
-        if !matches!(self.version, 1..=3) || (self.version < 3 && self.resynced) {
+        if !matches!(self.version, 1..=4)
+            || (self.version < 3 && self.resynced)
+            || (self.version < 4 && self.format.is_some())
+            || (self.version == 4
+                && self
+                    .format
+                    .as_deref()
+                    .and_then(subtitle_formats::Format::from_extension)
+                    .is_none())
+        {
             return Err("Unsupported recovery format; record retained".into());
         }
         match &self.source_path {
@@ -66,9 +105,10 @@ impl Record {
             _ => {}
         }
         for text in [&self.saved_srt, &self.accepted_srt] {
-            crate::srt_limits::validate_size(text.len())?;
-            let parsed = subtitle_formats::srt::parse(text)?;
-            crate::srt_limits::validate_document(&parsed.document, &parsed.source)?;
+            vsf_application::subtitle_file::parse_document(
+                text.as_bytes(),
+                Some(self.format_extension()),
+            )?;
         }
         Ok(())
     }
@@ -376,6 +416,37 @@ mod tests {
         discard(root.path(), &id).unwrap();
         assert!(list(root.path()).unwrap().is_empty());
         assert_eq!(fs::read_to_string(&original).unwrap(), "externally changed");
+    }
+    #[test]
+    fn styled_record_validates_format_before_replacing_checkpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let session = Session::create(root.path()).unwrap();
+        let text = include_str!("../../tests/fixtures/subtitles/styles.ass");
+        let record = Record::new_document(
+            subtitle_formats::Format::Ass,
+            None,
+            text.into(),
+            text.into(),
+            1,
+            1,
+        )
+        .unwrap();
+        session.write(Some(&record)).unwrap();
+        let path = session.directory.join("snapshot.json");
+        let before = fs::read(&path).unwrap();
+        for (version, format) in [
+            (3, Some("ass")),
+            (4, None),
+            (4, Some("unknown")),
+            (4, Some("ssa")),
+            (4, Some("srt")),
+        ] {
+            let mut rejected = record.clone();
+            rejected.version = version;
+            rejected.format = format.map(str::to_owned);
+            assert!(session.write(Some(&rejected)).is_err());
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
     }
     #[test]
     fn rejected_record_preserves_previous_snapshot_and_corruption_is_reported() {

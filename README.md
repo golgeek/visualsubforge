@@ -84,8 +84,9 @@ remain open. A build, property smoke test or VM trial is not platform acceptance
   desktop/CLI parity and measured responsiveness.
 
 `subtitle-core` contains dependency-free domain/history logic; `subtitle-formats`
-handles SRT parsing/serialization without filesystem access. `vsf-application`
-shares bounded SRT reads, size policy and atomic file persistence with headless
+handles SRT/ASS/SSA parsing/serialization without filesystem access. Full ASS/SSA
+desktop support is [in progress](docs/ass-ssa-documents.md). `vsf-application`
+shares bounded subtitle reads, size policy and atomic file persistence with headless
 callers. `src-tauri` coordinates accepted desktop state and background services,
 while `media-analysis` and
 `media-player` isolate FFmpeg analysis and native playback. All frontend/backend

@@ -9,4 +9,5 @@ pub mod save_lease;
 pub mod srt_limits;
 pub mod subtitle_file;
 mod subtitle_markup;
+pub mod subtitle_operations;
 pub mod text;
