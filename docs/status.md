@@ -45,7 +45,12 @@ while the default capture has an incomplete beginning; production configuration
 is unchanged. The new actual Linux editor lane reproduces a missing paused-seek
 cursor with both Pulse options; raw properties identify an exact transport
 position with unavailable audio PTS. The [diagnosis and retained failures](native-reliability.md#linux-editor-capture-lane-and-paused-seek--2026-10-18)
-require an application correction and complete rerun. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
+now record a corrected resting-cursor policy and all six actual-editor paused
+seeks passing. The default Pulse editor still fails its live loop-clear clock
+check. The interpolation option reports an early EOF position even when one
+captured suffix passes through the source end; independent raw properties also
+reproduce an early transport position. That option remains unadopted. Full native
+acceptance remains open. A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
 separate save and normal quit pass. Held-pointer cancellation, dialog lifetime,
 historical VSS-host comparison and distribution/physical gates remain open.
 See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).

@@ -650,3 +650,62 @@ The shared directory retains build receipts, both failed editor reports, raw
 six-case properties, hashes and logs. All ten hosted application jobs39146820541
 and six native-contract jobs39146820484 pass at5af8b07; receipts are
 `ci-5af8b07-checks.json` and `ci-5af8b07-native.json`.
+
+### Paused resting-cursor correction
+
+The media worker now uses an available native transport position when audio PTS
+is unavailable at a settled pause (`paused && !seeking`). The existing EOF rule
+is unchanged. Available audio PTS still wins; playing or actively seeking audio
+still exposes a missing clock. There is no requested-position cache, extrapolation,
+clamp, native patch, new state owner, DTO or dependency. This makes a completed
+paused seek usable as an edit cursor without calling it an audible position.
+
+The regression first fails with `None` instead of `Some(2.5)`; the corrected
+policy passes all three focused tests, including unchanged live-clock/EOF/video
+behavior and unavailable-transport refusal. `cargo test --locked --workspace`
+passes508 tests/33 ignored, excluding11 zero-test harnesses.
+`cargo clippy --locked -p visualsubforge --all-targets -- -D warnings`,
+`cargo fmt --all -- --check` and diff checks pass. Exact logs are
+`paused-cursor-red.log`, `paused-cursor-green.log`, `paused-cursor-workspace.log`
+and `paused-cursor-clippy.log` in the same retained evidence directory.
+
+The isolated Linux source applies only this product correction on top of the
+previously recorded diagnostic build. `build-paused-receipt.json` and
+`source-manifest-paused.json` identify all source bytes and exact commands;
+the prior executables remain in `baseline-bin`. The rebuilt app SHA256 is
+`ea33e54cad3f0afa507b4791d5c2f501210b694c802a1e181f81431ae8bec553`;
+the CLI/runtime remain unchanged. Strict Svelte/TypeScript, native build, CLI
+build and three actual ARM64 Rust policy tests pass. Root free space before/after
+is642363392bytes; no guest packages were installed.
+
+With default Pulse, actual editor run `desktop-3RUfsN` passes all six paused
+seeks (1.013,2.5,1.013,0.5,0,1.013), the five capture operations and their state
+assertions. It then fails the separate loop-clear clock check:0.486ms backward
+against the unchanged20.833µs tolerance, with zero missing live samples. The
+whole run remains failed; no completed content-analysis pass is claimed. This
+confirms that the paused-cursor correction does not conceal the live-clock defect.
+The first interpolation-option rerun (`desktop-x0qZxY`) passes both initial
+paused seeks but fails a past-B capture state assertion. All recorder exits are0;
+that assertion did not retain its status rows. The harness now preserves those
+rows and exception stacks on failure, without altering the assertions or limits;
+the diagnostic rerun (`desktop-f3iWgw`) reaches paused EOF but retains position
+3.943973s for a4s file. Its separate retained past-B capture passes the existing
+suffix oracle in both channels, covering source frames120000–192000 without
+reported interior gaps. The partial analysis verifies the retained process/format/
+block metadata and reference hash, binds its own file hashes and keeps
+`editor_workflow_passed:false`. It does not relabel the incomplete editor report
+or establish a full workflow pass. The raw-property comparison then reproduces
+the mismatch independently: all three outputs are paused, not seeking and at
+EOF with unavailable audio PTS; default Pulse and PipeWire report transport4.0s,
+while interpolated Pulse reports3.903168s. Merely preferring the native transport
+at EOF would not resolve that case. No duration clamp or new EOF policy is added.
+The interpolation option remains unadopted, and its EOF clock defect remains open.
+
+The partial analyzer script/log are `linux-past-b-partial-analysis.py/.log`; its
+receipt is `desktop-f3iWgw/past-b-partial-content.json`. The raw EOF probe script
+and dispatch are `linux-paused-eof-check.py` and `linux-paused-eof-dispatch.json`,
+with three cases in shared `paused-eof-raw.json`. A final process check finds all36
+recorded editor/driver/recorder PIDs absent. This is an owned-process check, not
+a census of system helpers. Root free space is642351104bytes. The final harness
+passes pinned Prettier/ESLint/Node syntax and diff checks; all original failures
+and test-input snapshots remain available.

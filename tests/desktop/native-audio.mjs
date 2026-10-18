@@ -221,7 +221,7 @@ export async function nativeAudioWorkflow({
         },
         10000,
       );
-      row.observations = await operation();
+      row.observations = await operation(row);
     } catch (error) {
       failures.push(error);
     } finally {
@@ -240,7 +240,8 @@ export async function nativeAudioWorkflow({
         await ended.catch(() => {});
         failures.push(error);
       } finally {
-        if (failures.length) row.failures = failures.map(String);
+        if (failures.length)
+          row.failures = failures.map((error) => error.stack ?? String(error));
         await writeFile(join(evidence, name + '.capture.log'), output);
         await save();
       }
@@ -257,9 +258,10 @@ export async function nativeAudioWorkflow({
       name,
       source,
       'loop',
-      async () => {
+      async (captureRow) => {
         await act({ kind: 'pause', paused: false });
         const rows = await hold(2);
+        captureRow.observations = rows;
         await act({ kind: 'pause', paused: true });
         const settled = rows.slice(10);
         assert.ok(settled.length > 10);
@@ -327,12 +329,17 @@ export async function nativeAudioWorkflow({
     'audio-past-b',
     source,
     'suffix',
-    async () => {
+    async (captureRow) => {
       await act({ kind: 'pause', paused: false });
       const rows = await hold(2);
-      assert.ok(rows.slice(10).every((m) => m.positionSeconds >= 2.5));
+      captureRow.observations = rows;
+      assert.ok(
+        rows.slice(10).every((m) => m.positionSeconds >= 2.5),
+        'Past-B playback lost its clock or returned before the requested seek.',
+      );
       assert.ok(
         rows.at(-1).paused && rows.at(-1).positionSeconds >= 4 - 1 / 48000,
+        'Past-B playback did not reach paused EOF within its observation window.',
       );
       return rows;
     },
@@ -374,9 +381,10 @@ export async function nativeAudioWorkflow({
     'audio-replacement',
     replacement,
     'suffix',
-    async () => {
+    async (captureRow) => {
       await act({ kind: 'pause', paused: false });
       const rows = await hold(4.5);
+      captureRow.observations = rows;
       assert.ok(
         rows.some((m) => m.positionSeconds > 1.336 + 0.5),
         'Replacement retained old loop.',
