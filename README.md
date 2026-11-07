@@ -8,8 +8,8 @@ foundation, with experimental native media integration; it is not release-ready.
 
 See the [current status and evidence table](docs/status.md) for implemented
 behavior, reproducible checks, dated native results and remaining gates. That
-tracked summary is the current-status authority. Historical task and decision
-notes are optional local context, not prerequisites for building this checkout.
+tracked summary is the current-status authority. Public architecture and feature
+guides are self-contained; local research and historical notes are not required.
 
 The editor provides:
 
@@ -96,6 +96,8 @@ plugin compatibility and physical platform acceptance remain separate. See the
 
 ## Build, test and understand the code
 
+- [Architecture](ARCHITECTURE.md): code boundaries, accepted state, concurrency,
+  persistence and native resource ownership.
 - [Development workflow](CONTRIBUTING.md): pinned toolchains, default shell,
   automated checks and platform prerequisites.
 - [Mac native build guide](docs/build-macos.md): SDKs, private libraries and
