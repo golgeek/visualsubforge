@@ -217,3 +217,107 @@ adds immediate 0.5×↔1.5× change/clear evidence and actual Mac editor re-entr
 replacement captures. It also reproduces an 8.6875ms quiet interval in the
 uninstrumented candidate. These bounded passes do not close the retained
 interruption, sustained rate/format transitions or other-output/device gates.
+
+## Windows native playback experiment
+
+Run from the repository root after [common setup](../CONTRIBUTING.md#prerequisites)
+and `npm ci`. The Tauri build command builds frontend assets before Rust.
+
+The opt-in Windows adapter uses the same `media-prototype` feature. Set `VSF_MPV_SDK` to a development SDK containing `include/mpv/client.h` and an MSVC-compatible `lib/mpv.lib` for the target architecture. Build with:
+
+```sh
+npm run tauri -- build --debug --no-bundle --features media-prototype -- --locked
+```
+
+The imported libmpv DLL and all its dependencies must resolve when launching the executable. Historical ARM64 VM trials used specifically recorded private runtimes. Do not assume an old eight-patch artifact matches the current ten-patch baseline or thirteen-patch candidate. Use process-local dependency PATH and [record loaded binary identity](native-runtime.md#identify-the-runtime-actually-loaded); this is not portable packaging. GGML unload is a separate experiment, not part of the selected mpv recipe. Do not mix architectures or silently substitute another runtime. `VSF_MEDIA_SMOKE` runs the common media sequence; `VSF_DIAGNOSTIC_EXIT=1` requests normal ordered teardown afterward. Windows checks video-output configuration rather than GPU swaps, which this adapter does not measure. Visible video and interactive layout/focus/modal acceptance remain separate checks.
+
+## Linux native playback experiment
+
+Run from the repository root after [common setup](../CONTRIBUTING.md#prerequisites)
+and `npm ci`. Build frontend assets with `npm run build` before direct Cargo
+compilation; the Tauri build command also performs that prerequisite.
+
+Linux file dialogs use the pinned ashpd desktop-portal adapter.
+Run with a working session bus, `xdg-desktop-portal`, and a FileChooser backend
+for the desktop (GNOME in the supplied VM). No `GTK_USE_PORTAL` override is
+needed. The portal and desktop backend are required; there is no Zenity fallback.
+The adapter reports missing-backend/request failures separately from cancellation.
+The previous plugin implementation silently cancelled when both backends were
+unavailable; its retained failure evidence prompted this change. The replacement adapter passes bounded Wayland and forced-scale XWayland
+open/save/cancel checks and visible initial missing-service reporting. Pending
+requests now report portal owner loss/replacement and bus closure rather than
+leaving the editor busy. The [private-bus lifecycle regression](../tests/native/linux-dialogs/README.md)
+covers success, cancellation, disconnect, replacement, bus loss and same-process
+retry after restart. It requires Linux, dbus-daemon and system Python's Gio;
+ordinary Rust tests skip it. Fuller native parenting/modality checks remain open.
+The local portal architecture decision remains proposed; bounded passes do not
+close the remaining native parenting/modality gates.
+This does not remove GTK/WebKit build prerequisites.
+
+The `media-prototype` feature uses pkg-config to find `gtk+-3.0`, `epoxy`, and `mpv`, in addition to the [Tauri development prerequisites](../CONTRIBUTING.md#prerequisites). On Ubuntu these are provided by `libgtk-3-dev`, `libepoxy-dev`, `libmpv-dev`, and `pkg-config`. The supplied Ubuntu 26.04 ARM64 VM uses the pinned Rust/Node versions and native system development packages; the [status table](status.md) records the current compiler evidence and limits. Build with:
+
+```sh
+npm run tauri -- build --debug --no-bundle --features media-prototype -- --locked
+```
+
+Linux also supports the [playback/lifecycle soak](../tests/fixtures/README.md#repeated-playback-and-lifecycle-stress--task-003b).
+Use its explicit software-only mode when hardware decoding is unavailable;
+that result excludes hardware coverage and counts render submissions rather
+than compositor swaps. Select the corrected private render library using
+[development runtime selection](#development-runtime-selection-notes), and use the desktop build command so frontend assets are embedded.
+
+Run from a graphical user session. `VSF_MEDIA_SMOKE` and `VSF_DIAGNOSTIC_EXIT=1` exercise the common playback sequence and ordered exit. `GDK_BACKEND=wayland` or `GDK_BACKEND=x11` selects the available GTK backend; XWayland evidence is not a native Xorg session test. Linux readiness requires both output configuration and a successful render submission. These submissions are not compositor swaps or proof of device presentation. The tested system libmpv does not provide the experimental queued audio-clock capability; its known legacy transport limitations remain visible. Packaging and interactive editing acceptance are separate gates.
+
+For the Linux numeric-locale startup regression (requires a graphical session),
+run the separate-process example with the same native feature:
+
+```sh
+LC_ALL=en_GB.UTF-8 cargo run --locked -p visualsubforge --features media-prototype --example linux-locale -- en_GB.UTF-8
+```
+
+Choose an installed locale (`locale -a`); the argument is its expected LC_CTYPE
+name. This checks the production startup helper through GTK initialization and a
+worker, including an unchanged process environment. It does not load media or
+establish desktop playback. Normal Linux media launches now initialize numeric
+locale in application startup; explicit `LC_NUMERIC=C` test overrides must be
+removed when validating this behavior. See [current status](status.md) for evidence scope.
+
+## Development runtime selection notes
+
+For the opt-in audio clock/loop-clear correction, use the [pinned mpv preparation recipe](../tests/native/mpv-clock/README.md) and [native contract](native-runtime.md). The recipe now pins upstream `master` commit `c1529642089bfebfc928a1c1664638a7a5d219ba` plus ten local patches; it never tracks a moving branch during preparation. Loading that candidate explicitly enables its capability-gated transport path; ordinary Homebrew playback still uses the known legacy clock. `VSF_AUDIO_SMOKE` fails if the required capability is absent. The recipe checks ancestry for the two upstream [CoreAudio cleanup prerequisites](../tests/native/mpv-coreaudio-cleanup/README.md), including the formerly local handle-ownership correction. This is a dependency experiment, not an installed-library replacement or release dependency selection.
+
+
+Render-API development builds must include the [pinned upstream fence correction](../tests/native/mpv-render/README.md). The tested mpv 0.41.0 release leaks a GL fence per render; installing development packages alone does not establish that the correction is present. The current pinned upstream base already contains the fence correction. The preparation recipe supports unmodified upstream for rendering alone or that base plus the separate audio experiment. Existing prepared libraries are unchanged. Build privately and select the resulting library explicitly with process-local `DYLD_LIBRARY_PATH` on Mac or `LD_LIBRARY_PATH` on Linux; preserve ANGLE's runtime path when needed. Do not overwrite installed libraries. See [the native contract](native-runtime.md) for tested builds and limits.
+
+### macOS ANGLE/Metal application experiment
+
+The `macos-angle` feature includes `media-prototype` and uses the existing
+native boundary with an opaque webview. Use the [Mac build guide](build-macos.md)
+and [SDK preflight](native-runtime.md#sdk-preflight-and-a-fresh-application-build)
+for pinned ANGLE headers/libraries, matching mpv link/runtime selection and a
+fresh application target. The feature does not download ANGLE or bundle its
+libraries. The previous `/tmp/vsf-angle-source` has surviving libraries but
+missing headers; it is not a complete SDK. A cached compiler pass cannot repair it.
+
+Development runtime paths resolve relative library install names for a process;
+they are not redistributable packaging. The ordinary `media-prototype` feature
+retains the legacy Mac path. Both configurations remain opt-in experiments.
+
+The native media experiment now previews the accepted SRT document on video. Open media and subtitles normally; Apply/Undo/Redo update the native preview, including while paused, and Close Subtitles removes it. Unapplied text drafts remain in the editor. The preview uses public mpv APIs and does not require `tests/native/mpv-subtitle-reuse` patches. Mac selects installed Hiragino Sans for the tested Unicode fixture. A serialized document over 4 MiB reports a preview error while editing/saving remain available. The [status table](status.md) distinguishes bounded historical preview/editing trials from open font, scale-transition and update-performance gates.
+
+## Historical implementation baseline
+
+The table records review-remediation results, not a fresh-machine installation or a
+claim that all platform gates passed. Commands are in [CONTRIBUTING](../CONTRIBUTING.md)
+and the [native contract](native-runtime.md).
+
+| Check | Recorded result and scope |
+| --- | --- |
+| Rust workspace | 99 tests passed on macOS arm64, including selected `macos-angle` execution. Eleven opt-in FFmpeg integrations are separate; an ignored subprocess helper is executed by its owning test. Empty/doc-test harnesses are not feature tests. |
+| Frontend | 39 TypeScript tests; strict Svelte/TypeScript, lint, formatting and production build passed. |
+| Browser | 28 Playwright cases passed on Chromium/WebKit: nine workflow pages, four runner controls and a delayed-listener control per engine. The pages execute 158 component assertions per engine; the delayed-listener control separately repeats 26 project assertions. |
+| Media analysis | Four waveform and seven scene integrations passed with Homebrew FFmpeg 9.0.2 and generated fixtures. |
+| Native synthetic controls | 66 Python tests across ten suites and the fake-mpv C++ policy test passed. This validates test oracles and policy, not captured audio or device playback. |
+| Pinned mpv variants | Fresh render/baseline/candidate builds passed 37/39/39 upstream tests, without skips. Dependencies were recorded, not hermetically locked. |
+| Selected Mac application | Fresh Cargo target and bundle built; native-feature Clippy passed. Existing ANGLE libraries plus restored pinned headers were used. M3 Max visible video, GPU command smoke, expected loaded-library identities and normal quit passed; no fresh ANGLE library build or acoustic acceptance. |
+| Native compiler checks | Mac ANGLE, Windows 11 ARM64 MSVC and Ubuntu 26.04 ARM64 C++ checks passed with pinned mpv headers; Linux Rust native-boundary check also passed. These are compiler checks, not new Windows/Linux playback evidence or x64 CI execution. |

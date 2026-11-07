@@ -123,3 +123,21 @@ Primary references: [mpv font options](https://mpv.io/manual/master/#options-sub
 [libass issue 845](https://github.com/libass/libass/issues/845), and the pinned
 runtime's `options/path.c`, `sub/ass_mp.c` and `sub/sd_ass.c`. Software/probe checks
 do not establish installation, physical GPU/audio or other-platform acceptance.
+
+## Historical status receipt: Font milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Font milestone complete (2026-10-17):** the current Mac runtime's generic CJK
+fallback now uses an installed last-resort font without rewriting original font
+names or redistributing fonts. Bounded session notices expose unavailable families,
+substitutions and missing glyphs. Actual Mac generic/explicit/embedded rendering,
+attachment replacement, exact save/Undo, notice reset and normal resource cleanup
+pass. Abrupt termination can leave the private temporary font link for OS cleanup.
+301 ordinary Rust tests, 41 frontend tests, 48 browser cases, strict static/IPC
+checks and the unchanged 10k desktop interaction gate pass. See [font policy and
+exact evidence](preview-fonts.md). Windows/Linux rendering, ANGLE and distribution
+acceptance remain separate; later historical results below describe their original
+runtime state.

@@ -234,7 +234,7 @@ that an archived output directory can be rerun in place.
 
 ## Editor audio re-entry and replacement — 2026-10-18
 
-The maintained [Mac desktop audio lane](../tests/desktop/README.md#native-audio-re-entry-and-replacement-macos)
+The maintained [Mac desktop audio lane](../tests/desktop/README.md#native-audio-re-entry-and-replacement-macos-and-linux)
 now exercises the actual WebView, Tauri IPC, media worker and selected runtime,
 using deterministic four-second stereo PCM WAVs. `test-results/desktop-JiO4mU/`
 passes all five process-only captures in both channels: initial looping,
@@ -868,3 +868,119 @@ Ninja1.13.2 and39 upstream tests), Rust1.98.1 harness build and each directory's
 `analyze-submission-current.py`. The NumPy analyzers use the existing bundled
 Python runtime. `finalize-coreaudio-refill.py` verifies identities and cleanup.
 The original interruption, native acceptance and umbrella goal remain open.
+
+## Historical status receipt: Latest reliability checkpoint (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Latest reliability checkpoint (2026-10-18):** all ten hosted application jobs
+and all six native build-contract jobs pass at07260fa. At1e83b2f, all three
+headless jobs additionally pass nine native-feature Rust transport controls;
+all six native-contract jobs pass. The plugin rejection-test
+correction is verified on Mac, Windows x64 and Ubuntu with production limits
+unchanged. All60 browser cases pass. The intermittent statistics paging failure
+is reproduced in both browsers: an unscoped test selector counted the underlying
+Problems panel as well as the dialog. Scoped assertions, deterministic coexistence,
+forward/backward/final-page checks and late-poll controls now pass locally; see
+the [diagnosis and validation](native-reliability.md#statistics-paging-test-correction--2026-10-18).
+The f0dbf68 Ubuntu24.04 x64 package passes
+isolated installation/offline CLI and software-renderer/null-sink native checks;
+downloaded runtime/source/notice identities verify. The matching Windows x64
+package also passes installed/offline CLI, three DLL unload cycles and production
+GUI startup/teardown with software D3D11 and virtual WASAPI. Its downloaded
+source/notice identities and packaged modern/VSS CLI on the Windows ARM64 VM
+verify; the [acceptance guide](preview-acceptance.md) now links both feature builds.
+Linux Pulse interpolation-option content/re-entry/EOF checks add bounded passes,
+while the default capture has an incomplete beginning; production configuration
+is unchanged. The new actual Linux editor lane reproduces a missing paused-seek
+cursor with both Pulse options; raw properties identify an exact transport
+position with unavailable audio PTS. The [diagnosis and retained failures](native-reliability.md#linux-editor-capture-lane-and-paused-seek--2026-10-18)
+now record a corrected resting-cursor policy and all six actual-editor paused
+seeks passing. The default Pulse editor still fails its live loop-clear clock
+check. The interpolation option reports an early EOF position even when one
+captured suffix passes through the source end; independent raw properties also
+reproduce an early transport position. That option remains unadopted. Full native
+acceptance remains open. New CoreAudio buffer-state logging identifies one
+512-frame empty callback during the temporary loop-clear pause despite queued
+audio, with417 exact-zero captured frames. Ten cases pass content/order checks;
+the interruption remains unresolved. See the
+[state diagnosis](native-reliability.md#coreaudio-empty-callback-state-diagnosis--2026-10-18).
+A native Mac outside-canvas drag, keyboard edit, atomic Undo/Redo,
+separate save and normal quit pass. Held-pointer cancellation, dialog lifetime
+and distribution/physical gates remain open.
+See the [retained evidence and limits](native-reliability.md#linux-pulse-content-extension--2026-10-18).
+
+## Historical status receipt: Native stage8 first correction (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Native stage8 first correction (2026-10-18):** PCM WAV files lacking a reported
+container start now generate waveforms after a bounded first-packet PTS-zero
+verification. Explicit origins remain authoritative; ambiguous inputs are refused.
+Ordinary/Broadcast-WAV, existing offsets, long timelines and cancellation pass on
+Mac and Windows/Linux ARM64 VMs. The native Mac legacy-import workflow now verifies
+the displayed waveform, with fresh executable/runtime identities and normal
+shutdown. The full Mac suite passes507 Rust tests/33 ignored and strict checks.
+Audio loop/clock, gesture, dialog/lifetime and distribution work remains required;
+see [the correction, commands and remaining scope](native-reliability.md).
+
+## Historical status receipt: Current CoreAudio boundary audit (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Current CoreAudio boundary audit (2026-10-18):** four exact-candidate 1× captures
+and twelve isolated diagnostic rate/phase/pause cases complete normally. The
+diagnostic changes only read-only submission tracing in one native source file;
+all39 upstream tests and seven production transport-policy tests pass. All12
+native buffer sequences match independent renders and the restart endpoint stays
+within the retained half-source-sample bound. All12 captured suffixes pass in both
+channels. Eight full-sequence comparisons pass; four near-B comparisons remain
+ambiguous because their references repeat content. Separate ordered anchors bound
+those joins within0.166 output samples and reject deletion/repetition/extra-silence
+controls; the original ambiguities remain recorded. No functional runtime patch
+or production policy changed. Midstream rates, re-entry/replacement, other outputs,
+full-editor interaction and physical-device gates remain open. See the
+[exact scope and retained evidence](native-reliability.md#current-coreaudio-clear-boundary-audit--2026-10-18).
+
+## Historical status receipt: Current rate-change and editor audio evidence (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Current rate-change and editor audio evidence (2026-10-18):** eight diagnostic
+0.5×↔1.5× immediate rate-change/clear cases pass old/new submitted-content and
+captured correspondence checks. Three playing cases submit one empty callback;
+four separate uninstrumented controls reproduce an 8.6875ms quiet interval in
+three cases. This remains an unresolved interruption, not a seamless-output pass.
+The new Mac `--native-audio` editor lane passes all five two-channel captures:
+looping, past-B EOF, re-entry, post-lead-in looping and replacement. Stale-session
+refusal, unchanged documents/sources, runtime identity and normal shutdown pass.
+All72 synthetic controls across11 suites pass. These test-only changes do not
+alter the runtime or production transport. Sustained rate/format transitions,
+other outputs, physical interaction and release gates remain open; see
+[reproduction, identities and limitations](native-reliability.md#rate-change-clear-audit--2026-10-18).
+
+## Historical status receipt: Current Linux output/portal evidence (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Current Linux output/portal evidence (2026-10-18):** the logged-in ARM64 VM
+reuses the verified candidate without rebuilds; results stay on tmpfs/host storage
+with about613MiBroot free. Pulse clock backsteps reproduce in all three loop/clear
+trials (up to8.698ms), while three direct-PipeWire trials pass. Both outputs pass
+three outside-seek/re-entry and six EOF/replacement cases; one Pulse stream capture
+passes coarse tone content. An existing per-process Pulse interpolation option
+passes six additional trials, but is not adopted without broader content/editor
+evidence. The stale SRT-only portal mock is corrected; all six private-bus lifecycle
+cases and four malformed-request controls pass. Linux CI now includes the dedicated
+portal harness. This is component/VM evidence with retained failures, not physical
+output or native-dialog acceptance. See [commands and scope](native-reliability.md#current-linux-output-and-portal-checks--2026-10-18).

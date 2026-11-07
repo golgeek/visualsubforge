@@ -162,3 +162,29 @@ Evidence is retained under `tests/fixtures/generated/statistics/`, including
 cover the benchmark process, not total WebView/native child memory. No new
 Windows/Linux feature/installation or physical GPU/audio acceptance is claimed.
 Full ASS/SSA document/style editing remains separate.
+
+## Historical status receipt: Statistics milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Statistics milestone complete (2026-10-17):** read-only whole-document or
+inclusive cue-range reports share Rust quality metrics and the active profile
+with `vsf stats`. Counts/denominators, exclusions and unavailable rates are
+explicit. Duration/CPS/RS and line/gap summaries, nine RS categories, all-pair
+overlaps and paged outliers preserve accepted state, tags and drafts. Cue links
+use existing draft protection. One bounded worker rejects stale document/profile/
+media/scene results without interrupting checker or repair jobs.
+
+Validation passes 271 ordinary Rust tests, 39 frontend unit tests, 46 browser
+cases, strict Clippy/lint/type/format/IPC checks and the default desktop build.
+The actual Mac workflow verifies three-scope CLI parity, draft guards, source/
+history preservation, profile/media/rescan invalidation and recovery regression.
+At 10,000 cues/cuts, display takes 449 ms, draft interaction 4 ms, cancellation
+1 ms, invalidation 12 ms and navigation 125 ms. Release document/range p95 is
+11.003/9.675 ms with 21,676,032 additional sampled RSS bytes. The initial RSS
+failure is retained; bounded allocation fixes it without changing the budgets.
+See [statistics](statistics.md) for policy, commands, ownership and limits.
+New Windows/Linux feature execution, clean installs and physical GPU/audio
+acceptance remain open.

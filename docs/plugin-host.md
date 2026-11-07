@@ -579,3 +579,76 @@ domain and desktop dependency boundaries are unchanged. Full desktop/CLI owner
 integration and native/VM acceptance still keep stage 7 and ADR0008 open.
 Frontend interaction/browser tests and a new native desktop build were not rerun
 for this pure library increment; no UI/IPC/native workflow implementation changed.
+
+## Historical status receipt: Plugin implementation and progressive validation (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Plugin implementation and progressive validation (2026-10-18):** a separate worker crate pins
+rquickjs 0.14.0 / QuickJS-NG 0.16.2. Copied JSON inputs, fresh globals, engine heap/
+stack caps, bounded pipes, parent deadline/cancellation and kill/reap pass ten
+focused Mac tests, including loops/regex, allocation, serialization, blocked pipes,
+floods and crashes. The latest baseline passes 501 workspace tests/32 ignored,
+strict Clippy, Rustfmt, Prettier and ESLint (zero-test harnesses excluded).
+Two fresh-helper 10k workloads pass p95<=46.513ms and sampled additional combined
+RSS 53,575,680 bytes within predeclared limits. Pure modern/VSS APIs, captured
+packages/settings, read-your-writes neighbors and validated private fix proposals
+now pass 14 real-helper API tests plus two domain batch tests. The unchanged archived
+overlap checker and three integer-safe fixes pass a separate local-only test;
+no unresolved-license code is redistributed. Combined text/timing batches use one
+Undo and retain source metadata; immutable field sharing reduces capture/history
+allocation. Twenty complete API/history 10k workloads pass p95<=302.633ms and
++198,246,400 sampled RSS bytes against 500ms/192MiB. The [API matrix](plugin-api.md)
+and [failed attempts/final evidence](plugin-host.md#pure-apiproposal-evidence--2026-10-18)
+record exact scope. The [local CLI](plugin-cli.md) now supports explicit package
+loading, complete preview and reviewed same-format new-file publication. Six IO
+tests and eight real-executable tests cover all four formats, changed-input/review
+refusal, source protection, timeout, live cancellation and helper reaping. Thirty
+fresh-CLI10k workloads pass p95<=333.311ms and sampled combined RSS120,782,848 bytes
+against500ms/192MiB; complete rows, source/output hashes and output reparse are
+verified. The desktop now has a
+single plugin job owner, bounded typed review/text pages and guarded one-Undo
+acceptance, with nine owner tests and a separate real installed-CLI helper test.
+A desktop self-spawn timeout prompted using the existing sibling CLI without
+relaxing limits; exact evidence is in the [owner record](plugin-host.md#desktop-owner-and-typed-transport--2026-10-18).
+The [desktop controls](plugin-desktop.md) now expose package selection, check/fix
+review, settings, full-text chunks and one-Undo acceptance. Ten focused browser
+checks pass in Chromium/WebKit, and App integration covers draft preservation,
+native-menu/toolbar dispatch, video occlusion and focus. Lost acceptance replies
+reconcile accepted state; failed refresh blocks continuation until retry. All60
+browser cases,44 frontend tests,501 workspace Rust tests/32 ignored, strict checks,
+generated IPC and default desktop build pass. These browser tests use modeled IPC.
+The subsequent actual Mac lane passes all eight modern/VSS × SRT/ASS/SSA/WebVTT
+workflows, with exact preservation, one Undo/Redo, failed saves, reopen, recovery,
+live-helper cancellation/reaping, exception rollback and changed-package refusal.
+Separate native observations and a non-WebDriver real macOS chooser trial pass,
+including a reviewed VSS neighbor edit outside selection, exact separate-file
+save and normal code0 shutdown. Existing WebVTT preview limits remain. See the
+[native/chooser evidence](plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
+Ten complete desktop10k workloads also pass: both APIs across five formats/markup
+fixtures, all4000 UI review pages and50 check/fix/history/save cycles, exact reopen,
+cancellation/stale rejection and durable crash recovery. Maximum measured
+interaction708ms; asynchronous preparation1554ms, with the unchanged1000ms helper
+limit. Sampled app+helper RSS peaks at350,912,512 bytes; this excludes WebKit and is
+descriptive, separate from pure/API/CLI memory gates. The mixed-newline expected-
+byte oracle failure and final full rerun are retained in the desktop guide.
+Pinned VSS-host parity and available VM checks remain required. ADR0008 is proposed.
+See [worker ownership, limits and evidence](plugin-host.md).
+
+## Historical status receipt: Plugin VM automated checks pass (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Plugin VM automated checks pass (2026-10-18):** Ubuntu ARM64 passes 503 Rust
+workspace tests/33 ignored; Windows ARM64 passes 491/32 ignored. Both pass the
+plugin/application/CLI tests, frontend build/tests, CLI/default desktop builds,
+installed-helper relocation, generated IPC and strict Clippy. Eleven zero-test
+harnesses per guest are excluded. The Linux subtitle-dialog filter type error is
+fixed; a content-identical test-target rename resolves Windows error740 without
+elevation. New plugin desktop UI workflows and historical-host comparison remain
+open; these checks do not establish physical-device or installation acceptance.
+See [commands, identities and retained failures](plugin-host.md#vm-automated-validation--2026-10-18).

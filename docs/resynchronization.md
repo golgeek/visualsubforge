@@ -632,3 +632,222 @@ recorded in `resync/desktop-e2e-linux-v2/` and `resync/desktop-e2e-windows-v2/`.
 Filtered zero-test integration harnesses are not additional evidence. The Windows
 test-owned process handles were confirmed terminal before restoring idle pausing
 and the VM's original paused state.
+
+## Historical status receipt: ASS/SSA resync complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**ASS/SSA resync complete (2026-10-17):** shared CLI/GUI analysis preserves source
+styles, metadata, attachments and tags. Rational endpoints round directly to the
+stated source grid. Cues with timed/ambiguous effects can move intact; duration
+changes require manual review and block whole-document acceptance, including
+ASS tags inside SRT. Accepted batches retain source protection and one-step Undo.
+
+Stage3 validation: 313 ordinary Rust tests, 44 frontend tests, 50 browser cases,
+real FFmpeg/CLI matrices and strict static/build/IPC checks pass. Actual Mac
+ASS/SSA/tagged-SRT review, acceptance, exact CLI/save-byte parity, failed-save
+preservation, Undo/Redo, preview acknowledgment and timed-effect refusal pass.
+10k proposal p95 is <=103.088ms with 32,931,840 additional sampled RSS bytes,
+within 500ms/96MiB budgets. See [policy and exact evidence](resynchronization.md#assssa-extension-validation--2026-10-17).
+Windows/Linux new-feature execution and physical installation/GPU/audio acceptance
+remain separate open gates; the approved native runtime strategy is unchanged.
+
+## Historical matcher progression
+
+### v4 and preceding v3/v2 evidence
+
+Algorithm `scene-visual-edges-v4` adds actual first/final decoded frame evidence
+for otherwise ambiguous first/last shots, while preserving the cut-derived fit.
+Every intervening observation must support it; matching edge pictures or equal
+duration alone do not establish continuity. On the development Mac, the combined
+29-case extended/robustness corpus passes. Periodic-motion coverage rises from
+77.8% to 93.3%, above the unchanged 90% target, with zero measured accepted error.
+Whole-cycle deletions in the first/last shot remain unresolved; same-duration
+120 ms replacements do not get bridged. Both reference-film corpora still pass
+(animated coverage 97.9%; live action 96.6%, worst accepted endpoint error 5.385 ms).
+The 165 ordinary workspace tests, strict Clippy and twelve explicitly invoked
+FFmpeg integrations pass. The new EOF tests cover short clips, nonzero origins
+and a longer audio track that supplies no video-edge evidence. At `921181c`,
+Ubuntu/Windows ARM64 pass 167/160 ordinary tests, the same twelve integrations,
+all 29 combined cases, three evaluator-oracle tests and strict Clippy. All 369
+tracked files are hash-verified. The `ddc841a` Mac native bundle subsequently
+passed proposal review/acceptance, one Undo/Redo, cancelled Save As, explicit
+source-path rejection, save-before-project and reopen from an empty workspace.
+Exact output bytes and all input hashes match expectations; the project refers
+to the new SRT. The app quit normally. The [native walkthrough](resynchronization.md#native-resync-walkthrough)
+records executable/runtime identities and retained screenshots. This closes
+the first resync milestone; video-only fixtures do not validate audio. The
+[real desktop workflow lane](../tests/desktop/README.md) now passes on Mac,
+Ubuntu (Xvfb) and Windows ARM64, with actual webview/IPC, editing/history, failed/cancelled
+saves, exact-byte reopen, process-loss recovery, external-file conflict protection
+and normal shutdown. Its optional pinned WebDriver instrumentation is absent from
+ordinary builds; only file choices and app-data location are supplied. CI
+now also passes this lane on all three hosted desktop OSes at `a222eda`; see
+[release evidence](releases.md) for run links and packaging limits.
+The pinned test client is now WebdriverIO 10.0.2, and source-map-js is patched to
+1.2.2; a dated npm audit reports zero advisories. A new
+private IO seam now tests partial-write and sync failures on actual temporary
+files, preserving existing/absent destinations and cleaning temporaries; the
+111 application/desktop tests and strict Clippy pass on Mac; both preparation
+tests also pass on Ubuntu and Windows ARM64.
+These sampled heuristics
+do not guarantee detection of visually indistinguishable edits.
+
+The following results describe the preceding committed v3 implementation:
+
+Algorithm `scene-visual-neighborhoods-v3` adds bounded dense target
+observations around unsupported intervals. A newly generated deletion of one
+repeating motion cycle exposed a 1,760 ms false accepted mapping in v2; v3 leaves
+that tail unresolved. All original 16 cases pass, with reference coverage 97.9%.
+The expanded 21-case robustness corpus passes 20 cases: the nonrepeating pan
+reaches 92.9% and its tail-deletion variant 95.7%, but periodic-motion coverage
+remains below its 90% gate at 77.8%. These cases have no measured wrong accepted
+timings. Live-action coverage reaches 96.6%, with a 5.385 ms worst accepted
+endpoint error. An intermediate 80.9% regression exposed an interval merge that
+mixed two fits' endpoints and invented a third slope. Retaining an original
+cut model fixes the regression; its failing unit test and corpus evidence are
+preserved. Latest local workspace tests (162), strict Clippy and ten explicitly
+invoked visual/shared-operation/CLI/desktop-owner FFmpeg tests pass. At `f3df34c`,
+Ubuntu ARM64 passes 164 ordinary workspace tests and Windows ARM64 passes 157;
+both pass the same ten FFmpeg integrations, all 16 regenerated extended cases
+and strict Clippy. Source hashes match all 368 tracked files. The Windows
+filter-file test exceeds its command-line limit without putting the filter on
+that command line. Mac Ctrl-C during actual dense sampling reaps the child,
+removes both filter files and publishes nothing. Native GUI validation remains.
+
+The following results describe the preceding committed v2 implementation:
+
+The sampled verifier now preserves cut-derived evidence on either side of
+differing timing models and leaves their uncertain gap unresolved. The original
+16-case corpus still passes, with reference coverage 94.3% and zero measured
+accepted error. A new low-cut/short-deletion experiment improves from 50.6% to
+85.3% coverage but still misses its 90% target. A separate nonrepeating pan
+reaches 85.6%; inspection shows that half-second sampling can miss the matching
+frame at the predicted timestamp. The held-out live-action speed/ad edit reaches
+95.8% coverage with 5.385 ms worst accepted error, and an actual three-cue CLI
+run preserves inputs and publishes correct output. Matching quality remains an
+open gate; see the [corpus record](../tests/fixtures/resync/README.md).
+
+The [dated resync validation record](resynchronization.md#recorded-resync-validation)
+distinguishes the current macOS, Ubuntu ARM64 and Windows ARM64 results. Both VM
+headless suites, actual FFmpeg operations and ten compact alignment cases pass.
+Both VMs' desktop owner/persistence, generated IPC and frontend checks pass.
+Windows console Ctrl-C and timeout terminate the analysis child and preserve
+files. Native GUI resync and the broader matching corpus were still open at
+that earlier stage; the v4 and native-walkthrough results above supersede it.
+
+## Historical application and CLI increments
+
+These are preceding increments, not current open gates.
+
+Subsequent resync experiment checks on the development Mac: 23 media-analysis
+unit tests and strict Clippy passed, plus all three visual integrations. The
+four waveform and seven scene integrations passed in the preceding increment.
+All 16 extended/reference corpus cases pass: reference coverage rose from 82.8%
+to 95.2% through sampled verification, held-out speed/ad coverage is 99.2%, and
+the long-block case reaches 100%. Accepted intervals have zero measured timing
+error; static-deletion tails remain unresolved. These results do not establish
+general content/distortion quality or other-platform behavior.
+
+Shared extraction: `cargo test --locked -p vsf-application -p visualsubforge`
+passed 73 tests (70 desktop, three moved persistence/lease tests); the save-lock
+helper is invoked by its owner. Strict Clippy for both packages and rustfmt passed.
+This preserves existing behavior; it does not validate a product CLI yet.
+
+Shared resync operations: 15 application tests and all 70 desktop tests passed,
+including process-crash/report-only publication, collision preservation, rounding,
+hash changes and cancellation. Three additional actual-FFmpeg integrations passed
+(offset/FPS/speed-ad mapping, unresolved output, changed inputs and cancellation).
+The 23 media-analysis tests and strict Clippy for all three affected packages
+passed. Publication behavior is locally verified on macOS; OS CI execution and
+the product adapters remain outstanding.
+
+CLI executable checks on macOS: three default tests and two opt-in FFmpeg tests
+passed, including JSON stdout separation, report/SRT round trips, unresolved
+output refusal, retry protection, actual SIGINT cancellation and active-child
+reaping on cancellation/timeout. Strict CLI Clippy passed. A headless OS matrix
+is configured but not run here; Windows console signals remain unverified.
+
+Historical exact-gap refinement (superseded by the content-timing correction below): eight proposal tests passed, including 32-cue sequences at
+46 speed scales, unsorted SRT order, Undo/Redo, ad-boundary exceptions and collapse
+refusal. Three application FFmpeg tests and two CLI FFmpeg tests pass with an
+actual 100 ms source gap preserved at 24/25 speed and a separate ad gap left to
+the section mapping. These validated the then-approved end adjustment; current resync instead maps
+every endpoint directly, as documented below.
+
+After the CLI and exact-gap changes, `cargo test --locked --workspace` passed
+131 tests and strict workspace Clippy passed. The workspace command leaves
+FFmpeg integrations opt-in; the three shared-operation and two CLI FFmpeg tests
+were run separately and passed. Formatting and diff checks passed. This is
+macOS default-build evidence, with no new native GPU/audio or other-OS claim.
+
+Content-timing correction (2026-10-11): the user clarified that every cue start
+and end, including long pauses, should follow actual matched programme timing.
+The superseded fixed-ms end adjustment is removed. Reports use schema 2 and
+`content_mapped_endpoints_v1`, with original/resulting gaps and separate section
+boundaries. FPS-only conversion is not treated as a speed change. Preset/minimum
+gap enforcement was a separate follow-up (now implemented in the quality milestone);
+audio matching remains deferred.
+
+`cargo test --locked -p vsf-application -p vsf-cli` passed 22 tests, including
+nine proposal tests. Generated sequences cover 256 cues at 46 scales with
+independent endpoint expectations, short/long gaps, plus explicit 25→23.976
+speed examples and reverse mapping. An initial round-trip assertion compared
+un-normalized SRT trailing whitespace; it now compares parsed documents.
+All three shared-operation and two executable FFmpeg tests passed via the
+resync guide's opt-in commands. Strict application/CLI Clippy, rustfmt and diff
+checks passed. This changes proposal timing/report policy, not visual matching;
+the corpus need not be retuned. GUI integration and remaining platform/content
+gates stay active.
+
+## Historical desktop resync increments
+
+These October 11 increments precede the native walkthrough above. Their pending
+gates and absent hosted results describe that date, not current status.
+
+Desktop resync backend validation (2026-10-11, development Mac, pinned Rust/Node,
+FFmpeg 9.0.2): `cargo test --locked --workspace` passed 153 tests, including
+91 desktop tests; zero-test harnesses are not feature evidence. The separately
+invoked `cargo test --locked -p visualsubforge resync::tests::actual_analysis --
+--ignored --nocapture --test-threads=1` passed, exercising actual FFmpeg, bounded
+review pages, acceptance and changed-input rejection with controlled media
+selection. `cargo test --locked -p media-analysis --test ffmpeg -- --ignored
+--nocapture --test-threads=1` passed all four waveform integrations after bounding
+its decode threads (two-hour fixture: 4.126 seconds). Strict Clippy for desktop
+and media-analysis, Rust formatting, frontend build, IPC drift, lint, 39 frontend
+unit tests and formatting passed. `cargo check --locked -p visualsubforge
+--features media-prototype` passed; this is compilation, not native execution.
+
+New deterministic tests cover drain/reuse/panic handling, no queued resync job,
+cancellation and shutdown ownership, media-selection serialization, stale
+captures, one-edit Undo/Redo, protected Save As, actual recovery publication,
+legacy recovery reads, project-reference rejection and retained scene polling.
+The CI desktop matrix now configures the actual-FFmpeg owner test on all three
+OSes. No remote is configured, so no hosted run is claimed. GUI interaction,
+real Tauri transport, wider corpus and remaining OS checks are still required.
+
+GUI review increment (2026-10-11): Tools opens a focused resync dialog and
+`ResyncSession`, with source/target roles, draft apply/discard/cancel, progress,
+100-row cue/section pages, unresolved reasons and complete-proposal acceptance.
+DocumentSession uses one serialized reconciliation path for ordinary actions
+and resync acceptance. App adds modal occlusion, focus and dispatch only. Closing
+while Start is pending cancels its eventual ID; old view/picker replies cannot
+revive a disposed job. The dialog waits for draft/accept acknowledgment before
+allowing Close, preventing late accepted replies from overwriting later typing.
+
+`npm run test:browser` passed all 30 Chromium/WebKit cases, including the new
+resync workflow. After adding explicit draft-discard and same-revision Save As
+controls, `npm run test:browser -- --grep 'workflow: resync'` passed all 21 fixture
+assertions on each engine. `npm run build`/`npm run check` passed without warnings;
+IPC generation/drift, lint and formatting passed. Strict desktop Clippy and
+`cargo test --locked -p visualsubforge` passed all 91 ordinary tests (explicit
+exporter/FFmpeg tests remain opt-in). No matching algorithm changed.
+
+Interactive modeled review was inspected at 1440×1000 and 480×700. The narrow
+dialog stayed inside the viewport without outer horizontal overflow; tables
+scroll separately, including PageDown after keyboard focus. Ignored screenshots
+are `tests/fixtures/generated/resync/gui-review-{wide,narrow}.png`. These browser
+checks model media, file dialogs and storage. Actual Tauri/native resync, remaining
+platform/process/filesystem and broader corpus validation remain open.

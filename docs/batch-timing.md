@@ -140,3 +140,23 @@ unrepresentable exact video seek; desktop-QYgX7B retained that requested time in
 its expected output. Corrected tests use the actual settled/captured playhead;
 no product rounding policy or budget was relaxed. Lint/Clippy failures were fixed
 with immutable selection helpers and the idiomatic integer multiple check.
+
+## Historical status receipt: Selection and batch timing complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Selection and batch timing complete (2026-10-17):** mouse/keyboard ranges and
+disjoint selection retain surviving cue IDs through edits/history. Explicit
+selected/all/following-row/from-playhead shifts and selection alignment show exact
+before/after timings. Rust rejects invalid batches atomically and accepts each as
+one Undo step, retaining text/tags/styles/metadata/attachments and format precision.
+The existing bounded timing worker handles cancellation and stale contexts.
+
+308 ordinary Rust tests, 44 frontend tests, all 50 browser cases and strict
+static/build/IPC checks pass. Actual Mac disjoint alignment, save/error/history and
+10k ASS/SSA workflows pass: preview <=317ms, accept <=161ms, Undo <=106ms; release
+p95 <=46.586ms and additional sampled RSS 54,018,048 bytes meet unchanged budgets.
+See [batch timing and exact evidence](batch-timing.md). Windows/Linux execution,
+physical input/presentation and distribution acceptance remain separate gates.

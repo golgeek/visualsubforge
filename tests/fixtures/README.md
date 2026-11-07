@@ -256,7 +256,7 @@ cp tests/fixtures/editing.srt tests/fixtures/generated/editing-workflow.srt
 Desktop checklist: open media and subtitles through native menus; compare each selected audio track's waveform pulse; seek a cue; edit text/start/end and Apply; undo/redo; Save As to another generated SRT and reopen; reject an invalid time; cancel replacement/quit with a draft; save/discard deliberately; resize all three splitters and the window while video is paused/playing; zoom/pan/follow/drag a waveform range and loop it; close media and verify black native video. `long.flac` exercises a two-hour viewport and cancellation by immediate replacement. These new interface checks are still pending an unlocked desktop.
 
 
-Desktop results for the editing checklist are recorded in [004 evidence](../../docs/tasks/004-desktop-evidence.md). The native Quit data-loss and pan-slider issues were fixed and retested. The two-hour audio-only subsecond-loop clock check failed and is retained as [task 005](../../docs/tasks/005-audio-loop-timing.md), with a standalone `tests/native/audio-loop-probe.py` reproduction; do not count that as a passed precision-timing test.
+Desktop results for the editing checklist are recorded in the optional local `docs/tasks/004-desktop-evidence.md` record. The native Quit data-loss and pan-slider issues were fixed and retested. The two-hour audio-only subsecond-loop clock check failed and is retained as optional local `docs/tasks/005-audio-loop-timing.md`, with a standalone `tests/native/audio-loop-probe.py` reproduction; do not count that as a passed precision-timing test.
 
 ## Binary frame identity fixture — libVLC seek investigation
 
@@ -266,7 +266,19 @@ Desktop results for the editing checklist are recorded in [004 evidence](../../d
 python3 scripts/seek-frame-fixture.py --output tests/fixtures/generated/seek-frames
 ```
 
-Build `tests/native/libvlc-paused-seek-probe.c` against the matching pinned SDK using the [audit's command](../../docs/libvlc-feasibility.md#output-isolation-and-standalone-reproducer). The optional snapshot argument requires an existing directory. After the process exits, independently check its image files:
+Build `tests/native/libvlc-paused-seek-probe.c` against the matching pinned SDK using the command below. This optional historical experiment requires a separately
+obtained matching Mac ARM64 libVLC 4 SDK; it is not part of application setup.
+From the repository root, set `VSF_VLC_SDK` to its extracted absolute path:
+
+```sh
+VSF_SEEK_PROBE="$PWD/tests/fixtures/generated/libvlc-paused-seek"
+clang -std=c11 -Wall -Wextra -Werror -pthread \
+  -I"$VSF_VLC_SDK/include" tests/native/libvlc-paused-seek-probe.c \
+  -L"$VSF_VLC_SDK/lib" -lvlc -Wl,-rpath,"$VSF_VLC_SDK/lib" \
+  -o "$VSF_SEEK_PROBE"
+```
+
+The optional snapshot argument requires an existing directory. After the process exits, independently check its image files:
 
 ```sh
 mkdir tests/fixtures/generated/seek-case
@@ -281,7 +293,7 @@ python3 tests/native/check-seek-frame-id.py \
   --output tests/fixtures/generated/seek-case/identity.json
 ```
 
-The checker verifies every source marker and rational PTS, then identifies snapshot cells without OCR, target-biased image matching, or a timing tolerance. Its explicit diagnostic contract selects the frame covering the requested time in `[PTS, next PTS)`. Missing images, ambiguous/nonuniform cells and invalid anchors fail. The probe's coarse position exit status is separate from this exact-image verdict; on the tested SDK, the command sequence above passes the former and fails the latter. `step-after-seek` is an investigation control, not an adopted application fix. These are engine snapshots using dummy output, not physical display, GPU or audio validation. See the [current results](../../docs/libvlc-feasibility.md#regenerable-binary-marker-regression).
+The checker verifies every source marker and rational PTS, then identifies snapshot cells without OCR, target-biased image matching, or a timing tolerance. Its explicit diagnostic contract selects the frame covering the requested time in `[PTS, next PTS)`. Missing images, ambiguous/nonuniform cells and invalid anchors fail. The probe's coarse position exit status is separate from this exact-image verdict; on the tested SDK, the command sequence above passes the former and fails the latter. `step-after-seek` is an investigation control, not an adopted application fix. These are engine snapshots using dummy output, not physical display, GPU or audio validation. Detailed historical results remain in optional local `docs/libvlc-feasibility.md`; the failure scope above does not depend on that file.
 
 The later [experimental core patch](../native/libvlc-seek/README.md) passes the exact-image check with ordinary `plain` seeks on this fixture. Its recipe explicitly links the patched core and matching SDK plugins; the SDK-only command above retains the baseline failure. `resume-after-seek` takes the same snapshots, then checks reported playback progression and a return to pause after each seek. It rejects progress more than 250 ms ahead of elapsed wall time; this catches gross jumps without establishing an audio/device precision budget. Separate step/previous/resume experiments still fail, so the patch is not ready for integration. Keep each run's output in a fresh directory.
 
@@ -332,3 +344,53 @@ The 10k resync benchmark uses Task016's full fixture with only timestamps halved
 to fit the existing four-hour analysis limit; it records both parent/derived
 SHA256. All cues, text, styles and unknown records remain. CPU/RSS budgets remain
 500ms p95 / 96MiB additional sampled RSS. Original generated files stay unchanged.
+
+## Analysis regression commands
+
+Run from the repository root with the [pinned Rust toolchain](../../CONTRIBUTING.md#commands-and-toolchains)
+and FFmpeg/ffprobe on PATH.
+
+Both waveform and scene integrations need actual FFmpeg and synthetic fixtures:
+
+```sh
+python3 scripts/media-fixtures.py
+python3 scripts/scene-fixtures.py
+cargo test --locked -p media-analysis --test ffmpeg --test scenes -- --ignored --nocapture --test-threads=1
+```
+
+CI runs both fixture generators and all integrations; ordinary workspace tests
+leave these integrations ignored. They validate decoding/analysis and cancellation,
+not native playback or presentation.
+
+The [resync experiment](resync/README.md) has a separate fixture
+generator, six visual-signature/sampling integrations and a ground-truth evaluator.
+CI runs the robustness corpus in every headless OS lane; the analysis lane also
+includes the extended cases with three ten-minute content blocks.
+The wider local reference-movie case meets its coverage target after sample
+verification; a passing corpus is not general matching or product acceptance.
+
+The [resync CLI](../../docs/resynchronization.md) builds with
+`cargo build --locked -p vsf-cli`, without Node or desktop/native playback
+dependencies. Run `cargo test --locked -p vsf-application -p vsf-cli` for policy,
+persistence and executable checks. After generating the resync fixtures, also run:
+
+```sh
+cargo test --locked -p vsf-application --test resync_ffmpeg -- --ignored --nocapture --test-threads=1
+cargo test --locked -p vsf-cli --test cli -- --ignored --nocapture --test-threads=1
+```
+
+The headless CI matrix configures these on macOS, Windows and Linux with recorded
+package-manager FFmpeg versions; it is not evidence of hosted execution or native
+device behavior. Unix executable cancellation tests send SIGINT and verify child
+reaping. On Windows, build the CLI and run the console-event check separately:
+
+```sh
+cargo build --locked -p vsf-cli
+python tests/cli/windows-signals.py --vsf target/debug/vsf.exe
+```
+
+It creates a private console, sends an actual Ctrl-C event, and checks exit 130,
+child termination, unchanged inputs and absent outputs. A separate timeout case
+checks exit 7. The controlled child ignores Ctrl-C, so the test cannot pass merely
+because Windows delivered the event to both processes. The headless Windows CI
+lane includes this check; local ARM64 execution is recorded in the resync guide.

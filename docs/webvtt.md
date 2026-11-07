@@ -448,3 +448,30 @@ contract changed in this recovery optimization, so the prior 44 frontend and
 56 browser cases remain its integration baseline, not newly rerun evidence.
 Stage6a and ADR0031 are accepted within this scope. Legacy project import,
 translation, plugins and the final native/distribution milestone remain required.
+
+## Historical status receipt: WebVTT stage6a complete (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**WebVTT stage6a complete (2026-10-18):** open/edit/save, shared markup-aware tools,
+CLI checking/statistics, project references and accepted-state recovery now retain
+format identity, original blocks/settings and exact milliseconds. Text projection
+decodes entities, excludes voice/ruby annotations and preserves literal ASS-looking
+text. Automatic timing tools protect absolute timestamp markers; unsupported
+conversion and named split/merge have explicit refusals. Preview uses the existing
+decoder with visible CSS/region/ruby limitations. 398 Rust tests / 30 ignored,
+44 frontend and 56 browser cases pass; final menu changes pass both browser engines.
+Three expanded pure 10k workloads, including whole-document reviewed replacement
+and quality evaluation, pass p95 <=100.174ms and +54,722,560 sampled RSS bytes.
+Actual Mac workflow, save/reopen/project/recovery and real chooser checks pass,
+including normal code0 shutdown. Independent native images show decoded CJK and
+literal ASS syntax, with omitted CSS/regions, inline ruby and an explicit emoji
+missing-glyph notice. Actual desktop plain/styled/timed 10k workloads pass five
+edit/history/save cycles each, exact reopen/recovery and cancellation/stale guards.
+All measured interactions stay below 1000ms; recovery peaks at 950ms after removing
+a redundant parse. The regression and full workspace pass 399 Rust tests / 30
+ignored, with strict Clippy/lint/formatting and native build checks. This closes
+stage6a within the recorded Mac scope; legacy import and translation remain open.
+See [scope, checks and limits](webvtt.md).

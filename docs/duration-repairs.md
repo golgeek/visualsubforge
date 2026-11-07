@@ -175,3 +175,30 @@ Receipts are retained under `tests/fixtures/generated/duration-quality/`, includ
 RSS sampling measures this process, not complete allocation or native/webview
 child memory. No Windows/Linux feature, installer or physical GPU/audio acceptance
 is claimed. Full ASS/SSA documents/styles and statistics remain separate work.
+
+## Historical status receipt: Duration/speed milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Duration/speed milestone complete (2026-10-17):** selected-cue and whole-document
+previews keep starts fixed and choose the nearest integer-ms end satisfying the
+active duration/CPS/RS limits. Shared whole-document checking protects neighboring
+cues, overlap, gap and scene constraints. Unavailable scenes, ambiguous overlaps,
+timing-sensitive markup and impossible/coupled plans have explicit skips. Static
+text/tags, cue identities/order and save/recovery protections are preserved; each
+accepted batch is one Undo/Redo. Scene and duration review share one bounded
+worker with purpose guards, cancellation and document/profile/media/scene checks.
+
+Validation passes 255 Rust tests, 39 frontend unit tests, 44 Chromium/WebKit cases,
+strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
+Mac workflow passes selected/all review, exact save/reopen, failed saves, history,
+scene/media invalidation and the existing scene/text/recovery regression. With
+10,000 cues/cuts, duration preview takes 418 ms, acceptance 113 ms, draft interaction
+1 ms, cancellation 3 ms and invalidation 13 ms. Release extension/trim p95 is
+23.209/20.371 ms with 40,255,488 additional sampled RSS bytes. The initial RSS
+failure and allocator investigation remain recorded; the unchanged budgets pass.
+See [duration repairs](duration-repairs.md) for policy, ownership and exact evidence.
+Windows/Linux feature execution, installations and physical GPU/audio acceptance
+remain unverified; full ASS/SSA documents/styles remain separate.

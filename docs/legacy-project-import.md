@@ -409,3 +409,38 @@ within the unchanged 500ms/96MiB gates. CPU/RSS sampling runs separately from th
 desktop measurements. Logs, failed attempts, profile and `benchmark.json` remain
 under `test-results/legacy-import-scale-20261018/`; the named desktop directories
 retain raw timings, generated inputs, exact hashes, images and shutdown receipts.
+
+## Historical status receipt: Legacy project import stage6b complete (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Legacy project import stage6b complete (2026-10-18):** application parsing supports
+strict UTF-8 and BOM-marked UTF-16, explicit Windows path handling, supported
+references/positions and unsupported-setting diagnostics. Read-only inspection
+supports explicit relocation and all four subtitle formats; revalidation detects
+changed source/subtitle bytes and redirected symlinks. The new File import dialog
+supports review, relocation, protected separate-file publication and explicit Open
+through normal unsaved-work protection. Rust's bounded worker revalidates inputs,
+protects original/competing files and preserves successful receipts after late
+Cancel. Import does not modify the active document, history, policy or attachment.
+425 workspace Rust tests / 30 ignored, 44 frontend tests, all 58 browser cases,
+eight final focused Chromium/WebKit cases and strict/static/default desktop build
+checks pass. Four earlier 10k library/IO workloads
+pass <=36.236ms p95 and +50,724,864 sampled RSS bytes. Actual Mac four-format
+import, relocation, source-change/failed-write protection, unchanged active state,
+save/history/project/recovery and normal shutdown now pass. Separate real macOS
+source/media/subtitle/output chooser checks also pass, including cancellation,
+Unicode paths, exact original preservation and native restored preview. Audio-only
+WAV references restore paused playback. The initially retained unknown-container-
+start waveform failure is now corrected with verified PCM sample zero; see the
+[stage8 Mac/VM evidence](native-reliability.md). Four final
+desktop10k workloads pass five review/publication cycles, full project restoration,
+history/save/recovery and cancel/stale checks. A retained 1656ms project-open
+failure led to faster ASCII boundary scanning with every validation check retained;
+final open/reopen peaks at 831ms, publication at 418ms and recovery at 422ms.
+426 workspace Rust tests / 30 ignored and strict checks pass. Updated library10k
+p95 is <=37.548ms with +48,267,264 sampled RSS bytes. Normal shutdown is code0.
+This accepts stage6b within its recorded scope; translation is now accepted above.
+See [mapping, checks and remaining scope](legacy-project-import.md).
