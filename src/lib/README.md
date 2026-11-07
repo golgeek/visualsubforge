@@ -13,7 +13,8 @@ mount and are disposed on unmount; they are not global stores.
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
-| `GapSession` | Dialog-lived proposal pages, acknowledgment and asynchronous response ordering. Rust owns calculation and acceptance; DocumentSession serializes the accepted reply with ordinary edits. |
+| `TimingRepairSession` | Shared gap/scene/duration/batch review requests, bounded pages, context guards and disposal. Rust owns calculation and acceptance; DocumentSession serializes accepted replies with ordinary edits. |
+| `GapSession` | Gap-specific client adapter and no-media acknowledgment/eligibility over the shared review lifetime. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
@@ -183,9 +184,11 @@ not depend on Specta, Tauri or native playback.
 ## Minimum-gap review
 
 `GapDialog` resolves drafts before `GapSession.start()` captures the current
-DocumentSession projection and media session. The generated client admits one
-Rust proposal worker, then polls pages. The frontend never computes repair
-endpoints or treats draft text as accepted. Page/start epochs reject stale
+DocumentSession projection and media session. `GapSession` adapts the gap client
+and explicit no-media acknowledgment to `TimingRepairSession`, shared with scene,
+duration and batch review. The generated client admits one Rust proposal worker,
+then polls pages. The frontend never computes repair endpoints or treats draft
+text as accepted. Page/start epochs reject stale
 responses; late admissions are cancelled after disposal. A completed proposal is
 still polled for backend profile/scene invalidation. Acceptance blocks dialog
 closure, delegates through `DocumentSession.acceptGap()` and replaces the accepted
@@ -200,9 +203,10 @@ an immutable clone outside those locks; shutdown cancels and joins outside them.
 ## Scene and duration timing review
 
 `SceneRepairDialog`/`DurationRepairDialog` are thin purpose wrappers around
-`TimingRepairDialog`. Their session wrappers share `TimingRepairSession` for
-draft handling, paging, disposal and late-admission cancellation. They display
-immutable Rust proposals; no timing arithmetic is repeated in the frontend.
+`TimingRepairDialog`. Their session wrappers share `TimingRepairSession` with
+gap/batch review for draft handling, paging, disposal and late-admission
+cancellation. They display immutable Rust proposals; no timing arithmetic is
+repeated in the frontend.
 Duration review captures a stable selected cue ID or whole-document scope;
 changing scope immediately disables acceptance. `DocumentSession` serializes
 both acceptance methods with other document actions. Completed previews continue

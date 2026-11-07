@@ -25,10 +25,15 @@ export async function lifecycle(
   let next = structuredClone(sample);
   let readRelease!: (v: GapView) => void;
   let held: Promise<GapView> | null = null;
+  let reads = 0;
   const cancelled: number[] = [];
   const session = new GapSession(subtitles, () => media, {
     gapStart: async () => sample.id,
-    gapView: async () => held ?? next,
+    gapView: async (_id, _offset, limit) => {
+      assert(limit === 100, 'Review requested an unbounded page');
+      reads++;
+      return held ?? next;
+    },
     gapCancel: async (id) => {
       cancelled.push(id);
     },
@@ -40,6 +45,11 @@ export async function lifecycle(
     readRelease = resolve;
   });
   const old = session.poll();
+  const priorReads = reads;
+  await session.poll();
+  await session.poll();
+  assert(reads === priorReads, 'Polling queued additional reads');
+  passed('Only one background poll can remain in flight');
   media = 1;
   readRelease(next);
   await old;
@@ -53,6 +63,10 @@ export async function lifecycle(
   passed('Media replacement during a held review reply retires the proposal');
   media = 0;
   await session.start();
+  assert(
+    !session.acknowledgeNoMedia && !session.canAccept,
+    'A new proposal inherited the previous acknowledgment',
+  );
   snapshot = { ...snapshot, revision: snapshot.revision + 1 };
   await subtitles.command({ kind: 'status' });
   await session.poll();
@@ -63,6 +77,57 @@ export async function lifecycle(
   passed(
     'Accepted-document replacement invalidates preview even when cue contents match',
   );
+  for (const rejectOld of [false, true]) {
+    await session.start();
+    let reject!: (reason: Error) => void;
+    held = new Promise((resolve, fail) => {
+      readRelease = resolve;
+      reject = fail;
+    });
+    const obsolete = session.poll();
+    held = null;
+    next = { ...next, offset: 100 };
+    await session.page(100);
+    if (rejectOld) reject(new Error('obsolete page error'));
+    else readRelease({ ...next, offset: 0 });
+    await obsolete;
+    assert(
+      session.view?.offset === 100 && !session.error,
+      'Obsolete page or error replaced current page',
+    );
+  }
+  passed('Paging excludes both obsolete poll results and errors');
+  held = new Promise((resolve) => {
+    readRelease = resolve;
+  });
+  session.acknowledgeNoMedia = true;
+  assert(session.canAccept, 'Policy control was not initially acceptable');
+  const policyPoll = session.poll();
+  readRelease({ ...next, phase: 'stale' });
+  await policyPoll;
+  held = null;
+  assert(
+    !session.canAccept && session.view?.phase === 'stale',
+    'Rust policy invalidation remained acceptable',
+  );
+  passed('Policy invalidation during a pending read disables acceptance');
+  await session.start();
+  held = new Promise((resolve) => {
+    readRelease = resolve;
+  });
+  session.acknowledgeNoMedia = true;
+  assert(session.canAccept, 'Document control was not initially acceptable');
+  const documentPoll = session.poll();
+  snapshot = { ...snapshot, revision: snapshot.revision + 1 };
+  await subtitles.command({ kind: 'status' });
+  readRelease(next);
+  await documentPoll;
+  held = null;
+  assert(
+    !session.view && !session.canAccept,
+    'Pending document reply remained visible',
+  );
+  passed('Document replacement during a pending read excludes the old page');
   next = { ...next, key: { ...next.key, revision: snapshot.revision } };
   await session.start();
   session.acknowledgeNoMedia = true;
@@ -83,6 +148,26 @@ export async function lifecycle(
   passed(
     'Modal stays protected during acceptance and DocumentSession alone adopts the reply',
   );
+  await session.start();
+  held = new Promise((resolve) => {
+    readRelease = resolve;
+  });
+  session.acknowledgeNoMedia = true;
+  assert(session.canAccept, 'Disposal control was not initially acceptable');
+  const disposedPoll = session.poll();
+  const beforeDisposal = session.view;
+  const cancellationsBeforeDisposal = cancelled.length;
   session.dispose();
+  assert(
+    cancelled.length === cancellationsBeforeDisposal + 1,
+    'Disposal did not cancel the active proposal',
+  );
+  readRelease({ ...next, error: 'late disposed error' });
+  await disposedPoll;
+  assert(
+    session.view === beforeDisposal && !session.error && !session.canAccept,
+    'Disposed read updated the projection',
+  );
+  passed('Disposal cancels the job and excludes its pending read');
   subtitles.dispose();
 }

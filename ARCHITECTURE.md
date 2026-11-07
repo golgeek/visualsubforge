@@ -111,9 +111,13 @@ when its ID eventually arrives. Disposal suppresses late UI updates and follow-u
 commands; it cannot undo a mutation already accepted by Rust. Acceptance flows
 that reconcile a lost reply fetch authoritative state before continuing.
 
-Scene, duration and batch timing already share `TimingRepairSession`. Other
-sessions retain distinct lifetimes, including file publication and reference
-queries. Similar field names alone do not imply interchangeable cancellation.
+Gap, scene, duration and batch timing share `TimingRepairSession` for draft
+application, start/read/page/cancel/accept ordering and disposal. Feature wrappers
+retain their coverage eligibility; gap alone permits explicit no-media
+acknowledgment. Pages stay bounded to 100 rows, and completed proposals keep
+polling for Rust-owned policy/scene invalidation. Other sessions retain distinct
+lifetimes, including file publication and reference queries. Similar field names
+alone do not imply interchangeable cancellation.
 See the [frontend walkthrough](src/lib/README.md) for feature-specific behavior.
 
 ## Two end-to-end paths

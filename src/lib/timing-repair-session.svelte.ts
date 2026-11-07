@@ -66,8 +66,11 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       this.current &&
       this.view?.phase === 'reviewing' &&
       this.view.changed > 0 &&
-      this.allowedCoverage.includes(this.view.coverage ?? '')
+      this.eligible(this.view)
     );
+  }
+  protected eligible(view: V) {
+    return this.allowedCoverage.includes(view.coverage ?? '');
   }
   private active(epoch: number) {
     return this.alive && epoch === this.epoch;
