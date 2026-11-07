@@ -238,6 +238,7 @@ impl Loaded {
                 vsf_application::subtitle_file::validate_document,
             )
             .map(|_| ())
+            .map_err(String::from)
     }
 }
 
@@ -782,6 +783,47 @@ mod tests {
                 0,
             )
             .unwrap()
+    }
+
+    #[test]
+    fn domain_and_format_failures_keep_desktop_error_strings() {
+        let mut store = Store::default();
+        first_cue(&mut store);
+        let cases = [
+            (Action::Delete { cue_id: 999 }, "Cue no longer exists"),
+            (
+                Action::Edit {
+                    cue_id: 1,
+                    start_ms: 2000,
+                    end_ms: 1000,
+                    text: "Bad".into(),
+                },
+                "Cue end must be later than its start",
+            ),
+            (
+                Action::Edit {
+                    cue_id: 1,
+                    start_ms: 1000,
+                    end_ms: 2000,
+                    text: "a\n\nb".into(),
+                },
+                "SRT cue text cannot contain blank lines; use a separate cue",
+            ),
+        ];
+        for (action, message) in cases {
+            let error = store.apply(action, 1, 1).unwrap_err();
+            assert_eq!(error, message);
+            assert_eq!(
+                serde_json::to_value(&error).unwrap(),
+                serde_json::json!(message)
+            );
+            assert_eq!(store.snapshot().revision, 1);
+            assert_eq!(store.snapshot().cues[0].text, "New 世界");
+        }
+        assert_eq!(
+            store.apply(Action::Undo, 1, 0).unwrap_err(),
+            "Subtitle document changed; refresh before retrying this operation"
+        );
     }
 
     #[test]

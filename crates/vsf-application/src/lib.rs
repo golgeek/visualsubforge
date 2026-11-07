@@ -22,3 +22,6 @@ pub mod subtitle_operations;
 pub mod subtitle_text;
 pub mod text;
 pub mod translation;
+
+// Application policies retain their existing user-facing report messages.
+type Result<T> = std::result::Result<T, String>;

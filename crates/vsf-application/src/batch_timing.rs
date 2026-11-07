@@ -112,7 +112,7 @@ pub fn propose(
         Change::Shift(offset) => (offset, None),
         Change::Align(position) => {
             let target = (position.get() + step / 2) / step * step;
-            let target = Milliseconds::new(target).map_err(Error::Invalid)?;
+            let target = Milliseconds::new(target).map_err(|error| Error::Invalid(error.into()))?;
             (target.get() as i64 - earliest as i64, Some(target))
         }
     };

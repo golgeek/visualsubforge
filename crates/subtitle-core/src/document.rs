@@ -1,3 +1,4 @@
+use crate::Error;
 use crate::Result;
 use std::sync::Arc;
 
@@ -10,7 +11,7 @@ impl Milliseconds {
     pub const MAX: u64 = 9_999 * 3_600_000 + 3_599_999;
     pub fn new(value: u64) -> Result<Self> {
         if value > Self::MAX {
-            return Err("Time exceeds 9999:59:59,999".into());
+            return Err(Error::TimeOutOfRange { value });
         }
         Ok(Self(value))
     }
@@ -46,7 +47,9 @@ impl CueMetadata {
                 || value.contains('\n')
                 || value.contains('\0')
             {
-                return Err("Invalid or duplicate cue metadata field".into());
+                return Err(Error::InvalidMetadata {
+                    field: name.clone(),
+                });
             }
         }
         Ok(Self {
@@ -64,13 +67,13 @@ impl CueMetadata {
     }
     pub fn with_style(&self, style: String) -> Result<Self> {
         if style.trim().is_empty() || style.contains(['\r', '\n', '\0', ',']) {
-            return Err("Style name must be nonempty and contain no commas or line breaks".into());
+            return Err(Error::InvalidStyleName);
         }
         let mut metadata = self.clone();
         let (_, value) = Arc::make_mut(&mut metadata.fields)
             .iter_mut()
             .find(|(key, _)| key.eq_ignore_ascii_case("Style"))
-            .ok_or("This cue has no assignable style")?;
+            .ok_or(Error::MissingStyle)?;
         // Metadata retains original field bytes. Changing the logical style
         // name should not discard padding, including the event delimiter space
         // when Style happens to be the first source column.
@@ -121,10 +124,10 @@ impl Cue {
     }
     pub(crate) fn validate(start: Milliseconds, end: Milliseconds, text: &str) -> Result<()> {
         if end <= start {
-            return Err("Cue end must be later than its start".into());
+            return Err(Error::InvalidTimeRange { start, end });
         }
         if text.contains('\r') || text.contains('\0') {
-            return Err("Cue text cannot contain carriage returns or NUL characters".into());
+            return Err(Error::InvalidText);
         }
         Ok(())
     }
@@ -137,8 +140,8 @@ pub struct Document {
 impl Document {
     pub fn new(cues: Vec<Cue>) -> Result<Self> {
         let mut ids = std::collections::HashSet::new();
-        if cues.iter().any(|cue| !ids.insert(cue.id)) {
-            return Err("Cue identities must be unique".into());
+        if let Some(cue) = cues.iter().find(|cue| !ids.insert(cue.id)) {
+            return Err(Error::DuplicateCue { id: cue.id });
         }
         Ok(Self { cues })
     }

@@ -1,9 +1,10 @@
 //! Immutable, explicitly lossy export proposals. No accepted-state mutation or IO.
+use crate::Result;
 mod script;
 mod text;
 
 use serde::{Deserialize, Serialize};
-use subtitle_core::{Cue, Document, Milliseconds, Result};
+use subtitle_core::{Cue, Document, Milliseconds};
 use subtitle_formats::{Format, Source, srt};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -205,7 +206,7 @@ pub fn propose(
                     "This text cannot be represented as one SRT cue.",
                     1,
                     Some(cue),
-                    &error,
+                    &error.to_string(),
                 );
                 continue;
             }
@@ -235,7 +236,7 @@ pub fn propose(
                     "The export exceeds the supported file size or format limits.",
                     1,
                     None,
-                    &error,
+                    &error.to_string(),
                 );
                 None
             }

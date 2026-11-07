@@ -89,6 +89,22 @@ The document mutex is the transaction boundary for accepted state and related
 context. Moving code between modules must preserve that boundary. Splitting
 locks or introducing another mutable owner requires a separate concurrency design.
 
+## Error boundaries
+
+`subtitle-core::Error` names domain failures and retains revision, cue identity
+and time-range context. Editor validators return application-owned messages;
+the editor wraps rejection in `ValidationRejected` without interpreting format,
+size or IO policy. Validation still precedes history/identity publication, and
+rejection preserves the existing editor, redo, revision and saved-state identity.
+
+`subtitle-formats::Error` covers format dispatch, extension validation and SRT
+parsing/serialization, including nested line and domain context. ASS/SSA and
+WebVTT internal APIs still return their detailed messages; dispatch distinguishes
+parse from validation failures and attaches the format. Application policies
+retain their existing report errors. Text adapters use the errors' `Display`
+implementation at those boundaries, preserving desktop IPC strings and CLI
+reports. Error types add no dependency, worker, lock or document owner.
+
 ## Frontend ownership and reconciliation
 
 | Owner | State it owns |

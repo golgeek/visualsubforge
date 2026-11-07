@@ -355,14 +355,14 @@ pub fn propose_for_format<'a>(
                 None
             };
             let text = row.and_then(|r| r.after.as_deref()).unwrap_or(cue.text());
-            let mut candidate =
-                Cue::new(cue.id(), cue.start(), cue.end(), text.into()).map_err(Error::Invalid)?;
+            let mut candidate = Cue::new(cue.id(), cue.start(), cue.end(), text.into())
+                .map_err(|error| Error::Invalid(error.into()))?;
             if let Some(metadata) = cue.metadata() {
                 candidate = candidate.with_metadata(metadata.clone());
             }
             cues.push(candidate);
         }
-        let candidate = Document::new(cues).map_err(Error::Invalid)?;
+        let candidate = Document::new(cues).map_err(|error| Error::Invalid(error.into()))?;
         quality::evaluate(&candidate, context, |_, _| checkpoint())?
             .findings
             .len()

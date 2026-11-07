@@ -207,7 +207,10 @@ pub fn propose_for_format<'a>(
             let (new_end, skipped) = match choice {
                 Ok(value) if value != end => {
                     end = value;
-                    (Some(Milliseconds::new(end).map_err(Error::Invalid)?), None)
+                    (
+                        Some(Milliseconds::new(end).map_err(|error| Error::Invalid(error.into()))?),
+                        None,
+                    )
                 }
                 Ok(_) => (None, Some(Skip::NoDirectChange)),
                 Err(reason) => (None, Some(reason)),
@@ -366,7 +369,7 @@ fn retimed(
         };
         cues.push(retimed_cue(cue, cue.start(), end)?);
     }
-    Document::new(cues).map_err(Error::Invalid)
+    Document::new(cues).map_err(|error| Error::Invalid(error.into()))
 }
 
 #[cfg(test)]

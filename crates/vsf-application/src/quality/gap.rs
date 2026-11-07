@@ -181,7 +181,7 @@ pub fn propose_for_format<'a>(
                     Milliseconds::new(
                         end.ok_or_else(|| Error::Invalid("Missing gap endpoint".into()))?,
                     )
-                    .map_err(Error::Invalid)?,
+                    .map_err(|error| Error::Invalid(error.into()))?,
                 )
             } else {
                 None
@@ -285,7 +285,7 @@ fn retimed(
         };
         cues.push(retimed_cue(cue, cue.start(), end)?);
     }
-    Document::new(cues).map_err(Error::Invalid)
+    Document::new(cues).map_err(|error| Error::Invalid(error.into()))
 }
 fn is_speed(rule: Rule) -> bool {
     matches!(

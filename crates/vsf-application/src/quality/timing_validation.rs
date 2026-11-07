@@ -5,8 +5,8 @@ use subtitle_core::{Cue, Milliseconds};
 
 /// Proposal evaluation must see the same metadata as accepted history.
 pub(super) fn retimed_cue(cue: &Cue, start: Milliseconds, end: Milliseconds) -> super::Result<Cue> {
-    let mut candidate =
-        Cue::new(cue.id(), start, end, cue.text().into()).map_err(super::Error::Invalid)?;
+    let mut candidate = Cue::new(cue.id(), start, end, cue.text().into())
+        .map_err(|error| super::Error::Invalid(error.into()))?;
     if let Some(metadata) = cue.metadata() {
         candidate = candidate.with_metadata(metadata.clone());
     }

@@ -38,7 +38,9 @@ fn accept_and_undo(document: Document, source: &Source, edit: Edit, expected: &[
     let before = source.serialize(&document).unwrap();
     let mut editor = Editor::new(document.clone());
     editor
-        .apply_edit(0, edit, |d| source.serialize(d).map(|_| ()))
+        .apply_edit(0, edit, |d| {
+            source.serialize(d).map(|_| ()).map_err(String::from)
+        })
         .unwrap();
     assert_eq!(
         editor

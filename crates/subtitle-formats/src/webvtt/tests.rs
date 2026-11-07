@@ -23,6 +23,7 @@ fn apply(editor: &mut Editor<Source>, edit: Edit) -> Result<()> {
             serialized_len(document, source).map(|_| ())
         })
         .map(|_| ())
+        .map_err(String::from)
 }
 
 #[test]

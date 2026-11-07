@@ -1,9 +1,10 @@
 //! Immutable reference subtitles and time relationships for manual translation.
 //! No paths, filesystem, UI, native media or accepted target/history owner here.
+use crate::Result;
 use crate::subtitle_markup::{MAX_CUE_BYTES, Projection};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use subtitle_core::{Cue, Milliseconds, Result};
+use subtitle_core::{Cue, Milliseconds};
 use subtitle_formats::{Format, Parsed};
 
 pub const MAX_PAGE_ROWS: usize = 200;

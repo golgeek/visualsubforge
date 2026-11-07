@@ -2,12 +2,13 @@
 //! plain or markup-bearing text preserved literally, LF or CRLF. Serialization
 //! preserves cue labels, text, BOM/newline style; normalizes separator whitespace
 //! and timestamp padding. Unsupported timing suffixes are rejected, never dropped.
-use subtitle_core::{Cue, CueId, Document, Milliseconds, Result};
+use crate::{Error, Result};
+use subtitle_core::{Cue, CueId, Document, Milliseconds};
 
 pub fn parse_time(text: &str) -> Result<Milliseconds> {
     let (clock, milliseconds) = text
         .split_once(',')
-        .ok_or_else(|| format!("Invalid SRT timestamp: {text}; expected HH:MM:SS,mmm"))?;
+        .ok_or_else(|| Error::InvalidSrtTimestamp { text: text.into() })?;
     let mut parts: Vec<_> = clock.split(':').collect();
     parts.push(milliseconds);
     if parts.len() != 4
@@ -17,23 +18,17 @@ pub fn parse_time(text: &str) -> Result<Milliseconds> {
         || parts[3].len() != 3
         || parts.iter().any(|p| !p.bytes().all(|b| b.is_ascii_digit()))
     {
-        return Err(format!(
-            "Invalid SRT timestamp: {text}; expected HH:MM:SS,mmm"
-        ));
+        return Err(Error::InvalidSrtTimestamp { text: text.into() });
     }
     let value: Vec<u64> = parts
         .iter()
-        .map(|p| {
-            p.parse::<u64>()
-                .map_err(|_| "Invalid timestamp number".to_string())
-        })
+        .map(|p| p.parse::<u64>().map_err(|_| Error::InvalidTimestampNumber))
         .collect::<Result<_>>()?;
     if value[1] >= 60 || value[2] >= 60 {
-        return Err(format!(
-            "Timestamp minutes and seconds must be below 60: {text}"
-        ));
+        return Err(Error::SrtTimestampComponent { text: text.into() });
     }
     Milliseconds::new(value[0] * 3_600_000 + value[1] * 60_000 + value[2] * 1000 + value[3])
+        .map_err(Error::Domain)
 }
 pub fn format_time(time: Milliseconds) -> String {
     let t = time.get();
@@ -59,25 +54,25 @@ pub struct Parsed {
 
 pub fn validate_text(text: &str) -> Result<()> {
     if !text.is_empty() && text.split('\n').any(|line| line.trim().is_empty()) {
-        return Err("SRT cue text cannot contain blank lines; use a separate cue".into());
+        return Err(Error::SrtBlankLine);
     }
     Ok(())
 }
 pub fn parse(input: &str) -> Result<Parsed> {
     if input.contains('\0') {
-        return Err("SRT contains NUL characters; UTF-8 text is required".into());
+        return Err(Error::SrtNul);
     }
     let bom = input.starts_with('\u{feff}');
     let input = input.strip_prefix('\u{feff}').unwrap_or(input);
     let crlf = input.contains("\r\n");
     let normalized = input.replace("\r\n", "\n");
     if normalized.contains('\r') {
-        return Err("Unsupported lone carriage return in SRT".into());
+        return Err(Error::SrtLoneCarriageReturn);
     }
     // Choosing one output convention for mixed endings would silently change
     // source metadata. Ask for an explicitly normalized file instead.
     if crlf && input.replace("\r\n", "").contains('\n') {
-        return Err("Mixed LF and CRLF line endings are unsupported".into());
+        return Err(Error::SrtMixedLineEndings);
     }
     let mut cues = Vec::new();
     let mut labels = Vec::new();
@@ -86,8 +81,12 @@ pub fn parse(input: &str) -> Result<Parsed> {
     for (line_index, line) in normalized.lines().chain(std::iter::once("")).enumerate() {
         if line.trim().is_empty() {
             if !block.is_empty() {
-                let parsed = parse_block(&block, CueId(cues.len() as u64 + 1))
-                    .map_err(|e| format!("SRT line {block_line}: {e}"))?;
+                let parsed = parse_block(&block, CueId(cues.len() as u64 + 1)).map_err(|e| {
+                    Error::SrtLine {
+                        line: block_line,
+                        source: Box::new(e),
+                    }
+                })?;
                 labels.push((parsed.0.id(), parsed.1));
                 cues.push(parsed.0);
                 block.clear();
@@ -106,15 +105,13 @@ pub fn parse(input: &str) -> Result<Parsed> {
 }
 fn parse_block(lines: &[&str], id: CueId) -> Result<(Cue, String)> {
     if lines.len() < 2 {
-        return Err("Cue needs a number and timing line".into());
+        return Err(Error::SrtMissingTiming);
     }
     let label = lines[0].trim();
     if label.is_empty() || !label.bytes().all(|b| b.is_ascii_digit()) {
-        return Err("Expected numeric cue number".into());
+        return Err(Error::SrtInvalidLabel);
     }
-    let (start, end) = lines[1]
-        .split_once("-->")
-        .ok_or("Expected start --> end timing line")?;
+    let (start, end) = lines[1].split_once("-->").ok_or(Error::SrtMissingArrow)?;
     let start = parse_time(start.trim())?;
     let end = parse_time(end.trim())?;
     let text = lines[2..].join("\n");
@@ -151,9 +148,7 @@ fn write_srt(document: &Document, source: &Source, mut write: impl FnMut(&str)) 
     }
     for (index, cue) in document.cues().iter().enumerate() {
         if cue.metadata().is_some() {
-            return Err(
-                "SRT cannot preserve event metadata; explicit format conversion is required".into(),
-            );
+            return Err(Error::SrtEventMetadata);
         }
         validate_text(cue.text())?;
         if original_order {

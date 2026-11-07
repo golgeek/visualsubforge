@@ -154,6 +154,7 @@ impl Documents {
             source,
             vsf_application::subtitle_file::validate_document,
         ) {
+            let error = error.to_string();
             if let Some(job) = &mut store.texts.job {
                 job.error = Some(error.clone());
             }

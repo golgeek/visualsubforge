@@ -71,9 +71,9 @@ impl<'a> Budget<'a> {
     fn checkpoint(&self) -> std::result::Result<(), String> {
         self.check().map_err(|e| e.to_string())
     }
-    fn pure<T>(&self, value: std::result::Result<T, String>) -> Result<T> {
+    fn pure<T>(&self, value: std::result::Result<T, impl Into<String>>) -> Result<T> {
         self.check()?;
-        value.map_err(Error::Invalid)
+        value.map_err(|error| Error::Invalid(error.into()))
     }
 }
 pub struct Options {
@@ -190,7 +190,7 @@ pub fn prepare(
                 .cursor_ms
                 .map(Milliseconds::new)
                 .transpose()
-                .map_err(Error::Invalid)?,
+                .map_err(|error| Error::Invalid(error.into()))?,
             preferences: preferences.clone(),
             scenes: context.scenes.clone(),
         },

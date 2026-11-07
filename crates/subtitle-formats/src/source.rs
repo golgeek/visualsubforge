@@ -1,6 +1,6 @@
 //! Source-format dispatch. The accepted document is never silently converted.
-use crate::{ass, srt, webvtt};
-use subtitle_core::{CueMetadata, Document, Result};
+use crate::{Error, Result, ass, srt, webvtt};
+use subtitle_core::{CueMetadata, Document};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -57,7 +57,10 @@ pub fn parse(input: &str, expected: Option<Format>) -> Result<Parsed> {
     if expected == Some(Format::WebVtt)
         || (expected.is_none() && input.trim_start_matches('\u{feff}').starts_with("WEBVTT"))
     {
-        let parsed = webvtt::parse(input)?;
+        let parsed = webvtt::parse(input).map_err(|message| Error::Parse {
+            format: Format::WebVtt,
+            message,
+        })?;
         return Ok(Parsed {
             document: parsed.document,
             source: Source::WebVtt(parsed.source),
@@ -72,13 +75,16 @@ pub fn parse(input: &str, expected: Option<Format>) -> Result<Parsed> {
     let styled = matches!(expected, Some(Format::Ass | Format::Ssa))
         || (expected.is_none() && first.starts_with('['));
     if styled {
-        let parsed = ass::parse(input)?;
+        let parsed = ass::parse(input).map_err(|message| Error::Parse {
+            format: expected.unwrap_or(Format::Ass),
+            message,
+        })?;
         let source = Source::Ass(parsed.source);
-        if expected.is_some_and(|format| format != source.format()) {
-            return Err(format!(
-                "File extension does not match the {} script; source was not changed",
-                source.format().extension().to_ascii_uppercase()
-            ));
+        if let Some(expected) = expected.filter(|format| *format != source.format()) {
+            return Err(Error::FormatMismatch {
+                expected,
+                actual: source.format(),
+            });
         }
         Ok(Parsed {
             document: parsed.document,
@@ -106,15 +112,35 @@ impl Source {
     pub fn serialize(&self, document: &Document) -> Result<String> {
         match self {
             Self::Srt(source) => srt::serialize(document, source),
-            Self::Ass(source) => ass::serialize(document, source),
-            Self::WebVtt(source) => webvtt::serialize(document, source),
+            Self::Ass(source) => {
+                ass::serialize(document, source).map_err(|message| Error::Validation {
+                    format: self.format(),
+                    message,
+                })
+            }
+            Self::WebVtt(source) => {
+                webvtt::serialize(document, source).map_err(|message| Error::Validation {
+                    format: self.format(),
+                    message,
+                })
+            }
         }
     }
     pub fn serialized_len(&self, document: &Document) -> Result<usize> {
         match self {
             Self::Srt(source) => srt::serialized_len(document, source),
-            Self::Ass(source) => ass::serialized_len(document, source),
-            Self::WebVtt(source) => webvtt::serialized_len(document, source),
+            Self::Ass(source) => {
+                ass::serialized_len(document, source).map_err(|message| Error::Validation {
+                    format: self.format(),
+                    message,
+                })
+            }
+            Self::WebVtt(source) => {
+                webvtt::serialized_len(document, source).map_err(|message| Error::Validation {
+                    format: self.format(),
+                    message,
+                })
+            }
         }
     }
     pub fn ass(&self) -> Option<&ass::Source> {
@@ -126,8 +152,23 @@ impl Source {
     pub fn default_metadata(&self) -> Result<Option<CueMetadata>> {
         match self {
             Self::Srt(_) => Ok(None),
-            Self::Ass(source) => source.default_metadata().map(Some),
-            Self::WebVtt(_) => webvtt::default_metadata().map(Some),
+            Self::Ass(source) => {
+                source
+                    .default_metadata()
+                    .map(Some)
+                    .map_err(|message| Error::Validation {
+                        format: self.format(),
+                        message,
+                    })
+            }
+            Self::WebVtt(_) => {
+                webvtt::default_metadata()
+                    .map(Some)
+                    .map_err(|message| Error::Validation {
+                        format: self.format(),
+                        message,
+                    })
+            }
         }
     }
     /// Textarea line breaks have a lossless explicit ASS representation. Existing
@@ -140,7 +181,10 @@ impl Source {
             }
             Self::Ass(_) => Ok(text.replace('\n', "\\N")),
             Self::WebVtt(_) => {
-                webvtt::validate_payload(&text)?;
+                webvtt::validate_payload(&text).map_err(|message| Error::Validation {
+                    format: self.format(),
+                    message,
+                })?;
                 Ok(text)
             }
         }
@@ -150,10 +194,10 @@ impl Source {
         if selected == Some(self.format()) || (self.format() == Format::Srt && selected.is_none()) {
             return Ok(());
         }
-        Err(format!(
-            "Save this document as .{}; use an explicit conversion to change formats",
-            self.format().extension()
-        ))
+        Err(Error::SaveExtension {
+            format: self.format(),
+            extension: extension.map(str::to_owned),
+        })
     }
 }
 

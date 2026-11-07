@@ -157,12 +157,15 @@ pub fn propose_for_format<'a>(
         rows.push(Row {
             cue_index: i,
             new_start: if reason.is_none() {
-                Some(Milliseconds::new(start as u64).map_err(Error::Invalid)?)
+                Some(
+                    Milliseconds::new(start as u64)
+                        .map_err(|error| Error::Invalid(error.into()))?,
+                )
             } else {
                 None
             },
             new_end: if reason.is_none() {
-                Some(Milliseconds::new(end as u64).map_err(Error::Invalid)?)
+                Some(Milliseconds::new(end as u64).map_err(|error| Error::Invalid(error.into()))?)
             } else {
                 None
             },
@@ -235,5 +238,5 @@ fn retimed(
             row.and_then(|r| r.new_end).unwrap_or(cue.end()),
         )?);
     }
-    Document::new(cues).map_err(Error::Invalid)
+    Document::new(cues).map_err(|error| Error::Invalid(error.into()))
 }

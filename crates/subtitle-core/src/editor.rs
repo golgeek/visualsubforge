@@ -1,3 +1,4 @@
+use crate::Error;
 use crate::{Cue, CueId, CueMetadata, Document, Milliseconds, Result};
 
 /// New timing for an existing cue. Text and document order cannot be changed by
@@ -157,7 +158,10 @@ impl<P: Clone + PartialEq> Editor<P> {
     }
     fn expect_revision(&self, expected: u64) -> Result<()> {
         if expected != self.revision {
-            Err("Subtitle document changed; refresh before committing this edit".into())
+            Err(Error::StaleRevision {
+                expected,
+                actual: self.revision,
+            })
         } else {
             Ok(())
         }
@@ -165,11 +169,13 @@ impl<P: Clone + PartialEq> Editor<P> {
     /// Validate a proposed document before publishing history or allocating IDs.
     /// The validator borrows the proposal synchronously and cannot mutate this editor.
     /// A rejection restores the replaced range, including redo and saved-state identity.
+    /// Validators return application-owned messages, wrapped as `ValidationRejected`;
+    /// no format or IO error type is required by the domain.
     pub fn apply_edit(
         &mut self,
         expected: u64,
         edit: Edit,
-        validate: impl FnOnce(&Document) -> Result<()>,
+        validate: impl FnOnce(&Document) -> std::result::Result<(), String>,
     ) -> Result<EditOutcome> {
         self.apply_edit_with_properties(expected, edit, |document, _| validate(document))
     }
@@ -179,21 +185,19 @@ impl<P: Clone + PartialEq> Editor<P> {
         &mut self,
         expected: u64,
         edit: Edit,
-        validate: impl FnOnce(&Document, &P) -> Result<()>,
+        validate: impl FnOnce(&Document, &P) -> std::result::Result<(), String>,
     ) -> Result<EditOutcome> {
         self.expect_revision(expected)?;
         let mut created = None;
         let (index, count, after) = match edit {
             Edit::UpdateBatch { cues } => {
                 if cues.len() != self.document.cues.len() {
-                    return Err("Cue batch must include every cue once in document order".into());
+                    return Err(Error::InvalidCueBatch);
                 }
                 let mut after = Vec::with_capacity(cues.len());
                 for (original, replacement) in self.document.cues.iter().zip(cues) {
                     if original.id != replacement.id {
-                        return Err(
-                            "Cue batch must include every cue once in document order".into()
-                        );
+                        return Err(Error::InvalidCueBatch);
                     }
                     Cue::validate(replacement.start, replacement.end, &replacement.text)?;
                     after.push(Cue {
@@ -217,7 +221,7 @@ impl<P: Clone + PartialEq> Editor<P> {
                 let original = self.document.cues[index]
                     .metadata
                     .as_ref()
-                    .ok_or("This cue has no assignable style")?;
+                    .ok_or(Error::MissingStyle)?;
                 let metadata = if original
                     .get("Style")
                     .is_some_and(|name| name.trim() == style)
@@ -244,7 +248,7 @@ impl<P: Clone + PartialEq> Editor<P> {
                 let metadata = original
                     .metadata
                     .as_ref()
-                    .ok_or("This cue has no assignable style")?
+                    .ok_or(Error::MissingStyle)?
                     .with_style(name)?;
                 (
                     index,
@@ -257,14 +261,12 @@ impl<P: Clone + PartialEq> Editor<P> {
             }
             Edit::TextBatch { texts } => {
                 if texts.len() != self.document.cues.len() {
-                    return Err("Text batch must include every cue once in document order".into());
+                    return Err(Error::InvalidTextBatch);
                 }
                 let mut after = Vec::with_capacity(texts.len());
                 for (original, replacement) in self.document.cues.iter().zip(texts) {
                     if original.id != replacement.id {
-                        return Err(
-                            "Text batch must include every cue once in document order".into()
-                        );
+                        return Err(Error::InvalidTextBatch);
                     }
                     Cue::validate(original.start, original.end, &replacement.text)?;
                     after.push(Cue {
@@ -276,12 +278,12 @@ impl<P: Clone + PartialEq> Editor<P> {
             }
             Edit::Retime { timings } => {
                 if timings.len() != self.document.cues.len() {
-                    return Err("Retiming must include every cue once in document order".into());
+                    return Err(Error::InvalidRetiming);
                 }
                 let mut after = Vec::with_capacity(timings.len());
                 for (original, timing) in self.document.cues.iter().zip(timings) {
                     if original.id != timing.id {
-                        return Err("Retiming must include every cue once in document order".into());
+                        return Err(Error::InvalidRetiming);
                     }
                     Cue::validate(timing.start, timing.end, &original.text)?;
                     after.push(Cue {
@@ -343,7 +345,12 @@ impl<P: Clone + PartialEq> Editor<P> {
                 let index = self.index(id)?;
                 let original = &self.document.cues[index];
                 if at <= original.start || at >= original.end {
-                    return Err("Split time must be strictly inside the selected cue".into());
+                    return Err(Error::InvalidSplit {
+                        id,
+                        at,
+                        start: original.start,
+                        end: original.end,
+                    });
                 }
                 let new_id = self.available_id()?;
                 created = Some(new_id);
@@ -375,9 +382,9 @@ impl<P: Clone + PartialEq> Editor<P> {
                     .cues
                     .get(index + 1)
                     .filter(|cue| cue.id == second)
-                    .ok_or("Merge requires two adjacent cues in document order")?;
+                    .ok_or(Error::NonAdjacentMerge { first, second })?;
                 if left.metadata != right.metadata {
-                    return Err("Merge requires matching cue metadata and style".into());
+                    return Err(Error::MergeMetadataMismatch);
                 }
                 let text = match (left.text.is_empty(), right.text.is_empty()) {
                     (true, _) => right.text.clone(),
@@ -412,7 +419,7 @@ impl<P: Clone + PartialEq> Editor<P> {
             self.document
                 .cues
                 .splice(index..index + after.len(), before);
-            return Err(error);
+            return Err(Error::ValidationRejected { message: error });
         }
         self.undo.push(Change {
             index,
@@ -447,7 +454,7 @@ impl<P: Clone + PartialEq> Editor<P> {
         expected: u64,
         mut document: Document,
         properties: P,
-        validate: impl FnOnce(&Document, &P) -> Result<()>,
+        validate: impl FnOnce(&Document, &P) -> std::result::Result<(), String>,
     ) -> Result<bool> {
         self.expect_revision(expected)?;
         if !self
@@ -457,12 +464,13 @@ impl<P: Clone + PartialEq> Editor<P> {
             .map(Cue::id)
             .eq(document.cues.iter().map(Cue::id))
         {
-            return Err("Document-level edits must preserve cue identities and order".into());
+            return Err(Error::ChangedCueIdentities);
         }
         if self.document == document && self.properties == properties {
             return Ok(false);
         }
-        validate(&document, &properties)?;
+        validate(&document, &properties)
+            .map_err(|message| Error::ValidationRejected { message })?;
         let first = self
             .document
             .cues
@@ -513,13 +521,13 @@ impl<P: Clone + PartialEq> Editor<P> {
             .cues
             .iter()
             .position(|cue| cue.id == id)
-            .ok_or_else(|| "Cue no longer exists".into())
+            .ok_or(Error::MissingCue { id })
     }
     fn available_id(&self) -> Result<CueId> {
-        let id = self.next_cue.ok_or("Cue identities exhausted")?;
+        let id = self.next_cue.ok_or(Error::CueIdentitiesExhausted)?;
         // IPC represents identities as exact JavaScript integers.
         if id > 9_007_199_254_740_991 {
-            return Err("Cue identities exhausted".into());
+            return Err(Error::CueIdentitiesExhausted);
         }
         Ok(CueId(id))
     }
@@ -565,7 +573,7 @@ impl<P: Clone + PartialEq> Editor<P> {
             |_| Ok(()),
         )?
         .created
-        .ok_or_else(|| "Create did not allocate a cue".into())
+        .ok_or(Error::CreateWithoutIdentity)
     }
     pub fn delete(&mut self, expected: u64, id: CueId) -> Result<()> {
         self.apply_edit(expected, Edit::Delete { id }, |_| Ok(()))
@@ -575,7 +583,7 @@ impl<P: Clone + PartialEq> Editor<P> {
     pub fn split(&mut self, expected: u64, id: CueId, at: Milliseconds) -> Result<CueId> {
         self.apply_edit(expected, Edit::Split { id, at }, |_| Ok(()))?
             .created
-            .ok_or_else(|| "Split did not allocate a cue".into())
+            .ok_or(Error::SplitWithoutIdentity)
     }
     /// Both identities are required so a stale caller cannot merge a new neighbor.
     pub fn merge(&mut self, expected: u64, first: CueId, second: CueId) -> Result<()> {
