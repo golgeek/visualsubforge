@@ -1,6 +1,6 @@
 # Retained subtitle renderer experiment
 
-Status: diagnostic only. Not a product API, an installed dependency, or part of the task 005 audio-clock patch series.
+Status: diagnostic only. Not a product API, an installed dependency, or part of the audio-clock patch series.
 
 `manifest.json` pins the official mpv 0.41.0 commit and this patch's SHA-256. Apply it to a new checkout of that commit; do not modify the audio-clock investigation checkout. The modified upstream files retain their LGPL-2.1-or-later notices; see [the retained license](../mpv-clock/LICENSE.LGPL).
 
@@ -29,4 +29,6 @@ PATH=/tmp/vsf-mpv-build-tools/bin:/opt/homebrew/bin:$PATH meson test -C /tmp/vsf
 
 These paths identify the completed experiment. Use a new output checkout when reproducing. The clone uses only committed upstream content; it does not copy the source checkout's uncommitted audio experiments. The recorded build was prepared by applying the equivalent source edits before exporting this patch; reverse-apply verification and comparison with a fresh patched upstream tree check reproducibility.
 
-The ANGLE probe accepts the optional `VSF_ANGLE_IPC` socket path so a local diagnostic driver can send commands and request screenshot files. Leave it unset for ordinary probe use. Only subtitle text, scalar status and commands cross this socket; the diagnostic screenshot command writes files inside mpv. Build linkage, exact commands, 32 passing upstream tests, desktop observations, pixel comparisons and limitations are recorded in [task 003c](../../../docs/tasks/003c-desktop-composition.md).
+The ANGLE probe accepts the optional `VSF_ANGLE_IPC` socket path so a local diagnostic driver can send commands and request screenshot files. Leave it unset for ordinary probe use. Only subtitle text, scalar status and commands cross this socket; the diagnostic screenshot command writes files inside mpv.
+
+The isolated macOS ARM64 build on 2026-10-03 passed 32 upstream tests. Those are baseline regressions, not coverage of the new command. Native ANGLE observations and screenshot comparisons were bounded diagnostic checks; they did not resolve the adoption gaps above. When reproducing, link the probe to the selected private libmpv, re-sign the changed Mac executable, and [verify the loaded runtime](../../../docs/native-runtime.md#identify-the-runtime-actually-loaded). Results from an installed or different library do not validate this patch.

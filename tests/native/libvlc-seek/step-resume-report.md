@@ -8,7 +8,8 @@ the pristine core, independently of VSF's experimental paused-seek patch.
 - VLC commit `b5eb753828de2bbec9a80bfee829b5d124e99043`.
 - Locally built unmodified ARM64 core/public libraries; matching official Mac
   SDK plugins, with loader paths checked. Build provenance and commands are in
-  [README.md](README.md) and the [feasibility record](../../../docs/libvlc-feasibility.md).
+  [README.md](README.md#reproduce-on-the-tested-mac); its introduction pins the
+  matching source archive and SDK checksums.
 - macOS 27, Apple M3 Max. Software H.264 decode (`--codec=ffmpeg,none`), dummy
   video output, CoreAudio; `--no-audio` also reproduces.
 - Original synthetic 12-second MP4: 640×360, 30 fps, numbered binary frame

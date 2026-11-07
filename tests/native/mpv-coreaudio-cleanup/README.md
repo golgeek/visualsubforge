@@ -50,8 +50,7 @@ native API operations; listener counting is limited to callbacks originating in
 libmpv. Do not infer acoustic timing, ordinary failure frequency, every setup
 branch, hotplug correctness or whole-process memory budgets.
 
-[Task 005](../../../docs/tasks/005-audio-loop-timing.md#coreaudio-cleanup-ownership-and-maintained-regression--2026-10-03)
-records the three-library comparison: the earlier candidate leaks listeners;
+The 2026-10-03 three-library comparison found that the earlier candidate leaks listeners;
 upstream fixes remove that leak but issue duplicate disposal calls; the local
 handle correction passes both fault cases and the healthy control. This remains
 an opt-in dependency experiment, not acceptance of a release fork or resolution

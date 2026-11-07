@@ -1,8 +1,10 @@
 # libVLC 4 paused-seek experiment
 
-Status: **experimental dependency patch**, not an application dependency or accepted architecture decision. Plain paused seeking passes the bounded tests, but stepping followed by resume still exposes serious transport failures. The [feasibility record](../../../docs/libvlc-feasibility.md#native-output-validation-and-resume-failures) contains the current validation limits; earlier sections retain tracing and rejected alternatives.
+Status: **experimental dependency patch**, not an application dependency or accepted architecture decision. Plain paused seeking passes the bounded tests, but stepping followed by resume still exposes serious transport failures. The reproduction steps and remaining failures below bound these historical results; the [reduced step/resume report](step-resume-report.md) isolates a failure on the pristine core.
 
-`paused-seek.patch` applies to VLC commit `b5eb753828de2bbec9a80bfee829b5d124e99043`, paired with the official Mac ARM64 SDK recorded in that document. Source archive SHA-256: `6c12f97747e19ab0e9dbfdcd83653a25685a115e7c1111c8361d9daf440b5c11`. The modified upstream files, `src/input/es_out.c` and `src/video_output/video_output.c`, carry LGPL-2.1-or-later notices. Their existing ownership and synchronization remain in place; this patch adds no thread, callback, resource or application-side timestamp adjustment.
+`paused-seek.patch` applies to VLC commit `b5eb753828de2bbec9a80bfee829b5d124e99043`. The [matching source archive](https://codeload.github.com/videolan/vlc/tar.gz/b5eb753828de2bbec9a80bfee829b5d124e99043) has SHA-256 `6c12f97747e19ab0e9dbfdcd83653a25685a115e7c1111c8361d9daf440b5c11`. The modified upstream files, `src/input/es_out.c` and `src/video_output/video_output.c`, carry LGPL-2.1-or-later notices. Their existing ownership and synchronization remain in place; this patch adds no thread, callback, resource or application-side timestamp adjustment.
+
+The paired [official Mac ARM64 SDK](https://artifacts.videolan.org/vlc/nightly-macos-arm64/20261003-0414/vlc-macos-sdk-4.0.0-dev-arm64-b5eb7538.tar.gz) is the 2026-10-03 `b5eb7538` build. Its recorded SHA-512 is `9478b79a19cb316389c49c373ef68e07a7f65353cfa522f05d618803b91c46bf4fc555ccca1210e7e7d574d3cd306337c2789b6b94af569e10b580b91fc31424`. Keep its headers/plugins paired with the matching core; a checksum match is not signature verification or portable-package acceptance.
 
 The four changes address separate observed mechanisms:
 
@@ -70,7 +72,7 @@ VLC_PLUGIN_PATH="$VSF_VLC_BUILD/modules" \
   test_src_player_pause test_src_player_seeks test_src_player_next_prev test_src_player_timers
 ```
 
-The tested candidate passes all four groups, plain-seek exact images at three boundaries and ±1 µs, and three ordinary seek/resume/pause checks with the elapsed-time guard. Native Mac output also passes the three exact-boundary seeks using either VideoToolbox or software decoding. However, adding next/previous-frame operations before resuming exposes clock jumps, and the visible native sequence also reached an unexpected stopped state. Paused subtitle updates and Japanese glyphs still fail. This patch is consequently **not ready for application integration**. Rapid replacement, broader media, Windows/Linux and task-005 short-loop timing remain unverified or unresolved. No upstream report or patch submission has been sent.
+The tested candidate passes all four groups, plain-seek exact images at three boundaries and ±1 µs, and three ordinary seek/resume/pause checks with the elapsed-time guard. Native Mac output also passes the three exact-boundary seeks using either VideoToolbox or software decoding. However, adding next/previous-frame operations before resuming exposes clock jumps, and the visible native sequence also reached an unexpected stopped state. Paused subtitle updates and Japanese glyphs still fail. This patch is consequently **not ready for application integration**. Rapid replacement, broader media, Windows/Linux and short-loop timing remain unverified or unresolved. No upstream report or patch submission has been sent.
 
 ## Isolate stepping from paused seeking
 
@@ -92,10 +94,10 @@ timestamp and resumes immediately, without a settling delay. Use
 the step/image progression checks. This avoids the gross video jump in bounded
 controls, but capture exposes audio before the requested target, also reproduced
 with ordinary precise seeking on the pristine core. It is a diagnostic policy,
-not an accepted workaround. See the
-[captured audio evidence](../../../docs/libvlc-feasibility.md#immediate-restore-policy-and-captured-audio-seek-boundaries).
+not an accepted workaround. A passing video-progress check does not close this
+captured audio boundary failure.
 
-The [completed-step comparison](../../../docs/libvlc-feasibility.md#completed-step-baseline-and-cache-isolation) reproduces an actual video skip in both pristine and patched cores, without seeking or subtitles. Disabling audio still reproduces it. A 100 ms file-cache control passes the generous bound but still advances nine frames in about 230 ms; it is not an adopted workaround. The failure therefore predates this patch, while patch safety across broader inputs remains unproven.
+The [completed-step comparison](step-resume-report.md#expected-and-observed) reproduces an actual video skip in the pristine core, also observed with the paused-seek patch, without seeking or subtitles. Disabling audio still reproduces it. A 100 ms file-cache control passes the generous bound but still advances nine frames in about 230 ms; it is not an adopted workaround. The failure therefore predates this patch, while patch safety across broader inputs remains unproven.
 
 ## Additional isolated corrections
 
@@ -117,8 +119,8 @@ Two further experimental corrections and a test patch are retained separately fr
 For the tested combined experiment, apply these patches in the listed order
 after `paused-seek.patch` to a fresh pinned source checkout. The test-only patch
 adds the `paused_reset` scenario to `test_src_clock_clock`; run that executable
-with the scenario name as its argument. The [detailed evidence](../../../docs/libvlc-feasibility.md#stale-picture-cancellation-and-paused-clock-origin)
-records build commands, source reconstruction and the remaining failures.
+with the scenario name as its argument. Use the pinned source, SDK and isolated
+build procedure above; the remaining failures are part of the result below.
 
 The combined experiment restores the right image and eliminates the gross skip
 in one explicit re-seek/resume control. Ordinary resume after stepping still
@@ -137,7 +139,7 @@ restore regression fails without it and passes with it, including independent
 image/clock checks; all four player groups pass. However, audio-enabled resume
 still reports a stale timestamp, and a video-only control stops advancing and
 reports time moving backward. Their cause and relationship to this change remain
-unresolved. See the [timer evidence](../../../docs/libvlc-feasibility.md#same-position-timer-restoration-and-remaining-resume-failures).
+unresolved. Passing the restore regression does not establish ordinary resume.
 
 Two subsequent experiments address distinct pause-reference problems:
 
@@ -160,8 +162,8 @@ combined experiment. Both deterministic regressions fail without their
 respective correction and pass with it. Real-media controls improve ordinary
 audio pause/resume reporting and restore video-only progression. The audio clock
 after explicit restoration still stalls, and unassisted frame-step resume remains
-unresolved. These are bounded software/dummy-output results, not task-005 or
-cross-platform acceptance. See [validation and remaining limits](../../../docs/libvlc-feasibility.md#pause-resume-reference-shifting-and-frozen-monotonic-origins).
+unresolved. These are bounded software/dummy-output results, not short-loop
+audio, physical presentation or cross-platform acceptance.
 
 `first-output-mapping.patch` is the next isolated correction, applied after
 `freeze-monotonic-origin.patch`. It retains first-point interpolation suppression
@@ -183,8 +185,7 @@ This fixes the observed frozen audio report after corrective seek/resume, not
 the full transport contract. The settled image still leads the reported audio
 clock in a final control, and ordinary step/resume still skips approximately
 41–42 frames in 230 ms. Four player groups and clock-start pass; the previously
-recorded full-clock-suite failure remains open. See the
-[first-output evidence](../../../docs/libvlc-feasibility.md#first-output-mapping-after-discontinuity).
+recorded full-clock-suite failure remains open.
 The application and installed dependencies remain unchanged.
 
 
@@ -208,24 +209,21 @@ full-clock-suite failure remains open.
 
 Real decoded PCM-prefix tracing confirms the requested 2.3 s start on the lossless
 fixture, but process-output onset/clock precision and loop ends remain unaccepted.
-The final loop capture exceeds B by about 27 ms. See the
-[audio-preroll evidence](../../../docs/libvlc-feasibility.md#exact-audio-preroll-propagation-and-decoded-pcm-trimming)
-for ownership, rejected upward-rounding variant, independent waveform checks,
-reconstruction, and remaining limits. Do not integrate this series based on
-helper tests or process exit status alone.
+The final loop capture exceeds B by about 27 ms. An earlier upward-rounding
+variant was rejected; the retained patch uses the nearest-sample rule above.
+Do not integrate this series based on helper tests or process exit status alone.
 
 
 A subsequent decoded-endpoint clipping control is **rejected**, remains only in
 generated evidence, and is not a ninth patch to apply. It bounds captured range
 output but discards source content needed when clearing the loop, causing a
 large forward jump absent from the two earlier controls. Its passing helper and
-upstream A–B tests do not close that failure. See the
-[endpoint/clear comparison](../../../docs/libvlc-feasibility.md#decoded-endpoint-clipping-and-clear-regression)
-for the retained patch, captures and next ownership/pacing questions.
+upstream A–B tests do not close that failure. Endpoint ownership and output
+pacing still need a design that also preserves clear-loop continuation.
 
 
 The subsequent retained-tail control also fails real output coverage and remains
-only in generated evidence. The [maintenance checkpoint](../../../docs/libvlc-feasibility.md#maintenance-and-migration-checkpoint)
-stops expansion of VLC core patches as the default next action while preserving
+only in generated evidence. At the maintenance checkpoint, expansion of VLC
+core patches stopped as the default next action, preserving
 the existing editor and all timing/rendering requirements. No backend migration
 is justified by the current evidence.

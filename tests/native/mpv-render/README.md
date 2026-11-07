@@ -51,8 +51,9 @@ Drivers need not represent GL fences as these descriptors, so a pass on another
 driver is not proof of all GPU resource lifetimes. This is not video playback,
 UI responsiveness, hardware-decoding, audio timing or macOS validation.
 
-Task [003c](../../../docs/tasks/003c-desktop-composition.md) records bounded
-before/after evidence, including independent Mac CGL and ANGLE/Metal fence
-controls, Mac editor command smokes and a two-minute 4K playback/lifecycle
-soak. Sustained Linux editor playback and corrected-library interaction remain
-separate validation requirements.
+Historical bounded before/after checks also covered independent Mac CGL and
+ANGLE/Metal fence controls, Mac editor command smokes and a two-minute 4K
+playback/lifecycle soak. These observations do not establish sustained Linux
+editor playback or corrected-library interaction. Follow the [native runtime
+contract](../../../docs/native-runtime.md#remaining-adoption-gates) for current
+platform and adoption requirements.

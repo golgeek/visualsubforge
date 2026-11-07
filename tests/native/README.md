@@ -33,11 +33,11 @@ These fake-client controls do not link mpv or prove device behavior.
 | Audio/capture scripts | Content, continuity and clock analysis with synthetic negative controls. Retain exact input/runtime/device identity for actual capture results. |
 | `audio-editor-content.py` | Two-channel content verification for the [actual Mac editor audio lane](../desktop/README.md#native-audio-re-entry-and-replacement-macos-and-linux). Validates capture/source identity, repeated-loop content and uninterrupted suffix start/EOF/order. Its five controls reject wrong sources, omitted/repeated content and inserted silence; they do not prove physical presentation. |
 
-Experiment documents retain dated results, limitations and links into intentionally
-untracked local task/research notes. Those links may be absent in a fresh checkout.
-They are historical context, not the current status authority or dependencies of
-the tracked source recipes and control runner. Generated evidence belongs under
-ignored fixture/output directories and must not overwrite prior captures.
+Experiment guides retain the reproduction steps, dated findings and limitations
+needed to interpret their probes without private research notes. They describe
+historical experiments; the linked native maintenance contract and current status
+remain the authorities for adoption. Raw generated evidence belongs under ignored
+fixture/output directories and must not overwrite prior captures.
 
 ## Native oracle controls
 
@@ -71,8 +71,8 @@ clang++ -std=c++17 -Wall -Wextra -Werror -DMPV_STATIC -I/opt/homebrew/include te
 
 Linux uses the same C++17 source with mpv's pkg-config include flags. Windows
 uses the configured ARM64 MSVC developer environment, `/std:c++17 /EHsc /W4
-/WX /DMPV_STATIC` and the SDK include directory. Keep assertions enabled. Task
-003c records compiler and platform evidence separately from application checks.
+/WX /DMPV_STATIC` and the SDK include directory. Keep assertions enabled and
+record compiler/platform identity separately from application checks.
 
 ## Workflow performance observation
 
