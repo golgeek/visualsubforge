@@ -198,10 +198,18 @@ Engine limits are not an OS sandbox. See the [plugin contract](docs/plugin-host.
 ## Persistence and recovery
 
 Format adapters preserve supported source information; application policy owns
-bounded reads and serialization limits. Desktop saves serialize first, acquire a
+bounded reads and serialization limits. `vsf-application::document_save` owns
+loaded-editor Save/Save As eligibility and publication, borrowing the existing
+editor, path, byte baseline and protection flags exclusively. The desktop supplies
+reference/copied-source paths and keeps the document mutex locked on its blocking
+worker; the shared operation introduces no second state owner or worker.
+Saves serialize first, acquire a
 destination lease, compare the saved-byte baseline when overwriting the current
 source, and atomically replace the file through a temporary sibling. Only a
-successful replacement updates the saved path and state. Failures preserve the
+successful replacement updates the editor’s saved identity, path, byte baseline
+and recovery/resync flags, while the lease is still held. Reference and copied-source
+protection remains caller-owned and survives saves. The CLI retains its separate-output
+publication policy. Failures preserve the
 previous file and dirty document.
 
 Leases coordinate participating VSF writers. They do not prevent arbitrary

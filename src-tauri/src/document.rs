@@ -523,53 +523,18 @@ impl Store {
             }
             Action::Save { path } => {
                 let loaded = self.loaded_mut()?;
-                if loaded.resynced && path.is_none() {
-                    return Err(
-                        "Resynchronized subtitles require Save As to a different file".into(),
-                    );
+                vsf_application::document_save::Session {
+                    editor: &mut loaded.editor,
+                    path: &mut loaded.path,
+                    saved_bytes: &mut loaded.saved_bytes,
+                    recovered: &mut loaded.recovered,
+                    resynced: &mut loaded.resynced,
                 }
-                if loaded.recovered && path.is_none() {
-                    return Err(
-                        "Recovered subtitles require Save As to choose a destination".into(),
-                    );
-                }
-                let target = match path {
-                    Some(path) => save_path(Path::new(&path))?,
-                    None => loaded
-                        .path
-                        .clone()
-                        .ok_or("Choose a filename with Save As for untitled subtitles")?,
-                };
-                if loaded.resynced && loaded.path.as_ref() == Some(&target) {
-                    return Err("Choose a different file to preserve the original subtitles".into());
-                }
-                loaded.translation.protect(&target)?;
-                loaded
-                    .source()
-                    .validate_save_extension(target.extension().and_then(|s| s.to_str()))?;
-                let bytes = loaded
-                    .source()
-                    .serialize(loaded.editor.document())?
-                    .into_bytes();
-                crate::srt_limits::validate_size(bytes.len())?;
-                // Serialize before taking the lease, but compare disk bytes only
-                // while holding it. Retain it through saved-state publication.
-                let _lease = crate::save_lease::acquire(&target)?;
-                if loaded.path.as_ref() == Some(&target)
-                    && read_file(&target)? != loaded.saved_bytes
-                {
-                    return Err(
-                        "Subtitle file changed on disk. Use Save As to preserve both versions"
-                            .into(),
-                    );
-                }
-                crate::atomic_file::write(&target, &bytes)?;
-                // File replacement succeeded; only now update path and saved state.
-                loaded.editor.mark_saved(revision)?;
-                loaded.path = Some(target);
-                loaded.saved_bytes = bytes;
-                loaded.recovered = false;
-                loaded.resynced = false;
+                .save(
+                    revision,
+                    path.as_deref().map(Path::new),
+                    loaded.translation.protected_paths(),
+                )?;
             }
         }
         Ok(self.snapshot())
@@ -596,24 +561,8 @@ impl Store {
         Ok(())
     }
 }
+use vsf_application::document_save::resolve_path as save_path;
 pub(crate) use vsf_application::subtitle_file::read as read_file;
-fn save_path(path: &Path) -> Result<PathBuf> {
-    let name = path.file_name().ok_or("Choose a subtitle filename")?;
-    let parent = path
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    let target = parent
-        .canonicalize()
-        .map_err(|e| format!("Cannot access save directory: {e}"))?
-        .join(name);
-    // Resolve an existing symlink, preserving its meaning when saving through it.
-    if target.exists() {
-        target.canonicalize().map_err(|e| e.to_string())
-    } else {
-        Ok(target)
-    }
-}
 
 impl Documents {
     pub(crate) fn subtitle_extension(&self) -> Result<&'static str> {
