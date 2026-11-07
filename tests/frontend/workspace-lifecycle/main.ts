@@ -1,3 +1,4 @@
+import { modalCases } from './modals';
 import { defaultTiming } from '../../../src/lib/magnetic-timing';
 import { DocumentSession } from '../../../src/lib/document-session.svelte';
 import { MediaSession } from '../../../src/lib/media-session.svelte';
@@ -839,6 +840,7 @@ async function referenceQueryCases() {
 }
 
 try {
+  await modalCases(passed);
   await documentCases();
   await mediaCases();
   await projectCases();

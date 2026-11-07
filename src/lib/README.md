@@ -8,6 +8,7 @@ mount and are disposed on unmount; they are not global stores.
 | --- | --- |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
+| `WorkspaceModal` | Authoring identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
@@ -309,6 +310,8 @@ and compares the current accepted snapshot plus transient invocation context.
 `DocumentSession.acceptPlugin` shares the ordinary snapshot/history adoption path.
 A failed acceptance reply triggers an authoritative status refresh, preserving
 drafts if the accepted version is unchanged. Failed refresh locks continuation
-until an explicit retry succeeds. App uses the authoring modal gate, native-video
-occlusion and focus restoration. See [desktop plugins](../../docs/plugin-desktop.md)
-for options, complete-text access and validation boundaries.
+until an explicit retry succeeds. App composes `WorkspaceModal` for the authoring
+gate, native-video occlusion and focus restoration. Styles, fonts, conversion and
+plugins share this mount-scoped presentation owner; their sessions keep
+acceptance/draft rules. See [desktop plugins](../../docs/plugin-desktop.md) for
+options, complete-text access and validation boundaries.

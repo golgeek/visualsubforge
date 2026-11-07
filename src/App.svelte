@@ -33,6 +33,10 @@
   import { DocumentSession } from './lib/document-session.svelte';
   import { MediaSession } from './lib/media-session.svelte';
   import { ProjectWorkflow } from './lib/project-workflow.svelte';
+  import {
+    WorkspaceModal,
+    type AuthoringModal,
+  } from './lib/workspace-modal.svelte';
   import { PendingDecision } from './lib/pending-decision';
   import { onMount, tick, untrack } from 'svelte';
   import {
@@ -133,7 +137,7 @@
   }
   async function chooseRecovery(id: string, recover: boolean) {
     if (busy || confirming || !ready) return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       if (recover) {
@@ -154,7 +158,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   let textEditor: HTMLTextAreaElement;
@@ -228,20 +232,20 @@
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    busy = true;
+    workspaceBusy = true;
     try {
       await occludeVideo(true);
       if (alive && request === menuEpoch) cueMenu = candidate;
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   async function chooseCueMenu(action: string) {
     const context = cueMenu;
     if (!context || busy) return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       await closeCueMenu(false);
@@ -282,7 +286,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   function cancelHeldTiming() {
@@ -315,7 +319,7 @@
       return;
     }
     const marked = result.range;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       await applyDraft();
@@ -333,7 +337,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   async function editingKey(action: EditingShortcut) {
@@ -365,7 +369,7 @@
       }
       return;
     }
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       await applyDraft();
@@ -382,11 +386,26 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   let ready = $state(false);
-  let busy = $state(false);
+  const authoring = new WorkspaceModal({
+    occlude: (value) => occludeVideo(value),
+    remainingOcclusion: () => diagnostics,
+    afterRender: tick,
+    captureFocus: () => {
+      const target = document.activeElement;
+      return () => {
+        if (target instanceof HTMLElement && target.isConnected) target.focus();
+      };
+    },
+    reportError: (value) => {
+      error = String(value);
+    },
+  });
+  let workspaceBusy = $state(false);
+  const busy = $derived(workspaceBusy || authoring.opening);
   let textFocused = $state(false);
   let follow = $state(true);
   let waveformGesture = $state(false);
@@ -414,13 +433,12 @@
     timing: { ...defaultTiming },
   });
   let statisticsOpen = $state(false);
-  let stylesOpen = $state(false);
-  let fontsOpen = $state(false);
-  let conversionOpen = $state(false);
-  let pluginsOpen = $state(false);
+  const stylesOpen = $derived(authoring.identity === 'styles');
+  const fontsOpen = $derived(authoring.identity === 'fonts');
+  const conversionOpen = $derived(authoring.identity === 'conversion');
+  const pluginsOpen = $derived(authoring.identity === 'plugins');
   let legacyImportOpen = $state(false);
   let legacyImportReturn: HTMLElement | null = null;
-  let authoringReturn: HTMLElement | null = null;
   let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
@@ -472,7 +490,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      confirming = false;
+      decisionOpen = false;
     }
   }
 
@@ -489,7 +507,7 @@
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) confirming = false;
+      if (alive) decisionOpen = false;
     }
   }
   async function openStatistics() {
@@ -502,7 +520,7 @@
       waveformGesture
     )
       return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     statisticsReturn =
       document.activeElement instanceof HTMLElement
@@ -511,18 +529,16 @@
     try {
       await occludeVideo(true);
       if (alive) {
-        confirming = true;
+        decisionOpen = true;
         statisticsOpen = true;
       }
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) busy = false;
+      if (alive) workspaceBusy = false;
     }
   }
-  async function openAuthoring(
-    kind: 'styles' | 'fonts' | 'conversion' | 'plugins',
-  ) {
+  async function openAuthoring(kind: AuthoringModal) {
     if (
       busy ||
       confirming ||
@@ -536,67 +552,41 @@
       cueMenu
     )
       return;
-    busy = true;
     error = '';
-    authoringReturn =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    try {
-      await occludeVideo(true);
-      if (alive) {
-        confirming = true;
-        stylesOpen = kind === 'styles';
-        fontsOpen = kind === 'fonts';
-        conversionOpen = kind === 'conversion';
-        pluginsOpen = kind === 'plugins';
-      }
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) busy = false;
-    }
+    await authoring.open(kind);
   }
   async function closeAuthoring(accepted = false, outputPath?: string) {
-    const kind = pluginsOpen ? 'Plugin' : fontsOpen ? 'Font' : 'Style';
-    stylesOpen = fontsOpen = conversionOpen = pluginsOpen = false;
+    if (!alive) return;
+    const kind =
+      authoring.identity === 'plugins'
+        ? 'Plugin'
+        : authoring.identity === 'fonts'
+          ? 'Font'
+          : 'Style';
     if (outputPath) notice = `Converted subtitles exported to ${outputPath}`;
     if (accepted) {
       notice = `${kind} changes accepted. Undo restores the whole change.`;
       quality.restart();
     }
-    try {
-      await tick();
-      if (!alive) return;
-      await occludeVideo(diagnostics);
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) {
-        confirming = false;
-        // Restore focus after the toolbar is enabled again.
-        await tick();
-        if (alive && authoringReturn?.isConnected) authoringReturn.focus();
-      }
-    }
+    await authoring.close();
   }
   async function closeLegacyImport(outputPath?: string, open = false) {
     legacyImportOpen = false;
-    busy = true;
+    workspaceBusy = true;
     if (outputPath) notice = `Project created at ${outputPath}`;
     try {
       await tick();
       if (!alive) return;
       await occludeVideo(diagnostics);
-      confirming = false;
+      decisionOpen = false;
       // Restore through the existing preflight/draft protection/attachment flow.
       if (open && outputPath) await projects.openPath(outputPath);
     } catch (e) {
       if (alive) error = String(e);
     } finally {
       if (alive) {
-        confirming = false;
-        busy = false;
+        decisionOpen = false;
+        workspaceBusy = false;
         await tick();
         if (alive && legacyImportReturn?.isConnected)
           legacyImportReturn.focus();
@@ -614,7 +604,7 @@
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) confirming = false;
+      if (alive) decisionOpen = false;
     }
     if (
       alive &&
@@ -638,7 +628,7 @@
       waveformGesture
     )
       return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     suspendCueFollowing();
     timingReturn =
@@ -648,14 +638,14 @@
     try {
       await occludeVideo(true);
       if (alive) {
-        confirming = true;
+        decisionOpen = true;
         timingReview = kind;
         timingOpen = true;
       }
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) busy = false;
+      if (alive) workspaceBusy = false;
     }
   }
   async function openText(mode?: 'find' | 'replace' | TextOperation) {
@@ -668,7 +658,7 @@
       waveformGesture
     )
       return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     textReturn =
       document.activeElement instanceof HTMLElement
@@ -702,13 +692,13 @@
     try {
       await occludeVideo(true);
       if (alive) {
-        confirming = true;
+        decisionOpen = true;
         textOpen = true;
       }
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) busy = false;
+      if (alive) workspaceBusy = false;
     }
   }
   async function closeText(operation: TextOperation, accepted = false) {
@@ -726,7 +716,7 @@
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) confirming = false;
+      if (alive) decisionOpen = false;
     }
   }
   async function navigateText(
@@ -755,7 +745,7 @@
     const id = selected;
     const start = textEditor.selectionStart;
     const end = textEditor.selectionEnd;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       const result = await textFormat(before, start, end, style, {
@@ -780,7 +770,7 @@
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) busy = false;
+      if (alive) workspaceBusy = false;
     }
   }
   async function closeTimingReview(accepted = false) {
@@ -797,7 +787,7 @@
     } catch (e) {
       if (alive) error = String(e);
     } finally {
-      if (alive) confirming = false;
+      if (alive) decisionOpen = false;
     }
   }
 
@@ -834,7 +824,7 @@
         cuts: [...sceneCuts],
         settings: { ...timingSettings },
       };
-      busy = true;
+      workspaceBusy = true;
       suspendCueFollowing();
       error = '';
       notice = 'Timing preview · release to apply, Escape to cancel';
@@ -905,7 +895,7 @@
       timingEdit = null;
       timingMagnets = null;
       snapHint = '';
-      busy = false;
+      workspaceBusy = false;
     }
   }
   let diagnostics = $state(false);
@@ -1093,7 +1083,8 @@
   const subtitleDecision = new PendingDecision<'save' | 'discard' | 'cancel'>(
     'cancel',
   );
-  let confirming = $state(false);
+  let decisionOpen = $state(false);
+  const confirming = $derived(decisionOpen || authoring.active);
   let projectExitError = $state<string | null>(null);
   const projectExitDecision = new PendingDecision<ProjectExitChoice>('cancel');
   let projectReferenceIssue = $state<ProjectReferenceIssue | null>(null);
@@ -1176,25 +1167,25 @@
     return media.occlude(occluded);
   }
   async function confirmChanges(): Promise<'save' | 'discard' | 'cancel'> {
-    confirming = true;
+    decisionOpen = true;
     try {
       // The native child must be hidden before the dialog becomes visible.
       await occludeVideo(true);
       if (!alive) {
-        confirming = false;
+        decisionOpen = false;
         return 'cancel';
       }
       confirmation.showModal();
       return subtitleDecision.wait();
     } catch (e) {
-      confirming = false;
+      decisionOpen = false;
       throw e;
     }
   }
   async function answer(value: 'save' | 'discard' | 'cancel') {
     if (!confirming) return;
     confirmation.close();
-    confirming = false;
+    decisionOpen = false;
     await tick();
     try {
       // Diagnostics can remain open behind this dialog and still own occlusion.
@@ -1222,7 +1213,7 @@
     offsetMs = 0,
   ) {
     if (busy || confirming || !ready) return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       if (operation === 'attach' || operation === 'copy') {
@@ -1245,25 +1236,25 @@
     } catch (failure) {
       if (alive) error = String(failure);
     } finally {
-      if (alive) busy = false;
+      if (alive) workspaceBusy = false;
     }
   }
   $effect(() => {
     if (!translationOpen) translation.request(doc, null, 0, null, false);
   });
   async function resolveProjectReference(issue: ProjectReferenceIssue) {
-    confirming = true;
+    decisionOpen = true;
     try {
       await occludeVideo(true);
       if (!alive) {
-        confirming = false;
+        decisionOpen = false;
         return 'cancel' as const;
       }
       const decision = projectReferenceDecision.wait();
       projectReferenceIssue = issue;
       return decision;
     } catch (failure) {
-      confirming = false;
+      decisionOpen = false;
       throw failure;
     }
   }
@@ -1273,7 +1264,7 @@
     if (!projectReferenceDecision.pending || projectReferenceIssue === null)
       return;
     projectReferenceIssue = null;
-    confirming = false;
+    decisionOpen = false;
     await tick();
     try {
       await occludeVideo(diagnostics);
@@ -1284,25 +1275,25 @@
     }
   }
   async function projectSaveFailed(error: unknown): Promise<ProjectExitChoice> {
-    confirming = true;
+    decisionOpen = true;
     try {
       await occludeVideo(true);
       if (!alive) {
-        confirming = false;
+        decisionOpen = false;
         return 'cancel';
       }
       const decision = projectExitDecision.wait();
       projectExitError = String(error);
       return decision;
     } catch (error) {
-      confirming = false;
+      decisionOpen = false;
       throw error;
     }
   }
   async function answerProjectExit(choice: ProjectExitChoice) {
     if (!projectExitDecision.pending || projectExitError === null) return;
     projectExitError = null;
-    confirming = false;
+    decisionOpen = false;
     await tick();
     try {
       await occludeVideo(diagnostics);
@@ -1322,7 +1313,7 @@
     if (busy || cueMenu || !doc.cues.some((c) => c.id === id)) return;
     suspendCueFollowing();
     cancelHeldTiming();
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       await applyDraft();
@@ -1336,7 +1327,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   function cueSelectionKey(e: KeyboardEvent, id: number) {
@@ -1379,7 +1370,7 @@
   }
   async function selectAllCues() {
     if (busy || confirming || cueMenu) return;
-    busy = true;
+    workspaceBusy = true;
     error = '';
     suspendCueFollowing();
     try {
@@ -1388,7 +1379,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   function requestProblem(id: string) {
@@ -1413,7 +1404,7 @@
       pendingProblem = null;
       return;
     }
-    busy = true;
+    workspaceBusy = true;
     error = '';
     try {
       if (choice === 'apply') await applyDraft();
@@ -1423,7 +1414,7 @@
       error = String(failure);
       return;
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
     if (alive) await selectCue(Number(id));
   }
@@ -1471,7 +1462,7 @@
       document.execCommand(action);
       return;
     }
-    busy = true;
+    workspaceBusy = true;
     error = '';
     notice = '';
     try {
@@ -1484,7 +1475,7 @@
               : null;
           await occludeVideo(true);
           if (!alive) break;
-          confirming = true;
+          decisionOpen = true;
           resyncOpen = true;
           break;
         case 'settings':
@@ -1494,7 +1485,7 @@
               ? document.activeElement
               : null;
           await occludeVideo(true);
-          confirming = true;
+          decisionOpen = true;
           settingsOpen = true;
           break;
         case 'openProject':
@@ -1511,7 +1502,7 @@
               : null;
           await occludeVideo(true);
           if (!alive) break;
-          confirming = true;
+          decisionOpen = true;
           legacyImportOpen = true;
           break;
         case 'saveProject':
@@ -1634,7 +1625,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   async function revealSelection(id: number | null = selected) {
@@ -1654,14 +1645,14 @@
   }
   async function selectTrack(id: number) {
     if (busy) return;
-    busy = true;
+    workspaceBusy = true;
     try {
       await act({ kind: 'track', id });
       waveKey = '';
     } catch (e) {
       error = String(e);
     } finally {
-      busy = false;
+      workspaceBusy = false;
     }
   }
   function zoom(factor: number) {
@@ -1910,6 +1901,7 @@
     media.startPolling();
     return () => {
       alive = false;
+      authoring.dispose();
       projects.dispose();
       translation.dispose();
       subtitles.dispose();

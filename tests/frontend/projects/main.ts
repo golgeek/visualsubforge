@@ -21,13 +21,14 @@ import {
 } from '../../../src/lib/client';
 if (isTauri()) throw new Error('Browser fixture only');
 const host = document.querySelector('#test')!;
-let media = { ...emptyStatus, available: true };
+let media = { ...emptyStatus, available: true, surfaceAboveWebview: true };
 let doc = structuredClone(emptyDocument);
 let failOpen = false;
 let restoreFailure: 'readiness' | 'subtitles' | 'scenes' | 'seek' | null = null;
 let projectSaveError: string | null = null;
 let chosenPath: string | null = '/work.vsfproject';
 let occluded = false;
+let hideReply: Promise<void> | null = null;
 let importView: LegacyImportReview = structuredClone(legacyImportReview);
 let openedPath: string | undefined;
 let loadingPolls = 0;
@@ -321,7 +322,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'media_action': {
           const action = args.action as MediaAction;
           if (action.kind === 'status') statusPolls++;
-          if (action.kind === 'occlude') occluded = action.occluded;
+          if (action.kind === 'occlude') {
+            if (action.occluded) await hideReply;
+            occluded = action.occluded;
+          }
           if (action.kind === 'open') {
             loadingPolls = 0;
             mediaOpening = true;
@@ -467,6 +471,49 @@ async function run() {
   try {
     await until(workspaceReady);
     await restoreProject();
+    const pluginDialog = () =>
+      host.querySelector<HTMLDialogElement>(
+        'dialog[aria-labelledby="plugin-title"][open]',
+      );
+    const launcher = [...host.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Subtitle plugins…',
+    )!;
+    const authoringDraft = host.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Subtitle text"]',
+    )!;
+    authoringDraft.value = 'Keep authoring draft';
+    authoringDraft.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    for (const route of ['toolbar', 'menu']) {
+      launcher.focus();
+      let release!: () => void;
+      hideReply = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      if (route === 'toolbar') launcher.click();
+      else menuAction('plugins');
+      await until(() => !!menuState?.busy);
+      assert(
+        !pluginDialog(),
+        `${route} waits for native hide before mounting authoring content`,
+      );
+      release();
+      hideReply = null;
+      await until(() => !!pluginDialog());
+      assert(
+        occluded && authoringDraft.value === 'Keep authoring draft',
+        `${route} preserves the draft behind occluded authoring content`,
+      );
+      pluginDialog()!.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await until(
+        () => workspaceReady() && document.activeElement === launcher,
+      );
+      assert(
+        !occluded && !pluginDialog(),
+        `${route} Escape restores native video and launcher focus`,
+      );
+    }
+    button('Revert draft');
     await until(() => calls.includes('scenes_view'));
     assert(
       media.positionSeconds === 12.5 &&
