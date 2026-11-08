@@ -60,6 +60,7 @@ mod recovery_store;
 mod resync;
 mod save_lease;
 mod scenes;
+#[cfg(test)]
 mod srt_limits;
 mod statistics;
 mod style_review;

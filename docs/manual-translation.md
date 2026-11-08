@@ -620,3 +620,54 @@ Legacy source uses time-overlap reference text and can create a separate target
 while retaining the original as VO. This is source inference, not a new run of
 VisualSubSync, and no legacy code was copied. VSF intentionally uses explicit
 half-open overlap, an immutable reference snapshot, and format-aware preservation.
+
+## Historical status receipt: Manual translation stage6c complete (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Manual translation stage6c complete (2026-10-18):** the application foundation
+retains immutable reference bytes, format and cue data; paged time-overlap queries
+support signed offsets and independent target copies. Eight focused tests and all
+434 workspace Rust tests pass (30 opt-in tests ignored), with strict Clippy and
+format/lint checks. Five 10k library workloads pass p95 <=86.801ms and additional
+sampled RSS 99,876,864 bytes, with only 786,432 bytes of memory-budget headroom.
+The subsequent Rust owner adds bounded loading/querying, stale/cancel guards,
+independent target copies, sticky source protection and reference-aware recovery.
+Twelve owner/related conversion cases, a signed-IPC boundary test, all 447 workspace
+Rust tests /30 ignored, 44 frontend tests, strict checks, generated IPC and the
+default desktop build pass. The subsequent project increment now persists reference
+identity/offset/provenance, supports subtitle-only projects, and offers explicit
+missing/changed-reference resolution before draft protection. Five focused project
+tests and all 452 workspace Rust tests /30 ignored pass; 44 frontend tests and
+targeted Chromium/WebKit project checks pass. The wider browser run exposed one
+outdated lifecycle fixture; its corrected project/lifecycle rerun passes all eight
+cases in both engines. Strict checks and the final default desktop build pass.
+The reference panel now exposes attach/replace/detach, independent target copies,
+signed offsets and matching/paged browsing with raw/reading views. Context replies
+preserve target drafts; lost acceptance replies refresh authoritative state.
+Eight focused browser cases pass with 60 project/panel and 32 lifecycle checks per
+ordinary harness. The final full suite passes all 58 browser cases, all 452 workspace
+Rust tests /30 ignored and 44 frontend tests, with strict/IPC/default-build checks.
+The actual Mac desktop lane now passes four-format copy/edit/history/save/project/
+recovery, changed/missing reference resolution, source/external-file protection,
+mixed ASS-target/WebVTT-reference attachment and normal code0 shutdown. Native
+window observations retain target rendering and literal reference text; existing
+WebVTT preview limits remain. Supplied file choices do not test OS sheets.
+An isolated non-WebDriver Mac bundle also passes real Open/Save/Save Project sheets,
+Unicode paths, cancellation, source-overwrite refusal after OS Replace, mixed-format
+reference changes, changed/missing-reference resolution, target-copy draft
+protection and Quit Cancel/Save with code0 shutdown. Exact target/project bytes and
+protected source hashes are checked. All five combined desktop10k workloads now
+pass, including full paging, five edit/history/save/project cycles, project reopen,
+captured-reference recovery, cancellation/stale rejection and source protection.
+The dense case exposed repeated waveform redraws from unchanged playback and scene
+polls; comparing render values fixes the failure without dropping cues or relaxing
+budgets. Maximum dense edit/offset/project-save is 326/289/271ms; project reopen
+815ms and recovery open 415ms. Desktop app RSS is reported separately from the
+unchanged pure-engine memory gate. The corrected native functional lane exits
+normally with code0; all 58 browser cases, 44 frontend tests, strict checks,
+generated IPC and default build pass. ADR0033 is accepted. Stage7 plugins is next;
+stage8 native/distribution reliability and physical-device gates remain open.
+See [the workflow contract and exact foundation evidence](manual-translation.md).

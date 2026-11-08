@@ -2,8 +2,9 @@
 
 Task 016 is **complete within the policy below**. Format/history, desktop
 persistence, style controls and format-aware text/timing tools pass shared,
-owner/browser, actual Mac and 10,000-cue validation. Comprehensive style design,
-attachment management and cross-format conversion remain deferred. Font
+owner/browser, actual Mac and 10,000-cue validation. Subsequent [style/font authoring](style-authoring.md) and
+[reviewed conversion](format-conversion.md) are implemented within their recorded
+Mac scopes. Font
 availability is runtime-dependent; Windows/Linux installation and physical
 GPU/audio acceptance remain separate.
 
@@ -95,7 +96,7 @@ explicit, as for SRT.
 
 Source format is retained by Save and Save As. A conflicting known extension
 fails before touching files; ASS/SSA requires its matching extension. Cross-format
-conversion remains deferred. Existing atomic-save, external-change and recovery
+conversion uses a separate [reviewed export](format-conversion.md). Existing atomic-save, external-change and recovery
 Save As protections apply.
 
 Projects gain an optional subtitleFormat field, validated against their path and
@@ -123,7 +124,7 @@ packets through the existing bounded Matroska memory transport. The
 [Matroska subtitle mapping](https://www.matroska.org/technical/subtitles.html#ssaass-subtitles)
 defines packet order independently of source Format order; SSA has an empty layer.
 Unknown source fields remain saved even when the renderer does not use them.
-Attachment management remains deferred. The later [font milestone](preview-fonts.md)
+[Attachment management](style-authoring.md) is implemented. The later [font milestone](preview-fonts.md)
 validates embedded-font rendering/replacement and generic CJK fallback on the Mac
 runtime; historical observations below retain their original scope.
 The 4 MiB preview transport cap is unchanged and never prevents editing/saving.
@@ -232,3 +233,33 @@ python3 scripts/ass-fixtures.py
 cargo build --locked --release -p vsf-application --example ass-benchmark
 python3 scripts/ass-benchmark.py
 ```
+
+## Historical status receipt: ASS/SSA document milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**ASS/SSA document milestone complete (2026-10-17):** loss-preserving UTF-8
+ASS v4.00+/SSA v4.00 parsing and same-format serialization retain original script
+headers, styles, event fields, comments, attachments and unknown content. Rust owns
+metadata/history; style inspection/assignment and safe text/timing tools share
+existing owners. Save/Save As, projects and recovery retain format identity.
+Fansub SRT with inline ASS/SSA tags retains exact text and millisecond endpoints.
+
+Final validation passes 300 ordinary Rust tests, 41 frontend tests, 48 Chromium/
+WebKit cases, strict Clippy/lint/format/type/IPC checks and the default desktop
+build. Actual Mac ASS/SSA inspection/edit/Undo/Redo/save/reopen/project/crash-recovery
+workflows and tagged-SRT native/save/history regression pass. Native window
+observations show source-defined style/alignment, position, hard breaks, motion
+and expiry. Generic sans-serif CJK fallback still produces boxes on this runtime;
+an explicit installed Hiragino Sans GB control renders the glyphs correctly.
+
+The exact 10,000-cue desktop gate passes: open 260/285 ms (ASS/SSA), text/style/time
+acceptance <=105 ms, Undo <=96 ms, navigation <=27 ms, cancellation <=15 ms and
+invalidation <=59 ms. Rebuilt release format p95 is 29.723/25.165 ms with 46,333,952
+additional sampled RSS bytes, within unchanged 500 ms/96 MiB budgets. Measurements
+and retained failures are in the [ASS/SSA integration guide](ass-ssa-documents.md).
+Style design, attachment management and conversion were deferred at that milestone;
+their subsequent increments and ASS/SSA resync are recorded above. Windows/Linux feature execution, Linux picker
+filters, installation and physical GPU/audio acceptance remain unverified.

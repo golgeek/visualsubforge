@@ -442,3 +442,23 @@ proof. The corrected oracle retains each separator and requires exactly10000
 payload changes; the final run repeats all ten combinations. No product code,
 execution limit or input was changed to pass. Historical-host and available
 Windows/Linux checks still keep stage7 and ADR0008 open.
+
+## Historical status receipt: Plugin desktop VM workflows pass (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Plugin desktop VM workflows pass (2026-10-18):** measured wrapped toolbar heights
+fix the cue-list squeeze found in both guests. Ubuntu and Windows ARM64 now pass
+all eight format/API cases, exact review/history/save/reopen/recovery, live-helper
+cancellation/reaping and normal shutdown. A fresh Mac native run also passes all
+eight cases. Both browsers reproduce the old layout failure and pass the new
+regression; all60 browser cases and44 frontend tests pass. A subsequent full
+plugin10k regression exposed a helper deadline in the final timed-WebVTT/VSS
+workload. Validated JSON forwarding and conditional newline conversion correct
+that failure: all ten complete workloads now pass with unchanged limits,
+maximum interaction689ms and preparation1418ms. The correction passes503 Mac,
+505 Ubuntu and493 Windows Rust tests, strict checks and fresh eight-case desktop
+workflows on all three systems. Historical-host comparison remains pending. Exact commands, identities,
+retained failures and scope are in the [desktop record](plugin-desktop.md#wrapped-toolbar-correction-and-complete-vm-editor-acceptance--2026-10-18).

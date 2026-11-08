@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect(),
         )
+        .map_err(String::from)
     };
     let document = make(400)?;
     let scenes = Scenes::Complete(

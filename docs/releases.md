@@ -629,3 +629,30 @@ checksums and any package/repository signatures must accompany the chosen
 distribution flow. See the official [macOS](https://v2.tauri.app/distribute/sign/macos/),
 [Windows](https://v2.tauri.app/distribute/sign/windows/) and
 [Linux](https://v2.tauri.app/distribute/sign/linux/) signing guides.
+
+## Historical status receipt: Mac preview regression fixed (2026-10-12)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Mac preview regression fixed (2026-10-12):** the original signed candidates
+from 38205417832 are withdrawn. A synthetic video reproduced `CODESIGNING /
+Invalid Page` in mpv's unused LuaJIT `stats` script without a project. Shared
+native initialization now disables these scripts without JIT entitlements.
+Both replacement architectures pass hardened initialization, notarization and
+independent signature/source audits. The exact signed ARM download passes the
+native smoke and restores the reported version-1 project/version-3 scene cache
+on macOS 27, showing video, waveform and five cues at the saved position. Normal
+quit succeeds; original project/media/subtitle hashes remain unchanged. No
+migration is needed. [Replacement downloads and remaining manual gates](preview-acceptance.md).
+
+## Historical automation status checkpoint
+
+The former status matrix recorded the following at `339e51e`; later dated
+release/native-reliability results supersede it where stated. This is not a
+fresh validation of the current checkout.
+
+All ten [application CI jobs](https://github.com/golgeek/visualsubforge/actions/runs/38331827755) and six [native build-contract jobs](https://github.com/golgeek/visualsubforge/actions/runs/38331827700) pass at `339e51e`, including the corrected 32-case browser suite. ARM64 and Intel macOS candidates pass bundled CLI checks, Developer ID signing and Apple notarization; their audited minimums are macOS 14.0 and 15.0 respectively. Their downloaded native/application sources and signed packages are hash-verified. The Ubuntu 24.04 x64 candidate passes clean-container installation, offline CLI and native smoke with measured virtual-audio readiness; its matching source/inventory audit is complete. GPL-3.0-or-later is selected for original code.
+
+`v0.0.1-alpha` is not published and must include macOS, Windows and Linux packages. Windows installer, offline CLI, DLL unload and downloaded source/notice audits pass; the original hosted GUI run failed without an audio device. [Replacement validation](https://github.com/golgeek/visualsubforge/actions/runs/38233864612) passes the same package with a virtual WASAPI endpoint and software D3D11. A reproduced Linux cold-null-sink startup delay and its readiness control are documented in the release evidence. CI success does not establish GPU/audio or clean-install acceptance. See [release evidence](releases.md).

@@ -8,12 +8,14 @@ mount and are disposed on unmount; they are not global stores.
 | --- | --- |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
+| `WorkspaceModal` | Authoring and timing-review identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
-| `GapSession` | Dialog-lived proposal pages, acknowledgment and asynchronous response ordering. Rust owns calculation and acceptance; DocumentSession serializes the accepted reply with ordinary edits. |
+| `TimingRepairSession` | Shared gap/scene/duration/batch review requests, bounded pages, context guards and disposal. Rust owns calculation and acceptance; DocumentSession serializes accepted replies with ordinary edits. |
+| `GapSession` | Gap-specific client adapter and no-media acknowledgment/eligibility over the shared review lifetime. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
@@ -183,9 +185,11 @@ not depend on Specta, Tauri or native playback.
 ## Minimum-gap review
 
 `GapDialog` resolves drafts before `GapSession.start()` captures the current
-DocumentSession projection and media session. The generated client admits one
-Rust proposal worker, then polls pages. The frontend never computes repair
-endpoints or treats draft text as accepted. Page/start epochs reject stale
+DocumentSession projection and media session. `GapSession` adapts the gap client
+and explicit no-media acknowledgment to `TimingRepairSession`, shared with scene,
+duration and batch review. The generated client admits one Rust proposal worker,
+then polls pages. The frontend never computes repair endpoints or treats draft
+text as accepted. Page/start epochs reject stale
 responses; late admissions are cancelled after disposal. A completed proposal is
 still polled for backend profile/scene invalidation. Acceptance blocks dialog
 closure, delegates through `DocumentSession.acceptGap()` and replaces the accepted
@@ -200,9 +204,10 @@ an immutable clone outside those locks; shutdown cancels and joins outside them.
 ## Scene and duration timing review
 
 `SceneRepairDialog`/`DurationRepairDialog` are thin purpose wrappers around
-`TimingRepairDialog`. Their session wrappers share `TimingRepairSession` for
-draft handling, paging, disposal and late-admission cancellation. They display
-immutable Rust proposals; no timing arithmetic is repeated in the frontend.
+`TimingRepairDialog`. Their session wrappers share `TimingRepairSession` with
+gap/batch review for draft handling, paging, disposal and late-admission
+cancellation. They display immutable Rust proposals; no timing arithmetic is
+repeated in the frontend.
 Duration review captures a stable selected cue ID or whole-document scope;
 changing scope immediately disables acceptance. `DocumentSession` serializes
 both acceptance methods with other document actions. Completed previews continue
@@ -305,6 +310,54 @@ and compares the current accepted snapshot plus transient invocation context.
 `DocumentSession.acceptPlugin` shares the ordinary snapshot/history adoption path.
 A failed acceptance reply triggers an authoritative status refresh, preserving
 drafts if the accepted version is unchanged. Failed refresh locks continuation
-until an explicit retry succeeds. App uses the authoring modal gate, native-video
-occlusion and focus restoration. See [desktop plugins](../../docs/plugin-desktop.md)
-for options, complete-text access and validation boundaries.
+until an explicit retry succeeds. App composes `WorkspaceModal` for the authoring
+gate, native-video occlusion and focus restoration. Styles, fonts, conversion and
+plugins share this mount-scoped presentation owner; their sessions keep
+acceptance/draft rules. See [desktop plugins](../../docs/plugin-desktop.md) for
+options, complete-text access and validation boundaries.
+
+## Historical IPC migration receipts
+
+These incremental counts and pending gates describe their original checkpoints.
+The generated IPC contract above describes the completed migration.
+
+Generated IPC first slice: timing preset command/DTO generation passes with
+Tauri Specta/Specta 2.0.0-rc.25 and specta-typescript 0.0.12. The 70 desktop tests,
+strict desktop Clippy, 39 TypeScript tests, strict Svelte/TypeScript, lint,
+formatting and production build passed. All 28 Chromium/WebKit cases passed;
+the timing workflow additionally checks serialized string rejection and null
+success through the facade. Deterministic `npm run ipc:check` passes; a deliberate
+drift control fails without rewriting the modified file. This is a first-family
+trial, not completion of the remaining enum/event/project/numeric gates.
+
+Document IPC migration: tagged edit commands, accepted snapshots, recovery and
+quit now use generated bindings. Checked u64 codecs reject values outside the
+JavaScript exact-integer range; a recovery listing retains usable SRTs even when
+old informational metadata cannot be represented. Module-qualified generated
+names avoid the pinned generator's container-rename/phase collision; the facade
+keeps readable aliases. `cargo test --locked -p visualsubforge` passed 74 tests
+plus the separately invoked exporter. Strict desktop Clippy, frontend build,
+all 28 Chromium/WebKit cases, binding drift, lint and formatting checks passed.
+Four added boundary regressions cover scalar and field codecs and recovery
+preservation; generated samples cover actual Serde snapshots and all document
+action variants. Other command families and project/event compatibility remain.
+
+Full IPC migration: all 24 commands and the workspace-action event now share
+one Rust dispatch/generation registry; the client facade has no handwritten DTOs
+or command names. The compatibility trial found and repaired two issues: Serde
+non-finite floats could become null, and two codec-bearing View structs collided
+in the generator's phase output. Required numeric outputs now have checked
+serializers; SceneView/WaveformView have distinct Rust names. Actual Serde
+samples cover project flattening/defaults and scene/waveform/event shapes.
+
+Validation on the development Mac: `cargo test --locked --workspace` passed 140
+tests (79 desktop), strict workspace Clippy passed, and `cargo check --locked
+-p visualsubforge --features media-prototype` passed. This last check is compilation,
+not GPU/audio execution. `npm run build`, `npm run lint`, `npm test` (39), formatting
+and `npm run ipc:check` passed. The first browser run passed 26/28: the delayed
+listener controls blocked module loading after the generated runtime switched
+to a static import. The controls now hold the modeled registration response;
+`npm run test:browser -- --grep projects` passed all four affected Chromium/WebKit
+cases, including the two formerly failing controls. `cargo tree --locked -p
+vsf-cli --edges normal` confirms no Specta/Tauri/native playback dependency.
+Cross-platform/native IPC execution remains part of final integration validation.

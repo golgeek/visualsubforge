@@ -6,7 +6,8 @@ use std::{
     ops::Range,
     sync::Arc,
 };
-use subtitle_core::{Cue, CueId, CueMetadata, Document, Milliseconds, Result};
+type Result<T> = std::result::Result<T, String>;
+use subtitle_core::{Cue, CueId, CueMetadata, Document, Milliseconds};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BlockKind {
@@ -140,7 +141,7 @@ pub fn parse_time(value: &str) -> Result<Milliseconds> {
         .checked_mul(3_600_000)
         .and_then(|n| n.checked_add(minutes * 60_000 + seconds * 1000 + fraction))
         .ok_or_else(bad)?;
-    Milliseconds::new(milliseconds)
+    Milliseconds::new(milliseconds).map_err(String::from)
 }
 pub fn format_time(time: Milliseconds) -> String {
     let t = time.get();
@@ -191,6 +192,7 @@ pub fn cue_metadata(identifier: String, settings: String) -> Result<CueMetadata>
         ("Identifier".into(), identifier),
         ("Settings".into(), settings),
     ])
+    .map_err(String::from)
 }
 pub fn default_metadata() -> Result<CueMetadata> {
     cue_metadata(String::new(), String::new())

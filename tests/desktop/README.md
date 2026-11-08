@@ -600,3 +600,85 @@ and the helper's1000ms execution deadline is unchanged. RSS is descriptive and
 excludes WebKit/native subprocesses; the separate500ms p95/192MiB API/CLI gates
 are unchanged. This lane loads no media. `VSF_PLUGIN_PERFORMANCE_WORKLOADS=dense`
 selects a diagnostic subset; it cannot replace the complete ten-combination run.
+
+## Browser workflow checks
+
+Run from the repository root after `npm ci` with the
+[pinned Node/npm versions](../../CONTRIBUTING.md#commands-and-toolchains).
+
+Run the component workflow pages automatically with the pinned Playwright package:
+
+```sh
+npx playwright install chromium webkit
+npm run test:browser
+```
+
+On Linux, use `npx playwright install --with-deps chromium webkit` to install
+browser prerequisites too. The runner starts its own Vite server on port 1421
+(override with `VSF_BROWSER_TEST_PORT`) and refuses to reuse an existing server.
+It checks the component and workspace-lifecycle pages in `tests/frontend/` in Chromium and WebKit, including
+project save failures, recovery response ordering and gesture cancellation.
+FAIL rows, page errors, incomplete results, zero checks and inconsistent passing
+counts fail the run. Negative controls verify those runner failure modes. Reports,
+failure screenshots and traces are under ignored `playwright-report/` and
+`test-results/browser/`; CI uploads them. Browser cleanup leaves real-desktop
+receipts in `test-results/desktop-*` intact. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
+These are production components with modeled IPC and synthetic events, not native
+WebView, filesystem, keyboard, GPU or audio-device acceptance.
+
+## November refactoring regression checkpoint
+
+The November 7, 2026 boundary-error change `11f0885` retains desktop/CLI error
+text and JSON string shape, domain rejection state and format round trips.
+With Rust 1.98.1, Node 24.21.0/npm 11.19.0 on the development Mac:
+
+- `npm run build`, `npm run lint`, `npm test` (44 tests), `npm run format:check`,
+  `npm run ipc:check`, `cargo fmt --all -- --check` and
+  `cargo clippy --locked --workspace --all-targets -- -D warnings` pass.
+- `cargo test --locked --workspace` passes 519 tests, with 33 ignored; 15 of 46
+  harnesses have zero tests and are not feature validation.
+- `npm run build:desktop-test` then `npm run test:desktop` passes actual command,
+  history, save/failure and recovery workflows, with normal shutdown code 0.
+  Local receipt: `test-results/desktop-zvPugh/receipt.json`.
+- The explicit `desktop-e2e,media-prototype` Mac build and matching sibling CLI
+  pass `--ass --webvtt --styles --fonts --conversion --plugins` through the runner
+  documented above: 41 launches, six conversion directions and eight plugin
+  format/API cases, ending with normal shutdown code 0. Local receipts are in
+  `test-results/desktop-vdZuvC/`; executable SHA256 is
+  `cad971968e047ff861742aebb0c5d7aee50a8bf8cd212301458fd06311a4da06`.
+  Runtime identification records 46 loaded images, zero unavailable, including
+  the explicitly selected private mpv runtime.
+
+This native run is **foreground-conditioned**: a local driver foregrounded only
+its exact owned executable every second. Earlier ambient animation-frame readiness
+timeouts remain unresolved; no assertions or deadlines were weakened. Generated
+WebView input, supplied file choices and actual IPC/native-preview acknowledgments
+do not prove physical input, real choosers, audio, latency or fresh native-window
+composition. The preceding modal change has bounded hide/restore observations;
+those are not new observations for this binary. Prior scale evidence was retained
+because no capture/poll/render computation changed. Windows/Linux suites were not
+rerun for `11f0885`; the earlier save-refactoring VM checks remain baseline only.
+
+Logs and exact local launch/configuration commands are retained under ignored
+`test-results/refactor-errors/`. They are not prerequisites for the public runner.
+The documentation-only cleanup following this checkpoint does not rerun or extend
+these runtime claims.
+
+
+## Timing modal focus regression (2026-11-07)
+
+Timing reviews now share the workspace presentation owner. A pre-change gap-review
+browser assertion failed in both Chromium and WebKit when close tried to focus its
+still-disabled launcher. The corrected ordering passes the affected 24 browser
+cases; final targeted checks include 16 timing presentation checks per engine and
+37 workspace lifecycle checks. The [timing fixture](../frontend/timing-modal/README.md)
+holds above-WebView hide/restore and draft/accept replies for all four variants.
+
+`npm run lint`, `npm test` (44 tests), `npm run build`, `npm run format:check`,
+`npm run build:desktop-test` and `npm run test:desktop` pass on the development Mac.
+One current `desktop-e2e,media-prototype` build also passes `--duration`, including
+launcher focus after close, ordinary persistence/history/recovery, 10k duration
+checks and normal shutdown. That native run used the existing OpenGL runtime and
+an exact-app foreground driver. It does not establish above-WebView native hiding,
+physical input/audio/chooser acceptance or resolution of ambient readiness stalls.
+No new Windows/Linux run, ANGLE composition campaign or Rust/IPC change is claimed.

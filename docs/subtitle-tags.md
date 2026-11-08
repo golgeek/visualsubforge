@@ -7,7 +7,8 @@ selection formatting shortcuts and conservative line repairs; tags can also be
 edited directly as text. Full `.ass`/`.ssa` documents have a separate
 [preservation policy and validated workflow](ass-ssa-documents.md), including
 original headers/styles, style inspection and assignment, projects and recovery.
-Attachment management and a comprehensive style designer are deferred.
+Reviewed [style and font attachment authoring](style-authoring.md) is also
+implemented within its documented scope.
 
 ## Preview syntax
 

@@ -140,12 +140,24 @@ export async function durationQuality({
   let before = await status();
   const text = await browser.$('[aria-label="Subtitle text"]');
   await text.setValue('Preserve duration draft');
+  await browser.execute(() => {
+    [...document.querySelectorAll('button')]
+      .find(
+        (button) => button.textContent.trim() === 'Repair duration / speed…',
+      )
+      .focus();
+  });
   await (await browser.$('button=Repair duration / speed…')).click();
   await until('duration draft guard', () =>
     browser.$('button=Cancel duration review').then((b) => b.isExisting()),
   );
   await (await browser.$('button=Cancel duration review')).click();
   await ready();
+  assert.equal(
+    await browser.execute(() => document.activeElement?.textContent?.trim()),
+    'Repair duration / speed…',
+    'Closing native timing review restores its enabled launcher focus',
+  );
   assert.equal(await text.getValue(), 'Preserve duration draft');
   assert.deepEqual(await status(), before);
   await (await browser.$('button=Revert draft')).click();

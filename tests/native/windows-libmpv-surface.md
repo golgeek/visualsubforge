@@ -1,6 +1,6 @@
 # Windows in-process libmpv surface probe
 
-[windows-libmpv-surface.cpp](windows-libmpv-surface.cpp) tests D3D11 output into a child HWND in the host process. It complements the separate-player WebView2 composition probe; it contains no WebView, waveform or accepted subtitle document. See [task 003c](../../docs/tasks/003c-desktop-composition.md#windows-in-process-hwnd-boundary--2026-10-03) for results and retained failures.
+[windows-libmpv-surface.cpp](windows-libmpv-surface.cpp) tests D3D11 output into a child HWND in the host process. It complements the separate-player WebView2 composition probe; it contains no WebView, waveform or accepted subtitle document. The [scope and retained input failures](#scope) below describe this experiment; the [Windows native playback guide](../../docs/native-runtime.md#windows-native-playback-experiment) covers the separate application integration.
 
 ## Build and run
 
@@ -31,4 +31,4 @@ DLL lookup uses an absolute library path, its directory and a process-local depe
 
 Measured on Windows 11 ARM64 in Parallels: D3D11 feature level 11_1 through the Parallels WDDM adapter, with software decoding despite `auto-copy`. The native ARM64 executable loads libmpv in-process. Visible playback and Unicode subtitles were observed; mouse resize/maximize/close and Alt-F4 attempts in the follow-up did not produce observable actions. That run ended at its timed bound. Keep those input checks unverified.
 
-Rust/MSVC linkage, actual WebView2/Tauri coexistence, clipping/focus/modal routing, blank pixels after unload, live DPI changes, rapid replacement/close races, physical GPU drivers, hardware decoding and x86-64 are still separate requirements. A geometry or subtitle-property pass does not establish presentation timing or task 005 audio correctness.
+Rust/MSVC linkage, actual WebView2/Tauri coexistence, clipping/focus/modal routing, blank pixels after unload, live DPI changes, rapid replacement/close races, physical GPU drivers, hardware decoding and x86-64 are still separate requirements. A geometry or subtitle-property pass does not establish presentation timing or short-loop audio correctness.

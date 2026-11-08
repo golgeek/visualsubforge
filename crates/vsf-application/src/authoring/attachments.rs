@@ -1,9 +1,10 @@
 //! Immutable attachment inventory and reviewed font changes. Payload parsing is
 //! pure; the desktop reads user-selected files on its bounded review worker.
 use super::fonts::{self, FontInfo};
+use crate::Result;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use subtitle_core::{Document, Result};
+use subtitle_core::Document;
 use subtitle_formats::{Source, ass::AttachmentKind};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]

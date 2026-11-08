@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 text.into(),
             )
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<subtitle_core::Result<Vec<_>>>()?;
     let document = Document::new(cues)?;
     let profile = Profile::default();
     println!(

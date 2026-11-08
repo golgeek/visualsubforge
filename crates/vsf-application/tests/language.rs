@@ -347,7 +347,7 @@ fn suggestions_and_exact_corrections_preserve_format_source_and_one_undo() {
                 .collect();
             editor
                 .apply_edit(0, Edit::TextBatch { texts }, |d| {
-                    source.serialize(d).map(|_| ())
+                    source.serialize(d).map(|_| ()).map_err(String::from)
                 })
                 .unwrap();
         }
@@ -405,7 +405,9 @@ fn suggestions_and_exact_corrections_preserve_format_source_and_one_undo() {
         let edit = plan.edit(&baseline, Some((0, 0))).unwrap();
         let revision = editor.revision();
         editor
-            .apply_edit(revision, edit, |d| source.serialize(d).map(|_| ()))
+            .apply_edit(revision, edit, |d| {
+                source.serialize(d).map(|_| ()).map_err(String::from)
+            })
             .unwrap();
         let after_report = quality::evaluate(editor.document(), context, |_, _| Ok(())).unwrap();
         assert_eq!(plan.after_findings(), after_report.findings.len());

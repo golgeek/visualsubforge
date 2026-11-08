@@ -6,7 +6,7 @@ ten-patch baseline below. Their application integration is capability-gated;
 platform/content validation remains in progress. For the complete local Mac
 build and launch path, see [the build guide](../../../docs/build-macos.md).
 
-Dependency work for [task 005](../../../docs/tasks/005-audio-loop-timing.md) and [decision 0007](../../../docs/decisions/0007-audio-transport-clock.md). The user approved the bounded VSF-maintained variant on 2026-10-05. This accepts maintenance ownership; the audio candidates still require validation before production integration or release adoption.
+VSF accepted bounded maintenance ownership of this variant on 2026-10-05. The [native maintenance contract](../../../docs/native-runtime.md#maintenance-ownership) defines that responsibility; the [adoption gates](../../../docs/native-runtime.md#remaining-adoption-gates) still require audio-candidate validation before release use.
 
 The ordered patches in [series.json](series.json) apply to official upstream `master` commit `c1529642089bfebfc928a1c1664638a7a5d219ba`, selected on 2026-10-05. Builds use this exact commit, not a moving branch. The preparation script pins the manifest hash and verifies every patch hash before applying the series to a new isolated clone. It does not copy uncommitted files, install anything, or modify the supplied checkout. Failed preparation leaves its output for inspection; use another new output directory after correcting the cause.
 
@@ -34,13 +34,13 @@ The default recipe also applies the separate [CoreAudio cleanup series](../mpv-c
 
 The nine audio patches separate the changes for review. Patch 0005 now uses `0005-pcm-sample-boundaries.patch`, preserving upstream’s PCM-only guard. The older `0005-nearest-sample-boundaries.patch` is retained only for historical v0.41.0 evidence and is not applied. Apply them in order; a partial series is not the tested VSF dependency.
 
-Patch 0008 fixes the push-output EOF busy loop introduced by patch 0002 while retaining deadline scheduling for consumed pull queues. Mac, Windows and Ubuntu checks are recorded in task 005. It changes no timestamp calculation and does not resolve the PipeWire presentation-clock gate.
+Patch 0008 fixes the push-output EOF busy loop introduced by patch 0002 while retaining deadline scheduling for consumed pull queues. Historical regression checks covered Mac, Windows and Ubuntu. It changes no timestamp calculation and does not resolve the PipeWire presentation-clock gate.
 
 Patch 0009 corrects a CoreAudio property/type mismatch: an `AudioChannelLayout` was passed to the channel-map property, which expects an integer array. The corrected input-layout property restores mono initialization without forcing stereo. This is a Mac-only dependency change, validated on the current device; Bluetooth, multichannel and other devices remain unverified.
 
 A separate [queued-EOF pause candidate](resume-queued-eof-candidate.patch), applied after the nine-patch series, remains under investigation. Event-driven tests expose AVFoundation pause/resume failure after its source queue is consumed. The candidate restores completion and captured audio after Resume, but capture continuity remains unresolved; it is not in the ordered series.
 
-A standalone [AVFoundation pause probe](../avfoundation-pause-probe.m) reproduces a captured source discontinuity without mpv on the development Mac. Explicit time anchoring and 10/100/250 ms buffers do not remove it. Task 005 retains capture scope and reproduction commands; this does not prove acoustic loss on every device.
+A standalone [AVFoundation pause probe](../avfoundation-pause-probe.m) reproduces a captured source discontinuity without mpv on the development Mac. Explicit time anchoring and 10/100/250 ms buffers do not remove it. This process-capture result does not prove acoustic loss on every device.
 
 The standalone probe accepts an optional fifth argument, `default|varispeed|time-domain|spectral`, selecting `audioTimePitchAlgorithm` before enqueue/start and reporting the actual selected algorithm in its READY line. Omitting it preserves the prior default. Normal-speed pause captures reject algorithm selection as a continuity remedy: Varispeed retains the gap and Spectral increases it. These are native diagnostic controls, not a change to mpv or application speed/pitch policy. No renderer flush/replay or empirical clock offset is introduced.
 
@@ -56,7 +56,7 @@ The standalone probe accepts an optional fifth argument, `default|varispeed|time
 | 0008 | Bound EOF wakeups to the pending pull-output deadline; direct ALSA before/after traces expose the original zero-delay polling storm |
 | 0009 | Use the AudioChannelLayout input property for its matching struct; mono CoreAudio initialization, default-backend captures and stereo channel identity pass on the development Mac |
 
-Task 005 records full invocations, before/after evidence and limitations. This organization makes the dependency reviewable. Bounded maintenance ownership is approved, while functional acceptance and release adoption remain open. No upstream submission has been sent.
+The commands and probe descriptions here define the bounded reproduction scope. Bounded maintenance ownership is approved, while functional acceptance and release adoption remain open. No upstream submission has been sent.
 
 Application integration detects the local read-only `vsf-audio-clock-version` property with value `1`. This is an experiment marker, not an upstream API. Selecting the library enables queued audio-only time and flush-on-clear; an ordinary unpatched library retains the legacy path. The property test checks its value and that it cannot be changed. The preparation script pins the complete series, including this marker/test.
 
@@ -84,7 +84,7 @@ python3 tests/native/audio-boundary-probe.py --mpv prepared/build/mpv --output-d
 python3 tests/native/audio-loop-seek-regression.py --mpv "$PWD/prepared/build/mpv"
 ```
 
-The optional boundary output directory retains source PCM, output and verbose logs; it does not weaken the exact four-repeat comparison. The seek regression uses null output and therefore makes no audible-output claim. Both checks pass after patch 0007 on the development Mac and Ubuntu VM. The separate `audio-transport-regression.py --mpv ... --ao null|pulse|pipewire` checks clock properties and preserves complete traces; its strict monotonic assertion still exposes Pulse/PipeWire backward steps that need investigation. See task 005 for exact environments, failures and evidence.
+The optional boundary output directory retains source PCM, output and verbose logs; it does not weaken the exact four-repeat comparison. The seek regression uses null output and therefore makes no audible-output claim. Both checks pass after patch 0007 on the development Mac and Ubuntu VM. The separate `audio-transport-regression.py --mpv ... --ao null|pulse|pipewire` checks clock properties and preserves complete traces; its strict monotonic assertion still exposes Pulse/PipeWire backward steps that need investigation. Keep those failed comparisons distinct from the passing null-output checks.
 
 Remaining gates include the documented AVFoundation seek/restart gap, acoustic limits, device/non-seekable/passthrough behavior and Windows/Linux playback validation. The bounded maintenance strategy is approved; its candidate implementation still needs acceptance. VM evidence must remain separate from physical device and x86-64 claims.
 
@@ -121,14 +121,14 @@ apply this ordinary/pause oracle to those transitions. Synthetic controls cover
 deletion with no/short/long silence, replayed content, wrong-channel noise,
 silence, insufficient coverage and invalid capture timestamps.
 
-For Linux driver controls, add `--ordinary` or `--ordinary-refresh` to the transport regression. With `--ao pulse`, optional `--capture-pulse` records only the test process's sink input using the executable `tests/native/pulse-stream-capture.py` helper and installed `pactl`/`parec`. It checks the three-tone content sequence, not presentation timing: capture metadata deliberately labels read-receipt times and must not be passed to the macOS tap timing analyzer. Missing/ambiguous player streams fail without whole-sink capture. Task 005 records passing content captures alongside the still-failing strict clock comparisons.
+For Linux driver controls, add `--ordinary` or `--ordinary-refresh` to the transport regression. With `--ao pulse`, optional `--capture-pulse` records only the test process's sink input using the executable `tests/native/pulse-stream-capture.py` helper and installed `pactl`/`parec`. It checks the three-tone content sequence, not presentation timing: capture metadata deliberately labels read-receipt times and must not be passed to the macOS tap timing analyzer. Missing/ambiguous player streams fail without whole-sink capture. Historical content captures passed while the strict clock comparisons still failed.
 
-For Windows clock observations, use `audio-transport-regression.py --mpv <player.exe> --ao wasapi --observer lua` with `audio-transport-observer.lua` beside the Python helper. `--ordinary` and `--ordinary-refresh` use the same assertions as POSIX tests. The opt-in Lua observer requires a Lua-enabled mpv and exercises its client APIs rather than named-pipe/application routing; Python bounds the child lifetime and retains raw/normalized traces and native logs. `--capture-pulse` remains POSIX-only. The Windows ARM64 candidate passes the null/WASAPI matrix while stock reproduces the loop error; task 005 records exact staging, timing limits and outstanding output-capture/lifetime gates.
+For Windows clock observations, use `audio-transport-regression.py --mpv <player.exe> --ao wasapi --observer lua` with `audio-transport-observer.lua` beside the Python helper. `--ordinary` and `--ordinary-refresh` use the same assertions as POSIX tests. The opt-in Lua observer requires a Lua-enabled mpv and exercises its client APIs rather than named-pipe/application routing; Python bounds the child lifetime and retains raw/normalized traces and native logs. `--capture-pulse` remains POSIX-only. The Windows ARM64 candidate passes the null/WASAPI matrix while stock reproduces the loop error; output-capture and library-lifetime acceptance remain separate from those property checks.
 
 For Windows process-only capture, compile `tests/native/windows-process-capture.cpp` with the guest CLANGARM64 toolchain (`clang++ -std=c++17 -Wall -Wextra -Werror -municode windows-process-capture.cpp -o windows-process-capture.exe -lole32 -lmmdevapi -luuid`) and add `--capture-wasapi <absolute-helper.exe>` to the Lua/WASAPI transport command. Keep `audio-tone-content.py` beside the observer: both Windows and Pulse capture now use that shared content oracle. The helper records only the specified process tree using the public process-loopback API; no whole-mix fallback, microphone or default-device change is used. Analyze a retained result directory with `python windows-capture-analysis.py <directory>` for packet/QPC observations and explicit clock-alignment uncertainty. Captured continuation passes, but a repeated Windows loop-clear capture contains a 12 ms quiet interval, and capture-versus-clock residuals remain unresolved. These observations do not establish acoustic timing.
 
 
-The outside-range regression also runs on Windows with `--observer lua --ao null|wasapi`; all six candidate cases pass in the supplied ARM64 VM. Opt-in repeated `--mpv-option=--name=value` arguments in the transport helper support diagnostic player logging without changing normal test policy. Task 005 records buffer-level Windows timing findings and the separate GGML dependency-unload defect. Neither is hidden by changing the clock tolerance or the seven-patch series.
+The outside-range regression also runs on Windows with `--observer lua --ao null|wasapi`; all six candidate cases pass in the supplied ARM64 VM. Opt-in repeated `--mpv-option=--name=value` arguments in the transport helper support diagnostic player logging without changing normal test policy. The capture/clock discrepancy below and the separate [GGML dependency-unload defect](../ggml-unload/README.md) remain distinct findings. Neither is hidden by changing the clock tolerance or the seven-patch series.
 
 ### Windows capture-clock measurement
 
@@ -136,7 +136,7 @@ The separate [WASAPI diagnostic patch](../wasapi-clock-bracket.patch) applies af
 
 On the Windows CLANGARM64 development toolchain, the isolated executable configuration is `meson setup prepared/build prepared/source -Dlibmpv=false -Dtests=true -Dmanpage-build=disabled`, followed by `meson compile -C prepared/build -j 6 mpv:executable` and `meson test -C prepared/build --print-errorlogs -j 6`. This configuration runs 11 applicable tests, not the libmpv lifetime suite.
 
-Run the process-only capture command above with that executable and `--mpv-option=--msg-level=ao/wasapi=trace`; then analyze its result with `python windows-capture-analysis.py RESULT_DIRECTORY --native-clock`. The analyzer requires startup/teardown brackets to intersect and agree with the independent subprocess calibration. It aligns reads of the same QPC clock; it does not fit device drift or infer acoustic latency. Lua observations now include property-read completion times, with their one-microsecond timer resolution retained in the analysis. Older traces retain the conservative next-callback fallback. `python tests/native/windows-capture-analysis-test.py` checks bracket invariants without a Windows device. Task 005 records the six native captures and the still-positive capture/clock discrepancy.
+Run the process-only capture command above with that executable and `--mpv-option=--msg-level=ao/wasapi=trace`; then analyze its result with `python windows-capture-analysis.py RESULT_DIRECTORY --native-clock`. The analyzer requires startup/teardown brackets to intersect and agree with the independent subprocess calibration. It aligns reads of the same QPC clock; it does not fit device drift or infer acoustic latency. Lua observations now include property-read completion times, with their one-microsecond timer resolution retained in the analysis. Older traces retain the conservative next-callback fallback. `python tests/native/windows-capture-analysis-test.py` checks bracket invariants without a Windows device. The six historical native captures retained a positive capture/clock discrepancy; the measurement did not resolve it.
 
 
 ### Steady-loop captured content
@@ -163,8 +163,8 @@ Exit 1 may mean insufficient evidence, not a proven player defect. In particular
 resampling or altered content can reduce matcher confidence. The one-window
 range allowance and two-window transition allowance are conservative diagnostic
 thresholds, not sample precision or an accepted product timing budget. Capture
-is process output, not acoustic/device presentation. Task 005 records the fresh
-CoreAudio and retained VLC comparisons, including failures and uncertainty.
+is process output, not acoustic/device presentation. Preserve failed comparisons
+and uncertainty alongside passing capture results.
 
 
 Add `--fractional` to the steady-loop command to fit a positive blend of adjacent

@@ -1,6 +1,7 @@
+use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use subtitle_core::{Cue, Document, Result};
+use subtitle_core::{Cue, Document};
 use subtitle_formats::{
     Source,
     ass::{Style, Variant},

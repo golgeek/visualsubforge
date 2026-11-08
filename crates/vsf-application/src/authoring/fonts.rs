@@ -1,7 +1,8 @@
 //! Bounded font payload interpretation; no native font engine or filesystem IO.
+use crate::Result;
 mod sfnt;
 pub use sfnt::{FontInfo, FontKind, inspect};
-use subtitle_core::Result;
+
 use subtitle_formats::ass;
 pub const MAX_FONT_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_TOTAL_FONT_BYTES: usize = 8 * 1024 * 1024;

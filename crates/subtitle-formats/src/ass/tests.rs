@@ -391,7 +391,9 @@ fn exact_time_grid_and_failed_validation_preserve_saved_state() {
         },
         |d| serialized_len(d, &parsed.source).map(|_| ()),
     );
-    assert!(result.err().unwrap().contains("10 ms increments"));
+    assert!(
+        matches!(result.err().unwrap(), subtitle_core::Error::ValidationRejected { message } if message.contains("10 ms increments"))
+    );
     assert_eq!(editor.document(), &parsed.document);
     assert_eq!(editor.revision(), 0);
     assert!(!editor.dirty() && !editor.can_undo());

@@ -1,6 +1,7 @@
 //! Conservative structural-edit policy, independent of desktop and renderer.
+use crate::Result;
 use crate::subtitle_markup::{MAX_CUE_BYTES, Projection};
-use subtitle_core::{Cue, Result};
+use subtitle_core::Cue;
 
 pub fn validate_split(cue: &Cue, format: subtitle_formats::Format) -> Result<()> {
     if format == subtitle_formats::Format::WebVtt

@@ -117,6 +117,7 @@ Continue in the same shell, from the VSF repository root:
 ```sh
 nvm use
 npm ci
+npm run build
 export VSF_ANGLE_SDK=/absolute/path/to/complete-angle-sdk
 export PKG_CONFIG_PATH="$VSF_NATIVE/build/meson-uninstalled"
 export DYLD_LIBRARY_PATH="$VSF_NATIVE/build:$VSF_ANGLE_SDK/out/Metal"
@@ -159,5 +160,37 @@ npm run tauri -- dev --features macos-angle -- --locked
 
 Quit the built app before starting another instance. Development mode uses port
 1420 and can restart on source changes, so use the built app for playback tests.
-Windows/Linux build instructions remain in [CONTRIBUTING](../CONTRIBUTING.md);
+Windows/Linux build instructions are in the [native runtime guide](native-runtime.md);
 their candidate-runtime validation is tracked separately.
+
+## Legacy OpenGL development and smoke checks
+
+Install native development libraries with `brew install mpv pkg-config`. The macOS feature discovers libmpv with pkg-config; neither these libraries nor the native shim are required by the default shell or subtitle-core. This is not dependency packaging.
+
+```sh
+nvm use
+npm ci
+npm run tauri -- dev --features media-prototype -- --locked
+```
+
+Use File to open a video or audio file. Playback starts paused. Controls expose play/pause, exact seek in seconds, forward/backward step, an mpv audio-track ID (1 or 2 in the fixtures), and A–B looping. Open replaces the previous media session; Close unloads it. The native engine is reused until application shutdown. The editing workspace opens UTF-8 SRT files and commits text/timing edits through the Rust document boundary. Bounded historical desktop trials and current checks are summarized in [status](status.md); native adoption remains open.
+
+For the scripted GPU checks, first generate the fixtures as described in `tests/fixtures/README.md`, then launch from the repository root:
+
+```sh
+VSF_MEDIA_SMOKE="$PWD/tests/fixtures/generated/vfr-offset.mkv" npm run tauri -- dev --features media-prototype -- --locked
+```
+
+Keep the desktop session visible. The log must report the actual GPU renderer and `VSF GPU SMOKE: PASS`. The script checks VFR stepping, repeated seeks, track selection, loop wraps, replacement, stale command rejection, close and recovery from a missing path. It leaves the fixture open for visual confirmation. It does not replace checking the visible video, audio, focus, resize or overlays. Do not edit native source while measuring: the dev watcher restarts the process, which is not graceful-shutdown evidence.
+
+```sh
+npm run build
+cargo test --locked -p visualsubforge
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo clippy --locked -p visualsubforge --features media-prototype --all-targets -- -D warnings
+npm run tauri -- build --debug --no-bundle --features media-prototype -- --locked
+```
+
+The Tauri macOS configuration uses an experimental macOS 11 deployment floor to avoid the installed SDK’s unsupported-libc++ warning. This is not a tested-runtime support claim; current runtime evidence is macOS 27 only.
+
+The native shim uses Objective-C++17, ARC and the installed mpv headers. macOS OpenGL deprecation warnings are suppressed only for this experimental native file; the deprecation remains an architectural limitation. The [native contract](native-runtime.md) records selected builds and remaining gates. Windows/Linux default builds compile the shell; their opt-in adapters are described in the [native contract](native-runtime.md).

@@ -1,8 +1,8 @@
 //! Conservative single-font sfnt structure checks, not a font sanitizer. Native
 //! rendering still owns complete table interpretation and resource lifetime.
 use super::MAX_FONT_BYTES;
+use crate::Result;
 use serde::Serialize;
-use subtitle_core::Result;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]

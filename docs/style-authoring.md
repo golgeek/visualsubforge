@@ -41,7 +41,7 @@ complete cue/property candidate before publishing one operation, rejects identit
 or order changes, preserves redo on failure/no-op/stale input, and stores only
 changed cue ranges. Properties-only edits keep no copies of unchanged cues.
 
-This increment adds no UI mutation path yet. Format-aware authoring and conversion
+At this foundation checkpoint, the increment added no UI mutation path yet. Format-aware authoring and conversion
 proposals remain required. ADR0030 remains proposed until the full milestone is
 validated. References informing the later controls: [Aegisub styles](https://aegisub.org/docs/latest/styles/)
 and [attachment manager](https://aegisub.org/docs/latest/attachment_manager/).
@@ -243,13 +243,16 @@ form/preview/acceptance/Undo use generated DOM events. All remain below the
 unchanged one-second interaction gate. Complete proposal preparation is recorded
 separately at <=343/358ms under the existing ten-second deadline.
 
-This accepts the style-authoring increment on the available Mac. Stage5 remains
+At this checkpoint, the style-authoring increment passed on the available Mac. Stage5 remained
 open for attachment inspection/management, deliberate conversion and their full
 format/history/recovery/native/scale validation. ADR0030 remains proposed until
 that complete scope passes. Logs are copied under ignored
 `tests/fixtures/generated/authoring-research/`.
 
-## Next: bounded attachment management (not implemented yet)
+## Attachment management design at the foundation checkpoint
+
+The following design preceded the implemented and validated increments below.
+Its future-tense statements record that checkpoint, not current missing features.
 
 The next increment retains original attachment blocks and shares authored payloads
 across source/history snapshots. Inspection will identify font and graphic records,
@@ -478,3 +481,38 @@ observations, set `VSF_FONT_DESKTOP_CAPTURE=1` and optionally comma-separated
 matching label only after observing the exact app's native window. This lane has
 a 60-second observation limit. Routine native runs omit the pause. Logs and JSON
 scale reports are copied to ignored `authoring-research` fixtures.
+
+## Historical status receipt: Style authoring increment (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Style authoring increment (2026-10-17):** reviewed
+ASS/SSA create/copy/edit/rename now use Rust-owned source/cue transactions and one
+Undo/Redo history. Exact references and original records are preserved; ambiguous
+renames are refused. The shared text/style worker retains existing bounds and
+stale/cancel guards. 344 ordinary Rust tests, 44 frontend tests, all 52 browser
+cases and strict checks pass. Pure 10k create/edit/rename p95 <=25.332ms and
+additional sampled RSS 77,709,312 bytes pass the predeclared gates. Actual Mac create/copy/edit/rename, exact save/project/recovery and native preview
+acknowledgment pass. Native 10k acceptance <=134ms and Undo <=100ms pass the
+unchanged interaction gate. Subsequent attachment and conversion acceptance
+completes stage5. See [style policy and evidence](style-authoring.md).
+
+## Historical status receipt: Font attachment increment (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Font attachment increment (2026-10-18):**
+reviewed ASS/SSA inventory/add/replace/remove shares the existing bounded review
+worker and source/history owner. Supported single TTF/CFF/CFF2 fonts have explicit
+limits; unsupported records remain read-only. 358 ordinary Rust, 44 frontend and
+54 browser cases plus strict checks pass. Actual Mac both-format save/history/
+project/recovery and same-player replacement/removal pass; independent native
+window observations show changed/restored shapes. Embedded-only software checks
+include CFF2. Pure 10k p95 <=11.569ms/+72,433,664 sampled RSS bytes; native 10k
+acceptance <=129ms, Undo <=101ms and stale invalidation <=107ms pass unchanged
+gates. Final normal quit is code 0. The first harness quit failure and its corrected
+UI mutation are retained. See [scope, exact commands and evidence](style-authoring.md).

@@ -2,10 +2,10 @@
 
 This is the implemented **application-library subset**, with a tested
 [local CLI workflow](plugin-cli.md). The desktop owner/typed transport and
-[review controls](plugin-desktop.md) now exist; complete desktop acceptance
-remains pending. It is not a claim
+[review controls](plugin-desktop.md) pass their documented Mac and ARM64 VM workflows, including the bounded
+historical-host comparison below. This is not a claim
 of complete VisualSubSync compatibility. The [host guide](plugin-host.md) records
-runtime limits and remaining integration gates; ADR0008 remains proposed.
+runtime limits and remaining physical-platform and broader compatibility gates.
 
 ## Captured packages
 
@@ -243,3 +243,22 @@ this completes the initial checker/fix milestone and accepts ADR0008 for that
 scope. It does not establish every historical plugin pack, nonempty scene/selection
 case in this three-cue probe, or equivalence between the supplied binary and the
 pinned source checkout. Those limits and the unsupported API matrix stay explicit.
+
+## Historical status receipt: Plugin stage7 complete within its checker/fix subset (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Plugin stage7 complete within its checker/fix subset (2026-10-18):** the
+[actual VSS comparison](plugin-api.md#historical-vss-comparison--2026-10-18) now
+passes: 63/66 read-only field values match, with the sole difference repeated
+per cue (legacy empty-selection count null versus VSF numeric0). All three saved
+cue texts and exact millisecond endpoints match VSF's actual CLI publication.
+The legacy UTF-8 loading/CESU-8 export defects are documented limitations, not
+behavior to reproduce; VSF's output remains valid UTF-8. Together with the
+recorded worker/rollback/history, Mac native/chooser/desktop10k and Windows/Linux
+ARM64 workflows, this closes Task024 and accepts ADR0008 for the bounded subset.
+Broader actions/columns/hooks/pack compatibility and physical acceptance remain
+separate. No product behavior or execution limits changed in this final audit.
+The following dated increments retain their original evidence and test counts.

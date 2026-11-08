@@ -24,7 +24,9 @@ impl SubtitleSnapshot {
                 "Resynchronization needs at least one cue".into(),
             ));
         }
-        let normalized = source.serialize(&document).map_err(Error::InvalidInput)?;
+        let normalized = source
+            .serialize(&document)
+            .map_err(|error| Error::InvalidInput(error.into()))?;
         let sha256 = format!("{:x}", Sha256::digest(normalized.as_bytes()));
         Ok(Self {
             document,
@@ -153,8 +155,10 @@ impl Proposal {
             {
                 timings.push(CueTiming {
                     id: cue.id(),
-                    start: Milliseconds::new(start_ms).map_err(Error::InvalidInput)?,
-                    end: Milliseconds::new(end_ms).map_err(Error::InvalidInput)?,
+                    start: Milliseconds::new(start_ms)
+                        .map_err(|error| Error::InvalidInput(error.into()))?,
+                    end: Milliseconds::new(end_ms)
+                        .map_err(|error| Error::InvalidInput(error.into()))?,
                 });
             }
         }
@@ -170,12 +174,12 @@ impl Proposal {
                     },
                     |document| subtitle_file::validate_document(document, &snapshot.source),
                 )
-                .map_err(Error::InvalidInput)?;
+                .map_err(|error| Error::InvalidInput(error.into()))?;
             Some(
                 snapshot
                     .source
                     .serialize(editor.document())
-                    .map_err(Error::InvalidInput)?,
+                    .map_err(|error| Error::InvalidInput(error.into()))?,
             )
         } else {
             None

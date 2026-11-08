@@ -45,9 +45,15 @@ export async function lifecycle(
   );
   await session.start();
   assert(session.canAccept, 'Ready proposal not acceptable');
+  held = new Promise((resolve) => {
+    readRelease = resolve;
+  });
+  const scopePoll = session.poll();
   scope = '2';
   assert(!session.canAccept, 'Changed scope remains acceptable');
-  await session.poll();
+  readRelease(next);
+  await scopePoll;
+  held = null;
   assert(
     session.view === null && cancelled.includes(sample.id),
     'Changed scope was not cancelled',

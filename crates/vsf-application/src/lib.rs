@@ -5,6 +5,7 @@ pub mod atomic_file;
 pub mod authoring;
 pub mod batch_timing;
 pub mod conversion;
+pub mod document_save;
 pub mod file_lease;
 pub mod language;
 pub mod legacy_project;
@@ -21,3 +22,6 @@ pub mod subtitle_operations;
 pub mod subtitle_text;
 pub mod text;
 pub mod translation;
+
+// Application policies retain their existing user-facing report messages.
+type Result<T> = std::result::Result<T, String>;

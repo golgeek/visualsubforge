@@ -1,6 +1,7 @@
 use super::{ConversionFormat, ConversionReport, ConversionSeverity};
+use crate::Result;
 use crate::authoring::styles::default_style;
-use subtitle_core::{Cue, CueMetadata, Document, Result};
+use subtitle_core::{Cue, CueMetadata, Document};
 use subtitle_formats::{
     Source,
     ass::{AttachmentKind, Style, Variant},
@@ -354,7 +355,7 @@ pub(super) fn metadata(
         }
     }
     // Stable canonical order is used by the target serializer, not map iteration.
-    CueMetadata::new(fields)
+    CueMetadata::new(fields).map_err(String::from)
 }
 
 fn omitted_records(

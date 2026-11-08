@@ -2,8 +2,9 @@
 
 This is an offline H.264 experiment, not an application backend or accepted dependency.
 It tests non-keyframe I pictures and packet-size outliers without reconstructing
-video pixels. [Task evidence](../../../docs/tasks/008-compressed-scene-candidates.md)
-records the actual speed, sampled precision, reference agreement and failures.
+video pixels. The study commands below record extraction/verification time,
+sampled precision and agreement with a visual detector. These are separate
+measurements; candidate agreement cannot establish true full-video recall.
 
 ## Build and check
 

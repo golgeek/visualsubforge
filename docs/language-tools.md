@@ -237,3 +237,23 @@ controls during a Problems refresh; the harness now waits for the refreshed,
 actionable panel. These required harness fixes, not product changes. Logs and
 receipts remain under ignored generated/evidence directories. Windows/Linux new
 feature execution and physical installation/GPU/audio checks remain open gates.
+
+## Historical status receipt: Language tools complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Language tools complete (2026-10-17):** opt-in
+English/French checking, source-mapped Problems, bounded selected suggestions,
+reviewed one-occurrence corrections and persistent/session lexicons now share the
+existing Rust workers, context guards and Undo path. Browser and library tests
+cover Unicode/markup, failed persistence, stale reviews and exact SRT/ASS/SSA
+preservation. The six-format/language 10k workload passes 500ms/96MiB gates after
+fixing findings-buffer retention. Actual Mac six-case language workflows include
+all optional rules, save/reopen, project/recovery, failed writes and lexicon
+persistence. Six native 10k cases pass existing interaction gates: acceptance
+<=122ms, cancellation <=16ms and stale invalidation <=69ms. Final library p95
+analysis/proposal <=76.695/158.380ms with 48,037,888 additional RSS bytes.
+[Scope, exact commands and retained failures](language-tools.md) close stage4;
+Windows/Linux new-feature and physical acceptance remain separate.

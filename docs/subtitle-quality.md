@@ -269,3 +269,39 @@ physical input or GPU/audio presentation. Its RSS sampler uses macOS/Linux `ps`.
 Final ignored evidence is `quality/performance-layout-final/`; earlier trials
 and the reproduced compact-window layout failure are retained. The workspace
 now reserves enough height for metrics and history buttons when recovery is shown.
+
+## Historical status receipt: Quality milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Quality milestone complete (2026-10-17):** shared pure Rust metrics/rules,
+strict version-2 data-only profiles, default/partial archived SW profiles, and
+`vsf check` now have tests. Desktop Settings supports profile selection,
+import/export, customization and transactional Apply; Rust owns the accepted
+policy and project snapshots. Accepted/labeled draft metrics and Problems now
+support filters, paged findings and protected distinct-cue navigation, including
+without media. One cancellable worker rejects obsolete document/profile results;
+checking leaves history and save policy unchanged. Explicit immutable gap proposals
+now have protected desktop review, bounded pages, context guards and one-step
+Undo/Redo acceptance. Safe changes and skipped reasons are shown before acceptance.
+Inline ASS/SSA tag preservation
+and native preview are implemented, with exact millisecond demux and software
+composition checks; full ASS/SSA files/styles remain separate. See the
+[tag contract and validation limits](subtitle-tags.md). The 10,000-cue streaming CPU/report/RSS benchmark passes its declared
+budgets; full-buffer benchmark memory failed and remains recorded. See the
+[quality contract and commands](subtitle-quality.md). Native-platform release
+acceptance remains separate.
+
+At its closeout, the quality milestone passed 203 Rust tests, 39 frontend unit tests and all 38
+Chromium/WebKit workflows, strict Clippy/lint/type/IPC checks and a real Mac
+Settings/metrics/Problems/gap-acceptance/save/restart/recovery workflow. That run compares every
+desktop metric/finding and profile hash with the actual CLI on the same input.
+Its native media configuration compiles. The 10,000-cue debug desktop run measures
+101 ms p95 check IPC round trips, 16 ms draft interaction, 181 ms cancellation and
+56 ms edit/result invalidation; the interaction checks pass the declared one-second
+budget. It also reviews 9,999 gap candidates in bounded pages. A reproduced compact
+window overlap with metrics/recovery is fixed; final browser and desktop checks
+keep history controls reachable. New Windows/Linux quality UI execution and physical
+GPU/audio checks remain unverified. Full ASS/SSA file import remains out of scope.

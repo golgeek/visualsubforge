@@ -119,5 +119,24 @@ export async function lifecycle(
   passed(
     'Unmount cancels a late proposal identity without adopting its result',
   );
+  heldStart = null;
+  const closing = new StyleSession(subtitles, api);
+  await closing.begin('edit', 'Title');
+  closing.fields.find((f) => f.name === 'Fontsize')!.value = '46';
+  await closing.start();
+  const delayedAccept = closing.accept();
+  assert(!closing.canClose, 'Close allowed during delayed acceptance');
+  closing.dispose();
+  subtitles.dispose();
+  const beforeReply = subtitles.snapshot;
+  releaseAccept({ ...snapshot, revision: snapshot.revision + 2, dirty: true });
+  assert(!(await delayedAccept), 'Disposed acceptance requested modal close');
+  assert(
+    subtitles.snapshot === beforeReply,
+    'Disposed document adopted late acceptance',
+  );
+  passed(
+    'Unmount during delayed acceptance suppresses adoption and the modal close callback',
+  );
   subtitles.dispose();
 }

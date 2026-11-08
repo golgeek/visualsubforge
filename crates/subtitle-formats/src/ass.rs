@@ -8,7 +8,8 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use subtitle_core::{Cue, CueId, CueMetadata, Document, Milliseconds, Result};
+type Result<T> = std::result::Result<T, String>;
+use subtitle_core::{Cue, CueId, CueMetadata, Document, Milliseconds};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Variant {
@@ -95,6 +96,7 @@ pub fn parse_time(value: &str) -> Result<Milliseconds> {
         return Err(bad());
     }
     Milliseconds::new(hours * 3_600_000 + minutes * 60_000 + seconds * 1000 + hundredths * 10)
+        .map_err(String::from)
 }
 pub fn format_time(time: Milliseconds) -> Result<String> {
     let t = time.get();
@@ -446,6 +448,7 @@ impl Source {
                 })
                 .collect(),
         )
+        .map_err(String::from)
     }
     pub fn validate_style(&self, name: &str) -> Result<()> {
         if self.styles().iter().any(|s| s.name == name) {

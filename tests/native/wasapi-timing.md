@@ -1,6 +1,6 @@
 # Standalone WASAPI timing reference
 
-[Task 005](../../docs/tasks/005-audio-loop-timing.md) diagnostic, not an application backend. [wasapi-timing-probe.cpp](wasapi-timing-probe.cpp) generates a known four-second, 48 kHz stereo float signal: 440 Hz until source frame 72000, 660 Hz until frame 120000, then 880 Hz. It uses public shared-mode WASAPI directly, without mpv, FFmpeg, a decoder, UI, or queued-timestamp mapper.
+This standalone diagnostic is not an application backend. [wasapi-timing-probe.cpp](wasapi-timing-probe.cpp) generates a known four-second, 48 kHz stereo float signal: 440 Hz until source frame 72000, 660 Hz until frame 120000, then 880 Hz. It uses public shared-mode WASAPI directly, without mpv, FFmpeg, a decoder, UI, or queued-timestamp mapper.
 
 The one MTA thread owns every COM/audio interface. Source samples and bounded trace storage are allocated before playback. It fills the available render buffer, samples `IAudioClock::GetPosition` with surrounding QPC reads, and records submitted-frame counts and padding. No file IO or trace logging occurs while playing. A scope guard stops the client before releasing it, including error cleanup. Reports use exclusive creation; the process exits nonzero on expected failures.
 

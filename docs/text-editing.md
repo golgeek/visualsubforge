@@ -138,3 +138,30 @@ compilation. Logs are in the ignored `text-editing/` evidence directory:
 `browser-v2.log`, `ipc-final.log`, `native-compile-v1.log`, `desktop-v2.log`.
 Generated browser/WebDriver input is not physical keyboard, native-dialog, GPU
 or audio acceptance. Windows/Linux installation/device gates remain open.
+
+## Historical status receipt: Text editing milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Text editing milestone complete (2026-10-17):** literal Unicode Find/Replace
+maps matches back to original source; supported tags/escapes stay protected and
+ambiguous replacements explain why they are skipped. Single-match and Replace
+All acceptance use one atomic Rust history operation. Formatting shortcuts update
+selected draft text; explicit Apply accepts it. Conservative line joining/reflow
+uses the active profile, previews exact changes and leaves positioned text,
+dialogue, karaoke and other ambiguous cases for manual review. Document/profile
+guards, bounded cancellation, failed-save preservation and quality invalidation
+are tested. Full ASS/SSA files/styles remain separate.
+
+Final validation passes 218 Rust tests, 39 frontend unit tests, all 40 browser
+workflows, strict Clippy/lint/type/format/IPC checks and native-media compilation.
+The actual Mac application passes protected navigation, exact tag preservation,
+single/all acceptance, line repairs, formatting, Undo/Redo, failed saves, restart,
+recovery and normal shutdown. With 10,000 cues, text preview takes 849 ms,
+acceptance 114 ms, cancellation 4 ms and edit invalidation 14 ms. Release proposal
+p95 is 16.600–38.144 ms across four workloads, with 30,883,840 additional sampled
+RSS bytes; declared CPU/RSS/interaction budgets pass. See the
+[text tool contract and receipts](text-editing.md). New Windows/Linux text UI
+execution, installations and physical GPU/audio acceptance remain unverified.

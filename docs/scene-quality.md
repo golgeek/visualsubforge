@@ -158,3 +158,32 @@ dialogs. Known-cut caches are not cut-detection accuracy evidence. RSS samples
 measure the proposal process, not WebKit/native child memory or all allocations.
 Full ASS/SSA document/style editing, Windows/Linux feature execution, installation
 and physical GPU/audio acceptance remain separate milestones.
+
+## Historical status receipt: Scene-quality milestone complete (2026-10-17)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Scene-quality milestone complete (2026-10-17):** shared Rust endpoint checks
+use active profile buffers and current completed scenes. Exact outer buffer
+boundaries are allowed; crossing a cut alone is valid. Problems distinguishes
+missing, partial and heuristic coverage. Immutable previews show inward repairs,
+before/after metrics and explicit skips. Whole-document validation protects
+duration, speed, overlap, gap and scene constraints; text/tags, cue identities,
+order and save/recovery protections are preserved. Each accepted batch is one
+Undo/Redo. Media/scene changes invalidate checks and proposals independently of
+document revisions; bounded workers reject stale/late work.
+
+Validation passes 236 Rust tests, 39 frontend unit tests, 42 Chromium/WebKit cases,
+strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
+media-enabled Mac workflow verifies Problems, static/timed tag handling,
+preview/acceptance, failed saves, exact save/reopen, Undo/Redo, rescan/media
+invalidation and the existing restart/recovery workflow. With 10,000 cues/cuts,
+preview takes 413 ms, acceptance 110 ms, draft interaction 1 ms, cancellation
+3 ms and invalidation 13 ms. Release check/repair p95 is 7.124/22.531 ms, with
+37,257,216 additional sampled RSS bytes; declared budgets pass. Quality report
+schema 2 adds scene coverage: the CLI returns incomplete coverage for nonzero
+scene buffers because it supplies no scene data. See [scene quality](scene-quality.md)
+for exact commands, retained evidence and the Mac OpenGL runtime scope. New
+Windows/Linux feature execution and physical GPU/audio acceptance are unverified.

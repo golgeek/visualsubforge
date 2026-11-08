@@ -345,3 +345,27 @@ bundle's complete native run supersedes that setup attempt, not its cleanup
 history. Stage5/Task022 acceptance includes the previously validated style/font
 increments and these conversion/native/scale results; the umbrella goal remains
 active for stages6–8.
+
+## Historical status receipt: Conversion and stage5 complete (2026-10-18)
+
+Relocated from the status page. This receipt retains the scope and pending
+work at that checkpoint; subsequent evidence and the [current status](status.md)
+supersede its staging statements. Moving it adds no validation claim.
+
+**Conversion and stage5 complete (2026-10-18):** all six SRT/ASS/SSA directions
+have explicit precision/loss/blocking review and protected separate-file export.
+The open source, dirty state, Undo/Redo and recovery remain unchanged. Backend
+validation passes 374 Rust tests / 30 ignored; final UI checks pass 44 frontend
+and 56 browser cases. Native Mac all-six workflows, failure/retry/history/project/
+recovery, safe timed rounding and embedded-font observations pass. Actual macOS
+SRT/ASS/SSA destination sheets, cancellation/retry, exact output and normal quit
+also pass in a build without the automated chooser. A native-discovered wrapped
+editor clipping defect is fixed and covered in both browser engines.
+
+Pure 10k workloads pass p95 <=37.489ms/+81,526,784 sampled RSS bytes. Six native
+10k pairs with five cycles each pass: export confirmation <=500ms, cancellation
+completion <=15ms, stale invalidation <=103ms and complete 10k reopen. Native
+workflow and picker runs both quit normally with code0; identified runtimes,
+retained failed attempts and exact commands are recorded. No new Windows/Linux
+chooser or physical install/GPU/audio acceptance is claimed.
+See [conversion policy and evidence](format-conversion.md).

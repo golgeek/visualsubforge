@@ -99,13 +99,19 @@ impl Context {
         self.reference.is_none() && self.copied_from.is_none() && !self.dirty
     }
     pub(crate) fn protect(&self, output: &Path) -> Result<()> {
-        if let Some(reference) = &self.reference {
-            reference.origin.protect(output)?;
-        }
-        if let Some(origin) = &self.copied_from {
-            origin.protect(output)?;
+        for source in self.protected_paths() {
+            vsf_application::new_output::protect_source(output, source)
+                .map_err(|e| e.to_string())?;
         }
         Ok(())
+    }
+    pub(crate) fn protected_paths(&self) -> impl Iterator<Item = &Path> {
+        self.reference
+            .as_ref()
+            .map(|reference| &reference.origin)
+            .into_iter()
+            .chain(self.copied_from.as_ref())
+            .flat_map(|origin| [origin.path.as_path(), origin.selected.as_path()])
     }
     pub(crate) fn stored(&self) -> Result<Option<Stored>> {
         if self.is_empty() {
