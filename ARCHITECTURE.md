@@ -102,8 +102,12 @@ parsing/serialization, including nested line and domain context. ASS/SSA and
 WebVTT internal APIs still return their detailed messages; dispatch distinguishes
 parse from validation failures and attaches the format. Application policies
 retain their existing report errors. Text adapters use the errors' `Display`
-implementation at those boundaries, preserving desktop IPC strings and CLI
-reports. Error types add no dependency, worker, lock or document owner.
+implementation at those boundaries, preserving CLI reports and other command
+messages. The document IPC command returns a generated tagged error: stale revision,
+replaced document, rejected operation or unavailable worker. Version checks occur
+under the existing document mutex before mutation; the client preserves the tag
+and message in `DocumentFailure`. Unknown transport/worker outcomes are distinct
+from confirmed rejection. Error types add no worker, lock or document owner.
 
 ## Frontend ownership and reconciliation
 

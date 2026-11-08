@@ -61,6 +61,25 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
     });
     vec![
         ("documentActions", "DocumentAction[]", actions),
+        (
+            "documentCommandErrors",
+            "DocumentCommandError[]",
+            serde_json::to_value([
+                CommandError::StaleRevision {
+                    message: "Refresh".into(),
+                },
+                CommandError::DocumentReplaced {
+                    message: "Replaced".into(),
+                },
+                CommandError::Rejected {
+                    message: "Invalid edit".into(),
+                },
+                CommandError::Unavailable {
+                    message: "Worker failed".into(),
+                },
+            ])
+            .unwrap(),
+        ),
         ("emptyDocument", "DocumentSnapshot", empty),
         (
             "styledDocument",
@@ -156,4 +175,78 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
     entry.captured_ms = None;
     entry.revision = Some(MAX_SAFE_INTEGER + 1);
     assert!(serde_json::to_value(entry).is_err());
+}
+
+#[test]
+fn typed_command_refusals_preserve_state_and_retry_commits_one_history_entry() {
+    let documents = Documents::default();
+    let created = documents
+        .apply_command(
+            Action::Create {
+                after_id: None,
+                start_ms: 1000,
+                end_ms: 2000,
+                text: "base".into(),
+            },
+            0,
+            0,
+        )
+        .unwrap();
+    let cue_id = created.cues[0].id;
+    let edit = |text: &str| Action::Edit {
+        cue_id,
+        start_ms: 1000,
+        end_ms: 2000,
+        text: text.into(),
+    };
+    let concurrent = documents
+        .apply_command(edit("concurrent"), created.generation, created.revision)
+        .unwrap();
+    let before = serde_json::to_value(&concurrent).unwrap();
+    let stale = documents
+        .apply_command(edit("draft"), created.generation, created.revision)
+        .unwrap_err();
+    assert!(matches!(stale, CommandError::StaleRevision { .. }));
+    assert_eq!(
+        serde_json::to_value(&stale).unwrap()["kind"],
+        "staleRevision"
+    );
+    let replaced = documents
+        .apply_command(edit("draft"), 0, concurrent.revision)
+        .unwrap_err();
+    assert!(matches!(replaced, CommandError::DocumentReplaced { .. }));
+    assert_eq!(
+        serde_json::to_value(documents.apply_command(Action::Status, 0, 0).unwrap()).unwrap(),
+        before
+    );
+    let accepted = documents
+        .apply_command(edit("draft"), concurrent.generation, concurrent.revision)
+        .unwrap();
+    assert_eq!(accepted.revision, concurrent.revision + 1);
+    let undone = documents
+        .apply_command(Action::Undo, accepted.generation, accepted.revision)
+        .unwrap();
+    assert_eq!(undone.cues[0].text, "concurrent");
+    let redone = documents
+        .apply_command(Action::Redo, undone.generation, undone.revision)
+        .unwrap();
+    assert_eq!(redone.cues[0].text, "draft");
+    let invalid = documents
+        .apply_command(
+            Action::Edit {
+                cue_id,
+                start_ms: 2000,
+                end_ms: 1000,
+                text: "invalid".into(),
+            },
+            redone.generation,
+            redone.revision,
+        )
+        .unwrap_err();
+    assert!(matches!(invalid, CommandError::Rejected { .. }));
+    assert!(!invalid.message().is_empty());
+    assert_eq!(
+        serde_json::to_value(documents.apply_command(Action::Status, 0, 0).unwrap()).unwrap(),
+        serde_json::to_value(redone).unwrap()
+    );
 }

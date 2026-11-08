@@ -990,6 +990,17 @@ export type visualsubforge_language_tools_Change =
     }
   | { kind: 'clearIgnored' };
 
+/**
+ *  Structured failures for the document IPC command. Other adapters retain their
+ *  existing text contracts. Version refusal is determined under the store lock,
+ *  before any mutation, and is the only failure that permits automatic retry.
+ */
+export type visualsubforge_document_CommandError =
+  | { kind: 'staleRevision'; message: string }
+  | { kind: 'documentReplaced'; message: string }
+  | { kind: 'rejected'; message: string }
+  | { kind: 'unavailable'; message: string };
+
 export type visualsubforge_plugin_review_Content = {
   startMs: number;
   endMs: number;

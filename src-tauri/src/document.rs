@@ -57,6 +57,32 @@ use autosave::RecoveryControl;
 
 type Result<T> = std::result::Result<T, String>;
 
+/// Structured failures for the document IPC command. Other adapters retain their
+/// existing text contracts. Version refusal is determined under the store lock,
+/// before any mutation, and is the only failure that permits automatic retry.
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum CommandError {
+    StaleRevision { message: String },
+    DocumentReplaced { message: String },
+    Rejected { message: String },
+    Unavailable { message: String },
+}
+impl CommandError {
+    fn message(&self) -> &str {
+        match self {
+            Self::StaleRevision { message }
+            | Self::DocumentReplaced { message }
+            | Self::Rejected { message }
+            | Self::Unavailable { message } => message,
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Documents(Arc<Mutex<Store>>, Arc<RecoveryControl>);
 #[derive(Default)]
@@ -299,15 +325,27 @@ impl Store {
             }),
         }
     }
+    fn check_version(
+        &self,
+        generation: u64,
+        revision: u64,
+    ) -> std::result::Result<(), CommandError> {
+        let message =
+            "Subtitle document changed; refresh before retrying this operation".to_owned();
+        if generation != self.generation {
+            return Err(CommandError::DocumentReplaced { message });
+        }
+        if revision != self.loaded.as_ref().map_or(0, |d| d.editor.revision()) {
+            return Err(CommandError::StaleRevision { message });
+        }
+        Ok(())
+    }
     fn apply(&mut self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
         if matches!(action, Action::Status) {
             return Ok(self.snapshot());
         }
-        if generation != self.generation
-            || revision != self.loaded.as_ref().map_or(0, |d| d.editor.revision())
-        {
-            return Err("Subtitle document changed; refresh before retrying this operation".into());
-        }
+        self.check_version(generation, revision)
+            .map_err(|error| error.message().to_owned())?;
         match action {
             Action::EditStyled {
                 cue_id,
@@ -626,6 +664,23 @@ impl Documents {
         Ok(())
     }
 
+    fn apply_command(
+        &self,
+        action: Action,
+        generation: u64,
+        revision: u64,
+    ) -> std::result::Result<Snapshot, CommandError> {
+        let mut store = self.0.lock().map_err(|_| CommandError::Rejected {
+            message: "Document worker state is unavailable".into(),
+        })?;
+        if !matches!(action, Action::Status) {
+            store.check_version(generation, revision)?;
+        }
+        let result = store.apply(action, generation, revision);
+        store.invalidate_checks();
+        result.map_err(|message| CommandError::Rejected { message })
+    }
+
     pub(crate) fn apply(&self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
         let mut store = self
             .0
@@ -731,13 +786,15 @@ pub async fn document_action(
     action: Action,
     generation: crate::ipc_number::SafeU64,
     revision: crate::ipc_number::SafeU64,
-) -> Result<Snapshot> {
+) -> std::result::Result<Snapshot, CommandError> {
     let documents = documents.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        documents.apply(action, generation.get(), revision.get())
+        documents.apply_command(action, generation.get(), revision.get())
     })
     .await
-    .map_err(|e| format!("Document worker failed: {e}"))?
+    .map_err(|e| CommandError::Unavailable {
+        message: format!("Document worker failed: {e}"),
+    })?
 }
 
 #[cfg(test)]

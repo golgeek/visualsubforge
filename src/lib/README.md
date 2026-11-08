@@ -150,7 +150,7 @@ document/recovery snapshots, opened projects, scene/waveform views, preferences,
 media status and event payloads into `tests/frontend/ipc-contract-samples.ts`.
 Strict TypeScript checks these samples against the generated declarations.
 Browser workflows exercise the facade with controlled responses, including
-string errors and null success values. They do not prove native dispatch.
+tagged document errors, other commands’ string errors and null success values. They do not prove native dispatch.
 
 Generated names include Rust module paths; the facade chooses deserialize shapes
 for inputs and serialize shapes for outputs. Old project inputs may omit timing
@@ -173,7 +173,11 @@ Serde would turn NaN/infinity into null. Optional native properties retain their
 number-or-null contract. Validation tests cover the numeric codecs and output
 collections. Generation never changes the underlying domain types.
 
-Command wrappers retain rejected promises for Rust errors and adapt JSON null
+The document command rejects with a generated tagged error; the facade wraps its
+kind/message in `DocumentFailure` without parsing display text. Stale revisions and
+replaced generations are classified under the existing document mutex before
+mutation. Worker/transport failures can have unknown outcomes. Other command
+wrappers retain their existing rejected promises for Rust errors and adapt JSON null
 to void where appropriate. Generator annotations do not replace validation,
 revision guards or cancellation. The generator's runtime helpers are excluded
 from handwritten-code lint rules but remain under strict TypeScript and drift

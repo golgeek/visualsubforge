@@ -5,6 +5,27 @@ import { defaultTiming } from './magnetic-timing';
 import { builtinQualityProfiles } from './generated/quality-defaults';
 
 export type DocumentAction = IPC.visualsubforge_document_Action_Deserialize;
+export type DocumentCommandError = IPC.visualsubforge_document_CommandError;
+/** Retain the wire discriminant while presenting the backend's useful message. */
+export class DocumentFailure extends Error {
+  constructor(readonly detail: DocumentCommandError) {
+    super(detail.message);
+    this.name = 'DocumentFailure';
+  }
+}
+function documentFailure(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null) return value;
+  const error = value as Partial<DocumentCommandError>;
+  if (
+    (error.kind === 'staleRevision' ||
+      error.kind === 'documentReplaced' ||
+      error.kind === 'rejected' ||
+      error.kind === 'unavailable') &&
+    typeof error.message === 'string'
+  )
+    return new DocumentFailure(error as DocumentCommandError);
+  return value;
+}
 export type DocumentSnapshot = IPC.visualsubforge_document_Snapshot_Serialize;
 export type Cue = IPC.visualsubforge_document_CueView_Serialize;
 export type RecoveryStatus =
@@ -307,11 +328,11 @@ export async function documentAction(
 ): Promise<DocumentSnapshot> {
   const started = traceWorkflow ? performance.now() : null;
   const startedUnixMs = traceWorkflow ? Date.now() : null;
-  const result = await commands.documentAction(
-    action,
-    document.generation,
-    document.revision,
-  );
+  const result = await commands
+    .documentAction(action, document.generation, document.revision)
+    .catch((error: unknown) => {
+      throw documentFailure(error);
+    });
   if (started !== null && startedUnixMs !== null && action.kind !== 'status') {
     // Measure IPC through response decoding, before optional diagnostic IO.
     // Rendering the accepted UI and native subtitle presentation are separate.
