@@ -433,16 +433,15 @@
     ...defaultPreferences,
     timing: { ...defaultTiming },
   });
-  let statisticsOpen = $state(false);
+  const statisticsOpen = $derived(workspaceModal.identity === 'statistics');
   const stylesOpen = $derived(workspaceModal.identity === 'styles');
   const fontsOpen = $derived(workspaceModal.identity === 'fonts');
   const conversionOpen = $derived(workspaceModal.identity === 'conversion');
   const pluginsOpen = $derived(workspaceModal.identity === 'plugins');
   let legacyImportOpen = $state(false);
   let legacyImportReturn: HTMLElement | null = null;
-  let statisticsReturn: HTMLElement | null = null;
-  let settingsOpen = $state(false);
-  let resyncOpen = $state(false);
+  const settingsOpen = $derived(workspaceModal.identity === 'settings');
+  const resyncOpen = $derived(workspaceModal.identity === 'resync');
   const timingReview = $derived(
     workspaceModal.identity !== null &&
       typeof workspaceModal.identity === 'object'
@@ -463,15 +462,12 @@
         ? SceneRepairDialog
         : GapDialog,
   );
-  let textOpen = $state(false);
-  let textReturn: HTMLElement | null = null;
+  const textOpen = $derived(workspaceModal.identity === 'text');
   let textOperation = $state<TextOperation>({
     kind: 'find',
     query: '',
     caseSensitive: false,
   });
-  let resyncReturn: HTMLElement | null = null;
-  let settingsReturn: HTMLElement | null = null;
   const nativeMenus = isTauri();
   let sceneControls: {
     rescan: () => Promise<void>;
@@ -486,6 +482,7 @@
     next: false,
   });
   async function closeSettings(value?: Preferences) {
+    if (!alive || !settingsOpen) return;
     if (value) {
       preferences = { ...value, timing: { ...value.timing } };
       timingSettings = { ...value.timing };
@@ -493,34 +490,17 @@
       ++qualityContext;
       notice = 'Settings saved';
     }
-    settingsOpen = false;
-    try {
-      await tick();
-      await occludeVideo(diagnostics);
-      if (settingsReturn?.isConnected) settingsReturn.focus();
-    } catch (e) {
-      error = String(e);
-    } finally {
-      decisionOpen = false;
-    }
+    await workspaceModal.close();
   }
 
   async function closeResync(accepted = false) {
-    resyncOpen = false;
+    if (!alive || !resyncOpen) return;
     if (accepted)
       notice =
         'Timings accepted. Use Save As to preserve the original subtitles.';
-    try {
-      await tick();
-      if (!alive) return;
-      await occludeVideo(diagnostics);
-      if (resyncReturn?.isConnected) resyncReturn.focus();
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) decisionOpen = false;
-    }
+    await workspaceModal.close();
   }
+
   async function openStatistics() {
     if (
       busy ||
@@ -531,24 +511,10 @@
       waveformGesture
     )
       return;
-    workspaceBusy = true;
     error = '';
-    statisticsReturn =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    try {
-      await occludeVideo(true);
-      if (alive) {
-        decisionOpen = true;
-        statisticsOpen = true;
-      }
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) workspaceBusy = false;
-    }
+    await workspaceModal.open('statistics');
   }
+
   async function openAuthoring(kind: AuthoringModal) {
     if (
       busy ||
@@ -605,18 +571,9 @@
     }
   }
   async function closeStatistics(id?: string) {
+    if (!alive || !statisticsOpen) return;
     const version = `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`;
-    statisticsOpen = false;
-    try {
-      await tick();
-      if (!alive) return;
-      await occludeVideo(diagnostics);
-      if (statisticsReturn?.isConnected) statisticsReturn.focus();
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) decisionOpen = false;
-    }
+    await workspaceModal.close();
     if (
       alive &&
       id &&
@@ -651,12 +608,7 @@
       waveformGesture
     )
       return;
-    workspaceBusy = true;
     error = '';
-    textReturn =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
     if (typeof mode === 'object') {
       textOperation = mode;
     } else if (mode) {
@@ -682,35 +634,16 @@
     ) {
       textOperation = { kind: 'find', query: '', caseSensitive: false };
     }
-    try {
-      await occludeVideo(true);
-      if (alive) {
-        decisionOpen = true;
-        textOpen = true;
-      }
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) workspaceBusy = false;
-    }
+    await workspaceModal.open('text');
   }
   async function closeText(operation: TextOperation, accepted = false) {
+    if (!alive || !textOpen) return;
     textOperation = operation;
-    textOpen = false;
     if (accepted) {
       notice = 'Text changes accepted. Undo restores the whole change.';
       quality.restart();
     }
-    try {
-      await tick();
-      if (!alive) return;
-      await occludeVideo(diagnostics);
-      if (textReturn?.isConnected) textReturn.focus();
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) decisionOpen = false;
-    }
+    await workspaceModal.close();
   }
   async function navigateText(
     id: number,
@@ -721,11 +654,18 @@
     // The dialog resolves drafts before searching and checks capture identity
     // before navigation. Never apply an unexpected draft to leave a search row.
     if (draftDirty || busy) return;
+    const snapshot = doc;
     await closeText(operation);
-    if (!alive || draftDirty) return;
+    if (!alive || draftDirty || doc !== snapshot) return;
     await selectCue(id);
     await tick();
-    if (selected === id && textEditor) {
+    if (
+      alive &&
+      doc === snapshot &&
+      !draftDirty &&
+      selected === id &&
+      textEditor
+    ) {
       textEditor.focus();
       textEditor.setSelectionRange(start, end);
     }
@@ -1453,24 +1393,11 @@
       switch (action) {
         case 'resync':
           if (!status.loaded || !doc.cues.length) break;
-          resyncReturn =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-          await occludeVideo(true);
-          if (!alive) break;
-          decisionOpen = true;
-          resyncOpen = true;
+          await workspaceModal.open('resync');
           break;
         case 'settings':
         case 'timingSettings':
-          settingsReturn =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-          await occludeVideo(true);
-          decisionOpen = true;
-          settingsOpen = true;
+          await workspaceModal.open('settings');
           break;
         case 'openProject':
           await projects.open();

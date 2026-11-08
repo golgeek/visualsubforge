@@ -611,6 +611,7 @@ async function appCases() {
     );
   async function open() {
     phase = 'reviewing';
+    button('Find / Replace…').focus();
     dispatch('resync');
     await until(() => !!dialog());
     assert(occluded, 'Dialog visible before native occlusion');
@@ -648,6 +649,10 @@ async function appCases() {
     button('Cancel resync', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
     assert(
+      document.activeElement === button('Find / Replace…'),
+      'Resync launcher focus restored',
+    );
+    assert(
       text.value === 'Draft revised' && doc.cues[0]?.text === 'Cue 1',
       'Cancelling resync lost or committed the draft',
     );
@@ -663,6 +668,10 @@ async function appCases() {
     );
     button('Close', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
+    assert(
+      document.activeElement === button('Find / Replace…'),
+      'Resync launcher focus restored',
+    );
     text.value = 'Draft revised';
     text.dispatchEvent(new Event('input', { bubbles: true }));
     await tick();
@@ -703,6 +712,10 @@ async function appCases() {
     );
     button('Close', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
+    assert(
+      document.activeElement === button('Find / Replace…'),
+      'Resync launcher focus restored',
+    );
     assert(
       doc.cues[0]?.startMs === 1000 && !occluded,
       'Review close changed timings or left video occluded',
@@ -798,6 +811,10 @@ async function appCases() {
     );
     button('Close', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
+    assert(
+      document.activeElement === button('Find / Replace…'),
+      'Resync launcher focus restored',
+    );
     passed(
       'App cancellation retains accepted subtitles and restores native visibility on close',
     );

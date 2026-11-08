@@ -75,6 +75,7 @@ function select(label: string, value: string) {
 }
 async function open() {
   await until(() => !button('Statistics…').disabled);
+  button('Statistics…').focus();
   button('Statistics…').click();
   await until(() => !!host.querySelector('dialog[open]'));
 }
@@ -85,6 +86,10 @@ async function close() {
   button('Close statistics').click();
   await until(() => !host.querySelector('dialog[open]'));
   await until(() => !button('Statistics…').disabled);
+  assert(
+    document.activeElement === button('Statistics…'),
+    'Statistics launcher focus restored',
+  );
 }
 async function navigate(cue: number) {
   const b = host.querySelector<HTMLButtonElement>(

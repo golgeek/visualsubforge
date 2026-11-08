@@ -42,6 +42,7 @@ for (const name of [
   'waveform-selection',
   'workspace-lifecycle',
   'timing-modal',
+  'feature-modal',
   'resync',
   'quality-settings',
   'quality-checking',

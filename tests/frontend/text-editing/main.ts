@@ -88,6 +88,7 @@ function input(label: string, value: string) {
 }
 async function open() {
   await until(() => !button('Find / Replace…').disabled);
+  button('Find / Replace…').focus();
   button('Find / Replace…').click();
   await until(() => !!host.querySelector('dialog[open]'));
 }
@@ -444,6 +445,11 @@ async function run() {
     await until(() => starts >= 4);
     button('Close text tools').click();
     await until(() => !host.querySelector('dialog[open]'));
+    await until(() => !button('Find / Replace…').disabled);
+    assert(
+      document.activeElement === button('Find / Replace…'),
+      'Text launcher focus restored',
+    );
     const lateId = starts;
     release(lateId);
     await until(() => cancelled.includes(lateId));

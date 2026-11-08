@@ -113,7 +113,7 @@ reports. Error types add no dependency, worker, lock or document owner.
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
-| `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins and gap/scene/duration/batch timing reviews. |
+| `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
 | `App.svelte` and components | Layout, DOM/media callbacks, workspace eligibility, other modal presentation, view options and gesture previews. |
 
 The workspace modal owner waits for native-video hiding before exposing content.
@@ -123,8 +123,12 @@ opening waits for that hide reply; disposal invalidates continuations and leaves
 native cleanup to media teardown. App derives its authoring and timing gates from
 this owner and supplies DOM/media callbacks and feature eligibility. Dialogs/sessions
 still protect pending acceptance and own their drafts; project-save and unsaved-work
-continuations retain their separate owners. Timing visibility and variant derive
-from the same modal identity; no second timing presentation owner is maintained.
+continuations retain their separate owners. Feature visibility and timing variant derive from the same modal identity.
+Statistics rechecks its captured document/media/quality/scene version after close
+before protected navigation; text navigation rechecks document identity and drafts
+before selecting a cue and restoring its UTF-16 selection. Settings persistence
+epochs and picker guards remain in the dialog. Legacy import, cue menus and project
+decisions keep their separate presentation/continuation owners.
 
 Session objects live for a component/workspace mount and are disposed explicitly.
 Accepted snapshots use replacement-only `$state.raw`; components do not mutate
