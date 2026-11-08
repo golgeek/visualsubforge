@@ -682,3 +682,42 @@ checks and normal shutdown. That native run used the existing OpenGL runtime and
 an exact-app foreground driver. It does not establish above-WebView native hiding,
 physical input/audio/chooser acceptance or resolution of ambient readiness stalls.
 No new Windows/Linux run, ANGLE composition campaign or Rust/IPC change is claimed.
+
+
+### Dialog and stale-edit retry checkpoint — November 8, 2026
+
+Settings, resync, statistics and text presentation now share WorkspaceModal;
+feature acceptance/cancellation owners remain separate. The document command has
+a generated tagged error contract. Cue-draft Apply retries once only after a typed
+stale refusal and a same-generation/cue, unchanged-edited-field check. Conflicts and
+unknown outcomes retain the draft; unknown outcomes are never replayed. See the
+[edit contract](../../docs/text-editing.md#concurrent-cue-edits).
+
+With the pinned toolchains on the development Mac:
+
+- `npm run build`, `npm run lint`, `npm run format:check`, `npm test` (47),
+  `npm run ipc:check`, `cargo fmt --all -- --check` and strict workspace Clippy pass.
+- `cargo test --locked --workspace`: 520 passed, 33 ignored; 15 of 46 harnesses
+  have zero passing tests and are not feature evidence.
+- `npm run test:browser`: 66/66 Chromium/WebKit cases pass on frozen source,
+  including 12 modal-transition/disposal and 15 retry checks per engine. New
+  launcher-focus assertions failed before migration in both engines. Browser
+  evidence uses modeled IPC, including above-WebView hide/restore replies.
+- `npm run build:desktop-test` then `npm run test:desktop`: pass. Actual IPC
+  confirms the tagged stale refusal, a retry preserving intervening timing,
+  one retry Undo entry, and retained conflicting text. Existing settings, text,
+  save/failure and recovery workflows pass with normal shutdown 0.
+- The final `desktop-e2e,media-prototype` Mac build, selected through the existing
+  [native recipe](../../docs/build-macos.md), passes
+  `npm run test:desktop -- --statistics --resync --binary /absolute/path/to/visualsubforge`.
+  This includes default workflows, 10k statistics, SRT/ASS/SSA resync CLI/GUI byte
+  parity, timed-effect refusal, Undo/Redo and failed-save preservation. Normal
+  shutdown is 0. The identified binary SHA256 is
+  `4b9c955379376cc54e903b275ec98a41a0364c95f5836f1feffd6b37b5e20315`.
+
+The native run is foreground-conditioned for the exact owned executable, using
+Mac OpenGL below the WebView. It does not establish above-WebView composition,
+ambient double-rAF readiness, physical input/audio, real choosers or platform
+acceptance. No new loaded-library audit, Windows/Linux run or hosted CI result is
+claimed. Local detailed receipts retain intermediate fixture-contract failures
+and an interrupted hot-reload browser run; the final frozen-source suite passes.

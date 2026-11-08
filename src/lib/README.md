@@ -6,9 +6,9 @@ mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
-| `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
+| `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining conflicting drafts. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
-| `WorkspaceModal` | Authoring and timing-review identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
+| `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
@@ -22,7 +22,14 @@ The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
 snapshots use `$state.raw`: replace them rather than mutating cue objects. App's
 `$derived` aliases are read-only views. Draft fields remain locally editable;
 Apply sends a captured generation/revision to Rust, which owns validation and
-undo history. A failed command preserves the draft. Timing gestures deliberately
+undo history. A typed stale-revision refusal of a cue-draft Apply can trigger one
+status refresh and one retry: generation, cue identity, current draft and edited
+fields must still match the captured base. Untouched fields come from current
+accepted state. Conflicting/deleted/replaced targets and second failures retain a
+visible draft conflict. Unknown outcomes are refreshed but never replayed; failed
+refresh blocks Apply. Copy the retained draft before explicit Revert/reopen when
+manual resolution is needed. Newer input during a successful reply remains a draft
+and prevents save/navigation continuation. Timing gestures deliberately
 send the version captured when the gesture began.
 
 ASS/SSA snapshots include read-only styles/script settings and their 10 ms time

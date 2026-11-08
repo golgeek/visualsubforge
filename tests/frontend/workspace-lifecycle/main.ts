@@ -8,6 +8,7 @@ import {
   referenceKey,
 } from '../../../src/lib/translation-session.svelte';
 import {
+  DocumentFailure,
   emptyDocument,
   emptyStatus,
   type DocumentAction,
@@ -103,7 +104,11 @@ async function documentCases() {
     },
     documentAction: async (action, version) => {
       requests.push({ action, ...version });
-      if (failure) throw new Error('Rejected edit');
+      if (failure)
+        throw new DocumentFailure({
+          kind: 'rejected',
+          message: 'Rejected edit',
+        });
       return pending ? pending.promise : next;
     },
     chooseFile: async () => {

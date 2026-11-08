@@ -43,6 +43,7 @@ for (const name of [
   'workspace-lifecycle',
   'timing-modal',
   'feature-modal',
+  'edit-retry',
   'resync',
   'quality-settings',
   'quality-checking',

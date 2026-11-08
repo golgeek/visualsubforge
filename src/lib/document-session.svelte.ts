@@ -1,4 +1,5 @@
 import {
+  DocumentFailure,
   chooseFile,
   documentAction,
   resyncAccept,
@@ -24,6 +25,7 @@ import {
   type CueOperationPlan,
 } from './cue-operations';
 import { formatTime, parseTime } from './timeline';
+import { retryEdit, type CueEdit } from './edit-retry';
 import {
   selectCues,
   selectAllCues,
@@ -71,11 +73,13 @@ type Client = Omit<
     >
   >;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
+type CueDraft = { text: string; start: string; end: string; style: string };
 type CommandOptions = {
   plan?: CueOperationPlan;
   version?: Version;
   preferred?: number | null;
   preserveDraft?: boolean;
+  submittedDraft?: CueDraft;
 };
 
 // Rust owns the document and history. This owner replaces accepted projections;
@@ -94,6 +98,7 @@ export class DocumentSession {
   start = $state('');
   end = $state('');
   style = $state('');
+  conflict = $state('');
 
   constructor(api: Client = client) {
     this.client = api;
@@ -111,6 +116,7 @@ export class DocumentSession {
     return this.accepted.cues.find((cue) => cue.id === this.selection);
   }
   get dirty() {
+    if (this.conflict) return true;
     const cue = this.cue;
     return (
       !!cue &&
@@ -121,19 +127,20 @@ export class DocumentSession {
     );
   }
   select(id: number | null, mode: SelectionMode = 'replace') {
-    if (!this.alive) return;
+    if (!this.alive || this.conflict) return;
     this.multi = selectCues(this.accepted.cues, this.multi, id, mode);
     this.selection = this.multi.primary;
     this.revert();
   }
   selectAll() {
-    if (!this.alive) return;
+    if (!this.alive || this.conflict) return;
     this.selection = this.selection ?? this.accepted.cues[0]?.id ?? null;
     this.multi = selectAllCues(this.accepted.cues, this.selection);
     this.revert();
   }
   revert() {
     if (!this.alive) return;
+    this.conflict = '';
     const cue = this.cue;
     this.text = cue?.text ?? '';
     this.start = cue ? formatTime(cue.startMs) : '';
@@ -290,35 +297,142 @@ export class DocumentSession {
     try {
       const next = await request(before);
       if (!this.alive) return false;
-      const preferred = options.plan
-        ? operationSelection(options.plan, before.cues, next.cues)
-        : options.preferred;
-      this.selection =
-        next.generation !== before.generation
-          ? (next.cues[0]?.id ?? null)
-          : preferred === undefined
-            ? this.selection === null
-              ? null
-              : reconcileCueSelection(before.cues, next.cues, this.selection)
-            : preferred;
-      this.multi =
-        next.generation !== before.generation
-          ? selectCues(next.cues, this.multi, this.selection, 'replace')
-          : reconcileSelection(next.cues, this.multi, this.selection);
-      this.accepted = next;
-      if (
-        !options.preserveDraft ||
-        next.generation !== before.generation ||
-        next.revision !== before.revision
-      )
-        this.revert();
+      const currentDraft = this.captureDraft();
+      const changedDraft =
+        options.submittedDraft &&
+        (Object.keys(currentDraft) as (keyof CueDraft)[]).some(
+          (key) => currentDraft[key] !== options.submittedDraft![key],
+        );
+      this.adopt(next, before, options);
+      if (changedDraft) {
+        // A successful commit is authoritative, but cannot consume newer input
+        // or authorize a Save/navigation continuation for that unapplied draft.
+        Object.assign(this, currentDraft);
+        throw new Error(
+          'The earlier edit was accepted; newer draft input remains unapplied.',
+        );
+      }
       return true;
     } finally {
       this.pending = false;
     }
   }
+  private adopt(
+    next: DocumentSnapshot,
+    before: DocumentSnapshot,
+    options: CommandOptions = {},
+  ) {
+    const preferred = options.plan
+      ? operationSelection(options.plan, before.cues, next.cues)
+      : options.preferred;
+    this.selection =
+      next.generation !== before.generation
+        ? (next.cues[0]?.id ?? null)
+        : preferred === undefined
+          ? this.selection === null
+            ? null
+            : reconcileCueSelection(before.cues, next.cues, this.selection)
+          : preferred;
+    this.multi =
+      next.generation !== before.generation
+        ? selectCues(next.cues, this.multi, this.selection, 'replace')
+        : reconcileSelection(next.cues, this.multi, this.selection);
+    this.accepted = next;
+    if (
+      !options.preserveDraft ||
+      next.generation !== before.generation ||
+      next.revision !== before.revision
+    )
+      this.revert();
+  }
+
+  private captureDraft(): CueDraft {
+    return {
+      text: this.text,
+      start: this.start,
+      end: this.end,
+      style: this.style,
+    };
+  }
+
+  private retainConflict(next: DocumentSnapshot | null, message: string) {
+    const draft = this.captureDraft();
+    if (next) this.adopt(next, this.accepted);
+    Object.assign(this, draft);
+    this.conflict = message;
+  }
+
+  private async submitEdit(
+    edit: CueEdit,
+    base: DocumentSnapshot,
+  ): Promise<DocumentSnapshot> {
+    const draft = [this.text, this.start, this.end, this.style];
+    const selected = this.selection;
+    try {
+      return await this.client.documentAction(edit, base);
+    } catch (failure) {
+      if (!this.alive) throw failure;
+      // A structured rejection proves no commit occurred. Other failures may be
+      // lost replies: reconcile, but never replay an unknown-outcome mutation.
+      const kind =
+        failure instanceof DocumentFailure ? failure.detail.kind : null;
+      if (kind === 'rejected') throw failure;
+      let current: DocumentSnapshot;
+      try {
+        current = await this.client.documentAction({ kind: 'status' }, base);
+      } catch {
+        if (this.alive)
+          this.retainConflict(
+            null,
+            'Could not refresh subtitle state. Draft retained; reopen authoritative state before resolving it.',
+          );
+        throw failure;
+      }
+      if (!this.alive) throw failure;
+      const retry =
+        kind === 'staleRevision' &&
+        this.selection === selected &&
+        this.accepted === base &&
+        draft.every(
+          (value, i) =>
+            value === [this.text, this.start, this.end, this.style][i],
+        )
+          ? retryEdit(base, current, edit)
+          : null;
+      if (retry) {
+        try {
+          return await this.client.documentAction(retry, current);
+        } catch (second) {
+          if (!this.alive) throw second;
+          // No third attempt, even for another confirmed stale revision. Read
+          // again because the retry itself may have committed before a lost ACK.
+          let latest: DocumentSnapshot | null = null;
+          try {
+            latest = await this.client.documentAction(
+              { kind: 'status' },
+              current,
+            );
+          } catch {
+            /* Retain the draft and block further application. */
+          }
+          if (this.alive)
+            this.retainConflict(
+              latest ?? current,
+              'The edit could not be confirmed after retry. Draft retained; copy it if needed, then Revert draft to use current subtitles.',
+            );
+          throw second;
+        }
+      }
+      this.retainConflict(
+        current,
+        'Subtitles changed or the edit outcome is uncertain. Draft retained; copy it if needed, then Revert draft to use current subtitles.',
+      );
+      throw failure;
+    }
+  }
   async apply(): Promise<boolean> {
     if (!this.alive) return false;
+    if (this.conflict) throw new Error(this.conflict);
     const cue = this.cue;
     if (!cue || !this.dirty) return true;
     const fields = {
@@ -327,11 +441,12 @@ export class DocumentSession {
       endMs: parseTime(this.end),
       text: this.text,
     };
-    return this.command(
-      this.styled
-        ? { kind: 'editStyled', ...fields, style: this.style }
-        : { kind: 'edit', ...fields },
-    );
+    const edit: CueEdit = this.styled
+      ? { kind: 'editStyled', ...fields, style: this.style }
+      : { kind: 'edit', ...fields };
+    return this.update((base) => this.submitEdit(edit, base), {
+      submittedDraft: this.captureDraft(),
+    });
   }
   async save(as: boolean): Promise<boolean> {
     if (!(await this.apply())) return false;

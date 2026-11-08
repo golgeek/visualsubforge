@@ -56,6 +56,7 @@
     waveformView,
     type MediaAction,
     type DocumentAction,
+    type DocumentSnapshot,
     type WorkspaceAction,
     type WaveformView,
     type Cue,
@@ -657,7 +658,7 @@
     const snapshot = doc;
     await closeText(operation);
     if (!alive || draftDirty || doc !== snapshot) return;
-    await selectCue(id);
+    await selectCue(id, 'replace', snapshot);
     await tick();
     if (
       alive &&
@@ -1231,21 +1232,34 @@
     cancelHeldTiming();
     return media.command(action);
   }
-  async function selectCue(id: number, mode: SelectionMode = 'replace') {
+  async function selectCue(
+    id: number,
+    mode: SelectionMode = 'replace',
+    expected?: DocumentSnapshot,
+  ) {
     // Rows use aria-disabled so transport commands do not drop keyboard focus.
     // Enforce the pending-operation guard here for both pointer and keyboard use.
-    if (busy || cueMenu || !doc.cues.some((c) => c.id === id)) return;
+    if (
+      !alive ||
+      busy ||
+      cueMenu ||
+      (expected && doc !== expected) ||
+      !doc.cues.some((c) => c.id === id)
+    )
+      return;
     suspendCueFollowing();
     cancelHeldTiming();
     workspaceBusy = true;
     error = '';
     try {
       await applyDraft();
+      if (!alive || (expected && doc !== expected)) return;
       subtitles.select(id, mode);
       const selectedCue = subtitles.cue;
       if (selectedCue)
         selectRange([selectedCue.startMs / 1000, selectedCue.endMs / 1000]);
       await revealSelection();
+      if (!alive || (expected && doc !== expected)) return;
       if (cue && status.loaded)
         await act({ kind: 'seek', seconds: cue.startMs / 1000 });
     } catch (e) {
@@ -2619,8 +2633,8 @@
         aria-label="Subtitle text"
         bind:this={textEditor}
         bind:value={subtitles.text}
-        disabled={!cue}
-        readonly={busy}
+        disabled={!cue && !subtitles.conflict}
+        readonly={busy || !!subtitles.conflict}
         placeholder="Select a subtitle to edit its text."
         spellcheck="false"
         onkeydown={(e) => {
@@ -2676,8 +2690,9 @@
           onmousedown={(e) => e.preventDefault()}
           onclick={() => void formatText('underline')}>Underline</button
         >
+        {#if subtitles.conflict}<p role="alert">{subtitles.conflict}</p>{/if}
         <button
-          disabled={!draftDirty || busy}
+          disabled={!draftDirty || busy || !!subtitles.conflict}
           onclick={(e) => void run('apply', e)}>Apply edit</button
         ><button
           disabled={!draftDirty || busy}

@@ -293,7 +293,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'document_action': {
           const a = args.action!;
           if (a.kind === 'edit') {
-            if (failApply) throw new Error('Injected draft failure');
+            if (failApply)
+              throw { kind: 'rejected', message: 'Injected draft failure' };
             edits++;
             doc = {
               ...doc,

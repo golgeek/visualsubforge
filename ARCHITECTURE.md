@@ -168,6 +168,22 @@ See the [frontend walkthrough](src/lib/README.md) for feature-specific behavior.
 4. `DocumentSession` replaces its projection and reconciles drafts/selection.
    Background recovery and subtitle preview observe the accepted revision.
 
+A cue-draft Apply (`edit`/`editStyled`) may retry once after a typed stale-revision
+refusal. DocumentSession keeps the command gate across an authoritative status read,
+checks the same generation/cue and unchanged draft, and compares each edited field
+with its captured base. It carries forward current values for untouched fields;
+Rust validates and accepts the merged edit through its ordinary history transaction.
+Gestures, structural operations and reviewed proposals are not automatically replayed.
+
+Competing edited fields, missing cues, replaced documents and a second refusal retain
+a visible conflict/draft for explicit resolution. Unknown-outcome replies trigger a
+status read but never a replay. Failed refresh also retains the draft and blocks Apply;
+users can copy the retained text, refresh/reopen authoritative state and explicitly
+Revert draft. Reconciliation has no second accepted-state owner. Disposal prevents
+follow-up reads/retries and late adoption; it cannot reverse an already accepted
+Rust commit. Newer input during a successful reply remains a draft and prevents
+save/navigation continuation.
+
 ### Review and accept a batch operation
 
 1. The frontend resolves drafts when required and requests a review for explicit

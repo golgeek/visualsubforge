@@ -35,6 +35,22 @@ replacements across all pages. **Accept text repairs** accepts all safe line
 changes. Each acceptance creates one Undo step. Saving is separate; recovery
 and resynchronization Save As protections remain in force.
 
+## Concurrent cue edits
+
+**Apply edit** retries once if Rust reports that its captured revision is stale,
+the same document and cue still exist, and no one changed the fields you edited.
+It refreshes accepted state and preserves intervening changes to other fields/cues.
+The successful retry is one normal Undo entry. Timing gestures and reviewed batch
+acceptances do not automatically retry.
+
+If edited fields conflict, the cue disappeared, the document was replaced, or the
+retry also fails, your draft stays visible with Apply blocked. Copy any text you
+want to keep, then use **Revert draft** to load the accepted cue and resolve the
+change explicitly. A lost reply can follow a successful edit: the editor refreshes
+state but never resends an edit whose outcome is unknown. If refresh fails, reopen
+current subtitles before resolving the retained draft. Newer draft input arriving
+during a successful reply remains unapplied and prevents save/navigation continuation.
+
 ## Formatting and line repairs
 
 Select a span in the cue text editor, then use **Bold**, **Italic**, **Underline**
