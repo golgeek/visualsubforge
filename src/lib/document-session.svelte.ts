@@ -367,6 +367,8 @@ export class DocumentSession {
         failure.detail.kind === 'rejected'
       )
         throw failure;
+      const message =
+        failure instanceof Error ? failure.message : String(failure);
       // Stale refusal and unknown outcome both require authoritative state.
       // Never replay: a lost reply can follow a successful Rust commit.
       let current: DocumentSnapshot;
@@ -374,7 +376,7 @@ export class DocumentSession {
         current = await this.client.documentAction({ kind: 'status' }, base);
       } catch {
         throw new Error(
-          `${String(failure)} Could not refresh subtitles; draft retained.`,
+          `${message} — Could not refresh subtitles; draft retained.`,
           { cause: failure },
         );
       }
@@ -391,7 +393,7 @@ export class DocumentSession {
       }
       Object.assign(this, draft);
       throw new Error(
-        `${String(failure)} Current subtitles refreshed; draft retained. Review it before applying again.`,
+        `${message} — Current subtitles refreshed; draft retained. Review it before applying again.`,
         { cause: failure },
       );
     }

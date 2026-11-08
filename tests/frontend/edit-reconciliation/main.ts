@@ -89,6 +89,7 @@ async function fixture(mode: string) {
           if (mode === 'deleted') current.cues = current.cues.slice(1);
           if (mode === 'replacement') current.generation++;
           if (mode === 'unknown') throw new Error('Transport disconnected');
+          if (mode === 'stringFailure') throw 'Transport unavailable';
           if (mode === 'workerUnknown')
             throw { kind: 'outcomeUnknown', message: 'Worker failed' };
           throw {
@@ -156,13 +157,32 @@ async function run() {
     'lost',
     'unknown',
     'workerUnknown',
+    'stringFailure',
     'refreshFailure',
   ]) {
     const f = await fixture(mode);
     const failure = await rejected(f.session.apply());
+    const reason =
+      mode === 'lost'
+        ? 'Lost reply'
+        : mode === 'unknown'
+          ? 'Transport disconnected'
+          : mode === 'workerUnknown'
+            ? 'Worker failed'
+            : mode === 'stringFailure'
+              ? 'Transport unavailable'
+              : 'Localized refusal';
+    const outcome =
+      mode === 'refreshFailure'
+        ? 'Could not refresh subtitles; draft retained.'
+        : 'Current subtitles refreshed; draft retained. Review it before applying again.';
     assert(
-      String(failure).includes('draft retained'),
-      `${mode}: missing explanation`,
+      String(failure) === `Error: ${reason} — ${outcome}`,
+      `${mode}: incorrect displayed error: ${String(failure)}`,
+    );
+    assert(
+      failure instanceof Error && failure.cause !== undefined,
+      `${mode}: original cause lost`,
     );
     assert(
       f.mutations() === 1 && f.reads() === 2,
