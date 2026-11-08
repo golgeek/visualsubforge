@@ -41,6 +41,7 @@ for (const name of [
   'cue-timing',
   'waveform-selection',
   'workspace-lifecycle',
+  'timing-modal',
   'resync',
   'quality-settings',
   'quality-checking',

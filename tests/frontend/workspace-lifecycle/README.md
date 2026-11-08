@@ -11,7 +11,7 @@ The page compiles the production Svelte session owners and supplies controlled
 client replies. It checks draft/accepted-state isolation, rejected and overlapping
 document commands, captured gesture versions, selection reconciliation, media
 response ordering, loop draining, polling disposal, project restore/quit ordering,
-and disposal during each project step. Authoring-modal checks hold hide/restore
+and disposal during each project step. Authoring/timing-modal checks hold hide/restore
 replies to verify close/disposal, rendering/focus order, error recovery and retained
 diagnostics occlusion. Existing App fixtures separately exercise
 real component bindings, dialogs, gestures and workflows.

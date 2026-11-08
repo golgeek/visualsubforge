@@ -68,6 +68,7 @@ function type(text: string) {
 }
 async function open() {
   await until(() => !button('Enforce minimum gaps…').disabled);
+  button('Enforce minimum gaps…').focus();
   button('Enforce minimum gaps…').click();
 }
 function acknowledge() {
@@ -204,6 +205,11 @@ async function run() {
       host.querySelector<HTMLTextAreaElement>('[aria-label="Subtitle text"]')!
         .value === 'Keep this draft' && edits === 0,
       'Cancel lost draft',
+    );
+    await until(() => !button('Enforce minimum gaps…').disabled);
+    assert(
+      document.activeElement === button('Enforce minimum gaps…'),
+      'Closing timing review must restore keyboard focus to its enabled launcher',
     );
     passed(
       'Opening or cancelling gap review preserves an unapplied draft and accepted state',

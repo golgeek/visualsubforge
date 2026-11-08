@@ -36,6 +36,7 @@
   import {
     WorkspaceModal,
     type AuthoringModal,
+    type TimingKind,
   } from './lib/workspace-modal.svelte';
   import { PendingDecision } from './lib/pending-decision';
   import { onMount, tick, untrack } from 'svelte';
@@ -390,7 +391,7 @@
     }
   }
   let ready = $state(false);
-  const authoring = new WorkspaceModal({
+  const workspaceModal = new WorkspaceModal({
     occlude: (value) => occludeVideo(value),
     remainingOcclusion: () => diagnostics,
     afterRender: tick,
@@ -405,7 +406,7 @@
     },
   });
   let workspaceBusy = $state(false);
-  const busy = $derived(workspaceBusy || authoring.opening);
+  const busy = $derived(workspaceBusy || workspaceModal.opening);
   let textFocused = $state(false);
   let follow = $state(true);
   let waveformGesture = $state(false);
@@ -433,17 +434,28 @@
     timing: { ...defaultTiming },
   });
   let statisticsOpen = $state(false);
-  const stylesOpen = $derived(authoring.identity === 'styles');
-  const fontsOpen = $derived(authoring.identity === 'fonts');
-  const conversionOpen = $derived(authoring.identity === 'conversion');
-  const pluginsOpen = $derived(authoring.identity === 'plugins');
+  const stylesOpen = $derived(workspaceModal.identity === 'styles');
+  const fontsOpen = $derived(workspaceModal.identity === 'fonts');
+  const conversionOpen = $derived(workspaceModal.identity === 'conversion');
+  const pluginsOpen = $derived(workspaceModal.identity === 'plugins');
   let legacyImportOpen = $state(false);
   let legacyImportReturn: HTMLElement | null = null;
   let statisticsReturn: HTMLElement | null = null;
   let settingsOpen = $state(false);
   let resyncOpen = $state(false);
-  let timingOpen = $state(false);
-  let timingReview = $state<'gap' | 'scene' | 'duration' | 'batch'>('gap');
+  const timingReview = $derived(
+    workspaceModal.identity !== null &&
+      typeof workspaceModal.identity === 'object'
+      ? workspaceModal.identity.variant
+      : null,
+  );
+  const timingOpen = $derived(timingReview !== null);
+  const timingLabels: Record<TimingKind, string> = {
+    gap: 'Gap',
+    scene: 'Scene',
+    duration: 'Duration and speed',
+    batch: 'Batch',
+  };
   const TimingDialog = $derived(
     timingReview === 'duration'
       ? DurationRepairDialog
@@ -451,7 +463,6 @@
         ? SceneRepairDialog
         : GapDialog,
   );
-  let timingReturn: HTMLElement | null = null;
   let textOpen = $state(false);
   let textReturn: HTMLElement | null = null;
   let textOperation = $state<TextOperation>({
@@ -553,14 +564,14 @@
     )
       return;
     error = '';
-    await authoring.open(kind);
+    await workspaceModal.open(kind);
   }
   async function closeAuthoring(accepted = false, outputPath?: string) {
     if (!alive) return;
     const kind =
-      authoring.identity === 'plugins'
+      workspaceModal.identity === 'plugins'
         ? 'Plugin'
-        : authoring.identity === 'fonts'
+        : workspaceModal.identity === 'fonts'
           ? 'Font'
           : 'Style';
     if (outputPath) notice = `Converted subtitles exported to ${outputPath}`;
@@ -568,7 +579,7 @@
       notice = `${kind} changes accepted. Undo restores the whole change.`;
       quality.restart();
     }
-    await authoring.close();
+    await workspaceModal.close();
   }
   async function closeLegacyImport(outputPath?: string, open = false) {
     legacyImportOpen = false;
@@ -616,9 +627,7 @@
       requestProblem(id);
     }
   }
-  async function openTimingReview(
-    kind: 'gap' | 'scene' | 'duration' | 'batch',
-  ) {
+  async function openTimingReview(kind: TimingKind) {
     if (
       busy ||
       confirming ||
@@ -628,25 +637,9 @@
       waveformGesture
     )
       return;
-    workspaceBusy = true;
     error = '';
     suspendCueFollowing();
-    timingReturn =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    try {
-      await occludeVideo(true);
-      if (alive) {
-        decisionOpen = true;
-        timingReview = kind;
-        timingOpen = true;
-      }
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) workspaceBusy = false;
-    }
+    await workspaceModal.open({ kind: 'timing', variant: kind });
   }
   async function openText(mode?: 'find' | 'replace' | TextOperation) {
     if (
@@ -774,21 +767,12 @@
     }
   }
   async function closeTimingReview(accepted = false) {
-    timingOpen = false;
+    if (!alive || timingReview === null) return;
     if (accepted) {
-      notice = `${timingReview === 'batch' ? 'Batch' : timingReview === 'duration' ? 'Duration and speed' : timingReview === 'scene' ? 'Scene' : 'Gap'} timings accepted. Undo restores the whole change.`;
+      notice = `${timingLabels[timingReview]} timings accepted. Undo restores the whole change.`;
       quality.restart();
     }
-    try {
-      await tick();
-      if (!alive) return;
-      await occludeVideo(diagnostics);
-      if (timingReturn?.isConnected) timingReturn.focus();
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) decisionOpen = false;
-    }
+    await workspaceModal.close();
   }
 
   let hardware = $state(true);
@@ -1084,7 +1068,7 @@
     'cancel',
   );
   let decisionOpen = $state(false);
-  const confirming = $derived(decisionOpen || authoring.active);
+  const confirming = $derived(decisionOpen || workspaceModal.active);
   let projectExitError = $state<string | null>(null);
   const projectExitDecision = new PendingDecision<ProjectExitChoice>('cancel');
   let projectReferenceIssue = $state<ProjectReferenceIssue | null>(null);
@@ -1901,7 +1885,7 @@
     media.startPolling();
     return () => {
       alive = false;
-      authoring.dispose();
+      workspaceModal.dispose();
       projects.dispose();
       translation.dispose();
       subtitles.dispose();

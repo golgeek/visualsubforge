@@ -1,5 +1,9 @@
 export type AuthoringModal = 'styles' | 'fonts' | 'conversion' | 'plugins';
 
+export type TimingKind = 'gap' | 'scene' | 'duration' | 'batch';
+export type WorkspaceModalIdentity =
+  AuthoringModal | { kind: 'timing'; variant: TimingKind };
+
 type Effects = {
   occlude: (value: boolean) => Promise<void>;
   remainingOcclusion: () => boolean;
@@ -10,7 +14,7 @@ type Effects = {
 
 /** Mount-scoped presentation only; feature sessions own acceptance and drafts. */
 export class WorkspaceModal {
-  identity = $state<AuthoringModal | null>(null);
+  identity = $state.raw<WorkspaceModalIdentity | null>(null);
   private phase = $state<'idle' | 'opening' | 'open' | 'closing'>('idle');
   private alive = true;
   private epoch = 0;
@@ -26,7 +30,7 @@ export class WorkspaceModal {
     return this.phase !== 'idle';
   }
 
-  async open(identity: AuthoringModal) {
+  async open(identity: WorkspaceModalIdentity) {
     if (!this.alive || this.active) return;
     const epoch = ++this.epoch;
     this.phase = 'opening';

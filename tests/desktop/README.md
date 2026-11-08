@@ -663,3 +663,22 @@ Logs and exact local launch/configuration commands are retained under ignored
 `test-results/refactor-errors/`. They are not prerequisites for the public runner.
 The documentation-only cleanup following this checkpoint does not rerun or extend
 these runtime claims.
+
+
+## Timing modal focus regression (2026-11-07)
+
+Timing reviews now share the workspace presentation owner. A pre-change gap-review
+browser assertion failed in both Chromium and WebKit when close tried to focus its
+still-disabled launcher. The corrected ordering passes the affected 24 browser
+cases; final targeted checks include 16 timing presentation checks per engine and
+37 workspace lifecycle checks. The [timing fixture](../frontend/timing-modal/README.md)
+holds above-WebView hide/restore and draft/accept replies for all four variants.
+
+`npm run lint`, `npm test` (44 tests), `npm run build`, `npm run format:check`,
+`npm run build:desktop-test` and `npm run test:desktop` pass on the development Mac.
+One current `desktop-e2e,media-prototype` build also passes `--duration`, including
+launcher focus after close, ordinary persistence/history/recovery, 10k duration
+checks and normal shutdown. That native run used the existing OpenGL runtime and
+an exact-app foreground driver. It does not establish above-WebView native hiding,
+physical input/audio/chooser acceptance or resolution of ambient readiness stalls.
+No new Windows/Linux run, ANGLE composition campaign or Rust/IPC change is claimed.

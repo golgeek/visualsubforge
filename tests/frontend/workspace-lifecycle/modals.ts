@@ -1,4 +1,7 @@
-import { WorkspaceModal } from '../../../src/lib/workspace-modal.svelte';
+import {
+  WorkspaceModal,
+  type WorkspaceModalIdentity,
+} from '../../../src/lib/workspace-modal.svelte';
 
 export async function modalCases(passed: (message: string) => void) {
   const assert = (value: unknown, message: string) => {
@@ -18,6 +21,8 @@ export async function modalCases(passed: (message: string) => void) {
     let hide: ReturnType<typeof deferred> | null = null;
     let restore: ReturnType<typeof deferred> | null = null;
     let diagnostics = false;
+    let render: ReturnType<typeof deferred> | null = null;
+    let holdRenderWhenActive = true;
     const modal = new WorkspaceModal({
       occlude: async (value) => {
         events.push(`occlude:${value}`);
@@ -29,6 +34,7 @@ export async function modalCases(passed: (message: string) => void) {
       },
       afterRender: async () => {
         events.push(`render:${modal.active}`);
+        if (modal.active === holdRenderWhenActive) await render?.promise;
       },
       reportError: (error) => {
         events.push(String(error));
@@ -37,6 +43,10 @@ export async function modalCases(passed: (message: string) => void) {
     return {
       modal,
       events,
+      holdRender: (active: boolean) => {
+        holdRenderWhenActive = active;
+        return (render = deferred());
+      },
       holdHide: () => (hide = deferred()),
       holdRestore: () => (restore = deferred()),
       diagnostics: () => {
@@ -44,7 +54,17 @@ export async function modalCases(passed: (message: string) => void) {
       },
     };
   }
-  for (const kind of ['styles', 'fonts', 'conversion', 'plugins'] as const) {
+  const identities: WorkspaceModalIdentity[] = [
+    'styles',
+    'fonts',
+    'conversion',
+    'plugins',
+    ...(['gap', 'scene', 'duration', 'batch'] as const).map((variant) => ({
+      kind: 'timing' as const,
+      variant,
+    })),
+  ];
+  for (const kind of identities) {
     const f = fixture();
     const hide = f.holdHide();
     const opening = f.modal.open(kind);
@@ -79,7 +99,7 @@ export async function modalCases(passed: (message: string) => void) {
     f.modal.dispose();
   }
   passed(
-    'All authoring identities hide before mounting and restore video before enabling/focusing the workspace',
+    'Authoring and timing identities hide before mounting and restore video before enabling/focusing the workspace',
   );
   {
     const f = fixture();
@@ -103,6 +123,33 @@ export async function modalCases(passed: (message: string) => void) {
   }
   passed(
     'Closing a delayed open waits for hide, prevents revival, permits reopening and preserves diagnostics occlusion',
+  );
+  for (const active of [true, false]) {
+    const f = fixture();
+    await f.modal.open({ kind: 'timing', variant: 'gap' });
+    const reply = f.holdRender(active);
+    const close = f.modal.close();
+    for (
+      let turn = 0;
+      turn < 20 && !f.events.includes(`render:${active}`);
+      turn++
+    )
+      await Promise.resolve();
+    assert(
+      f.events.includes(`render:${active}`),
+      'Close did not reach held render',
+    );
+    f.modal.dispose();
+    const count = f.events.length;
+    reply.resolve();
+    await close;
+    assert(
+      f.events.length === count,
+      'Disposed render continued restoration/focus',
+    );
+  }
+  passed(
+    'Disposal during content-removal or enablement rendering prevents subsequent effects',
   );
   for (const point of ['open', 'close'] as const) {
     const f = fixture();
