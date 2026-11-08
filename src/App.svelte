@@ -2633,8 +2633,8 @@
         aria-label="Subtitle text"
         bind:this={textEditor}
         bind:value={subtitles.text}
-        disabled={!cue && !subtitles.conflict}
-        readonly={busy || !!subtitles.conflict}
+        disabled={!cue && !draftDirty}
+        readonly={busy || !cue}
         placeholder="Select a subtitle to edit its text."
         spellcheck="false"
         onkeydown={(e) => {
@@ -2690,9 +2690,8 @@
           onmousedown={(e) => e.preventDefault()}
           onclick={() => void formatText('underline')}>Underline</button
         >
-        {#if subtitles.conflict}<p role="alert">{subtitles.conflict}</p>{/if}
         <button
-          disabled={!draftDirty || busy || !!subtitles.conflict}
+          disabled={!cue || !draftDirty || busy}
           onclick={(e) => void run('apply', e)}>Apply edit</button
         ><button
           disabled={!draftDirty || busy}

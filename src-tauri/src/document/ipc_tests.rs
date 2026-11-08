@@ -74,7 +74,7 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
                 CommandError::Rejected {
                     message: "Invalid edit".into(),
                 },
-                CommandError::Unavailable {
+                CommandError::OutcomeUnknown {
                     message: "Worker failed".into(),
                 },
             ])
@@ -178,7 +178,7 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
 }
 
 #[test]
-fn typed_command_refusals_preserve_state_and_retry_commits_one_history_entry() {
+fn typed_command_refusals_preserve_state_and_explicit_edit_commits_one_history_entry() {
     let documents = Documents::default();
     let created = documents
         .apply_command(

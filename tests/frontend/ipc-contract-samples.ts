@@ -132,7 +132,7 @@ export const documentCommandErrors = [
     message: 'Invalid edit',
   },
   {
-    kind: 'unavailable',
+    kind: 'outcomeUnknown',
     message: 'Worker failed',
   },
 ] satisfies DocumentCommandError[];

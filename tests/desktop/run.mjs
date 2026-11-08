@@ -25,7 +25,7 @@ import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
 import { sceneQuality } from './scene-quality.mjs';
 import { durationQuality } from './duration-quality.mjs';
-import { editRetry } from './edit-retry.mjs';
+import { editReconciliation } from './edit-reconciliation.mjs';
 import { statisticsWorkflow } from './statistics.mjs';
 import { assDocuments } from './ass-documents.mjs';
 import { assPerformance } from './ass-performance.mjs';
@@ -393,7 +393,7 @@ try {
     record,
     root,
   });
-  opened = await editRetry({ browser, invoke, status, until, record });
+  opened = await editReconciliation({ browser, invoke, status, until, record });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);
   assert.deepEqual(

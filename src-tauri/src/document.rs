@@ -59,7 +59,7 @@ type Result<T> = std::result::Result<T, String>;
 
 /// Structured failures for the document IPC command. Other adapters retain their
 /// existing text contracts. Version refusal is determined under the store lock,
-/// before any mutation, and is the only failure that permits automatic retry.
+/// before any mutation. Worker failures do not establish whether a commit occurred.
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(
     tag = "kind",
@@ -70,7 +70,7 @@ pub enum CommandError {
     StaleRevision { message: String },
     DocumentReplaced { message: String },
     Rejected { message: String },
-    Unavailable { message: String },
+    OutcomeUnknown { message: String },
 }
 impl CommandError {
     fn message(&self) -> &str {
@@ -78,7 +78,7 @@ impl CommandError {
             Self::StaleRevision { message }
             | Self::DocumentReplaced { message }
             | Self::Rejected { message }
-            | Self::Unavailable { message } => message,
+            | Self::OutcomeUnknown { message } => message,
         }
     }
 }
@@ -341,11 +341,24 @@ impl Store {
         Ok(())
     }
     fn apply(&mut self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
+        self.apply_command(action, generation, revision)
+            .map_err(|error| error.message().to_owned())
+    }
+    fn apply_command(
+        &mut self,
+        action: Action,
+        generation: u64,
+        revision: u64,
+    ) -> std::result::Result<Snapshot, CommandError> {
         if matches!(action, Action::Status) {
             return Ok(self.snapshot());
         }
-        self.check_version(generation, revision)
-            .map_err(|error| error.message().to_owned())?;
+        self.check_version(generation, revision)?;
+        self.apply_current(action, revision)
+            .map_err(|message| CommandError::Rejected { message })
+    }
+    // Called only after the version check, under the same document lock.
+    fn apply_current(&mut self, action: Action, revision: u64) -> Result<Snapshot> {
         match action {
             Action::EditStyled {
                 cue_id,
@@ -673,12 +686,9 @@ impl Documents {
         let mut store = self.0.lock().map_err(|_| CommandError::Rejected {
             message: "Document worker state is unavailable".into(),
         })?;
-        if !matches!(action, Action::Status) {
-            store.check_version(generation, revision)?;
-        }
-        let result = store.apply(action, generation, revision);
+        let result = store.apply_command(action, generation, revision);
         store.invalidate_checks();
-        result.map_err(|message| CommandError::Rejected { message })
+        result
     }
 
     pub(crate) fn apply(&self, action: Action, generation: u64, revision: u64) -> Result<Snapshot> {
@@ -792,7 +802,7 @@ pub async fn document_action(
         documents.apply_command(action, generation.get(), revision.get())
     })
     .await
-    .map_err(|e| CommandError::Unavailable {
+    .map_err(|e| CommandError::OutcomeUnknown {
         message: format!("Document worker failed: {e}"),
     })?
 }

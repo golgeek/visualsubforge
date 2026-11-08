@@ -25,7 +25,6 @@ import {
   type CueOperationPlan,
 } from './cue-operations';
 import { formatTime, parseTime } from './timeline';
-import { retryEdit, type CueEdit } from './edit-retry';
 import {
   selectCues,
   selectAllCues,
@@ -98,7 +97,6 @@ export class DocumentSession {
   start = $state('');
   end = $state('');
   style = $state('');
-  conflict = $state('');
 
   constructor(api: Client = client) {
     this.client = api;
@@ -116,8 +114,9 @@ export class DocumentSession {
     return this.accepted.cues.find((cue) => cue.id === this.selection);
   }
   get dirty() {
-    if (this.conflict) return true;
     const cue = this.cue;
+    if (!cue)
+      return Object.values(this.captureDraft()).some((value) => value !== '');
     return (
       !!cue &&
       (this.text !== cue.text ||
@@ -127,20 +126,19 @@ export class DocumentSession {
     );
   }
   select(id: number | null, mode: SelectionMode = 'replace') {
-    if (!this.alive || this.conflict) return;
+    if (!this.alive) return;
     this.multi = selectCues(this.accepted.cues, this.multi, id, mode);
     this.selection = this.multi.primary;
     this.revert();
   }
   selectAll() {
-    if (!this.alive || this.conflict) return;
+    if (!this.alive) return;
     this.selection = this.selection ?? this.accepted.cues[0]?.id ?? null;
     this.multi = selectAllCues(this.accepted.cues, this.selection);
     this.revert();
   }
   revert() {
     if (!this.alive) return;
-    this.conflict = '';
     const cue = this.cue;
     this.text = cue?.text ?? '';
     this.start = cue ? formatTime(cue.startMs) : '';
@@ -355,93 +353,62 @@ export class DocumentSession {
     };
   }
 
-  private retainConflict(next: DocumentSnapshot | null, message: string) {
-    const draft = this.captureDraft();
-    if (next) this.adopt(next, this.accepted);
-    Object.assign(this, draft);
-    this.conflict = message;
-  }
-
   private async submitEdit(
-    edit: CueEdit,
+    edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }>,
     base: DocumentSnapshot,
   ): Promise<DocumentSnapshot> {
-    const draft = [this.text, this.start, this.end, this.style];
     const selected = this.selection;
     try {
       return await this.client.documentAction(edit, base);
     } catch (failure) {
       if (!this.alive) throw failure;
-      // A structured rejection proves no commit occurred. Other failures may be
-      // lost replies: reconcile, but never replay an unknown-outcome mutation.
-      const kind =
-        failure instanceof DocumentFailure ? failure.detail.kind : null;
-      if (kind === 'rejected') throw failure;
+      if (
+        failure instanceof DocumentFailure &&
+        failure.detail.kind === 'rejected'
+      )
+        throw failure;
+      // Stale refusal and unknown outcome both require authoritative state.
+      // Never replay: a lost reply can follow a successful Rust commit.
       let current: DocumentSnapshot;
       try {
         current = await this.client.documentAction({ kind: 'status' }, base);
       } catch {
-        if (this.alive)
-          this.retainConflict(
-            null,
-            'Could not refresh subtitle state. Draft retained; reopen authoritative state before resolving it.',
-          );
-        throw failure;
+        throw new Error(
+          `${String(failure)} Could not refresh subtitles; draft retained.`,
+          { cause: failure },
+        );
       }
       if (!this.alive) throw failure;
-      const retry =
-        kind === 'staleRevision' &&
-        this.selection === selected &&
-        this.accepted === base &&
-        draft.every(
-          (value, i) =>
-            value === [this.text, this.start, this.end, this.style][i],
-        )
-          ? retryEdit(base, current, edit)
-          : null;
-      if (retry) {
-        try {
-          return await this.client.documentAction(retry, current);
-        } catch (second) {
-          if (!this.alive) throw second;
-          // No third attempt, even for another confirmed stale revision. Read
-          // again because the retry itself may have committed before a lost ACK.
-          let latest: DocumentSnapshot | null = null;
-          try {
-            latest = await this.client.documentAction(
-              { kind: 'status' },
-              current,
-            );
-          } catch {
-            /* Retain the draft and block further application. */
-          }
-          if (this.alive)
-            this.retainConflict(
-              latest ?? current,
-              'The edit could not be confirmed after retry. Draft retained; copy it if needed, then Revert draft to use current subtitles.',
-            );
-          throw second;
-        }
+      const draft = this.captureDraft();
+      this.adopt(current, base);
+      if (
+        current.generation !== base.generation ||
+        !current.cues.some((cue) => cue.id === selected)
+      ) {
+        // Keep the text available to copy, without attaching it to a new target.
+        this.selection = null;
+        this.multi = selectCues(current.cues, this.multi, null, 'replace');
       }
-      this.retainConflict(
-        current,
-        'Subtitles changed or the edit outcome is uncertain. Draft retained; copy it if needed, then Revert draft to use current subtitles.',
+      Object.assign(this, draft);
+      throw new Error(
+        `${String(failure)} Current subtitles refreshed; draft retained. Review it before applying again.`,
+        { cause: failure },
       );
-      throw failure;
     }
   }
   async apply(): Promise<boolean> {
     if (!this.alive) return false;
-    if (this.conflict) throw new Error(this.conflict);
     const cue = this.cue;
-    if (!cue || !this.dirty) return true;
+    if (!cue) return !this.dirty;
+    if (!this.dirty) return true;
     const fields = {
       cueId: cue.id,
       startMs: parseTime(this.start),
       endMs: parseTime(this.end),
       text: this.text,
     };
-    const edit: CueEdit = this.styled
+    const edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }> = this
+      .styled
       ? { kind: 'editStyled', ...fields, style: this.style }
       : { kind: 'edit', ...fields };
     return this.update((base) => this.submitEdit(edit, base), {

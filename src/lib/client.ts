@@ -20,7 +20,7 @@ function documentFailure(value: unknown): unknown {
     (error.kind === 'staleRevision' ||
       error.kind === 'documentReplaced' ||
       error.kind === 'rejected' ||
-      error.kind === 'unavailable') &&
+      error.kind === 'outcomeUnknown') &&
     typeof error.message === 'string'
   )
     return new DocumentFailure(error as DocumentCommandError);

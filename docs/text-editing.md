@@ -37,19 +37,17 @@ and resynchronization Save As protections remain in force.
 
 ## Concurrent cue edits
 
-**Apply edit** retries once if Rust reports that its captured revision is stale,
-the same document and cue still exist, and no one changed the fields you edited.
-It refreshes accepted state and preserves intervening changes to other fields/cues.
-The successful retry is one normal Undo entry. Timing gestures and reviewed batch
-acceptances do not automatically retry.
+If **Apply edit** receives a stale-version refusal or loses its reply, it refreshes
+accepted subtitles once, keeps your draft and shows a message. It never resends the
+edit automatically: a lost reply may follow a successful commit. Review the current
+subtitles before explicitly applying again, or use **Revert draft** to load accepted
+content. There is no additional conflict lock on Apply or cue selection.
 
-If edited fields conflict, the cue disappeared, the document was replaced, or the
-retry also fails, your draft stays visible with Apply blocked. Copy any text you
-want to keep, then use **Revert draft** to load the accepted cue and resolve the
-change explicitly. A lost reply can follow a successful edit: the editor refreshes
-state but never resends an edit whose outcome is unknown. If refresh fails, reopen
-current subtitles before resolving the retained draft. Newer draft input arriving
-during a successful reply remains unapplied and prevents save/navigation continuation.
+If the cue disappeared or the document was replaced, selection clears and the draft
+text remains available to copy. Copy it before selecting another cue or reverting;
+it is never applied to a different cue automatically. If refresh fails, the prior
+projection and draft remain and the error is reported. Newer input arriving during
+a successful reply stays unapplied and prevents save/navigation continuation.
 
 ## Formatting and line repairs
 

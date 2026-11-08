@@ -26,8 +26,8 @@ function deferred() {
 async function rejected(promise: Promise<unknown>) {
   try {
     await promise;
-  } catch {
-    return;
+  } catch (error) {
+    return error;
   }
   throw new Error('Expected rejection');
 }
@@ -42,13 +42,9 @@ const original: DocumentSnapshot = {
   generation: 1,
   revision: 1,
   cues: [
-    { id: 1, startMs: 1000, endMs: 2000, text: 'base', style: 'Default' },
+    { id: 1, startMs: 1000, endMs: 2000, text: 'base' },
     { id: 2, startMs: 3000, endMs: 4000, text: 'other' },
   ],
-};
-const stale = {
-  kind: 'staleRevision',
-  message: 'A localized message independent of the discriminant',
 };
 async function fixture(mode: string) {
   let current = structuredClone(original);
@@ -76,55 +72,34 @@ async function fixture(mode: string) {
           return structuredClone(current);
         }
         mutations++;
-        if (
-          (mutations === 1 && held === 'initial') ||
-          (mutations === 2 && held === 'retry')
-        )
-          await gate?.promise;
-        assert(
-          action.kind === 'edit' || action.kind === 'editStyled',
-          'Unexpected mutation',
-        );
-        if (action.kind !== 'edit' && action.kind !== 'editStyled')
-          throw new Error('not edit');
-        if (mutations === 1) {
+        if (held === 'initial') await gate?.promise;
+        assert(action.kind === 'edit', 'Unexpected mutation');
+        if (action.kind !== 'edit') throw new Error('not edit');
+        if (mutations === 1 && mode !== 'success' && mode !== 'lost') {
           if (mode === 'rejected')
             throw { kind: 'rejected', message: 'Invalid text' };
-          if (mode === 'lost') {
-            current = {
-              ...current,
-              revision: 2,
-              cues: current.cues.map((c) =>
-                c.id === 1 ? { ...c, text: action.text } : c,
-              ),
-            };
-            writes++;
-            throw new Error('Lost reply');
-          }
           current = {
             ...current,
             revision: 2,
             cues: current.cues.map((c) =>
-              c.id === 1
-                ? { ...c, endMs: 2200 }
-                : { ...c, text: 'intervening' },
+              c.id === 1 ? { ...c, endMs: 2200 } : c,
             ),
           };
           if (mode === 'conflict') current.cues[0]!.text = 'competing';
           if (mode === 'deleted') current.cues = current.cues.slice(1);
           if (mode === 'replacement') current.generation++;
-          if (mode === 'unknown')
-            throw new Error('Transport disconnected before result');
-          throw stale;
-        }
-        if (mode === 'secondStale') {
-          current.revision++;
-          throw stale;
+          if (mode === 'unknown') throw new Error('Transport disconnected');
+          if (mode === 'workerUnknown')
+            throw { kind: 'outcomeUnknown', message: 'Worker failed' };
+          throw {
+            kind: mode === 'replacement' ? 'documentReplaced' : 'staleRevision',
+            message: 'Localized refusal',
+          };
         }
         assert(
           args.generation === current.generation &&
             args.revision === current.revision,
-          'Retry used stale version',
+          'Explicit edit used stale version',
         );
         current = {
           ...current,
@@ -142,14 +117,16 @@ async function fixture(mode: string) {
           ),
         };
         writes++;
-        if (mode === 'lostRetry') throw new Error('Lost retry reply');
+        if (mode === 'lost') throw new Error('Lost reply');
         return structuredClone(current);
       },
     },
   });
   const session = new DocumentSession({
     documentAction,
-    chooseFile: async () => null,
+    chooseFile: async () => {
+      throw new Error('Unexpected chooser');
+    },
     gapAccept: async () => current,
     resyncAccept: async () => current,
   });
@@ -171,146 +148,126 @@ async function fixture(mode: string) {
   };
 }
 async function run() {
-  {
-    const f = await fixture('success');
-    assert(await f.session.apply(), 'Retry failed');
-    assert(
-      f.mutations() === 2 && f.writes() === 1 && f.reads() === 2,
-      'Retry not bounded to one accepted write',
-    );
-    assert(
-      f.session.cue?.text === 'my draft' &&
-        f.session.cue.endMs === 2200 &&
-        f.session.snapshot.cues[1]!.text === 'intervening',
-      'Retry overwrote unrelated changes',
-    );
-    assert(!f.session.dirty, 'Accepted draft not reconciled');
-    passed(
-      'Structured stale rejection retries once, preserving unrelated same-cue and other-cue fields',
-    );
-    f.session.dispose();
-  }
   for (const mode of [
-    'secondStale',
+    'stale',
     'conflict',
     'deleted',
     'replacement',
     'lost',
     'unknown',
-    'lostRetry',
+    'workerUnknown',
     'refreshFailure',
   ]) {
     const f = await fixture(mode);
-    await rejected(f.session.apply());
-    const count = f.mutations();
+    const failure = await rejected(f.session.apply());
     assert(
-      count === (mode === 'secondStale' || mode === 'lostRetry' ? 2 : 1),
-      `${mode}: unsafe retry`,
+      String(failure).includes('draft retained'),
+      `${mode}: missing explanation`,
     );
     assert(
-      f.session.text === 'my draft' && f.session.dirty && f.session.conflict,
-      `${mode}: draft/conflict lost`,
+      f.mutations() === 1 && f.reads() === 2,
+      `${mode}: replay or missing refresh`,
     );
-    await rejected(f.session.apply());
-    assert(f.mutations() === count, `${mode}: conflict replayed`);
+    assert(f.session.text === 'my draft', `${mode}: draft lost`);
     assert(
-      f.writes() === (mode === 'lost' || mode === 'lostRetry' ? 1 : 0),
+      f.writes() === (mode === 'lost' ? 1 : 0),
       `${mode}: duplicated history`,
     );
     if (mode !== 'refreshFailure')
       assert(
         f.session.snapshot.revision === f.current().revision &&
           f.session.snapshot.generation === f.current().generation,
-        `${mode}: authoritative state not reconciled`,
+        `${mode}: state not reconciled`,
       );
-    f.session.revert();
+    if (mode === 'deleted' || mode === 'replacement') {
+      assert(
+        f.session.selected === null && f.session.dirty,
+        'Draft attached to a different cue',
+      );
+      assert(
+        !(await f.session.save(true)) && f.mutations() === 1,
+        'Detached draft authorized save',
+      );
+    }
+    if (mode === 'stale') {
+      assert(await f.session.apply(), 'Explicit Apply blocked');
+      assert(
+        f.mutations() === 2 && f.session.cue?.text === 'my draft',
+        'Explicit Apply failed',
+      );
+    }
+    f.session.select(2);
     assert(
-      !f.session.conflict && !f.session.dirty,
-      `${mode}: explicit discard failed`,
+      f.session.selected === 2 && f.session.text === 'other',
+      `${mode}: selection locked`,
     );
-    passed(
-      `${mode}: authoritative reconciliation retains draft, blocks replay and permits explicit discard`,
-    );
+    passed(`${mode}: refresh retains draft without replay or selection lock`);
     f.session.dispose();
   }
   {
     const f = await fixture('rejected');
-    try {
-      await f.session.apply();
-    } catch (error) {
-      assert(
-        error instanceof DocumentFailure &&
-          error.detail.kind === 'rejected' &&
-          String(error).includes('Invalid text'),
-        'Typed error lost message or kind',
-      );
-    }
+    const failure = await rejected(f.session.apply());
     assert(
-      f.reads() === 1 && f.mutations() === 1 && f.session.text === 'my draft',
-      'Known rejection retried',
+      failure instanceof DocumentFailure &&
+        failure.detail.kind === 'rejected' &&
+        f.reads() === 1 &&
+        f.session.text === 'my draft',
+      'Known rejection changed state or message',
     );
     passed(
-      'Typed non-version rejection preserves message and draft without retry',
+      'Known rejection preserves typed failure and draft without a refresh',
     );
+    f.session.dispose();
   }
-  for (const phase of ['initial', 'refresh', 'retry']) {
-    const f = await fixture('success');
+  for (const phase of ['initial', 'refresh']) {
+    const f = await fixture('stale');
     const gate = f.hold(phase);
     const applying = f.session.apply().catch(() => false);
     await until(() =>
-      phase === 'initial'
-        ? f.mutations() === 1
-        : phase === 'refresh'
-          ? f.reads() === 2
-          : f.mutations() === 2,
+      phase === 'initial' ? f.mutations() === 1 : f.reads() === 2,
+    );
+    const count = f.requests.length;
+    await rejected(f.session.command({ kind: 'undo' }));
+    assert(
+      f.requests.length === count,
+      'Refresh released command serialization',
     );
     f.session.dispose();
-    const count = f.requests.length;
     gate.resolve();
     await applying;
     assert(
       f.requests.length === count &&
         f.session.snapshot.revision === 1 &&
         f.session.text === 'my draft',
-      'Disposal continued or adopted edit',
+      'Disposed request continued',
     );
     passed(
-      `Disposal during ${phase} suppresses follow-up requests and projection adoption`,
+      `Disposal during ${phase} suppresses follow-up requests and adoption`,
     );
   }
-  {
-    const f = await fixture('success');
-    const gate = f.hold('refresh');
+  for (const phase of ['refresh', 'initial']) {
+    const f = await fixture(phase === 'refresh' ? 'stale' : 'success');
+    const gate = f.hold(phase);
     const applying = f.session.apply();
-    await until(() => f.reads() === 2);
+    await until(() =>
+      phase === 'refresh' ? f.reads() === 2 : f.mutations() === 1,
+    );
     f.session.text = 'newer draft';
     gate.resolve();
     await rejected(applying);
     assert(
-      f.mutations() === 1 && f.session.text === 'newer draft',
-      'Refresh replayed obsolete draft',
+      f.session.text === 'newer draft' && f.mutations() === 1,
+      'New input erased or replayed',
     );
-    passed('Draft changed during refresh is preserved and not replayed');
+    if (phase === 'initial')
+      assert(
+        f.session.cue?.text === 'my draft' && f.session.dirty,
+        'Successful ACK not adopted',
+      );
+    passed(`Newer input during ${phase} survives and prevents continuation`);
+    f.session.dispose();
   }
-  {
-    const f = await fixture('success');
-    const gate = f.hold('retry');
-    const applying = f.session.apply();
-    await until(() => f.mutations() === 2);
-    f.session.text = 'newer draft during retry';
-    gate.resolve();
-    await rejected(applying);
-    assert(
-      f.session.cue?.text === 'my draft' &&
-        f.session.text === 'newer draft during retry' &&
-        f.session.dirty,
-      'Retry ACK erased newer input',
-    );
-    passed(
-      'Successful retry adopts accepted state without erasing newer draft or authorizing continuation',
-    );
-  }
-  heading.textContent = `PASS: all ${output.children.length} edit retry checks`;
+  heading.textContent = `PASS: all ${output.children.length} edit reconciliation checks`;
 }
 void run().catch((error) => {
   heading.textContent = `FAIL: ${String(error)}`;

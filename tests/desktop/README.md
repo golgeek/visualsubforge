@@ -686,6 +686,9 @@ No new Windows/Linux run, ANGLE composition campaign or Rust/IPC change is claim
 
 ### Dialog and stale-edit retry checkpoint — November 8, 2026
 
+Historical evidence for `21e968c`; the review follow-up below supersedes its
+automatic retry and conflict-lock behavior.
+
 Settings, resync, statistics and text presentation now share WorkspaceModal;
 feature acceptance/cancellation owners remain separate. The document command has
 a generated tagged error contract. Cue-draft Apply retries once only after a typed
@@ -721,3 +724,30 @@ ambient double-rAF readiness, physical input/audio, real choosers or platform
 acceptance. No new loaded-library audit, Windows/Linux run or hosted CI result is
 claimed. Local detailed receipts retain intermediate fixture-contract failures
 and an interrupted hot-reload browser run; the final frozen-source suite passes.
+
+
+### Review follow-up — refresh without replay
+
+The follow-up removes automatic retry, field merging and the conflict/selection
+lock. Stale-version and unknown-outcome cue-draft failures refresh once, retain the
+draft and report a message. Missing/replaced targets clear selection; newer input
+still survives a successful reply. `outcomeUnknown` replaces the `unavailable` tag,
+and both adapters use one store version check under the same mutex. The production
+single-window path serializes edits; the defensive desktop stale test deliberately
+bypasses that owner and is not evidence of a production second writer.
+
+On the pinned development Mac toolchains, `npm run build`, `npm run lint`,
+`npm run format:check`, `npm test` (44), `npm run ipc:check`,
+`cargo fmt --all -- --check`, strict workspace Clippy and
+`cargo test --locked --workspace` (520 passed, 33 ignored) pass. Fifteen zero-test
+harnesses are not feature evidence. `npm run test:browser` passes 66/66; after an
+error-cause metadata correction, the final lifecycle/reconciliation subset passes
+4/4 with 13 reconciliation checks per engine. No visible error text or behavior
+changed for that correction.
+
+`npm run build:desktop-test` then `npm run test:desktop` passes on final source,
+including real typed stale refusal, refresh/draft retention without replay or
+added history, normal Apply enablement, settings/text/gap/save/failure/recovery,
+and normal shutdown 0. No new native-media, Windows/Linux or hosted-CI run is
+claimed for this follow-up; the preceding native checkpoint retains its original
+source/binary scope and physical/platform limitations.
