@@ -122,7 +122,7 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply, PluginInput, PluginReview, PluginTextChunk }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentCommandError, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply, PluginInput, PluginReview, PluginTextChunk }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );

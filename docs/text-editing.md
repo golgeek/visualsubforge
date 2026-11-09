@@ -35,6 +35,20 @@ replacements across all pages. **Accept text repairs** accepts all safe line
 changes. Each acceptance creates one Undo step. Saving is separate; recovery
 and resynchronization Save As protections remain in force.
 
+## Concurrent cue edits
+
+If **Apply edit** receives a stale-version refusal or loses its reply, it refreshes
+accepted subtitles once, keeps your draft and shows a message. It never resends the
+edit automatically: a lost reply may follow a successful commit. Review the current
+subtitles before explicitly applying again, or use **Revert draft** to load accepted
+content. There is no additional conflict lock on Apply or cue selection.
+
+If the cue disappeared or the document was replaced, selection clears and the draft
+text remains available to copy. Copy it before selecting another cue or reverting;
+it is never applied to a different cue automatically. If refresh fails, the prior
+projection and draft remain and the error is reported. Newer input arriving during
+a successful reply stays unapplied and prevents save/navigation continuation.
+
 ## Formatting and line repairs
 
 Select a span in the cue text editor, then use **Bold**, **Italic**, **Underline**

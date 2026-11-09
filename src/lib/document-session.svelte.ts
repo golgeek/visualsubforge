@@ -1,4 +1,5 @@
 import {
+  DocumentFailure,
   chooseFile,
   documentAction,
   resyncAccept,
@@ -71,11 +72,13 @@ type Client = Omit<
     >
   >;
 type Version = Pick<DocumentSnapshot, 'generation' | 'revision'>;
+type CueDraft = { text: string; start: string; end: string; style: string };
 type CommandOptions = {
   plan?: CueOperationPlan;
   version?: Version;
   preferred?: number | null;
   preserveDraft?: boolean;
+  submittedDraft?: CueDraft;
 };
 
 // Rust owns the document and history. This owner replaces accepted projections;
@@ -112,6 +115,8 @@ export class DocumentSession {
   }
   get dirty() {
     const cue = this.cue;
+    if (!cue)
+      return Object.values(this.captureDraft()).some((value) => value !== '');
     return (
       !!cue &&
       (this.text !== cue.text ||
@@ -290,48 +295,127 @@ export class DocumentSession {
     try {
       const next = await request(before);
       if (!this.alive) return false;
-      const preferred = options.plan
-        ? operationSelection(options.plan, before.cues, next.cues)
-        : options.preferred;
-      this.selection =
-        next.generation !== before.generation
-          ? (next.cues[0]?.id ?? null)
-          : preferred === undefined
-            ? this.selection === null
-              ? null
-              : reconcileCueSelection(before.cues, next.cues, this.selection)
-            : preferred;
-      this.multi =
-        next.generation !== before.generation
-          ? selectCues(next.cues, this.multi, this.selection, 'replace')
-          : reconcileSelection(next.cues, this.multi, this.selection);
-      this.accepted = next;
-      if (
-        !options.preserveDraft ||
-        next.generation !== before.generation ||
-        next.revision !== before.revision
-      )
-        this.revert();
+      const currentDraft = this.captureDraft();
+      const changedDraft =
+        options.submittedDraft &&
+        (Object.keys(currentDraft) as (keyof CueDraft)[]).some(
+          (key) => currentDraft[key] !== options.submittedDraft![key],
+        );
+      this.adopt(next, before, options);
+      if (changedDraft) {
+        // A successful commit is authoritative, but cannot consume newer input
+        // or authorize a Save/navigation continuation for that unapplied draft.
+        Object.assign(this, currentDraft);
+        throw new Error(
+          'The earlier edit was accepted; newer draft input remains unapplied.',
+        );
+      }
       return true;
     } finally {
       this.pending = false;
     }
   }
+  private adopt(
+    next: DocumentSnapshot,
+    before: DocumentSnapshot,
+    options: CommandOptions = {},
+  ) {
+    const preferred = options.plan
+      ? operationSelection(options.plan, before.cues, next.cues)
+      : options.preferred;
+    this.selection =
+      next.generation !== before.generation
+        ? (next.cues[0]?.id ?? null)
+        : preferred === undefined
+          ? this.selection === null
+            ? null
+            : reconcileCueSelection(before.cues, next.cues, this.selection)
+          : preferred;
+    this.multi =
+      next.generation !== before.generation
+        ? selectCues(next.cues, this.multi, this.selection, 'replace')
+        : reconcileSelection(next.cues, this.multi, this.selection);
+    this.accepted = next;
+    if (
+      !options.preserveDraft ||
+      next.generation !== before.generation ||
+      next.revision !== before.revision
+    )
+      this.revert();
+  }
+
+  private captureDraft(): CueDraft {
+    return {
+      text: this.text,
+      start: this.start,
+      end: this.end,
+      style: this.style,
+    };
+  }
+
+  private async submitEdit(
+    edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }>,
+    base: DocumentSnapshot,
+  ): Promise<DocumentSnapshot> {
+    const selected = this.selection;
+    try {
+      return await this.client.documentAction(edit, base);
+    } catch (failure) {
+      if (!this.alive) throw failure;
+      if (
+        failure instanceof DocumentFailure &&
+        failure.detail.kind === 'rejected'
+      )
+        throw failure;
+      const message =
+        failure instanceof Error ? failure.message : String(failure);
+      // Stale refusal and unknown outcome both require authoritative state.
+      // Never replay: a lost reply can follow a successful Rust commit.
+      let current: DocumentSnapshot;
+      try {
+        current = await this.client.documentAction({ kind: 'status' }, base);
+      } catch {
+        throw new Error(
+          `${message} — Could not refresh subtitles; draft retained.`,
+          { cause: failure },
+        );
+      }
+      if (!this.alive) throw failure;
+      const draft = this.captureDraft();
+      this.adopt(current, base);
+      if (
+        current.generation !== base.generation ||
+        !current.cues.some((cue) => cue.id === selected)
+      ) {
+        // Keep the text available to copy, without attaching it to a new target.
+        this.selection = null;
+        this.multi = selectCues(current.cues, this.multi, null, 'replace');
+      }
+      Object.assign(this, draft);
+      throw new Error(
+        `${message} — Current subtitles refreshed; draft retained. Review it before applying again.`,
+        { cause: failure },
+      );
+    }
+  }
   async apply(): Promise<boolean> {
     if (!this.alive) return false;
     const cue = this.cue;
-    if (!cue || !this.dirty) return true;
+    if (!cue) return !this.dirty;
+    if (!this.dirty) return true;
     const fields = {
       cueId: cue.id,
       startMs: parseTime(this.start),
       endMs: parseTime(this.end),
       text: this.text,
     };
-    return this.command(
-      this.styled
-        ? { kind: 'editStyled', ...fields, style: this.style }
-        : { kind: 'edit', ...fields },
-    );
+    const edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }> = this
+      .styled
+      ? { kind: 'editStyled', ...fields, style: this.style }
+      : { kind: 'edit', ...fields };
+    return this.update((base) => this.submitEdit(edit, base), {
+      submittedDraft: this.captureDraft(),
+    });
   }
   async save(as: boolean): Promise<boolean> {
     if (!(await this.apply())) return false;

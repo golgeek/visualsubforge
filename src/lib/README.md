@@ -6,9 +6,9 @@ mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
-| `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles selection/drafts only after acceptance. |
+| `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
-| `WorkspaceModal` | Authoring and timing-review identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
+| `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
@@ -22,7 +22,13 @@ The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
 snapshots use `$state.raw`: replace them rather than mutating cue objects. App's
 `$derived` aliases are read-only views. Draft fields remain locally editable;
 Apply sends a captured generation/revision to Rust, which owns validation and
-undo history. A failed command preserves the draft. Timing gestures deliberately
+undo history. Stale-version and unknown-outcome cue-draft failures refresh accepted
+state once, retain the draft and report a message without resending. The normal
+single-window path serializes edits; there is no field merge or conflict lock.
+If the target disappeared or was replaced, selection clears while text remains
+available to copy. Selection and Revert keep their ordinary behavior. Failed refresh
+preserves the prior projection and draft. Newer input during a successful reply
+remains a draft and prevents save/navigation continuation. Timing gestures deliberately
 send the version captured when the gesture began.
 
 ASS/SSA snapshots include read-only styles/script settings and their 10 ms time
@@ -150,7 +156,7 @@ document/recovery snapshots, opened projects, scene/waveform views, preferences,
 media status and event payloads into `tests/frontend/ipc-contract-samples.ts`.
 Strict TypeScript checks these samples against the generated declarations.
 Browser workflows exercise the facade with controlled responses, including
-string errors and null success values. They do not prove native dispatch.
+tagged document errors, other commands’ string errors and null success values. They do not prove native dispatch.
 
 Generated names include Rust module paths; the facade chooses deserialize shapes
 for inputs and serialize shapes for outputs. Old project inputs may omit timing
@@ -173,7 +179,11 @@ Serde would turn NaN/infinity into null. Optional native properties retain their
 number-or-null contract. Validation tests cover the numeric codecs and output
 collections. Generation never changes the underlying domain types.
 
-Command wrappers retain rejected promises for Rust errors and adapt JSON null
+The document command rejects with a generated tagged error; the facade wraps its
+kind/message in `DocumentFailure` without parsing display text. Stale revisions and
+replaced generations are classified under the existing document mutex before
+mutation. Worker/transport failures can have unknown outcomes. Other command
+wrappers retain their existing rejected promises for Rust errors and adapt JSON null
 to void where appropriate. Generator annotations do not replace validation,
 revision guards or cancellation. The generator's runtime helpers are excluded
 from handwritten-code lint rules but remain under strict TypeScript and drift

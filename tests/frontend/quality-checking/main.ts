@@ -192,7 +192,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           const action = args.action!;
           if (action.kind === 'edit') {
             if (failApply)
-              throw new Error('Injected quality navigation apply failure');
+              throw {
+                kind: 'rejected',
+                message: 'Injected quality navigation apply failure',
+              };
             edits++;
             document = {
               ...document,

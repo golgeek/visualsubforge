@@ -2,7 +2,12 @@ export type AuthoringModal = 'styles' | 'fonts' | 'conversion' | 'plugins';
 
 export type TimingKind = 'gap' | 'scene' | 'duration' | 'batch';
 export type WorkspaceModalIdentity =
-  AuthoringModal | { kind: 'timing'; variant: TimingKind };
+  | AuthoringModal
+  | 'settings'
+  | 'resync'
+  | 'statistics'
+  | 'text'
+  | { kind: 'timing'; variant: TimingKind };
 
 type Effects = {
   occlude: (value: boolean) => Promise<void>;

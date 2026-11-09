@@ -406,6 +406,8 @@ async function run() {
       'Alt-drag bypass also applies to new range selection',
     );
     // Import/export are pure settings changes, not document transactions.
+    const settingsReturn = button('Find / Replace…');
+    settingsReturn.focus();
     callbacks.get(eventHandler)!({ payload: 'settings' });
     await until(() => !!host.querySelector('dialog[open] .settings'));
     assert(
@@ -423,6 +425,10 @@ async function run() {
     await until(() => !host.querySelector('dialog[open]'));
     // Closing the HTML dialog precedes acknowledged native video/focus cleanup.
     await until(() => !menuState?.busy);
+    assert(
+      document.activeElement === settingsReturn,
+      'Settings launcher focus restored',
+    );
     callbacks.get(eventHandler)!({ payload: 'settings' });
     await until(() => !!host.querySelector('dialog[open] .settings'));
     assert(
@@ -468,7 +474,7 @@ async function run() {
       'Failed import preserves policy and project save retains settings',
     );
     document.querySelector('#result')!.textContent =
-      'PASS: all 14 magnetic timing checks';
+      'PASS: all 15 magnetic timing checks';
   } catch (e) {
     document.querySelector('#result')!.textContent = 'FAIL: ' + String(e);
   } finally {

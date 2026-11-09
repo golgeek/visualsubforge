@@ -2,6 +2,7 @@
 import type {
   TimingPreset,
   DocumentAction,
+  DocumentCommandError,
   DocumentSnapshot,
   RecoveryStatus,
   OpenedProject,
@@ -117,6 +118,24 @@ export const documentActions = [
     kind: 'redo',
   },
 ] satisfies DocumentAction[];
+export const documentCommandErrors = [
+  {
+    kind: 'staleRevision',
+    message: 'Refresh',
+  },
+  {
+    kind: 'documentReplaced',
+    message: 'Replaced',
+  },
+  {
+    kind: 'rejected',
+    message: 'Invalid edit',
+  },
+  {
+    kind: 'outcomeUnknown',
+    message: 'Worker failed',
+  },
+] satisfies DocumentCommandError[];
 export const emptyDocument = {
   canRedo: false,
   canUndo: false,
