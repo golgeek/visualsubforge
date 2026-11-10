@@ -46,7 +46,7 @@ acceptance remains open. Earlier run notes retain their original evidence scope.
 
 ### November 2026 packaging refresh
 
-The [2026-11-09 Mac run](https://github.com/golgeek/visualsubforge/actions/runs/42562626699)
+The [2026-11-08 Mac run](https://github.com/golgeek/visualsubforge/actions/runs/42562626699)
 at `28b4d7b` compiled both architectures' GUI, CLI, ANGLE, libplacebo and mpv,
 but failed during source collection: ARM64 rejected the new Homebrew source
 identifier for `openssl@4`; Intel encountered a connection reset downloading
@@ -62,8 +62,14 @@ required. Source downloads retry transient connection/read failures and selected
 HTTP failures at most three times, discarding partial bytes before retrying.
 Permanent HTTP errors and checksum mismatches still fail immediately.
 Local Python 3.14.7 validation: `python3 -m unittest discover -s tests/release -p
-'test_*.py'` ran 56 tests: 54 passed and two platform checks were skipped; `git diff --check` passed.
-A replacement hosted package/signing run is still required.
+'test_*.py'` ran 58 tests: 56 passed and two platform checks were skipped; `git diff --check` passed.
+The first [PR package run](https://github.com/golgeek/visualsubforge/actions/runs/42738639980)
+passed the Intel source audit and the ARM64 OpenSSL check. ARM64 then found a
+raw test font in HarfBuzz 15.0.0_1's resources. The collector now retains that
+reviewed, commit-pinned URL and exact SHA-256 as a non-archive test fixture;
+changed bytes and other unknown resource formats remain errors. Real download
+and checksum verification pass locally. A replacement hosted package/signing
+run is still required.
 
 ### Assembly and source capture
 

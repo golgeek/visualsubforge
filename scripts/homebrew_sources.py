@@ -23,6 +23,15 @@ from source_notices import is_notice, source_notices
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# HarfBuzz's Homebrew test downloads this raw font, not an archive. Retain the
+# exact fixture with the source evidence; unknown non-archive resources still
+# require review. The URL is pinned to an upstream commit and fetch checks bytes.
+HARFBUZZ_TEST_FONT = {
+    'url': 'https://github.com/harfbuzz/harfbuzz/raw/fc0daafab0336b847ac14682e581a8838f36a0bf/'
+           'test/shaping/fonts/sha1sum/270b89df543a7e48e206a2d830c0e10e5265c630.ttf',
+    'checksum': '9535d35dab9e002963eef56757c46881f6b3d3b27db24eefcc80929781856c77',
+}
+
 
 def without_bottle_metadata(text):
     return re.sub(r'\n  bottle do\n.*?^  end\n', '', text, flags=re.M | re.S)
@@ -113,7 +122,12 @@ def capture_resource(resource, destination):
             archive = destination / 'source.tar.gz'
             archive_source(checkout, archive)
         record = {'url': url, 'commit': commit, 'file': archive.name, 'sha256': digest(archive)}
-    record['notices'] = source_notices(archive, destination / 'notices')
+    if (resource.get('name') == 'homebrew-test-ttf'
+            and url == HARFBUZZ_TEST_FONT['url'] and checksum == HARFBUZZ_TEST_FONT['checksum']):
+        record['kind'] = 'Reviewed non-archive HarfBuzz test font'
+        record['notices'] = []
+    else:
+        record['notices'] = source_notices(archive, destination / 'notices')
     return record
 
 

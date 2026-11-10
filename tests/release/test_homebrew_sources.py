@@ -10,13 +10,44 @@ import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from homebrew_sources import fetch, verify_legacy_receipt, verify_source_identity, without_bottle_metadata
+from homebrew_sources import (HARFBUZZ_TEST_FONT, capture_resource, fetch, verify_legacy_receipt,
+                              verify_source_identity, without_bottle_metadata)
 from macos_sources import check_custom_file
 from native_evidence import digest, verified_headers
 from source_notices import source_notices
 
 
 class HomebrewSources(unittest.TestCase):
+    def test_reviewed_raw_font_is_retained_without_treating_it_as_a_tar(self):
+        resource = dict(HARFBUZZ_TEST_FONT, name='homebrew-test-ttf')
+        def downloaded(url, path, checksum):
+            self.assertEqual((url, checksum), (resource['url'], resource['checksum']))
+            path.write_bytes(b'font fixture')
+            return {'url': url, 'file': path.name, 'sha256': checksum}
+        with tempfile.TemporaryDirectory() as directory, \
+                patch('homebrew_sources.fetch', side_effect=downloaded), \
+                patch('homebrew_sources.source_notices') as notices:
+            destination = Path(directory) / 'resource'
+            record = capture_resource(resource, destination)
+            self.assertEqual((destination / record['file']).read_bytes(), b'font fixture')
+            self.assertEqual(record['notices'], [])
+            self.assertIn('non-archive', record['kind'])
+            notices.assert_not_called()
+
+    def test_changed_font_bytes_are_rejected_and_unknown_fonts_are_not_exempt(self):
+        resource = dict(HARFBUZZ_TEST_FONT, name='homebrew-test-ttf')
+        with tempfile.TemporaryDirectory() as directory, \
+                patch('homebrew_sources.urllib.request.urlopen', return_value=io.BytesIO(b'changed font')):
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                capture_resource(resource, Path(directory) / 'changed')
+        with tempfile.TemporaryDirectory() as directory, \
+                patch('homebrew_sources.urllib.request.urlopen', return_value=io.BytesIO(b'unknown font')):
+            expected = Path(directory) / 'expected'
+            expected.write_bytes(b'unknown font')
+            resource['checksum'] = digest(expected)
+            with self.assertRaises(tarfile.ReadError):
+                capture_resource(resource, Path(directory) / 'unknown')
+
     def test_versioned_source_ids_accept_old_and_escaped_homebrew_formats(self):
         formula = {'name': 'openssl@4', 'stable': {'url': 'https://example.org/source', 'checksum': 'a' * 64}}
         source = {'SPDXID': 'SPDXRef-Archive-openssl.40.4-src', 'downloadLocation': formula['stable']['url'],
