@@ -44,6 +44,29 @@ acceptance remains open. Earlier run notes retain their original evidence scope.
 
 ## Shared package layout
 
+### November 2026 packaging refresh
+
+The [2026-11-09 Mac run](https://github.com/golgeek/visualsubforge/actions/runs/42562626699)
+at `28b4d7b` compiled both architectures' GUI, CLI, ANGLE, libplacebo and mpv,
+but failed during source collection: ARM64 rejected the new Homebrew source
+identifier for `openssl@4`; Intel encountered a connection reset downloading
+sources. Neither produced a completed package. Windows and Linux package runs
+[42562629641](https://github.com/golgeek/visualsubforge/actions/runs/42562629641) and
+[42562632471](https://github.com/golgeek/visualsubforge/actions/runs/42562632471)
+passed at that revision.
+
+The Mac collector accepts both literal identifiers from older bottles and
+Homebrew's [hex-escaped SPDX identifiers](https://github.com/Homebrew/brew/blob/60e322a2a9974657118aef33941f97afe7867946/Library/Homebrew/sbom.rb#L160).
+Exactly one matching source, the installed recipe URL and its SHA-256 remain
+required. Source downloads retry transient connection/read failures and selected
+HTTP failures at most three times, discarding partial bytes before retrying.
+Permanent HTTP errors and checksum mismatches still fail immediately.
+Local Python 3.14.7 validation: `python3 -m unittest discover -s tests/release -p
+'test_*.py'` ran 56 tests: 54 passed and two platform checks were skipped; `git diff --check` passed.
+A replacement hosted package/signing run is still required.
+
+### Assembly and source capture
+
 Build desktop and CLI with `bundled-tools`. Both find `ffmpeg` and `ffprobe`
 beside their executable, without PATH, Homebrew or `VSF_FFMPEG`/`VSF_FFPROBE`
 fallback. Missing tools produce an installation error from the existing analysis

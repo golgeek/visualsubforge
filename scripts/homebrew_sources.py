@@ -4,6 +4,7 @@ Installed formulae, receipts and SBOMs are evidence. Today's formula cannot
 replace an older build recipe; missing local patches require an exact historical
 recipe match (apart from the bottle metadata Homebrew omits from installed copies).
 """
+import http.client
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -28,8 +31,30 @@ def without_bottle_metadata(text):
 def fetch(url, path, checksum=None):
     if path.exists():
         raise ValueError(f'Refusing to replace source evidence: {path}')
-    with urllib.request.urlopen(url, timeout=120) as response, path.open('xb') as stream:
-        shutil.copyfileobj(response, stream)
+    stream = path.open('xb')
+    try:
+        with stream:
+            for attempt in range(3):
+                try:
+                    with urllib.request.urlopen(url, timeout=120) as response:
+                        shutil.copyfileobj(response, stream)
+                    break
+                except (urllib.error.URLError, ConnectionError, TimeoutError,
+                        http.client.IncompleteRead) as error:
+                    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+                    transient = isinstance(reason, (ConnectionError, TimeoutError, http.client.IncompleteRead))
+                    if isinstance(error, urllib.error.HTTPError):
+                        transient = error.code in (429, 500, 502, 503, 504)
+                        error.close()
+                    if not transient or attempt == 2:
+                        raise RuntimeError(f'Homebrew source download failed: {url}: {error}') from error
+                    stream.seek(0)
+                    stream.truncate()
+                    print(f'Retrying Homebrew source download: {url} ({error})', flush=True)
+                    time.sleep(attempt + 1)
+    except Exception:
+        path.unlink()
+        raise
     actual = digest(path)
     if checksum and actual != checksum:
         raise ValueError(f'Homebrew source checksum mismatch: {url}')
@@ -94,8 +119,14 @@ def capture_resource(resource, destination):
 
 def verify_source_identity(formula, sbom):
     """Require the installed bottle's source identity to agree with its recipe."""
+    # Homebrew SBOM.spdx_id now hex-escapes punctuation (including dots).
+    # Older installed bottles retain the literal identifier. Accept either,
+    # but still require exactly one source and its exact recipe URL/checksum.
+    literal = f'Archive-{formula["name"]}-src'
+    escaped = re.sub(r'[^a-zA-Z0-9-]', lambda match: '.' + match[0].encode().hex() + '.', literal)
+    identifiers = {f'SPDXRef-{literal}', f'SPDXRef-{escaped}'}
     sources = [package for package in sbom['packages']
-               if package['SPDXID'] == f'SPDXRef-Archive-{formula["name"]}-src']
+               if package['SPDXID'] in identifiers]
     if len(sources) != 1:
         raise ValueError(f'Missing or ambiguous Homebrew source identity: {formula["name"]}')
     source = sources[0]
