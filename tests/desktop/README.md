@@ -791,3 +791,19 @@ The same native build/runtime selection and exact-app foreground driver pass the
 Mac `--duration` workflow (`test-results/desktop-KYJVaa/`, shutdown 0). Its generated
 input, supplied file choices and native timing IPC retain the preceding checkpoint's
 physical-input/audio/composition limitations. No Windows/Linux rerun is claimed.
+
+
+### Workspace decisions — November 11, 2026
+
+Unsaved changes, project-save failures, project-reference issues and legacy import
+share the hide/show/wait/answer owner. Save/exit policy and legacy publication stay
+with their existing owners. Sixteen new compiled-owner cases cover disposal,
+hide failure, late hide replies and restore failure across all four choice types.
+Workspace lifecycle reports 56 checks per engine; the full browser suite passes
+66/66 in Chromium/WebKit. The same full pinned static/build/unit command set as
+the preceding checkpoints passes (44 frontend and 520 Rust tests, 33 ignored;
+15 zero-test harnesses are not feature evidence). Separate subtitle-core checks pass.
+`npm run build:desktop-test` and `npm run test:desktop` pass with shutdown 0
+(`test-results/desktop-ReWnZk/`). No new native playback or Windows/Linux result is
+claimed for this presentation extraction; the preceding native evidence keeps
+its original source and input/audio/composition limits.

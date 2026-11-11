@@ -1,3 +1,10 @@
+<script module lang="ts">
+  export interface LegacyImportChoice {
+    outputPath: string | undefined;
+    open: boolean;
+  }
+</script>
+
 <script lang="ts">
   import { onMount } from 'svelte';
   import { LegacyImportSession } from './legacy-import-session.svelte';

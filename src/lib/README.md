@@ -10,6 +10,7 @@ mount and are disposed on unmount; they are not global stores.
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
+| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks and derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
 | `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
@@ -59,6 +60,15 @@ of making quit overwrite the previous project. Ordinary media open/close detache
 the project explicitly. Project save failures during quit retain the separate
 subtitle decision and offer retry, Save As, cancellation, or explicit exit.
 
+The four workspace decisions share `WorkspaceDecision`: it hides native
+video before presenting content, removes content before restoring diagnostics
+occlusion, and returns cancellation on disposal or restore failure. Hide failures
+still propagate to the requesting action. `protect()` and ProjectWorkflow retain
+their original save/exit continuations. Legacy import uses the same presentation/answer owner but releases the action
+gate after opening and retains confirming through restoration. Its publication
+owner and explicit protected project-open continuation remain separate. The cue
+menu keeps its selection/navigation and focus lifetime.
+
 Translation reference issues are resolved before unsaved-work protection. Missing
 references permit relocation; changed contents require explicit reload. App owns
 the transient decision dialog and native-video occlusion. ProjectWorkflow retries
@@ -93,7 +103,7 @@ path and then uses the ordinary unsaved-work decision. See the
 remaining native/scale acceptance.
 
 Disposal invalidates project continuations, stops polling, and discards queued loop
-previews. App disposes the shared `PendingDecision` owners, settling pending modal decisions as cancellation. In-flight IPC can
+previews. App disposes the shared `WorkspaceDecision` owners, settling pending modal decisions as cancellation. In-flight IPC can
 still complete in Rust; disposal does not roll back an accepted operation or
 pretend to cancel native IO. Late replies cannot update the disposed projection
 or dispatch the next project/Save As step.

@@ -1,3 +1,4 @@
+import { decisionCases } from './decisions';
 import { timelineCases } from './timeline.svelte';
 import { modalCases } from './modals';
 import { defaultTiming } from '../../../src/lib/magnetic-timing';
@@ -847,6 +848,7 @@ async function referenceQueryCases() {
 
 try {
   await modalCases(passed);
+  await decisionCases(passed);
   await timelineCases(passed);
   await documentCases();
   await mediaCases();
