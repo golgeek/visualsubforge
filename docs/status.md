@@ -28,6 +28,11 @@ VM, software-renderer and CI checks do not establish physical-device acceptance.
 | Windows and Linux | Default editor/save/recovery and plugin workflows have local ARM64 VM evidence; dated hosted x64/package checks are in [release preparation](releases.md) and [native reliability](native-reliability.md). Experimental adapters have [build recipes](native-runtime.md). | VM suites were not rerun for `11f0885`; earlier evidence is baseline only. Real guest choosers, physical GPU/audio, display-scale and installation acceptance remain separate gates. |
 | Native runtime and distribution | Pinned mpv recipes, SDK preflight, runtime identity, native build contracts and signed/notarized Mac preview candidates; [runtime contract](native-runtime.md), [release evidence](releases.md) and [preview acceptance](preview-acceptance.md). | Native Mac ANGLE/OpenGL, Windows D3D11 and Linux GTK remain experiments. Candidate audio/content, clocks, composition, lifetime and distribution gates remain open. A package or hosted pass is not release acceptance. |
 
+The November 11 timeline-owner extraction passes the full pinned checks, both
+browser engines, default desktop and a foreground-conditioned Mac duration-timing
+workflow; see the [desktop receipt](../tests/desktop/README.md#timeline-owner--november-11-2026).
+The native input/audio/composition limits remain unchanged.
+
 ## Remaining gates
 
 - Resolve the retained CoreAudio loop-clear interruption and Linux Pulse clock/content

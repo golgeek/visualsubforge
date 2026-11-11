@@ -114,6 +114,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | Owner | State it owns |
 | --- | --- |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
+| `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |

@@ -7,6 +7,7 @@ mount and are disposed on unmount; they are not global stores.
 | Owner | State and responsibility |
 | --- | --- |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
+| `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
@@ -18,7 +19,12 @@ mount and are disposed on unmount; they are not global stores.
 | `GapSession` | Gap-specific client adapter and no-media acknowledgment/eligibility over the shared review lifetime. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
-The `.svelte.ts` extension lets each owner use Svelte runes directly. Accepted
+The `.svelte.ts` extension lets each owner use Svelte runes directly. Owners
+that use `$effect`, including `TimelineView`, must be constructed during component
+initialization so Svelte owns their effects. Start polling on mount and call
+`dispose()` on unmount; alive/request guards suppress late replies. Timeline
+reset clears analysis and range together; project restoration calls `restore()`
+to apply its saved viewport with the existing media bounds. Accepted
 snapshots use `$state.raw`: replace them rather than mutating cue objects. App's
 `$derived` aliases are read-only views. Draft fields remain locally editable;
 Apply sends a captured generation/revision to Rust, which owns validation and
