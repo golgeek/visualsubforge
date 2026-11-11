@@ -119,6 +119,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
+| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks and derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
 | `App.svelte` and components | Layout, DOM/media callbacks, workspace eligibility, other modal presentation, view options and gesture callbacks. |
 

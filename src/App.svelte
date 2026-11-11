@@ -9,7 +9,9 @@
   import FontDialog from './lib/FontDialog.svelte';
   import ConversionDialog from './lib/ConversionDialog.svelte';
   import PluginDialog from './lib/PluginDialog.svelte';
-  import LegacyImportDialog from './lib/LegacyImportDialog.svelte';
+  import LegacyImportDialog, {
+    type LegacyImportChoice,
+  } from './lib/LegacyImportDialog.svelte';
   import CueMetrics from './lib/CueMetrics.svelte';
   import GapDialog from './lib/GapDialog.svelte';
   import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
@@ -36,7 +38,7 @@
   } from './lib/workspace-modal.svelte';
   import { TimingGesture } from './lib/timing-gesture.svelte';
   import { TimelineView } from './lib/timeline-view.svelte';
-  import { PendingDecision } from './lib/pending-decision';
+  import { WorkspaceDecision } from './lib/workspace-decision.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import {
     traceApplyInput,
@@ -519,21 +521,19 @@
     await workspaceModal.close();
   }
   async function closeLegacyImport(outputPath?: string, open = false) {
-    legacyImportOpen = false;
     workspaceBusy = true;
     if (outputPath) notice = `Project created at ${outputPath}`;
     try {
-      await tick();
-      if (!alive) return;
-      await occludeVideo(diagnostics);
-      decisionOpen = false;
-      // Restore through the existing preflight/draft protection/attachment flow.
-      if (open && outputPath) await projects.openPath(outputPath);
+      await legacyDecision.answer({ outputPath, open });
+      const choice = await legacyDecision.wait();
+      if (!alive || !choice) return;
+      // Restoration completes before entering the existing protected open flow.
+      if (choice.open && choice.outputPath)
+        await projects.openPath(choice.outputPath);
     } catch (e) {
       if (alive) error = String(e);
     } finally {
       if (alive) {
-        decisionOpen = false;
         workspaceBusy = false;
         await tick();
         if (alive && legacyImportReturn?.isConnected)
@@ -883,17 +883,51 @@
   });
   const duration = $derived(timeline.duration);
   let confirmation: HTMLDialogElement;
-  const subtitleDecision = new PendingDecision<'save' | 'discard' | 'cancel'>(
+  function decisionEffects(close: () => void) {
+    return {
+      occlude: occludeVideo,
+      remainingOcclusion: () => diagnostics,
+      close,
+      afterRender: tick,
+      reportError: (failure: unknown) => {
+        error = String(failure);
+      },
+    };
+  }
+  const subtitleDecision = new WorkspaceDecision<'save' | 'discard' | 'cancel'>(
     'cancel',
+    decisionEffects(() => confirmation.close()),
   );
-  let decisionOpen = $state(false);
-  const confirming = $derived(decisionOpen || workspaceModal.active);
+  const legacyDecision = new WorkspaceDecision<LegacyImportChoice | null>(
+    null,
+    decisionEffects(() => {
+      legacyImportOpen = false;
+    }),
+  );
   let projectExitError = $state<string | null>(null);
-  const projectExitDecision = new PendingDecision<ProjectExitChoice>('cancel');
+  const projectExitDecision = new WorkspaceDecision<ProjectExitChoice>(
+    'cancel',
+    decisionEffects(() => {
+      projectExitError = null;
+    }),
+  );
   let projectReferenceIssue = $state<ProjectReferenceIssue | null>(null);
-  const projectReferenceDecision = new PendingDecision<
+  const projectReferenceDecision = new WorkspaceDecision<
     'cancel' | 'choose' | 'reload'
-  >('cancel');
+  >(
+    'cancel',
+    decisionEffects(() => {
+      projectReferenceIssue = null;
+    }),
+  );
+  const confirming = $derived(
+    legacyDecision.visible ||
+      legacyDecision.closing ||
+      subtitleDecision.active ||
+      projectExitDecision.active ||
+      projectReferenceDecision.active ||
+      workspaceModal.active,
+  );
   let lastMenu = '';
   let alive = true;
   function docAct(action: DocumentAction, plan?: CueOperationPlan) {
@@ -954,35 +988,11 @@
   function occludeVideo(occluded: boolean) {
     return media.occlude(occluded);
   }
-  async function confirmChanges(): Promise<'save' | 'discard' | 'cancel'> {
-    decisionOpen = true;
-    try {
-      // The native child must be hidden before the dialog becomes visible.
-      await occludeVideo(true);
-      if (!alive) {
-        decisionOpen = false;
-        return 'cancel';
-      }
-      confirmation.showModal();
-      return subtitleDecision.wait();
-    } catch (e) {
-      decisionOpen = false;
-      throw e;
-    }
+  function confirmChanges() {
+    return subtitleDecision.ask(() => confirmation.showModal());
   }
-  async function answer(value: 'save' | 'discard' | 'cancel') {
-    if (!confirming) return;
-    confirmation.close();
-    decisionOpen = false;
-    await tick();
-    try {
-      // Diagnostics can remain open behind this dialog and still own occlusion.
-      await occludeVideo(diagnostics);
-      subtitleDecision.answer(alive ? value : 'cancel');
-    } catch (e) {
-      error = String(e);
-      subtitleDecision.answer('cancel');
-    }
+  function answer(value: 'save' | 'discard' | 'cancel') {
+    return subtitleDecision.answer(value);
   }
   async function protect(saveContext?: () => Promise<boolean>) {
     if (!alive) return false;
@@ -1030,66 +1040,21 @@
   $effect(() => {
     if (!translationOpen) translation.request(doc, null, 0, null, false);
   });
-  async function resolveProjectReference(issue: ProjectReferenceIssue) {
-    decisionOpen = true;
-    try {
-      await occludeVideo(true);
-      if (!alive) {
-        decisionOpen = false;
-        return 'cancel' as const;
-      }
-      const decision = projectReferenceDecision.wait();
+  function resolveProjectReference(issue: ProjectReferenceIssue) {
+    return projectReferenceDecision.ask(() => {
       projectReferenceIssue = issue;
-      return decision;
-    } catch (failure) {
-      decisionOpen = false;
-      throw failure;
-    }
+    });
   }
-  async function answerProjectReference(
-    choice: 'cancel' | 'choose' | 'reload',
-  ) {
-    if (!projectReferenceDecision.pending || projectReferenceIssue === null)
-      return;
-    projectReferenceIssue = null;
-    decisionOpen = false;
-    await tick();
-    try {
-      await occludeVideo(diagnostics);
-      projectReferenceDecision.answer(alive ? choice : 'cancel');
-    } catch (failure) {
-      error = String(failure);
-      projectReferenceDecision.answer('cancel');
-    }
+  function answerProjectReference(choice: 'cancel' | 'choose' | 'reload') {
+    return projectReferenceDecision.answer(choice);
   }
-  async function projectSaveFailed(error: unknown): Promise<ProjectExitChoice> {
-    decisionOpen = true;
-    try {
-      await occludeVideo(true);
-      if (!alive) {
-        decisionOpen = false;
-        return 'cancel';
-      }
-      const decision = projectExitDecision.wait();
-      projectExitError = String(error);
-      return decision;
-    } catch (error) {
-      decisionOpen = false;
-      throw error;
-    }
+  function projectSaveFailed(failure: unknown): Promise<ProjectExitChoice> {
+    return projectExitDecision.ask(() => {
+      projectExitError = String(failure);
+    });
   }
-  async function answerProjectExit(choice: ProjectExitChoice) {
-    if (!projectExitDecision.pending || projectExitError === null) return;
-    projectExitError = null;
-    decisionOpen = false;
-    await tick();
-    try {
-      await occludeVideo(diagnostics);
-      projectExitDecision.answer(alive ? choice : 'cancel');
-    } catch (failure) {
-      error = String(failure);
-      projectExitDecision.answer('cancel');
-    }
+  function answerProjectExit(choice: ProjectExitChoice) {
+    return projectExitDecision.answer(choice);
   }
   function act(action: MediaAction) {
     cancelHeldTiming();
@@ -1288,10 +1253,9 @@
             document.activeElement instanceof HTMLElement
               ? document.activeElement
               : null;
-          await occludeVideo(true);
-          if (!alive) break;
-          decisionOpen = true;
-          legacyImportOpen = true;
+          await legacyDecision.open(() => {
+            legacyImportOpen = true;
+          });
           break;
         case 'saveProject':
           await projects.save(false);
@@ -1602,6 +1566,7 @@
       subtitles.dispose();
       quality.dispose();
       media.dispose();
+      legacyDecision.dispose();
       subtitleDecision.dispose();
       projectExitDecision.dispose();
       projectReferenceDecision.dispose();

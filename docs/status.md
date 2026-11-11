@@ -33,6 +33,10 @@ browser engines, default desktop and a foreground-conditioned Mac duration-timin
 workflow; see the [desktop receipt](../tests/desktop/README.md#timeline-owner--november-11-2026).
 The native input/audio/composition limits remain unchanged.
 
+The following workspace-decision extraction also passes all pinned checks, both
+browser engines and default desktop; its [decision checkpoint](../tests/desktop/README.md#workspace-decisions--november-11-2026)
+covers all four choice types without changing save/exit policy.
+
 ## Remaining gates
 
 - Resolve the retained CoreAudio loop-clear interruption and Linux Pulse clock/content

@@ -1,5 +1,5 @@
-// Shared by the two workspace save dialogs. Presentation and native occlusion
-// remain in App; this owner only settles the outstanding decision exactly once.
+// Promise settlement shared by workspace decisions. Presentation and native
+// occlusion belong to WorkspaceDecision; this class settles an answer once.
 export class PendingDecision<Choice> {
   private resolve: ((choice: Choice) => void) | null = null;
   private disposed = false;
