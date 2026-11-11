@@ -774,3 +774,20 @@ at launch, as described in the Mac build guide. This run foregrounds the exact
 owned app every second; generated WebView input and supplied file selections do
 not establish physical input, audio, native composition or platform acceptance.
 No new Windows/Linux or native-runtime adoption result is claimed.
+
+
+### Timing gesture owner — November 11, 2026
+
+`TimingGesture` now owns held-Space and boundary-preview state. Before extraction,
+existing browser cases were confirmed to cover tap-to-pause release, hold-to-create
+release, and cancelled drags. The focused fast-editing/magnetic-timing/cue-timing
+suites pass 23/15/21 checks per engine after extraction; no duplicate cases were needed.
+
+The same full pinned command set listed in the timeline-owner checkpoint passes:
+44 frontend tests, 520 Rust tests (33 ignored; 15 zero-test harnesses), and all
+66 Chromium/WebKit browser cases. `npm run build:desktop-test` followed by
+`npm run test:desktop` passes (`test-results/desktop-2Rgak2/`, shutdown 0).
+The same native build/runtime selection and exact-app foreground driver pass the
+Mac `--duration` workflow (`test-results/desktop-KYJVaa/`, shutdown 0). Its generated
+input, supplied file choices and native timing IPC retain the preceding checkpoint's
+physical-input/audio/composition limitations. No Windows/Linux rerun is claimed.

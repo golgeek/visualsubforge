@@ -1,12 +1,13 @@
 # Frontend ownership
 
 `App.svelte` composes the workspace and owns DOM layout, focus, modal presentation,
-view options, and transient gestures. Its Svelte session objects live for one
+view options, and workspace action dispatch. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
+| `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
@@ -20,7 +21,7 @@ mount and are disposed on unmount; they are not global stores.
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Owners
-that use `$effect`, including `TimelineView`, must be constructed during component
+that use `$effect`, including `TimelineView` and `TimingGesture`, must be constructed during component
 initialization so Svelte owns their effects. Start polling on mount and call
 `dispose()` on unmount; alive/request guards suppress late replies. Timeline
 reset clears analysis and range together; project restoration calls `restore()`
@@ -35,7 +36,10 @@ If the target disappeared or was replaced, selection clears while text remains
 available to copy. Selection and Revert keep their ordinary behavior. Failed refresh
 preserves the prior projection and draft. Newer input during a successful reply
 remains a draft and prevents save/navigation continuation. Timing gestures deliberately
-send the version captured when the gesture began.
+send the version captured when the gesture began. `TimingGesture.active` covers
+boundary previews and held-cue commits; App includes it in `busy`. A held Space
+preview remains nonblocking, so playback following continues. Disposal suppresses
+late messages and loop restoration, while already accepted Rust edits remain accepted.
 
 ASS/SSA snapshots include read-only styles/script settings and their 10 ms time
 grid. `StyleInspector` owns only its inspected style selection; assignment belongs

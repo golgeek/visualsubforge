@@ -20,11 +20,7 @@
   import { QualitySession } from './lib/quality-session.svelte';
   import { rate } from './lib/quality-display';
   import { isTauri } from '@tauri-apps/api/core';
-  import {
-    defaultTiming,
-    snapBoundary,
-    type TimingSettings,
-  } from './lib/magnetic-timing';
+  import { defaultTiming } from './lib/magnetic-timing';
   import {
     defaultPreferences,
     getPreferences,
@@ -38,6 +34,7 @@
     type AuthoringModal,
     type TimingKind,
   } from './lib/workspace-modal.svelte';
+  import { TimingGesture } from './lib/timing-gesture.svelte';
   import { TimelineView } from './lib/timeline-view.svelte';
   import { PendingDecision } from './lib/pending-decision';
   import { onMount, tick, untrack } from 'svelte';
@@ -57,7 +54,6 @@
     type DocumentAction,
     type DocumentSnapshot,
     type WorkspaceAction,
-    type Cue,
   } from './lib/client';
   import { clamp, formatTime, parseTime } from './lib/timeline';
   import {
@@ -66,12 +62,6 @@
     type EditingShortcut,
   } from './lib/shortcuts';
   import CueContextMenu from './lib/CueContextMenu.svelte';
-  import {
-    beginHeldTiming,
-    advanceHeldTiming,
-    resolveTimingRelease,
-    type HeldTiming,
-  } from './lib/hold-timing';
   import {
     cueOperationLabels,
     planCueOperation,
@@ -93,13 +83,7 @@
   } from './lib/ProjectSaveFailureDialog.svelte';
   import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
   import CueTiming from './lib/CueTiming.svelte';
-  import {
-    beginTimingEdit,
-    previewBoundary,
-    timingAction,
-    type TimingEdit,
-    type CueBoundary,
-  } from './lib/cue-timing';
+  import type { CueBoundary } from './lib/cue-timing';
   const subtitles = new DocumentSession();
   const translation = new TranslationSession(subtitles);
   let translationOpen = $state(false);
@@ -112,6 +96,42 @@
   const media = new MediaSession((failure) => {
     if (alive) error = String(failure);
   });
+  const timeline: TimelineView = new TimelineView({
+    status: () => status,
+    mediaPath: () => mediaPath,
+    follow: () => follow,
+    preview: () => timingEdit?.preview ?? null,
+    gesture: () => waveformGesture,
+    pending: () => mediaPending,
+    cues: () => doc.cues,
+    gap: () => timingSettings.cueGapMs,
+    selectRange: (session, next) => liveLoop.update(session, next),
+  });
+  const gestures: TimingGesture = new TimingGesture(
+    subtitles,
+    media,
+    timeline,
+    {
+      busy: () => busy,
+      confirming: () => confirming,
+      ready: () => ready,
+      menu: () => cueMenu,
+      cuts: () => sceneCuts,
+      settings: () => timingSettings,
+      operationContext: () => operationContext,
+      command: docAct,
+      run: (action) => run(action),
+      suspendFollowing: suspendCueFollowing,
+      revealSelection,
+      focusWaveform,
+      error: (message) => {
+        error = message;
+      },
+      notice: (message) => {
+        notice = message;
+      },
+    },
+  );
   const status = $derived(media.status);
   const doc = $derived(subtitles.snapshot);
   let recovery = $state<RecoveryStatus>({ entries: [], error: null });
@@ -159,9 +179,8 @@
   }
   let textEditor: HTMLTextAreaElement;
   let waveHost: HTMLDivElement;
-  let timingMode = $state(false);
-  let heldTiming = $state<HeldTiming | null>(null);
-  let timingPressedAt = 0;
+  const timingMode = $derived(gestures.mode);
+  const heldTiming = $derived(gestures.held);
   let menuEpoch = 0;
   let menuReturn: HTMLElement | null = null;
   let cueMenu = $state<{
@@ -213,7 +232,7 @@
     inRange: boolean,
   ) {
     if (busy || confirming || !ready || (cueId === null && !inRange)) return;
-    heldTiming = null;
+    gestures.cancelHeld();
     const candidate = {
       x,
       y,
@@ -286,55 +305,10 @@
     }
   }
   function cancelHeldTiming() {
-    heldTiming = null;
+    gestures.cancelHeld();
   }
-  $effect(() => {
-    if (!heldTiming) return;
-    const next =
-      timingMode && !mediaPending
-        ? advanceHeldTiming(heldTiming, doc, status)
-        : null;
-    if (!next || next.last !== heldTiming.last) heldTiming = next;
-  });
-  async function releaseHeldTiming() {
-    const held = heldTiming;
-    heldTiming = null;
-    if (!held || busy || confirming || cueMenu) return;
-    const result = resolveTimingRelease(
-      held,
-      doc,
-      status,
-      performance.now() - timingPressedAt,
-    );
-    if (!result) {
-      notice = 'Timing cancelled: playback changed or the interval was empty.';
-      return;
-    }
-    if (result.kind === 'pause') {
-      await run('play');
-      return;
-    }
-    const marked = result.range;
-    workspaceBusy = true;
-    error = '';
-    try {
-      await applyDraft();
-      const plan = planCueOperation('createCue', {
-        ...operationContext,
-        range: marked,
-        draftDirty: false,
-      });
-      suspendCueFollowing();
-      await docAct(plan.action, plan);
-      timeline.range = marked;
-      await revealSelection();
-      focusWaveform();
-      notice = 'Cue created · hold Space for the next cue; Enter edits text.';
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+  function releaseHeldTiming() {
+    return gestures.releaseHeld();
   }
   async function editingKey(action: EditingShortcut) {
     if (busy || confirming || !ready || cueMenu || waveformGesture) return;
@@ -401,7 +375,9 @@
     },
   });
   let workspaceBusy = $state(false);
-  const busy = $derived(workspaceBusy || workspaceModal.opening);
+  const busy = $derived(
+    workspaceBusy || workspaceModal.opening || gestures.active,
+  );
   let textFocused = $state(false);
   let follow = $state(true);
   let waveformGesture = $state(false);
@@ -718,103 +694,24 @@
     doc.format?.name === 'vtt' ? 'webvtt_utf16_v1' : 'vss_utf16_v1',
   );
   const draftDirty = $derived(subtitles.dirty);
-  let timingEdit = $state<TimingEdit | null>(null);
-  let timingMagnets: {
-    cues: Cue[];
-    cuts: number[];
-    settings: TimingSettings;
-  } | null = null;
-  let timingRangeBefore: [number, number] | null = null;
+  const timingEdit = $derived(gestures.edit);
   const liveLoop = media.loop;
   function selectRange(next: [number, number]) {
     timeline.selectRange(next);
   }
   const timingCue = $derived(timingEdit?.preview ?? cue);
-  function beginTiming(): boolean {
-    cancelHeldTiming();
-    if (busy || confirming || !ready || !status.loaded || mediaPending)
-      return false;
-    try {
-      timingEdit = beginTimingEdit(doc, selected, status.session, draftDirty);
-      timingRangeBefore = range;
-      timingMagnets = {
-        cues: doc.cues,
-        cuts: [...sceneCuts],
-        settings: { ...timingSettings },
-      };
-      workspaceBusy = true;
-      suspendCueFollowing();
-      error = '';
-      notice = 'Timing preview · release to apply, Escape to cancel';
-      return true;
-    } catch (e) {
-      error = String(e);
-      return false;
-    }
+  function beginTiming() {
+    return gestures.beginBoundary();
   }
   function previewTiming(
     boundary: CueBoundary,
     milliseconds: number,
     pointer?: { bypass: boolean; millisecondsPerPixel: number },
   ) {
-    if (timingEdit && timingMagnets) {
-      const result = snapBoundary(
-        milliseconds,
-        boundary,
-        boundary === 'start'
-          ? timingEdit.preview.endMs
-          : timingEdit.preview.startMs,
-        timingEdit.original.id,
-        timingMagnets.cues,
-        timingMagnets.cuts,
-        timingMagnets.settings,
-        (pointer?.millisecondsPerPixel ?? 0) *
-          timingMagnets.settings.snapDistancePx,
-        Math.floor(duration * 1000),
-        !pointer || pointer.bypass,
-      );
-      snapHint = result.target ? `Snapped to ${result.target}` : '';
-      timingEdit = previewBoundary(timingEdit, boundary, result.milliseconds);
-      selectRange([
-        timingEdit.preview.startMs / 1000,
-        timingEdit.preview.endMs / 1000,
-      ]);
-    }
+    gestures.preview(boundary, milliseconds, pointer);
   }
-  async function finishTiming(commit: boolean) {
-    const edit = timingEdit;
-    if (!edit) return;
-    let accepted = false;
-    try {
-      const action = commit
-        ? timingAction(edit, doc, status.session, selected)
-        : null;
-      if (action) {
-        // Send the gesture's captured version, never substitute the latest one.
-        await subtitles.command(action, {
-          version: edit,
-          preferred: edit.original.id,
-        });
-      }
-      accepted = commit;
-      notice = commit ? 'Timing applied' : 'Timing cancelled';
-    } catch (e) {
-      error = String(e);
-    } finally {
-      const finalCue = accepted ? edit.preview : edit.original;
-      timeline.range = accepted
-        ? [finalCue.startMs / 1000, finalCue.endMs / 1000]
-        : timingRangeBefore;
-      liveLoop.update(
-        edit.mediaSession,
-        range ?? [finalCue.startMs / 1000, finalCue.endMs / 1000],
-      );
-      await liveLoop.flush();
-      timingEdit = null;
-      timingMagnets = null;
-      snapHint = '';
-      workspaceBusy = false;
-    }
+  function finishTiming(commit: boolean) {
+    return gestures.finish(commit);
   }
   let diagnostics = $state(false);
   let video: HTMLDivElement;
@@ -888,17 +785,6 @@
       paneHeight - topPixels - tableMinimum - 12,
     ),
   );
-  const timeline = new TimelineView({
-    status: () => status,
-    mediaPath: () => mediaPath,
-    follow: () => follow,
-    preview: () => timingEdit?.preview ?? null,
-    gesture: () => waveformGesture,
-    pending: () => mediaPending,
-    cues: () => doc.cues,
-    gap: () => timingSettings.cueGapMs,
-    selectRange: (session, next) => liveLoop.update(session, next),
-  });
   const start = $derived(timeline.start);
   const span = $derived(timeline.span);
   const range = $derived(timeline.range);
@@ -943,7 +829,7 @@
   const wave = $derived(timeline.wave);
   const waveGeneration = $derived(timeline.generation);
   let timingSettings = $state({ ...defaultTiming });
-  let snapHint = $state('');
+  const snapHint = $derived(gestures.snapHint);
   let sceneCuts = $state<number[]>([]);
   const waveError = $derived(timeline.error);
   const waveWidth = $derived(timeline.width);
@@ -1719,6 +1605,7 @@
       subtitleDecision.dispose();
       projectExitDecision.dispose();
       projectReferenceDecision.dispose();
+      gestures.dispose();
       timeline.dispose();
       unlisten();
       observer.disconnect();
@@ -1810,12 +1697,7 @@
       e.preventDefault();
       if (e.repeat || busy || confirming || !ready) return;
       if (timingMode && !status.paused) {
-        suspendCueFollowing();
-        timingPressedAt = performance.now();
-        heldTiming = beginHeldTiming(doc, status);
-        notice = heldTiming
-          ? 'Tap Space to pause; hold at least 400 ms to create a cue. Escape cancels.'
-          : 'Start playback with ⌘/Ctrl+Alt+Enter, then hold Space to mark a cue.';
+        gestures.beginHeld();
       } else void run('play');
     }
   }}
@@ -2226,7 +2108,7 @@
             disabled={busy || confirming}
             onchange={(e) => {
               cancelHeldTiming();
-              timingMode = e.currentTarget.checked;
+              gestures.mode = e.currentTarget.checked;
               focusWaveform();
             }}
           />

@@ -114,12 +114,13 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | Owner | State it owns |
 | --- | --- |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
+| `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
-| `App.svelte` and components | Layout, DOM/media callbacks, workspace eligibility, other modal presentation, view options and gesture previews. |
+| `App.svelte` and components | Layout, DOM/media callbacks, workspace eligibility, other modal presentation, view options and gesture callbacks. |
 
 The workspace modal owner waits for native-video hiding before exposing content.
 Closing removes content, waits for rendering, restores the remaining diagnostics
