@@ -37,6 +37,10 @@ The following workspace-decision extraction also passes all pinned checks, both
 browser engines and default desktop; its [decision checkpoint](../tests/desktop/README.md#workspace-decisions--november-11-2026)
 covers all four choice types without changing save/exit policy.
 
+The final [component extraction](../tests/desktop/README.md#workspace-components--november-11-2026)
+also passes the full checks, both browser engines and default desktop. Four
+normal/narrow Chromium screenshot pairs match the preceding workspace exactly.
+
 ## Remaining gates
 
 - Resolve the retained CoreAudio loop-clear interruption and Linux Pulse clock/content

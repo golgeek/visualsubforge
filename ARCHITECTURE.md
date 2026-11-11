@@ -50,8 +50,10 @@ shared operations. Actual build dependencies are declared in each `Cargo.toml`.
 
 These boundaries are partly logical. Desktop document-session coordination still
 lives in `src-tauri/src/document.rs` and its submodules, alongside IPC projections.
-`App.svelte` still contains substantial interaction coordination. Moving those
-responsibilities is planned, not an already completed separation.
+`App.svelte` is the workspace composition root: it constructs sessions, wires
+callbacks, derives the shared gates, owns workspace messages and dispatches actions.
+Cue-table, cue-editor and waveform markup live in components that receive the
+relevant owners. DOM focus and native layout coordination remain at the root.
 
 ## Start reading the code
 
@@ -115,6 +117,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | --- | --- |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
+| `CueTableView` | Virtual-row offset/height, visible cues and active cue IDs. App supplies accepted cues/playback reads and owns DOM observation cleanup. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
@@ -134,8 +137,9 @@ continuations retain their separate owners. Feature visibility and timing varian
 Statistics rechecks its captured document/media/quality/scene version after close
 before protected navigation; text navigation rechecks document identity and drafts
 before selecting a cue and restoring its UTF-16 selection. Settings persistence
-epochs and picker guards remain in the dialog. Legacy import, cue menus and project
-decisions keep their separate presentation/continuation owners.
+epochs and picker guards remain in the dialog. Legacy import and project decisions
+share WorkspaceDecision presentation; publication and save/exit continuations
+remain separate. The cue menu retains its selection/navigation and focus lifetime.
 
 Session objects live for a component/workspace mount and are disposed explicitly.
 Accepted snapshots use replacement-only `$state.raw`; components do not mutate

@@ -1,13 +1,15 @@
 # Frontend ownership
 
-`App.svelte` composes the workspace and owns DOM layout, focus, modal presentation,
-view options, and workspace action dispatch. Its Svelte session objects live for one
+`App.svelte` is the workspace composition root. It constructs sessions, wires
+effect callbacks, derives `busy`/`confirming`, owns workspace `error`/`notice`, and
+dispatches actions through a readable switch. It coordinates DOM layout and focus. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
+| `CueTableView` | Virtual-list scroll offset/height, visible rows and active cue IDs, read from accepted subtitle and playback callbacks. Synchronous setters ignore updates after disposal. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks and derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
@@ -20,6 +22,15 @@ mount and are disposed on unmount; they are not global stores.
 | `TimingRepairSession` | Shared gap/scene/duration/batch review requests, bounded pages, context guards and disposal. Rust owns calculation and acceptance; DocumentSession serializes accepted replies with ordinary edits. |
 | `GapSession` | Gap-specific client adapter and no-media acknowledgment/eligibility over the shared review lifetime. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
+
+`CueTable`, `CueEditor` and `WaveformPanel` receive the relevant session owners.
+The small `WorkspaceControls` interface exposes App's read-only gates, action
+switch and notice callback. Components keep their scoped styles and DOM bindings;
+App supplies selection, formatting, focus and navigation callbacks. `CueTableView`
+is synchronous, so it needs no request epoch; the root disconnects its resize
+observer on unmount. `pane-layout.ts` computes measured minima and splitter bounds
+without DOM access. The shared measurement action schedules observer updates on
+the next animation frame and cancels that callback during cleanup.
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Owners
 that use `$effect`, including `TimelineView` and `TimingGesture`, must be constructed during component
@@ -70,8 +81,8 @@ owner and explicit protected project-open continuation remain separate. The cue
 menu keeps its selection/navigation and focus lifetime.
 
 Translation reference issues are resolved before unsaved-work protection. Missing
-references permit relocation; changed contents require explicit reload. App owns
-the transient decision dialog and native-video occlusion. ProjectWorkflow retries
+references permit relocation; changed contents require explicit reload. WorkspaceDecision owns
+the presentation/occlusion ordering; App supplies dialog content and media callbacks. ProjectWorkflow retries
 preflight with the chosen override; Rust owns the captured reference and its
 identity. If protecting current work saves its project, the next project is
 preflighted again because publication invalidates pending attachment tokens.

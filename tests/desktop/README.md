@@ -807,3 +807,24 @@ the preceding checkpoints passes (44 frontend and 520 Rust tests, 33 ignored;
 (`test-results/desktop-ReWnZk/`). No new native playback or Windows/Linux result is
 claimed for this presentation extraction; the preceding native evidence keeps
 its original source and input/audio/composition limits.
+
+
+### Workspace components — November 11, 2026
+
+CueTable, CueEditor and WaveformPanel now receive session owners and retain their
+scoped styles. The pure pane-layout tests cover measured controls, minimum content
+sizes and splitter extremes. The full pinned command set from the preceding
+checkpoints passes: 47 frontend tests, 520 Rust tests (33 ignored, 15 zero-test
+harnesses), all static/build/drift checks and 66/66 Chromium/WebKit browser cases.
+Separate subtitle-core check/test/Clippy commands also pass.
+`npm run build:desktop-test` and `npm run test:desktop` pass, with shutdown 0
+(`test-results/desktop-WkNiyw/`).
+
+Against parent `25af30e`, Chromium screenshots for the fast-editing and
+quality-checking workspaces are byte-identical at 1280px and 760px widths.
+Panel, row, editor and waveform bounds and computed styles also match exactly.
+The comparison holds each completed modeled fixture before its normal unmount;
+it does not modify production code. Local comparison artifacts are in
+`test-results/composition-root/pr4/`. This is layout evidence, not physical-input
+or native-video composition acceptance. No new native playback/Windows/Linux run
+is claimed for this markup extraction.
