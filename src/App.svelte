@@ -38,6 +38,7 @@
     type AuthoringModal,
     type TimingKind,
   } from './lib/workspace-modal.svelte';
+  import { TimelineView } from './lib/timeline-view.svelte';
   import { PendingDecision } from './lib/pending-decision';
   import { onMount, tick, untrack } from 'svelte';
   import {
@@ -52,20 +53,13 @@
     discardRecovery,
     type RecoveryStatus,
     type ProjectReferenceIssue,
-    waveformStart,
-    waveformView,
     type MediaAction,
     type DocumentAction,
     type DocumentSnapshot,
     type WorkspaceAction,
-    type WaveformView,
     type Cue,
   } from './lib/client';
-  import { clamp, formatTime, parseTime, viewport } from './lib/timeline';
-  import {
-    playbackViewportStart,
-    waveformRequestWindow,
-  } from './lib/waveform-navigation';
+  import { clamp, formatTime, parseTime } from './lib/timeline';
   import {
     windowsShortcut,
     editingShortcut,
@@ -332,7 +326,7 @@
       });
       suspendCueFollowing();
       await docAct(plan.action, plan);
-      range = marked;
+      timeline.range = marked;
       await revealSelection();
       focusWaveform();
       notice = 'Cue created · hold Space for the next cue; Enter edits text.';
@@ -733,8 +727,7 @@
   let timingRangeBefore: [number, number] | null = null;
   const liveLoop = media.loop;
   function selectRange(next: [number, number]) {
-    range = next;
-    liveLoop.update(status.session, next);
+    timeline.selectRange(next);
   }
   const timingCue = $derived(timingEdit?.preview ?? cue);
   function beginTiming(): boolean {
@@ -809,7 +802,7 @@
       error = String(e);
     } finally {
       const finalCue = accepted ? edit.preview : edit.original;
-      range = accepted
+      timeline.range = accepted
         ? [finalCue.startMs / 1000, finalCue.endMs / 1000]
         : timingRangeBefore;
       liveLoop.update(
@@ -895,9 +888,20 @@
       paneHeight - topPixels - tableMinimum - 12,
     ),
   );
-  let start = $state(0);
-  let span = $state(20);
-  let range = $state<[number, number] | null>(null);
+  const timeline = new TimelineView({
+    status: () => status,
+    mediaPath: () => mediaPath,
+    follow: () => follow,
+    preview: () => timingEdit?.preview ?? null,
+    gesture: () => waveformGesture,
+    pending: () => mediaPending,
+    cues: () => doc.cues,
+    gap: () => timingSettings.cueGapMs,
+    selectRange: (session, next) => liveLoop.update(session, next),
+  });
+  const start = $derived(timeline.start);
+  const span = $derived(timeline.span);
+  const range = $derived(timeline.range);
   const operationContext = $derived({
     timeStepMs,
     cues: doc.cues,
@@ -936,24 +940,14 @@
       },
     ),
   );
-  let wave = $state<WaveformView | null>(null);
-  let waveGeneration = $state<number | null>(null);
+  const wave = $derived(timeline.wave);
+  const waveGeneration = $derived(timeline.generation);
   let timingSettings = $state({ ...defaultTiming });
   let snapHint = $state('');
   let sceneCuts = $state<number[]>([]);
-  let waveError = $state('');
-  let waveWidth = $state(600);
-  let waveKey = '';
-  let waveRequest = 0;
-  const waveCues = $derived(
-    doc.cues
-      .map((c) => (c.id === timingEdit?.preview.id ? timingEdit.preview : c))
-      .filter(
-        (c) =>
-          (c.endMs + timingSettings.cueGapMs) / 1000 >= start &&
-          (c.startMs - timingSettings.cueGapMs) / 1000 <= start + span,
-      ),
-  );
+  const waveError = $derived(timeline.error);
+  const waveWidth = $derived(timeline.width);
+  const waveCues = $derived(timeline.waveCues);
   let scrollTop = $state(0);
   let listHeight = $state(150);
   let list: HTMLDivElement;
@@ -1001,9 +995,7 @@
     )
       pendingProblem = null;
   });
-  const duration = $derived(
-    Math.max(status.durationSeconds ?? 0, wave?.durationSeconds ?? 0),
-  );
+  const duration = $derived(timeline.duration);
   let confirmation: HTMLDialogElement;
   const subtitleDecision = new PendingDecision<'save' | 'discard' | 'cancel'>(
     'cancel',
@@ -1046,9 +1038,7 @@
       // Suspend analysis until the newly opened native session has a path.
       mediaPath = '';
       restoredScenes = null;
-      wave = null;
-      waveGeneration = null;
-      range = null;
+      timeline.reset();
     },
     mediaOpened: (path) => {
       mediaPath = path;
@@ -1062,20 +1052,7 @@
       cueFollowing = options.followSubtitle ? 'following' : 'off';
       showScenes = options.showScenes;
       timingSettings = { ...(options.timing ?? preferences.timing) };
-      span = Math.max(
-        0.01,
-        Math.min(
-          options.waveformSpan,
-          status.durationSeconds ?? options.waveformSpan,
-        ),
-      );
-      start = Math.max(
-        0,
-        Math.min(
-          options.waveformStart,
-          Math.max(0, (status.durationSeconds ?? 0) - span),
-        ),
-      );
+      timeline.restore(options.waveformStart, options.waveformSpan);
     },
     restoreScenes: (session, generation) => {
       restoredScenes = { session, generation };
@@ -1453,10 +1430,7 @@
         case 'openMedia': {
           const path = await chooseFile('media', mediaPath || null);
           if (path) {
-            wave = null;
-            waveGeneration = null;
-            range = null;
-            start = 0;
+            timeline.reset(true);
             await act({ kind: 'open', path, hardware });
             mediaPath = path;
             await projects.detach();
@@ -1471,9 +1445,7 @@
           await projects.detach();
           timingSettings = { ...preferences.timing };
           restoredScenes = null;
-          wave = null;
-          waveGeneration = null;
-          range = null;
+          timeline.reset();
           break;
         case 'openSubtitles': {
           const path = await chooseFile('subtitles', doc.path);
@@ -1573,7 +1545,7 @@
     workspaceBusy = true;
     try {
       await act({ kind: 'track', id });
-      waveKey = '';
+      timeline.invalidateTrack();
     } catch (e) {
       error = String(e);
     } finally {
@@ -1581,25 +1553,8 @@
     }
   }
   function zoom(factor: number) {
-    if (busy) return;
-    const center = clamp(
-      status.positionSeconds ?? start + span / 2,
-      start,
-      start + span,
-    );
-    const next = viewport(
-      center - (span * factor) / 2,
-      span * factor,
-      duration || 20,
-    );
-    start = next.start;
-    span = next.span;
+    if (!busy) timeline.zoom(factor);
   }
-  $effect(() => {
-    const next = viewport(start, span, duration || 20);
-    if (next.start !== start) start = next.start;
-    if (next.span !== span) span = next.span;
-  });
   $effect(() => {
     const state = {
       diagnostics,
@@ -1632,41 +1587,6 @@
     if (key === lastMenu) return;
     lastMenu = key;
     void updateMenu(state).catch((e) => (error = String(e)));
-  });
-  $effect(() => {
-    const track = status.audioTracks.find((t) => t.id === status.audioTrack);
-    const key =
-      status.loaded && mediaPath && track
-        ? `${status.session}:${track.id}:${mediaPath}`
-        : '';
-    if (key === waveKey) return;
-    waveKey = key;
-    const request = ++waveRequest;
-    wave = null;
-    waveError = '';
-    waveGeneration = null;
-    if (!key || !track) return;
-    void waveformStart(mediaPath, track.audioOrdinal, status.session)
-      .then((generation) => {
-        if (alive && request === waveRequest) waveGeneration = generation;
-      })
-      .catch((e) => {
-        if (alive && request === waveRequest) waveError = String(e);
-      });
-  });
-  $effect(() => {
-    const position = status.positionSeconds;
-    if (
-      follow &&
-      !timingEdit &&
-      !waveformGesture &&
-      !mediaPending &&
-      !status.seeking &&
-      status.loaded &&
-      position !== null
-    ) {
-      start = playbackViewportStart(position, span, duration);
-    }
   });
   function suspendCueFollowing() {
     cueFollowing = changeFollowing(cueFollowing, 'suspend', draftDirty);
@@ -1713,7 +1633,6 @@
   });
   onMount(() => {
     alive = true;
-    let wavePolling = false;
     let unlisten = () => {};
     void Promise.all([
       subtitles.command({ kind: 'status' }),
@@ -1741,39 +1660,6 @@
         else stop();
       })
       .catch((e) => (error = String(e)));
-    let lastWave = '';
-    async function pollWave() {
-      if (wavePolling || waveGeneration === null) return;
-      const generation = waveGeneration;
-      const bounds = waveformRequestWindow(start, span, duration, waveWidth);
-      const key = JSON.stringify([generation, bounds]);
-      if (key === lastWave && !wave?.running) return;
-      wavePolling = true;
-      try {
-        const next = await waveformView(
-          generation,
-          bounds.start,
-          bounds.end,
-          bounds.pixels,
-        );
-        if (
-          alive &&
-          generation === waveGeneration &&
-          key ===
-            JSON.stringify([
-              waveGeneration,
-              waveformRequestWindow(start, span, duration, waveWidth),
-            ])
-        ) {
-          wave = next;
-          lastWave = key;
-        }
-      } catch (e) {
-        if (alive && generation === waveGeneration) waveError = String(e);
-      } finally {
-        wavePolling = false;
-      }
-    }
     let layoutPending = false;
     let lastLayout = '';
     async function layout() {
@@ -1817,9 +1703,7 @@
     listObserver.observe(list);
     window.addEventListener('resize', layout);
     window.addEventListener('scroll', layout, true);
-    const timer = setInterval(() => {
-      void pollWave();
-    }, 100);
+    timeline.startPolling();
     const layoutTimer = setInterval(() => void layout(), 100);
     const recoveryTimer = setInterval(() => void refreshRecovery(), 5000);
     void refreshRecovery();
@@ -1835,11 +1719,10 @@
       subtitleDecision.dispose();
       projectExitDecision.dispose();
       projectReferenceDecision.dispose();
-      waveRequest++;
+      timeline.dispose();
       unlisten();
       observer.disconnect();
       listObserver.disconnect();
-      clearInterval(timer);
       clearInterval(layoutTimer);
       clearInterval(recoveryTimer);
       ++recoveryRequest;
@@ -2097,8 +1980,8 @@
           ><button
             disabled={!status.loaded || busy}
             onclick={() => {
-              start = 0;
-              span = duration;
+              timeline.start = 0;
+              timeline.span = duration;
             }}>Fit</button
           >
         </div>
@@ -2135,12 +2018,12 @@
                 selectRange(r);
               }
             }}
-            onwidth={(w) => (waveWidth = w)}
+            onwidth={(w) => (timeline.width = w)}
             onnavigate={(next) => {
               cancelHeldTiming();
               follow = false;
-              start = next.start;
-              span = next.span;
+              timeline.start = next.start;
+              timeline.span = next.span;
             }}
           />
           {#if timingCue && status.loaded}
@@ -2180,7 +2063,7 @@
                 min="0"
                 max={Math.max(0, duration - span)}
                 step="0.01"
-                bind:value={start}
+                bind:value={timeline.start}
                 disabled={busy || duration <= span}
               />{/key}</label
           ><label

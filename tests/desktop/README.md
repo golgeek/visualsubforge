@@ -751,3 +751,26 @@ added history, normal Apply enablement, settings/text/gap/save/failure/recovery,
 and normal shutdown 0. No new native-media, Windows/Linux or hosted-CI run is
 claimed for this follow-up; the preceding native checkpoint retains its original
 source/binary scope and physical/platform limitations.
+
+
+### Timeline owner — November 11, 2026
+
+The workspace now constructs `TimelineView` for viewport/range state and waveform
+analysis. With the pinned Mac toolchains, `npm run format:check`, `npm run lint`,
+`npm test` (44), `npm run build`, `npm run ipc:check`,
+`cargo fmt --all -- --check`, strict workspace Clippy, locked workspace tests
+(520 passed, 33 ignored; 15 zero-test harnesses), locked CLI build and the default
+Tauri debug build pass. The separate subtitle-core check/test/Clippy commands pass.
+`npm run test:browser` passes 66/66 Chromium/WebKit cases, including three new
+compiled-owner unit cases (40 workspace lifecycle checks per engine).
+
+`npm run build:desktop-test` and `npm run test:desktop` pass, with normal shutdown
+0 (`test-results/desktop-a2nBRG/receipt.json`). The Mac `desktop-e2e,media-prototype`
+build also passes `npm run test:desktop -- --duration --binary /absolute/path/to/visualsubforge`,
+including project restoration, timing acceptance/invalidation and Undo, with
+normal shutdown 0 (`test-results/desktop-iLAXOB/`). It uses the existing private
+mpv runtime selected through `PKG_CONFIG_PATH` at build and `DYLD_LIBRARY_PATH`
+at launch, as described in the Mac build guide. This run foregrounds the exact
+owned app every second; generated WebView input and supplied file selections do
+not establish physical input, audio, native composition or platform acceptance.
+No new Windows/Linux or native-runtime adoption result is claimed.
