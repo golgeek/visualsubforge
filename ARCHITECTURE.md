@@ -59,8 +59,10 @@ derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor, waveform and shell markup live in components receiving the
 relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
 PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
-renders feature content from the modal identity. The root still contains transport,
-subtitle-panel controls and decision dialog markup.
+renders feature content from the modal identity. TransportBar, CueOperationsBar, SubtitleToolbar and VideoPreview own their region
+markup and scoped styles. WorkspaceDecisions and WorkspaceLegacyImport render
+decision-owned payloads; ShortcutHelp owns keyboard help. App creates owners and
+lays out regions.
 CueNavigation coordinates selection, following, reveal and focus through narrow
 DOM callbacks. WorkspaceStartup loads initial state, WorkspaceMenus owns the native
 menu subscription, and NativeVideoLayout owns native layout tracking;
