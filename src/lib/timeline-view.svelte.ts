@@ -14,9 +14,7 @@ import {
 interface TimelineEffects {
   status: () => MediaStatus;
   mediaPath: () => string;
-  follow: () => boolean;
   preview: () => Cue | null;
-  gesture: () => boolean;
   pending: () => boolean;
   cues: () => Cue[];
   gap: () => number;
@@ -25,6 +23,8 @@ interface TimelineEffects {
 
 // Construct during component initialization: the effects share its lifetime.
 export class TimelineView {
+  follow = $state(true);
+  interacting = $state(false);
   start = $state(0);
   span = $state(20);
   range = $state<[number, number] | null>(null);
@@ -83,9 +83,9 @@ export class TimelineView {
       if (!this.alive) return;
       const position = this.effects.status().positionSeconds;
       if (
-        this.effects.follow() &&
+        this.follow &&
         !this.effects.preview() &&
-        !this.effects.gesture() &&
+        !this.interacting &&
         !this.effects.pending() &&
         !this.effects.status().seeking &&
         this.effects.status().loaded &&

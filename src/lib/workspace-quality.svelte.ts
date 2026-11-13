@@ -2,6 +2,8 @@ import type { DocumentSession } from './document-session.svelte';
 import type { MediaSession } from './media-session.svelte';
 import type { Workspace } from './workspace.svelte';
 import type { WorkspaceView } from './workspace-view.svelte';
+import type { WorkspacePreferences } from './workspace-preferences.svelte';
+import type { WorkspaceScenes } from './workspace-scenes.svelte';
 import type { QualitySession } from './quality-session.svelte';
 import type { CueTableView } from './cue-table-view.svelte';
 import { parseTime } from './timeline';
@@ -11,6 +13,8 @@ export function createWorkspaceQuality(
   media: MediaSession,
   quality: QualitySession,
   tableView: CueTableView,
+  preferences: WorkspacePreferences,
+  scenes: WorkspaceScenes,
   view: WorkspaceView,
 ) {
   const doc = $derived(subtitles.snapshot);
@@ -40,14 +44,16 @@ export function createWorkspaceQuality(
       enabled:
         workspace.ready &&
         doc.loaded &&
-        (view.problemsOpen || view.showQualityMetrics),
+        (view.problemsOpen || preferences.showQualityMetrics),
       generation: doc.generation,
       revision: doc.revision,
-      context: `${status.session}/${view.qualityContext}/${view.sceneState.qualityKey}`,
+      context: `${status.session}/${preferences.qualityContext}/${scenes.sceneState.qualityKey}`,
       selected,
       metricsOffset: tableView.firstRow,
-      metricsLimit: view.showQualityMetrics ? tableView.visibleCues.length : 0,
-      draft: view.showQualityMetrics ? draftMetricInput.value : null,
+      metricsLimit: preferences.showQualityMetrics
+        ? tableView.visibleCues.length
+        : 0,
+      draft: preferences.showQualityMetrics ? draftMetricInput.value : null,
     });
   });
 

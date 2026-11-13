@@ -3,8 +3,9 @@ import type { MediaSession } from './media-session.svelte';
 import type { ProjectWorkflow } from './project-workflow.svelte';
 import type { TimingGesture } from './timing-gesture.svelte';
 import type { TimelineView } from './timeline-view.svelte';
-import { chooseFile, type Preferences, type MediaAction } from './client';
-import type { TimingSettings } from './magnetic-timing';
+import { chooseFile, type MediaAction } from './client';
+import type { WorkspacePreferences } from './workspace-preferences.svelte';
+import type { WorkspaceScenes } from './workspace-scenes.svelte';
 
 export type MediaWorkspaceAction =
   | 'openMedia'
@@ -20,46 +21,49 @@ interface Owners {
   projects: ProjectWorkflow;
   gestures: TimingGesture;
   timeline: TimelineView;
-  view: {
-    mediaPath: string;
-    hardware: boolean;
-    preferences: Preferences;
-    timingSettings: TimingSettings;
-    restoredScenes: { session: number; generation: number } | null;
-  };
+  preferences: WorkspacePreferences;
+  scenes: WorkspaceScenes;
 }
 
 export async function runMediaAction(
   action: MediaWorkspaceAction,
   owners: Owners,
 ) {
-  const { workspace, media, projects, gestures, timeline, view } = owners;
+  const {
+    workspace,
+    media,
+    projects,
+    gestures,
+    timeline,
+    preferences,
+    scenes,
+  } = owners;
   gestures.cancelHeld();
   workspace.notice = '';
   await workspace.task(async () => {
     switch (action) {
       case 'openMedia': {
-        const path = await chooseFile('media', view.mediaPath || null);
+        const path = await chooseFile('media', media.path || null);
         if (path) {
           timeline.reset(true);
           await commandMedia(owners, {
             kind: 'open',
             path,
-            hardware: view.hardware,
+            hardware: media.hardware,
           });
-          view.mediaPath = path;
+          media.path = path;
           await projects.detach();
-          view.restoredScenes = null;
-          view.timingSettings = { ...view.preferences.timing };
+          scenes.clearRestored();
+          preferences.resetTiming();
         }
         break;
       }
       case 'closeMedia':
         await commandMedia(owners, { kind: 'close' });
-        view.mediaPath = '';
+        media.path = '';
         await projects.detach();
-        view.timingSettings = { ...view.preferences.timing };
-        view.restoredScenes = null;
+        preferences.resetTiming();
+        scenes.clearRestored();
         timeline.reset();
         break;
       case 'play':

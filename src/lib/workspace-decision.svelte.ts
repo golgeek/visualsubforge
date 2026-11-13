@@ -9,14 +9,15 @@ interface DecisionEffects extends HideVideoEffects {
 }
 
 // Presentation and one answer, not save policy or the workspace gate.
-export class WorkspaceDecision<Choice> {
+export class WorkspaceDecision<Choice, Payload = never> {
+  payload = $state.raw<Payload | null>(null);
   private video: HideVideo;
   private result: Promise<Choice> | null = null;
   private answering = false;
   private decision: PendingDecision<Choice>;
   constructor(
     private cancelled: Choice,
-    private workspace: Pick<Workspace, 'error'>,
+    protected workspace: Pick<Workspace, 'error'>,
     private effects: DecisionEffects,
   ) {
     this.video = new HideVideo(effects);
@@ -30,6 +31,17 @@ export class WorkspaceDecision<Choice> {
   }
   get closing() {
     return this.video.closing;
+  }
+  get disposed() {
+    return this.video.disposed;
+  }
+  show(payload: Payload) {
+    return this.open(() => {
+      this.payload = payload;
+    });
+  }
+  async request(payload: Payload): Promise<Choice> {
+    return (await this.show(payload)) ? this.wait() : this.cancelled;
   }
   async ask(present: () => void): Promise<Choice> {
     return (await this.open(present)) ? this.wait() : this.cancelled;
@@ -52,7 +64,10 @@ export class WorkspaceDecision<Choice> {
     if (this.video.disposed || !this.decision.pending || this.answering) return;
     this.answering = true;
     await this.video.close({
-      hide: this.effects.close,
+      hide: () => {
+        this.payload = null;
+        this.effects.close();
+      },
       restored: () => {
         this.decision.answer(choice);
       },
@@ -72,7 +87,7 @@ export class WorkspaceDecision<Choice> {
 export function decisionEffects(
   media: MediaSession,
   remainingOcclusion: () => boolean,
-  close: () => void,
+  close: () => void = () => {},
 ): DecisionEffects {
   return {
     occlude: (value) => media.occlude(value),

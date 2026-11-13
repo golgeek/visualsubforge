@@ -53,7 +53,14 @@ export class TranslationSession {
   constructor(
     private document: DocumentSession,
     private send = translationAction,
-  ) {}
+    visible?: () => boolean,
+  ) {
+    if (visible)
+      $effect(() => {
+        if (!visible())
+          this.request(this.document.snapshot, null, 0, null, false);
+      });
+  }
 
   request(
     document: DocumentSnapshot,

@@ -3,6 +3,7 @@ import type { DocumentSession } from './document-session.svelte';
 import type { MediaSession } from './media-session.svelte';
 import type { Workspace } from './workspace.svelte';
 import type { WorkspaceView } from './workspace-view.svelte';
+import type { WorkspaceScenes } from './workspace-scenes.svelte';
 import type { TimelineView } from './timeline-view.svelte';
 import type { CueNavigation } from './cue-navigation.svelte';
 import type { createCueEditing } from './cue-editing.svelte';
@@ -11,6 +12,7 @@ export function connectWorkspaceMenus(
   subtitles: DocumentSession,
   media: MediaSession,
   view: WorkspaceView,
+  scenes: WorkspaceScenes,
   timeline: TimelineView,
   navigation: CueNavigation,
   cueEditing: ReturnType<typeof createCueEditing>,
@@ -22,11 +24,11 @@ export function connectWorkspaceMenus(
   $effect(() => {
     const state = {
       diagnostics: view.diagnostics,
-      showScenes: view.showScenes,
-      scenesRunning: view.sceneState.running,
-      scenesPending: view.sceneState.pending,
-      previousScene: view.sceneState.previous,
-      nextScene: view.sceneState.next,
+      showScenes: scenes.showScenes,
+      scenesRunning: scenes.sceneState.running,
+      scenesPending: scenes.sceneState.pending,
+      previousScene: scenes.sceneState.previous,
+      nextScene: scenes.sceneState.next,
       available: status.available,
       media: status.loaded,
       document: doc.loaded,
@@ -35,7 +37,7 @@ export function connectWorkspaceMenus(
       undo: doc.canUndo || draftDirty || navigation.textFocused,
       redo: doc.canRedo || draftDirty || navigation.textFocused,
       range: !!timeline.range && timeline.range[1] > timeline.range[0],
-      busy: !workspace.canAct || view.waveformGesture,
+      busy: !workspace.canAct || timeline.interacting,
       createCue: !!cueEditing.operations.find(
         (op) => op.operation === 'createCue',
       )?.plan,
