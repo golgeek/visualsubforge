@@ -78,3 +78,8 @@ The [workspace shell extraction](../tests/desktop/README.md#workspace-shell--nov
 passes full local checks, both browser engines and the default desktop suite.
 Four screenshot pairs and recorded geometry/styles match the parent source.
 The shared video lifecycle retains modal, decision and cue-menu policies.
+
+The [workspace cue-navigation checkpoint](../tests/desktop/README.md#workspace-cue-navigation--november-13-2026)
+records the final ownership split: App creates owners and lays out regions.
+Selection/focus/reveal/following belong to CueNavigation; Workspace still derives
+the gate, and Rust still owns accepted document state and history.

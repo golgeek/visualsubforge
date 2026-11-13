@@ -1,3 +1,5 @@
+import type { WorkspaceView } from './workspace-view.svelte';
+import type { CueNavigation } from './cue-navigation.svelte';
 import type { Workspace } from './workspace.svelte';
 import type { DocumentSession } from './document-session.svelte';
 import type { MediaSession } from './media-session.svelte';
@@ -26,14 +28,12 @@ interface Owners {
   gestures: TimingGesture;
   workspaceModal: WorkspaceModal;
   openAuthoring: (kind: AuthoringModal) => Promise<void>;
+  layout: { topPct: number; editorPct: number; wavePct: number };
   view: {
     diagnostics: boolean;
     translationOpen: boolean;
     problemsOpen: boolean;
     showScenes: boolean;
-    topPct: number;
-    editorPct: number;
-    wavePct: number;
     sceneControls:
       | {
           rescan: () => Promise<void>;
@@ -92,9 +92,9 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
         if (view.translationOpen) view.problemsOpen = false;
         break;
       case 'resetLayout':
-        view.topPct = 32;
-        view.editorPct = 25;
-        view.wavePct = 65;
+        owners.layout.topPct = 32;
+        owners.layout.editorPct = 25;
+        owners.layout.wavePct = 65;
         break;
       case 'diagnostics':
         if (!view.diagnostics) {
@@ -108,4 +108,27 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
         break;
     }
   });
+}
+
+export function toggleProblems(view: WorkspaceView, navigation: CueNavigation) {
+  view.problemsOpen = !view.problemsOpen;
+  if (view.problemsOpen) view.translationOpen = false;
+  if (!view.problemsOpen) navigation.pendingProblem = null;
+}
+export function closeProblems(view: WorkspaceView, navigation: CueNavigation) {
+  view.problemsOpen = false;
+  navigation.pendingProblem = null;
+}
+export function toggleTranslation(view: WorkspaceView) {
+  view.translationOpen = !view.translationOpen;
+  if (view.translationOpen) view.problemsOpen = false;
+}
+export function setTimingMode(
+  gestures: TimingGesture,
+  navigation: CueNavigation,
+  enabled: boolean,
+) {
+  gestures.cancelHeld();
+  gestures.mode = enabled;
+  navigation.focusWaveform();
 }

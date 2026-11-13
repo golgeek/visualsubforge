@@ -1,3 +1,5 @@
+import { tick } from 'svelte';
+import type { MediaSession } from './media-session.svelte';
 import type { Workspace } from './workspace.svelte';
 import { PendingDecision } from './pending-decision';
 import { HideVideo, type HideVideoEffects } from './hide-video.svelte';
@@ -65,4 +67,17 @@ export class WorkspaceDecision<Choice> {
     this.video.dispose();
     this.decision.dispose();
   }
+}
+
+export function decisionEffects(
+  media: MediaSession,
+  remainingOcclusion: () => boolean,
+  close: () => void,
+): DecisionEffects {
+  return {
+    occlude: (value) => media.occlude(value),
+    remainingOcclusion,
+    close,
+    afterRender: tick,
+  };
 }

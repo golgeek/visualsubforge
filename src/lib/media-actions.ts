@@ -111,3 +111,30 @@ export function commandMedia(
   owners.gestures.cancelHeld();
   return owners.media.command(action);
 }
+
+export async function seekMedia(
+  owners: Pick<Owners, 'workspace' | 'media' | 'gestures'>,
+  time: number,
+) {
+  const { workspace, media, gestures } = owners;
+  if (!media.status.loaded || media.pending || workspace.busy) return;
+  try {
+    await commandMedia({ media, gestures }, { kind: 'seek', seconds: time });
+  } catch (e) {
+    workspace.error = String(e);
+  }
+}
+export async function selectAudioTrack(
+  owners: Pick<Owners, 'workspace' | 'media' | 'gestures' | 'timeline'>,
+  id: number,
+) {
+  const { workspace, media, gestures, timeline } = owners;
+  if (workspace.busy) return;
+  await workspace.task(
+    async () => {
+      await commandMedia({ media, gestures }, { kind: 'track', id });
+      timeline.invalidateTrack();
+    },
+    { clearError: false },
+  );
+}
