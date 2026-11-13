@@ -4,7 +4,7 @@
 effect callbacks and delegates actions through a readable switch to
 `file-actions.ts`, `media-actions.ts`, `cue-actions.ts` and `view-actions.ts`. `Workspace`
 owns `ready`, `error`, `notice` and its task flag; it derives `busy`/`confirming`
-from modal, decision and gesture activity. App creates owners and lays out regions. Its Svelte session objects live for one
+from modal, decision and gesture activity. App constructs and connects owners; some workspace controls and dialog markup still live at the root. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
@@ -397,48 +397,5 @@ plugins share this mount-scoped presentation owner; their sessions keep
 acceptance/draft rules. See [desktop plugins](../../docs/plugin-desktop.md) for
 options, complete-text access and validation boundaries.
 
-## Historical IPC migration receipts
-
-These incremental counts and pending gates describe their original checkpoints.
-The generated IPC contract above describes the completed migration.
-
-Generated IPC first slice: timing preset command/DTO generation passes with
-Tauri Specta/Specta 2.0.0-rc.25 and specta-typescript 0.0.12. The 70 desktop tests,
-strict desktop Clippy, 39 TypeScript tests, strict Svelte/TypeScript, lint,
-formatting and production build passed. All 28 Chromium/WebKit cases passed;
-the timing workflow additionally checks serialized string rejection and null
-success through the facade. Deterministic `npm run ipc:check` passes; a deliberate
-drift control fails without rewriting the modified file. This is a first-family
-trial, not completion of the remaining enum/event/project/numeric gates.
-
-Document IPC migration: tagged edit commands, accepted snapshots, recovery and
-quit now use generated bindings. Checked u64 codecs reject values outside the
-JavaScript exact-integer range; a recovery listing retains usable SRTs even when
-old informational metadata cannot be represented. Module-qualified generated
-names avoid the pinned generator's container-rename/phase collision; the facade
-keeps readable aliases. `cargo test --locked -p visualsubforge` passed 74 tests
-plus the separately invoked exporter. Strict desktop Clippy, frontend build,
-all 28 Chromium/WebKit cases, binding drift, lint and formatting checks passed.
-Four added boundary regressions cover scalar and field codecs and recovery
-preservation; generated samples cover actual Serde snapshots and all document
-action variants. Other command families and project/event compatibility remain.
-
-Full IPC migration: all 24 commands and the workspace-action event now share
-one Rust dispatch/generation registry; the client facade has no handwritten DTOs
-or command names. The compatibility trial found and repaired two issues: Serde
-non-finite floats could become null, and two codec-bearing View structs collided
-in the generator's phase output. Required numeric outputs now have checked
-serializers; SceneView/WaveformView have distinct Rust names. Actual Serde
-samples cover project flattening/defaults and scene/waveform/event shapes.
-
-Validation on the development Mac: `cargo test --locked --workspace` passed 140
-tests (79 desktop), strict workspace Clippy passed, and `cargo check --locked
--p visualsubforge --features media-prototype` passed. This last check is compilation,
-not GPU/audio execution. `npm run build`, `npm run lint`, `npm test` (39), formatting
-and `npm run ipc:check` passed. The first browser run passed 26/28: the delayed
-listener controls blocked module loading after the generated runtime switched
-to a static import. The controls now hold the modeled registration response;
-`npm run test:browser -- --grep projects` passed all four affected Chromium/WebKit
-cases, including the two formerly failing controls. `cargo tree --locked -p
-vsf-cli --edges normal` confirms no Specta/Tauri/native playback dependency.
-Cross-platform/native IPC execution remains part of final integration validation.
+Validation commands and their scope are in the [test guide](../../tests/desktop/README.md).
+Record exact run results and evidence in the PR description, not this ownership guide.

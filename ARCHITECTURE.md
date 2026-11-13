@@ -2,7 +2,9 @@
 
 VisualSubForge is a desktop subtitle editor built with Rust, Svelte, TypeScript
 and Tauri. This is the authoritative overview of the implemented architecture.
-[Current status](docs/status.md) records feature validation and release limits.
+[Current status](docs/status.md) records implemented scope and release limits.
+PR descriptions record validation results; the [test guide](tests/desktop/README.md)
+describes reproducible commands and their scope.
 
 The design keeps accepted subtitle state in Rust, transient interaction state in
 Svelte, and native playback behind a narrow boundary. Desktop and CLI callers
@@ -57,7 +59,8 @@ derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor, waveform and shell markup live in components receiving the
 relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
 PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
-renders feature content from the modal identity. App creates owners and lays out regions.
+renders feature content from the modal identity. The root still contains transport,
+subtitle-panel controls and decision dialog markup.
 CueNavigation coordinates selection, following, reveal and focus through narrow
 DOM callbacks. WorkspaceLifetime owns startup, native layout observation and teardown;
 WorkspaceView and WorkspaceLayout hold transient panel preferences and measured panes.

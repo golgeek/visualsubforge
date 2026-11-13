@@ -1,11 +1,12 @@
-# Real desktop workflow test
+# Desktop and browser workflow tests
 
-This lane runs the Svelte editor in Tauri's actual webview, using the generated
-client and real Rust document, persistence and recovery operations. It complements
-the controlled-response browser tests in `tests/frontend`; it does not replace them.
+Run commands from the repository root using the [pinned toolchains and Tauri
+prerequisites](../../CONTRIBUTING.md#commands-and-toolchains). This guide describes
+how to reproduce checks and interpret their scope. Record exact commands, source
+and runtime identities, results, failures and unavailable checks in the PR
+description. Keep dated receipts and task histories outside public documentation.
 
-From the repository root with the pinned Node/Rust toolchains and ordinary Tauri
-development prerequisites:
+## Default desktop suite
 
 ```sh
 npm ci
@@ -19,477 +20,177 @@ On headless Linux, install `xvfb`, `xauth` and `dbus`, then run:
 GDK_BACKEND=x11 xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- npm run test:desktop
 ```
 
-`npm run test:desktop -- --binary /absolute/path/to/visualsubforge` selects another
-instrumented executable. The default is `target/debug/visualsubforge` (`.exe` on
-Windows). The test build replaces that debug executable; rebuild normally before
-using it as an ordinary editor.
-It also builds `vsf-cli` for the executable parity check. `--cli /absolute/path/to/vsf`
-selects a matching CLI; by default the runner uses `target/debug/vsf` (`.exe` on Windows).
+The build enables `desktop-e2e` and uses [tauri.test.json](tauri.test.json).
+It builds the editor and its sibling `vsf` CLI. The runner defaults to
+`target/debug/visualsubforge` and `target/debug/vsf` (with `.exe` on Windows).
+Override them with `--binary /absolute/path/to/editor` and
+`--cli /absolute/path/to/vsf`. Rebuild normally before using the debug executable
+as an ordinary editor; never distribute the instrumented app.
 
-## What it verifies
+The suite runs production components in Tauri's actual WebView and sends real
+Rust commands. It covers:
 
-The runner opens a BOM/CRLF Unicode SRT, commits a text edit, checks stable cue
-identities and complete Undo/Redo restoration, and exercises cancelled and failed
-Save As before saving and reopening an exact-byte copy. It waits for a real
-recovery checkpoint, abruptly terminates its own app, modifies the saved file to
-simulate an external editor, then relaunches and uses the recovery UI. It verifies
-that the external edit survives a rejected save, saves recovery elsewhere and
-requests normal application shutdown. It also exercises quality profile selection,
-customization, cancelled/invalid imports, export/reimport and timing-only imports
-through the real Settings UI. An actual failed settings-file replacement preserves
-accepted rules; retry persists them, a stale dialog is rejected, and a second
-process restores the exact saved profile. All these operations must leave the
-loaded subtitle document and Undo history unchanged.
-
-The quality workflow then enables accepted/draft metrics and Problems without
-media, verifies protected Cancel/Discard navigation, and checks that the list
-and editor retain usable space. It exports Rust's accepted profile, executes
-`vsf check` on the same SRT, and compares the profile/hash, every metric/finding
-and affected-cue count. The partial profile must remain explicitly incomplete.
-Screenshots cover both the panel controls and scrolled findings; the JSON parity
-receipt preserves both actual outputs. Neither checking nor draft metrics may
-change the accepted document, history or save eligibility.
-
-Minimum-gap review then verifies protected draft cancellation/discard, a read-only
-preview, explicit no-media acknowledgment and atomic acceptance. One Undo restores
-every cue and the original dirty/history state; Redo reapplies the plan. The normal
-save/recovery checks run afterward. The explicit history buttons must use document
-history even when a text field retained focus during the click; menu/keyboard Undo
-still uses the focused field's local history. Modal closure waits for native
-occlusion/focus restoration before further workspace actions.
-
-Text tools then exercise draft cancellation/discard, Unicode source-match
-navigation, single replacement and Replace All through real IPC. The lane checks
-exact ASS/HTML preservation, stable IDs/times, one-step Undo/Redo, failed-save
-preservation, join/reflow acceptance with positioned-text skips, and formatting
-that remains a draft until Apply. The temporary fixture edits are undone before
-the existing save/recovery workflow continues.
-
-Each run retains `test-results/desktop-*`: its inputs/outputs, isolated recovery
-data, per-process logs, receipt and screenshot (plus DOM on failure). The runner
-has bounded waits and terminates only processes it spawned. CI additionally caps
-the run step at five minutes. Recovery after process termination does not prove
-power-loss durability.
-
-Startup waits for the actual application's document title before the first
-script evaluation, then separately requires Tauri APIs, the editor and completed
-workspace initialization. The embedded driver's window-ready status can precede
-initial navigation; its multi-evaluation script result can be lost across that
-navigation. Document title/URL evidence is retained for each launch. This avoids
-starting a script in the initial blank document without retries or longer script
-deadlines. The real Mac workflow passes locally with this readiness check;
-the recurring hosted second-launch timeout still needs replacement-run evidence.
+- Unicode/BOM/CRLF SRT editing, stable cue IDs, complete Undo/Redo restoration,
+  cancelled/failed Save As, exact save/reopen and external-writer protection.
+- Durable accepted-state recovery after terminating an owned process, a separate
+  recovery Save As and normal shutdown. This does not prove power-loss durability.
+- Quality Settings import/export, failed persistence, stale-dialog rejection,
+  restart restoration, accepted/draft metrics, protected Problems navigation,
+  usable list/editor layout and executable CLI parity.
+- Read-only minimum-gap proposals, no-media acknowledgment, atomic acceptance
+  and Undo/Redo; tag-aware text search/replacement, join/reflow skips and formatting
+  that remains a draft until Apply.
+- Refresh-only stale-edit reconciliation that retains the draft without replaying
+  the mutation or adding history.
 
 ## The test boundary
 
-The explicit `desktop-e2e` Cargo feature enables pinned
-`tauri-plugin-wdio-webdriver` 1.5.0; the Node runner uses pinned WebdriverIO 10.0.2.
-The embedded driver serves standard WebDriver on a loopback port chosen for the
-run. No external driver, IPC-mocking plugin or native media SDK is required.
-Normal builds exclude the driver and the test module.
+The pinned embedded WebDriver serves a loopback port for the owned application;
+no external driver or native media SDK is needed for the default suite. Normal
+builds exclude the driver. The harness supplies queued file selections and an
+isolated app-data directory, not document replies or a second accepted-state
+owner. `VSF_E2E_ROOT` confines fixture paths; it is not an OS sandbox.
 
-`tauri.test.json` gives the test app a separate identifier and permits test code
-to emit the existing workspace-action event. The runner emits those menu actions
-and uses ordinary webview controls; document writes still travel through the real
-frontend client. Read-only status probes call the real Rust command.
+The runner waits for the application document, Tauri APIs, editor and completed
+workspace initialization. Waits are bounded. It terminates only processes it
+spawned and retains failure evidence. A startup timeout is not a completed
+workflow. CI's default runtime step has its own five-minute deadline.
 
-Two services are deliberately supplied by the harness: a queue of file selections
-(including cancellation) and a unique app-data directory. `desktop_test.rs`
-requires the absolute `VSF_E2E_ROOT`, confines queued paths to it, and redirects
-settings/recovery there. These are fixture constraints, not an OS sandbox.
-There are no mock document replies, test-only document commands or alternate
-accepted-state owners. The optional driver lives for the app process; the runner
-owns process cleanup and retains evidence even on failure.
+Each invocation creates an ignored `test-results/desktop-*` directory containing
+inputs, isolated recovery/settings data, process logs, `receipt.json`, screenshots
+and failure DOM where available. Optional lanes add their own JSON reports.
+These are generated outputs, not files supplied by a fresh clone. Attach relevant
+receipts to the PR or link its CI artifacts, with their retention limits; do not
+use a local output path as public proof that a check passed.
 
-The default lane does **not** exercise native menu clicks, native file dialogs,
-media playback, GPU/audio output or the resync proposal walkthrough. Those have separate
-backend/browser tests and native acceptance checks. Do not distribute the
-instrumented executable as a production app.
+Generated DOM events exercise components and IPC, not physical input delivery.
+The default suite does not cover native menu clicks, OS file dialogs, media
+playback, GPU/audio output or installation. WebView screenshots can omit the
+native video sibling. Compilation, a zero-test harness, a preview acknowledgment
+and a state-only audio report each prove less than an observed native frame or
+verified audio content.
 
-Local evidence on 2026-10-11: the workflow passes on macOS ARM64, Ubuntu 26.04
-ARM64 under Xvfb, and Windows 11 ARM64. Hosted default-app execution also passes
-on macOS 14, Windows Server 2022 and Ubuntu 24.04 at `ce43559`
-([run](https://github.com/golgeek/visualsubforge/actions/runs/38167423845)); that
-run's separate modeled browser job failed and was corrected subsequently.
-The first Mac/Linux runs
-incorrectly expected ordinary recovery to prohibit any reuse of its unchanged
-source; the corrected scenario tests the actual external-edit conflict guarantee.
-Resync's stricter distinct-file rule is covered separately.
+## Native-feature build
 
-The expanded quality Settings/checker/CLI-parity/restart workflow passes on macOS ARM64 on
-2026-10-17; this addition has not yet been executed on Windows/Linux. The pinned
-embedded driver uses JavaScript clicks, so select options require explicit DOM
-input/change events in this harness. This verifies the real component/IPC path,
-not physical keyboard or pointer delivery. Retained current evidence is copied
-under `tests/fixtures/generated/quality/checks-desktop-final/`; the expanded gap
-workflow is under `quality/gaps-desktop-final/` (2026-10-17, macOS ARM64).
-
-## Optional large-document measurement
-
-Run `npm run test:desktop -- --performance` after the same instrumented build.
-It performs the regular workflow and then measures a generated 10,000-cue SRT
-with 1,050,000 text bytes. Twenty warm real check round trips, bounded report
-pages/DOM, typing during admitted checking, visible pause, worker cancellation,
-stale-revision rejection and UI reconciliation are recorded. The interaction
-budget was declared as one second before measurement. It checks Undo restoration
-and a 9,999-candidate read-only gap preview with 100 table rows. A recovery banner
-and metrics must not overlap or clip the history controls.
-
-The same 10,000-cue document then exercises text proposals, typing during work,
-cancellation, 200-cue IPC pages, 100 visible review rows, accepting the complete
-batch from a later page, one Undo and revision invalidation. `text-performance.json`
-records these separately, with a one-second interaction/cancellation/invalidation
-budget. Full proposal duration is reported separately from the release engine
-benchmark in the [text tools guide](../../docs/text-editing.md).
-
-`quality-performance.json` retains binary/input hashes, profile, raw timings,
-main-process RSS samples and rAF intervals. RSS uses macOS/Linux `ps`; the final
-measurement was on macOS ARM64. These are generated webview events and actual IPC,
-not physical input, GPU presentation or total multiprocess memory. Desktop debug
-round trips and RSS observations are separate from the release pure-engine
-benchmark. Final evidence: `quality/performance-layout-final/`. See the
-[quality guide](../../docs/subtitle-quality.md) for results and exact limits.
-
-The first Windows run reached the save-failure check, then failed because Rust's
-canonical path had the Windows extended-length prefix. The runner now normalizes
-that representation with Node's `toNamespacedPath`, retaining a complete path
-comparison. No product save behavior changed.
-
-Dependency review replaced the initial WebdriverIO 9.31.9 trial with 10.0.2,
-removing the affected archive/proxy dependency chain reported by `npm audit`.
-The runner follows v10's documented async `execute` API; it still uses the same
-standard WebDriver endpoint on the embedded plugin. The existing `source-map-js`
-1.2.1 lock entry was also updated to the compatible 1.2.2 security patch.
-`npm audit --json` reports zero advisories on 2026-10-11; this is a dated registry
-check, not proof of vulnerability-free dependencies. Upgrade these pins with the
-same real-app checks on each OS. See the
-[v10 changes](https://github.com/webdriverio/webdriverio/releases/tag/v10.0.0),
-[archive advisory](https://github.com/advisories/GHSA-jmr9-qjv8-65gv) and
-[source-map advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
-
-## Scene quality workflow and scale
-
-Build the instrumented native-media app with the platform prerequisites; on the
-development Mac the recorded run uses Homebrew mpv through the OpenGL adapter:
+Optional media lanes require the [Mac build recipe](../../docs/build-macos.md) or
+the experimental [Windows/Linux native recipes](../../docs/native-runtime.md),
+including an explicitly selected SDK/runtime and FFmpeg/FFprobe. After configuring
+the native dependencies:
 
 ```sh
 npm run tauri -- build --debug --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
 cargo build --locked -p vsf-cli
-npm run test:desktop -- --scenes
+npm run test:desktop -- --duration
 ```
 
-FFmpeg/FFprobe must resolve through the normal development tool policy. The
-runner generates two tiny videos, SRTs and project caches with independently
-known cut times and real file identities. It restores these caches through the
-ordinary project path, then runs actual FFmpeg analysis on the small video.
-The ordinary Settings/text/history/save/recovery workflow runs first.
-
-The scene extension verifies Problems filtering and protected navigation,
-read-only previews, static-tag preservation and a timed-tag skip, exact saved
-bytes and unchanged source, failed saves, one Undo/Redo, rescan/media rejection,
-and no-media coverage after detach. Its 10,000-cue section checks 10,000 findings,
-100-row review pages, full acceptance from page two, exact Undo, typing,
-cancellation and stale-revision invalidation against the predeclared one-second
-interaction budget. It runs even without `--performance`.
-
-The 2026-10-17 Mac run passes: preview 413 ms, acceptance 110 ms, generated draft
-interaction 1 ms, cancellation 3 ms and invalidation 13 ms. It records
-`scene-performance.json` and preview screenshots alongside the ordinary receipt.
-The reproducible synthetic caches test project restoration and large-document
-work; they do not measure large-video cut-detection accuracy. Webview events and
-queued file choices do not establish physical input, native dialogs or GPU/audio
-presentation. No new Windows/Linux execution is claimed. See
-[scene quality](../../docs/scene-quality.md) for the retained evidence and limits.
-
-## Duration and reading-speed workflow
-
-Use the same `desktop-e2e,media-prototype` build and run
-`npm run test:desktop -- --duration`, or combine it with scene regression using
-`npm run test:desktop -- --scenes --duration`. `timing-fixtures.mjs` shares media
-generation and bounded file identity between the two extensions. Both generate
-known-cut caches and independently exercise actual FFmpeg rescanning.
-
-Duration review verifies protected drafts, selected-cue and whole-document scope,
-extensions/trims with fixed starts and exact static-tag preservation, a timed-tag
-skip, failed-save preservation, exact BOM/CRLF save/reopen, one Undo/Redo, and stale
-scene/media rejection. The scale fixture has 10,000 cues and cuts, 940,000 source
-text bytes and alternating too-short/too-long durations. It checks every proposed
-duration (880/1116 ms), 100-row paging, whole-batch acceptance from page two, exact
-Undo, typing, cancellation and edit invalidation against the predeclared one-second
-interaction budget.
-
-The combined Mac run on 2026-10-17 passes: duration preview 418 ms, acceptance
-113 ms, generated draft interaction 1 ms, cancellation 3 ms and invalidation
-13 ms. Scene regression also passes (418 ms preview, 115 ms acceptance).
-`duration-performance.json`, screenshots and the ordinary receipt are retained
-in `tests/fixtures/generated/duration-quality/desktop-final/`. These are debug
-webview/IPC measurements with Homebrew mpv/OpenGL, not release CPU benchmarks or
-physical input/GPU/audio acceptance. See the
-[duration contract](../../docs/duration-repairs.md) for the separate release
-benchmark and conservative repair policy. Windows/Linux execution remains open.
-
-## Document statistics workflow
-
-Use the same `desktop-e2e,media-prototype` build and run
-`npm run test:desktop -- --statistics`. It can also accompany `--scenes` and
-`--duration`. The normal Settings/text/history/save/recovery workflow runs first.
-Statistics compares actual desktop and CLI reports for whole-document, inclusive
-range/exclusions and all-excluded scopes on a BOM/CRLF tagged Unicode fixture.
-It verifies unchanged source/history, draft preservation, protected navigation
-Cancel/Discard/Apply, invalid ranges, profile changes, media replacement and
-actual FFmpeg rescanning. Only an explicit draft Apply may edit subtitles.
-
-The 10,000-cue/10,000-cut fixture checks finite/unavailable populations, scoped
-exclusions, 200-row IPC caps, 100-row UI pages, cancellation, typing, stale document
-rejection, exact Undo and outlier navigation. The Mac run on 2026-10-17 passes:
-449 ms report display, 4 ms generated draft interaction, 1 ms cancellation,
-12 ms invalidation and 125 ms navigation, within the predeclared one-second
-interaction budget. Screenshots, CLI parity, performance JSON and the ordinary
-receipt are retained in `tests/fixtures/generated/statistics/desktop-final/`.
-This uses Homebrew mpv/OpenGL and generated WebView events; it does not establish
-physical input, GPU/audio, native-dialog or Windows/Linux acceptance. See the
-[statistics contract](../../docs/statistics.md) for separate release measurements.
-
-## ASS/SSA documents and tagged SRT
-
-`--ass` adds the Mac native workflow for the synthetic `styles.ass` and
-`styles.ssa` fixtures: inspect styles without mutation, reject an exact 1 ms edit,
-commit style/text/time together, Undo/Redo, cancel/fail/save/reopen, restore a
-project and recover after an abrupt owned-process restart. Exact saved bytes and
-preservation of a newer external edit are asserted. It then edits/saves/reopens
-mixed HTML/ASS SRT at 1.001/2.999 seconds and samples native motion, position,
-color, hard breaks and expiry. A separate Hiragino Sans GB document checks an
-explicitly installed Mac font; original font declarations are never substituted.
-
-Build with `desktop-e2e,media-prototype`, the test config and an explicitly
-selected native runtime; see the Mac build guide. For a private dylib selected
-through DYLD_LIBRARY_PATH, launch the pinned Node executable directly: npm's
-shell can remove that variable on macOS. For example, after configuring pkg-config:
+For a Mac private dylib selected through `DYLD_LIBRARY_PATH`, invoke the pinned
+Node executable directly; npm's shell can remove that environment variable:
 
 ```sh
-npm run tauri -- build --debug --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
-cargo build --locked -p vsf-cli
-DYLD_LIBRARY_PATH=/absolute/runtime/directory /absolute/pinned/node tests/desktop/run.mjs --ass
+DYLD_LIBRARY_PATH=/absolute/runtime/directory /absolute/pinned/node tests/desktop/run.mjs --duration --binary /absolute/path/to/instrumented/editor --cli /absolute/path/to/matching/vsf
 ```
 
-The runner writes `ass-documents.json` and WebKit PNGs. WebKit screenshots can omit
-the native media surface, so those PNGs alone do not establish composition.
-`VSF_ASS_DESKTOP_CAPTURE=1` pauses each settled revision for an independent native
-window observation: the observer reads `capture-request.json` and writes
-`capture-ack.json` containing its matching `label` within 60 seconds. Observe the
-actual rendered frame before acknowledging it. Backend readiness can precede
-visible presentation. Record the loaded runtime with `record-native-runtime.py`.
+Keep the intended app foreground when observing native input/focus. Identify any
+foreground driver or generated-input conditioning in the PR; it does not establish
+physical input, speaker output, native composition or other-platform acceptance.
 
-`--ass-performance` adds the unchanged Task016 one-second desktop gate using
-`scripts/ass-fixtures.py`'s exact 10,000-cue inputs. It works with the default test
-build without media. It measures open (including filesystem time), text/time/style
-edits and Undo, navigation, typing during work, cancellation and invalidation;
-checks actual accepted values, complete restoration, source bytes and bounded
-DOM/proposal pages; and records input/binary hashes in `ass-performance.json`.
-Both flags can be combined. These synthetic inputs and generated DOM events do
-not establish physical input latency, platform installations or GPU/audio acceptance.
+## Optional feature suites
 
+Append flags to `npm run test:desktop --`, or to the direct Node command above.
+The ordinary persistence/quality/text/recovery workflow runs before these lanes.
+Use the native-feature build for the media workflows in this table; the explicitly
+media-free plugin editor mode uses the default build. Generate the resync fixture
+with `python3 scripts/resync-fixtures.py` before lanes that consume it.
 
-## Batch timing
+| Flag | Coverage and additional prerequisites |
+| --- | --- |
+| `--scenes` | Generated known-cut media/caches, actual FFmpeg rescanning, protected drafts, mapped coverage, timed-tag refusal, exact save/Undo and stale media/scene rejection. Includes a 10k-cue/cut paging, acceptance, cancellation and invalidation case. |
+| `--duration` | Selected/all duration proposals, fixed starts and static tags, timed-tag skips, exact save/history and rescan rejection; includes its own 10k-cue/cut fixture. Can combine with `--scenes`. See [duration policy](../../docs/duration-repairs.md). |
+| `--statistics` | Desktop/CLI parity, scope/exclusions, unavailable populations, protected navigation, unchanged history/source, profile/media/rescan invalidation and 10k paging/cancellation. Can combine with scenes/duration. |
+| `--ass` | ASS/SSA precision, styles, text/time edits, exact saves, project/recovery, tagged-SRT timing and native preview acknowledgments. The font case requires the explicitly named installed Mac font. See [format scope](../../docs/ass-ssa-documents.md). |
+| `--batch` | Paused-playhead/disjoint alignment, tagged SRT, exact saves and Undo/Redo; also runs the ASS performance/batch gate. Generate ASS fixtures first. |
+| `--resync` | ASS/SSA/tagged-SRT CLI parity, timed-effect refusal, protected save/history and preview acknowledgment. Generate resync fixtures first. |
+| `--language` | English/French reviewed edits, personal-word persistence and failure handling, history, project/recovery and protected source. Generate resync fixtures first. See [language tools](../../docs/language-tools.md). |
+| `--styles` | ASS/SSA create/copy/edit/rename, exact references, history, save failure, project and source-property recovery. Generate resync fixtures first. |
+| `--fonts` | ASS/SSA attachment inventory/add/replace/remove, invalid import, picker cancellation, exact saves/history/project/recovery and preview revisions. Generate resync fixtures first. |
+| `--conversion` | Six SRT/ASS/SSA export directions, loss review, cancelled/failed destinations, unchanged source/history/project, reopen/recovery and timed rounding. Generate resync fixtures first. |
+| `--webvtt` | Millisecond edits, formatting drafts, protected timestamps, CSS/region preservation, exact saves, CLI metrics, project/recovery and external conflicts. See [preview limits](../../docs/webvtt.md). |
+| `--legacy-import` | Reviewed SRT/ASS/SSA/WebVTT and WAV-only legacy project publication/restoration, relocation, stale inputs, protected opening, exact save/recovery and unchanged active state. See [supported subset](../../docs/legacy-project-import.md). |
+| `--translation` | Manual reference/target copies across formats, offsets, missing/changed references, source protection, exact history, project/recovery and target preview. See [manual translation](../../docs/manual-translation.md). |
+| `--plugins` | Modern/VSS checker/fix cases across formats, cancellation/reaping, package changes, exceptions, exact state/history/save/recovery and native preview. Needs the sibling CLI and FFmpeg. |
+| `--plugins-editor` | Same plugin editor cases without media/FFmpeg/native preview. Choose this or `--plugins`, not both. |
 
-`--batch` runs the ordinary save/history/recovery regression, then real native
-paused-playhead/disjoint alignment with tagged SRT, exact output and failed-save
-protection. It also runs `--ass-performance` with the new batch gate: 10k Select
-All, paged review, whole-batch acceptance/Undo/Redo, cancellation, typing and stale
-acceptance rejection. Receipts retain the actual playhead (which can differ from
-the requested video seek), binary/input hashes and the unchanged one-second
-budget. See [batch policy and receipts](../../docs/batch-timing.md). The native
-feature is required for the small playhead workflow; screenshots of WebKit do
-not establish native video composition.
+These synthetic inputs and supplied choices do not prove real chooser behavior,
+large-video detection accuracy, physical input or GPU/audio acceptance. Contracts
+for [styles/fonts](../../docs/style-authoring.md), [conversion](../../docs/format-conversion.md)
+and [plugins](../../docs/plugin-desktop.md) define additional limits.
 
-## Styled resynchronization lane
+## Large-document suites
 
-After generating `python3 scripts/resync-fixtures.py`, build the CLI and current
-native desktop test application, then run `node tests/desktop/run.mjs --resync
---binary /absolute/path/to/visualsubforge`. The optional lane copies media inside
-the isolated picker root, uses actual menu/dialog/IPC analysis and the real CLI,
-and checks ASS/SSA/tagged-SRT output parity, timed-effect refusal, native preview
-revision acknowledgment, protected saving and Undo/Redo. It retains per-format
-review/refusal screenshots and SHA256 output digests. The ordinary persistence
-and crash-recovery workflow runs first. Native frame composition and physical
-GPU/audio acceptance are not established by these webview screenshots.
-
-
-### Style authoring
-
-`--styles` runs both ASS/SSA create/copy/edit/rename workflows with exact reference,
-Undo/Redo, save, failed-write, project and source-property crash recovery checks.
-`--style-performance` measures real 10k form/accept/Undo and owner cancellation/
-stale rejection. They can run together with the native-enabled test binary and
-explicit private runtime. See [the exact recipe, budgets and evidence](../../docs/style-authoring.md).
-Generated DOM events and preview revision acknowledgments do not establish
-physical input, GPU presentation or platform installation acceptance.
-
-
-### Font attachments
-
-`--fonts` exercises real ASS/SSA attachment inventory/add/replace/remove, exact
-save/history/project/recovery, invalid imports, picker cancellation and native
-preview revisions. `--font-performance` measures five cycles for each add/replace/
-remove and both 10k formats, including inventory, acceptance, Undo, cancellation
-and stale-edit guards. It records preparation separately from the unchanged
-one-second interaction gate. `font-authoring.json` and `font-performance.json`
-retain input/binary identity and scope. Use the native-feature bundle command in
-style-authoring.md. Optional `VSF_FONT_DESKTOP_CAPTURE=1` uses the same matching
-`capture-request.json`/`capture-ack.json` native-window observation lane as ASS,
-with optional `VSF_FONT_DESKTOP_CAPTURE_LABELS`. Webview images omit sibling
-native video. Physical platform acceptance remains separate.
-
-### Deliberate conversion
-
-`--conversion` exercises all six SRT/ASS/SSA export directions, including reviewed
-losses, cancelled/failed destinations, unchanged source/history/project bytes,
-reopen, ASS→SSA crash recovery, attachment-backed native preview and safe timed
-rounding. It needs the native-feature bundle and generated resync video described
-in [conversion evidence](../../docs/format-conversion.md). Editor geometry checks
-cover wrapped controls and recovery notices.
-
-`--conversion-performance` runs the same six accepted 10k workloads as the pure
-benchmark, with five review/export cycles each, bounded report examples, exact
-repeated output, cancel/stale rejection, Undo and reopen. Preparation retains its
-ten-second worker deadline; interactive operations retain the one-second gate.
-Input/binary/output hashes and raw timings are in `conversion-performance.json`.
-Generate ASS/SSA inputs with `python3 scripts/ass-fixtures.py` first.
-
-Both flags use supplied file choices and generated DOM events. They do not test
-the OS file picker or physical input. For an independent native-video observation,
-set `VSF_CONVERSION_CAPTURE=1` and optionally comma-separated
-`VSF_CONVERSION_CAPTURE_LABELS`. The lane writes `capture-request.json` and waits
-up to 60 seconds for `capture-ack.json` containing the same `label`; acknowledge
-only after inspecting and saving the actual native window image. WebView images
-alone omit the native video sibling. The JSON reports retain those scope limits.
-
-### WebVTT
-
-`--webvtt` uses the native-feature build to exercise actual open, millisecond
-editing, formatting drafts, reviewed replacement, safe timing shifts and timed
-marker refusal. It checks byte-exact BOM/CRLF save/reopen, cancelled/failed/wrong-
-format destinations, Undo/Redo, project restoration, crash recovery and an
-external-file conflict. Native and executable CLI caption metrics must agree.
-The independently authored fixture retains CSS/region records, voice/language/
-ruby/timestamp markup and literal ASS-looking text. `webvtt.json` records binary
-and source hashes; the normal runner also requires final code0 shutdown.
-
-Use the pinned private runtime and `desktop-e2e,media-prototype` build described
-in [WebVTT evidence](../../docs/webvtt.md). File choices and DOM events are
-supplied, so this lane does not establish native chooser or physical-input
-acceptance. Set `VSF_WEBVTT_CAPTURE=1` and optionally comma-separated
-`VSF_WEBVTT_CAPTURE_LABELS` to pause at settled native frames for up to 60 seconds.
-The observer must save and inspect an actual native-window image before writing
-`capture-ack.json` with the matching `label`; WebView-only images omit the video
-sibling. Preview limitations and the separate desktop10k gate remain explicit.
-
-Generate the exact library benchmark inputs with `python3 scripts/webvtt-fixtures.py`,
-then add `--webvtt-performance` to the runner for the three 10,000-cue workloads.
-It verifies their hashes before measuring five edit/Undo/Redo/save cycles, full
-reopen and crash recovery, virtualized navigation, background cancellation and
-stale-proposal rejection. Every measured interaction must stay below 1000 ms;
-background preparation retains its ten-second deadline. `webvtt-performance.json`
-records individual timings, source/output hashes and the executable identity.
-No media is loaded during this lane; pure CPU/RSS measurements and actual native
-preview/chooser observations are separate evidence in the WebVTT guide.
-
-### Legacy project import
-
-`--legacy-import` runs the ordinary persistence regression, then native import
-review/publication/restoration for SRT/ASS/SSA/WebVTT and WAVFile-only media.
-It checks relocation, Unicode/UTF-16 paths, unsupported notices, cancelled/failed/
-competing destinations, stale inputs, unchanged active document/draft/history/
-policy, protected opening, exact save/reopen and crash recovery conflicts.
-`legacy-import.json` retains hashes, original project data and native status;
-the runner requires normal code0 shutdown. See [the build recipe, retained failures
-and scope](../../docs/legacy-project-import.md).
-
-Use the native-feature test bundle and explicit private runtime. Supplied chooser
-results and generated DOM events do not test OS sheets or physical input.
-`VSF_LEGACY_IMPORT_CAPTURE=1` and optional comma-separated
-`VSF_LEGACY_IMPORT_CAPTURE_LABELS` pause for an independent native observation.
-Inspect/save the actual window before writing `capture-ack.json` with the matching
-`label` within 60 seconds. WebView images alone omit sibling native video.
-Audio load/paused-position status does not establish waveform or speaker output;
-the current raw-WAV fixture exposes an unknown-start waveform limitation.
-
-`--legacy-import-performance` uses the exact plain/styled/timed WebVTT and ASS
-10,000-cue library fixtures, checking their hashes before five review/publication
-cycles each. It measures full native project open/reopen, edit/Undo/Redo/save,
-crash recovery and cancellation/stale-input rejection, and verifies original
-bytes and complete restored cue arrays. The one-second interaction gate and
-ten-second background deadline remain unchanged. Results, timings and executable
-identity are retained in `legacy-import-performance.json`. Generate inputs with
-`python3 scripts/webvtt-fixtures.py` and `python3 scripts/ass-fixtures.py` first.
-Run this lane on its own to avoid competing benchmark CPU work. It loads a small
-generated video for real project restoration, but does not measure physical
-input latency, GPU presentation or speaker output.
-
-### Manual translation
-
-`--translation` runs the ordinary regression followed by SRT/ASS/SSA/WebVTT
-independent target copies, protected/failed saves, offsets and draft preservation,
-literal reference browsing, exact edits, Undo/Redo, project restoration and native
-target preview. It covers explicit changed/missing-reference resolution, recovery
-with deleted references and externally changed targets, subtitle-only projects and
-mixed ASS-target/WebVTT-reference attachment. `translation.json` records source/
-binary hashes and per-format results; the runner requires normal code0 shutdown.
-
-Use the native-feature bundle and explicit private runtime in
-[manual translation evidence](../../docs/manual-translation.md#native-desktop-workflows--2026-10-18).
-The video fixture is generated using FFmpeg. Supplied chooser results and DOM
-events do not establish OS-sheet or physical-input acceptance. Set
-`VSF_TRANSLATION_CAPTURE=1` and optionally comma-separated
-`VSF_TRANSLATION_CAPTURE_LABELS` to pause for independent native observation.
-Save and inspect the actual native window before writing `capture-ack.json` with
-the requested `label` within 60 seconds. WebView screenshots omit the native video
-sibling. Real chooser and combined desktop10k acceptance remain separate.
-
-`--translation-performance` extends the ordinary regression with five exact
-10,000-cue reference/target workloads: plain, styled and timed WebVTT, ASS, and
-dense overlapping tagged SRT. Generate the established fixtures with
-`python3 scripts/webvtt-fixtures.py` and `python3 scripts/ass-fixtures.py` first.
-The runner verifies source hashes, visits all 100 reference pages, and performs
-five offset/edit/Undo/Redo/save/project cycles per workload. It reopens the full
-project, checks cancellation/stale acceptance, and recovers captured reference
-bytes after deleting the reference and externally replacing the target. Protected
-source saves, detached-copy provenance, reattachment and exact outputs are checked.
-
-Run against an isolated test bundle using the native recipe above:
+Run performance lanes separately to avoid competing benchmark CPU work. The
+runner verifies fixture hashes where it consumes the shared corpus. Generate it
+before the relevant lanes:
 
 ```sh
-source "$HOME/.nvm/nvm.sh"
-nvm use --silent
-DYLD_LIBRARY_PATH="$PWD/tests/fixtures/generated/audio-integration-master-v1/build" \
-  node tests/desktop/run.mjs --translation-performance \
-  --binary /absolute/path/to/IsolatedTest.app/Contents/MacOS/visualsubforge
+python3 scripts/ass-fixtures.py
+python3 scripts/webvtt-fixtures.py
+npm run test:desktop -- --ass-performance
 ```
 
-`translation-performance.json` records the binary hash, input/output hashes,
-every page and operation duration, checkpoint file sizes and app-process RSS
-sampled every 50ms. Every measured interaction must remain below 1000ms; background
-copy/attachment preparation has a separate 10s deadline. RSS excludes WebKit
-subprocesses and is descriptive, not the separate pure-engine 96MiB budget.
-The pure-engine 500ms p95/96MiB gates remain unchanged. This lane loads no media;
-native playback and real OS-sheet acceptance use their separate workflows.
+| Flag | Workload and scope |
+| --- | --- |
+| `--performance` | Generated 10k SRT: quality checks, report/DOM bounds, typing, pause, cancellation, revision guards, gap review and text proposals with full-batch acceptance and Undo. |
+| `--ass-performance` | Exact ASS/SSA 10k inputs: open, text/time/style edits, Undo, navigation, typing, cancellation, source preservation and bounded pages. Uses the default test build without media. |
+| `--style-performance` | Exact ASS/SSA 10k form/accept/Undo, cancellation and stale guards. |
+| `--font-performance` | Five add/replace/remove cycles for both 10k formats, inventory, Undo, cancellation and stale guards. |
+| `--language-performance` | Six generated language/format 10k workloads, reviewed editing and cancellation; whole worker duration is separate from interaction latency. |
+| `--conversion-performance` | Six 10k export workloads, five review/export cycles, exact repeated output, bounded review, cancellation and reopen. |
+| `--webvtt-performance` | Plain/styled/timed 10k WebVTT: five edit/history/save cycles, full reopen/recovery, virtual navigation and stale/cancel guards. |
+| `--legacy-import-performance` | Exact WebVTT and ASS 10k inputs, repeated review/publication, full project restoration/history/save/recovery and stale/cancel guards. Loads generated video. |
+| `--translation-performance` | Five exact reference/target workloads, all reference pages, repeated offset/edit/history/save/project cycles and captured-reference recovery. Loads no media. |
+| `--plugin-performance` | Five exact inputs with both plugin APIs, all finding/change pages, repeated check/fix/accept/history/save cycles, cancellation, source protection and recovery. Loads no media; requires sibling CLI. |
 
-For diagnosis, `VSF_TRANSLATION_PERFORMANCE_WORKLOADS=dense` selects a subset and
-`VSF_TRANSLATION_PROFILE_DRAW=1` records canvas draw counts/times. Instrumented or
-partial runs do not replace the complete uninstrumented acceptance run.
+Use the feature's native-build recipe for authoring/translation/plugin benchmark
+bundles, even when a particular workload loads no media. Most interaction gates
+are one second; background preparation is recorded separately and retains its
+own bounded deadline. Reports record individual measurements, identities and
+scope. App-process RSS observations exclude WebView subprocesses; debug WebView/IPC
+measurements do not replace release engine benchmarks or physical presentation
+latency measurements. Diagnostic subsets and instrumented profiles cannot replace
+a complete uninstrumented acceptance run.
 
-### Native audio re-entry and replacement (macOS and Linux)
+## Independent native observations
 
-`--native-audio` uses an actual `desktop-e2e,media-prototype` bundle and the
-selected private libmpv. It creates two deterministic stereo WAV files and checks
-initial looping, seeking beyond B through EOF, re-entering the loop, looping after
-a before-A seek, and replacing playing media. It also rejects an old-session seek
-and verifies unchanged subtitle state and source files. The before-A lead-in is
-checked through status; its complete PCM is not captured.
+Where supported, a capture flag writes `capture-request.json` and waits up to
+60 seconds for `capture-ack.json` with the same `label`. Inspect and save an actual
+native-window image before acknowledging it. Never acknowledge from WebView
+screenshots or backend readiness alone.
 
-Build the process-only capture helper on macOS 14.2 or newer:
+| Lane | Capture flag | Optional label filter |
+| --- | --- | --- |
+| ASS | `VSF_ASS_DESKTOP_CAPTURE=1` | None |
+| Fonts | `VSF_FONT_DESKTOP_CAPTURE=1` | `VSF_FONT_DESKTOP_CAPTURE_LABELS` |
+| Conversion | `VSF_CONVERSION_CAPTURE=1` | `VSF_CONVERSION_CAPTURE_LABELS` |
+| WebVTT | `VSF_WEBVTT_CAPTURE=1` | `VSF_WEBVTT_CAPTURE_LABELS` |
+| Legacy import | `VSF_LEGACY_IMPORT_CAPTURE=1` | `VSF_LEGACY_IMPORT_CAPTURE_LABELS` |
+| Translation | `VSF_TRANSLATION_CAPTURE=1` | `VSF_TRANSLATION_CAPTURE_LABELS` |
+| Plugins | `VSF_PLUGIN_CAPTURE=1` | `VSF_PLUGIN_CAPTURE_LABELS` |
+
+Filters are comma-separated labels. Record actual runtime identity, display scale,
+observation method and uncovered cases in the PR description.
+
+## Native audio re-entry and replacement (macOS and Linux)
+
+`--native-audio` uses the native-feature bundle and selected private libmpv. It
+generates two stereo WAVs and checks looping, seeking past B through EOF,
+re-entry, before-A seeks, playing-media replacement, old-session refusal and
+unchanged subtitles/source. The before-A lead-in and Linux loop-clear clock check
+are status observations, not complete PCM captures of those boundaries.
+
+On macOS 14.2 or newer, build the process-only capture helper:
 
 ```sh
+mkdir -p tests/fixtures/generated
 clang++ -std=c++17 -fobjc-arc -mmacosx-version-min=14.2 -Wall -Wextra -Werror \
   tests/native/process-audio-capture.mm -framework Foundation -framework CoreAudio \
   -Wl,-sectcreate,__TEXT,__info_plist,tests/native/audio-capture-info.plist \
@@ -499,34 +200,19 @@ VSF_PROCESS_AUDIO_CAPTURE="$PWD/tests/fixtures/generated/process-audio-capture" 
 VSF_AUDIO_ANALYSIS_PYTHON=/absolute/path/to/python-with-numpy \
 VSF_EXPECT_MPV=/absolute/path/to/selected/libmpv.2.dylib \
 DYLD_LIBRARY_PATH=/absolute/path/to/selected/library-directory \
-node tests/desktop/run.mjs --native-audio \
-  --binary /absolute/path/to/native/VisualSubForge.app/Contents/MacOS/visualsubforge \
-  --cli /absolute/path/to/native/VisualSubForge.app/Contents/MacOS/vsf
+/absolute/pinned/node tests/desktop/run.mjs --native-audio \
+  --binary /absolute/path/to/native/editor --cli /absolute/path/to/native/vsf
 ```
 
-Use the [native build recipe](../../docs/build-macos.md), the pinned Node version,
-and Python with `tests/native/requirements.txt` installed. The helper may need
-macOS audio-capture consent. It captures only the owned editor PID through a
-private process tap; it does not select a system device or record a microphone.
-Each recorder is stopped and reaped even when an assertion fails. The runner
-requires normal app shutdown and independently analyzes all five captures in
-both channels with `tests/native/audio-editor-content.py`.
+Install `tests/native/requirements.txt` in the selected Python environment. The
+Mac helper may require audio-capture consent; it records only the owned editor PID
+through a private tap, not a microphone or a whole system device. On Linux use
+`tests/native/pulse-stream-capture.py`, `pactl`, `parec` and a server supporting
+single-stream monitoring. Exactly one sink input must match the owned editor PID;
+a whole-sink recording is not a substitute. Record the selected runtime identity.
 
-On Linux, use `tests/native/pulse-stream-capture.py` as the capture helper with
-`pactl`, `parec` and a running server that supports single-stream monitoring.
-The helper requires exactly one sink input belonging to the owned editor PID;
-it never substitutes a whole-sink recording. Select and identify the intended
-native runtime before running. The isolated diagnostic build described in the
-[reliability record](../../docs/native-reliability.md) permits comparing existing
-Pulse options; those overrides are not supported production environment options.
-Linux also checks sampled clock continuity and EOF after clearing a live loop,
-with a one-source-sample backward tolerance. This extra check does not capture
-the clear boundary's PCM.
-
-For a VM without NumPy, add `--native-audio-capture-only`, then run the analyzer
-on a host with NumPy. This flag completes only the state/capture phase; it does
-not establish an audio-content pass. Keep the original report and source/capture
-files unchanged. Map the VM path prefix to the same files on the analysis host:
+For a VM without NumPy, add `--native-audio-capture-only` alongside `--native-audio`,
+then analyze the unchanged files on a host with NumPy:
 
 ```sh
 /absolute/path/to/python-with-numpy tests/native/audio-editor-content.py \
@@ -535,393 +221,51 @@ files unchanged. Map the VM path prefix to the same files on the analysis host:
   --path-map /guest/shared /host/shared
 ```
 
-The analyzer verifies capture/source hashes, process identity, format and complete
-PCM block coverage before checking both channels. Linux metadata contains receive
-times, not presentation timestamps. Paused-seek observations are retained even
-when the workflow fails, and an incomplete workflow cannot pass content analysis.
+The analyzer verifies hashes, process identity, format, complete PCM blocks and
+both channels. State/capture completion is not a content pass; an incomplete
+workflow cannot pass content analysis. Linux receive times are not presentation
+timestamps. This does not establish physical pointer, real-sheet, DAC/speaker,
+changing-rate or other-platform acceptance. See [native reliability limits](../../docs/native-reliability.md).
 
-`native-audio.json` records input hashes, observed state and recorder exits;
-`native-audio-runtime.json` verifies loaded executable/library backing files;
-`native-audio-content.json` records the separate content verdict. A completed
-state report alone is not a content pass. Supplied chooser results and typed IPC
-exercise the real editor/media worker but do not establish physical pointer,
-real-sheet, DAC/speaker, changing-rate or other-platform acceptance. See the
-[dated evidence and limits](../../docs/native-reliability.md#editor-audio-re-entry-and-replacement--2026-10-18).
+## Subtitle plugins
 
-### Subtitle plugins
+Use `--plugins` or `--plugins-editor` from the feature table, and
+`--plugin-performance` for the complete scale lane. To test process observation
+independently with a real sibling CLI helper:
 
-`--plugins` uses the native-feature test bundle and installed sibling CLI to run
-modern/VSS checker and fix workflows on SRT, ASS, SSA and WebVTT. It checks draft
-and chooser cancellation, read-only findings, exact source/metadata preservation,
-one-transaction Undo/Redo, cancelled/failed/exact saves, reopen and durable recovery
-after owned-process termination. Controls observe a live looping helper, cancel
-and verify reaping, reject package changes after review and preserve accepted
-state after script exceptions. Each format also reaches an acknowledged native
-preview frame. FFmpeg generates a short video. Process inspection uses Unix `ps`
-or a prestarted Windows CIM observer; each post-cancel sample is fresh. The
-observer never signals plugin helpers: the production job owner must reap them.
+```sh
+node --test tests/desktop/plugin-processes.test.mjs
+```
 
-`--plugins-editor` runs the same eight format/API cases without loading media or
-requiring FFmpeg/native playback. Use the ordinary `npm run build:desktop-test`
-build with its sibling CLI. This mode writes `plugins-editor.json` with explicit
-`withNativePreview: false` and no native-preview claims. Choose one plugin mode
-per run. The ordinary quality/history/save/recovery prerequisite workflow still
-runs, including its cue-list and text-editor layout assertions.
+This checks live observation and a fresh empty snapshot after EOF, not live-loop
+UI cancellation. The production plugin owner must cancel and reap its helper;
+the observer must not signal it.
 
-`node --test tests/desktop/plugin-processes.test.mjs` validates process observation
-using an actual sibling CLI helper waiting for stdin, followed by a fresh empty
-snapshot after EOF. It does not substitute for live-loop UI cancellation.
+## ASS/SSA documents and tagged SRT
 
-See the [native build commands and evidence](../../docs/plugin-desktop.md#native-workflows-and-real-chooser--2026-10-18).
-`plugins.json` records app/CLI/input/output hashes, exact-state assertions and
-native snapshots; the ordinary receipt requires normal code0 shutdown. Supplied
-chooser results and DOM events do not test real OS sheets or physical input.
-`VSF_PLUGIN_CAPTURE=1` with optional comma-separated `VSF_PLUGIN_CAPTURE_LABELS`
-pauses selected captures for up to60s. Inspect and save the actual native window,
-then write `capture-ack.json` with the requested `label`; WebView screenshots omit
-the native video sibling. The separate normal-build chooser trial and remaining
-desktop10k/historical-host/platform gates are recorded in the plugin guide.
-
-`--plugin-performance` exercises the five exact plugin API/CLI10k inputs (dense
-tagged SRT, ASS, SSA, styled and timed WebVTT), each with both APIs. Generate ASS/SSA
-and WebVTT inputs using `scripts/ass-fixtures.py` and `scripts/webvtt-fixtures.py`.
-The runner verifies hashes, all200 finding pages and all200 change pages, then
-five complete check/fix/accept/Undo/Redo/save cycles per combination. Non-WebVTT
-fixes combine a10ms shift with text edits; WebVTT fixes retain embedded absolute
-timestamps. Exact bytes/cues/format properties, source protection, failed saves,
-full reopen, cancellation/stale rejection and durable crash recovery are checked.
-
-Run this lane by itself against the isolated bundle and sibling CLI above, with
-the same explicit private runtime. `plugin-performance.json` records timings,
-hashes and owned app/direct-helper RSS samples (Unix `ps`,50ms intervals). All
-measured ordinary interactions must stay below1000ms. Complete asynchronous
-check/fix preparation must stay below10000ms; start feedback remains below1000ms
-and the helper's1000ms execution deadline is unchanged. RSS is descriptive and
-excludes WebKit/native subprocesses; the separate500ms p95/192MiB API/CLI gates
-are unchanged. This lane loads no media. `VSF_PLUGIN_PERFORMANCE_WORKLOADS=dense`
-selects a diagnostic subset; it cannot replace the complete ten-combination run.
+Use `--ass` for the native feature workflow and `--ass-performance` for the
+media-free scale lane described above. ASS/SSA precision is 10 ms; tagged SRT
+retains millisecond precision. Native preview acknowledgments and WebView PNGs
+do not prove native composition. The ASS capture flag supports separate observation.
 
 ## Browser workflow checks
 
-Run from the repository root after `npm ci` with the
-[pinned Node/npm versions](../../CONTRIBUTING.md#commands-and-toolchains).
-
-Run the component workflow pages automatically with the pinned Playwright package:
-
 ```sh
+npm ci
 npx playwright install chromium webkit
 npm run test:browser
 ```
 
-On Linux, use `npx playwright install --with-deps chromium webkit` to install
-browser prerequisites too. The runner starts its own Vite server on port 1421
-(override with `VSF_BROWSER_TEST_PORT`) and refuses to reuse an existing server.
-It checks the component and workspace-lifecycle pages in `tests/frontend/` in Chromium and WebKit, including
-project save failures, recovery response ordering and gesture cancellation.
-FAIL rows, page errors, incomplete results, zero checks and inconsistent passing
-counts fail the run. Negative controls verify those runner failure modes. Reports,
-failure screenshots and traces are under ignored `playwright-report/` and
-`test-results/browser/`; CI uploads them. Browser cleanup leaves real-desktop
-receipts in `test-results/desktop-*` intact. See the [Playwright CI guidance](https://playwright.dev/docs/ci).
-These are production components with modeled IPC and synthetic events, not native
-WebView, filesystem, keyboard, GPU or audio-device acceptance.
+On Linux, use `npx playwright install --with-deps chromium webkit` for system
+prerequisites. The runner starts its own Vite server on port 1421 (override with
+`VSF_BROWSER_TEST_PORT`) and refuses to reuse an existing server. It runs the
+component and workspace lifecycle pages in both engines, including project save
+failures, recovery ordering, focus and gesture cancellation. FAIL rows, page errors,
+incomplete/empty results and inconsistent counts fail the run; negative controls
+exercise those failure modes.
 
-## November refactoring regression checkpoint
-
-The November 7, 2026 boundary-error change `11f0885` retains desktop/CLI error
-text and JSON string shape, domain rejection state and format round trips.
-With Rust 1.98.1, Node 24.21.0/npm 11.19.0 on the development Mac:
-
-- `npm run build`, `npm run lint`, `npm test` (44 tests), `npm run format:check`,
-  `npm run ipc:check`, `cargo fmt --all -- --check` and
-  `cargo clippy --locked --workspace --all-targets -- -D warnings` pass.
-- `cargo test --locked --workspace` passes 519 tests, with 33 ignored; 15 of 46
-  harnesses have zero tests and are not feature validation.
-- `npm run build:desktop-test` then `npm run test:desktop` passes actual command,
-  history, save/failure and recovery workflows, with normal shutdown code 0.
-  Local receipt: `test-results/desktop-zvPugh/receipt.json`.
-- The explicit `desktop-e2e,media-prototype` Mac build and matching sibling CLI
-  pass `--ass --webvtt --styles --fonts --conversion --plugins` through the runner
-  documented above: 41 launches, six conversion directions and eight plugin
-  format/API cases, ending with normal shutdown code 0. Local receipts are in
-  `test-results/desktop-vdZuvC/`; executable SHA256 is
-  `cad971968e047ff861742aebb0c5d7aee50a8bf8cd212301458fd06311a4da06`.
-  Runtime identification records 46 loaded images, zero unavailable, including
-  the explicitly selected private mpv runtime.
-
-This native run is **foreground-conditioned**: a local driver foregrounded only
-its exact owned executable every second. Earlier ambient animation-frame readiness
-timeouts remain unresolved; no assertions or deadlines were weakened. Generated
-WebView input, supplied file choices and actual IPC/native-preview acknowledgments
-do not prove physical input, real choosers, audio, latency or fresh native-window
-composition. The preceding modal change has bounded hide/restore observations;
-those are not new observations for this binary. Prior scale evidence was retained
-because no capture/poll/render computation changed. Windows/Linux suites were not
-rerun for `11f0885`; the earlier save-refactoring VM checks remain baseline only.
-
-Logs and exact local launch/configuration commands are retained under ignored
-`test-results/refactor-errors/`. They are not prerequisites for the public runner.
-The documentation-only cleanup following this checkpoint does not rerun or extend
-these runtime claims.
-
-
-## Timing modal focus regression (2026-11-07)
-
-Timing reviews now share the workspace presentation owner. A pre-change gap-review
-browser assertion failed in both Chromium and WebKit when close tried to focus its
-still-disabled launcher. The corrected ordering passes the affected 24 browser
-cases; final targeted checks include 16 timing presentation checks per engine and
-37 workspace lifecycle checks. The [timing fixture](../frontend/timing-modal/README.md)
-holds above-WebView hide/restore and draft/accept replies for all four variants.
-
-`npm run lint`, `npm test` (44 tests), `npm run build`, `npm run format:check`,
-`npm run build:desktop-test` and `npm run test:desktop` pass on the development Mac.
-One current `desktop-e2e,media-prototype` build also passes `--duration`, including
-launcher focus after close, ordinary persistence/history/recovery, 10k duration
-checks and normal shutdown. That native run used the existing OpenGL runtime and
-an exact-app foreground driver. It does not establish above-WebView native hiding,
-physical input/audio/chooser acceptance or resolution of ambient readiness stalls.
-No new Windows/Linux run, ANGLE composition campaign or Rust/IPC change is claimed.
-
-
-### Dialog and stale-edit retry checkpoint — November 8, 2026
-
-Historical evidence for `21e968c`; the review follow-up below supersedes its
-automatic retry and conflict-lock behavior.
-
-Settings, resync, statistics and text presentation now share WorkspaceModal;
-feature acceptance/cancellation owners remain separate. The document command has
-a generated tagged error contract. Cue-draft Apply retries once only after a typed
-stale refusal and a same-generation/cue, unchanged-edited-field check. Conflicts and
-unknown outcomes retain the draft; unknown outcomes are never replayed. See the
-[edit contract](../../docs/text-editing.md#concurrent-cue-edits).
-
-With the pinned toolchains on the development Mac:
-
-- `npm run build`, `npm run lint`, `npm run format:check`, `npm test` (47),
-  `npm run ipc:check`, `cargo fmt --all -- --check` and strict workspace Clippy pass.
-- `cargo test --locked --workspace`: 520 passed, 33 ignored; 15 of 46 harnesses
-  have zero passing tests and are not feature evidence.
-- `npm run test:browser`: 66/66 Chromium/WebKit cases pass on frozen source,
-  including 12 modal-transition/disposal and 15 retry checks per engine. New
-  launcher-focus assertions failed before migration in both engines. Browser
-  evidence uses modeled IPC, including above-WebView hide/restore replies.
-- `npm run build:desktop-test` then `npm run test:desktop`: pass. Actual IPC
-  confirms the tagged stale refusal, a retry preserving intervening timing,
-  one retry Undo entry, and retained conflicting text. Existing settings, text,
-  save/failure and recovery workflows pass with normal shutdown 0.
-- The final `desktop-e2e,media-prototype` Mac build, selected through the existing
-  [native recipe](../../docs/build-macos.md), passes
-  `npm run test:desktop -- --statistics --resync --binary /absolute/path/to/visualsubforge`.
-  This includes default workflows, 10k statistics, SRT/ASS/SSA resync CLI/GUI byte
-  parity, timed-effect refusal, Undo/Redo and failed-save preservation. Normal
-  shutdown is 0. The identified binary SHA256 is
-  `4b9c955379376cc54e903b275ec98a41a0364c95f5836f1feffd6b37b5e20315`.
-
-The native run is foreground-conditioned for the exact owned executable, using
-Mac OpenGL below the WebView. It does not establish above-WebView composition,
-ambient double-rAF readiness, physical input/audio, real choosers or platform
-acceptance. No new loaded-library audit, Windows/Linux run or hosted CI result is
-claimed. Local detailed receipts retain intermediate fixture-contract failures
-and an interrupted hot-reload browser run; the final frozen-source suite passes.
-
-
-### Review follow-up — refresh without replay
-
-The follow-up removes automatic retry, field merging and the conflict/selection
-lock. Stale-version and unknown-outcome cue-draft failures refresh once, retain the
-draft and report a message. Missing/replaced targets clear selection; newer input
-still survives a successful reply. `outcomeUnknown` replaces the `unavailable` tag,
-and both adapters use one store version check under the same mutex. The production
-single-window path serializes edits; the defensive desktop stale test deliberately
-bypasses that owner and is not evidence of a production second writer.
-
-On the pinned development Mac toolchains, `npm run build`, `npm run lint`,
-`npm run format:check`, `npm test` (44), `npm run ipc:check`,
-`cargo fmt --all -- --check`, strict workspace Clippy and
-`cargo test --locked --workspace` (520 passed, 33 ignored) pass. Fifteen zero-test
-harnesses are not feature evidence. `npm run test:browser` passes 66/66; after an
-error-cause metadata correction, the final lifecycle/reconciliation subset passes
-4/4 with 13 reconciliation checks per engine. No visible error text or behavior
-changed for that correction.
-
-`npm run build:desktop-test` then `npm run test:desktop` passes on final source,
-including real typed stale refusal, refresh/draft retention without replay or
-added history, normal Apply enablement, settings/text/gap/save/failure/recovery,
-and normal shutdown 0. No new native-media, Windows/Linux or hosted-CI run is
-claimed for this follow-up; the preceding native checkpoint retains its original
-source/binary scope and physical/platform limitations.
-
-
-### Timeline owner — November 11, 2026
-
-The workspace now constructs `TimelineView` for viewport/range state and waveform
-analysis. With the pinned Mac toolchains, `npm run format:check`, `npm run lint`,
-`npm test` (44), `npm run build`, `npm run ipc:check`,
-`cargo fmt --all -- --check`, strict workspace Clippy, locked workspace tests
-(520 passed, 33 ignored; 15 zero-test harnesses), locked CLI build and the default
-Tauri debug build pass. The separate subtitle-core check/test/Clippy commands pass.
-`npm run test:browser` passes 66/66 Chromium/WebKit cases, including three new
-compiled-owner unit cases (40 workspace lifecycle checks per engine).
-
-`npm run build:desktop-test` and `npm run test:desktop` pass, with normal shutdown
-0 (`test-results/desktop-a2nBRG/receipt.json`). The Mac `desktop-e2e,media-prototype`
-build also passes `npm run test:desktop -- --duration --binary /absolute/path/to/visualsubforge`,
-including project restoration, timing acceptance/invalidation and Undo, with
-normal shutdown 0 (`test-results/desktop-iLAXOB/`). It uses the existing private
-mpv runtime selected through `PKG_CONFIG_PATH` at build and `DYLD_LIBRARY_PATH`
-at launch, as described in the Mac build guide. This run foregrounds the exact
-owned app every second; generated WebView input and supplied file selections do
-not establish physical input, audio, native composition or platform acceptance.
-No new Windows/Linux or native-runtime adoption result is claimed.
-
-
-### Timing gesture owner — November 11, 2026
-
-`TimingGesture` now owns held-Space and boundary-preview state. Before extraction,
-existing browser cases were confirmed to cover tap-to-pause release, hold-to-create
-release, and cancelled drags. The focused fast-editing/magnetic-timing/cue-timing
-suites pass 23/15/21 checks per engine after extraction; no duplicate cases were needed.
-
-The same full pinned command set listed in the timeline-owner checkpoint passes:
-44 frontend tests, 520 Rust tests (33 ignored; 15 zero-test harnesses), and all
-66 Chromium/WebKit browser cases. `npm run build:desktop-test` followed by
-`npm run test:desktop` passes (`test-results/desktop-2Rgak2/`, shutdown 0).
-The same native build/runtime selection and exact-app foreground driver pass the
-Mac `--duration` workflow (`test-results/desktop-KYJVaa/`, shutdown 0). Its generated
-input, supplied file choices and native timing IPC retain the preceding checkpoint's
-physical-input/audio/composition limitations. No Windows/Linux rerun is claimed.
-
-
-### Workspace decisions — November 11, 2026
-
-Unsaved changes, project-save failures, project-reference issues and legacy import
-share the hide/show/wait/answer owner. Save/exit policy and legacy publication stay
-with their existing owners. Sixteen new compiled-owner cases cover disposal,
-hide failure, late hide replies and restore failure across all four choice types.
-Workspace lifecycle reports 56 checks per engine; the full browser suite passes
-66/66 in Chromium/WebKit. The same full pinned static/build/unit command set as
-the preceding checkpoints passes (44 frontend and 520 Rust tests, 33 ignored;
-15 zero-test harnesses are not feature evidence). Separate subtitle-core checks pass.
-`npm run build:desktop-test` and `npm run test:desktop` pass with shutdown 0
-(`test-results/desktop-ReWnZk/`). No new native playback or Windows/Linux result is
-claimed for this presentation extraction; the preceding native evidence keeps
-its original source and input/audio/composition limits.
-
-
-### Workspace components — November 11, 2026
-
-CueTable, CueEditor and WaveformPanel now receive session owners and retain their
-scoped styles. The pure pane-layout tests cover measured controls, minimum content
-sizes and splitter extremes. The full pinned command set from the preceding
-checkpoints passes: 47 frontend tests, 520 Rust tests (33 ignored, 15 zero-test
-harnesses), all static/build/drift checks and 66/66 Chromium/WebKit browser cases.
-Separate subtitle-core check/test/Clippy commands also pass.
-`npm run build:desktop-test` and `npm run test:desktop` pass, with shutdown 0
-(`test-results/desktop-WkNiyw/`).
-
-Against parent `25af30e`, Chromium screenshots for the fast-editing and
-quality-checking workspaces are byte-identical at 1280px and 760px widths.
-Panel, row, editor and waveform bounds and computed styles also match exactly.
-The comparison holds each completed modeled fixture before its normal unmount;
-it does not modify production code. Local comparison artifacts are in
-`test-results/composition-root/pr4/`. This is layout evidence, not physical-input
-or native-video composition acceptance. No new native playback/Windows/Linux run
-is claimed for this markup extraction.
-
-### Workspace controller — November 13, 2026
-
-`Workspace` owns readiness, messages and the task flag, deriving admission from
-modal, decision and gesture activity. The extraction passes
-`npm run format:check`, `npm run lint`, `npm test` (47), `npm run build`,
-`npm run ipc:check`, `cargo fmt --all -- --check`,
-`cargo check --locked -p subtitle-core`, `cargo test --locked -p subtitle-core`,
-`cargo clippy --locked -p subtitle-core --all-targets -- -D warnings`,
-`cargo clippy --locked --workspace --all-targets -- -D warnings`,
-`cargo test --locked --workspace` (520 passed, 33 ignored; 15 zero-test harnesses),
-`cargo build --locked -p vsf-cli` and
-`npm run tauri -- build --debug --no-bundle -- --locked`.
-
-`npm run test:browser` passes 66/66 Chromium/WebKit cases, including 59 workspace
-lifecycle checks per engine. An initial run passed 65/66 with a Chromium
-magnetic-timing timeout while App was edited during execution; the full rerun
-against unchanged source passes. `npm run build:desktop-test` and
-`npm run test:desktop` pass with shutdown 0 (`test-results/desktop-c7w9xr/`).
-No new native playback or physical-input/composition acceptance is claimed.
-
-### Workspace actions and keys — November 13, 2026
-
-File, media, cue-editing and view actions now receive their owners from App's
-short dispatcher. Keyboard routing has seven new pure tests for precedence,
-focused controls, composition/AltGr, Problems navigation, Windows actions and
-held Space. The full pinned command set in the workspace-controller checkpoint
-passes, with 54 frontend tests and 520 Rust tests (33 ignored; 15 zero-test
-harnesses). `npm run test:browser` passes 66/66 Chromium/WebKit cases.
-`npm run build:desktop-test` and `npm run test:desktop` pass with shutdown 0
-(`test-results/desktop-rDoBpQ/`).
-
-The Mac `desktop-e2e,media-prototype` app build and `--duration` workflow pass
-(`test-results/desktop-sddALD/`, shutdown 0), using the same private mpv runtime
-and exact-app foreground driver described in the timeline-owner checkpoint.
-The isolated checkout initially selected Intel Homebrew's pkg-config; explicitly
-putting `/opt/homebrew/bin` on PATH resolves the intended Apple Silicon SDK.
-The bundle inventory also correctly rejected dependencies symlinked outside the
-checkout; local copies of the pinned dependencies passed. A browser run spanning
-that dependency-directory replacement stopped at WebKit worker loading; the full
-stable-dependency rerun passes. No production workaround was introduced.
-Generated WebView input and native timing IPC do not establish physical input,
-audio or native-video composition acceptance.
-
-### Workspace shell — November 13, 2026
-
-Toolbar, recovery banner, footer, playback diagnostics and font notices retain
-scoped styles in shell components. WorkspaceDialogs renders feature dialogs from
-the modal identity. Recovery owns polling, and CueMenu owns captured menu context.
-Modals, decisions and the cue menu share HideVideo's hide/render/restore guards,
-while retaining their distinct focus, error and answer policies.
-
-The full pinned command set in the workspace-controller checkpoint passes:
-54 frontend tests, 520 Rust tests (33 ignored; 15 zero-test harnesses), static,
-formatting, build and binding-drift checks. `npm run test:browser` passes 66/66
-Chromium/WebKit cases, with 62 workspace lifecycle checks per engine.
-`npm run build:desktop-test` and `npm run test:desktop` pass with shutdown 0
-(`test-results/desktop-88wDca/`).
-
-The same screenshot comparison as the earlier workspace-components checkpoint
-passes against the parent actions-and-keys source: fast-editing and quality-checking
-workspaces at 1280px and 760px have byte-identical PNGs and identical recorded
-geometry/computed styles. Artifacts are in `test-results/workspace-composition/pr3/`.
-The completed modeled fixtures are held before unmount without changing production
-code. This is layout evidence, not native-video composition or physical input.
-
-### Workspace cue navigation — November 13, 2026
-
-App creates owners and lays out regions. CueNavigation now coordinates explicit
-selection, adjacent-cue editing, problem navigation, reveal, focus and automatic
-following. Narrow callbacks read/scroll the list and focus a cue, editor or
-waveform. Navigation exposes its own activity; Workspace derives busy. Rust
-continues to own accepted document state and undo history.
-
-The remaining root behavior lives in named files: file-workflow and project-view
-preserve protected save/restore sequencing; cue-editing, workspace-quality and
-workspace-menus derive projections; WorkspaceView and WorkspaceLayout own view
-preferences and measured panes; WorkspaceLifetime preserves startup, native
-layout observation and disposal order. Effect-bearing owners are constructed
-during component initialization.
-
-The full pinned command set in the workspace-controller checkpoint passes:
-54 frontend tests, 520 Rust tests (33 ignored; 15 zero-test harnesses), formatting,
-lint, strict TypeScript/Svelte, production build, IPC drift, domain checks and
-strict domain/workspace Clippy. `npm run test:browser` passes all 66 Chromium/WebKit
-workflows, including selection, focus, following and 62 workspace lifecycle checks
-per engine. `npm run build:desktop-test` and `npm run test:desktop` pass with
-shutdown 0 (`test-results/desktop-shMGxj/`). The first complete run also passed;
-the final rerun includes panel/measurement delegation and removal of an unused
-assignment-return warning introduced by the view-owner move.
-
-The Mac `desktop-e2e,media-prototype` app build and `--duration` workflow also
-pass with shutdown 0 (`test-results/desktop-jyja0D/`), using the same pinned
-private mpv runtime, Apple Silicon Homebrew path and exact-app foreground driver
-as the actions-and-keys checkpoint. This exercises generated WebView input and
-native timing IPC; it is not physical-input, audio or native-video composition
-acceptance. Logs are retained in `test-results/workspace-composition/pr4/`.
+Reports, failure screenshots and traces are generated under ignored
+`playwright-report/` and `test-results/browser/`; CI uploads them. Browser cleanup
+preserves desktop receipts. These tests use production components with modeled
+IPC and synthetic events; they do not establish native WebView, filesystem,
+physical keyboard, GPU or audio-device behavior.
