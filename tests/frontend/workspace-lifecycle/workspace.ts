@@ -1,4 +1,4 @@
-import { Workspace } from '../../../src/lib/workspace.svelte';
+import { Workspace } from '../../../src/lib/workspace/workspace.svelte';
 
 export async function workspaceCases(passed: (message: string) => void) {
   const assert = (condition: unknown, message: string) => {

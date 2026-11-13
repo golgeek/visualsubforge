@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import SceneControls from '../../../src/lib/SceneControls.svelte';
+  import SceneControls from '../../../src/lib/timeline/SceneControls.svelte';
   let media = $state({ session: 1, loaded: true });
   let restored = $state<{ session: number; generation: number } | null>(null);
   onMount(() => {

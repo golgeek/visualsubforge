@@ -1,4 +1,4 @@
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import {
   documentAction,
   DocumentFailure,

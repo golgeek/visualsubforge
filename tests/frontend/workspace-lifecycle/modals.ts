@@ -1,7 +1,7 @@
 import {
   WorkspaceModal,
   type WorkspaceModalIdentity,
-} from '../../../src/lib/workspace-modal.svelte';
+} from '../../../src/lib/dialogs/workspace-modal.svelte';
 
 export async function modalCases(passed: (message: string) => void) {
   const assert = (value: unknown, message: string) => {

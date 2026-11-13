@@ -1,7 +1,7 @@
 import { mount, unmount, tick } from 'svelte';
-import FontDialog from '../../../src/lib/FontDialog.svelte';
-import { FontSession } from '../../../src/lib/font-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import FontDialog from '../../../src/lib/authoring/FontDialog.svelte';
+import { FontSession } from '../../../src/lib/authoring/font-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type {
   DocumentSnapshot,
   FontReview,

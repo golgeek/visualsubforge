@@ -1,5 +1,5 @@
-import { TextSession } from '../../../src/lib/text-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { TextSession } from '../../../src/lib/authoring/text-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type { TextView, DocumentSnapshot } from '../../../src/lib/client';
 export async function lifecycle(
   sample: TextView,

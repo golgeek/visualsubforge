@@ -1,5 +1,5 @@
-import { GapSession } from '../../../src/lib/gap-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { GapSession } from '../../../src/lib/timing/gap-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type { GapView, DocumentSnapshot } from '../../../src/lib/client';
 export async function lifecycle(
   sample: GapView,

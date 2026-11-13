@@ -1,5 +1,5 @@
 import { flushSync } from 'svelte';
-import { TimelineView } from '../../../src/lib/timeline-view.svelte';
+import { TimelineView } from '../../../src/lib/timeline/timeline-view.svelte';
 import { emptyStatus, type WaveformView } from '../../../src/lib/client';
 
 export async function timelineCases(passed: (message: string) => void) {

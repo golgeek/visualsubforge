@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import CueTiming from '../../../src/lib/CueTiming.svelte';
+  import CueTiming from '../../../src/lib/timing/CueTiming.svelte';
   import {
     previewBoundary,
     timingAction,
     type TimingEdit,
-  } from '../../../src/lib/cue-timing';
+  } from '../../../src/lib/timing/cue-timing';
   import type { Cue, DocumentSnapshot } from '../../../src/lib/client';
 
   const original: Cue = {

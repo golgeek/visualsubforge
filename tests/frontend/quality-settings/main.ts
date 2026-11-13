@@ -1,5 +1,5 @@
 import { mount, unmount, tick } from 'svelte';
-import SettingsDialog from '../../../src/lib/SettingsDialog.svelte';
+import SettingsDialog from '../../../src/lib/settings/SettingsDialog.svelte';
 import {
   defaultPreferences,
   type Preferences,

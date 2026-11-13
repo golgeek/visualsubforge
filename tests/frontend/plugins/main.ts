@@ -1,6 +1,6 @@
 import { mount, unmount, tick } from 'svelte';
-import PluginDialog from '../../../src/lib/PluginDialog.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import PluginDialog from '../../../src/lib/authoring/PluginDialog.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import {
   emptyStatus,
   type DocumentSnapshot,

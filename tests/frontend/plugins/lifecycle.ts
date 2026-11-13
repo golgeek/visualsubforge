@@ -1,5 +1,5 @@
-import { PluginSession } from '../../../src/lib/plugin-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { PluginSession } from '../../../src/lib/authoring/plugin-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import { pluginReview, styledDocument } from '../ipc-contract-samples';
 import type {
   PluginReview,

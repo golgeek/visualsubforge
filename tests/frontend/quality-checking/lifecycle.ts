@@ -1,7 +1,7 @@
 import {
   QualitySession,
   type QualityInput,
-} from '../../../src/lib/quality-session.svelte';
+} from '../../../src/lib/quality/quality-session.svelte';
 import type { QualityView } from '../../../src/lib/client';
 
 export async function lifecycle(

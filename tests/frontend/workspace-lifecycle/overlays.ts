@@ -1,4 +1,4 @@
-import { HideVideo } from '../../../src/lib/hide-video.svelte';
+import { HideVideo } from '../../../src/lib/dialogs/hide-video.svelte';
 
 export async function overlayCases(passed: (message: string) => void) {
   const assert = (condition: unknown, message: string) => {

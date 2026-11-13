@@ -5,14 +5,14 @@ import { workspaceCases } from './workspace';
 import { decisionCases } from './decisions';
 import { timelineCases } from './timeline.svelte';
 import { modalCases } from './modals';
-import { defaultTiming } from '../../../src/lib/magnetic-timing';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
-import { MediaSession } from '../../../src/lib/media-session.svelte';
-import { ProjectWorkflow } from '../../../src/lib/project-workflow.svelte';
+import { defaultTiming } from '../../../src/lib/timing/magnetic-timing';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
+import { MediaSession } from '../../../src/lib/media/media-session.svelte';
+import { ProjectWorkflow } from '../../../src/lib/project/project-workflow.svelte';
 import {
   TranslationSession,
   referenceKey,
-} from '../../../src/lib/translation-session.svelte';
+} from '../../../src/lib/translation/translation-session.svelte';
 import {
   DocumentFailure,
   emptyDocument,

@@ -1,77 +1,80 @@
 <script lang="ts">
-  import TransportBar from './lib/TransportBar.svelte';
-  import CueOperationsBar from './lib/CueOperationsBar.svelte';
-  import SubtitleToolbar from './lib/SubtitleToolbar.svelte';
-  import ShortcutHelp from './lib/ShortcutHelp.svelte';
-  import WorkspaceDecisions from './lib/WorkspaceDecisions.svelte';
-  import WorkspaceLegacyImport from './lib/WorkspaceLegacyImport.svelte';
-  import VideoPreview from './lib/VideoPreview.svelte';
-  import { WorkspacePreferences } from './lib/workspace-preferences.svelte';
-  import { WorkspaceScenes } from './lib/workspace-scenes.svelte';
-  import { LegacyImportDecision } from './lib/legacy-import-decision.svelte';
-  import { UnsavedChanges } from './lib/unsaved-changes';
-  import { TranslationReference } from './lib/translation-reference';
+  import TransportBar from './lib/media/TransportBar.svelte';
+  import CueOperationsBar from './lib/cues/CueOperationsBar.svelte';
+  import SubtitleToolbar from './lib/cues/SubtitleToolbar.svelte';
+  import ShortcutHelp from './lib/workspace/ShortcutHelp.svelte';
+  import WorkspaceDecisions from './lib/dialogs/WorkspaceDecisions.svelte';
+  import WorkspaceLegacyImport from './lib/project/WorkspaceLegacyImport.svelte';
+  import VideoPreview from './lib/media/VideoPreview.svelte';
+  import { WorkspacePreferences } from './lib/settings/workspace-preferences.svelte';
+  import { WorkspaceScenes } from './lib/timeline/workspace-scenes.svelte';
+  import { LegacyImportDecision } from './lib/project/legacy-import-decision.svelte';
+  import { UnsavedChanges } from './lib/document/unsaved-changes';
+  import { TranslationReference } from './lib/translation/translation-reference';
   import {
     readProjectView,
     beginProjectRestore,
     projectMediaOpened,
     restoreProjectOptions,
-  } from './lib/project-view';
-  import { CueEditing } from './lib/cue-editing.svelte';
-  import { WorkspaceQuality } from './lib/workspace-quality.svelte';
-  import { WorkspaceMenus } from './lib/workspace-menus.svelte';
-  import { WorkspaceView } from './lib/workspace-view.svelte';
-  import { CueNavigation } from './lib/cue-navigation.svelte';
-  import WorkspaceDialogs from './lib/WorkspaceDialogs.svelte';
-  import { WorkspaceDialogsState } from './lib/workspace-dialogs.svelte';
-  import { Recovery } from './lib/recovery.svelte';
-  import RecoveryBanner from './lib/RecoveryBanner.svelte';
-  import { CueMenu } from './lib/cue-menu.svelte';
-  import FontDiagnostics from './lib/FontDiagnostics.svelte';
-  import PlaybackDiagnostics from './lib/PlaybackDiagnostics.svelte';
-  import WorkspaceFooter from './lib/WorkspaceFooter.svelte';
-  import WorkspaceToolbar from './lib/WorkspaceToolbar.svelte';
-  import { runFileAction } from './lib/workspace-file-actions';
-  import { runMediaAction, seekMedia } from './lib/media-actions';
-  import { runCueAction, formatCueText } from './lib/cue-actions';
-  import { runViewAction } from './lib/view-actions';
-  import { workspaceKeydown, workspaceKeyup } from './lib/workspace-keys';
-  import CueTable from './lib/CueTable.svelte';
-  import CueEditor from './lib/CueEditor.svelte';
-  import WaveformPanel from './lib/WaveformPanel.svelte';
-  import { CueTableView } from './lib/cue-table-view.svelte';
-  import { Workspace } from './lib/workspace.svelte';
-  import { WorkspaceLayout } from './lib/workspace-layout.svelte';
-  import ProblemsPanel from './lib/ProblemsPanel.svelte';
-  import TranslationPanel from './lib/TranslationPanel.svelte';
-  import { TranslationSession } from './lib/translation-session.svelte';
-  import { QualitySession } from './lib/quality-session.svelte';
+  } from './lib/project/project-view';
+  import { CueEditing } from './lib/cues/cue-editing.svelte';
+  import { WorkspaceQuality } from './lib/quality/workspace-quality.svelte';
+  import { WorkspaceMenus } from './lib/workspace/workspace-menus.svelte';
+  import { WorkspaceView } from './lib/workspace/workspace-view.svelte';
+  import { CueNavigation } from './lib/cues/cue-navigation.svelte';
+  import WorkspaceDialogs from './lib/dialogs/WorkspaceDialogs.svelte';
+  import { WorkspaceDialogsState } from './lib/dialogs/workspace-dialogs.svelte';
+  import { Recovery } from './lib/document/recovery.svelte';
+  import RecoveryBanner from './lib/document/RecoveryBanner.svelte';
+  import { CueMenu } from './lib/cues/cue-menu.svelte';
+  import FontDiagnostics from './lib/authoring/FontDiagnostics.svelte';
+  import PlaybackDiagnostics from './lib/media/PlaybackDiagnostics.svelte';
+  import WorkspaceFooter from './lib/workspace/WorkspaceFooter.svelte';
+  import WorkspaceToolbar from './lib/workspace/WorkspaceToolbar.svelte';
+  import { runFileAction } from './lib/workspace/workspace-file-actions';
+  import { runMediaAction, seekMedia } from './lib/media/media-actions';
+  import { runCueAction, formatCueText } from './lib/cues/cue-actions';
+  import { runViewAction } from './lib/workspace/view-actions';
+  import {
+    workspaceKeydown,
+    workspaceKeyup,
+  } from './lib/workspace/workspace-keys';
+  import CueTable from './lib/cues/CueTable.svelte';
+  import CueEditor from './lib/cues/CueEditor.svelte';
+  import WaveformPanel from './lib/timeline/WaveformPanel.svelte';
+  import { CueTableView } from './lib/cues/cue-table-view.svelte';
+  import { Workspace } from './lib/workspace/workspace.svelte';
+  import { WorkspaceLayout } from './lib/layout/workspace-layout.svelte';
+  import ProblemsPanel from './lib/quality/ProblemsPanel.svelte';
+  import TranslationPanel from './lib/translation/TranslationPanel.svelte';
+  import { TranslationSession } from './lib/translation/translation-session.svelte';
+  import { QualitySession } from './lib/quality/quality-session.svelte';
   import { isTauri } from '@tauri-apps/api/core';
-  import { DocumentSession } from './lib/document-session.svelte';
-  import { MediaSession } from './lib/media-session.svelte';
-  import { ProjectWorkflow } from './lib/project-workflow.svelte';
+  import { DocumentSession } from './lib/document/document-session.svelte';
+  import { MediaSession } from './lib/media/media-session.svelte';
+  import { ProjectWorkflow } from './lib/project/project-workflow.svelte';
   import {
     WorkspaceModal,
     type AuthoringModal,
-  } from './lib/workspace-modal.svelte';
-  import { TimingGesture } from './lib/timing-gesture.svelte';
-  import { TimelineView } from './lib/timeline-view.svelte';
+  } from './lib/dialogs/workspace-modal.svelte';
+  import { TimingGesture } from './lib/timing/timing-gesture.svelte';
+  import { TimelineView } from './lib/timeline/timeline-view.svelte';
   import {
     WorkspaceDecision,
     decisionEffects,
-  } from './lib/workspace-decision.svelte';
+  } from './lib/dialogs/workspace-decision.svelte';
   import { onMount, tick } from 'svelte';
   import {
     type WorkspaceAction,
     type ProjectReferenceIssue,
   } from './lib/client';
-  import CueContextMenu from './lib/CueContextMenu.svelte';
-  import Splitter from './lib/Splitter.svelte';
-  import type { ProjectExitChoice } from './lib/ProjectSaveFailureDialog.svelte';
-  import { disposeWithComponent } from './lib/component-owner';
-  import { captureFocus } from './lib/capture-focus';
-  import { NativeVideoLayout } from './lib/native-video-layout';
-  import { WorkspaceStartup } from './lib/workspace-startup';
+  import CueContextMenu from './lib/cues/CueContextMenu.svelte';
+  import Splitter from './lib/layout/Splitter.svelte';
+  import type { ProjectExitChoice } from './lib/project/ProjectSaveFailureDialog.svelte';
+  import { disposeWithComponent } from './lib/workspace/component-owner';
+  import { captureFocus } from './lib/dialogs/capture-focus';
+  import { NativeVideoLayout } from './lib/media/native-video-layout';
+  import { WorkspaceStartup } from './lib/workspace/workspace-startup';
 
   // DOM ports. Owners receive only the reads, scrolling and focus operations they need.
 
