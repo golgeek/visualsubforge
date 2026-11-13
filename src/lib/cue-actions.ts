@@ -1,3 +1,5 @@
+import { tick } from 'svelte';
+import { textFormat, type TextFormat } from './client';
 import type { Workspace } from './workspace.svelte';
 import type { DocumentSession } from './document-session.svelte';
 import type { TimingGesture } from './timing-gesture.svelte';
@@ -85,5 +87,49 @@ export async function runCueAction(
         }
         break;
     }
+  });
+}
+
+export async function formatCueText(
+  owners: {
+    workspace: Workspace;
+    subtitles: DocumentSession;
+    alive(): boolean;
+    editor(): HTMLTextAreaElement | undefined;
+  },
+  style: TextFormat,
+) {
+  const { workspace, subtitles } = owners;
+  const cue = subtitles.cue;
+  const textEditor = owners.editor();
+  if (workspace.busy || workspace.confirming || !cue || !textEditor) return;
+  const editor = textEditor;
+  const before = subtitles.text;
+  const beforeStyle = subtitles.style;
+  const snapshot = subtitles.snapshot;
+  const id = subtitles.selected;
+  const start = textEditor.selectionStart;
+  const end = textEditor.selectionEnd;
+  await workspace.task(async () => {
+    const result = await textFormat(before, start, end, style, {
+      generation: snapshot.generation,
+      revision: snapshot.revision,
+      cueId: cue.id,
+      styleName: beforeStyle,
+    });
+    if (
+      !owners.alive() ||
+      subtitles.snapshot !== snapshot ||
+      subtitles.selected !== id ||
+      subtitles.style !== beforeStyle ||
+      subtitles.text !== before
+    )
+      return;
+    subtitles.text = result.text;
+    await tick();
+    editor.focus();
+    editor.setSelectionRange(result.start, result.end);
+    workspace.notice =
+      'Formatting updated in the cue draft. Apply edit to accept it.';
   });
 }

@@ -10,6 +10,7 @@ import type { TimingGesture } from './timing-gesture.svelte';
 import type { DocumentSession } from './document-session.svelte';
 import type { MediaSession } from './media-session.svelte';
 import type { TimelineView } from './timeline-view.svelte';
+import type { CueNavigation } from './cue-navigation.svelte';
 import type { QualitySession } from './quality-session.svelte';
 
 type Key = Pick<
@@ -105,6 +106,7 @@ interface KeyOwners {
   media: MediaSession;
   timeline: TimelineView;
   quality: QualitySession;
+  navigation: CueNavigation;
   menu: boolean;
   waveformGesture: boolean;
   problemsOpen: boolean;
@@ -167,12 +169,10 @@ export async function editingKey(action: EditingShortcut, owners: KeyOwners) {
   const {
     workspace,
     gestures,
-    subtitles,
     media,
     timeline,
     focusWaveform,
     focusText,
-    revealSelection,
     seek,
   } = owners;
   if (!workspace.canAct || owners.menu || owners.waveformGesture) return;
@@ -203,18 +203,13 @@ export async function editingKey(action: EditingShortcut, owners: KeyOwners) {
     }
     return;
   }
-  await workspace.task(async () => {
-    await subtitles.apply();
-    const doc = subtitles.snapshot;
-    const index = doc.cues.findIndex((cue) => cue.id === subtitles.selected);
-    const next =
-      doc.cues[
-        clamp(index + (action === 'nextCue' ? 1 : -1), 0, doc.cues.length - 1)
-      ];
-    if (next) {
-      subtitles.select(next.id);
-      await revealSelection();
-      await focusText();
-    }
-  });
+  if (action === 'nextCue' || action === 'previousCue')
+    await owners.navigation.editAdjacent(action);
+}
+
+export function workspaceKeyup(event: KeyboardEvent, gestures: TimingGesture) {
+  if (event.code === 'Space' && gestures.held) {
+    event.preventDefault();
+    void gestures.releaseHeld();
+  }
 }

@@ -57,7 +57,10 @@ derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor, waveform and shell markup live in components receiving the
 relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
 PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
-renders feature content from the modal identity. DOM focus and native layout coordination remain at the root.
+renders feature content from the modal identity. App creates owners and lays out regions.
+CueNavigation coordinates selection, following, reveal and focus through narrow
+DOM callbacks. WorkspaceLifetime owns startup, native layout observation and teardown;
+WorkspaceView and WorkspaceLayout hold transient panel preferences and measured panes.
 
 ## Start reading the code
 
@@ -122,18 +125,21 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `Workspace` | Workspace task flag, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
-| `CueTableView` | Virtual-row offset/height, visible cues and active cue IDs. App supplies accepted cues/playback reads and owns DOM observation cleanup. |
+| `CueTableView` | Virtual-row offset/height, visible cues and active cue IDs. App supplies accepted cues/playback reads; WorkspaceLifetime owns DOM observation cleanup. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
-| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
+| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in file-workflow and ProjectWorkflow. |
 | `HideVideo` | Shared hide-before-show, render-before-restore, remaining-occlusion, epoch and disposal lifecycle for modals, decisions and the cue menu. |
 | `CueMenu` | Captured cue/range context, menu replacement, command activity and menu focus lifetime. |
 | `Recovery` | Recovery listing, polling/response epochs, discard confirmation and recovery action activity. |
 | `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
-| `App.svelte` and components | Layout, DOM/media callbacks, feature eligibility, other modal presentation, view options and gesture callbacks. |
+| `CueNavigation` | Selection/focus/reveal orchestration, pending problem navigation and cue-following effects; exposes activity without assigning the workspace gate. |
+| `WorkspaceView` / `WorkspaceLayout` | Transient view preferences, panel state, pane measurements and splitter constraints. |
+| `WorkspaceLifetime` | Startup requests/listener, native-layout observation and polling, and ordered unmount disposal. |
+| `App.svelte` | Owner construction, narrow DOM callbacks, short action dispatch and screen regions. |
 
 WorkspaceModal, WorkspaceDecision and CueMenu delegate native-video transitions
 to HideVideo. Modal admission failures are reported and modal close restores focus;
@@ -152,7 +158,15 @@ before protected navigation; text navigation rechecks document identity and draf
 before selecting a cue and restoring its UTF-16 selection. Settings persistence
 epochs and picker guards remain in the dialog. Legacy import and project decisions
 share WorkspaceDecision presentation; publication and save/exit continuations
-remain separate. CueMenu retains its selection/navigation and focus lifetime over the shared HideVideo lifecycle.
+remain separate. CueMenu retains its captured context and focus lifetime over the shared HideVideo lifecycle.
+
+CueNavigation applies drafts before explicit selection, preserves captured-document
+checks and keeps automatic following separate from seek-producing selection. DOM
+access is limited to viewport reads, scrolling and focus callbacks. Its activity
+contributes to Workspace.busy; accepted state and undo remain in Rust. Effect-bearing
+owners and projection factories are created during component initialization.
+Named cue-editing, workspace-quality and workspace-menus modules derive the current
+projections; file-workflow and project-view retain save/restore policy and sequencing.
 
 Session objects live for a component/workspace mount and are disposed explicitly.
 Accepted snapshots use replacement-only `$state.raw`; components do not mutate

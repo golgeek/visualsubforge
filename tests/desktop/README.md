@@ -893,3 +893,35 @@ workspaces at 1280px and 760px have byte-identical PNGs and identical recorded
 geometry/computed styles. Artifacts are in `test-results/workspace-composition/pr3/`.
 The completed modeled fixtures are held before unmount without changing production
 code. This is layout evidence, not native-video composition or physical input.
+
+### Workspace cue navigation — November 13, 2026
+
+App creates owners and lays out regions. CueNavigation now coordinates explicit
+selection, adjacent-cue editing, problem navigation, reveal, focus and automatic
+following. Narrow callbacks read/scroll the list and focus a cue, editor or
+waveform. Navigation exposes its own activity; Workspace derives busy. Rust
+continues to own accepted document state and undo history.
+
+The remaining root behavior lives in named files: file-workflow and project-view
+preserve protected save/restore sequencing; cue-editing, workspace-quality and
+workspace-menus derive projections; WorkspaceView and WorkspaceLayout own view
+preferences and measured panes; WorkspaceLifetime preserves startup, native
+layout observation and disposal order. Effect-bearing owners are constructed
+during component initialization.
+
+The full pinned command set in the workspace-controller checkpoint passes:
+54 frontend tests, 520 Rust tests (33 ignored; 15 zero-test harnesses), formatting,
+lint, strict TypeScript/Svelte, production build, IPC drift, domain checks and
+strict domain/workspace Clippy. `npm run test:browser` passes all 66 Chromium/WebKit
+workflows, including selection, focus, following and 62 workspace lifecycle checks
+per engine. `npm run build:desktop-test` and `npm run test:desktop` pass with
+shutdown 0 (`test-results/desktop-shMGxj/`). The first complete run also passed;
+the final rerun includes panel/measurement delegation and removal of an unused
+assignment-return warning introduced by the view-owner move.
+
+The Mac `desktop-e2e,media-prototype` app build and `--duration` workflow also
+pass with shutdown 0 (`test-results/desktop-jyja0D/`), using the same pinned
+private mpv runtime, Apple Silicon Homebrew path and exact-app foreground driver
+as the actions-and-keys checkpoint. This exercises generated WebView input and
+native timing IPC; it is not physical-input, audio or native-video composition
+acceptance. Logs are retained in `test-results/workspace-composition/pr4/`.
