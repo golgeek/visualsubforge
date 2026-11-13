@@ -871,3 +871,25 @@ that dependency-directory replacement stopped at WebKit worker loading; the full
 stable-dependency rerun passes. No production workaround was introduced.
 Generated WebView input and native timing IPC do not establish physical input,
 audio or native-video composition acceptance.
+
+### Workspace shell — November 13, 2026
+
+Toolbar, recovery banner, footer, playback diagnostics and font notices retain
+scoped styles in shell components. WorkspaceDialogs renders feature dialogs from
+the modal identity. Recovery owns polling, and CueMenu owns captured menu context.
+Modals, decisions and the cue menu share HideVideo's hide/render/restore guards,
+while retaining their distinct focus, error and answer policies.
+
+The full pinned command set in the workspace-controller checkpoint passes:
+54 frontend tests, 520 Rust tests (33 ignored; 15 zero-test harnesses), static,
+formatting, build and binding-drift checks. `npm run test:browser` passes 66/66
+Chromium/WebKit cases, with 62 workspace lifecycle checks per engine.
+`npm run build:desktop-test` and `npm run test:desktop` pass with shutdown 0
+(`test-results/desktop-88wDca/`).
+
+The same screenshot comparison as the earlier workspace-components checkpoint
+passes against the parent actions-and-keys source: fast-editing and quality-checking
+workspaces at 1280px and 760px have byte-identical PNGs and identical recorded
+geometry/computed styles. Artifacts are in `test-results/workspace-composition/pr3/`.
+The completed modeled fixtures are held before unmount without changing production
+code. This is layout evidence, not native-video composition or physical input.

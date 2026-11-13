@@ -54,8 +54,10 @@ lives in `src-tauri/src/document.rs` and its submodules, alongside IPC projectio
 callbacks and delegates its short action switch to subtitle/project-file, media,
 cue-editing and view/panel action functions. `Workspace` owns task activity and messages and
 derives shared gates from modal, decision and gesture activity.
-Cue-table, cue-editor and waveform markup live in components that receive the
-relevant owners. DOM focus and native layout coordination remain at the root.
+Cue-table, cue-editor, waveform and shell markup live in components receiving the
+relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
+PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
+renders feature content from the modal identity. DOM focus and native layout coordination remain at the root.
 
 ## Start reading the code
 
@@ -126,10 +128,18 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
 | `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
+| `HideVideo` | Shared hide-before-show, render-before-restore, remaining-occlusion, epoch and disposal lifecycle for modals, decisions and the cue menu. |
+| `CueMenu` | Captured cue/range context, menu replacement, command activity and menu focus lifetime. |
+| `Recovery` | Recovery listing, polling/response epochs, discard confirmation and recovery action activity. |
+| `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
 | `App.svelte` and components | Layout, DOM/media callbacks, feature eligibility, other modal presentation, view options and gesture callbacks. |
 
-The workspace modal owner waits for native-video hiding before exposing content.
+WorkspaceModal, WorkspaceDecision and CueMenu delegate native-video transitions
+to HideVideo. Modal admission failures are reported and modal close restores focus;
+decision admission failures propagate and decisions settle their answer after close.
+The menu permits replacement while visible and retains its immediate return-focus
+policy. The shared lifecycle waits for native-video hiding before exposing content.
 Closing removes content, waits for rendering, restores the remaining diagnostics
 occlusion, then releases the workspace gate before restoring focus. A close during
 opening waits for that hide reply; disposal invalidates continuations and leaves
@@ -142,7 +152,7 @@ before protected navigation; text navigation rechecks document identity and draf
 before selecting a cue and restoring its UTF-16 selection. Settings persistence
 epochs and picker guards remain in the dialog. Legacy import and project decisions
 share WorkspaceDecision presentation; publication and save/exit continuations
-remain separate. The cue menu retains its selection/navigation and focus lifetime.
+remain separate. CueMenu retains its selection/navigation and focus lifetime over the shared HideVideo lifecycle.
 
 Session objects live for a component/workspace mount and are disposed explicitly.
 Accepted snapshots use replacement-only `$state.raw`; components do not mutate

@@ -73,3 +73,8 @@ The [workspace actions and keys extraction](../tests/desktop/README.md#workspace
 passes the full pinned local checks, Chromium/WebKit, default desktop and the
 foreground-conditioned Mac native duration-timing workflow. Shortcut routing is
 unit tested; the existing native input/audio/composition limits remain.
+
+The [workspace shell extraction](../tests/desktop/README.md#workspace-shell--november-13-2026)
+passes full local checks, both browser engines and the default desktop suite.
+Four screenshot pairs and recorded geometry/styles match the parent source.
+The shared video lifecycle retains modal, decision and cue-menu policies.

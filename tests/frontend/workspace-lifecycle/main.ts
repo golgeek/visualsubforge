@@ -1,3 +1,4 @@
+import { overlayCases } from './overlays';
 import { workspaceCases } from './workspace';
 import { decisionCases } from './decisions';
 import { timelineCases } from './timeline.svelte';
@@ -850,6 +851,7 @@ async function referenceQueryCases() {
 try {
   await workspaceCases(passed);
   await modalCases(passed);
+  await overlayCases(passed);
   await decisionCases(passed);
   await timelineCases(passed);
   await documentCases();

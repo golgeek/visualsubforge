@@ -1,105 +1,68 @@
 import type { Workspace } from './workspace.svelte';
 import { PendingDecision } from './pending-decision';
+import { HideVideo, type HideVideoEffects } from './hide-video.svelte';
 
-interface DecisionEffects {
-  occlude: (value: boolean) => Promise<void>;
-  remainingOcclusion: () => boolean;
+interface DecisionEffects extends HideVideoEffects {
   close: () => void;
-  afterRender: () => Promise<void>;
 }
 
-// Presentation and one answer, not save policy. App derives confirming from active.
+// Presentation and one answer, not save policy or the workspace gate.
 export class WorkspaceDecision<Choice> {
-  private phase = $state<'idle' | 'opening' | 'open' | 'closing'>('idle');
+  private video: HideVideo;
   private result: Promise<Choice> | null = null;
-  private alive = true;
-  private epoch = 0;
   private answering = false;
   private decision: PendingDecision<Choice>;
-
   constructor(
     private cancelled: Choice,
     private workspace: Pick<Workspace, 'error'>,
     private effects: DecisionEffects,
   ) {
+    this.video = new HideVideo(effects);
     this.decision = new PendingDecision(cancelled);
   }
-
   get active() {
-    return this.phase === 'opening' || this.phase === 'open';
+    return this.video.opening || this.video.visible;
   }
   get visible() {
-    return this.phase === 'open';
+    return this.video.visible;
   }
   get closing() {
-    return this.phase === 'closing';
+    return this.video.closing;
   }
-
   async ask(present: () => void): Promise<Choice> {
     return (await this.open(present)) ? this.wait() : this.cancelled;
   }
-
-  // Import releases App's action gate once shown, then answers on dialog close.
-  // Save decisions instead use ask() to await their protected continuation.
+  // Imports release the action gate after open; save decisions await an answer.
   async open(present: () => void): Promise<boolean> {
-    if (!this.alive) return false;
-    if (this.phase !== 'idle' || this.decision.pending)
+    if (this.video.disposed) return false;
+    if (this.video.active || this.decision.pending)
       throw new Error('A dialog decision is already pending.');
-    const epoch = ++this.epoch;
-    this.phase = 'opening';
-    try {
-      await this.effects.occlude(true);
-      if (!this.current(epoch)) return false;
+    // Unlike modals, admission failures propagate to the protected action.
+    return this.video.open(() => {
       present();
       this.result = this.decision.wait();
-      this.phase = 'open';
-      return true;
-    } catch (error) {
-      if (this.current(epoch)) {
-        this.phase = 'idle';
-        throw error;
-      }
-      return false;
-    }
+    });
   }
-
   wait(): Promise<Choice> {
     return this.result ?? Promise.resolve(this.cancelled);
   }
-
   async answer(choice: Choice) {
-    if (!this.alive || !this.decision.pending || this.answering) return;
-    const epoch = this.epoch;
+    if (this.video.disposed || !this.decision.pending || this.answering) return;
     this.answering = true;
-    this.effects.close();
-    this.phase = 'closing';
-    try {
-      await this.effects.afterRender();
-      if (!this.current(epoch)) return;
-      await this.effects.occlude(this.effects.remainingOcclusion());
-      if (this.current(epoch)) {
-        this.phase = 'idle';
+    await this.video.close({
+      hide: this.effects.close,
+      restored: () => {
         this.decision.answer(choice);
-      }
-    } catch (error) {
-      if (this.current(epoch)) {
-        this.phase = 'idle';
+      },
+      failed: (error) => {
         this.workspace.error = String(error);
         this.decision.answer(this.cancelled);
-      }
-    } finally {
-      if (this.current(epoch)) this.answering = false;
-    }
+      },
+    });
+    if (!this.video.disposed) this.answering = false;
   }
-
-  private current(epoch: number) {
-    return this.alive && epoch === this.epoch;
-  }
-
   dispose() {
-    this.alive = false;
-    ++this.epoch;
-    this.phase = 'idle';
+    this.video.dispose();
     this.decision.dispose();
   }
 }
