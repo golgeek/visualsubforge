@@ -1,18 +1,20 @@
 # Frontend ownership
 
 `App.svelte` is the workspace composition root. It constructs sessions, wires
-effect callbacks, derives `busy`/`confirming`, owns workspace `error`/`notice`, and
-dispatches actions through a readable switch. It coordinates DOM layout and focus. Its Svelte session objects live for one
+effect callbacks and dispatches actions through a readable switch. `Workspace`
+owns `ready`, `error`, `notice` and its task flag; it derives `busy`/`confirming`
+from modal, decision and gesture activity. It coordinates DOM layout and focus. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
 
 | Owner | State and responsibility |
 | --- | --- |
+| `Workspace` | Workspace task flag, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
-| `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
+| `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
 | `CueTableView` | Virtual-list scroll offset/height, visible rows and active cue IDs, read from accepted subtitle and playback callbacks. Synchronous setters ignore updates after disposal. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
-| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks and derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
+| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
 | `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
@@ -24,8 +26,13 @@ mount and are disposed on unmount; they are not global stores.
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 `CueTable`, `CueEditor` and `WaveformPanel` receive the relevant session owners.
-The small `WorkspaceControls` interface exposes App's read-only gates, action
-switch and notice callback. Components keep their scoped styles and DOM bindings;
+They share the `Workspace` object with gestures, modals and decisions. Its
+`canAct` read combines readiness, busy and confirming; callers retain their
+feature eligibility checks. `task()` holds the task flag through completion,
+reports failures and releases it in finally. Callers that previously retained
+an error opt out of clearing it; a failed task returns false to stop a continuation.
+Feature owners expose activity and never assign the workspace gate. Components
+keep their scoped styles and DOM bindings;
 App supplies selection, formatting, focus and navigation callbacks. `CueTableView`
 is synchronous, so it needs no request epoch; the root disconnects its resize
 observer on unmount. `pane-layout.ts` computes measured minima and splitter bounds
@@ -49,7 +56,7 @@ available to copy. Selection and Revert keep their ordinary behavior. Failed ref
 preserves the prior projection and draft. Newer input during a successful reply
 remains a draft and prevents save/navigation continuation. Timing gestures deliberately
 send the version captured when the gesture began. `TimingGesture.active` covers
-boundary previews and held-cue commits; App includes it in `busy`. A held Space
+boundary previews and held-cue commits; Workspace includes it in `busy`. A held Space
 preview remains nonblocking, so playback following continues. Disposal suppresses
 late messages and loop restoration, while already accepted Rust edits remain accepted.
 

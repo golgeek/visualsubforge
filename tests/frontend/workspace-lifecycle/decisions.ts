@@ -17,25 +17,30 @@ export async function decisionCases(passed: (message: string) => void) {
     let releaseHide: (() => void) | null = null;
     let hide: Promise<void> | null = null;
     const create = () =>
-      new WorkspaceDecision(cancelled, {
-        occlude: async (value) => {
-          events.push(value ? 'hide' : 'restore');
-          if (value) {
-            await hide;
-            if (failHide) throw new Error('Cannot hide video');
-          } else if (failRestore) throw new Error('Cannot restore video');
+      new WorkspaceDecision(
+        cancelled,
+        {
+          set error(value: string) {
+            events.push(value);
+          },
         },
-        remainingOcclusion: () => false,
-        close: () => {
-          events.push('close');
+        {
+          occlude: async (value) => {
+            events.push(value ? 'hide' : 'restore');
+            if (value) {
+              await hide;
+              if (failHide) throw new Error('Cannot hide video');
+            } else if (failRestore) throw new Error('Cannot restore video');
+          },
+          remainingOcclusion: () => false,
+          close: () => {
+            events.push('close');
+          },
+          afterRender: async () => {
+            events.push('render');
+          },
         },
-        afterRender: async () => {
-          events.push('render');
-        },
-        reportError: (error) => {
-          events.push(String(error));
-        },
-      });
+      );
     let decision = create();
     let shown = false;
     let result = decision.ask(() => {

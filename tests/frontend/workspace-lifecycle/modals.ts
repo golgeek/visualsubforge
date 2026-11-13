@@ -23,23 +23,27 @@ export async function modalCases(passed: (message: string) => void) {
     let diagnostics = false;
     let render: ReturnType<typeof deferred> | null = null;
     let holdRenderWhenActive = true;
-    const modal = new WorkspaceModal({
-      occlude: async (value) => {
-        events.push(`occlude:${value}`);
-        await (value ? hide?.promise : restore?.promise);
+    const modal = new WorkspaceModal(
+      {
+        set error(value: string) {
+          events.push(value);
+        },
       },
-      remainingOcclusion: () => diagnostics,
-      captureFocus: () => () => {
-        events.push('focus');
+      {
+        occlude: async (value) => {
+          events.push(`occlude:${value}`);
+          await (value ? hide?.promise : restore?.promise);
+        },
+        remainingOcclusion: () => diagnostics,
+        captureFocus: () => () => {
+          events.push('focus');
+        },
+        afterRender: async () => {
+          events.push(`render:${modal.active}`);
+          if (modal.active === holdRenderWhenActive) await render?.promise;
+        },
       },
-      afterRender: async () => {
-        events.push(`render:${modal.active}`);
-        if (modal.active === holdRenderWhenActive) await render?.promise;
-      },
-      reportError: (error) => {
-        events.push(String(error));
-      },
-    });
+    );
     return {
       modal,
       events,

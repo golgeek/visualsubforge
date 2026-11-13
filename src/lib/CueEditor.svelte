@@ -2,7 +2,7 @@
   import type { DocumentSession } from './document-session.svelte';
   import type { MediaSession } from './media-session.svelte';
   import type { QualitySession } from './quality-session.svelte';
-  import type { WorkspaceControls } from './workspace-controls';
+  import type { Workspace } from './workspace.svelte';
   import CueMetrics from './CueMetrics.svelte';
   import { formatTime } from './timeline';
   import { measurePaneControl } from './measure-pane-control';
@@ -23,7 +23,7 @@
     subtitles: DocumentSession;
     media: MediaSession;
     quality: QualitySession;
-    workspace: WorkspaceControls;
+    workspace: Workspace;
     metrics: boolean;
     draftMetricError: string;
     textEditor: HTMLTextAreaElement | undefined;

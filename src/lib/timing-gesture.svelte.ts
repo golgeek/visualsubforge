@@ -1,3 +1,4 @@
+import type { Workspace } from './workspace.svelte';
 import {
   beginHeldTiming,
   advanceHeldTiming,
@@ -19,23 +20,17 @@ import type { MediaSession } from './media-session.svelte';
 import type { TimelineView } from './timeline-view.svelte';
 
 interface GestureEffects {
-  busy: () => boolean;
-  confirming: () => boolean;
-  ready: () => boolean;
   menu: () => unknown;
   cuts: () => number[];
   settings: () => TimingSettings;
   operationContext: () => Parameters<typeof planCueOperation>[1];
   command: (action: DocumentAction, plan: CueOperationPlan) => Promise<boolean>;
-  run: (action: 'play') => Promise<void>;
   suspendFollowing: () => void;
   revealSelection: () => Promise<void>;
   focusWaveform: () => void;
-  error: (message: string) => void;
-  notice: (message: string) => void;
 }
 
-// Activity describes an in-progress commit or boundary preview. App owns busy.
+// Activity describes an in-progress commit or boundary preview. Workspace owns busy.
 export class TimingGesture {
   mode = $state(false);
   held = $state<HeldTiming | null>(null);
@@ -54,6 +49,7 @@ export class TimingGesture {
     private subtitles: DocumentSession,
     private media: MediaSession,
     private timeline: TimelineView,
+    private workspace: Workspace,
     private effects: GestureEffects,
   ) {
     $effect(() => {
@@ -74,11 +70,9 @@ export class TimingGesture {
     this.effects.suspendFollowing();
     this.pressedAt = performance.now();
     this.held = beginHeldTiming(this.subtitles.snapshot, this.media.status);
-    this.effects.notice(
-      this.held
-        ? 'Tap Space to pause; hold at least 400 ms to create a cue. Escape cancels.'
-        : 'Start playback with ⌘/Ctrl+Alt+Enter, then hold Space to mark a cue.',
-    );
+    this.workspace.notice = this.held
+      ? 'Tap Space to pause; hold at least 400 ms to create a cue. Escape cancels.'
+      : 'Start playback with ⌘/Ctrl+Alt+Enter, then hold Space to mark a cue.';
   }
   cancelHeld() {
     this.held = null;
@@ -89,8 +83,8 @@ export class TimingGesture {
     if (
       !this.alive ||
       !held ||
-      this.effects.busy() ||
-      this.effects.confirming() ||
+      this.workspace.busy ||
+      this.workspace.confirming ||
       this.effects.menu()
     )
       return;
@@ -101,18 +95,17 @@ export class TimingGesture {
       performance.now() - this.pressedAt,
     );
     if (!result) {
-      this.effects.notice(
-        'Timing cancelled: playback changed or the interval was empty.',
-      );
+      this.workspace.notice =
+        'Timing cancelled: playback changed or the interval was empty.';
       return;
     }
     if (result.kind === 'pause') {
-      await this.effects.run('play');
+      await this.workspace.run('play');
       return;
     }
     const marked = result.range;
     this.active = true;
-    this.effects.error('');
+    this.workspace.error = '';
     try {
       await this.subtitles.apply();
       if (!this.alive) return;
@@ -128,11 +121,10 @@ export class TimingGesture {
       await this.effects.revealSelection();
       if (!this.alive) return;
       this.effects.focusWaveform();
-      this.effects.notice(
-        'Cue created · hold Space for the next cue; Enter edits text.',
-      );
+      this.workspace.notice =
+        'Cue created · hold Space for the next cue; Enter edits text.';
     } catch (e) {
-      if (this.alive) this.effects.error(String(e));
+      if (this.alive) this.workspace.error = String(e);
     } finally {
       if (this.alive) this.active = false;
     }
@@ -141,9 +133,7 @@ export class TimingGesture {
     this.cancelHeld();
     if (
       !this.alive ||
-      this.effects.busy() ||
-      this.effects.confirming() ||
-      !this.effects.ready() ||
+      !this.workspace.canAct ||
       !this.media.status.loaded ||
       this.media.pending
     )
@@ -163,13 +153,12 @@ export class TimingGesture {
       };
       this.active = true;
       this.effects.suspendFollowing();
-      this.effects.error('');
-      this.effects.notice(
-        'Timing preview · release to apply, Escape to cancel',
-      );
+      this.workspace.error = '';
+      this.workspace.notice =
+        'Timing preview · release to apply, Escape to cancel';
       return true;
     } catch (e) {
-      if (this.alive) this.effects.error(String(e));
+      if (this.alive) this.workspace.error = String(e);
       return false;
     }
   }
@@ -224,9 +213,9 @@ export class TimingGesture {
       }
       if (!this.alive) return;
       accepted = commit;
-      this.effects.notice(commit ? 'Timing applied' : 'Timing cancelled');
+      this.workspace.notice = commit ? 'Timing applied' : 'Timing cancelled';
     } catch (e) {
-      if (this.alive) this.effects.error(String(e));
+      if (this.alive) this.workspace.error = String(e);
     } finally {
       if (this.alive) {
         const finalCue = accepted ? edit.preview : edit.original;

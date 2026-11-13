@@ -828,3 +828,23 @@ it does not modify production code. Local comparison artifacts are in
 `test-results/composition-root/pr4/`. This is layout evidence, not physical-input
 or native-video composition acceptance. No new native playback/Windows/Linux run
 is claimed for this markup extraction.
+
+### Workspace controller — November 13, 2026
+
+`Workspace` owns readiness, messages and the task flag, deriving admission from
+modal, decision and gesture activity. The extraction passes
+`npm run format:check`, `npm run lint`, `npm test` (47), `npm run build`,
+`npm run ipc:check`, `cargo fmt --all -- --check`,
+`cargo check --locked -p subtitle-core`, `cargo test --locked -p subtitle-core`,
+`cargo clippy --locked -p subtitle-core --all-targets -- -D warnings`,
+`cargo clippy --locked --workspace --all-targets -- -D warnings`,
+`cargo test --locked --workspace` (520 passed, 33 ignored; 15 zero-test harnesses),
+`cargo build --locked -p vsf-cli` and
+`npm run tauri -- build --debug --no-bundle -- --locked`.
+
+`npm run test:browser` passes 66/66 Chromium/WebKit cases, including 59 workspace
+lifecycle checks per engine. An initial run passed 65/66 with a Chromium
+magnetic-timing timeout while App was edited during execution; the full rerun
+against unchanged source passes. `npm run build:desktop-test` and
+`npm run test:desktop` pass with shutdown 0 (`test-results/desktop-c7w9xr/`).
+No new native playback or physical-input/composition acceptance is claimed.
