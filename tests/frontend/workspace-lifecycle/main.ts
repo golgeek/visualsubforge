@@ -1,3 +1,4 @@
+import { workspaceCases } from './workspace';
 import { decisionCases } from './decisions';
 import { timelineCases } from './timeline.svelte';
 import { modalCases } from './modals';
@@ -847,6 +848,7 @@ async function referenceQueryCases() {
 }
 
 try {
+  await workspaceCases(passed);
   await modalCases(passed);
   await decisionCases(passed);
   await timelineCases(passed);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DocumentSession } from './document-session.svelte';
   import type { MediaSession } from './media-session.svelte';
-  import type { WorkspaceControls } from './workspace-controls';
+  import type { Workspace } from './workspace.svelte';
   import type { ComponentProps } from 'svelte';
   import Waveform from './Waveform.svelte';
   import SceneControls from './SceneControls.svelte';
@@ -33,7 +33,7 @@
     gestures: TimingGesture;
     subtitles: DocumentSession;
     media: MediaSession;
-    workspace: WorkspaceControls;
+    workspace: Workspace;
     preferences: Preferences;
     timingSettings: TimingSettings;
     restoredScenes: { session: number; generation: number } | null;
@@ -94,7 +94,7 @@
       autoScan={preferences.autoScanScenes}
       detail={preferences.sceneDetail}
       {onstate}
-      onfinish={workspace.notice}
+      onfinish={(message) => (workspace.notice = message)}
       padding={Math.max(
         timingSettings.sceneBeforeMs,
         timingSettings.sceneAfterMs,

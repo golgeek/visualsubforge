@@ -1,3 +1,4 @@
+import type { Workspace } from './workspace.svelte';
 import { PendingDecision } from './pending-decision';
 
 interface DecisionEffects {
@@ -5,7 +6,6 @@ interface DecisionEffects {
   remainingOcclusion: () => boolean;
   close: () => void;
   afterRender: () => Promise<void>;
-  reportError: (error: unknown) => void;
 }
 
 // Presentation and one answer, not save policy. App derives confirming from active.
@@ -19,6 +19,7 @@ export class WorkspaceDecision<Choice> {
 
   constructor(
     private cancelled: Choice,
+    private workspace: Pick<Workspace, 'error'>,
     private effects: DecisionEffects,
   ) {
     this.decision = new PendingDecision(cancelled);
@@ -83,7 +84,7 @@ export class WorkspaceDecision<Choice> {
     } catch (error) {
       if (this.current(epoch)) {
         this.phase = 'idle';
-        this.effects.reportError(error);
+        this.workspace.error = String(error);
         this.decision.answer(this.cancelled);
       }
     } finally {

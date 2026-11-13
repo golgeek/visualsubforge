@@ -1,3 +1,4 @@
+import type { Workspace } from './workspace.svelte';
 export type AuthoringModal = 'styles' | 'fonts' | 'conversion' | 'plugins';
 
 export type TimingKind = 'gap' | 'scene' | 'duration' | 'batch';
@@ -14,7 +15,6 @@ type Effects = {
   remainingOcclusion: () => boolean;
   afterRender: () => Promise<void>;
   captureFocus: () => () => void;
-  reportError: (error: unknown) => void;
 };
 
 /** Mount-scoped presentation only; feature sessions own acceptance and drafts. */
@@ -26,7 +26,16 @@ export class WorkspaceModal {
   private pendingHide: Promise<void> | null = null;
   private restoreFocus: (() => void) | null = null;
 
-  constructor(private effects: Effects) {}
+  constructor(
+    private workspace: Pick<Workspace, 'error'>,
+    private effects: Effects,
+  ) {}
+
+  get timingKind() {
+    return this.identity !== null && typeof this.identity === 'object'
+      ? this.identity.variant
+      : null;
+  }
 
   get opening() {
     return this.phase === 'opening';
@@ -51,7 +60,7 @@ export class WorkspaceModal {
       if (this.current(epoch)) {
         this.phase = 'idle';
         this.restoreFocus = null;
-        this.effects.reportError(error);
+        this.workspace.error = String(error);
       }
     } finally {
       if (this.current(epoch)) this.pendingHide = null;
@@ -72,7 +81,7 @@ export class WorkspaceModal {
       if (!this.current(epoch)) return;
       await this.effects.occlude(this.effects.remainingOcclusion());
     } catch (error) {
-      if (this.current(epoch)) this.effects.reportError(error);
+      if (this.current(epoch)) this.workspace.error = String(error);
     } finally {
       if (this.current(epoch)) {
         this.pendingHide = null;

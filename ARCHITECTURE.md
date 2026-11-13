@@ -51,7 +51,8 @@ shared operations. Actual build dependencies are declared in each `Cargo.toml`.
 These boundaries are partly logical. Desktop document-session coordination still
 lives in `src-tauri/src/document.rs` and its submodules, alongside IPC projections.
 `App.svelte` is the workspace composition root: it constructs sessions, wires
-callbacks, derives the shared gates, owns workspace messages and dispatches actions.
+callbacks and dispatches actions. `Workspace` owns task activity and messages and
+derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor and waveform markup live in components that receive the
 relevant owners. DOM focus and native layout coordination remain at the root.
 
@@ -115,22 +116,23 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 
 | Owner | State it owns |
 | --- | --- |
+| `Workspace` | Workspace task flag, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
-| `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; App derives the workspace gate and owns messages. |
+| `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
 | `CueTableView` | Virtual-row offset/height, visible cues and active cue IDs. App supplies accepted cues/playback reads and owns DOM observation cleanup. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
-| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks and derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
+| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
-| `App.svelte` and components | Layout, DOM/media callbacks, workspace eligibility, other modal presentation, view options and gesture callbacks. |
+| `App.svelte` and components | Layout, DOM/media callbacks, feature eligibility, other modal presentation, view options and gesture callbacks. |
 
 The workspace modal owner waits for native-video hiding before exposing content.
 Closing removes content, waits for rendering, restores the remaining diagnostics
 occlusion, then releases the workspace gate before restoring focus. A close during
 opening waits for that hide reply; disposal invalidates continuations and leaves
-native cleanup to media teardown. App derives its authoring and timing gates from
+native cleanup to media teardown. Workspace derives its authoring and timing gates from
 this owner and supplies DOM/media callbacks and feature eligibility. Dialogs/sessions
 still protect pending acceptance and own their drafts; project-save and unsaved-work
 continuations retain their separate owners. Feature visibility and timing variant derive from the same modal identity.

@@ -3,7 +3,7 @@
   import CueEditor from './lib/CueEditor.svelte';
   import WaveformPanel from './lib/WaveformPanel.svelte';
   import { CueTableView } from './lib/cue-table-view.svelte';
-  import type { WorkspaceControls } from './lib/workspace-controls';
+  import { Workspace } from './lib/workspace.svelte';
   import { measurePaneControl } from './lib/measure-pane-control';
   import { paneLayout } from './lib/pane-layout';
 
@@ -87,6 +87,17 @@
     type ProjectExitChoice,
   } from './lib/ProjectSaveFailureDialog.svelte';
   import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
+  const workspace: Workspace = new Workspace({
+    activity: () => workspaceModal.opening || gestures.active,
+    confirming: () =>
+      legacyDecision.visible ||
+      legacyDecision.closing ||
+      subtitleDecision.active ||
+      projectExitDecision.active ||
+      projectReferenceDecision.active ||
+      workspaceModal.active,
+    run: (action, event) => run(action, event),
+  });
   const subtitles = new DocumentSession();
   const translation = new TranslationSession(subtitles);
   let translationOpen = $state(false);
@@ -97,66 +108,42 @@
   let pendingProblem = $state<string | null>(null);
   let pendingProblemVersion = '';
   const media = new MediaSession((failure) => {
-    if (alive) error = String(failure);
+    if (alive) workspace.error = String(failure);
   });
   const timeline: TimelineView = new TimelineView({
     status: () => status,
     mediaPath: () => mediaPath,
     follow: () => follow,
-    preview: () => timingEdit?.preview ?? null,
+    preview: () => gestures.edit?.preview ?? null,
     gesture: () => waveformGesture,
-    pending: () => mediaPending,
+    pending: () => media.pending,
     cues: () => doc.cues,
     gap: () => timingSettings.cueGapMs,
-    selectRange: (session, next) => liveLoop.update(session, next),
+    selectRange: (session, next) => media.loop.update(session, next),
   });
   const gestures: TimingGesture = new TimingGesture(
     subtitles,
     media,
     timeline,
+    workspace,
     {
-      busy: () => busy,
-      confirming: () => confirming,
-      ready: () => ready,
       menu: () => cueMenu,
       cuts: () => sceneCuts,
       settings: () => timingSettings,
       operationContext: () => operationContext,
       command: docAct,
-      run: (action) => run(action),
       suspendFollowing: suspendCueFollowing,
       revealSelection,
       focusWaveform,
-      error: (message) => {
-        error = message;
-      },
-      notice: (message) => {
-        notice = message;
-      },
     },
   );
   const tableView = new CueTableView({
     cues: () => doc.cues,
     position: () =>
-      status.loaded && !mediaPending && !status.seeking
+      status.loaded && !media.pending && !status.seeking
         ? status.positionSeconds
         : null,
   });
-  const workspace: WorkspaceControls = {
-    get busy() {
-      return busy;
-    },
-    get confirming() {
-      return confirming;
-    },
-    get ready() {
-      return ready;
-    },
-    run,
-    notice: (message) => {
-      notice = message;
-    },
-  };
   const status = $derived(media.status);
   const doc = $derived(subtitles.snapshot);
   let recovery = $state<RecoveryStatus>({ entries: [], error: null });
@@ -177,15 +164,13 @@
     }
   }
   async function chooseRecovery(id: string, recover: boolean) {
-    if (busy || confirming || !ready) return;
-    workspaceBusy = true;
-    error = '';
-    try {
+    if (!workspace.canAct) return;
+    await workspace.task(async () => {
       if (recover) {
         if (!(await protect())) return;
         await docAct({ kind: 'recover', id, discard: true });
         suspendCueFollowing();
-        notice =
+        workspace.notice =
           'Recovered as an unsaved copy. Save As chooses its destination; the recovery snapshot is retained.';
       } else {
         ++recoveryRequest;
@@ -196,16 +181,10 @@
         recovery.entries = recovery.entries.filter((entry) => entry.id !== id);
         discardRecoveryId = null;
       }
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    });
   }
   let textEditor = $state<HTMLTextAreaElement>();
   let waveHost = $state<HTMLDivElement>();
-  const timingMode = $derived(gestures.mode);
-  const heldTiming = $derived(gestures.held);
   let menuEpoch = 0;
   let menuReturn: HTMLElement | null = null;
   let cueMenu = $state<{
@@ -245,9 +224,9 @@
     cueMenu = null;
     if (restoreFocus && menuReturn?.isConnected) menuReturn.focus();
     try {
-      await occludeVideo(diagnostics || confirming);
+      await media.occlude(diagnostics || workspace.confirming);
     } catch (e) {
-      error = String(e);
+      workspace.error = String(e);
     }
   }
   async function openCueMenu(
@@ -256,13 +235,16 @@
     cueId: number | null,
     inRange: boolean,
   ) {
-    if (busy || confirming || !ready || (cueId === null && !inRange)) return;
+    if (!workspace.canAct || (cueId === null && !inRange)) return;
     gestures.cancelHeld();
     const candidate = {
       x,
       y,
       cueId,
-      range: inRange && range ? ([...range] as [number, number]) : null,
+      range:
+        inRange && timeline.range
+          ? ([...timeline.range] as [number, number])
+          : null,
       generation: doc.generation,
       revision: doc.revision,
       session: status.session,
@@ -272,22 +254,18 @@
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    workspaceBusy = true;
-    try {
-      await occludeVideo(true);
-      if (alive && request === menuEpoch) cueMenu = candidate;
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    await workspace.task(
+      async () => {
+        await media.occlude(true);
+        if (alive && request === menuEpoch) cueMenu = candidate;
+      },
+      { clearError: false },
+    );
   }
   async function chooseCueMenu(action: string) {
     const context = cueMenu;
-    if (!context || busy) return;
-    workspaceBusy = true;
-    error = '';
-    try {
+    if (!context || workspace.busy) return;
+    await workspace.task(async () => {
       await closeCueMenu(false);
       if (
         context.generation !== doc.generation ||
@@ -295,7 +273,7 @@
         context.session !== status.session
       )
         throw new Error('The document or media changed; open the menu again.');
-      await applyDraft();
+      await subtitles.apply();
       suspendCueFollowing();
       if (action === 'create' && context.range) {
         const plan = planCueOperation('createCue', {
@@ -323,21 +301,11 @@
           await focusText();
         }
       }
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
-  }
-  function cancelHeldTiming() {
-    gestures.cancelHeld();
-  }
-  function releaseHeldTiming() {
-    return gestures.releaseHeld();
+    });
   }
   async function editingKey(action: EditingShortcut) {
-    if (busy || confirming || !ready || cueMenu || waveformGesture) return;
-    cancelHeldTiming();
+    if (!workspace.canAct || cueMenu || waveformGesture) return;
+    gestures.cancelHeld();
     if (action === 'play') {
       await run('play');
       return;
@@ -358,16 +326,14 @@
             status.positionSeconds +
               (action.includes('Back') ? -amount : amount),
             0,
-            duration,
+            timeline.duration,
           ),
         );
       }
       return;
     }
-    workspaceBusy = true;
-    error = '';
-    try {
-      await applyDraft();
+    await workspace.task(async () => {
+      await subtitles.apply();
       const index = doc.cues.findIndex((c) => c.id === selected);
       const next =
         doc.cues[
@@ -378,15 +344,10 @@
         await revealSelection();
         await focusText();
       }
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    });
   }
-  let ready = $state(false);
-  const workspaceModal = new WorkspaceModal({
-    occlude: (value) => occludeVideo(value),
+  const workspaceModal = new WorkspaceModal(workspace, {
+    occlude: (value) => media.occlude(value),
     remainingOcclusion: () => diagnostics,
     afterRender: tick,
     captureFocus: () => {
@@ -395,24 +356,13 @@
         if (target instanceof HTMLElement && target.isConnected) target.focus();
       };
     },
-    reportError: (value) => {
-      error = String(value);
-    },
   });
-  let workspaceBusy = $state(false);
-  const busy = $derived(
-    workspaceBusy || workspaceModal.opening || gestures.active,
-  );
   let textFocused = $state(false);
   let follow = $state(true);
   let waveformGesture = $state(false);
   let cueFollowing = $state<CueFollowing>('following');
   let editorFocused = $state(false);
   let lastRevealedCue = '';
-  const mediaPending = $derived(media.pending);
-  const activeIds = $derived(tableView.activeIds);
-  let error = $state('');
-  let notice = $state('');
   let mediaPath = $state('');
   let restoredScenes = $state<{ session: number; generation: number } | null>(
     null,
@@ -422,22 +372,8 @@
     ...defaultPreferences,
     timing: { ...defaultTiming },
   });
-  const statisticsOpen = $derived(workspaceModal.identity === 'statistics');
-  const stylesOpen = $derived(workspaceModal.identity === 'styles');
-  const fontsOpen = $derived(workspaceModal.identity === 'fonts');
-  const conversionOpen = $derived(workspaceModal.identity === 'conversion');
-  const pluginsOpen = $derived(workspaceModal.identity === 'plugins');
   let legacyImportOpen = $state(false);
   let legacyImportReturn: HTMLElement | null = null;
-  const settingsOpen = $derived(workspaceModal.identity === 'settings');
-  const resyncOpen = $derived(workspaceModal.identity === 'resync');
-  const timingReview = $derived(
-    workspaceModal.identity !== null &&
-      typeof workspaceModal.identity === 'object'
-      ? workspaceModal.identity.variant
-      : null,
-  );
-  const timingOpen = $derived(timingReview !== null);
   const timingLabels: Record<TimingKind, string> = {
     gap: 'Gap',
     scene: 'Scene',
@@ -445,13 +381,12 @@
     batch: 'Batch',
   };
   const TimingDialog = $derived(
-    timingReview === 'duration'
+    workspaceModal.timingKind === 'duration'
       ? DurationRepairDialog
-      : timingReview === 'scene'
+      : workspaceModal.timingKind === 'scene'
         ? SceneRepairDialog
         : GapDialog,
   );
-  const textOpen = $derived(workspaceModal.identity === 'text');
   let textOperation = $state<TextOperation>({
     kind: 'find',
     query: '',
@@ -471,44 +406,34 @@
     next: false,
   });
   async function closeSettings(value?: Preferences) {
-    if (!alive || !settingsOpen) return;
+    if (!alive || workspaceModal.identity !== 'settings') return;
     if (value) {
       preferences = { ...value, timing: { ...value.timing } };
       timingSettings = { ...value.timing };
       showQualityMetrics = value.showQualityMetrics;
       ++qualityContext;
-      notice = 'Settings saved';
+      workspace.notice = 'Settings saved';
     }
     await workspaceModal.close();
   }
 
   async function closeResync(accepted = false) {
-    if (!alive || !resyncOpen) return;
+    if (!alive || workspaceModal.identity !== 'resync') return;
     if (accepted)
-      notice =
+      workspace.notice =
         'Timings accepted. Use Save As to preserve the original subtitles.';
     await workspaceModal.close();
   }
 
   async function openStatistics() {
-    if (
-      busy ||
-      confirming ||
-      !ready ||
-      !doc.loaded ||
-      cueMenu ||
-      waveformGesture
-    )
-      return;
-    error = '';
+    if (!workspace.canAct || !doc.loaded || cueMenu || waveformGesture) return;
+    workspace.error = '';
     await workspaceModal.open('statistics');
   }
 
   async function openAuthoring(kind: AuthoringModal) {
     if (
-      busy ||
-      confirming ||
-      !ready ||
+      !workspace.canAct ||
       (kind === 'plugins'
         ? !doc.loaded
         : kind === 'conversion'
@@ -518,7 +443,7 @@
       cueMenu
     )
       return;
-    error = '';
+    workspace.error = '';
     await workspaceModal.open(kind);
   }
   async function closeAuthoring(accepted = false, outputPath?: string) {
@@ -529,36 +454,34 @@
         : workspaceModal.identity === 'fonts'
           ? 'Font'
           : 'Style';
-    if (outputPath) notice = `Converted subtitles exported to ${outputPath}`;
+    if (outputPath)
+      workspace.notice = `Converted subtitles exported to ${outputPath}`;
     if (accepted) {
-      notice = `${kind} changes accepted. Undo restores the whole change.`;
+      workspace.notice = `${kind} changes accepted. Undo restores the whole change.`;
       quality.restart();
     }
     await workspaceModal.close();
   }
   async function closeLegacyImport(outputPath?: string, open = false) {
-    workspaceBusy = true;
-    if (outputPath) notice = `Project created at ${outputPath}`;
-    try {
-      await legacyDecision.answer({ outputPath, open });
-      const choice = await legacyDecision.wait();
-      if (!alive || !choice) return;
-      // Restoration completes before entering the existing protected open flow.
-      if (choice.open && choice.outputPath)
-        await projects.openPath(choice.outputPath);
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) {
-        workspaceBusy = false;
-        await tick();
-        if (alive && legacyImportReturn?.isConnected)
-          legacyImportReturn.focus();
-      }
+    if (outputPath) workspace.notice = `Project created at ${outputPath}`;
+    await workspace.task(
+      async () => {
+        await legacyDecision.answer({ outputPath, open });
+        const choice = await legacyDecision.wait();
+        if (!alive || !choice) return;
+        // Restoration completes before entering the existing protected open flow.
+        if (choice.open && choice.outputPath)
+          await projects.openPath(choice.outputPath);
+      },
+      { clearError: false },
+    );
+    if (alive) {
+      await tick();
+      if (alive && legacyImportReturn?.isConnected) legacyImportReturn.focus();
     }
   }
   async function closeStatistics(id?: string) {
-    if (!alive || !statisticsOpen) return;
+    if (!alive || workspaceModal.identity !== 'statistics') return;
     const version = `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`;
     await workspaceModal.close();
     if (
@@ -572,30 +495,16 @@
     }
   }
   async function openTimingReview(kind: TimingKind) {
-    if (
-      busy ||
-      confirming ||
-      !ready ||
-      !doc.cues.length ||
-      cueMenu ||
-      waveformGesture
-    )
+    if (!workspace.canAct || !doc.cues.length || cueMenu || waveformGesture)
       return;
-    error = '';
+    workspace.error = '';
     suspendCueFollowing();
     await workspaceModal.open({ kind: 'timing', variant: kind });
   }
   async function openText(mode?: 'find' | 'replace' | TextOperation) {
-    if (
-      busy ||
-      confirming ||
-      !ready ||
-      !doc.cues.length ||
-      cueMenu ||
-      waveformGesture
-    )
+    if (!workspace.canAct || !doc.cues.length || cueMenu || waveformGesture)
       return;
-    error = '';
+    workspace.error = '';
     if (typeof mode === 'object') {
       textOperation = mode;
     } else if (mode) {
@@ -624,10 +533,11 @@
     await workspaceModal.open('text');
   }
   async function closeText(operation: TextOperation, accepted = false) {
-    if (!alive || !textOpen) return;
+    if (!alive || workspaceModal.identity !== 'text') return;
     textOperation = operation;
     if (accepted) {
-      notice = 'Text changes accepted. Undo restores the whole change.';
+      workspace.notice =
+        'Text changes accepted. Undo restores the whole change.';
       quality.restart();
     }
     await workspaceModal.close();
@@ -640,7 +550,7 @@
   ) {
     // The dialog resolves drafts before searching and checks capture identity
     // before navigation. Never apply an unexpected draft to leave a search row.
-    if (draftDirty || busy) return;
+    if (draftDirty || workspace.busy) return;
     const snapshot = doc;
     await closeText(operation);
     if (!alive || draftDirty || doc !== snapshot) return;
@@ -658,16 +568,15 @@
     }
   }
   async function formatText(style: TextFormat) {
-    if (busy || confirming || !cue || !textEditor) return;
+    if (workspace.busy || workspace.confirming || !cue || !textEditor) return;
+    const editor = textEditor;
     const before = subtitles.text;
     const beforeStyle = subtitles.style;
     const snapshot = doc;
     const id = selected;
     const start = textEditor.selectionStart;
     const end = textEditor.selectionEnd;
-    workspaceBusy = true;
-    error = '';
-    try {
+    await workspace.task(async () => {
       const result = await textFormat(before, start, end, style, {
         generation: snapshot.generation,
         revision: snapshot.revision,
@@ -684,19 +593,16 @@
         return;
       subtitles.text = result.text;
       await tick();
-      textEditor.focus();
-      textEditor.setSelectionRange(result.start, result.end);
-      notice = 'Formatting updated in the cue draft. Apply edit to accept it.';
-    } catch (e) {
-      if (alive) error = String(e);
-    } finally {
-      if (alive) workspaceBusy = false;
-    }
+      editor.focus();
+      editor.setSelectionRange(result.start, result.end);
+      workspace.notice =
+        'Formatting updated in the cue draft. Apply edit to accept it.';
+    });
   }
   async function closeTimingReview(accepted = false) {
-    if (!alive || timingReview === null) return;
+    if (!alive || workspaceModal.timingKind === null) return;
     if (accepted) {
-      notice = `${timingLabels[timingReview]} timings accepted. Undo restores the whole change.`;
+      workspace.notice = `${timingLabels[workspaceModal.timingKind]} timings accepted. Undo restores the whole change.`;
       quality.restart();
     }
     await workspaceModal.close();
@@ -705,13 +611,7 @@
   let hardware = $state(true);
   const selected = $derived(subtitles.selected);
   const cue = $derived(subtitles.cue);
-  const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
   const draftDirty = $derived(subtitles.dirty);
-  const timingEdit = $derived(gestures.edit);
-  const liveLoop = media.loop;
-  function selectRange(next: [number, number]) {
-    timeline.selectRange(next);
-  }
   let diagnostics = $state(false);
   let video: HTMLDivElement;
   let workspaceHeight = $state(600);
@@ -739,25 +639,17 @@
       cueFollowingHeight,
     }),
   );
-  const editorMinimum = $derived(panes.editorMinimum);
-  const tableMinimum = $derived(panes.tableMinimum);
-  const paneHeight = $derived(panes.paneHeight);
-  const topPixels = $derived(panes.topPixels);
-  const editorPixels = $derived(panes.editorPixels);
-  const start = $derived(timeline.start);
-  const span = $derived(timeline.span);
-  const range = $derived(timeline.range);
   const operationContext = $derived({
-    timeStepMs,
+    timeStepMs: doc.format?.timeStepMs ?? 1,
     cues: doc.cues,
     selected,
     loaded: doc.loaded,
     draftDirty,
     positionSeconds:
-      status.loaded && !status.seeking && !mediaPending
+      status.loaded && !status.seeking && !media.pending
         ? status.positionSeconds
         : null,
-    range,
+    range: timeline.range,
   });
   const cueOperations = $derived(
     (Object.entries(cueOperationLabels) as [CueOperation, string][]).map(
@@ -785,14 +677,9 @@
       },
     ),
   );
-  const wave = $derived(timeline.wave);
   let timingSettings = $state({ ...defaultTiming });
-  const snapHint = $derived(gestures.snapHint);
   let sceneCuts = $state<number[]>([]);
-  const waveError = $derived(timeline.error);
   let list = $state<HTMLDivElement>();
-  const firstRow = $derived(tableView.firstRow);
-  const visibleCues = $derived(tableView.visibleCues);
   const draftMetricInput = $derived.by(() => {
     if (!draftDirty || !cue) return { value: null, error: '' };
     try {
@@ -812,13 +699,14 @@
   $effect(() => {
     quality.configure({
       session: status.session,
-      enabled: ready && doc.loaded && (problemsOpen || showQualityMetrics),
+      enabled:
+        workspace.ready && doc.loaded && (problemsOpen || showQualityMetrics),
       generation: doc.generation,
       revision: doc.revision,
       context: `${status.session}/${qualityContext}/${sceneState.qualityKey}`,
       selected,
-      metricsOffset: firstRow,
-      metricsLimit: showQualityMetrics ? visibleCues.length : 0,
+      metricsOffset: tableView.firstRow,
+      metricsLimit: showQualityMetrics ? tableView.visibleCues.length : 0,
       draft: showQualityMetrics ? draftMetricInput.value : null,
     });
   });
@@ -830,25 +718,23 @@
     )
       pendingProblem = null;
   });
-  const duration = $derived(timeline.duration);
   let confirmation: HTMLDialogElement;
   function decisionEffects(close: () => void) {
     return {
-      occlude: occludeVideo,
+      occlude: (value: boolean) => media.occlude(value),
       remainingOcclusion: () => diagnostics,
       close,
       afterRender: tick,
-      reportError: (failure: unknown) => {
-        error = String(failure);
-      },
     };
   }
   const subtitleDecision = new WorkspaceDecision<'save' | 'discard' | 'cancel'>(
     'cancel',
+    workspace,
     decisionEffects(() => confirmation.close()),
   );
   const legacyDecision = new WorkspaceDecision<LegacyImportChoice | null>(
     null,
+    workspace,
     decisionEffects(() => {
       legacyImportOpen = false;
     }),
@@ -856,6 +742,7 @@
   let projectExitError = $state<string | null>(null);
   const projectExitDecision = new WorkspaceDecision<ProjectExitChoice>(
     'cancel',
+    workspace,
     decisionEffects(() => {
       projectExitError = null;
     }),
@@ -865,38 +752,28 @@
     'cancel' | 'choose' | 'reload'
   >(
     'cancel',
+    workspace,
     decisionEffects(() => {
       projectReferenceIssue = null;
     }),
-  );
-  const confirming = $derived(
-    legacyDecision.visible ||
-      legacyDecision.closing ||
-      subtitleDecision.active ||
-      projectExitDecision.active ||
-      projectReferenceDecision.active ||
-      workspaceModal.active,
   );
   let lastMenu = '';
   let alive = true;
   function docAct(action: DocumentAction, plan?: CueOperationPlan) {
     return subtitles.command(action, plan ? { plan } : {});
   }
-  function applyDraft() {
-    return subtitles.apply();
-  }
   async function save(as: boolean) {
     const saved = await subtitles.save(as);
-    if (saved) notice = 'Subtitles saved';
+    if (saved) workspace.notice = 'Subtitles saved';
     return saved;
   }
-  const projects = new ProjectWorkflow(subtitles, media, {
+  const projects: ProjectWorkflow = new ProjectWorkflow(subtitles, media, {
     read: () => ({
       mediaPath,
       hardware,
       options: {
-        waveformStart: start,
-        waveformSpan: span,
+        waveformStart: timeline.start,
+        waveformSpan: timeline.span,
         followPlayback: follow,
         followSubtitle: cueFollowing !== 'off',
         showScenes,
@@ -931,22 +808,15 @@
     saveFailed: projectSaveFailed,
     referenceIssue: resolveProjectReference,
     notify: (message) => {
-      notice = message;
+      workspace.notice = message;
     },
   });
-  function occludeVideo(occluded: boolean) {
-    return media.occlude(occluded);
-  }
-  function confirmChanges() {
-    return subtitleDecision.ask(() => confirmation.showModal());
-  }
-  function answer(value: 'save' | 'discard' | 'cancel') {
-    return subtitleDecision.answer(value);
-  }
-  async function protect(saveContext?: () => Promise<boolean>) {
+  async function protect(
+    saveContext?: () => Promise<boolean>,
+  ): Promise<boolean> {
     if (!alive) return false;
     if (!doc.dirty && !draftDirty && !doc.translation?.dirty) return true;
-    const choice = await confirmChanges();
+    const choice = await subtitleDecision.ask(() => confirmation.showModal());
     if (!alive || choice === 'cancel') return false;
     if (choice === 'save') {
       return doc.translation?.dirty
@@ -959,10 +829,8 @@
     operation: 'attach' | 'copy' | 'offset' | 'detach',
     offsetMs = 0,
   ) {
-    if (busy || confirming || !ready) return;
-    workspaceBusy = true;
-    error = '';
-    try {
+    if (!workspace.canAct) return;
+    await workspace.task(async () => {
       if (operation === 'attach' || operation === 'copy') {
         const path = await chooseFile(
           'subtitles',
@@ -972,7 +840,7 @@
         if (operation === 'copy' && !(await protect())) return;
         if (!alive) return;
         if (await translation.load(path, operation === 'copy')) {
-          notice =
+          workspace.notice =
             operation === 'copy'
               ? 'Independent translation target created · Save As required'
               : 'Reference attached';
@@ -980,11 +848,7 @@
         }
       } else if (operation === 'offset') await translation.setOffset(offsetMs);
       else await translation.detach();
-    } catch (failure) {
-      if (alive) error = String(failure);
-    } finally {
-      if (alive) workspaceBusy = false;
-    }
+    });
   }
   $effect(() => {
     if (!translationOpen) translation.request(doc, null, 0, null, false);
@@ -994,19 +858,13 @@
       projectReferenceIssue = issue;
     });
   }
-  function answerProjectReference(choice: 'cancel' | 'choose' | 'reload') {
-    return projectReferenceDecision.answer(choice);
-  }
   function projectSaveFailed(failure: unknown): Promise<ProjectExitChoice> {
     return projectExitDecision.ask(() => {
       projectExitError = String(failure);
     });
   }
-  function answerProjectExit(choice: ProjectExitChoice) {
-    return projectExitDecision.answer(choice);
-  }
   function act(action: MediaAction) {
-    cancelHeldTiming();
+    gestures.cancelHeld();
     return media.command(action);
   }
   async function selectCue(
@@ -1018,32 +876,29 @@
     // Enforce the pending-operation guard here for both pointer and keyboard use.
     if (
       !alive ||
-      busy ||
+      workspace.busy ||
       cueMenu ||
       (expected && doc !== expected) ||
       !doc.cues.some((c) => c.id === id)
     )
       return;
     suspendCueFollowing();
-    cancelHeldTiming();
-    workspaceBusy = true;
-    error = '';
-    try {
-      await applyDraft();
+    gestures.cancelHeld();
+    await workspace.task(async () => {
+      await subtitles.apply();
       if (!alive || (expected && doc !== expected)) return;
       subtitles.select(id, mode);
       const selectedCue = subtitles.cue;
       if (selectedCue)
-        selectRange([selectedCue.startMs / 1000, selectedCue.endMs / 1000]);
+        timeline.selectRange([
+          selectedCue.startMs / 1000,
+          selectedCue.endMs / 1000,
+        ]);
       await revealSelection();
       if (!alive || (expected && doc !== expected)) return;
       if (cue && status.loaded)
         await act({ kind: 'seek', seconds: cue.startMs / 1000 });
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    });
   }
   function cueSelectionKey(e: KeyboardEvent, id: number) {
     if (e.isComposing || e.altKey || e.defaultPrevented) return;
@@ -1068,7 +923,7 @@
     } else if (targetIndex !== null) {
       e.preventDefault();
       const next = doc.cues[clamp(targetIndex, 0, doc.cues.length - 1)];
-      if (next && !busy && !confirming)
+      if (next && !workspace.busy && !workspace.confirming)
         void moveCueFocus(next.id, modifier, e.shiftKey);
     }
   }
@@ -1084,23 +939,17 @@
       list?.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)?.focus();
   }
   async function selectAllCues() {
-    if (busy || confirming || cueMenu) return;
-    workspaceBusy = true;
-    error = '';
-    suspendCueFollowing();
-    try {
-      await applyDraft();
+    if (workspace.busy || workspace.confirming || cueMenu) return;
+    await workspace.task(async () => {
+      suspendCueFollowing();
+      await subtitles.apply();
       subtitles.selectAll();
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    });
   }
   function requestProblem(id: string) {
     if (
-      busy ||
-      confirming ||
+      workspace.busy ||
+      workspace.confirming ||
       cueMenu ||
       !doc.cues.some((c) => String(c.id) === id)
     )
@@ -1113,35 +962,28 @@
     } else void selectCue(Number(id));
   }
   async function resolveProblem(choice: 'apply' | 'discard' | 'cancel') {
-    if (busy || !pendingProblem) return;
+    if (workspace.busy || !pendingProblem) return;
     const id = pendingProblem;
     if (choice === 'cancel') {
       pendingProblem = null;
       return;
     }
-    workspaceBusy = true;
-    error = '';
-    try {
-      if (choice === 'apply') await applyDraft();
+    const completed = await workspace.task(async () => {
+      if (choice === 'apply') await subtitles.apply();
       else subtitles.revert();
       pendingProblem = null;
-    } catch (failure) {
-      error = String(failure);
-      return;
-    } finally {
-      workspaceBusy = false;
-    }
-    if (alive) await selectCue(Number(id));
+    });
+    if (completed && alive) await selectCue(Number(id));
   }
   async function run(action: WorkspaceAction, event?: Event) {
-    if (busy || confirming || !ready || cueMenu || waveformGesture) return;
+    if (!workspace.canAct || cueMenu || waveformGesture) return;
     if (action === 'plugins') {
-      cancelHeldTiming();
+      gestures.cancelHeld();
       await openAuthoring('plugins');
       return;
     }
     if (action === 'convertSubtitles') {
-      cancelHeldTiming();
+      gestures.cancelHeld();
       await openAuthoring('conversion');
       return;
     }
@@ -1161,7 +1003,7 @@
       sceneControls?.navigate(action === 'previousScene');
       return;
     }
-    cancelHeldTiming();
+    gestures.cancelHeld();
     if (action === 'apply' && event && cue && draftDirty)
       traceApplyInput(event, doc);
     // Menu/keyboard actions respect the text field's local undo stack. Explicit
@@ -1177,10 +1019,8 @@
       document.execCommand(action);
       return;
     }
-    workspaceBusy = true;
-    error = '';
-    notice = '';
-    try {
+    workspace.notice = '';
+    await workspace.task(async () => {
       switch (action) {
         case 'resync':
           if (!status.loaded || !doc.cues.length) break;
@@ -1217,13 +1057,13 @@
         case 'splitCue':
         case 'mergePrevious':
         case 'mergeNext': {
-          if (action === 'createCue') await applyDraft();
+          if (action === 'createCue') await subtitles.apply();
           const plan = planCueOperation(action, operationContext);
           suspendCueFollowing();
           await docAct(plan.action, plan);
           await revealSelection();
           if (action === 'createCue') await focusText();
-          notice = `${cueOperationLabels[action]} applied`;
+          workspace.notice = `${cueOperationLabels[action]} applied`;
           break;
         }
         case 'openMedia': {
@@ -1259,8 +1099,8 @@
           if (await protect()) await docAct({ kind: 'close', discard: true });
           break;
         case 'apply':
-          await applyDraft();
-          notice = 'Edit applied';
+          await subtitles.apply();
+          workspace.notice = 'Edit applied';
           break;
         case 'save':
           if (doc.loaded) await save(false);
@@ -1290,9 +1130,17 @@
             await act({ kind: 'step', backwards: action === 'previousFrame' });
           break;
         case 'playRange':
-          if (status.loaded && range && range[1] > range[0]) {
-            await act({ kind: 'loop', start: range[0], end: range[1] });
-            await act({ kind: 'seek', seconds: range[0] });
+          if (
+            status.loaded &&
+            timeline.range &&
+            timeline.range[1] > timeline.range[0]
+          ) {
+            await act({
+              kind: 'loop',
+              start: timeline.range[0],
+              end: timeline.range[1],
+            });
+            await act({ kind: 'seek', seconds: timeline.range[0] });
             await act({ kind: 'pause', paused: false });
           }
           break;
@@ -1306,23 +1154,19 @@
           break;
         case 'diagnostics':
           if (!diagnostics) {
-            await occludeVideo(true);
+            await media.occlude(true);
             diagnostics = true;
           } else {
             diagnostics = false;
             await tick();
-            await occludeVideo(false);
+            await media.occlude(false);
           }
           break;
         case 'quit':
           await projects.quit();
           break;
       }
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    });
   }
   async function revealSelection(id: number | null = selected) {
     await tick();
@@ -1332,24 +1176,22 @@
       list.scrollTop = revealCueRow(index, list.scrollTop, list.clientHeight);
   }
   async function seek(time: number) {
-    if (!status.loaded || mediaPending || busy) return;
+    if (!status.loaded || media.pending || workspace.busy) return;
     try {
       await act({ kind: 'seek', seconds: time });
     } catch (e) {
-      error = String(e);
+      workspace.error = String(e);
     }
   }
   async function selectTrack(id: number) {
-    if (busy) return;
-    workspaceBusy = true;
-    try {
-      await act({ kind: 'track', id });
-      timeline.invalidateTrack();
-    } catch (e) {
-      error = String(e);
-    } finally {
-      workspaceBusy = false;
-    }
+    if (workspace.busy) return;
+    await workspace.task(
+      async () => {
+        await act({ kind: 'track', id });
+        timeline.invalidateTrack();
+      },
+      { clearError: false },
+    );
   }
   $effect(() => {
     const state = {
@@ -1366,8 +1208,8 @@
       resync: status.loaded && doc.cues.length > 0,
       undo: doc.canUndo || draftDirty || textFocused,
       redo: doc.canRedo || draftDirty || textFocused,
-      range: !!range && range[1] > range[0],
-      busy: busy || confirming || !ready || waveformGesture,
+      range: !!timeline.range && timeline.range[1] > timeline.range[0],
+      busy: !workspace.canAct || waveformGesture,
       createCue: !!cueOperations.find((op) => op.operation === 'createCue')
         ?.plan,
       deleteCue: !!cueOperations.find((op) => op.operation === 'deleteCue')
@@ -1382,7 +1224,7 @@
     const key = JSON.stringify(state);
     if (key === lastMenu) return;
     lastMenu = key;
-    void updateMenu(state).catch((e) => (error = String(e)));
+    void updateMenu(state).catch((e) => (workspace.error = String(e)));
   });
   function suspendCueFollowing() {
     cueFollowing = changeFollowing(cueFollowing, 'suspend', draftDirty);
@@ -1393,14 +1235,9 @@
   });
   $effect(() => {
     const protectedEdit =
-      draftDirty ||
-      editorFocused ||
-      busy ||
-      confirming ||
-      !ready ||
-      mediaPending;
+      draftDirty || editorFocused || !workspace.canAct || media.pending;
     const next = followedSelection(
-      activeIds,
+      tableView.activeIds,
       selected,
       cueFollowing,
       protectedEdit,
@@ -1410,7 +1247,7 @@
       protectedEdit ||
       cueFollowing !== 'following' ||
       next === null ||
-      !activeIds.includes(next)
+      !tableView.activeIds.includes(next)
     )
       return;
     const index = doc.cues.findIndex((item) => item.id === next);
@@ -1433,7 +1270,7 @@
     void Promise.all([
       subtitles.command({ kind: 'status' }),
       getPreferences().catch((e) => {
-        if (alive) error = String(e);
+        if (alive) workspace.error = String(e);
         return defaultPreferences;
       }),
     ])
@@ -1445,17 +1282,17 @@
         }
       })
       .catch((e) => {
-        if (alive) error = String(e);
+        if (alive) workspace.error = String(e);
       })
       .finally(() => {
-        if (alive) ready = true;
+        if (alive) workspace.ready = true;
       });
     void workspaceActions((action) => void run(action))
       .then((stop) => {
         if (alive) unlisten = stop;
         else stop();
       })
-      .catch((e) => (error = String(e)));
+      .catch((e) => (workspace.error = String(e)));
     let layoutPending = false;
     let lastLayout = '';
     async function layout() {
@@ -1486,7 +1323,7 @@
         await media.layout(bounds);
         if (alive) lastLayout = key;
       } catch (e) {
-        if (alive) error = String(e);
+        if (alive) workspace.error = String(e);
       } finally {
         layoutPending = false;
       }
@@ -1506,6 +1343,7 @@
     media.startPolling();
     return () => {
       alive = false;
+      workspace.dispose();
       workspaceModal.dispose();
       projects.dispose();
       translation.dispose();
@@ -1534,7 +1372,8 @@
       e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement ||
       (e.target instanceof HTMLElement && e.target.isContentEditable);
-    if (e.isComposing || e.defaultPrevented || cueMenu || confirming) return;
+    if (e.isComposing || e.defaultPrevented || cueMenu || workspace.confirming)
+      return;
     if (
       (e.metaKey || e.ctrlKey) &&
       !e.altKey &&
@@ -1592,8 +1431,8 @@
       !(e.target instanceof HTMLSelectElement)
     ) {
       e.preventDefault();
-      if (e.repeat || busy || confirming || !ready) return;
-      if (timingMode && !status.paused) {
+      if (e.repeat || !workspace.canAct) return;
+      if (gestures.mode && !status.paused) {
         gestures.beginHeld();
       } else void run('play');
     }
@@ -1601,11 +1440,11 @@
 </script>
 
 <svelte:window
-  onblur={cancelHeldTiming}
+  onblur={() => gestures.cancelHeld()}
   onkeyup={(e) => {
-    if (e.code === 'Space' && heldTiming) {
+    if (e.code === 'Space' && gestures.held) {
       e.preventDefault();
-      void releaseHeldTiming();
+      void gestures.releaseHeld();
     }
   }}
   onfocusin={(e) =>
@@ -1616,39 +1455,43 @@
   onkeydown={workspaceKeydown}
 />
 <main
-  aria-busy={busy || !ready}
+  aria-busy={workspace.busy || !workspace.ready}
   class:has-recovery={recovery.entries.length > 0 || !!recovery.error}
   style:--workspace-height={`${workspaceHeight}px`}
-  style:--workspace-min-height={`${148 + tableMinimum + editorMinimum}px`}
-  style:--table-min-height={`${tableMinimum}px`}
+  style:--workspace-min-height={`${148 + panes.tableMinimum + panes.editorMinimum}px`}
+  style:--table-min-height={`${panes.tableMinimum}px`}
 >
   <header class="toolbar">
     <strong>VisualSubForge</strong>
     {#if !nativeMenus}
-      <button disabled={busy || !ready} onclick={() => void run('openProject')}
-        >Open Project</button
+      <button
+        disabled={workspace.busy || !workspace.ready}
+        onclick={() => void run('openProject')}>Open Project</button
       >
       <button
-        disabled={busy || confirming || !ready}
+        disabled={!workspace.canAct}
         onclick={() => void run('importLegacyProject')}
         >Import VisualSubSync Project</button
       >
       <button
-        disabled={busy || !ready || (!status.loaded && !doc.loaded)}
+        disabled={workspace.busy ||
+          !workspace.ready ||
+          (!status.loaded && !doc.loaded)}
         title={projects.path ??
           'Save subtitle references, media, scene results and workspace options'}
         onclick={() => void run('saveProject')}>Save Project</button
       >
       <button
-        disabled={busy || !ready || !status.available}
+        disabled={workspace.busy || !workspace.ready || !status.available}
         onclick={() => void run('openMedia')}>Open Media</button
       >
       <button
-        disabled={busy || !ready}
+        disabled={workspace.busy || !workspace.ready}
         onclick={() => void run('openSubtitles')}>Open Subtitles</button
       >
-      <button disabled={busy || !doc.loaded} onclick={() => void run('save')}
-        >Save</button
+      <button
+        disabled={workspace.busy || !doc.loaded}
+        onclick={() => void run('save')}>Save</button
       >
     {/if}
     <span class="filename" title={doc.path ?? ''}
@@ -1664,20 +1507,22 @@
         onclick={() => void run('diagnostics')}
         aria-pressed={diagnostics}>Diagnostics</button
       >
-      <button
-        disabled={busy || confirming || !ready}
-        onclick={() => void run('settings')}>Settings…</button
+      <button disabled={!workspace.canAct} onclick={() => void run('settings')}
+        >Settings…</button
       >
       <button
-        disabled={busy ||
-          confirming ||
-          !ready ||
+        disabled={workspace.busy ||
+          workspace.confirming ||
+          !workspace.ready ||
           !status.loaded ||
           !doc.cues.length}
         onclick={() => void run('resync')}>Resynchronize subtitles…</button
       >
       <button
-        disabled={!status.loaded || busy || confirming || sceneState.pending}
+        disabled={!status.loaded ||
+          workspace.busy ||
+          workspace.confirming ||
+          sceneState.pending}
         onclick={() =>
           void run(sceneState.running ? 'cancelSceneScan' : 'scanScenes')}
         >{sceneState.running
@@ -1707,22 +1552,23 @@
             {entry.error ?? ''}</span
           >
           <button
-            disabled={busy || !ready || !!entry.error}
+            disabled={workspace.busy || !workspace.ready || !!entry.error}
             onclick={() => void chooseRecovery(entry.id, true)}>Recover</button
           >
           {#if discardRecoveryId === entry.id}
             <span>Discard this recovery snapshot?</span>
             <button
-              disabled={busy}
+              disabled={workspace.busy}
               onclick={() => void chooseRecovery(entry.id, false)}
               >Confirm discard</button
             >
-            <button disabled={busy} onclick={() => (discardRecoveryId = null)}
-              >Cancel</button
+            <button
+              disabled={workspace.busy}
+              onclick={() => (discardRecoveryId = null)}>Cancel</button
             >
           {:else}
             <button
-              disabled={busy}
+              disabled={workspace.busy}
               onclick={() => (discardRecoveryId = entry.id)}>Discard…</button
             >
           {/if}
@@ -1733,8 +1579,8 @@
   <div
     class="workspace"
     bind:clientHeight={workspaceHeight}
-    style:--top-height={`${topPixels}px`}
-    style:--editor-height={`${editorPixels}px`}
+    style:--top-height={`${panes.topPixels}px`}
+    style:--editor-height={`${panes.editorPixels}px`}
   >
     <div class="top" style:--wave-width={`${wavePct}%`}>
       <WaveformPanel
@@ -1784,7 +1630,7 @@
     </div>
     <Splitter
       label="Resize preview and subtitle list"
-      value={(topPixels / paneHeight) * 100}
+      value={(panes.topPixels / panes.paneHeight) * 100}
       onchange={(v) => (topPct = clamp(v, 20, Math.min(55, 80 - editorPct)))}
     />
     <section class="subtitle-panel panel" aria-label="Subtitle table">
@@ -1793,15 +1639,15 @@
         use:measurePaneControl={(height) => (transportHeight = height)}
       >
         <button
-          disabled={!status.loaded || busy}
+          disabled={!status.loaded || workspace.busy}
           onclick={() => void run('play')}
           >{status.paused ? 'Play' : 'Pause'}</button
         ><button
-          disabled={!status.loaded || busy}
+          disabled={!status.loaded || workspace.busy}
           onclick={() => void run('previousFrame')}
           aria-label="Previous frame">◀|</button
         ><button
-          disabled={!status.loaded || busy}
+          disabled={!status.loaded || workspace.busy}
           onclick={() => void run('nextFrame')}
           aria-label="Next frame">|▶</button
         ><output
@@ -1811,17 +1657,17 @@
         ><label
           >Audio <select
             value={status.audioTrack ?? ''}
-            disabled={!status.loaded || busy}
+            disabled={!status.loaded || workspace.busy}
             onchange={(e) => void selectTrack(Number(e.currentTarget.value))}
             >{#each status.audioTracks as track (track.id)}<option
                 value={track.id}>{track.title}</option
               >{/each}</select
           ></label
         ><span class="spacer"></span><button
-          disabled={!range || !status.loaded || busy}
+          disabled={!timeline.range || !status.loaded || workspace.busy}
           onclick={() => void run('playRange')}>Loop range</button
         ><button
-          disabled={!status.loaded || busy}
+          disabled={!status.loaded || workspace.busy}
           onclick={() => void run('clearLoop')}>Clear loop</button
         >
       </div>
@@ -1832,7 +1678,7 @@
       >
         {#each cueOperations as op (op.operation)}
           <button
-            disabled={!op.plan || busy || confirming}
+            disabled={!op.plan || workspace.busy || workspace.confirming}
             title={op.reason ||
               (op.operation === 'splitCue'
                 ? 'Split timing and duplicate the accepted text in both halves.'
@@ -1846,36 +1692,36 @@
         use:measurePaneControl={(height) => (cueFollowingHeight = height)}
       >
         <button
-          disabled={busy || confirming || !doc.cues.length}
+          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
           onclick={() => void openText()}>Find / Replace…</button
         >
         <button
-          disabled={busy || confirming || !doc.cues.length}
+          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
           onclick={() => void openTimingReview('gap')}
           >Enforce minimum gaps…</button
         >
         <button
-          disabled={busy || confirming || !doc.cues.length}
+          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
           onclick={() => void openTimingReview('scene')}
           >Repair scene timing…</button
         >
         <button
-          disabled={busy || confirming || !doc.cues.length}
+          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
           onclick={() => void openTimingReview('duration')}
           >Repair duration / speed…</button
         >
         <button
-          disabled={busy || confirming || !doc.cues.length}
+          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
           onclick={() => void openTimingReview('batch')}
           >Shift / align cues…</button
         >
 
         <button
-          disabled={busy || confirming || !doc.loaded}
+          disabled={workspace.busy || workspace.confirming || !doc.loaded}
           onclick={() => void openStatistics()}>Statistics…</button
         >
         <button
-          disabled={busy || confirming || !doc.loaded}
+          disabled={workspace.busy || workspace.confirming || !doc.loaded}
           onclick={() => void openAuthoring('plugins')}
           >Subtitle plugins…</button
         >
@@ -1891,7 +1737,7 @@
             : ''}</button
         >
         <button
-          disabled={busy || confirming || !ready}
+          disabled={!workspace.canAct}
           aria-expanded={translationOpen}
           onclick={() => {
             translationOpen = !translationOpen;
@@ -1906,10 +1752,10 @@
         >
           <input
             type="checkbox"
-            checked={timingMode}
-            disabled={busy || confirming}
+            checked={gestures.mode}
+            disabled={workspace.busy || workspace.confirming}
             onchange={(e) => {
-              cancelHeldTiming();
+              gestures.cancelHeld();
               gestures.mode = e.currentTarget.checked;
               focusWaveform();
             }}
@@ -1924,7 +1770,7 @@
               cueFollowing = changeFollowing(
                 cueFollowing,
                 e.currentTarget.checked ? 'enable' : 'disable',
-                draftDirty || editorFocused || busy,
+                draftDirty || editorFocused || workspace.busy,
               );
             }}
           /> Follow active subtitle</label
@@ -1936,7 +1782,7 @@
               : 'Following suspended.'}</span
           >
           <button
-            disabled={draftDirty || busy || confirming}
+            disabled={draftDirty || workspace.busy || workspace.confirming}
             onclick={() => {
               cueFollowing = changeFollowing(
                 cueFollowing,
@@ -1968,7 +1814,7 @@
         />
         {#if problemsOpen}<ProblemsPanel
             session={quality}
-            disabled={busy || confirming}
+            disabled={workspace.busy || workspace.confirming}
             pending={pendingProblem !== null}
             onnavigate={requestProblem}
             onlanguage={(operation) => void openText(operation)}
@@ -1981,7 +1827,7 @@
         {#if translationOpen}<TranslationPanel
             {subtitles}
             session={translation}
-            disabled={busy || confirming || !ready}
+            disabled={!workspace.canAct}
             onload={(copy) => void referenceOperation(copy ? 'copy' : 'attach')}
             onoffset={(offset) => void referenceOperation('offset', offset)}
             ondetach={() => void referenceOperation('detach')}
@@ -1991,7 +1837,7 @@
     </section>
     <Splitter
       label="Resize subtitle list and editor"
-      value={100 - (editorPixels / paneHeight) * 100}
+      value={100 - (panes.editorPixels / panes.paneHeight) * 100}
       onchange={(v) =>
         (editorPct = clamp(100 - v, 20, Math.min(40, 80 - topPct)))}
     />
@@ -2054,19 +1900,22 @@
     <span
       class="message"
       role="status"
-      title={error || status.error || status.subtitlePreviewError || undefined}
-      >{error ||
+      title={workspace.error ||
         status.error ||
         status.subtitlePreviewError ||
-        notice ||
-        (busy ? 'Working…' : 'Ready')}</span
-    >{#if timingEdit}<span
-        >{snapHint || 'Timing preview'}
-        {formatTime(timingEdit.preview.startMs)}–{formatTime(
-          timingEdit.preview.endMs,
+        undefined}
+      >{workspace.error ||
+        status.error ||
+        status.subtitlePreviewError ||
+        workspace.notice ||
+        (workspace.busy ? 'Working…' : 'Ready')}</span
+    >{#if gestures.edit}<span
+        >{gestures.snapHint || 'Timing preview'}
+        {formatTime(gestures.edit.preview.startMs)}–{formatTime(
+          gestures.edit.preview.endMs,
         )}</span
-      >{/if}{#if range}<span
-        >Range {range[0].toFixed(3)}–{range[1].toFixed(3)} s</span
+      >{/if}{#if timeline.range}<span
+        >Range {timeline.range[0].toFixed(3)}–{timeline.range[1].toFixed(3)} s</span
       >{/if}<span>Desktop PoC</span>
   </footer>
   {#if diagnostics}<aside
@@ -2093,16 +1942,16 @@
           : 'legacy'}
       </p>
       <p>
-        Waveform stream {wave?.audioStreamIndex ?? '—'} · container origin {wave?.containerOriginSeconds ??
-          '—'} s
+        Waveform stream {timeline.wave?.audioStreamIndex ?? '—'} · container origin
+        {timeline.wave?.containerOriginSeconds ?? '—'} s
       </p>
-      <p>{waveError || wave?.error || ''}</p>
+      <p>{timeline.error || timeline.wave?.error || ''}</p>
     </aside>{/if}
   <dialog
     bind:this={confirmation}
     oncancel={(e) => {
       e.preventDefault();
-      answer('cancel');
+      subtitleDecision.answer('cancel');
     }}
     aria-label={doc.translation?.dirty
       ? 'Unsaved project changes'
@@ -2119,9 +1968,10 @@
         : 'Your current document or cue draft has changes.'}
     </p>
     <div class="dialog-actions">
-      <button onclick={() => answer('cancel')}>Cancel</button><button
-        onclick={() => answer('discard')}>Discard changes</button
-      ><button onclick={() => answer('save')}
+      <button onclick={() => subtitleDecision.answer('cancel')}>Cancel</button
+      ><button onclick={() => subtitleDecision.answer('discard')}
+        >Discard changes</button
+      ><button onclick={() => subtitleDecision.answer('save')}
         >{doc.translation?.dirty ? 'Save project' : 'Save changes'}</button
       >
     </div>
@@ -2129,16 +1979,16 @@
   {#if projectExitError !== null}
     <ProjectSaveFailureDialog
       error={projectExitError}
-      onchoose={(choice) => void answerProjectExit(choice)}
+      onchoose={(choice) => void projectExitDecision.answer(choice)}
     />
   {/if}
   {#if projectReferenceIssue !== null}
     <ProjectReferenceDialog
       issue={projectReferenceIssue}
-      onchoose={(choice) => void answerProjectReference(choice)}
+      onchoose={(choice) => void projectReferenceDecision.answer(choice)}
     />
   {/if}
-  {#if resyncOpen}
+  {#if workspaceModal.identity === 'resync'}
     <ResyncDialog
       {subtitles}
       media={() => status}
@@ -2147,7 +1997,7 @@
       onaccepted={() => void closeResync(true)}
     />
   {/if}
-  {#if statisticsOpen}
+  {#if workspaceModal.identity === 'statistics'}
     <StatisticsDialog
       {subtitles}
       mediaSession={() => status.session}
@@ -2156,14 +2006,14 @@
       onnavigate={(id) => void closeStatistics(id)}
     />
   {/if}
-  {#if fontsOpen && doc.format && subtitles.styled}
+  {#if workspaceModal.identity === 'fonts' && doc.format && subtitles.styled}
     <FontDialog
       {subtitles}
       onclose={() => void closeAuthoring()}
       onaccepted={() => void closeAuthoring(true)}
     />
   {/if}
-  {#if pluginsOpen}
+  {#if workspaceModal.identity === 'plugins'}
     <PluginDialog
       {subtitles}
       media={() => status}
@@ -2172,7 +2022,7 @@
       onaccepted={() => void closeAuthoring(true)}
     />
   {/if}
-  {#if conversionOpen}
+  {#if workspaceModal.identity === 'conversion'}
     <ConversionDialog
       {subtitles}
       onclose={(path) => void closeAuthoring(false, path)}
@@ -2184,7 +2034,7 @@
       onclose={(path, open) => void closeLegacyImport(path, open)}
     />
   {/if}
-  {#if stylesOpen && doc.format && subtitles.styled}
+  {#if workspaceModal.identity === 'styles' && doc.format && subtitles.styled}
     <StyleInspector
       {subtitles}
       initial={subtitles.style}
@@ -2192,8 +2042,8 @@
       onaccepted={() => void closeAuthoring(true)}
     />
   {/if}
-  {#if timingOpen}
-    {#if timingReview === 'batch'}
+  {#if workspaceModal.timingKind !== null}
+    {#if workspaceModal.timingKind === 'batch'}
       <BatchTimingDialog
         {subtitles}
         media={() => status}
@@ -2209,7 +2059,7 @@
       />
     {/if}
   {/if}
-  {#if textOpen}
+  {#if workspaceModal.identity === 'text'}
     <TextDialog
       {subtitles}
       initial={textOperation}
@@ -2219,7 +2069,7 @@
         void navigateText(id, start, end, operation)}
     />
   {/if}
-  {#if settingsOpen}
+  {#if workspaceModal.identity === 'settings'}
     <SettingsDialog
       {preferences}
       timing={timingSettings}

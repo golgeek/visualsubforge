@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DocumentSession } from './document-session.svelte';
   import type { QualitySession } from './quality-session.svelte';
-  import type { WorkspaceControls } from './workspace-controls';
+  import type { Workspace } from './workspace.svelte';
   import { formatTime } from './timeline';
   import { rate } from './quality-display';
   import type { SelectionMode } from './cue-selection';
@@ -18,7 +18,7 @@
     subtitles: DocumentSession;
     quality: QualitySession;
     tableView: CueTableView;
-    workspace: WorkspaceControls;
+    workspace: Workspace;
     metrics: boolean;
     list: HTMLDivElement | undefined;
     actions: {
