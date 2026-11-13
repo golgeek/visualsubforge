@@ -1,3 +1,5 @@
+import type { CueNavigation } from './cue-navigation.svelte';
+import type { CueMenu } from './cue-menu.svelte';
 import type { Workspace } from './workspace.svelte';
 import {
   beginHeldTiming,
@@ -20,18 +22,24 @@ import type { MediaSession } from './media-session.svelte';
 import type { TimelineView } from './timeline-view.svelte';
 
 interface GestureEffects {
-  menu: () => unknown;
   cuts: () => number[];
   settings: () => TimingSettings;
   operationContext: () => Parameters<typeof planCueOperation>[1];
   command: (action: DocumentAction, plan: CueOperationPlan) => Promise<boolean>;
-  suspendFollowing: () => void;
-  revealSelection: () => Promise<void>;
-  focusWaveform: () => void;
 }
 
 // Activity describes an in-progress commit or boundary preview. Workspace owns busy.
 export class TimingGesture {
+  // Connected once after navigation/menu construction, before effects or input.
+  private navigation!: Pick<
+    CueNavigation,
+    'suspendFollowing' | 'revealSelection' | 'focusWaveform'
+  >;
+  private menu!: Pick<CueMenu, 'context'>;
+  connect(navigation: typeof this.navigation, menu: typeof this.menu) {
+    this.navigation = navigation;
+    this.menu = menu;
+  }
   mode = $state(false);
   held = $state<HeldTiming | null>(null);
   edit = $state<TimingEdit | null>(null);
@@ -67,7 +75,7 @@ export class TimingGesture {
   }
   beginHeld() {
     if (!this.alive) return;
-    this.effects.suspendFollowing();
+    this.navigation.suspendFollowing();
     this.pressedAt = performance.now();
     this.held = beginHeldTiming(this.subtitles.snapshot, this.media.status);
     this.workspace.notice = this.held
@@ -85,7 +93,7 @@ export class TimingGesture {
       !held ||
       this.workspace.busy ||
       this.workspace.confirming ||
-      this.effects.menu()
+      this.menu.context
     )
       return;
     const result = resolveTimingRelease(
@@ -114,13 +122,13 @@ export class TimingGesture {
         range: marked,
         draftDirty: false,
       });
-      this.effects.suspendFollowing();
+      this.navigation.suspendFollowing();
       await this.effects.command(plan.action, plan);
       if (!this.alive) return;
       this.timeline.range = marked;
-      await this.effects.revealSelection();
+      await this.navigation.revealSelection();
       if (!this.alive) return;
-      this.effects.focusWaveform();
+      this.navigation.focusWaveform();
       this.workspace.notice =
         'Cue created · hold Space for the next cue; Enter edits text.';
     } catch (e) {
@@ -152,7 +160,7 @@ export class TimingGesture {
         settings: { ...this.effects.settings() },
       };
       this.active = true;
-      this.effects.suspendFollowing();
+      this.navigation.suspendFollowing();
       this.workspace.error = '';
       this.workspace.notice =
         'Timing preview · release to apply, Escape to cancel';

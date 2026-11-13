@@ -3,20 +3,40 @@
 `App.svelte` is the workspace composition root. It constructs sessions, wires
 effect callbacks and delegates actions through a readable switch to
 `workspace-file-actions.ts`, `media-actions.ts`, `cue-actions.ts` and `view-actions.ts`. `Workspace`
-owns `ready`, `error`, `notice` and its task flag; it derives `busy`/`confirming`
+owns `ready`, `error`, `notice` and its task counter; it derives `busy`/`confirming`
 from modal, decision and gesture activity. App constructs and connects owners; some workspace controls and dialog markup still live at the root. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
 
+Owners with state, reactive projections or a lifetime are classes. Stateless actions,
+calculations and project-view adapters are plain functions. Effect-bearing classes
+are constructed during component initialization. `disposeWithComponent` registers
+cleanup beside each disposable owner's construction; pollers start on mount.
+Construction follows dependencies, then explicit connect calls complete the gesture,
+navigation and workspace graph before effects or input run. UnsavedChanges receives
+a save continuation per call, so it does not depend on ProjectWorkflow.
+
+Cleanup invalidates guards synchronously in construction order. Media stops its
+live-loop owner before gesture/timeline teardown. Decision settlement queues promise
+continuations; those run only after all owners have been disposed. `captureFocus`
+supplies the identical return-focus policy for modals and cue menus.
+
+Admission differences are preserved: row/continuation selection checks busy, while
+problem navigation and select-all additionally check confirming. Legacy opening is
+already task-gated and its confirmation projection uses visible/closing; other
+decisions expose their full active lifecycle. These are existing entry-point rules,
+not a second workspace gate.
+
 | Owner | State and responsibility |
 | --- | --- |
-| `Workspace` | Workspace task flag, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
+| `Workspace` | Workspace task counter, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
 | `CueNavigation` | Explicit selection, keyboard focus, pending problem navigation, reveal and cue-following effects; narrow DOM callbacks and mount-lifetime guards. |
 | `WorkspaceView` / `WorkspaceLayout` | Panel visibility/rules and measured pane sizes/splitter constraints, respectively. |
 | `WorkspacePreferences` | Saved defaults, effective project timing, metric visibility and quality-context invalidation, updated through initialization, acceptance and restore methods. |
 | `WorkspaceScenes` | Scene visibility, cuts, controls, status and restored-generation projection. |
 | `UnsavedChanges` | Subtitle save and the unsaved-changes guard; each caller supplies its project-save continuation. |
 | `TranslationReference` | Protected reference attach/copy/offset/detach actions and lifetime guards. |
-| `WorkspaceLifetime` | Startup/listener, native-layout polling and observation, and ordered owner disposal. |
+| `WorkspaceStartup` / `WorkspaceMenus` | Initial state loading and native menu projection/subscription, respectively; each guards late replies after disposal. |
+| `NativeVideoLayout` | Coalesced native layout requests, resize observer, window listeners and polling timer; disposal removes all subscriptions and suppresses late replies. |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
 | `CueTableView` | Virtual-list scroll offset/height, visible rows and active cue IDs, read from accepted subtitle and playback callbacks. Synchronous setters ignore updates after disposal. |
@@ -54,15 +74,15 @@ through one owner method; project timing never replaces saved defaults.
 `CueTable`, `CueEditor` and `WaveformPanel` receive the relevant session owners.
 They share the `Workspace` object with gestures, modals and decisions. Its
 `canAct` read combines readiness, busy and confirming; callers retain their
-feature eligibility checks. `task()` holds the task flag through completion,
-reports failures and releases it in finally. Callers that previously retained
+feature eligibility checks. `task()` counts pending tasks through completion,
+reports failures and decrements in finally. Nested and overlapping tasks keep busy
+until the last task finishes. Callers that previously retained
 an error opt out of clearing it; a failed task returns false to stop a continuation.
 Feature owners expose activity and never assign the workspace gate. Components
 keep their scoped styles and DOM bindings;
 CueNavigation owns selection, problem navigation, following and focus/reveal
-sequencing through viewport/scroll/focus callbacks. Its own activity contributes to
-Workspace.busy; it never assigns the gate. `CueTableView` is synchronous, so it
-needs no request epoch; WorkspaceLifetime disconnects its resize observer on unmount. `pane-layout.ts` computes measured minima and splitter bounds
+sequencing through viewport/scroll/focus callbacks. It uses workspace tasks and never assigns the gate. `CueTableView` is synchronous, so it
+needs no request epoch; CueTable disconnects its resize observer on unmount. `pane-layout.ts` computes measured minima and splitter bounds
 without DOM access. The shared measurement action schedules observer updates on
 the next animation frame and cancels that callback during cleanup.
 
@@ -73,10 +93,11 @@ history remains local for native menu/keyboard Undo/Redo; explicit history butto
 still use document history. Action modules retain scene-action exceptions to the
 task gate and read live state after asynchronous draft/file operations. WorkspaceView owns panel toggles and their rules, and WorkspaceLayout owns measured pane sizes
 and splitter constraints. UnsavedChanges and project-view retain the protected save/restore sequence;
-TranslationReference owns reference file operations next to TranslationSession. Cue-editing, workspace-quality and workspace-menus derive
-projections from the live owners; all effect-bearing factories are called during
-component initialization. WorkspaceLifetime owns startup, native-layout observation
-and ordered disposal, preserving pending-request guards.
+TranslationReference owns reference file operations next to TranslationSession. CueEditing and WorkspaceQuality derive
+projections from live owners; WorkspaceMenus owns menu projection and subscription.
+WorkspaceStartup loads initial state; NativeVideoLayout tracks the video element.
+Its disposal disconnects the observer, removes window listeners and clears the
+100 ms timer; in-flight replies cannot publish after disposal.
 
 The shell components own toolbar, recovery-banner, footer, diagnostics and font
 notice markup and styles. WorkspaceDialogs renders feature dialogs from the
@@ -371,7 +392,7 @@ conservative skips, limits and evidence.
 `cue-selection.ts` implements file-order ranges, disjoint toggles and stable-ID
 reconciliation as pure transformations. `DocumentSession` replaces these immutable
 sets along with its primary cue after protected selection and accepted commands.
-`App` owns keyboard focus and virtual scrolling; focus-only Ctrl/Cmd navigation
+`CueNavigation` owns keyboard focus and virtual scrolling; focus-only Ctrl/Cmd navigation
 does not change membership. Existing single-cue controls still edit the primary.
 
 `BatchTimingDialog` shares `TimingRepairSession` with scene/duration review and

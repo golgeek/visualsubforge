@@ -1,3 +1,4 @@
+import { nativeLayoutCases } from './native-layout';
 import { stateOwnerCases } from './state-owners.svelte';
 import { overlayCases } from './overlays';
 import { workspaceCases } from './workspace';
@@ -851,6 +852,7 @@ async function referenceQueryCases() {
 
 try {
   await workspaceCases(passed);
+  await nativeLayoutCases(passed);
   await stateOwnerCases(passed);
   await modalCases(passed);
   await overlayCases(passed);

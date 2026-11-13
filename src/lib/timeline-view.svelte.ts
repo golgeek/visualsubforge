@@ -14,7 +14,7 @@ import {
 interface TimelineEffects {
   status: () => MediaStatus;
   mediaPath: () => string;
-  preview: () => Cue | null;
+  preview?: () => Cue | null;
   pending: () => boolean;
   cues: () => Cue[];
   gap: () => number;
@@ -84,7 +84,7 @@ export class TimelineView {
       const position = this.effects.status().positionSeconds;
       if (
         this.follow &&
-        !this.effects.preview() &&
+        !this.effects.preview?.() &&
         !this.interacting &&
         !this.effects.pending() &&
         !this.effects.status().seeking &&
@@ -95,6 +95,9 @@ export class TimelineView {
       }
     });
   }
+  connectPreview(read: () => Cue | null) {
+    this.effects.preview = read;
+  }
   get duration() {
     return Math.max(
       this.effects.status().durationSeconds ?? 0,
@@ -102,7 +105,7 @@ export class TimelineView {
     );
   }
   get waveCues() {
-    const preview = this.effects.preview();
+    const preview = this.effects.preview?.();
     return this.effects
       .cues()
       .map((c) => (c.id === preview?.id ? preview : c))

@@ -6,29 +6,33 @@ import {
   planCueOperation,
   type CueOperation,
 } from './cue-operations';
-export function createCueEditing(
-  subtitles: DocumentSession,
-  media: MediaSession,
-  timeline: TimelineView,
-) {
-  const doc = $derived(subtitles.snapshot);
-  const selected = $derived(subtitles.selected);
-  const draftDirty = $derived(subtitles.dirty);
-  const status = $derived(media.status);
-  const context = $derived({
-    timeStepMs: doc.format?.timeStepMs ?? 1,
-    cues: doc.cues,
-    selected,
-    loaded: doc.loaded,
-    draftDirty,
-    positionSeconds:
-      status.loaded && !status.seeking && !media.pending
-        ? status.positionSeconds
-        : null,
-    range: timeline.range,
+export class CueEditing {
+  constructor(
+    private subtitles: DocumentSession,
+    private media: MediaSession,
+    private timeline: TimelineView,
+  ) {}
+  context = $derived.by(() => {
+    const doc = this.subtitles.snapshot;
+    const selected = this.subtitles.selected;
+    const draftDirty = this.subtitles.dirty;
+    const status = this.media.status;
+    return {
+      timeStepMs: doc.format?.timeStepMs ?? 1,
+      cues: doc.cues,
+      selected,
+      loaded: doc.loaded,
+      draftDirty,
+      positionSeconds:
+        status.loaded && !status.seeking && !this.media.pending
+          ? status.positionSeconds
+          : null,
+      range: this.timeline.range,
+    };
   });
-  const cueOperations = $derived(
-    (Object.entries(cueOperationLabels) as [CueOperation, string][]).map(
+  operations = $derived.by(() => {
+    const context = this.context;
+    return (Object.entries(cueOperationLabels) as [CueOperation, string][]).map(
       ([operation, label]) => {
         try {
           return {
@@ -51,15 +55,6 @@ export function createCueEditing(
           };
         }
       },
-    ),
-  );
-
-  return {
-    get context() {
-      return context;
-    },
-    get operations() {
-      return cueOperations;
-    },
-  };
+    );
+  });
 }

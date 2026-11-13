@@ -31,9 +31,9 @@ export class CueNavigation {
   private pendingProblemVersion = '';
   private lastRevealedCue = '';
   private alive = true;
-  private working = $state(false);
-  get active() {
-    return this.working;
+  private cueMenu: Pick<CueMenu, 'context'> | null = null;
+  connectMenu(menu: Pick<CueMenu, 'context'>) {
+    this.cueMenu = menu;
   }
   constructor(
     private workspace: Workspace,
@@ -42,7 +42,6 @@ export class CueNavigation {
     private timeline: TimelineView,
     private tableView: CueTableView,
     private gestures: TimingGesture,
-    private cueMenu: CueMenu,
     private effects: Effects,
   ) {
     $effect(() => {
@@ -122,17 +121,19 @@ export class CueNavigation {
   ) => {
     // Rows use aria-disabled so transport commands do not drop keyboard focus.
     // Enforce the pending-operation guard here for both pointer and keyboard use.
+    // Preserve row/continuation selection’s busy-only admission; problem and
+    // select-all entry points additionally reject confirming.
     if (
       !this.alive ||
       this.workspace.busy ||
-      this.cueMenu.context ||
+      this.cueMenu?.context ||
       (expected && this.subtitles.snapshot !== expected) ||
       !this.subtitles.snapshot.cues.some((c) => c.id === id)
     )
       return;
     this.suspendFollowing();
     this.gestures.cancelHeld();
-    await this.changeSelection(async () => {
+    await this.workspace.task(async () => {
       await this.subtitles.apply();
       if (!this.alive || (expected && this.subtitles.snapshot !== expected))
         return;
@@ -197,10 +198,10 @@ export class CueNavigation {
     if (
       this.workspace.busy ||
       this.workspace.confirming ||
-      this.cueMenu.context
+      this.cueMenu?.context
     )
       return;
-    await this.changeSelection(async () => {
+    await this.workspace.task(async () => {
       this.suspendFollowing();
       await this.subtitles.apply();
       this.subtitles.selectAll();
@@ -210,7 +211,7 @@ export class CueNavigation {
     if (
       this.workspace.busy ||
       this.workspace.confirming ||
-      this.cueMenu.context ||
+      this.cueMenu?.context ||
       !this.subtitles.snapshot.cues.some((c) => String(c.id) === id)
     )
       return;
@@ -228,7 +229,7 @@ export class CueNavigation {
       this.pendingProblem = null;
       return;
     }
-    const completed = await this.changeSelection(async () => {
+    const completed = await this.workspace.task(async () => {
       if (choice === 'apply') await this.subtitles.apply();
       else this.subtitles.revert();
       this.pendingProblem = null;
@@ -268,7 +269,7 @@ export class CueNavigation {
     );
   };
   editAdjacent = async (action: 'nextCue' | 'previousCue') => {
-    await this.changeSelection(async () => {
+    await this.workspace.task(async () => {
       await this.subtitles.apply();
       if (!this.alive) return;
       const doc = this.subtitles.snapshot;
@@ -286,19 +287,6 @@ export class CueNavigation {
       }
     });
   };
-  private async changeSelection(fn: () => Promise<unknown>) {
-    this.working = true;
-    this.workspace.error = '';
-    try {
-      await fn();
-      return true;
-    } catch (error) {
-      if (this.alive) this.workspace.error = String(error);
-      return false;
-    } finally {
-      if (this.alive) this.working = false;
-    }
-  }
   dispose = () => {
     this.alive = false;
   };
