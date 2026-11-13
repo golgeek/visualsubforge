@@ -16,6 +16,10 @@ mount and are disposed on unmount; they are not global stores.
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in protect and ProjectWorkflow. |
+| `HideVideo` | Shared hide-before-show, render-before-restore, remaining-occlusion, epoch and disposal lifecycle for modals, decisions and the cue menu. |
+| `CueMenu` | Captured cue/range context, menu replacement, command activity and menu focus lifetime. |
+| `Recovery` | Recovery listing, polling/response epochs, discard confirmation and recovery action activity. |
+| `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
 | `WorkspaceModal` | Authoring, timing, Settings, resync, statistics and text-dialog identity/transitions, native-video occlusion handshake and focus restoration. App supplies effects/eligibility; feature sessions retain drafts and acceptance. |
 | `ProjectWorkflow` | Projection of Rust's project attachment, ordered project open/save, and quit sequencing. It asks App to present decisions and update view options. |
 | `TranslationSession` | Reference query pages, mutation/query lifetime and latest desired selection. It cancels/drains obsolete work and delegates accepted context/target copies to DocumentSession. |
@@ -48,6 +52,19 @@ still use document history. Action modules retain scene-action exceptions to the
 task gate and read live state after asynchronous draft/file operations. View
 accessors supplied by App connect the existing transient state without copying
 it into a second owner.
+
+The shell components own toolbar, recovery-banner, footer, diagnostics and font
+notice markup and styles. WorkspaceDialogs renders feature dialogs from the
+modal identity; WorkspaceDialogsState owns their eligibility and post-close
+continuations. Recovery owns one polling timer, rejects stale listings around
+discard and stops polling on disposal. Recovery and CueMenu expose action
+activity for Workspace to derive busy; neither assigns its gate.
+
+HideVideo supplies the common hide/render/restore and epoch/disposal guards.
+WorkspaceModal retains focus capture and reported open failures; WorkspaceDecision
+retains thrown open failures and answer settlement. CueMenu retains replacement
+of an open menu, captured command context and immediate return focus. The shared
+lifecycle restores remaining occlusion after rendering removed content.
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Owners
 that use `$effect`, including `TimelineView` and `TimingGesture`, must be constructed during component
@@ -94,8 +111,7 @@ occlusion, and returns cancellation on disposal or restore failure. Hide failure
 still propagate to the requesting action. `protect()` and ProjectWorkflow retain
 their original save/exit continuations. Legacy import uses the same presentation/answer owner but releases the action
 gate after opening and retains confirming through restoration. Its publication
-owner and explicit protected project-open continuation remain separate. The cue
-menu keeps its selection/navigation and focus lifetime.
+owner and explicit protected project-open continuation remain separate. CueMenu keeps its selection/navigation and focus lifetime over HideVideo.
 
 Translation reference issues are resolved before unsaved-work protection. Missing
 references permit relocation; changed contents require explicit reload. WorkspaceDecision owns

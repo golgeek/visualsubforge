@@ -1,4 +1,13 @@
 <script lang="ts">
+  import WorkspaceDialogs from './lib/WorkspaceDialogs.svelte';
+  import { WorkspaceDialogsState } from './lib/workspace-dialogs.svelte';
+  import { Recovery } from './lib/recovery.svelte';
+  import RecoveryBanner from './lib/RecoveryBanner.svelte';
+  import { CueMenu } from './lib/cue-menu.svelte';
+  import FontDiagnostics from './lib/FontDiagnostics.svelte';
+  import PlaybackDiagnostics from './lib/PlaybackDiagnostics.svelte';
+  import WorkspaceFooter from './lib/WorkspaceFooter.svelte';
+  import WorkspaceToolbar from './lib/WorkspaceToolbar.svelte';
   import { runFileAction } from './lib/file-actions';
   import { runMediaAction, commandMedia } from './lib/media-actions';
   import { runCueAction } from './lib/cue-actions';
@@ -12,25 +21,13 @@
   import { measurePaneControl } from './lib/measure-pane-control';
   import { paneLayout } from './lib/pane-layout';
 
-  import SettingsDialog from './lib/SettingsDialog.svelte';
-  import ResyncDialog from './lib/ResyncDialog.svelte';
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import TranslationPanel from './lib/TranslationPanel.svelte';
   import { TranslationSession } from './lib/translation-session.svelte';
-  import StatisticsDialog from './lib/StatisticsDialog.svelte';
-  import StyleInspector from './lib/StyleInspector.svelte';
-  import FontDialog from './lib/FontDialog.svelte';
-  import ConversionDialog from './lib/ConversionDialog.svelte';
-  import PluginDialog from './lib/PluginDialog.svelte';
   import LegacyImportDialog, {
     type LegacyImportChoice,
   } from './lib/LegacyImportDialog.svelte';
-  import GapDialog from './lib/GapDialog.svelte';
-  import SceneRepairDialog from './lib/SceneRepairDialog.svelte';
-  import DurationRepairDialog from './lib/DurationRepairDialog.svelte';
-  import BatchTimingDialog from './lib/BatchTimingDialog.svelte';
   import type { SelectionMode } from './lib/cue-selection';
-  import TextDialog from './lib/TextDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { isTauri } from '@tauri-apps/api/core';
   import { defaultTiming } from './lib/magnetic-timing';
@@ -45,7 +42,6 @@
   import {
     WorkspaceModal,
     type AuthoringModal,
-    type TimingKind,
   } from './lib/workspace-modal.svelte';
   import { TimingGesture } from './lib/timing-gesture.svelte';
   import { TimelineView } from './lib/timeline-view.svelte';
@@ -53,14 +49,10 @@
   import { onMount, tick, untrack } from 'svelte';
   import {
     textFormat,
-    type TextOperation,
     type TextFormat,
     chooseFile,
     workspaceActions,
     updateMenu,
-    recoveryStatus,
-    discardRecovery,
-    type RecoveryStatus,
     type ProjectReferenceIssue,
     type DocumentAction,
     type DocumentSnapshot,
@@ -87,7 +79,11 @@
   } from './lib/ProjectSaveFailureDialog.svelte';
   import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
   const workspace: Workspace = new Workspace({
-    activity: () => workspaceModal.opening || gestures.active,
+    activity: () =>
+      workspaceModal.opening ||
+      gestures.active ||
+      cueMenu.active ||
+      recovery.active,
     confirming: () =>
       legacyDecision.visible ||
       legacyDecision.closing ||
@@ -126,7 +122,7 @@
     timeline,
     workspace,
     {
-      menu: () => cueMenu,
+      menu: () => cueMenu.context,
       cuts: () => sceneCuts,
       settings: () => timingSettings,
       operationContext: () => operationContext,
@@ -145,71 +141,12 @@
   });
   const status = $derived(media.status);
   const doc = $derived(subtitles.snapshot);
-  let recovery = $state<RecoveryStatus>({ entries: [], error: null });
-  let discardRecoveryId = $state<string | null>(null);
-  let recoveryRequest = 0;
-  let recoveryPolling = false;
-  async function refreshRecovery() {
-    if (recoveryPolling) return;
-    recoveryPolling = true;
-    const request = ++recoveryRequest;
-    try {
-      const next = await recoveryStatus();
-      if (alive && request === recoveryRequest) recovery = next;
-    } catch (e) {
-      if (alive && request === recoveryRequest) recovery.error = String(e);
-    } finally {
-      recoveryPolling = false;
-    }
-  }
-  async function chooseRecovery(id: string, recover: boolean) {
-    if (!workspace.canAct) return;
-    await workspace.task(async () => {
-      if (recover) {
-        if (!(await protect())) return;
-        await docAct({ kind: 'recover', id, discard: true });
-        suspendCueFollowing();
-        workspace.notice =
-          'Recovered as an unsaved copy. Save As chooses its destination; the recovery snapshot is retained.';
-      } else {
-        ++recoveryRequest;
-        await discardRecovery(id);
-        // A poll can start while discard is pending. Its result predates the
-        // confirmed removal even if it arrives after this local update.
-        ++recoveryRequest;
-        recovery.entries = recovery.entries.filter((entry) => entry.id !== id);
-        discardRecoveryId = null;
-      }
-    });
-  }
+  const recovery: Recovery = new Recovery(workspace, subtitles, {
+    protect,
+    suspendFollowing: suspendCueFollowing,
+  });
   let textEditor = $state<HTMLTextAreaElement>();
   let waveHost = $state<HTMLDivElement>();
-  let menuEpoch = 0;
-  let menuReturn: HTMLElement | null = null;
-  let cueMenu = $state<{
-    x: number;
-    y: number;
-    cueId: number | null;
-    range: [number, number] | null;
-    generation: number;
-    revision: number;
-    session: number;
-  } | null>(null);
-  const menuItems = $derived(
-    cueMenu
-      ? [
-          ...(cueMenu.range
-            ? [{ id: 'create', label: 'Create cue from selection' }]
-            : []),
-          ...(cueMenu.cueId !== null
-            ? [
-                { id: 'edit', label: 'Edit cue text' },
-                { id: 'delete', label: 'Delete cue' },
-              ]
-            : []),
-        ]
-      : [],
-  );
   function focusWaveform() {
     waveHost?.querySelector('canvas')?.focus();
   }
@@ -218,90 +155,30 @@
     await tick();
     if (alive && cue) textEditor?.focus();
   }
-  async function closeCueMenu(restoreFocus = true) {
-    ++menuEpoch;
-    cueMenu = null;
-    if (restoreFocus && menuReturn?.isConnected) menuReturn.focus();
-    try {
-      await media.occlude(diagnostics || workspace.confirming);
-    } catch (e) {
-      workspace.error = String(e);
-    }
-  }
-  async function openCueMenu(
-    x: number,
-    y: number,
-    cueId: number | null,
-    inRange: boolean,
-  ) {
-    if (!workspace.canAct || (cueId === null && !inRange)) return;
-    gestures.cancelHeld();
-    const candidate = {
-      x,
-      y,
-      cueId,
-      range:
-        inRange && timeline.range
-          ? ([...timeline.range] as [number, number])
-          : null,
-      generation: doc.generation,
-      revision: doc.revision,
-      session: status.session,
-    };
-    const request = ++menuEpoch;
-    menuReturn =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    await workspace.task(
-      async () => {
-        await media.occlude(true);
-        if (alive && request === menuEpoch) cueMenu = candidate;
+  const cueMenu: CueMenu = new CueMenu(
+    workspace,
+    subtitles,
+    media,
+    timeline,
+    gestures,
+    {
+      occlude: (value) => media.occlude(value),
+      remainingOcclusion: () => diagnostics || workspace.confirming,
+      afterRender: tick,
+      captureFocus: () => {
+        const target = document.activeElement;
+        return () => {
+          if (target instanceof HTMLElement && target.isConnected)
+            target.focus();
+        };
       },
-      { clearError: false },
-    );
-  }
-  async function chooseCueMenu(action: string) {
-    const context = cueMenu;
-    if (!context || workspace.busy) return;
-    await workspace.task(async () => {
-      await closeCueMenu(false);
-      if (
-        context.generation !== doc.generation ||
-        context.revision !== doc.revision ||
-        context.session !== status.session
-      )
-        throw new Error('The document or media changed; open the menu again.');
-      await subtitles.apply();
-      suspendCueFollowing();
-      if (action === 'create' && context.range) {
-        const plan = planCueOperation('createCue', {
-          ...operationContext,
-          range: context.range,
-          draftDirty: false,
-        });
-        await docAct(plan.action, plan);
-        await revealSelection();
-        await focusText();
-      } else if (context.cueId !== null) {
-        if (!doc.cues.some((c) => c.id === context.cueId))
-          throw new Error('This cue no longer exists.');
-        if (action === 'delete') {
-          const plan = planCueOperation('deleteCue', {
-            ...operationContext,
-            selected: context.cueId,
-            draftDirty: false,
-          });
-          await docAct(plan.action, plan);
-          focusWaveform();
-        } else {
-          subtitles.select(context.cueId);
-          await revealSelection();
-          await focusText();
-        }
-      }
-    });
-  }
+      operationContext: () => operationContext,
+      suspendFollowing: suspendCueFollowing,
+      revealSelection,
+      focusText,
+      focusWaveform,
+    },
+  );
   const workspaceModal = new WorkspaceModal(workspace, {
     occlude: (value) => media.occlude(value),
     remainingOcclusion: () => diagnostics,
@@ -330,24 +207,6 @@
   });
   let legacyImportOpen = $state(false);
   let legacyImportReturn: HTMLElement | null = null;
-  const timingLabels: Record<TimingKind, string> = {
-    gap: 'Gap',
-    scene: 'Scene',
-    duration: 'Duration and speed',
-    batch: 'Batch',
-  };
-  const TimingDialog = $derived(
-    workspaceModal.timingKind === 'duration'
-      ? DurationRepairDialog
-      : workspaceModal.timingKind === 'scene'
-        ? SceneRepairDialog
-        : GapDialog,
-  );
-  let textOperation = $state<TextOperation>({
-    kind: 'find',
-    query: '',
-    caseSensitive: false,
-  });
   const nativeMenus = isTauri();
   let sceneControls = $state<{
     rescan: () => Promise<void>;
@@ -361,63 +220,7 @@
     previous: false,
     next: false,
   });
-  async function closeSettings(value?: Preferences) {
-    if (!alive || workspaceModal.identity !== 'settings') return;
-    if (value) {
-      preferences = { ...value, timing: { ...value.timing } };
-      timingSettings = { ...value.timing };
-      showQualityMetrics = value.showQualityMetrics;
-      ++qualityContext;
-      workspace.notice = 'Settings saved';
-    }
-    await workspaceModal.close();
-  }
 
-  async function closeResync(accepted = false) {
-    if (!alive || workspaceModal.identity !== 'resync') return;
-    if (accepted)
-      workspace.notice =
-        'Timings accepted. Use Save As to preserve the original subtitles.';
-    await workspaceModal.close();
-  }
-
-  async function openStatistics() {
-    if (!workspace.canAct || !doc.loaded || cueMenu || waveformGesture) return;
-    workspace.error = '';
-    await workspaceModal.open('statistics');
-  }
-
-  async function openAuthoring(kind: AuthoringModal) {
-    if (
-      !workspace.canAct ||
-      (kind === 'plugins'
-        ? !doc.loaded
-        : kind === 'conversion'
-          ? !doc.loaded || doc.format?.name === 'vtt'
-          : !subtitles.styled) ||
-      waveformGesture ||
-      cueMenu
-    )
-      return;
-    workspace.error = '';
-    await workspaceModal.open(kind);
-  }
-  async function closeAuthoring(accepted = false, outputPath?: string) {
-    if (!alive) return;
-    const kind =
-      workspaceModal.identity === 'plugins'
-        ? 'Plugin'
-        : workspaceModal.identity === 'fonts'
-          ? 'Font'
-          : 'Style';
-    if (outputPath)
-      workspace.notice = `Converted subtitles exported to ${outputPath}`;
-    if (accepted) {
-      workspace.notice = `${kind} changes accepted. Undo restores the whole change.`;
-      quality.restart();
-    }
-    await workspaceModal.close();
-  }
   async function closeLegacyImport(outputPath?: string, open = false) {
     if (outputPath) workspace.notice = `Project created at ${outputPath}`;
     await workspace.task(
@@ -436,93 +239,7 @@
       if (alive && legacyImportReturn?.isConnected) legacyImportReturn.focus();
     }
   }
-  async function closeStatistics(id?: string) {
-    if (!alive || workspaceModal.identity !== 'statistics') return;
-    const version = `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`;
-    await workspaceModal.close();
-    if (
-      alive &&
-      id &&
-      version ===
-        `${doc.generation}/${doc.revision}/${status.session}/${qualityContext}/${sceneState.qualityKey}`
-    ) {
-      problemsOpen = true;
-      requestProblem(id);
-    }
-  }
-  async function openTimingReview(kind: TimingKind) {
-    if (!workspace.canAct || !doc.cues.length || cueMenu || waveformGesture)
-      return;
-    workspace.error = '';
-    suspendCueFollowing();
-    await workspaceModal.open({ kind: 'timing', variant: kind });
-  }
-  async function openText(mode?: 'find' | 'replace' | TextOperation) {
-    if (!workspace.canAct || !doc.cues.length || cueMenu || waveformGesture)
-      return;
-    workspace.error = '';
-    if (typeof mode === 'object') {
-      textOperation = mode;
-    } else if (mode) {
-      const old = textOperation;
-      const query =
-        old.kind === 'find' || old.kind === 'replace' ? old.query : '';
-      const caseSensitive =
-        old.kind === 'find' || old.kind === 'replace'
-          ? old.caseSensitive
-          : false;
-      textOperation =
-        mode === 'find'
-          ? { kind: mode, query, caseSensitive }
-          : {
-              kind: mode,
-              query,
-              caseSensitive,
-              replacement: old.kind === 'replace' ? old.replacement : '',
-            };
-    } else if (
-      textOperation.kind === 'languageSuggestions' ||
-      textOperation.kind === 'languageCorrection'
-    ) {
-      textOperation = { kind: 'find', query: '', caseSensitive: false };
-    }
-    await workspaceModal.open('text');
-  }
-  async function closeText(operation: TextOperation, accepted = false) {
-    if (!alive || workspaceModal.identity !== 'text') return;
-    textOperation = operation;
-    if (accepted) {
-      workspace.notice =
-        'Text changes accepted. Undo restores the whole change.';
-      quality.restart();
-    }
-    await workspaceModal.close();
-  }
-  async function navigateText(
-    id: number,
-    start: number,
-    end: number,
-    operation: TextOperation,
-  ) {
-    // The dialog resolves drafts before searching and checks capture identity
-    // before navigation. Never apply an unexpected draft to leave a search row.
-    if (draftDirty || workspace.busy) return;
-    const snapshot = doc;
-    await closeText(operation);
-    if (!alive || draftDirty || doc !== snapshot) return;
-    await selectCue(id, 'replace', snapshot);
-    await tick();
-    if (
-      alive &&
-      doc === snapshot &&
-      !draftDirty &&
-      selected === id &&
-      textEditor
-    ) {
-      textEditor.focus();
-      textEditor.setSelectionRange(start, end);
-    }
-  }
+
   async function formatText(style: TextFormat) {
     if (workspace.busy || workspace.confirming || !cue || !textEditor) return;
     const editor = textEditor;
@@ -555,15 +272,66 @@
         'Formatting updated in the cue draft. Apply edit to accept it.';
     });
   }
-  async function closeTimingReview(accepted = false) {
-    if (!alive || workspaceModal.timingKind === null) return;
-    if (accepted) {
-      workspace.notice = `${timingLabels[workspaceModal.timingKind]} timings accepted. Undo restores the whole change.`;
-      quality.restart();
-    }
-    await workspaceModal.close();
-  }
 
+  const dialogs: WorkspaceDialogsState = new WorkspaceDialogsState(
+    workspace,
+    workspaceModal,
+    subtitles,
+    media,
+    quality,
+    cueMenu,
+    {
+      get preferences() {
+        return preferences;
+      },
+      set preferences(value) {
+        preferences = value;
+      },
+      get timingSettings() {
+        return timingSettings;
+      },
+      set timingSettings(value) {
+        timingSettings = value;
+      },
+      get showQualityMetrics() {
+        return showQualityMetrics;
+      },
+      set showQualityMetrics(value) {
+        showQualityMetrics = value;
+      },
+      get qualityContext() {
+        return qualityContext;
+      },
+      set qualityContext(value) {
+        qualityContext = value;
+      },
+      get problemsOpen() {
+        return problemsOpen;
+      },
+      set problemsOpen(value) {
+        problemsOpen = value;
+      },
+      get sceneState() {
+        return sceneState;
+      },
+      get mediaPath() {
+        return mediaPath;
+      },
+      get waveformGesture() {
+        return waveformGesture;
+      },
+    },
+    {
+      requestProblem,
+      selectCue,
+      suspendFollowing: suspendCueFollowing,
+      hasTextEditor: () => !!textEditor,
+      selectText: (start, end) => {
+        textEditor?.focus();
+        textEditor?.setSelectionRange(start, end);
+      },
+    },
+  );
   let hardware = $state(true);
   const selected = $derived(subtitles.selected);
   const cue = $derived(subtitles.cue);
@@ -829,7 +597,7 @@
     if (
       !alive ||
       workspace.busy ||
-      cueMenu ||
+      cueMenu.context ||
       (expected && doc !== expected) ||
       !doc.cues.some((c) => c.id === id)
     )
@@ -894,7 +662,7 @@
       list?.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)?.focus();
   }
   async function selectAllCues() {
-    if (workspace.busy || workspace.confirming || cueMenu) return;
+    if (workspace.busy || workspace.confirming || cueMenu.context) return;
     await workspace.task(async () => {
       suspendCueFollowing();
       await subtitles.apply();
@@ -905,7 +673,7 @@
     if (
       workspace.busy ||
       workspace.confirming ||
-      cueMenu ||
+      cueMenu.context ||
       !doc.cues.some((c) => String(c.id) === id)
     )
       return;
@@ -1065,11 +833,11 @@
     media,
     gestures,
     workspaceModal,
-    openAuthoring,
+    openAuthoring: (kind: AuthoringModal) => dialogs.openAuthoring(kind),
     view: actionView,
   };
   async function run(action: WorkspaceAction, event?: Event) {
-    if (!workspace.canAct || cueMenu || waveformGesture) return;
+    if (!workspace.canAct || cueMenu.context || waveformGesture) return;
     switch (action) {
       case 'closeSubtitles':
       case 'importLegacyProject':
@@ -1284,12 +1052,12 @@
     window.addEventListener('scroll', layout, true);
     timeline.startPolling();
     const layoutTimer = setInterval(() => void layout(), 100);
-    const recoveryTimer = setInterval(() => void refreshRecovery(), 5000);
-    void refreshRecovery();
+    recovery.startPolling();
     media.startPolling();
     return () => {
       alive = false;
       workspace.dispose();
+      dialogs.dispose();
       workspaceModal.dispose();
       projects.dispose();
       translation.dispose();
@@ -1307,8 +1075,8 @@
       observer.disconnect();
       listObserver.disconnect();
       clearInterval(layoutTimer);
-      clearInterval(recoveryTimer);
-      ++recoveryRequest;
+      recovery.dispose();
+      cueMenu.dispose();
       window.removeEventListener('resize', layout);
       window.removeEventListener('scroll', layout, true);
     };
@@ -1321,7 +1089,7 @@
     timeline,
     quality,
     get menu() {
-      return !!cueMenu;
+      return !!cueMenu.context;
     },
     get waveformGesture() {
       return waveformGesture;
@@ -1330,7 +1098,7 @@
       return problemsOpen;
     },
     windows: __WINDOWS__,
-    openText,
+    openText: (mode: 'find' | 'replace') => dialogs.openText(mode),
     requestProblem,
     focusWaveform,
     focusText,
@@ -1356,126 +1124,24 @@
 />
 <main
   aria-busy={workspace.busy || !workspace.ready}
-  class:has-recovery={recovery.entries.length > 0 || !!recovery.error}
+  class:has-recovery={recovery.status.entries.length > 0 ||
+    !!recovery.status.error}
   style:--workspace-height={`${workspaceHeight}px`}
   style:--workspace-min-height={`${148 + panes.tableMinimum + panes.editorMinimum}px`}
   style:--table-min-height={`${panes.tableMinimum}px`}
 >
-  <header class="toolbar">
-    <strong>VisualSubForge</strong>
-    {#if !nativeMenus}
-      <button
-        disabled={workspace.busy || !workspace.ready}
-        onclick={() => void run('openProject')}>Open Project</button
-      >
-      <button
-        disabled={!workspace.canAct}
-        onclick={() => void run('importLegacyProject')}
-        >Import VisualSubSync Project</button
-      >
-      <button
-        disabled={workspace.busy ||
-          !workspace.ready ||
-          (!status.loaded && !doc.loaded)}
-        title={projects.path ??
-          'Save subtitle references, media, scene results and workspace options'}
-        onclick={() => void run('saveProject')}>Save Project</button
-      >
-      <button
-        disabled={workspace.busy || !workspace.ready || !status.available}
-        onclick={() => void run('openMedia')}>Open Media</button
-      >
-      <button
-        disabled={workspace.busy || !workspace.ready}
-        onclick={() => void run('openSubtitles')}>Open Subtitles</button
-      >
-      <button
-        disabled={workspace.busy || !doc.loaded}
-        onclick={() => void run('save')}>Save</button
-      >
-    {/if}
-    <span class="filename" title={doc.path ?? ''}
-      >{doc.path?.split(/[\\/]/).pop() ??
-        (doc.loaded ? 'Untitled subtitles' : 'No subtitles')}{doc.dirty ||
-      draftDirty
-        ? ' •'
-        : ''}{doc.requiresSaveAs ? ' (Save As required)' : ''}</span
-    >
-    {#if !nativeMenus}
-      <button
-        class="quiet"
-        onclick={() => void run('diagnostics')}
-        aria-pressed={diagnostics}>Diagnostics</button
-      >
-      <button disabled={!workspace.canAct} onclick={() => void run('settings')}
-        >Settings…</button
-      >
-      <button
-        disabled={workspace.busy ||
-          workspace.confirming ||
-          !workspace.ready ||
-          !status.loaded ||
-          !doc.cues.length}
-        onclick={() => void run('resync')}>Resynchronize subtitles…</button
-      >
-      <button
-        disabled={!status.loaded ||
-          workspace.busy ||
-          workspace.confirming ||
-          sceneState.pending}
-        onclick={() =>
-          void run(sceneState.running ? 'cancelSceneScan' : 'scanScenes')}
-        >{sceneState.running
-          ? 'Cancel scene scan'
-          : 'Scan scene changes'}</button
-      >
-      <label
-        ><input type="checkbox" bind:checked={showScenes} /> Show scene changes</label
-      >
-    {/if}
-  </header>
-  {#if recovery.entries.length || recovery.error}
-    <aside class="recovery" aria-label="Subtitle recovery">
-      {#if recovery.error}<p role="alert">Recovery: {recovery.error}</p>{/if}
-      {#if recovery.entries.length}<p>
-          Recovery snapshots are available. Recover opens an unsaved copy;
-          originals stay unchanged.
-        </p>{/if}
-      {#each recovery.entries as entry (entry.id)}
-        <div class="recovery-row">
-          <span title={entry.sourcePath ?? entry.id}
-            >{entry.sourcePath?.split(/[\\/]/).pop() ??
-              (entry.error ? entry.id : 'Untitled subtitles')}
-            {entry.capturedMs
-              ? new Date(entry.capturedMs).toLocaleString()
-              : ''}
-            {entry.error ?? ''}</span
-          >
-          <button
-            disabled={workspace.busy || !workspace.ready || !!entry.error}
-            onclick={() => void chooseRecovery(entry.id, true)}>Recover</button
-          >
-          {#if discardRecoveryId === entry.id}
-            <span>Discard this recovery snapshot?</span>
-            <button
-              disabled={workspace.busy}
-              onclick={() => void chooseRecovery(entry.id, false)}
-              >Confirm discard</button
-            >
-            <button
-              disabled={workspace.busy}
-              onclick={() => (discardRecoveryId = null)}>Cancel</button
-            >
-          {:else}
-            <button
-              disabled={workspace.busy}
-              onclick={() => (discardRecoveryId = entry.id)}>Discard…</button
-            >
-          {/if}
-        </div>
-      {/each}
-    </aside>
-  {/if}
+  <WorkspaceToolbar
+    {workspace}
+    {media}
+    {subtitles}
+    {projects}
+    {nativeMenus}
+    {diagnostics}
+    bind:showScenes
+    {sceneState}
+  />
+  <RecoveryBanner {recovery} {workspace} />
+
   <div
     class="workspace"
     bind:clientHeight={workspaceHeight}
@@ -1500,7 +1166,11 @@
         bind:waveHost
         onstate={(value) => (sceneState = value)}
         ongesture={(active) => (waveformGesture = active)}
-        actions={{ seek, selectCue, openCueMenu }}
+        actions={{
+          seek,
+          selectCue,
+          openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
+        }}
       />
       <Splitter
         label="Resize waveform and video"
@@ -1593,36 +1263,36 @@
       >
         <button
           disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void openText()}>Find / Replace…</button
+          onclick={() => void dialogs.openText()}>Find / Replace…</button
         >
         <button
           disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void openTimingReview('gap')}
+          onclick={() => void dialogs.openTimingReview('gap')}
           >Enforce minimum gaps…</button
         >
         <button
           disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void openTimingReview('scene')}
+          onclick={() => void dialogs.openTimingReview('scene')}
           >Repair scene timing…</button
         >
         <button
           disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void openTimingReview('duration')}
+          onclick={() => void dialogs.openTimingReview('duration')}
           >Repair duration / speed…</button
         >
         <button
           disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void openTimingReview('batch')}
+          onclick={() => void dialogs.openTimingReview('batch')}
           >Shift / align cues…</button
         >
 
         <button
           disabled={workspace.busy || workspace.confirming || !doc.loaded}
-          onclick={() => void openStatistics()}>Statistics…</button
+          onclick={() => void dialogs.openStatistics()}>Statistics…</button
         >
         <button
           disabled={workspace.busy || workspace.confirming || !doc.loaded}
-          onclick={() => void openAuthoring('plugins')}
+          onclick={() => void dialogs.openAuthoring('plugins')}
           >Subtitle plugins…</button
         >
         <button
@@ -1706,7 +1376,7 @@
           bind:list
           actions={{
             suspendCueFollowing,
-            openCueMenu,
+            openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
             selectCue,
             cueSelectionKey,
             focusText,
@@ -1717,7 +1387,7 @@
             disabled={workspace.busy || workspace.confirming}
             pending={pendingProblem !== null}
             onnavigate={requestProblem}
-            onlanguage={(operation) => void openText(operation)}
+            onlanguage={(operation) => void dialogs.openText(operation)}
             onresolve={(choice) => void resolveProblem(choice)}
             onclose={() => {
               problemsOpen = false;
@@ -1755,29 +1425,14 @@
         else if (part === 'footer') editorFooterHeight = height;
         else qualityReadoutHeight = height;
       }}
-      actions={{ suspendCueFollowing, openAuthoring, formatText }}
+      actions={{
+        suspendCueFollowing,
+        openAuthoring: (kind: AuthoringModal) => dialogs.openAuthoring(kind),
+        formatText,
+      }}
     />
   </div>
-  {#if status.subtitleFontDiagnostics.length > 0}
-    <details class="shortcut-help" aria-label="Subtitle font notices">
-      <summary
-        >Subtitle font notices ({status.subtitleFontDiagnostics
-          .length})</summary
-      >
-      <p>
-        The renderer reported font issues in this media session. Fallback may
-        still render the text. Check the affected subtitles and make the
-        required fonts available; original document font names are unchanged.
-        These notices include previously displayed cues and clear when media is
-        closed or replaced.
-      </p>
-      <ul>
-        {#each status.subtitleFontDiagnostics as message, index (index)}<li>
-            {message}
-          </li>{/each}
-      </ul>
-    </details>
-  {/if}
+  <FontDiagnostics {media} />
   <details class="shortcut-help">
     <summary>Keyboard shortcuts</summary>
     <p>
@@ -1796,57 +1451,14 @@
       for actions. Plain Space remains a text character in the editor.
     </p>
   </details>
-  <footer>
-    <span
-      class="message"
-      role="status"
-      title={workspace.error ||
-        status.error ||
-        status.subtitlePreviewError ||
-        undefined}
-      >{workspace.error ||
-        status.error ||
-        status.subtitlePreviewError ||
-        workspace.notice ||
-        (workspace.busy ? 'Working…' : 'Ready')}</span
-    >{#if gestures.edit}<span
-        >{gestures.snapHint || 'Timing preview'}
-        {formatTime(gestures.edit.preview.startMs)}–{formatTime(
-          gestures.edit.preview.endMs,
-        )}</span
-      >{/if}{#if timeline.range}<span
-        >Range {timeline.range[0].toFixed(3)}–{timeline.range[1].toFixed(3)} s</span
-      >{/if}<span>Desktop PoC</span>
-  </footer>
-  {#if diagnostics}<aside
-      class="diagnostics panel"
-      aria-label="Playback diagnostics"
-    >
-      <div class="panelbar">
-        <strong>Playback diagnostics</strong><button
-          onclick={() => void run('diagnostics')}>Close diagnostics</button
-        >
-      </div>
-      <label
-        >Decode on next Open <select bind:value={hardware}
-          ><option value={true}>Prefer hardware (software fallback)</option
-          ><option value={false}>Software</option></select
-        ></label
-      >
-      <p>
-        Decoder {status.hardwareDecoder || 'none'} · Drops {status.decoderDrops ??
-          '—'} / {status.outputDrops ?? '—'} · GPU swaps {status.swapCounterAvailable
-          ? status.renderedFrames
-          : 'unavailable'} · Session {status.session} · Audio clock {status.queuedAudioClock
-          ? 'queued timeline (experimental)'
-          : 'legacy'}
-      </p>
-      <p>
-        Waveform stream {timeline.wave?.audioStreamIndex ?? '—'} · container origin
-        {timeline.wave?.containerOriginSeconds ?? '—'} s
-      </p>
-      <p>{timeline.error || timeline.wave?.error || ''}</p>
-    </aside>{/if}
+  <WorkspaceFooter {workspace} {media} {gestures} {timeline} />
+  <PlaybackDiagnostics
+    {workspace}
+    {media}
+    {timeline}
+    {diagnostics}
+    bind:hardware
+  />
   <dialog
     bind:this={confirmation}
     oncancel={(e) => {
@@ -1888,103 +1500,30 @@
       onchoose={(choice) => void projectReferenceDecision.answer(choice)}
     />
   {/if}
-  {#if workspaceModal.identity === 'resync'}
-    <ResyncDialog
-      {subtitles}
-      media={() => status}
-      target={mediaPath}
-      onclose={() => void closeResync()}
-      onaccepted={() => void closeResync(true)}
-    />
-  {/if}
-  {#if workspaceModal.identity === 'statistics'}
-    <StatisticsDialog
-      {subtitles}
-      mediaSession={() => status.session}
-      context={() => `${qualityContext}/${sceneState.qualityKey}`}
-      onclose={() => void closeStatistics()}
-      onnavigate={(id) => void closeStatistics(id)}
-    />
-  {/if}
-  {#if workspaceModal.identity === 'fonts' && doc.format && subtitles.styled}
-    <FontDialog
-      {subtitles}
-      onclose={() => void closeAuthoring()}
-      onaccepted={() => void closeAuthoring(true)}
-    />
-  {/if}
-  {#if workspaceModal.identity === 'plugins'}
-    <PluginDialog
-      {subtitles}
-      media={() => status}
-      context={() => `${qualityContext}/${sceneState.qualityKey}`}
-      onclose={() => void closeAuthoring()}
-      onaccepted={() => void closeAuthoring(true)}
-    />
-  {/if}
-  {#if workspaceModal.identity === 'conversion'}
-    <ConversionDialog
-      {subtitles}
-      onclose={(path) => void closeAuthoring(false, path)}
-    />
-  {/if}
+  <WorkspaceDialogs
+    {dialogs}
+    {subtitles}
+    {media}
+    {mediaPath}
+    {qualityContext}
+    {sceneState}
+    {preferences}
+    {timingSettings}
+  />
   {#if legacyImportOpen}
     <LegacyImportDialog
       canOpen={status.available}
       onclose={(path, open) => void closeLegacyImport(path, open)}
     />
   {/if}
-  {#if workspaceModal.identity === 'styles' && doc.format && subtitles.styled}
-    <StyleInspector
-      {subtitles}
-      initial={subtitles.style}
-      onclose={() => void closeAuthoring()}
-      onaccepted={() => void closeAuthoring(true)}
-    />
-  {/if}
-  {#if workspaceModal.timingKind !== null}
-    {#if workspaceModal.timingKind === 'batch'}
-      <BatchTimingDialog
-        {subtitles}
-        media={() => status}
-        onclose={() => void closeTimingReview()}
-        onaccepted={() => void closeTimingReview(true)}
-      />
-    {:else}
-      <TimingDialog
-        {subtitles}
-        mediaSession={() => status.session}
-        onclose={() => void closeTimingReview()}
-        onaccepted={() => void closeTimingReview(true)}
-      />
-    {/if}
-  {/if}
-  {#if workspaceModal.identity === 'text'}
-    <TextDialog
-      {subtitles}
-      initial={textOperation}
-      onclose={(operation) => void closeText(operation)}
-      onaccepted={(operation) => void closeText(operation, true)}
-      onnavigate={(id, start, end, operation) =>
-        void navigateText(id, start, end, operation)}
-    />
-  {/if}
-  {#if workspaceModal.identity === 'settings'}
-    <SettingsDialog
-      {preferences}
-      timing={timingSettings}
-      onapply={(value) => void closeSettings(value)}
-      onclose={() => void closeSettings()}
-    />
-  {/if}
-  {#if cueMenu && menuItems.length}
-    {#key cueMenu}
+  {#if cueMenu.context && cueMenu.items.length}
+    {#key cueMenu.context}
       <CueContextMenu
-        x={cueMenu.x}
-        y={cueMenu.y}
-        items={menuItems}
-        onchoose={(action) => void chooseCueMenu(action)}
-        onclose={() => void closeCueMenu()}
+        x={cueMenu.context.x}
+        y={cueMenu.context.y}
+        items={cueMenu.items}
+        onchoose={(action) => void cueMenu.choose(action)}
+        onclose={() => void cueMenu.close()}
       />
     {/key}
   {/if}
@@ -2064,7 +1603,7 @@
       auto 28px;
   }
 
-  main:has(.shortcut-help[open]) {
+  main:has(:global(.shortcut-help[open])) {
     min-height: 700px;
   }
 
@@ -2087,45 +1626,6 @@
     line-height: 1.5;
   }
 
-  .recovery {
-    position: relative;
-    z-index: 2;
-    max-height: 130px;
-    overflow: auto;
-    padding: 4px 12px;
-    background: #304b54;
-  }
-
-  .recovery p {
-    margin: 4px 0;
-  }
-
-  .recovery-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 0;
-  }
-
-  .recovery-row > span:first-child {
-    flex: 1;
-    overflow-wrap: anywhere;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 12px;
-    background: #1e303d;
-    z-index: 2;
-    border-bottom: 1px solid #415560;
-  }
-
-  .toolbar strong {
-    margin-right: 8px;
-  }
-
   .filename {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2133,10 +1633,6 @@
     flex: 1;
     min-width: 0;
     color: #b4c5d0;
-  }
-
-  .quiet {
-    background: transparent;
   }
 
   .workspace {
@@ -2176,10 +1672,6 @@
 
   .panelbar strong {
     font-size: 12px;
-  }
-
-  .panelbar button {
-    padding: 1px 8px;
   }
 
   .spacer {
@@ -2277,38 +1769,6 @@
     padding: 2px 6px;
   }
 
-  footer {
-    min-width: 0;
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    padding: 0 12px;
-    background: #203542;
-    z-index: 2;
-    color: #adc4d1;
-    font-size: 11px;
-  }
-
-  .message {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .diagnostics {
-    position: absolute;
-    right: 12px;
-    top: 52px;
-    width: min(520px, 90%);
-    border: 1px solid #87b4bb;
-    box-shadow: 0 8px 30px #0008;
-    z-index: 5;
-    padding: 10px;
-    max-height: calc(100dvh - 64px);
-    overflow: auto;
-  }
-
   /* A scaled desktop can be smaller than the normal three-pane workspace.
      Keep every control reachable by scrolling instead of clipping fixed rows.
      This changes presentation only; drafts and accepted state stay mounted. */
@@ -2319,16 +1779,6 @@
       min-height: 100dvh;
       grid-template-rows: auto;
       overflow: visible;
-    }
-
-    .toolbar {
-      flex-wrap: wrap;
-      min-height: 48px;
-      padding: 8px;
-    }
-
-    .toolbar strong {
-      flex-basis: 100%;
     }
 
     .filename {
@@ -2355,28 +1805,6 @@
     .subtitle-review {
       flex-direction: column;
     }
-
-    footer {
-      flex-wrap: wrap;
-      padding: 8px;
-      gap: 8px;
-    }
-
-    .message {
-      flex-basis: 100%;
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
-
-    .recovery-row {
-      flex-wrap: wrap;
-    }
-
-    .diagnostics {
-      position: fixed;
-      top: 12px;
-      max-height: calc(100dvh - 24px);
-    }
   }
 
   @media (max-width: 799px) {
@@ -2390,12 +1818,6 @@
     .top > :global(.splitter) {
       display: none;
     }
-  }
-
-  .diagnostics label {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
   }
 
   dialog {
