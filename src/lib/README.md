@@ -1,7 +1,8 @@
 # Frontend ownership
 
 `App.svelte` is the workspace composition root. It constructs sessions, wires
-effect callbacks and dispatches actions through a readable switch. `Workspace`
+effect callbacks and delegates actions through a readable switch to
+`file-actions.ts`, `media-actions.ts`, `cue-actions.ts` and `view-actions.ts`. `Workspace`
 owns `ready`, `error`, `notice` and its task flag; it derives `busy`/`confirming`
 from modal, decision and gesture activity. It coordinates DOM layout and focus. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
@@ -38,6 +39,15 @@ is synchronous, so it needs no request epoch; the root disconnects its resize
 observer on unmount. `pane-layout.ts` computes measured minima and splitter bounds
 without DOM access. The shared measurement action schedules observer updates on
 the next animation frame and cancels that callback during cleanup.
+
+`workspace-keys.ts` contains shortcut routing and editing-key execution. The
+pure router is tested without DOM or IPC; its adapter classifies focused text
+fields and controls, consumes handled keys and delegates to the owners. Text
+history remains local for native menu/keyboard Undo/Redo; explicit history buttons
+still use document history. Action modules retain scene-action exceptions to the
+task gate and read live state after asynchronous draft/file operations. View
+accessors supplied by App connect the existing transient state without copying
+it into a second owner.
 
 The `.svelte.ts` extension lets each owner use Svelte runes directly. Owners
 that use `$effect`, including `TimelineView` and `TimingGesture`, must be constructed during component

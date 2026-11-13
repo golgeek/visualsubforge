@@ -848,3 +848,26 @@ magnetic-timing timeout while App was edited during execution; the full rerun
 against unchanged source passes. `npm run build:desktop-test` and
 `npm run test:desktop` pass with shutdown 0 (`test-results/desktop-c7w9xr/`).
 No new native playback or physical-input/composition acceptance is claimed.
+
+### Workspace actions and keys — November 13, 2026
+
+File, media, cue-editing and view actions now receive their owners from App's
+short dispatcher. Keyboard routing has seven new pure tests for precedence,
+focused controls, composition/AltGr, Problems navigation, Windows actions and
+held Space. The full pinned command set in the workspace-controller checkpoint
+passes, with 54 frontend tests and 520 Rust tests (33 ignored; 15 zero-test
+harnesses). `npm run test:browser` passes 66/66 Chromium/WebKit cases.
+`npm run build:desktop-test` and `npm run test:desktop` pass with shutdown 0
+(`test-results/desktop-rDoBpQ/`).
+
+The Mac `desktop-e2e,media-prototype` app build and `--duration` workflow pass
+(`test-results/desktop-sddALD/`, shutdown 0), using the same private mpv runtime
+and exact-app foreground driver described in the timeline-owner checkpoint.
+The isolated checkout initially selected Intel Homebrew's pkg-config; explicitly
+putting `/opt/homebrew/bin` on PATH resolves the intended Apple Silicon SDK.
+The bundle inventory also correctly rejected dependencies symlinked outside the
+checkout; local copies of the pinned dependencies passed. A browser run spanning
+that dependency-directory replacement stopped at WebKit worker loading; the full
+stable-dependency rerun passes. No production workaround was introduced.
+Generated WebView input and native timing IPC do not establish physical input,
+audio or native-video composition acceptance.

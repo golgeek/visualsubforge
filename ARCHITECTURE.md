@@ -51,7 +51,8 @@ shared operations. Actual build dependencies are declared in each `Cargo.toml`.
 These boundaries are partly logical. Desktop document-session coordination still
 lives in `src-tauri/src/document.rs` and its submodules, alongside IPC projections.
 `App.svelte` is the workspace composition root: it constructs sessions, wires
-callbacks and dispatches actions. `Workspace` owns task activity and messages and
+callbacks and delegates its short action switch to subtitle/project-file, media,
+cue-editing and view/panel action functions. `Workspace` owns task activity and messages and
 derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor and waveform markup live in components that receive the
 relevant owners. DOM focus and native layout coordination remain at the root.
@@ -163,6 +164,12 @@ polling for Rust-owned policy/scene invalidation. Other sessions retain distinct
 lifetimes, including file publication and reference queries. Similar field names
 alone do not imply interchangeable cancellation.
 See the [frontend walkthrough](src/lib/README.md) for feature-specific behavior.
+
+`workspace-keys.ts` owns keyboard routing and editing shortcuts. Its pure routing
+function preserves shortcut precedence and focused-control exceptions; handlers
+receive workspace/session owners and focus/navigation callbacks. Action modules
+read current owner state after awaits, keeping draft reconciliation before cue
+planning. They introduce no registry or second accepted-state owner.
 
 ## Two end-to-end paths
 

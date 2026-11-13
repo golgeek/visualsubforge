@@ -68,3 +68,8 @@ The [November 13 workspace-controller extraction](../tests/desktop/README.md#wor
 passes the full pinned local checks, both browser engines and the default desktop
 suite. Workspace admission and messages now have one owner; feature owners only
 expose their activity. Native playback acceptance is unchanged.
+
+The [workspace actions and keys extraction](../tests/desktop/README.md#workspace-actions-and-keys--november-13-2026)
+passes the full pinned local checks, Chromium/WebKit, default desktop and the
+foreground-conditioned Mac native duration-timing workflow. Shortcut routing is
+unit tested; the existing native input/audio/composition limits remain.

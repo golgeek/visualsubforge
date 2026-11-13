@@ -1,4 +1,9 @@
 <script lang="ts">
+  import { runFileAction } from './lib/file-actions';
+  import { runMediaAction, commandMedia } from './lib/media-actions';
+  import { runCueAction } from './lib/cue-actions';
+  import { runViewAction } from './lib/view-actions';
+  import { workspaceKeydown } from './lib/workspace-keys';
   import CueTable from './lib/CueTable.svelte';
   import CueEditor from './lib/CueEditor.svelte';
   import WaveformPanel from './lib/WaveformPanel.svelte';
@@ -47,7 +52,6 @@
   import { WorkspaceDecision } from './lib/workspace-decision.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import {
-    traceApplyInput,
     textFormat,
     type TextOperation,
     type TextFormat,
@@ -58,17 +62,12 @@
     discardRecovery,
     type RecoveryStatus,
     type ProjectReferenceIssue,
-    type MediaAction,
     type DocumentAction,
     type DocumentSnapshot,
     type WorkspaceAction,
   } from './lib/client';
   import { clamp, formatTime, parseTime } from './lib/timeline';
-  import {
-    windowsShortcut,
-    editingShortcut,
-    type EditingShortcut,
-  } from './lib/shortcuts';
+
   import CueContextMenu from './lib/CueContextMenu.svelte';
   import {
     cueOperationLabels,
@@ -300,49 +299,6 @@
           await revealSelection();
           await focusText();
         }
-      }
-    });
-  }
-  async function editingKey(action: EditingShortcut) {
-    if (!workspace.canAct || cueMenu || waveformGesture) return;
-    gestures.cancelHeld();
-    if (action === 'play') {
-      await run('play');
-      return;
-    }
-    if (action === 'focusWaveform') {
-      focusWaveform();
-      return;
-    }
-    if (action === 'focusText') {
-      await focusText();
-      return;
-    }
-    if (action.startsWith('seek')) {
-      if (status.positionSeconds !== null && status.loaded) {
-        const amount = action.endsWith('Far') ? 5 : 1;
-        await seek(
-          clamp(
-            status.positionSeconds +
-              (action.includes('Back') ? -amount : amount),
-            0,
-            timeline.duration,
-          ),
-        );
-      }
-      return;
-    }
-    await workspace.task(async () => {
-      await subtitles.apply();
-      const index = doc.cues.findIndex((c) => c.id === selected);
-      const next =
-        doc.cues[
-          clamp(index + (action === 'nextCue' ? 1 : -1), 0, doc.cues.length - 1)
-        ];
-      if (next) {
-        subtitles.select(next.id);
-        await revealSelection();
-        await focusText();
       }
     });
   }
@@ -863,10 +819,6 @@
       projectExitError = String(failure);
     });
   }
-  function act(action: MediaAction) {
-    gestures.cancelHeld();
-    return media.command(action);
-  }
   async function selectCue(
     id: number,
     mode: SelectionMode = 'replace',
@@ -897,7 +849,10 @@
       await revealSelection();
       if (!alive || (expected && doc !== expected)) return;
       if (cue && status.loaded)
-        await act({ kind: 'seek', seconds: cue.startMs / 1000 });
+        await commandMedia(
+          { media, gestures },
+          { kind: 'seek', seconds: cue.startMs / 1000 },
+        );
     });
   }
   function cueSelectionKey(e: KeyboardEvent, id: number) {
@@ -975,198 +930,189 @@
     });
     if (completed && alive) await selectCue(Number(id));
   }
+  const actionView = {
+    get diagnostics() {
+      return diagnostics;
+    },
+    set diagnostics(value) {
+      diagnostics = value;
+    },
+    get translationOpen() {
+      return translationOpen;
+    },
+    set translationOpen(value) {
+      translationOpen = value;
+    },
+    get problemsOpen() {
+      return problemsOpen;
+    },
+    set problemsOpen(value) {
+      problemsOpen = value;
+    },
+    get showScenes() {
+      return showScenes;
+    },
+    set showScenes(value) {
+      showScenes = value;
+    },
+    get topPct() {
+      return topPct;
+    },
+    set topPct(value) {
+      topPct = value;
+    },
+    get editorPct() {
+      return editorPct;
+    },
+    set editorPct(value) {
+      editorPct = value;
+    },
+    get wavePct() {
+      return wavePct;
+    },
+    set wavePct(value) {
+      wavePct = value;
+    },
+    get sceneControls() {
+      return sceneControls;
+    },
+    set sceneControls(value) {
+      sceneControls = value;
+    },
+  };
+  const actionMedia = {
+    get mediaPath() {
+      return mediaPath;
+    },
+    set mediaPath(value) {
+      mediaPath = value;
+    },
+    get hardware() {
+      return hardware;
+    },
+    set hardware(value) {
+      hardware = value;
+    },
+    get preferences() {
+      return preferences;
+    },
+    set preferences(value) {
+      preferences = value;
+    },
+    get timingSettings() {
+      return timingSettings;
+    },
+    set timingSettings(value) {
+      timingSettings = value;
+    },
+    get restoredScenes() {
+      return restoredScenes;
+    },
+    set restoredScenes(value) {
+      restoredScenes = value;
+    },
+  };
+  const legacyImport = {
+    get returnFocus() {
+      return legacyImportReturn;
+    },
+    set returnFocus(value) {
+      legacyImportReturn = value;
+    },
+    get open() {
+      return legacyImportOpen;
+    },
+    set open(value) {
+      legacyImportOpen = value;
+    },
+  };
+  const fileActions = {
+    workspace,
+    subtitles,
+    projects,
+    gestures,
+    tableView,
+    legacyDecision,
+    protect,
+    save,
+    legacyImport,
+    resetScroll: () => {
+      if (list) list.scrollTop = 0;
+    },
+  };
+  const mediaActions = {
+    workspace,
+    media,
+    projects,
+    gestures,
+    timeline,
+    view: actionMedia,
+  };
+  const cueActions = {
+    workspace,
+    subtitles,
+    gestures,
+    get operationContext() {
+      return operationContext;
+    },
+    suspendFollowing: suspendCueFollowing,
+    revealSelection,
+    focusText,
+  };
+  const viewActions = {
+    workspace,
+    subtitles,
+    media,
+    gestures,
+    workspaceModal,
+    openAuthoring,
+    view: actionView,
+  };
   async function run(action: WorkspaceAction, event?: Event) {
     if (!workspace.canAct || cueMenu || waveformGesture) return;
-    if (action === 'plugins') {
-      gestures.cancelHeld();
-      await openAuthoring('plugins');
-      return;
+    switch (action) {
+      case 'closeSubtitles':
+      case 'importLegacyProject':
+      case 'openProject':
+      case 'openSubtitles':
+      case 'quit':
+      case 'save':
+      case 'saveAs':
+      case 'saveProject':
+      case 'saveProjectAs':
+        return runFileAction(action, fileActions);
+      case 'clearLoop':
+      case 'closeMedia':
+      case 'nextFrame':
+      case 'openMedia':
+      case 'play':
+      case 'playRange':
+      case 'previousFrame':
+        return runMediaAction(action, mediaActions);
+      case 'apply':
+      case 'createCue':
+      case 'deleteCue':
+      case 'mergeNext':
+      case 'mergePrevious':
+      case 'redo':
+      case 'splitCue':
+      case 'undo':
+        return runCueAction(action, cueActions, event);
+      case 'cancelSceneScan':
+      case 'convertSubtitles':
+      case 'diagnostics':
+      case 'nextScene':
+      case 'plugins':
+      case 'previousScene':
+      case 'resetLayout':
+      case 'resync':
+      case 'scanScenes':
+      case 'settings':
+      case 'showScenes':
+      case 'timingSettings':
+      case 'translationReference':
+        return runViewAction(action, viewActions);
     }
-    if (action === 'convertSubtitles') {
-      gestures.cancelHeld();
-      await openAuthoring('conversion');
-      return;
-    }
-    if (action === 'showScenes') {
-      showScenes = !showScenes;
-      return;
-    }
-    if (action === 'scanScenes') {
-      await sceneControls?.rescan();
-      return;
-    }
-    if (action === 'cancelSceneScan') {
-      await sceneControls?.cancel();
-      return;
-    }
-    if (action === 'previousScene' || action === 'nextScene') {
-      sceneControls?.navigate(action === 'previousScene');
-      return;
-    }
-    gestures.cancelHeld();
-    if (action === 'apply' && event && cue && draftDirty)
-      traceApplyInput(event, doc);
-    // Menu/keyboard actions respect the text field's local undo stack. Explicit
-    // history buttons use document history even if the platform retains focus
-    // in the editor while dispatching their click.
-    const focused = document.activeElement;
-    if (
-      !event &&
-      (action === 'undo' || action === 'redo') &&
-      (focused instanceof HTMLInputElement ||
-        focused instanceof HTMLTextAreaElement)
-    ) {
-      document.execCommand(action);
-      return;
-    }
-    workspace.notice = '';
-    await workspace.task(async () => {
-      switch (action) {
-        case 'resync':
-          if (!status.loaded || !doc.cues.length) break;
-          await workspaceModal.open('resync');
-          break;
-        case 'settings':
-        case 'timingSettings':
-          await workspaceModal.open('settings');
-          break;
-        case 'openProject':
-          await projects.open();
-          break;
-        case 'translationReference':
-          translationOpen = !translationOpen;
-          if (translationOpen) problemsOpen = false;
-          break;
-        case 'importLegacyProject':
-          legacyImportReturn =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-          await legacyDecision.open(() => {
-            legacyImportOpen = true;
-          });
-          break;
-        case 'saveProject':
-          await projects.save(false);
-          break;
-        case 'saveProjectAs':
-          await projects.save(true);
-          break;
-        case 'createCue':
-        case 'deleteCue':
-        case 'splitCue':
-        case 'mergePrevious':
-        case 'mergeNext': {
-          if (action === 'createCue') await subtitles.apply();
-          const plan = planCueOperation(action, operationContext);
-          suspendCueFollowing();
-          await docAct(plan.action, plan);
-          await revealSelection();
-          if (action === 'createCue') await focusText();
-          workspace.notice = `${cueOperationLabels[action]} applied`;
-          break;
-        }
-        case 'openMedia': {
-          const path = await chooseFile('media', mediaPath || null);
-          if (path) {
-            timeline.reset(true);
-            await act({ kind: 'open', path, hardware });
-            mediaPath = path;
-            await projects.detach();
-            restoredScenes = null;
-            timingSettings = { ...preferences.timing };
-          }
-          break;
-        }
-        case 'closeMedia':
-          await act({ kind: 'close' });
-          mediaPath = '';
-          await projects.detach();
-          timingSettings = { ...preferences.timing };
-          restoredScenes = null;
-          timeline.reset();
-          break;
-        case 'openSubtitles': {
-          const path = await chooseFile('subtitles', doc.path);
-          if (path && (await protect())) {
-            await docAct({ kind: 'open', path, discard: true });
-            tableView.scrollTop = 0;
-            if (list) list.scrollTop = 0;
-          }
-          break;
-        }
-        case 'closeSubtitles':
-          if (await protect()) await docAct({ kind: 'close', discard: true });
-          break;
-        case 'apply':
-          await subtitles.apply();
-          workspace.notice = 'Edit applied';
-          break;
-        case 'save':
-          if (doc.loaded) await save(false);
-          break;
-        case 'saveAs':
-          if (doc.loaded) await save(true);
-          break;
-        case 'undo':
-        case 'redo':
-          if (draftDirty)
-            throw new Error(
-              'Apply or revert the current draft before undoing an accepted edit.',
-            );
-          if (doc.loaded) {
-            suspendCueFollowing();
-            await docAct({ kind: action });
-            await revealSelection();
-          }
-          break;
-        case 'play':
-          if (status.loaded)
-            await act({ kind: 'pause', paused: !status.paused });
-          break;
-        case 'previousFrame':
-        case 'nextFrame':
-          if (status.loaded)
-            await act({ kind: 'step', backwards: action === 'previousFrame' });
-          break;
-        case 'playRange':
-          if (
-            status.loaded &&
-            timeline.range &&
-            timeline.range[1] > timeline.range[0]
-          ) {
-            await act({
-              kind: 'loop',
-              start: timeline.range[0],
-              end: timeline.range[1],
-            });
-            await act({ kind: 'seek', seconds: timeline.range[0] });
-            await act({ kind: 'pause', paused: false });
-          }
-          break;
-        case 'clearLoop':
-          if (status.loaded) await act({ kind: 'clearLoop' });
-          break;
-        case 'resetLayout':
-          topPct = 32;
-          editorPct = 25;
-          wavePct = 65;
-          break;
-        case 'diagnostics':
-          if (!diagnostics) {
-            await media.occlude(true);
-            diagnostics = true;
-          } else {
-            diagnostics = false;
-            await tick();
-            await media.occlude(false);
-          }
-          break;
-        case 'quit':
-          await projects.quit();
-          break;
-      }
-    });
   }
   async function revealSelection(id: number | null = selected) {
     await tick();
@@ -1178,7 +1124,7 @@
   async function seek(time: number) {
     if (!status.loaded || media.pending || workspace.busy) return;
     try {
-      await act({ kind: 'seek', seconds: time });
+      await commandMedia({ media, gestures }, { kind: 'seek', seconds: time });
     } catch (e) {
       workspace.error = String(e);
     }
@@ -1187,7 +1133,7 @@
     if (workspace.busy) return;
     await workspace.task(
       async () => {
-        await act({ kind: 'track', id });
+        await commandMedia({ media, gestures }, { kind: 'track', id });
         timeline.invalidateTrack();
       },
       { clearError: false },
@@ -1367,76 +1313,30 @@
       window.removeEventListener('scroll', layout, true);
     };
   });
-  function workspaceKeydown(e: KeyboardEvent) {
-    const editing =
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      (e.target instanceof HTMLElement && e.target.isContentEditable);
-    if (e.isComposing || e.defaultPrevented || cueMenu || workspace.confirming)
-      return;
-    if (
-      (e.metaKey || e.ctrlKey) &&
-      !e.altKey &&
-      !e.repeat &&
-      ((e.key.toLowerCase() === 'f' && !e.shiftKey) ||
-        (e.key.toLowerCase() === 'h' &&
-          ((e.ctrlKey && !e.shiftKey) || (e.metaKey && e.shiftKey))))
-    ) {
-      e.preventDefault();
-      void openText(e.key.toLowerCase() === 'f' ? 'find' : 'replace');
-      return;
-    }
-    if (
-      problemsOpen &&
-      e.key === 'F4' &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey
-    ) {
-      e.preventDefault();
-      const id = e.shiftKey ? quality.view?.previousCue : quality.view?.nextCue;
-      if (id && !quality.stale) requestProblem(id);
-      return;
-    }
-    const shortcut = editingShortcut(e, editing);
-    // Enter should activate a focused button/select rather than move focus.
-    if (
-      shortcut &&
-      !(
-        shortcut === 'focusText' &&
-        (e.target instanceof HTMLButtonElement ||
-          e.target instanceof HTMLSelectElement)
-      )
-    ) {
-      e.preventDefault();
-      void editingKey(shortcut);
-      return;
-    }
-    if (__WINDOWS__) {
-      const action = windowsShortcut(e, editing);
-      if (action) {
-        e.preventDefault();
-        if (action !== 'openMedia' || status.available) void run(action);
-        return;
-      }
-    }
-    if (
-      e.code === 'Space' &&
-      !editing &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey &&
-      !e.shiftKey &&
-      !(e.target instanceof HTMLButtonElement) &&
-      !(e.target instanceof HTMLSelectElement)
-    ) {
-      e.preventDefault();
-      if (e.repeat || !workspace.canAct) return;
-      if (gestures.mode && !status.paused) {
-        gestures.beginHeld();
-      } else void run('play');
-    }
-  }
+  const keys = {
+    workspace,
+    gestures,
+    subtitles,
+    media,
+    timeline,
+    quality,
+    get menu() {
+      return !!cueMenu;
+    },
+    get waveformGesture() {
+      return waveformGesture;
+    },
+    get problemsOpen() {
+      return problemsOpen;
+    },
+    windows: __WINDOWS__,
+    openText,
+    requestProblem,
+    focusWaveform,
+    focusText,
+    revealSelection,
+    seek,
+  };
 </script>
 
 <svelte:window
@@ -1452,7 +1352,7 @@
       e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement)}
   onfocusout={() => (textFocused = false)}
-  onkeydown={workspaceKeydown}
+  onkeydown={(event) => workspaceKeydown(event, keys)}
 />
 <main
   aria-busy={workspace.busy || !workspace.ready}
