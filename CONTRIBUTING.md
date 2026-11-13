@@ -1,7 +1,6 @@
 # Development workflow
 
-[Current status](docs/status.md) records implementation, validation and remaining
-gates. [Architecture](ARCHITECTURE.md) describes the implemented design. Public
+[Current status](docs/status.md) records implementation and remaining gates. [Architecture](ARCHITECTURE.md) describes the implemented design. Public
 contributor documentation does not depend on local research or task histories.
 
 ## Working on a task
@@ -13,7 +12,7 @@ contributor documentation does not depend on local research or task histories.
 5. Validate it, record evidence, and update the relevant documentation.
 6. Mark the change complete only when its acceptance criteria are met. Record remaining work explicitly.
 
-Use short-lived branches and focused commits. A review description should explain the resulting behavior, significant tradeoffs, and exact validation commands/results. Keep decision records, task histories and legacy research local; do not add them to the public repository.
+Use short-lived branches and focused commits. A review description should explain the resulting behavior, significant tradeoffs, and exact validation commands/results. Keep decision records, task histories and legacy research local; do not add them to the public repository. Put validation results and evidence in PR descriptions only; keep public guides focused on current behavior, runnable checks and their limits.
 
 ## Definition of done
 
@@ -118,7 +117,7 @@ including IPC generation and native-feature tests.
 | FFmpeg analysis and headless CLI | [Analysis commands](tests/fixtures/README.md#analysis-regression-commands) and [resync corpus](tests/fixtures/resync/README.md): fixtures, ignored integrations and Windows console cancellation. |
 | Native policy and diagnostic tools | [Native controls](tests/native/README.md#native-oracle-controls) and [trace interpretation](tests/native/README.md#workflow-performance-observation). Synthetic controls do not establish device behavior or presentation latency. |
 | Native builds and playback | [Mac build guide](docs/build-macos.md), [Windows](docs/native-runtime.md#windows-native-playback-experiment), [Linux](docs/native-runtime.md#linux-native-playback-experiment), and [runtime selection](docs/native-runtime.md#development-runtime-selection-notes). Keep exact SDK/runtime identities and adoption limits. |
-| Documentation | Check relative paths and section anchors against tracked files plus intended additions, not local notes; run `git diff --check`. Preserve prerequisites, arguments, evidence dates and limitations when moving commands. |
+| Documentation | Check relative paths and section anchors against tracked files plus intended additions, not local notes; run `git diff --check`. Preserve prerequisites, arguments and limitations when moving commands. |
 
 CI definitions live in [application checks](.github/workflows/checks.yml) and
 [native build contracts](.github/workflows/native.yml). Configured jobs alone

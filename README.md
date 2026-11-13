@@ -17,7 +17,7 @@ The editor provides:
   manual translation references and a bounded JavaScript checker/fix plugin subset.
 
 See the [current feature/platform matrix](docs/status.md) for supported scope,
-linked feature contracts, dated validation and remaining gates.
+linked feature contracts, test instructions and remaining gates.
 
 ## Start here
 
