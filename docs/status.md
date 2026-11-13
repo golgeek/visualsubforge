@@ -63,3 +63,8 @@ Rust ownership with refresh-only cue-draft error reconciliation; the desktop gui
 its bounded validation. These checks do not accept a native runtime. Public setup
 and contracts work without
 local decision records, task histories, research or the local refactoring plan.
+
+The [November 13 workspace-controller extraction](../tests/desktop/README.md#workspace-controller--november-13-2026)
+passes the full pinned local checks, both browser engines and the default desktop
+suite. Workspace admission and messages now have one owner; feature owners only
+expose their activity. Native playback acceptance is unchanged.
