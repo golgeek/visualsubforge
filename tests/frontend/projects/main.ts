@@ -534,6 +534,15 @@ async function run() {
     )!;
     let redraws = 0;
     const redrawDetails: unknown[] = [];
+    let canvasSize = { width: 0, height: 0 };
+    const sizes = new ResizeObserver(([entry]) => {
+      if (entry)
+        canvasSize = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+    });
+    sizes.observe(canvas);
     let fontEvents = 0;
     const fontLoaded = () => {
       fontEvents++;
@@ -546,10 +555,8 @@ async function run() {
       },
       set(value: number) {
         redraws++;
-        const rect = canvas.getBoundingClientRect();
         redrawDetails.push({
-          width: rect.width,
-          height: rect.height,
+          ...canvasSize,
           value,
           fontEvents,
           fonts: document.fonts.status,
@@ -585,6 +592,7 @@ async function run() {
       redraws = 0;
       await until(() => redraws > 0);
     } finally {
+      sizes.disconnect();
       document.fonts.removeEventListener('loadingdone', fontLoaded);
       Reflect.deleteProperty(canvas, 'width');
     }
