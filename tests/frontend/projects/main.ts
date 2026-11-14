@@ -533,6 +533,12 @@ async function run() {
       'width',
     )!;
     let redraws = 0;
+    const redrawDetails: unknown[] = [];
+    let fontEvents = 0;
+    const fontLoaded = () => {
+      fontEvents++;
+    };
+    document.fonts.addEventListener('loadingdone', fontLoaded);
     Object.defineProperty(canvas, 'width', {
       configurable: true,
       get() {
@@ -540,6 +546,16 @@ async function run() {
       },
       set(value: number) {
         redraws++;
+        const rect = canvas.getBoundingClientRect();
+        redrawDetails.push({
+          width: rect.width,
+          height: rect.height,
+          value,
+          fontEvents,
+          fonts: document.fonts.status,
+          position: media.positionSeconds,
+          polls: statusPolls,
+        });
         widthDescriptor.set!.call(this, value);
       },
     });
@@ -551,11 +567,13 @@ async function run() {
       let baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
       redraws = 0;
+      redrawDetails.length = 0;
       baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
       assert(
         redraws === 0,
-        'Unchanged paused status polls do not repaint the waveform',
+        'Unchanged paused status polls do not repaint the waveform: ' +
+          JSON.stringify(redrawDetails),
       );
       media.positionSeconds = 13.5;
       await until(() => redraws > 0);
@@ -567,6 +585,7 @@ async function run() {
       redraws = 0;
       await until(() => redraws > 0);
     } finally {
+      document.fonts.removeEventListener('loadingdone', fontLoaded);
       Reflect.deleteProperty(canvas, 'width');
     }
     menuAction('saveProject');
