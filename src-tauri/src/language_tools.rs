@@ -36,9 +36,9 @@ pub(crate) async fn language_words_change(
         let path = crate::preferences::settings_path(&app)?;
         app.state::<Documents>()
             .language_words_change(epoch.get(), change, |personal| {
-                let mut preferences = crate::preferences::read(&path)?;
-                preferences.personal_words = personal.clone();
-                crate::preferences::write(&path, &preferences)
+                crate::preferences::update(&path, |preferences| {
+                    preferences.personal_words = personal.clone();
+                })
             })
     })
     .await

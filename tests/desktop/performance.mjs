@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 // Opt-in actual WebView/IPC measurement. Events are generated in the webview;
 // rAF measures event-loop availability, not physical input or GPU presentation.
 import assert from 'node:assert/strict';
@@ -164,12 +165,8 @@ export async function qualityPerformance({
       };
       requestAnimationFrame(tick);
     }, request);
-    await (
-      await browser.$('//label[normalize-space(.)="Cue metrics"]/input')
-    ).click();
-    await (
-      await browser.$('//button[starts-with(normalize-space(.), "Problems")]')
-    ).click();
+    await (await browser.$('input[aria-label="Cue metrics"]')).click();
+    await chooseCommand(browser, 'problems');
     await until('large-document metrics and findings', async () =>
       browser.execute(
         () =>
@@ -351,7 +348,7 @@ export async function qualityPerformance({
     assert.equal(restored.requiresSaveAs, before.requiresSaveAs);
     // Exercise the real modal with 9,999 candidates, never sending the full
     // before/after reports to the frontend and never accepting this trial.
-    await (await browser.$('button=Fix gaps and overlaps…')).click();
+    await chooseCommand(browser, 'fixGaps');
     const dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
     await until('large gap modal', () => dialog.isDisplayed());
     const previewBegan = performance.now();
@@ -372,7 +369,7 @@ export async function qualityPerformance({
     );
     assert.deepEqual(await status(), restored);
     await until('large workspace restored', () =>
-      browser.$('button=Fix gaps and overlaps…').then((b) => b.isEnabled()),
+      browser.$('button=Commands').then((b) => b.isEnabled()),
     );
     await (await browser.$('button=Check again')).click();
     await until('large findings restored', async () =>

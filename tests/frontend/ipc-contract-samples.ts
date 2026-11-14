@@ -2922,6 +2922,34 @@ export const mediaStatus = {
 } satisfies MediaStatus;
 export const preferences = {
   autoScanScenes: true,
+  layout: {
+    active: 'timing',
+    bigPicture: {
+      editorPct: 16.0,
+      topPct: 40.0,
+      wavePct: 35.0,
+    },
+    editorAbove: {
+      editorPct: 16.0,
+      topPct: 15.0,
+      wavePct: 65.0,
+    },
+    review: {
+      editorPct: 16.0,
+      topPct: 15.0,
+      wavePct: 65.0,
+    },
+    timing: {
+      editorPct: 16.0,
+      topPct: 15.0,
+      wavePct: 65.0,
+    },
+    translation: {
+      editorPct: 16.0,
+      topPct: 15.0,
+      wavePct: 65.0,
+    },
+  },
   personalWords: {
     englishUs: [],
     french: [],
@@ -2978,5 +3006,5 @@ export const preferences = {
     snapDistancePx: 8,
     snapScenes: true,
   },
-  version: 1,
+  version: 2,
 } satisfies Preferences;

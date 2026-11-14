@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -69,9 +70,8 @@ function type(text: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Fix gaps and overlaps…').disabled);
-  button('Fix gaps and overlaps…').focus();
-  button('Fix gaps and overlaps…').click();
+  await until(() => !button('Commands').disabled);
+  await chooseCommand(host, 'fixGaps');
 }
 function acknowledge() {
   const box = host.querySelector<HTMLInputElement>(
@@ -208,9 +208,9 @@ async function run() {
         .value === 'Keep this draft' && edits === 0,
       'Cancel lost draft',
     );
-    await until(() => !button('Fix gaps and overlaps…').disabled);
+    await until(() => !button('Commands').disabled);
     assert(
-      document.activeElement === button('Fix gaps and overlaps…'),
+      document.activeElement === button('Commands'),
       'Closing timing review must restore keyboard focus to its enabled launcher',
     );
     passed(

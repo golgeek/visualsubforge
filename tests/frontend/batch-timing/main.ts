@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -97,8 +98,8 @@ async function clickCue(id: number, modifiers: MouseEventInit = {}) {
   await until(() => row(id).getAttribute('aria-disabled') === 'false');
 }
 async function open() {
-  await until(() => !button('Shift / align cues…').disabled);
-  button('Shift / align cues…').click();
+  await until(() => !button('Commands').disabled);
+  await chooseCommand(host, 'shiftCues');
   await until(() => !!host.querySelector('dialog[open]'));
 }
 async function preview() {

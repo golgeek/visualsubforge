@@ -174,9 +174,9 @@ async function run() {
     await until(() => !(!menuState || menuState.busy));
     const canvas = host.querySelector('canvas')!;
     const editor = host.querySelector('textarea')!;
-    const mode = [...host.querySelectorAll('label')]
-      .find((l) => l.textContent?.trim() === 'Tap-to-time · hold Space')!
-      .querySelector('input')!;
+    const mode = host.querySelector<HTMLInputElement>(
+      '[aria-label="Tap-to-time · hold Space"]',
+    )!;
     button('Create cue').click();
     await until(() => document.activeElement === editor && !editor.readOnly);
     assert(

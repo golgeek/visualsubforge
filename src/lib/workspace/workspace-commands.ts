@@ -1,3 +1,4 @@
+import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
 import {
   unavailable,
   isNativeAction,
@@ -19,6 +20,7 @@ import type { WorkspaceModal } from '../dialogs/workspace-modal.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
 import type { CueMenu } from '../cues/cue-menu.svelte';
 interface Owners {
+  layout: WorkspaceLayout;
   workspace: Workspace;
   subtitles: DocumentSession;
   media: MediaSession;
@@ -111,6 +113,24 @@ export class WorkspaceCommands {
       return;
     }
     switch (id) {
+      case 'layoutTiming':
+        await this.owners.layout.select('timing');
+        break;
+      case 'layoutEditorAbove':
+        await this.owners.layout.select('editorAbove');
+        break;
+      case 'layoutReview':
+        await this.owners.layout.select('review');
+        break;
+      case 'layoutTranslation':
+        await this.owners.layout.select('translation');
+        break;
+      case 'layoutBigPicture':
+        await this.owners.layout.select('bigPicture');
+        break;
+      case 'textTools':
+        await dialogs.openText();
+        break;
       case 'find':
       case 'replace':
         await dialogs.openText(id);

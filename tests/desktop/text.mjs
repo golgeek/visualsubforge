@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 
@@ -13,7 +14,7 @@ export async function textEditing({
   const editor = await browser.$('[aria-label="Subtitle text"]');
   const ready = () =>
     until('text workspace enabled', () =>
-      browser.$('button=Find / Replace…').then((b) => b.isEnabled()),
+      browser.$('button=Commands').then((b) => b.isEnabled()),
     );
   async function editCue(index, text) {
     await ready();
@@ -45,7 +46,7 @@ export async function textEditing({
   let dialog;
   async function open(mode, query = 'été', replacement = 'summer') {
     await ready();
-    await (await browser.$('button=Find / Replace…')).click();
+    await chooseCommand(browser, 'textTools');
     dialog = await browser.$('dialog[aria-labelledby="text-title"]');
     await until('text modal', () => dialog.isDisplayed());
     await browser.execute((mode) => {

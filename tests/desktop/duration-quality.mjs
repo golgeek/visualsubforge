@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
 // prepared project caches exercise restoration separately from the live rescan.
 import assert from 'node:assert/strict';
@@ -81,7 +82,7 @@ export async function durationQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('duration workspace ready', () =>
-      browser.$('button=Fix reading speed…').then((b) => b.isEnabled()),
+      browser.$('button=Commands').then((b) => b.isEnabled()),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -142,10 +143,10 @@ export async function durationQuality({
   await text.setValue('Preserve duration draft');
   await browser.execute(() => {
     [...document.querySelectorAll('button:not(dialog:not([open]) button)')]
-      .find((button) => button.textContent.trim() === 'Fix reading speed…')
+      .find((button) => button.textContent.trim() === 'Commands')
       .focus();
   });
-  await (await browser.$('button=Fix reading speed…')).click();
+  await chooseCommand(browser, 'fixReadingSpeed');
   await until('duration draft guard', () =>
     browser.$('button=Cancel duration review').then((b) => b.isExisting()),
   );
@@ -153,13 +154,13 @@ export async function durationQuality({
   await ready();
   assert.equal(
     await browser.execute(() => document.activeElement?.textContent?.trim()),
-    'Fix reading speed…',
+    'Commands',
     'Closing native timing review restores its enabled launcher focus',
   );
   assert.equal(await text.getValue(), 'Preserve duration draft');
   assert.deepEqual(await status(), before);
   await (await browser.$('button=Revert')).click();
-  await (await browser.$('button=Fix reading speed…')).click();
+  await chooseCommand(browser, 'fixReadingSpeed');
   let selectedDialog = await browser.$(
     'dialog[aria-labelledby="duration-repair-title"]',
   );
@@ -180,7 +181,7 @@ export async function durationQuality({
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
-  await (await browser.$('button=Fix reading speed…')).click();
+  await chooseCommand(browser, 'fixReadingSpeed');
   let dialog = await browser.$(
     'dialog[aria-labelledby="duration-repair-title"]',
   );
@@ -376,7 +377,7 @@ async function durationPerformance({
     assert.ok(result.interaction.typingMs < 1000);
     await (await browser.$('button=Revert')).click();
     await ready();
-    await (await browser.$('button=Fix reading speed…')).click();
+    await chooseCommand(browser, 'fixReadingSpeed');
     const dialog = await browser.$(
       'dialog[aria-labelledby="duration-repair-title"]',
     );

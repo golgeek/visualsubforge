@@ -61,6 +61,7 @@ for (const name of [
   'theme',
   'copy-noise',
   'action-discovery',
+  'layout-presets',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -76,9 +77,8 @@ function select(label: string, value: string) {
   e.dispatchEvent(new Event('change', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Statistics…').disabled);
-  button('Statistics…').focus();
-  button('Statistics…').click();
+  await until(() => !button('Commands').disabled);
+  await chooseCommand(host, 'statistics');
   await until(() => !!host.querySelector('dialog[open]'));
 }
 async function report() {
@@ -87,9 +87,9 @@ async function report() {
 async function close() {
   button('Close').click();
   await until(() => !host.querySelector('dialog[open]'));
-  await until(() => !button('Statistics…').disabled);
+  await until(() => !button('Commands').disabled);
   assert(
-    document.activeElement === button('Statistics…'),
+    document.activeElement === button('Commands'),
     'Statistics launcher focus restored',
   );
 }
@@ -208,7 +208,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 let app = mount(App, { target: host });
 try {
-  await until(() => !button('Statistics…').disabled);
+  await until(() => !button('Commands').disabled);
   input('Subtitle text', 'Keep my statistics draft');
   const before = JSON.stringify(doc);
   await open();

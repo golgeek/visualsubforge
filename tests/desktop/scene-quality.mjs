@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
 // prepared project caches exercise restoration separately from the live rescan.
 import assert from 'node:assert/strict';
@@ -83,7 +84,7 @@ export async function sceneQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('scene workspace ready', () =>
-      browser.$('button=Snap to shot changes…').then((b) => b.isEnabled()),
+      browser.$('button=Commands').then((b) => b.isEnabled()),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -140,11 +141,8 @@ export async function sceneQuality({
   assert.equal(checked.findingsCount, 4);
   const before = await status();
   // Actual Problems filtering and draft-protected navigation.
-  const problemButton = await browser.$(
-    '//button[starts-with(normalize-space(.), "Problems")]',
-  );
   if (!(await browser.$('[aria-label="Subtitle Problems"]').isExisting()))
-    await problemButton.click();
+    await chooseCommand(browser, 'problems');
   await until(
     'scene Problems rows',
     async () =>
@@ -173,7 +171,7 @@ export async function sceneQuality({
   assert.deepEqual(await status(), before);
   await (await browser.$('button=Revert')).click();
   await (await browser.$('button=Close Problems')).click();
-  await (await browser.$('button=Snap to shot changes…')).click();
+  await chooseCommand(browser, 'snapShots');
   let dialog = await browser.$('dialog[aria-labelledby="scene-repair-title"]');
   await until('scene dialog', () => dialog.isDisplayed());
   await (await dialog.$('button=Preview changes')).click();
@@ -351,7 +349,7 @@ async function scenePerformance({
     assert.ok(result.interaction.typingMs < 1000);
     await (await browser.$('button=Revert')).click();
     await ready();
-    await (await browser.$('button=Snap to shot changes…')).click();
+    await chooseCommand(browser, 'snapShots');
     const dialog = await browser.$(
       'dialog[aria-labelledby="scene-repair-title"]',
     );

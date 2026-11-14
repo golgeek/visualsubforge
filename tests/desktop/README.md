@@ -271,3 +271,9 @@ Reports, failure screenshots and traces are generated under ignored
 preserves desktop receipts. These tests use production components with modeled
 IPC and synthetic events; they do not establish native WebView, filesystem,
 physical keyboard, GPU or audio-device behavior.
+
+The canonical desktop run also switches all five workspace presets at 1100×720
+and 1440×900, records ten screenshots and checks cue capacity, two text lines and
+video-placeholder separation. Playback-free runs verify DOM bounds; the browser
+layout harness checks modeled hide/bounds acknowledgments. Neither establishes
+physical native-video composition acceptance.

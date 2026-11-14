@@ -41,3 +41,8 @@ to reproduce suites and what their results can establish.
 
 The [feature roadmap](feature-roadmap.md) describes product scope. Public setup,
 contracts and test instructions work without local task histories or research.
+
+Workspace layout provides five user presets, per-preset pane sizes and active-preset
+reset. User preferences migrate from version 1 to 2 without rewriting on read.
+Projects do not yet retain layout. Desktop preset screenshots and modeled native
+hide/bounds ordering are separate from native playback/composition acceptance.

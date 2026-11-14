@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, type Snippet } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
@@ -15,6 +15,7 @@
     metrics: showQualityMetrics,
     list = $bindable(),
     actions,
+    controls,
   }: {
     subtitles: DocumentSession;
     quality: QualitySession;
@@ -22,6 +23,7 @@
     workspace: Workspace;
     metrics: boolean;
     list: HTMLDivElement | undefined;
+    controls?: Snippet;
     actions: {
       suspendCueFollowing: () => void;
       openCueMenu: (
@@ -54,8 +56,10 @@
 
 <div class="cue-table">
   <div class="table-head" class:with-metrics={showQualityMetrics}>
-    <span>#</span><span>Start</span><span>End</span><span
-      >Subtitle text · {doc.cues.length} cues · {subtitles.selectedIds.size} selected</span
+    <span>#</span><span>Start</span><span>End</span><span class="text-heading"
+      ><span class="cue-count"
+        >Subtitle text · {doc.cues.length} cues · {subtitles.selectedIds.size} selected</span
+      >{@render controls?.()}</span
     >
     {#if showQualityMetrics}<span>CPS · RS</span>{/if}
   </div>
@@ -119,7 +123,21 @@
 </div>
 
 <style>
+  .text-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .cue-count {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .cue-table {
+    container-type: inline-size;
+    container-name: cue-table;
     display: flex;
     flex-direction: column;
     flex: 1;

@@ -1,3 +1,4 @@
+import { openCommands } from '../command-discovery';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -121,14 +122,26 @@ async function run() {
     passed(
       'Unavailable playhead actions are hidden and the empty transport says Play',
     );
-    assert(
-      button('Fix gaps and overlaps…') &&
-        button('Fix reading speed…') &&
-        button('Snap to shot changes…') &&
-        button('Export As…'),
-      'Renamed tool launchers exist',
+    const menu = await openCommands(host);
+    for (const label of [
+      'Fix gaps and overlaps…',
+      'Fix reading speed…',
+      'Snap to shot changes…',
+    ]) {
+      assert(
+        [...menu.querySelectorAll('button')].some((button) =>
+          button.textContent?.includes(label),
+        ),
+        'Renamed command exists: ' + label,
+      );
+    }
+    menu.dispatchEvent(new Event('cancel', { cancelable: true }));
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') && !button('Commands')!.disabled,
     );
-    passed('Tool launchers use the subtitler-facing names');
+    assert(button('Export As…'), 'Export name remains visible');
+    passed('Tool discovery uses the subtitler-facing names');
     media.loaded = true;
     media.session = 1;
     media.positionSeconds = 1.5;

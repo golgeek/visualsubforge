@@ -406,7 +406,7 @@ async function run() {
       'Alt-drag bypass also applies to new range selection',
     );
     // Import/export are pure settings changes, not document transactions.
-    const settingsReturn = button('Find / Replace…');
+    const settingsReturn = button('Commands');
     settingsReturn.focus();
     callbacks.get(eventHandler)!({ payload: 'settings' });
     await until(() => !!host.querySelector('dialog[open] .settings'));

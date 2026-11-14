@@ -32,7 +32,7 @@ interface Owners {
   gestures: TimingGesture;
   workspaceModal: WorkspaceModal;
   openAuthoring: (kind: AuthoringModal) => Promise<void>;
-  layout: { topPct: number; editorPct: number; wavePct: number };
+  layout: { reset: () => Promise<void> };
   view: WorkspaceView;
   scenes: WorkspaceScenes;
   remainingOcclusion: () => boolean;
@@ -86,9 +86,7 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
         view.toggleTranslation();
         break;
       case 'resetLayout':
-        owners.layout.topPct = 32;
-        owners.layout.editorPct = 25;
-        owners.layout.wavePct = 65;
+        await owners.layout.reset();
         break;
       case 'diagnostics':
         if (!view.diagnostics) {

@@ -17,6 +17,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             desktop::update_menu,
             preferences::preferences_get,
             preferences::preferences_save,
+            preferences::layout_save,
             quality_profile::quality_settings,
             crate::language_tools::language_words,
             crate::language_tools::language_words_change,

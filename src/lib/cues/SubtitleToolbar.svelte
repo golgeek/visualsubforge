@@ -1,120 +1,40 @@
 <script lang="ts">
   import type { Workspace } from '../workspace/workspace.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
-  import type { WorkspaceDialogsState } from '../dialogs/workspace-dialogs.svelte';
-  import type { WorkspaceView } from '../workspace/workspace-view.svelte';
-  import type { QualitySession } from '../quality/quality-session.svelte';
   import type { WorkspacePreferences } from '../settings/workspace-preferences.svelte';
-  import type { TimingGesture } from '../timing/timing-gesture.svelte';
   import type { CueNavigation } from './cue-navigation.svelte';
-  import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
   let {
     workspace,
     subtitles,
-    dialogs,
-    view,
-    quality,
     preferences,
-    gestures,
     navigation,
-    layout,
   }: {
     workspace: Workspace;
     subtitles: DocumentSession;
-    dialogs: WorkspaceDialogsState;
-    view: WorkspaceView;
-    quality: QualitySession;
     preferences: WorkspacePreferences;
-    gestures: TimingGesture;
     navigation: CueNavigation;
-    layout: WorkspaceLayout;
   } = $props();
-  import { measurePaneControl } from '../layout/measure-pane-control';
-  import { setTimingMode } from '../workspace/view-actions';
-  const doc = $derived(subtitles.snapshot);
   const draftDirty = $derived(subtitles.dirty);
-  // Search aliases for the action registry: Enforce minimum gaps,
-  // Repair duration / speed, Repair scene timing, Convert subtitles.
-  const reviews = [
-    { label: 'Find / Replace…', open: () => dialogs.openText() },
-    {
-      label: 'Fix gaps and overlaps…',
-      open: () => dialogs.openTimingReview('gap'),
-    },
-    {
-      label: 'Snap to shot changes…',
-      open: () => dialogs.openTimingReview('scene'),
-    },
-    {
-      label: 'Fix reading speed…',
-      open: () => dialogs.openTimingReview('duration'),
-    },
-    {
-      label: 'Shift / align cues…',
-      open: () => dialogs.openTimingReview('batch'),
-    },
-  ];
 </script>
 
-<div
-  class="cue-followbar"
-  use:measurePaneControl={(height) => (layout.cueFollowingHeight = height)}
->
-  {#each reviews as review (review.label)}
-    <button
-      disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-      onclick={() => void review.open()}>{review.label}</button
-    >
-  {/each}
-
-  <button
-    disabled={workspace.busy || workspace.confirming || !doc.loaded}
-    onclick={() => void dialogs.openStatistics()}>Statistics…</button
-  >
-  <button
-    disabled={workspace.busy || workspace.confirming || !doc.loaded}
-    onclick={() => void dialogs.openAuthoring('plugins')}
-    >Subtitle plugins…</button
-  >
-  <button
-    aria-expanded={view.problemsOpen}
-    onclick={() =>
-      view.toggleProblems(() => {
-        navigation.pendingProblem = null;
-      })}
-    >Problems{quality.view?.profileHash
-      ? ` · ${quality.view.findingsCount}`
-      : ''}</button
-  >
-  <button
-    disabled={!workspace.canAct}
-    aria-expanded={view.translationOpen}
-    onclick={() => view.toggleTranslation()}
-    >Translation reference{doc.translation?.dirty ? ' •' : ''}</button
-  >
+<div class="cue-followbar">
   <label
-    ><input type="checkbox" bind:checked={preferences.showQualityMetrics} /> Cue metrics</label
-  >
-  <label
-    title="Tap Space to play/pause. While playing, hold Space for at least 400 ms to create a cue and keep timing. Enter edits text; Escape returns to the waveform."
-  >
-    <input
+    ><input
+      aria-label="Cue metrics"
       type="checkbox"
-      checked={gestures.mode}
-      disabled={workspace.busy || workspace.confirming}
-      onchange={(e) =>
-        setTimingMode(gestures, navigation, e.currentTarget.checked)}
-    />
-    Tap-to-time · hold Space
-  </label>
+      bind:checked={preferences.showQualityMetrics}
+    /> <span class="compact-extra">Cue </span>metrics</label
+  >
   <label
     ><input
       type="checkbox"
+      aria-label="Follow active subtitle"
       checked={navigation.following !== 'off'}
       onchange={(e) => {
         navigation.setFollowing(e.currentTarget.checked);
       }}
-    /> Follow active subtitle</label
+    />
+    Follow<span class="compact-extra"> active subtitle</span></label
   >
   {#if navigation.following === 'suspended'}
     <span
@@ -126,7 +46,7 @@
       disabled={draftDirty || workspace.busy || workspace.confirming}
       onclick={() => {
         navigation.resumeFollowing();
-      }}>Jump to playhead</button
+      }}>Jump<span class="compact-extra"> to playhead</span></button
     >
   {/if}
 </div>
@@ -135,11 +55,10 @@
   .cue-followbar {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 4px 8px;
+    gap: 6px;
+    padding: 0;
     font-size: 11px;
-    background: var(--surface-raised);
+    background: transparent;
     flex-shrink: 0;
   }
 
@@ -151,5 +70,25 @@
 
   .cue-followbar button {
     padding: 2px 6px;
+  }
+  .cue-followbar > span {
+    max-width: 90px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cue-followbar label {
+    white-space: nowrap;
+  }
+  @container cue-table (max-width: 900px) {
+    .compact-extra,
+    .cue-followbar > span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
 </style>

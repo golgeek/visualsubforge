@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
@@ -545,9 +546,9 @@ async function run() {
       'WebVTT formatting committed before Apply',
     );
     passed('WebVTT formatting remains a versioned draft until explicit Apply');
-    const pluginButton = button('Subtitle plugins…');
+    const pluginButton = button('Commands');
     pluginButton.focus();
-    pluginButton.click();
+    await chooseCommand(host, 'plugins');
     await until(
       () =>
         !!host.querySelector('dialog[open][aria-labelledby="plugin-title"]'),

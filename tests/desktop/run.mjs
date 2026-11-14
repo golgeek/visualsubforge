@@ -21,6 +21,7 @@ import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
 import { gapReview } from './gaps.mjs';
 import { actionDiscovery } from './discovery.mjs';
+import { workspaceLayouts } from './layouts.mjs';
 import { textEditing } from './text.mjs';
 import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
@@ -386,6 +387,7 @@ try {
     cli,
   });
   await actionDiscovery({ browser, until, evidence, record });
+  await workspaceLayouts({ browser, invoke, until, evidence, record });
   opened = await gapReview({ browser, status, until, evidence, record });
   opened = await textEditing({
     browser,

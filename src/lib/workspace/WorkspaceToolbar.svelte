@@ -14,6 +14,7 @@
     sceneState,
     oncommands,
     onshortcuts,
+    onlayout,
   }: {
     workspace: Workspace;
     media: MediaSession;
@@ -24,6 +25,7 @@
     showScenes: boolean;
     oncommands: () => void;
     onshortcuts: () => void;
+    onlayout: () => void;
     sceneState: { pending: boolean; running: boolean };
   } = $props();
   const doc = $derived(subtitles.snapshot);
@@ -33,6 +35,7 @@
 
 <header class="toolbar">
   <strong>VisualSubForge</strong>
+  <button disabled={!workspace.canAct} onclick={onlayout}>Layout</button>
   <button disabled={!workspace.canAct} onclick={oncommands}>Commands</button>
   <button
     disabled={!workspace.canAct}

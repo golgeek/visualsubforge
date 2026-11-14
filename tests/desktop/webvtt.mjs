@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 // Real WebView, IPC and files; queued choices and DOM input are test supplied.
 // Independent native-window captures are needed to inspect the video sibling.
 import assert from 'node:assert/strict';
@@ -328,7 +329,7 @@ export async function webvttWorkflow({
     assert.deepEqual((await status()).cues, formatted.cues);
     await ready();
 
-    await click('Find / Replace…');
+    await chooseCommand(browser, 'textTools');
     await until('WebVTT text dialog', () =>
       browser.$('dialog[aria-labelledby="text-title"]').isExisting(),
     );
@@ -359,7 +360,7 @@ export async function webvttWorkflow({
     await ready();
 
     const beforeTiming = await status();
-    await click('Shift / align cues…');
+    await chooseCommand(browser, 'shiftCues');
     await input('Batch scope', 'all');
     await input('Batch offset milliseconds', '1');
     await click('Preview changes');
@@ -373,7 +374,7 @@ export async function webvttWorkflow({
     assert.deepEqual(await status(), beforeTiming);
     await click('Cancel');
     await ready();
-    await click('Shift / align cues…');
+    await chooseCommand(browser, 'shiftCues');
     await input('Batch scope', 'selected');
     await input('Batch offset milliseconds', '1');
     await click('Preview changes');

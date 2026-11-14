@@ -419,3 +419,26 @@ until implemented and verified. Feature contracts and
 [CONTRIBUTING.md](CONTRIBUTING.md) hold detailed behavior and checks.
 This overview must remain usable from a fresh clone without local research or
 historical decision/task records.
+
+## Workspace layout preferences
+
+`WorkspaceLayout` owns the active preset, independent sizes for five presets,
+measured control heights and coalesced resize/persistence work. Pure slot math
+reserves preview, transport, cue rows and two text lines before applying ratios.
+CSS slot placement keeps the waveform, native placeholder, table and editor
+mounted. Preset changes and splitter updates use `HideVideo`: acknowledge hiding,
+change placement, render, drain native layout and acknowledge current bounds,
+then restore remaining occlusion. Its activity joins the workspace admission gate;
+disposal retires queued changes, the save timer and late continuations.
+
+Pane saves debounce for 250 ms and serialize one write plus the newest pending
+snapshot. Save acknowledgments update saved preferences without replacing newer
+transient geometry or invalidating quality. Failures keep the current layout and
+report an error. The narrow `layout_save` command performs blocking persistence
+outside the UI thread and never acquires the document lock or accepts a quality
+policy. All production settings-file writes serialize read/modify/write under one
+writer mutex, preserving unrelated layout, profile and personal-word fields.
+Document preference/word operations acquire the document lock before this writer;
+layout writes acquire only the writer. Atomic publication permits concurrent reads
+of either complete version. Version 1 migrates in memory to version 2; the historical
+settings filename remains valid. Projects do not yet store pane placement.

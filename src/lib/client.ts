@@ -1,3 +1,4 @@
+import { defaultLayout } from './layout/layout-presets';
 import { commands, events } from './generated/ipc';
 import type * as IPC from './generated/ipc';
 import { isTauri } from '@tauri-apps/api/core';
@@ -554,7 +555,8 @@ export async function exportTimingPreset(
 }
 
 export const defaultPreferences: Preferences = {
-  version: 1,
+  version: 2,
+  layout: defaultLayout(),
   autoScanScenes: true,
   sceneDetail: 'standard',
   timing: defaultTiming,
@@ -562,6 +564,9 @@ export const defaultPreferences: Preferences = {
   showQualityMetrics: false,
   personalWords: { englishUs: [], french: [] },
 };
+export async function saveLayout(layout: Preferences['layout']): Promise<void> {
+  await commands.layoutSave(layout);
+}
 export function getPreferences(): Promise<Preferences> {
   return commands.preferencesGet();
 }

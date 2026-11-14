@@ -28,7 +28,18 @@ export async function batchPerformance({
     );
     await b.frame();
     times.selectAllMs = performance.now() - started;
-    b.button('Shift / align cues…').click();
+    b.button('Commands').focus();
+    b.button('Commands').click();
+    await b.wait(() =>
+      document.querySelector('[data-action="shiftCues"]:not(:disabled)'),
+    );
+    document.querySelector('[data-action="shiftCues"]').click();
+    await b.wait(
+      () =>
+        !document.querySelector(
+          'dialog[aria-labelledby="action-browser-title"]',
+        ),
+    );
     await b.wait(() => document.querySelector('dialog[open]'));
     await b.frame();
     started = performance.now();

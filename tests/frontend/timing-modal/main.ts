@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -96,6 +97,9 @@ const variants = [
   },
 ] as const;
 async function fixture(variant: (typeof variants)[number], above = true) {
+  // Discovery has its own lifecycle harness. Delay/count the feature's native
+  // hide after the Commands menu closes, preserving the feature boundary tests.
+  let discovering = false;
   const calls: string[] = [];
   const cancels: number[] = [];
   let occluded = false;
@@ -152,8 +156,12 @@ async function fixture(variant: (typeof variants)[number], above = true) {
           case 'media_action': {
             const action = args.action as MediaAction;
             if (action.kind === 'occlude') {
-              calls.push(`occlude:${action.occluded}`);
-              await (action.occluded ? hide?.promise : restore?.promise);
+              if (discovering) {
+                if (!action.occluded) discovering = false;
+              } else {
+                calls.push(`occlude:${action.occluded}`);
+                await (action.occluded ? hide?.promise : restore?.promise);
+              }
               occluded = action.occluded;
             } else if (action.kind !== 'status' && action.kind !== 'layout')
               calls.push(`media:${action.kind}`);
@@ -219,16 +227,34 @@ async function fixture(variant: (typeof variants)[number], above = true) {
         ...host.querySelectorAll<HTMLButtonElement>(
           'button:not(dialog:not([open]) button)',
         ),
-      ].some((b) => b.textContent?.trim() === variant.launcher && !b.disabled),
+      ].some((b) => b.textContent?.trim() === 'Commands' && !b.disabled),
   );
   // Media polling has started synchronously on mount; allow its projection to render.
   await settle();
-  const launcher = button(variant.launcher);
-  const dialog = () => host.querySelector<HTMLDialogElement>('dialog[open]');
+  const launcher = button('Commands');
+  const begin = () => {
+    discovering = true;
+    void chooseCommand(
+      host,
+      (
+        {
+          gap: 'fixGaps',
+          scene: 'snapShots',
+          duration: 'fixReadingSpeed',
+          batch: 'shiftCues',
+        } as const
+      )[variant.name],
+    );
+  };
+  const dialog = () =>
+    host.querySelector<HTMLDialogElement>(
+      'dialog[open]:not([aria-labelledby="action-browser-title"])',
+    );
   const action = (value: WorkspaceAction) =>
     callbacks.get(handler)!({ payload: value });
   return {
     calls,
+    begin,
     cancels,
     launcher,
     dialog,
@@ -240,7 +266,7 @@ async function fixture(variant: (typeof variants)[number], above = true) {
     holdStart: () => (start = deferred()),
     open: async () => {
       launcher.focus();
-      launcher.click();
+      begin();
       await until(() => !!dialog());
     },
     close: async () => {
@@ -269,7 +295,7 @@ async function blocked(f: Awaited<ReturnType<typeof fixture>>) {
       cancelable: true,
     }),
   );
-  for (const v of variants) button(v.launcher).click();
+  button('Commands').click();
   await settle();
   assert(
     f.calls.length === before && f.launcher.disabled,
@@ -282,7 +308,7 @@ async function run() {
     try {
       const hide = f.holdHide();
       f.launcher.focus();
-      f.launcher.click();
+      f.begin();
       await until(() => f.calls.includes('occlude:true'));
       assert(!f.dialog(), `${variant.name}: content mounted before hide`);
       await blocked(f);
@@ -330,7 +356,7 @@ async function run() {
       const reply = phase === 'hide' ? f.holdHide() : f.holdRestore();
       if (phase === 'hide') {
         f.launcher.focus();
-        f.launcher.click();
+        f.begin();
       } else {
         await f.open();
         button(variant.close).click();
@@ -418,7 +444,7 @@ async function run() {
       const reply = phase === 'hide' ? f.holdHide() : f.holdRestore();
       if (phase === 'hide') {
         f.launcher.focus();
-        f.launcher.click();
+        f.begin();
       } else {
         await f.open();
         button(variants[0].close).click();
