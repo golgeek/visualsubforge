@@ -30,7 +30,7 @@ export interface ProjectWorkspace {
   mediaOpened(mediaPath: string): void;
   restoreOptions(options: ProjectOptions): void;
   restoreScenes(session: number, generation: number): void;
-  protect(saveContext?: () => Promise<boolean>): Promise<boolean>;
+  protect(saveContext: () => Promise<boolean>): Promise<boolean>;
   referenceIssue?(
     issue: ProjectReferenceIssue,
   ): Promise<'cancel' | 'choose' | 'reload'>;

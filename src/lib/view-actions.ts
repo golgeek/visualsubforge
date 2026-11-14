@@ -1,4 +1,5 @@
 import type { WorkspaceView } from './workspace-view.svelte';
+import type { WorkspaceScenes } from './workspace-scenes.svelte';
 import type { CueNavigation } from './cue-navigation.svelte';
 import type { Workspace } from './workspace.svelte';
 import type { DocumentSession } from './document-session.svelte';
@@ -29,19 +30,8 @@ interface Owners {
   workspaceModal: WorkspaceModal;
   openAuthoring: (kind: AuthoringModal) => Promise<void>;
   layout: { topPct: number; editorPct: number; wavePct: number };
-  view: {
-    diagnostics: boolean;
-    translationOpen: boolean;
-    problemsOpen: boolean;
-    showScenes: boolean;
-    sceneControls:
-      | {
-          rescan: () => Promise<void>;
-          cancel: () => Promise<void>;
-          navigate: (backwards: boolean) => void;
-        }
-      | undefined;
-  };
+  view: WorkspaceView;
+  scenes: WorkspaceScenes;
 }
 
 export async function runViewAction(action: ViewAction, owners: Owners) {
@@ -53,6 +43,7 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
     workspaceModal,
     openAuthoring,
     view,
+    scenes,
   } = owners;
   if (action === 'plugins' || action === 'convertSubtitles') {
     gestures.cancelHeld();
@@ -60,19 +51,19 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
     return;
   }
   if (action === 'showScenes') {
-    view.showScenes = !view.showScenes;
+    scenes.showScenes = !scenes.showScenes;
     return;
   }
   if (action === 'scanScenes') {
-    await view.sceneControls?.rescan();
+    await scenes.sceneControls?.rescan();
     return;
   }
   if (action === 'cancelSceneScan') {
-    await view.sceneControls?.cancel();
+    await scenes.sceneControls?.cancel();
     return;
   }
   if (action === 'previousScene' || action === 'nextScene') {
-    view.sceneControls?.navigate(action === 'previousScene');
+    scenes.sceneControls?.navigate(action === 'previousScene');
     return;
   }
   gestures.cancelHeld();
@@ -88,8 +79,7 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
         await workspaceModal.open('settings');
         break;
       case 'translationReference':
-        view.translationOpen = !view.translationOpen;
-        if (view.translationOpen) view.problemsOpen = false;
+        view.toggleTranslation();
         break;
       case 'resetLayout':
         owners.layout.topPct = 32;
@@ -110,19 +100,6 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
   });
 }
 
-export function toggleProblems(view: WorkspaceView, navigation: CueNavigation) {
-  view.problemsOpen = !view.problemsOpen;
-  if (view.problemsOpen) view.translationOpen = false;
-  if (!view.problemsOpen) navigation.pendingProblem = null;
-}
-export function closeProblems(view: WorkspaceView, navigation: CueNavigation) {
-  view.problemsOpen = false;
-  navigation.pendingProblem = null;
-}
-export function toggleTranslation(view: WorkspaceView) {
-  view.translationOpen = !view.translationOpen;
-  if (view.translationOpen) view.problemsOpen = false;
-}
 export function setTimingMode(
   gestures: TimingGesture,
   navigation: CueNavigation,

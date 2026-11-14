@@ -12,8 +12,6 @@ export async function timelineCases(passed: (message: string) => void) {
     durationSeconds: 100,
     positionSeconds: 10,
   });
-  let following = $state(true);
-  let gesture = $state(false);
   let owner!: TimelineView;
   let resolve!: (view: WaveformView) => void;
   const destroy = $effect.root(() => {
@@ -21,9 +19,7 @@ export async function timelineCases(passed: (message: string) => void) {
       {
         status: () => status,
         mediaPath: () => '',
-        follow: () => following,
         preview: () => null,
-        gesture: () => gesture,
         pending: () => false,
         cues: () => [],
         gap: () => 0,
@@ -42,17 +38,17 @@ export async function timelineCases(passed: (message: string) => void) {
     status.positionSeconds = 99;
     flushSync();
     assert(owner.start === 80, 'Playback clamps at EOF');
-    gesture = true;
+    owner.interacting = true;
     status.positionSeconds = 2;
     flushSync();
     assert(owner.start === 80, 'Gesture suspends following');
-    gesture = false;
+    owner.interacting = false;
     flushSync();
     assert(owner.start === 0, 'Loop wrap follows back to the beginning');
     passed(
       'Timeline owner follows playback, clamps EOF and suspends during gestures',
     );
-    following = false;
+    owner.follow = false;
     flushSync();
     owner.zoom(100);
     assert(owner.span === 100 && owner.start === 0, 'Zoom out clamps to media');

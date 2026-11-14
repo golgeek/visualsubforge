@@ -63,7 +63,10 @@ renders feature content from the modal identity. The root still contains transpo
 subtitle-panel controls and decision dialog markup.
 CueNavigation coordinates selection, following, reveal and focus through narrow
 DOM callbacks. WorkspaceLifetime owns startup, native layout observation and teardown;
-WorkspaceView and WorkspaceLayout hold transient panel preferences and measured panes.
+WorkspaceView owns only panel toggles and their open/close rules. WorkspacePreferences
+owns saved defaults, effective timing and quality invalidation; WorkspaceScenes owns
+scene controls and projections. MediaSession owns the chosen path/hardware policy,
+and TimelineView owns playback following and waveform interaction state.
 
 ## Start reading the code
 
@@ -133,16 +136,34 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
 | Feature sessions | Dialog inputs, bounded review projections, request identities and cancellation/disposal. Rust owns proposals and acceptance. |
-| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. App supplies presentation/media callbacks; Workspace derives confirming; save/exit policy stays in file-workflow and ProjectWorkflow. |
+| `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. Decisions own typed display payloads; LegacyImportDecision also owns return focus. App supplies media callbacks; Workspace derives confirming; save/exit policy stays in UnsavedChanges and ProjectWorkflow. |
 | `HideVideo` | Shared hide-before-show, render-before-restore, remaining-occlusion, epoch and disposal lifecycle for modals, decisions and the cue menu. |
 | `CueMenu` | Captured cue/range context, menu replacement, command activity and menu focus lifetime. |
 | `Recovery` | Recovery listing, polling/response epochs, discard confirmation and recovery action activity. |
 | `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
 | `CueNavigation` | Selection/focus/reveal orchestration, pending problem navigation and cue-following effects; exposes activity without assigning the workspace gate. |
-| `WorkspaceView` / `WorkspaceLayout` | Transient view preferences, panel state, pane measurements and splitter constraints. |
+| `WorkspaceView` / `WorkspaceLayout` | Panel visibility/rules and measured pane sizes/splitter constraints, respectively. |
+| `WorkspacePreferences` | Saved defaults, effective project timing, metric visibility and quality-context invalidation, updated through initialization, acceptance and restore methods. |
+| `WorkspaceScenes` | Scene visibility, cuts, controls, status and restored-generation projection. |
+| `UnsavedChanges` | Subtitle save and the unsaved-changes guard; each caller supplies its project-save continuation. |
+| `TranslationReference` | Protected reference attach/copy/offset/detach actions and lifetime guards. |
 | `WorkspaceLifetime` | Startup requests/listener, native-layout observation and polling, and ordered unmount disposal. |
 | `App.svelte` | Owner construction, narrow DOM callbacks, short action dispatch and screen regions. |
+
+Decision payloads are published only after native video hides and are cleared before
+restoring remaining occlusion and settling the answer. LegacyImportDecision keeps
+publication/open continuation and return focus together; no external open-flag shim
+is needed. UnsavedChanges does not depend on ProjectWorkflow: callers explicitly
+supply the appropriate save continuation, including the project operation's own
+save context. TranslationSession clears hidden reference queries in its initialization
+scoped effect; TranslationReference handles user file operations and quality invalidation.
+
+Panel rules preserve existing distinctions: explicitly closing Problems cancels its
+pending navigation, toggling Translation only hides Problems, and Statistics can
+reveal Problems while retaining Translation visibility. Preference initialization,
+Settings acceptance and project timing restoration each update the related fields
+through one owner method; project timing never replaces saved defaults.
 
 WorkspaceModal, WorkspaceDecision and CueMenu delegate native-video transitions
 to HideVideo. Modal admission failures are reported and modal close restores focus;
@@ -169,7 +190,7 @@ access is limited to viewport reads, scrolling and focus callbacks. Its activity
 contributes to Workspace.busy; accepted state and undo remain in Rust. Effect-bearing
 owners and projection factories are created during component initialization.
 Named cue-editing, workspace-quality and workspace-menus modules derive the current
-projections; file-workflow and project-view retain save/restore policy and sequencing.
+projections; UnsavedChanges and project-view retain save/restore policy and sequencing.
 
 Session objects live for a component/workspace mount and are disposed explicitly.
 Accepted snapshots use replacement-only `$state.raw`; components do not mutate

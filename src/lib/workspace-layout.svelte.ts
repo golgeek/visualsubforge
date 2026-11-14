@@ -1,10 +1,10 @@
 import { clamp } from './timeline';
 import { paneLayout } from './pane-layout';
-import type { WorkspaceView } from './workspace-view.svelte';
+import type { WorkspacePreferences } from './workspace-preferences.svelte';
 import type { DocumentSession } from './document-session.svelte';
 export class WorkspaceLayout {
   constructor(
-    private view: WorkspaceView,
+    private preferences: WorkspacePreferences,
     private subtitles: DocumentSession,
   ) {}
   workspaceHeight = $state(600);
@@ -36,7 +36,7 @@ export class WorkspaceLayout {
       workspaceHeight: this.workspaceHeight,
       topPct: this.topPct,
       editorPct: this.editorPct,
-      showQualityMetrics: this.view.showQualityMetrics,
+      showQualityMetrics: this.preferences.showQualityMetrics,
       hasCue: !!this.subtitles.cue,
       editorBarHeight: this.editorBarHeight,
       editorFooterHeight: this.editorFooterHeight,

@@ -1,6 +1,10 @@
 <script lang="ts">
+  import { WorkspacePreferences } from './lib/workspace-preferences.svelte';
+  import { WorkspaceScenes } from './lib/workspace-scenes.svelte';
+  import { LegacyImportDecision } from './lib/legacy-import-decision.svelte';
+  import { UnsavedChanges } from './lib/unsaved-changes';
+  import { TranslationReference } from './lib/translation-reference';
   import { projectView } from './lib/project-view';
-  import { createFileWorkflow } from './lib/file-workflow.svelte';
   import { WorkspaceLifetime } from './lib/workspace-lifetime';
   import { createCueEditing } from './lib/cue-editing.svelte';
   import { createWorkspaceQuality } from './lib/workspace-quality.svelte';
@@ -16,20 +20,14 @@
   import PlaybackDiagnostics from './lib/PlaybackDiagnostics.svelte';
   import WorkspaceFooter from './lib/WorkspaceFooter.svelte';
   import WorkspaceToolbar from './lib/WorkspaceToolbar.svelte';
-  import { runFileAction } from './lib/file-actions';
+  import { runFileAction } from './lib/workspace-file-actions';
   import {
     runMediaAction,
     seekMedia,
     selectAudioTrack,
   } from './lib/media-actions';
   import { runCueAction, formatCueText } from './lib/cue-actions';
-  import {
-    runViewAction,
-    toggleProblems,
-    closeProblems,
-    toggleTranslation,
-    setTimingMode,
-  } from './lib/view-actions';
+  import { runViewAction, setTimingMode } from './lib/view-actions';
   import { workspaceKeydown, workspaceKeyup } from './lib/workspace-keys';
   import CueTable from './lib/CueTable.svelte';
   import CueEditor from './lib/CueEditor.svelte';
@@ -42,9 +40,7 @@
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import TranslationPanel from './lib/TranslationPanel.svelte';
   import { TranslationSession } from './lib/translation-session.svelte';
-  import LegacyImportDialog, {
-    type LegacyImportChoice,
-  } from './lib/LegacyImportDialog.svelte';
+  import LegacyImportDialog from './lib/LegacyImportDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { isTauri } from '@tauri-apps/api/core';
   import { DocumentSession } from './lib/document-session.svelte';
@@ -61,7 +57,10 @@
     decisionEffects,
   } from './lib/workspace-decision.svelte';
   import { onMount, tick } from 'svelte';
-  import { type WorkspaceAction } from './lib/client';
+  import {
+    type WorkspaceAction,
+    type ProjectReferenceIssue,
+  } from './lib/client';
   import { formatTime } from './lib/timeline';
 
   import CueContextMenu from './lib/CueContextMenu.svelte';
@@ -73,6 +72,8 @@
   import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
   const lifetime = new WorkspaceLifetime();
   const view = new WorkspaceView();
+  const preferences = new WorkspacePreferences();
+  const scenes = new WorkspaceScenes();
   const workspace: Workspace = new Workspace({
     activity: () =>
       workspaceModal.opening ||
@@ -90,7 +91,11 @@
     run: (action, event) => run(action, event),
   });
   const subtitles = new DocumentSession();
-  const translation = new TranslationSession(subtitles);
+  const translation = new TranslationSession(
+    subtitles,
+    undefined,
+    () => view.translationOpen,
+  );
 
   const quality = new QualitySession();
 
@@ -99,13 +104,11 @@
   });
   const timeline: TimelineView = new TimelineView({
     status: () => status,
-    mediaPath: () => view.mediaPath,
-    follow: () => view.follow,
+    mediaPath: () => media.path,
     preview: () => gestures.edit?.preview ?? null,
-    gesture: () => view.waveformGesture,
     pending: () => media.pending,
     cues: () => doc.cues,
-    gap: () => view.timingSettings.cueGapMs,
+    gap: () => preferences.timingSettings.cueGapMs,
     selectRange: (session, next) => media.loop.update(session, next),
   });
   const gestures: TimingGesture = new TimingGesture(
@@ -115,8 +118,8 @@
     workspace,
     {
       menu: () => cueMenu.context,
-      cuts: () => view.sceneCuts,
-      settings: () => view.timingSettings,
+      cuts: () => scenes.sceneCuts,
+      settings: () => preferences.timingSettings,
       operationContext: () => cueEditing.context,
       command: (action, plan) =>
         subtitles.command(action, plan ? { plan } : {}),
@@ -135,7 +138,7 @@
   const status = $derived(media.status);
   const doc = $derived(subtitles.snapshot);
   const recovery: Recovery = new Recovery(workspace, subtitles, {
-    protect: (...args) => files.protect(...args),
+    protect: () => unsaved.protect(() => projects.save(false)),
     suspendFollowing: () => navigation.suspendFollowing(),
   });
   let textEditor = $state<HTMLTextAreaElement>();
@@ -211,6 +214,9 @@
     quality,
     cueMenu,
     view,
+    preferences,
+    scenes,
+    timeline,
     {
       requestProblem: navigation.requestProblem,
       selectCue: navigation.selectCue,
@@ -226,7 +232,7 @@
   const draftDirty = $derived(subtitles.dirty);
 
   let video: HTMLDivElement;
-  const layout = new WorkspaceLayout(view, subtitles);
+  const layout = new WorkspaceLayout(preferences, subtitles);
   const cueEditing = createCueEditing(subtitles, media, timeline);
   let list = $state<HTMLDivElement>();
   const workspaceQuality = createWorkspaceQuality(
@@ -235,6 +241,8 @@
     media,
     quality,
     tableView,
+    preferences,
+    scenes,
     view,
   );
   let confirmation: HTMLDialogElement;
@@ -247,82 +255,48 @@
       () => confirmation.close(),
     ),
   );
-  const legacyDecision = new WorkspaceDecision<LegacyImportChoice | null>(
-    null,
+  const legacyDecision = new LegacyImportDecision(
     workspace,
-    decisionEffects(
-      media,
-      () => view.diagnostics,
-      () => {
-        view.legacyImportOpen = false;
-      },
-    ),
+    media,
+    () => view.diagnostics,
   );
-
-  const projectExitDecision = new WorkspaceDecision<ProjectExitChoice>(
+  const projectExitDecision = new WorkspaceDecision<ProjectExitChoice, string>(
     'cancel',
     workspace,
-    decisionEffects(
-      media,
-      () => view.diagnostics,
-      () => {
-        view.projectExitError = null;
-      },
-    ),
+    decisionEffects(media, () => view.diagnostics),
   );
-
   const projectReferenceDecision = new WorkspaceDecision<
-    'cancel' | 'choose' | 'reload'
+    'cancel' | 'choose' | 'reload',
+    ProjectReferenceIssue
   >(
     'cancel',
     workspace,
-    decisionEffects(
-      media,
-      () => view.diagnostics,
-      () => {
-        view.projectReferenceIssue = null;
-      },
-    ),
+    decisionEffects(media, () => view.diagnostics),
   );
-  const files = createFileWorkflow({
+  const unsaved = new UnsavedChanges(
     workspace,
     subtitles,
-    translation,
-    view,
-    legacyDecision,
     subtitleDecision,
-    projectExitDecision,
-    projectReferenceDecision,
-    get projects() {
-      return projects;
-    },
-    alive: () => lifetime.alive,
-    showConfirmation: () => confirmation.showModal(),
-  });
+    () => confirmation.showModal(),
+  );
   const projects: ProjectWorkflow = new ProjectWorkflow(subtitles, media, {
-    ...projectView(view, timeline, navigation),
-    protect: files.protect,
-    saveSubtitles: () => files.save(false),
-    saveFailed: files.projectSaveFailed,
-    referenceIssue: files.resolveProjectReference,
+    ...projectView(media, preferences, scenes, timeline, navigation),
+    protect: unsaved.protect,
+    saveSubtitles: () => unsaved.save(false),
+    saveFailed: (failure) => projectExitDecision.request(String(failure)),
+    referenceIssue: (issue) => projectReferenceDecision.request(issue),
     notify: (message) => {
       workspace.notice = message;
     },
   });
-  const legacyImport = {
-    get returnFocus() {
-      return view.legacyImportReturn;
-    },
-    set returnFocus(value) {
-      view.legacyImportReturn = value;
-    },
-    get open() {
-      return view.legacyImportOpen;
-    },
-    set open(value) {
-      view.legacyImportOpen = value;
-    },
-  };
+  const reference = new TranslationReference(
+    workspace,
+    subtitles,
+    translation,
+    unsaved,
+    preferences,
+    () => projects.save(false),
+  );
   const fileActions = {
     workspace,
     subtitles,
@@ -330,9 +304,8 @@
     gestures,
     tableView,
     legacyDecision,
-    protect: files.protect,
-    save: files.save,
-    legacyImport,
+    protect: () => unsaved.protect(() => projects.save(false)),
+    save: unsaved.save,
     resetScroll: () => {
       if (list) list.scrollTop = 0;
     },
@@ -343,7 +316,8 @@
     projects,
     gestures,
     timeline,
-    view,
+    preferences,
+    scenes,
   };
   const cueActions = {
     workspace,
@@ -364,10 +338,11 @@
     workspaceModal,
     openAuthoring: (kind: AuthoringModal) => dialogs.openAuthoring(kind),
     view,
+    scenes,
     layout,
   };
   async function run(action: WorkspaceAction, event?: Event) {
-    if (!workspace.canAct || cueMenu.context || view.waveformGesture) return;
+    if (!workspace.canAct || cueMenu.context || timeline.interacting) return;
     switch (action) {
       case 'closeSubtitles':
       case 'importLegacyProject':
@@ -418,6 +393,7 @@
     subtitles,
     media,
     view,
+    scenes,
     timeline,
     navigation,
     cueEditing,
@@ -439,7 +415,9 @@
         timeline,
         recovery,
         cueMenu,
-        view,
+        preferences,
+        unsaved,
+        reference,
         legacyDecision,
         subtitleDecision,
         projectExitDecision,
@@ -460,7 +438,7 @@
       return !!cueMenu.context;
     },
     get waveformGesture() {
-      return view.waveformGesture;
+      return timeline.interacting;
     },
     get problemsOpen() {
       return view.problemsOpen;
@@ -497,8 +475,8 @@
     {projects}
     {nativeMenus}
     diagnostics={view.diagnostics}
-    bind:showScenes={view.showScenes}
-    sceneState={view.sceneState}
+    bind:showScenes={scenes.showScenes}
+    sceneState={scenes.sceneState}
   />
   <RecoveryBanner {recovery} {workspace} />
 
@@ -515,19 +493,19 @@
         {subtitles}
         {media}
         {workspace}
-        preferences={view.preferences}
-        timingSettings={view.timingSettings}
-        restoredScenes={view.restoredScenes}
-        mediaPath={view.mediaPath}
-        bind:showScenes={view.showScenes}
-        bind:follow={view.follow}
-        bind:sceneCuts={view.sceneCuts}
-        bind:sceneControls={view.sceneControls}
+        preferences={preferences.preferences}
+        timingSettings={preferences.timingSettings}
+        restoredScenes={scenes.restoredScenes}
+        mediaPath={media.path}
+        bind:showScenes={scenes.showScenes}
+        bind:follow={timeline.follow}
+        bind:sceneCuts={scenes.sceneCuts}
+        bind:sceneControls={scenes.sceneControls}
         bind:waveHost
         onstate={(value) => {
-          view.sceneState = value;
+          scenes.sceneState = value;
         }}
-        ongesture={(active) => (view.waveformGesture = active)}
+        ongesture={(active) => (timeline.interacting = active)}
         actions={{
           seek: (time: number) => seekMedia(mediaActions, time),
           selectCue: navigation.selectCue,
@@ -542,8 +520,8 @@
       />
       <section class="video-panel" aria-label="Video preview">
         <div class="panelbar">
-          <strong>Video</strong><span class="filename" title={view.mediaPath}
-            >{view.mediaPath.split(/[\\/]/).pop()}</span
+          <strong>Video</strong><span class="filename" title={media.path}
+            >{media.path.split(/[\\/]/).pop()}</span
           >
         </div>
         <div
@@ -665,7 +643,10 @@
         >
         <button
           aria-expanded={view.problemsOpen}
-          onclick={() => toggleProblems(view, navigation)}
+          onclick={() =>
+            view.toggleProblems(() => {
+              navigation.pendingProblem = null;
+            })}
           >Problems{quality.view?.profileHash
             ? ` · ${quality.view.findingsCount}`
             : ''}</button
@@ -673,11 +654,14 @@
         <button
           disabled={!workspace.canAct}
           aria-expanded={view.translationOpen}
-          onclick={() => toggleTranslation(view)}
+          onclick={() => view.toggleTranslation()}
           >Translation reference{doc.translation?.dirty ? ' •' : ''}</button
         >
         <label
-          ><input type="checkbox" bind:checked={view.showQualityMetrics} /> Cue metrics</label
+          ><input
+            type="checkbox"
+            bind:checked={preferences.showQualityMetrics}
+          /> Cue metrics</label
         >
         <label
           title="Tap Space to play/pause. While playing, hold Space for at least 400 ms to create a cue and keep timing. Enter edits text; Escape returns to the waveform."
@@ -723,7 +707,7 @@
           {quality}
           {tableView}
           {workspace}
-          metrics={view.showQualityMetrics}
+          metrics={preferences.showQualityMetrics}
           bind:list
           actions={{
             suspendCueFollowing: navigation.suspendFollowing,
@@ -740,17 +724,18 @@
             onnavigate={navigation.requestProblem}
             onlanguage={(operation) => void dialogs.openText(operation)}
             onresolve={(choice) => void navigation.resolveProblem(choice)}
-            onclose={() => closeProblems(view, navigation)}
+            onclose={() =>
+              view.closeProblems(() => {
+                navigation.pendingProblem = null;
+              })}
           />{/if}
         {#if view.translationOpen}<TranslationPanel
             {subtitles}
             session={translation}
             disabled={!workspace.canAct}
-            onload={(copy) =>
-              void files.referenceOperation(copy ? 'copy' : 'attach')}
-            onoffset={(offset) =>
-              void files.referenceOperation('offset', offset)}
-            ondetach={() => void files.referenceOperation('detach')}
+            onload={(copy) => void reference.run(copy ? 'copy' : 'attach')}
+            onoffset={(offset) => void reference.run('offset', offset)}
+            ondetach={() => void reference.run('detach')}
             onclose={() => (view.translationOpen = false)}
           />{/if}
       </div>
@@ -765,7 +750,7 @@
       {media}
       {quality}
       {workspace}
-      metrics={view.showQualityMetrics}
+      metrics={preferences.showQualityMetrics}
       draftMetricError={workspaceQuality.draft.error}
       bind:textEditor
       bind:editorFocused={navigation.editorFocused}
@@ -811,7 +796,7 @@
     {media}
     {timeline}
     diagnostics={view.diagnostics}
-    bind:hardware={view.hardware}
+    bind:hardware={media.hardware}
   />
   <dialog
     bind:this={confirmation}
@@ -842,15 +827,15 @@
       >
     </div>
   </dialog>
-  {#if view.projectExitError !== null}
+  {#if projectExitDecision.payload !== null}
     <ProjectSaveFailureDialog
-      error={view.projectExitError}
+      error={projectExitDecision.payload}
       onchoose={(choice) => void projectExitDecision.answer(choice)}
     />
   {/if}
-  {#if view.projectReferenceIssue !== null}
+  {#if projectReferenceDecision.payload !== null}
     <ProjectReferenceDialog
-      issue={view.projectReferenceIssue}
+      issue={projectReferenceDecision.payload}
       onchoose={(choice) => void projectReferenceDecision.answer(choice)}
     />
   {/if}
@@ -858,16 +843,16 @@
     {dialogs}
     {subtitles}
     {media}
-    mediaPath={view.mediaPath}
-    qualityContext={view.qualityContext}
-    sceneState={view.sceneState}
-    preferences={view.preferences}
-    timingSettings={view.timingSettings}
+    mediaPath={media.path}
+    qualityContext={preferences.qualityContext}
+    sceneState={scenes.sceneState}
+    preferences={preferences.preferences}
+    timingSettings={preferences.timingSettings}
   />
-  {#if view.legacyImportOpen}
+  {#if legacyDecision.payload}
     <LegacyImportDialog
       canOpen={status.available}
-      onclose={(path, open) => void files.closeLegacyImport(path, open)}
+      onclose={(path, open) => void legacyDecision.finish(projects, path, open)}
     />
   {/if}
   {#if cueMenu.context && cueMenu.items.length}

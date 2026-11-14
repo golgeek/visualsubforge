@@ -1,3 +1,4 @@
+import { stateOwnerCases } from './state-owners.svelte';
 import { overlayCases } from './overlays';
 import { workspaceCases } from './workspace';
 import { decisionCases } from './decisions';
@@ -850,6 +851,7 @@ async function referenceQueryCases() {
 
 try {
   await workspaceCases(passed);
+  await stateOwnerCases(passed);
   await modalCases(passed);
   await overlayCases(passed);
   await decisionCases(passed);

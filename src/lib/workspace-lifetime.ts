@@ -12,7 +12,9 @@ import type { TimingGesture } from './timing-gesture.svelte';
 import type { TimelineView } from './timeline-view.svelte';
 import type { Recovery } from './recovery.svelte';
 import type { CueMenu } from './cue-menu.svelte';
-import type { WorkspaceView } from './workspace-view.svelte';
+import type { WorkspacePreferences } from './workspace-preferences.svelte';
+import type { UnsavedChanges } from './unsaved-changes';
+import type { TranslationReference } from './translation-reference';
 import { defaultPreferences, getPreferences, workspaceActions } from './client';
 interface Owners {
   workspace: Workspace;
@@ -29,7 +31,9 @@ interface Owners {
   timeline: TimelineView;
   recovery: Recovery;
   cueMenu: CueMenu;
-  view: WorkspaceView;
+  preferences: WorkspacePreferences;
+  unsaved: UnsavedChanges;
+  reference: TranslationReference;
   legacyDecision: { dispose(): void };
   subtitleDecision: { dispose(): void };
   projectExitDecision: { dispose(): void };
@@ -56,7 +60,9 @@ export class WorkspaceLifetime {
       timeline,
       recovery,
       cueMenu,
-      view,
+      preferences,
+      unsaved,
+      reference,
       legacyDecision,
       subtitleDecision,
       projectExitDecision,
@@ -74,9 +80,7 @@ export class WorkspaceLifetime {
     ])
       .then(([, saved]) => {
         if (this.alive) {
-          view.preferences = { ...saved, timing: { ...saved.timing } };
-          view.timingSettings = { ...saved.timing };
-          view.showQualityMetrics = saved.showQualityMetrics;
+          preferences.initialize(saved);
         }
       })
       .catch((e) => {
@@ -146,6 +150,8 @@ export class WorkspaceLifetime {
       dialogs.dispose();
       workspaceModal.dispose();
       projects.dispose();
+      unsaved.dispose();
+      reference.dispose();
       translation.dispose();
       subtitles.dispose();
       quality.dispose();

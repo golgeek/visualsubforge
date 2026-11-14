@@ -7,8 +7,11 @@ import {
 import { LiveLoop } from './live-loop';
 
 // The native engine owns playback. This owner publishes only current responses
-// and owns the polling/loop lifetimes; DOM geometry and gestures stay in App.
+// and owns the polling/loop lifetimes, chosen path and hardware preference.
+// Native layout and waveform gestures have their own workspace/timeline owners.
 export class MediaSession {
+  path = $state('');
+  hardware = $state(true);
   private value = $state.raw<MediaStatus>({ ...emptyStatus });
   private waiting = $state(false);
   private alive = true;

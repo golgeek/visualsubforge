@@ -1,6 +1,9 @@
 import { tick } from 'svelte';
 import type { Preferences, TextOperation, DocumentSnapshot } from './client';
-import type { TimingSettings } from './magnetic-timing';
+import type { WorkspaceView } from './workspace-view.svelte';
+import type { WorkspacePreferences } from './workspace-preferences.svelte';
+import type { WorkspaceScenes } from './workspace-scenes.svelte';
+import type { TimelineView } from './timeline-view.svelte';
 import type { SelectionMode } from './cue-selection';
 import type { Workspace } from './workspace.svelte';
 import type {
@@ -19,16 +22,6 @@ const timingLabels: Record<TimingKind, string> = {
   batch: 'Batch',
 };
 
-interface View {
-  preferences: Preferences;
-  timingSettings: TimingSettings;
-  showQualityMetrics: boolean;
-  qualityContext: number;
-  sceneState: { qualityKey: string };
-  mediaPath: string;
-  problemsOpen: boolean;
-  waveformGesture: boolean;
-}
 interface Effects {
   requestProblem: (id: string) => void;
   selectCue: (
@@ -54,7 +47,10 @@ export class WorkspaceDialogsState {
     private media: MediaSession,
     private quality: QualitySession,
     private cueMenu: CueMenu,
-    private view: View,
+    private view: WorkspaceView,
+    private preferences: WorkspacePreferences,
+    private scenes: WorkspaceScenes,
+    private timeline: TimelineView,
     private effects: Effects,
   ) {}
   dispose() {
@@ -64,10 +60,7 @@ export class WorkspaceDialogsState {
   async closeSettings(value?: Preferences) {
     if (!this.alive || this.modal.identity !== 'settings') return;
     if (value) {
-      this.view.preferences = { ...value, timing: { ...value.timing } };
-      this.view.timingSettings = { ...value.timing };
-      this.view.showQualityMetrics = value.showQualityMetrics;
-      ++this.view.qualityContext;
+      this.preferences.accept(value);
       this.workspace.notice = 'Settings saved';
     }
     await this.modal.close();
@@ -86,7 +79,7 @@ export class WorkspaceDialogsState {
       !this.workspace.canAct ||
       !this.subtitles.snapshot.loaded ||
       this.cueMenu.context ||
-      this.view.waveformGesture
+      this.timeline.interacting
     )
       return;
     this.workspace.error = '';
@@ -102,7 +95,7 @@ export class WorkspaceDialogsState {
           ? !this.subtitles.snapshot.loaded ||
             this.subtitles.snapshot.format?.name === 'vtt'
           : !this.subtitles.styled) ||
-      this.view.waveformGesture ||
+      this.timeline.interacting ||
       this.cueMenu.context
     )
       return;
@@ -127,15 +120,15 @@ export class WorkspaceDialogsState {
   }
   async closeStatistics(id?: string) {
     if (!this.alive || this.modal.identity !== 'statistics') return;
-    const version = `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}/${this.media.status.session}/${this.view.qualityContext}/${this.view.sceneState.qualityKey}`;
+    const version = `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}/${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`;
     await this.modal.close();
     if (
       this.alive &&
       id &&
       version ===
-        `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}/${this.media.status.session}/${this.view.qualityContext}/${this.view.sceneState.qualityKey}`
+        `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}/${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`
     ) {
-      this.view.problemsOpen = true;
+      this.view.revealProblems();
       this.effects.requestProblem(id);
     }
   }
@@ -144,7 +137,7 @@ export class WorkspaceDialogsState {
       !this.workspace.canAct ||
       !this.subtitles.snapshot.cues.length ||
       this.cueMenu.context ||
-      this.view.waveformGesture
+      this.timeline.interacting
     )
       return;
     this.workspace.error = '';
@@ -156,7 +149,7 @@ export class WorkspaceDialogsState {
       !this.workspace.canAct ||
       !this.subtitles.snapshot.cues.length ||
       this.cueMenu.context ||
-      this.view.waveformGesture
+      this.timeline.interacting
     )
       return;
     this.workspace.error = '';

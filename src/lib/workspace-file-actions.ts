@@ -3,8 +3,7 @@ import type { DocumentSession } from './document-session.svelte';
 import type { ProjectWorkflow } from './project-workflow.svelte';
 import type { TimingGesture } from './timing-gesture.svelte';
 import { chooseFile } from './client';
-import type { WorkspaceDecision } from './workspace-decision.svelte';
-import type { LegacyImportChoice } from './LegacyImportDialog.svelte';
+import type { LegacyImportDecision } from './legacy-import-decision.svelte';
 import type { CueTableView } from './cue-table-view.svelte';
 
 export type FileAction =
@@ -23,11 +22,10 @@ interface Owners {
   projects: ProjectWorkflow;
   gestures: TimingGesture;
   tableView: CueTableView;
-  legacyDecision: WorkspaceDecision<LegacyImportChoice | null>;
+  legacyDecision: LegacyImportDecision;
   protect: () => Promise<boolean>;
   save: (as: boolean) => Promise<boolean>;
   resetScroll: () => void;
-  legacyImport: { returnFocus: HTMLElement | null; open: boolean };
 }
 
 export async function runFileAction(action: FileAction, owners: Owners) {
@@ -41,7 +39,6 @@ export async function runFileAction(action: FileAction, owners: Owners) {
     protect,
     save,
     resetScroll,
-    legacyImport,
   } = owners;
   gestures.cancelHeld();
   workspace.notice = '';
@@ -51,13 +48,7 @@ export async function runFileAction(action: FileAction, owners: Owners) {
         await projects.open();
         break;
       case 'importLegacyProject':
-        legacyImport.returnFocus =
-          document.activeElement instanceof HTMLElement
-            ? document.activeElement
-            : null;
-        await legacyDecision.open(() => {
-          legacyImport.open = true;
-        });
+        await legacyDecision.openImport();
         break;
       case 'saveProject':
         await projects.save(false);
