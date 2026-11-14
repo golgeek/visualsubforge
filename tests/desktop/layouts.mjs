@@ -11,6 +11,7 @@ export async function workspaceLayouts({
 }) {
   const screenshots = [];
   const measurements = [];
+  const unavailableSizes = [];
   const media = await invoke('media_action', {
     action: { kind: 'status' },
     session: 0,
@@ -20,6 +21,18 @@ export async function workspaceLayouts({
     [1440, 900],
   ]) {
     await browser.setWindowSize(width, height);
+    const actualWindow = await browser.getWindowSize();
+    const clamped = actualWindow.height < height;
+    if (clamped) {
+      unavailableSizes.push({ requested: { width, height }, actualWindow });
+      console.warn(
+        `Host clamps requested ${width}x${height} window to ${actualWindow.width}x${actualWindow.height}; larger-size acceptance remains unverified on this host.`,
+      );
+    }
+    // Verify the size the host actually supplied. A small hosted display can
+    // clamp macOS windows; the receipt must not claim a 900 px desktop trial.
+    // Full-size acceptance also runs locally and in exact-size browser cases.
+    const requiredRows = !clamped && height === 900 ? 14 : 8;
     for (const [id, action] of [
       ['timing', 'layoutTiming'],
       ['editorAbove', 'layoutEditorAbove'],
@@ -75,6 +88,10 @@ export async function workspaceLayouts({
         };
       });
       assert.ok(
+        bounds.height >= 656,
+        'Host cannot supply the minimum tested client area',
+      );
+      assert.ok(
         bounds.video.x >= 0 &&
           bounds.video.right <= bounds.width &&
           bounds.video.bottom <= bounds.transport.y + 1,
@@ -95,19 +112,26 @@ export async function workspaceLayouts({
       );
       if (id === 'timing')
         assert.ok(
-          bounds.list.height >= (height === 720 ? 8 : 14) * 32,
+          bounds.list.height >= requiredRows * 32,
           'Timing row capacity: ' + JSON.stringify(bounds),
         );
       const filename = `layout-${id}-${width}x${height}.png`;
       await browser.saveScreenshot(join(evidence, filename));
       screenshots.push(filename);
-      measurements.push({ preset: id, window: { width, height }, ...bounds });
+      measurements.push({
+        preset: id,
+        requestedWindow: { width, height },
+        actualWindow,
+        requiredRows: id === 'timing' ? requiredRows : null,
+        ...bounds,
+      });
     }
   }
   await chooseCommand(browser, 'layoutTiming');
   await browser.setWindowSize(1100, 720);
   await record({
-    step: 'five workspace presets at both desktop sizes',
+    step: 'five workspace presets at requested desktop sizes',
+    unavailableSizes,
     screenshots,
     measurements,
     nativePlaybackAvailable: media.available,
