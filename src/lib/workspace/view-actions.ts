@@ -17,6 +17,7 @@ export type ViewAction =
   | 'timingSettings'
   | 'translationReference'
   | 'resetLayout'
+  | 'arrangePanels'
   | 'diagnostics'
   | 'plugins'
   | 'convertSubtitles'
@@ -84,6 +85,14 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
         break;
       case 'translationReference':
         view.toggleTranslation();
+        break;
+      case 'arrangePanels':
+        if (
+          media.status.loaded &&
+          !(await media.command({ kind: 'pause', paused: true }))
+        )
+          break;
+        if (!workspace.disposed) await workspaceModal.open('arrange');
         break;
       case 'resetLayout':
         await owners.layout.reset();

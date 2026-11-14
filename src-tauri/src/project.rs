@@ -71,6 +71,8 @@ pub fn identify(path: &Path) -> Result<MediaIdentity> {
 #[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Options {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<crate::preferences::layout::LayoutPreferences>,
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub waveform_start: f64,
@@ -108,8 +110,14 @@ impl Project {
         if let Some(profile) = &self.options.quality {
             crate::quality_profile::Policy::new(profile.clone(), self.options.timing.clone())?;
         }
-        if !matches!(self.version, 1 | 2) {
+        if !matches!(self.version, 1..=3) {
             return Err("Unsupported VSF project version".into());
+        }
+        if let Some(layout) = &self.options.layout {
+            if self.version < 3 {
+                return Err("Project layouts require version 3".into());
+            }
+            layout.validate()?;
         }
         if self.media_path.is_some() != self.media_identity.is_some()
             || (self.version == 1 && (self.media_path.is_none() || self.translation.is_some()))
@@ -370,7 +378,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         .transpose()?
         .flatten();
     let mut project = Project {
-        version: if media.is_some() { 1 } else { 2 },
+        version: 3,
         media_path: media.as_ref().map(|media| portable(base, media)),
         subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
         subtitle_format: None,
@@ -404,9 +412,6 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                     translation.protect(&destination)?;
                     translation.verify_project_reference()?;
                     project.translation = translation.project_description(base)?;
-                    if project.translation.is_some() {
-                        project.version = 2;
-                    }
                     app.state::<Projects>()
                         .save(&destination, request.token, &project)
                 })
@@ -468,6 +473,7 @@ mod tests {
             translation: None,
             position_seconds: 12.5,
             options: Options {
+                layout: None,
                 waveform_start: 10.,
                 waveform_span: 20.,
                 follow_playback: false,
@@ -478,6 +484,36 @@ mod tests {
             },
             scenes: None,
         }
+    }
+    #[test]
+    fn layout_requires_v3_and_old_projects_are_not_rewritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("layout.vsfproject");
+        let mut project = fixture(dir.path());
+        write(&path, &project).unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(read(&path).unwrap().options.layout.is_none());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        project.options.layout = Some(Default::default());
+        assert!(project.validate().unwrap_err().contains("version 3"));
+        project.version = 3;
+        write(&path, &project).unwrap();
+        assert_eq!(read(&path).unwrap().options.layout, project.options.layout);
+        project.options.layout.as_mut().unwrap().custom =
+            Some(crate::preferences::layout::arrangement::Arrangement {
+                version: 2,
+                rows: vec![],
+            });
+        assert!(write(&path, &project).is_err());
+        assert!(
+            read(&path)
+                .unwrap()
+                .options
+                .layout
+                .unwrap()
+                .custom
+                .is_none()
+        );
     }
     #[test]
     fn project_retains_ass_ssa_webvtt_identity_and_rejects_conflicts() {
@@ -553,7 +589,7 @@ mod tests {
         let mut project = fixture(dir.path());
         let path = dir.path().join("test.vsfproject");
         let write = |p: &Project| fs::write(&path, serde_json::to_vec(p).unwrap()).unwrap();
-        project.version = 3;
+        project.version = 4;
         write(&project);
         assert!(read(&path).err().unwrap().contains("version"));
         project.version = 1;

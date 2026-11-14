@@ -605,7 +605,7 @@ export async function exportTimingPreset(
 }
 
 export const defaultPreferences: Preferences = {
-  version: 4,
+  version: 5,
   shortcuts: shortcutPreset('current'),
   layout: defaultLayout(),
   autoScanScenes: true,

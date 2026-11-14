@@ -3,8 +3,10 @@ import type { WorkspaceScenes } from '../timeline/workspace-scenes.svelte';
 import type { MediaSession } from '../media/media-session.svelte';
 import type { TimelineView } from '../timeline/timeline-view.svelte';
 import type { CueNavigation } from '../cues/cue-navigation.svelte';
+import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
 import type { ProjectOptions } from '../client';
 interface Owners {
+  layout?: WorkspaceLayout;
   media: MediaSession;
   preferences: WorkspacePreferences;
   scenes: WorkspaceScenes;
@@ -17,11 +19,13 @@ export function readProjectView({
   scenes,
   timeline,
   navigation,
+  layout,
 }: Owners) {
   return {
     mediaPath: media.path,
     hardware: media.hardware,
     options: {
+      layout: layout?.projectSnapshot ?? null,
       waveformStart: timeline.start,
       waveformSpan: timeline.span,
       followPlayback: timeline.follow,
@@ -45,10 +49,13 @@ export function projectMediaOpened(
   // Rust resets timing on media replacement; project attachment restores it later.
   preferences.resetTiming();
 }
-export function restoreProjectOptions(
-  { preferences, scenes, timeline, navigation }: Owners,
+export async function restoreProjectOptions(
+  { preferences, scenes, timeline, navigation, layout }: Owners,
   options: ProjectOptions,
+  check: () => void = () => {},
 ) {
+  await layout?.restoreProject(options.layout, check);
+  check();
   timeline.follow = options.followPlayback;
   navigation.following = options.followSubtitle ? 'following' : 'off';
   scenes.showScenes = options.showScenes;

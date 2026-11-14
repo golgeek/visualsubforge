@@ -10,6 +10,7 @@ export type WorkspaceModalIdentity =
   | 'shortcuts'
   | 'actionMenu'
   | 'layout'
+  | 'arrange'
   | 'columns'
   | 'cueIssues'
   | 'text';

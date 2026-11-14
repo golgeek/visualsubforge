@@ -524,7 +524,20 @@ single typed client, without quality-context invalidation or accepted edits.
 The transport strip contains playback, range, timing, shots, snapping and compact
 cue operations. Tool launchers use Commands/palette; following and metric controls
 share the cue header. Snap changes the effective editing aid; saved profile defaults
-remain under Settings. Per-project layout is not implemented.
+remain under Settings. `ArrangePanels` edits the bounded row schema through `WorkspaceLayout`; seven
+slot wrappers remain mounted while CSS changes placement. Review includes the
+existing Statistics tab. Hiding Video retains its zero-size backdrop placeholder.
+The modal owns pause/hide presentation; nested geometry changes preserve its
+occlusion. A hidden tool receives a slot, falling back to its standard preset if
+minimum dimensions cannot fit. Saved layouts may scroll on smaller windows.
+
+The layout owner separates user defaults from project scope. Project restore
+awaits the complete layout transition and checks the operation before applying
+queued geometry and before publishing readiness. Explicit project layout save
+uses `ProjectWorkflow.saveView`, the existing atomic/token-guarded save path,
+without saving subtitle bytes. Removing an override restores user defaults and
+requires an explicit project save to persist the removal. No accepted document
+state or Undo history moves into layout ownership.
 
 
 ## Cue columns and list filters

@@ -28,8 +28,12 @@ export interface ProjectWorkspace {
   read(): { mediaPath: string; hardware: boolean; options: ProjectOptions };
   beginRestore(): void;
   mediaOpened(mediaPath: string): void;
-  restoreOptions(options: ProjectOptions): void;
+  restoreOptions(
+    options: ProjectOptions,
+    check?: () => void,
+  ): void | Promise<void>;
   restoreScenes(session: number, generation: number): void;
+  detachLayout?(check: () => void): Promise<void>;
   protect(saveContext: () => Promise<boolean>): Promise<boolean>;
   referenceIssue?(
     issue: ProjectReferenceIssue,
@@ -71,10 +75,15 @@ export class ProjectWorkflow {
       throw new Error('Media changed during project operation');
   }
   async detach() {
-    ++this.operation;
+    const operation = ++this.operation;
     const attached = this.attachment !== null;
     this.attachment = null;
-    if (this.alive && attached) await this.client.detachProject();
+    if (this.alive && attached) {
+      await this.client.detachProject();
+      this.check(operation);
+      await this.workspace.detachLayout?.(() => this.check(operation));
+      this.check(operation);
+    }
   }
   async open() {
     const operation = ++this.operation;
@@ -201,8 +210,11 @@ export class ProjectWorkflow {
     this.check(operation, session);
     if (!(await this.document.command({ kind: 'status' }))) return;
     this.check(operation, session);
+    await this.workspace.restoreOptions(project.options, () =>
+      this.check(operation, session),
+    );
+    this.check(operation, session);
     this.attachment = attached;
-    this.workspace.restoreOptions(project.options);
     this.workspace.notify(
       !project.mediaPath
         ? 'Subtitle project restored'
@@ -210,6 +222,10 @@ export class ProjectWorkflow {
           ? 'Project restored · playback paused · keyframe markers skipped; run a visual scan'
           : 'Project restored · playback paused',
     );
+  }
+  async saveView() {
+    if (!this.path) throw new Error('Save a project before saving its layout.');
+    return this.saveAt(++this.operation, false, false);
   }
   async save(as: boolean) {
     return this.saveAt(++this.operation, as, true);

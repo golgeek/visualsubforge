@@ -50,6 +50,7 @@ pub enum WorkspaceAction {
     PlayRange,
     ClearLoop,
     ResetLayout,
+    ArrangePanels,
     Diagnostics,
     Quit,
 }
@@ -152,6 +153,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                 .build(app)?,
         )
         .separator()
+        .item(&item("arrangePanels")?)
         .item(&item("resetLayout")?)
         .item(
             &CheckMenuItemBuilder::with_id("diagnostics", &description("diagnostics")?.label)
@@ -488,6 +490,7 @@ pub(crate) fn ipc_sample() -> serde_json::Value {
         "playRange",
         "clearLoop",
         "resetLayout",
+        "arrangePanels",
         "diagnostics",
         "quit"
     ]);

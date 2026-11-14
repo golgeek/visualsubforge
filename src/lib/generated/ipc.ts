@@ -963,6 +963,11 @@ export type vsf_application_quality_statistics_Aggregate = {
   mean: number | null;
 };
 
+export type visualsubforge_preferences_layout_arrangement_Arrangement = {
+  version: number;
+  rows: visualsubforge_preferences_layout_arrangement_Row[];
+};
+
 export type visualsubforge_project_store_Attachment =
   | visualsubforge_project_store_Attachment_Serialize
   | visualsubforge_project_store_Attachment_Deserialize;
@@ -1596,6 +1601,7 @@ export type visualsubforge_preferences_layout_LayoutPreferences =
   | visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
 
 export type visualsubforge_preferences_layout_LayoutPreferences_Deserialize = {
+  custom?: visualsubforge_preferences_layout_arrangement_Arrangement | null;
   active: visualsubforge_preferences_layout_Preset;
   timing: visualsubforge_preferences_layout_PaneSizes_Deserialize;
   editorAbove: visualsubforge_preferences_layout_PaneSizes_Deserialize;
@@ -1605,6 +1611,7 @@ export type visualsubforge_preferences_layout_LayoutPreferences_Deserialize = {
 };
 
 export type visualsubforge_preferences_layout_LayoutPreferences_Serialize = {
+  custom?: visualsubforge_preferences_layout_arrangement_Arrangement | null;
   active: visualsubforge_preferences_layout_Preset;
   timing: visualsubforge_preferences_layout_PaneSizes_Serialize;
   editorAbove: visualsubforge_preferences_layout_PaneSizes_Serialize;
@@ -1802,6 +1809,7 @@ export type visualsubforge_project_Options =
   | visualsubforge_project_Options_Deserialize;
 
 export type visualsubforge_project_Options_Deserialize = {
+  layout?: visualsubforge_preferences_layout_LayoutPreferences_Deserialize | null;
   waveformStart: number;
   waveformSpan: number;
   followPlayback: boolean;
@@ -1812,6 +1820,7 @@ export type visualsubforge_project_Options_Deserialize = {
 };
 
 export type visualsubforge_project_Options_Serialize = {
+  layout?: visualsubforge_preferences_layout_LayoutPreferences_Serialize | null;
   waveformStart: number;
   waveformSpan: number;
   followPlayback: boolean;
@@ -1845,6 +1854,15 @@ export type visualsubforge_preferences_layout_PaneSizes_Serialize = {
   editorPct: number;
   wavePct: number;
 };
+
+export type visualsubforge_preferences_layout_arrangement_Panel =
+  | 'waveform'
+  | 'video'
+  | 'transport'
+  | 'cues'
+  | 'editor'
+  | 'review'
+  | 'translation';
 
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
@@ -2196,6 +2214,12 @@ export type visualsubforge_plugin_review_Row = {
   after: visualsubforge_plugin_review_Content;
   outsideScope: boolean;
   warning: string | null;
+};
+
+export type visualsubforge_preferences_layout_arrangement_Row = {
+  panels: visualsubforge_preferences_layout_arrangement_Panel[];
+  weight: number;
+  split: number;
 };
 
 export type visualsubforge_text_review_Row = {
@@ -2996,6 +3020,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'playRange'
   | 'clearLoop'
   | 'resetLayout'
+  | 'arrangePanels'
   | 'diagnostics'
   | 'quit';
 

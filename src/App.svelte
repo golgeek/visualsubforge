@@ -53,6 +53,7 @@
   import WaveformPanel from './lib/timeline/WaveformPanel.svelte';
   import { CueTableView } from './lib/cues/cue-table-view.svelte';
   import { Workspace } from './lib/workspace/workspace.svelte';
+  import ArrangePanels from './lib/layout/ArrangePanels.svelte';
   import { WorkspaceLayout } from './lib/layout/workspace-layout.svelte';
   import ReviewDock from './lib/workspace/ReviewDock.svelte';
   import type { TimingPreview } from './lib/timing/review-preview';
@@ -338,6 +339,9 @@
   );
 
   const projectViewOwners = {
+    get layout() {
+      return layout;
+    },
     media,
     preferences,
     scenes,
@@ -350,8 +354,9 @@
       read: () => readProjectView(projectViewOwners),
       beginRestore: () => beginProjectRestore(projectViewOwners),
       mediaOpened: (path) => projectMediaOpened(projectViewOwners, path),
-      restoreOptions: (options) =>
-        restoreProjectOptions(projectViewOwners, options),
+      restoreOptions: (options, check) =>
+        restoreProjectOptions(projectViewOwners, options, check),
+      detachLayout: (check) => layout.restoreProject(null, check),
       restoreScenes: (session, generation) =>
         scenes.restore(session, generation),
       protect: unsaved.protect,
@@ -439,13 +444,23 @@
         view.diagnostics ||
         tooltips.active ||
         workspace.confirming ||
-        cueMenu.active,
+        cueMenu.active ||
+        workspaceModal.active,
       afterRender: async () => {
         await tick();
         await videoLayout.flush();
       },
       error: (error) => {
         workspace.error = String(error);
+      },
+      visiblePanels: () => ({
+        review: view.problemsOpen,
+        translation: view.translationOpen,
+      }),
+      arranged: (panels) => {
+        view.problemsOpen = panels.includes('review');
+        view.translationOpen = panels.includes('translation');
+        if (!view.problemsOpen) navigation.pendingProblem = null;
       },
       preset: (preset) => {
         view.problemsOpen = preset === 'review';
@@ -456,6 +471,14 @@
   );
   $effect(() => {
     if (workspace.ready) layout.initialize(preferences.preferences.layout);
+  });
+
+  $effect(() => {
+    if (workspace.ready && !layout.active && layout.custom) {
+      void layout
+        .synchronizeDocks(view.problemsOpen, view.translationOpen)
+        .catch(() => {});
+    }
   });
 
   // Action wiring and native platform lifetimes.
@@ -550,6 +573,7 @@
       case 'nextScene':
       case 'plugins':
       case 'previousScene':
+      case 'arrangePanels':
       case 'resetLayout':
       case 'resync':
       case 'scanScenes':
@@ -666,6 +690,8 @@
 </script>
 
 <svelte:window
+  bind:innerWidth={layout.workspaceWidth}
+  bind:innerHeight={layout.viewportHeight}
   onblur={() => gestures.cancelHeld()}
   onkeyup={(event) => workspaceKeyup(event, gestures)}
   onfocusin={navigation.focusEntered}
@@ -697,6 +723,16 @@
 
   <div
     class="workspace"
+    class:custom={!!layout.custom}
+    style:--custom-rows={layout.geometry.rows
+      .map((value) => `${value}px`)
+      .join(' ')}
+    style:min-width={layout.custom
+      ? `${layout.geometry.width + 16}px`
+      : undefined}
+    style:min-height={layout.custom
+      ? `${layout.geometry.height + 16}px`
+      : undefined}
     class:editor-above={layout.preset === 'editorAbove'}
     data-preset={layout.preset}
     bind:clientHeight={layout.workspaceHeight}
@@ -705,166 +741,206 @@
     style:--transport-height={`${layout.panes.transportPixels}px`}
   >
     <div class="top" style:--wave-width={`${layout.wavePct}%`}>
-      <WaveformPanel
-        ghosts={reviewGhosts}
-        issues={quality.issues}
-        qualityTiming={quality.view?.profile.timing ??
-          preferences.timingSettings}
-        {timeline}
-        {gestures}
-        {subtitles}
-        {media}
-        {workspace}
-        preferences={preferences.preferences}
-        timingSettings={preferences.timingSettings}
-        restoredScenes={scenes.restoredScenes}
-        mediaPath={media.path}
-        bind:showScenes={scenes.showScenes}
-        bind:follow={timeline.follow}
-        bind:sceneCuts={scenes.sceneCuts}
-        bind:sceneControls={scenes.sceneControls}
-        bind:waveHost
-        onstate={(value) => {
-          scenes.sceneState = value;
-        }}
-        ongesture={(active) => (timeline.interacting = active)}
-        actions={{
-          seek: (time: number) => seekMedia(mediaActions, time),
-          selectCue: navigation.selectCue,
-          openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
-        }}
-      />
+      <div
+        class="slot slot-waveform"
+        class:concealed={!!layout.custom &&
+          !layout.custom.rows.some((row) => row.panels.includes('waveform'))}
+        style={layout.panelStyle('waveform')}
+        inert={!!layout.custom &&
+          !layout.custom.rows.some((row) => row.panels.includes('waveform'))}
+      >
+        <WaveformPanel
+          ghosts={reviewGhosts}
+          issues={quality.issues}
+          qualityTiming={quality.view?.profile.timing ??
+            preferences.timingSettings}
+          {timeline}
+          {gestures}
+          {subtitles}
+          {media}
+          {workspace}
+          preferences={preferences.preferences}
+          timingSettings={preferences.timingSettings}
+          restoredScenes={scenes.restoredScenes}
+          mediaPath={media.path}
+          bind:showScenes={scenes.showScenes}
+          bind:follow={timeline.follow}
+          bind:sceneCuts={scenes.sceneCuts}
+          bind:sceneControls={scenes.sceneControls}
+          bind:waveHost
+          onstate={(value) => {
+            scenes.sceneState = value;
+          }}
+          ongesture={(active) => (timeline.interacting = active)}
+          actions={{
+            seek: (time: number) => seekMedia(mediaActions, time),
+            selectCue: navigation.selectCue,
+            openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
+          }}
+        />
+      </div>
       <Splitter
         label="Resize waveform and video"
         vertical
         value={layout.wavePct}
         onchange={(v) => layout.resizeWaveform(v)}
       />
-      <VideoPreview
-        {media}
-        bind:video
-        {timeline}
-        cues={subtitles.snapshot.cues}
-        selected={subtitles.selected}
-        cuts={scenes.sceneCuts}
-        disabled={workspace.busy ||
-          workspace.confirming ||
-          media.pending ||
-          !workspace.ready}
-        previousCut={scenes.sceneState.previous}
-        nextCut={scenes.sceneState.next}
-        oncut={(backwards) => scenes.sceneControls?.navigate(backwards)}
-        onseek={(seconds) => void seekMedia(mediaActions, seconds)}
-      />
+      <div
+        class="slot slot-video"
+        class:concealed={!!layout.custom &&
+          !layout.custom.rows.some((row) => row.panels.includes('video'))}
+        style={layout.panelStyle('video')}
+        inert={!!layout.custom &&
+          !layout.custom.rows.some((row) => row.panels.includes('video'))}
+      >
+        <VideoPreview
+          {media}
+          bind:video
+          {timeline}
+          cues={subtitles.snapshot.cues}
+          selected={subtitles.selected}
+          cuts={scenes.sceneCuts}
+          disabled={workspace.busy ||
+            workspace.confirming ||
+            media.pending ||
+            !workspace.ready}
+          previousCut={scenes.sceneState.previous}
+          nextCut={scenes.sceneState.next}
+          oncut={(backwards) => scenes.sceneControls?.navigate(backwards)}
+          onseek={(seconds) => void seekMedia(mediaActions, seconds)}
+        />
+      </div>
     </div>
     <Splitter
       label="Resize preview and subtitle list"
       value={(layout.panes.topPixels / layout.panes.paneHeight) * 100}
       onchange={(v) => layout.resizePreview(v)}
     />
-    <TransportBar
-      {workspace}
-      {media}
-      {timeline}
-      {layout}
-      {mediaActions}
-      {gestures}
-      {navigation}
-      {cueEditing}
-      {preferences}
-      {scenes}
-    />
+    <div
+      class="slot slot-transport"
+      class:concealed={!!layout.custom &&
+        !layout.custom.rows.some((row) => row.panels.includes('transport'))}
+      style={layout.panelStyle('transport')}
+      inert={!!layout.custom &&
+        !layout.custom.rows.some((row) => row.panels.includes('transport'))}
+    >
+      <TransportBar
+        {workspace}
+        {media}
+        {timeline}
+        {layout}
+        {mediaActions}
+        {gestures}
+        {navigation}
+        {cueEditing}
+        {preferences}
+        {scenes}
+      />
+    </div>
     <section class="subtitle-panel panel" aria-label="Subtitle table">
       <div
         class="subtitle-review"
         class:with-problems={view.problemsOpen || view.translationOpen}
       >
-        <CueTable
-          ghosts={reviewGhosts}
-          {subtitles}
-          {quality}
-          {tableView}
-          {workspace}
-          {layout}
-          bind:list
-          actions={{
-            listScrolled: navigation.listScrolled,
-            columns: () => void workspaceModal.open('columns'),
-            openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
-            selectCue: navigation.selectCue,
-            cueSelectionKey: (event, id) => {
-              workspaceKeydown(event, keys);
-              if (!event.defaultPrevented)
-                navigation.cueSelectionKey(event, id);
-            },
-            focusText: navigation.focusText,
-          }}
-        >
-          {#snippet controls()}
-            <SubtitleToolbar
-              {workspace}
-              {subtitles}
-              {preferences}
-              {navigation}
-            />
-          {/snippet}
-        </CueTable>
-        {#if view.problemsOpen}<ReviewDock
-            {view}
+        <div class="slot slot-cues" style={layout.panelStyle('cues')}>
+          <CueTable
+            ghosts={reviewGhosts}
             {subtitles}
+            {quality}
             {tableView}
-            playhead={() =>
-              media.status.loaded &&
-              media.status.paused &&
-              !media.status.seeking &&
-              media.status.positionSeconds !== null
-                ? Math.round(media.status.positionSeconds * 1000)
-                : null}
-            mediaSession={() => media.status.session}
-            context={() =>
-              `${preferences.qualityContext}/${scenes.sceneState.qualityKey}`}
-            previewIds={reviewPreviewIds}
-            enabled={() =>
-              (workspace.canAct || view.reviewBusy) &&
-              !workspaceModal.active &&
-              !timeline.interacting}
-            onpreview={(value) => (timingPreview = value)}
-            onaccepted={() => {
-              workspace.notice =
-                'Timings accepted. Undo restores the whole change.';
-              quality.restart();
-            }}
-            onclose={() =>
-              view.closeProblems(() => (navigation.pendingProblem = null))}
-            onnavigate={(id) => {
-              view.revealProblems();
-              navigation.requestProblem(id);
+            {workspace}
+            {layout}
+            bind:list
+            actions={{
+              listScrolled: navigation.listScrolled,
+              columns: () => void workspaceModal.open('columns'),
+              openCueMenu: (x, y, id, inRange) =>
+                cueMenu.open(x, y, id, inRange),
+              selectCue: navigation.selectCue,
+              cueSelectionKey: (event, id) => {
+                workspaceKeydown(event, keys);
+                if (!event.defaultPrevented)
+                  navigation.cueSelectionKey(event, id);
+              },
+              focusText: navigation.focusText,
             }}
           >
-            {#snippet issues()}
-              <ProblemsPanel
-                session={quality}
-                disabled={workspace.busy || workspace.confirming}
-                pending={navigation.pendingProblem !== null}
-                onnavigate={navigation.requestProblem}
-                onlanguage={(operation) => void dialogs.openText(operation)}
-                onresolve={(choice) => void navigation.resolveProblem(choice)}
-                onclose={() =>
-                  view.closeProblems(() => {
-                    navigation.pendingProblem = null;
-                  })}
+            {#snippet controls()}
+              <SubtitleToolbar
+                {workspace}
+                {subtitles}
+                {preferences}
+                {navigation}
               />
             {/snippet}
-          </ReviewDock>{/if}
-        {#if view.translationOpen}<TranslationPanel
-            {subtitles}
-            session={translation}
-            disabled={!workspace.canAct}
-            onload={(copy) => void reference.run(copy ? 'copy' : 'attach')}
-            onoffset={(offset) => void reference.run('offset', offset)}
-            ondetach={() => void reference.run('detach')}
-            onclose={() => (view.translationOpen = false)}
-          />{/if}
+          </CueTable>
+        </div>
+        {#if view.problemsOpen}<div
+            class="slot slot-review"
+            style={layout.panelStyle('review')}
+          >
+            <ReviewDock
+              {view}
+              {subtitles}
+              {tableView}
+              playhead={() =>
+                media.status.loaded &&
+                media.status.paused &&
+                !media.status.seeking &&
+                media.status.positionSeconds !== null
+                  ? Math.round(media.status.positionSeconds * 1000)
+                  : null}
+              mediaSession={() => media.status.session}
+              context={() =>
+                `${preferences.qualityContext}/${scenes.sceneState.qualityKey}`}
+              previewIds={reviewPreviewIds}
+              enabled={() =>
+                (workspace.canAct || view.reviewBusy) &&
+                !workspaceModal.active &&
+                !timeline.interacting}
+              onpreview={(value) => (timingPreview = value)}
+              onaccepted={() => {
+                workspace.notice =
+                  'Timings accepted. Undo restores the whole change.';
+                quality.restart();
+              }}
+              onclose={() =>
+                view.closeProblems(() => (navigation.pendingProblem = null))}
+              onnavigate={(id) => {
+                view.revealProblems();
+                navigation.requestProblem(id);
+              }}
+            >
+              {#snippet issues()}
+                <ProblemsPanel
+                  session={quality}
+                  disabled={workspace.busy || workspace.confirming}
+                  pending={navigation.pendingProblem !== null}
+                  onnavigate={navigation.requestProblem}
+                  onlanguage={(operation) => void dialogs.openText(operation)}
+                  onresolve={(choice) => void navigation.resolveProblem(choice)}
+                  onclose={() =>
+                    view.closeProblems(() => {
+                      navigation.pendingProblem = null;
+                    })}
+                />
+              {/snippet}
+            </ReviewDock>
+          </div>{/if}
+        {#if view.translationOpen}<div
+            class="slot slot-translation"
+            style={layout.panelStyle('translation')}
+          >
+            <TranslationPanel
+              {subtitles}
+              session={translation}
+              disabled={!workspace.canAct}
+              onload={(copy) => void reference.run(copy ? 'copy' : 'attach')}
+              onoffset={(offset) => void reference.run('offset', offset)}
+              ondetach={() => void reference.run('detach')}
+              onclose={() => (view.translationOpen = false)}
+            />
+          </div>{/if}
       </div>
     </section>
     <Splitter
@@ -875,64 +951,73 @@
       onchange={(v) =>
         layout.resizeEditor(layout.preset === 'editorAbove' ? 100 - v : v)}
     />
-    <CueEditor
-      shortcuts={preferences.preferences.shortcuts}
-      editing={cueEditing}
-      fixes={cueFixes}
-      editorAbove={layout.preset === 'editorAbove'}
-      onmove={() =>
-        void layout.select(
-          layout.preset === 'editorAbove' ? 'timing' : 'editorAbove',
-        )}
-      {subtitles}
-      {media}
-      {quality}
-      {workspace}
-      metrics={preferences.showQualityMetrics}
-      draftMetricError={workspaceQuality.draft.error}
-      bind:textEditor
-      bind:editorFocused={navigation.editorFocused}
-      onmeasure={(part, height) => layout.measureEditor(part, height)}
-      actions={{
-        suspendCueFollowing: navigation.suspendFollowing,
-        showIssues: () => void workspaceModal.open('cueIssues'),
-        reviewIssue: (rule) => {
-          if (
-            [
-              'rs_high',
-              'rs_low',
-              'cps_high',
-              'cps_low',
-              'duration_short',
-              'duration_long',
-              'speed_unavailable',
-            ].includes(rule)
-          )
-            void dialogs.openTimingReview('duration');
-          else if (rule === 'gap' || rule === 'overlap')
-            void dialogs.openTimingReview('gap');
-          else if (rule === 'scene_start' || rule === 'scene_end')
-            void dialogs.openTimingReview('scene');
-          else if (rule === 'line_count' || rule === 'line_length')
-            void dialogs.openText({ kind: 'reflow' });
-          else {
-            quality.rule = rule;
-            view.problemsOpen = true;
-          }
-        },
-        openAuthoring: (kind: AuthoringModal) => dialogs.openAuthoring(kind),
-        formatText: (style) =>
-          formatCueText(
-            {
-              workspace,
-              subtitles,
-              alive: () => !workspace.disposed,
-              editor: () => textEditor,
-            },
-            style,
-          ),
-      }}
-    />
+    <div
+      class="slot slot-editor"
+      class:concealed={!!layout.custom &&
+        !layout.custom.rows.some((row) => row.panels.includes('editor'))}
+      style={layout.panelStyle('editor')}
+      inert={!!layout.custom &&
+        !layout.custom.rows.some((row) => row.panels.includes('editor'))}
+    >
+      <CueEditor
+        shortcuts={preferences.preferences.shortcuts}
+        editing={cueEditing}
+        fixes={cueFixes}
+        editorAbove={layout.preset === 'editorAbove'}
+        onmove={() =>
+          void layout.select(
+            layout.preset === 'editorAbove' ? 'timing' : 'editorAbove',
+          )}
+        {subtitles}
+        {media}
+        {quality}
+        {workspace}
+        metrics={preferences.showQualityMetrics}
+        draftMetricError={workspaceQuality.draft.error}
+        bind:textEditor
+        bind:editorFocused={navigation.editorFocused}
+        onmeasure={(part, height) => layout.measureEditor(part, height)}
+        actions={{
+          suspendCueFollowing: navigation.suspendFollowing,
+          showIssues: () => void workspaceModal.open('cueIssues'),
+          reviewIssue: (rule) => {
+            if (
+              [
+                'rs_high',
+                'rs_low',
+                'cps_high',
+                'cps_low',
+                'duration_short',
+                'duration_long',
+                'speed_unavailable',
+              ].includes(rule)
+            )
+              void dialogs.openTimingReview('duration');
+            else if (rule === 'gap' || rule === 'overlap')
+              void dialogs.openTimingReview('gap');
+            else if (rule === 'scene_start' || rule === 'scene_end')
+              void dialogs.openTimingReview('scene');
+            else if (rule === 'line_count' || rule === 'line_length')
+              void dialogs.openText({ kind: 'reflow' });
+            else {
+              quality.rule = rule;
+              view.problemsOpen = true;
+            }
+          },
+          openAuthoring: (kind: AuthoringModal) => dialogs.openAuthoring(kind),
+          formatText: (style) =>
+            formatCueText(
+              {
+                workspace,
+                subtitles,
+                alive: () => !workspace.disposed,
+                editor: () => textEditor,
+              },
+              style,
+            ),
+        }}
+      />
+    </div>
   </div>
   <FontDiagnostics {media} />
   <TooltipLayer owner={tooltips} />
@@ -949,6 +1034,17 @@
       styled={subtitles.styled}
       onclose={() => workspaceModal.close()}
     />{/if}
+  {#if workspaceModal.identity === 'arrange'}
+    <ArrangePanels
+      {layout}
+      projectPath={projects.path}
+      onsave={() => projects.saveView()}
+      onclose={async () => {
+        await videoLayout.flush();
+        await workspaceModal.close();
+      }}
+    />
+  {/if}
   {#if workspaceModal.identity === 'layout'}
     <LayoutPicker
       active={layout.preset}
@@ -1044,10 +1140,10 @@
       var(--top-height) 6px var(--transport-height) var(--editor-height)
       6px minmax(var(--table-min-height), 1fr);
   }
-  .workspace > :global(.transport) {
+  .workspace :global(.transport) {
     grid-area: transport;
   }
-  .workspace > :global(.editor) {
+  .workspace :global(.editor) {
     grid-area: editor;
   }
   .workspace > :global([aria-label='Resize preview and subtitle list']) {
@@ -1135,5 +1231,52 @@
     .top > :global(.splitter) {
       display: none;
     }
+  }
+
+  .slot {
+    display: contents;
+  }
+  .workspace.custom {
+    grid-template-columns: repeat(100, minmax(0, 1fr));
+    grid-template-rows: var(--custom-rows);
+    grid-template-areas: none;
+    row-gap: 6px;
+    position: relative;
+  }
+  .custom .top,
+  .custom .subtitle-panel,
+  .custom .subtitle-review {
+    display: contents;
+  }
+  .custom :global(.splitter) {
+    display: none;
+  }
+  .custom .slot {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .custom .slot:not(.slot-video) {
+    background: var(--surface-panel);
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+  }
+  .custom .slot > :global(*) {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    width: auto;
+  }
+  .custom
+    .slot.slot-video.concealed
+    :global(.video-panel > :not(.video-space)) {
+    display: none;
+  }
+  .custom .slot.slot-video.concealed :global(.video-space) {
+    position: absolute;
+    width: 0;
+    height: 0;
   }
 </style>
