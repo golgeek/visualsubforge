@@ -436,26 +436,47 @@ export async function resyncCancel(id: number): Promise<void> {
 export function resyncAccept(id: number): Promise<DocumentSnapshot> {
   return commands.resyncAccept(id);
 }
+export type ReviewSelection = NonNullable<
+  Parameters<typeof commands.gapStart>[3]
+>;
 export function gapStart(
   session: number,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  selection: ReviewSelection | null = null,
 ) {
-  return commands.gapStart(session, document.generation, document.revision);
+  return commands.gapStart(
+    session,
+    document.generation,
+    document.revision,
+    selection,
+  );
 }
 export function durationRepairStart(
   session: number,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
   selectedCueId: string | null,
+  selection: ReviewSelection | null = null,
 ) {
   return commands.durationRepairStart(
     session,
     document.generation,
     document.revision,
     selectedCueId,
+    selection,
   );
 }
-export function durationRepairView(id: number, offset = 0, limit = 100) {
-  return commands.durationRepairView(id, offset, limit);
+export function durationRepairView(
+  id: number,
+  offset = 0,
+  limit = 100,
+  previewIds: readonly number[] | null = null,
+) {
+  return commands.durationRepairView(
+    id,
+    offset,
+    limit,
+    previewIds ? [...previewIds] : null,
+  );
 }
 export async function durationRepairCancel(id: number): Promise<void> {
   await commands.durationRepairCancel(id);
@@ -466,15 +487,27 @@ export function durationRepairAccept(id: number): Promise<DocumentSnapshot> {
 export function sceneRepairStart(
   session: number,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  selection: ReviewSelection | null = null,
 ) {
   return commands.sceneRepairStart(
     session,
     document.generation,
     document.revision,
+    selection,
   );
 }
-export function sceneRepairView(id: number, offset = 0, limit = 100) {
-  return commands.sceneRepairView(id, offset, limit);
+export function sceneRepairView(
+  id: number,
+  offset = 0,
+  limit = 100,
+  previewIds: readonly number[] | null = null,
+) {
+  return commands.sceneRepairView(
+    id,
+    offset,
+    limit,
+    previewIds ? [...previewIds] : null,
+  );
 }
 export async function sceneRepairCancel(id: number): Promise<void> {
   await commands.sceneRepairCancel(id);
@@ -482,8 +515,18 @@ export async function sceneRepairCancel(id: number): Promise<void> {
 export function sceneRepairAccept(id: number): Promise<DocumentSnapshot> {
   return commands.sceneRepairAccept(id);
 }
-export function gapView(id: number, offset = 0, limit = 100) {
-  return commands.gapView(id, offset, limit);
+export function gapView(
+  id: number,
+  offset = 0,
+  limit = 100,
+  previewIds: readonly number[] | null = null,
+) {
+  return commands.gapView(
+    id,
+    offset,
+    limit,
+    previewIds ? [...previewIds] : null,
+  );
 }
 export async function gapCancel(id: number): Promise<void> {
   await commands.gapCancel(id);
@@ -621,16 +664,28 @@ export function batchTimingStart(
   session: number,
   document: DocumentSnapshot,
   request: BatchTimingRequest,
+  selection: ReviewSelection | null = null,
 ) {
   return commands.batchTimingStart(
     session,
     document.generation,
     document.revision,
     request,
+    selection,
   );
 }
-export function batchTimingView(id: number, offset = 0, limit = 100) {
-  return commands.batchTimingView(id, offset, limit);
+export function batchTimingView(
+  id: number,
+  offset = 0,
+  limit = 100,
+  previewIds: readonly number[] | null = null,
+) {
+  return commands.batchTimingView(
+    id,
+    offset,
+    limit,
+    previewIds ? [...previewIds] : null,
+  );
 }
 export async function batchTimingCancel(id: number): Promise<void> {
   await commands.batchTimingCancel(id);

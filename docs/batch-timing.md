@@ -21,12 +21,13 @@ Selection is not saved in subtitle files or recovery history.
 
 ## Shift / align cues
 
-Choose **Shift / align cues…** above the cue list. Shifts accept signed integer
-milliseconds: positive moves later, negative earlier. Scope choices are selected
-cues, all cues, current cue and following **file rows**, or cues whose **start**
-is at/after the captured playhead. File order and chronological order can differ.
+Choose **Shift / align cues…** from Commands to open the Review dock’s Shift tab.
+Options update a read-only preview automatically. Shifts accept signed integer
+milliseconds: positive moves later, negative earlier. Scope choices follow list selection, the filtered list, all cues, the current
+cue and following **file rows**, or cues whose **start** is at/after a captured paused
+playhead. **Capture scope playhead** updates that temporal scope explicitly. File order and chronological order can differ.
 
-Alignment moves the earliest selected start to a captured, paused and settled
+Alignment moves the earliest scoped start to a captured, paused and settled
 playhead. It preserves every selected cue's relative offset. The playhead is
 captured in milliseconds and rounded to the nearest source-format tick, with
 ties later; review shows the resulting target and offset. SRT retains 1 ms and
@@ -35,7 +36,9 @@ The captured target stays fixed if playback later moves. Replacing media require
 a fresh proposal.
 
 Review shows exact before/after endpoints in pages of 100 rows. Acceptance applies
-all displayed pages as one history operation. Empty/unknown/duplicate selection,
+the checked subset across all pages as one history operation. Dashed waveform
+ghosts and list deltas display at most 200 visible cue IDs; the full proposal
+stays in Rust. Empty/unknown/duplicate selection,
 zero change, negative time, overflow or unrepresentable endpoints reject the
 whole proposal. Saving remains separate and existing failed-save/Save As guards
 apply. No timing is silently clamped. Intentional new overlaps or gaps are allowed
@@ -49,7 +52,7 @@ Duration-changing resynchronization is a separate milestone with its own policy.
 ## Ownership walkthrough
 
 `DocumentSession` owns only the accepted projection, immutable selection sets and
-unapplied draft. `BatchTimingDialog` captures its inputs and uses the existing
+unapplied draft. The dock’s `ReviewTiming` captures its inputs and uses the existing
 `TimingRepairSession` cancellation/late-result guards. Request comparison uses
 values, so recomputing a derived object does not invalidate an unchanged proposal.
 

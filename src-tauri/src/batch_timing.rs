@@ -69,6 +69,7 @@ impl BatchRequest {
 pub(crate) struct BatchRow {
     pub cue_id: String,
     pub cue_index: u32,
+    pub selected: bool,
     pub old_start_ms: SafeU64,
     pub old_end_ms: SafeU64,
     pub new_start_ms: SafeU64,
@@ -82,6 +83,7 @@ pub(crate) struct BatchView {
     pub session: SafeU64,
     pub phase: Phase,
     pub error: Option<String>,
+    pub selection_error: Option<String>,
     pub total: u32,
     pub changed: u32,
     pub offset: u32,
@@ -97,8 +99,10 @@ pub(crate) async fn batch_timing_start(
     generation: SafeU64,
     revision: SafeU64,
     request: BatchRequest,
+    selection: Option<crate::review_selection::Selection>,
 ) -> Result<SafeU64, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let selection = selection.map(|s| s.domain()).transpose()?;
         let request = request.domain()?;
         app.state::<crate::media::Media>()
             .with_context(session.get(), |path| {
@@ -107,7 +111,13 @@ pub(crate) async fn batch_timing_start(
                     .capture_quality(session.get(), path.is_some())?;
                 Ok(app
                     .state::<Documents>()
-                    .batch_timing_start(generation.get(), revision.get(), scenes, request)?
+                    .batch_timing_start_selected(
+                        generation.get(),
+                        revision.get(),
+                        scenes,
+                        request,
+                        selection,
+                    )?
                     .try_into()?)
             })
     })
@@ -121,10 +131,12 @@ pub(crate) async fn batch_timing_view(
     id: SafeU64,
     offset: u32,
     limit: u32,
+    preview_ids: Option<Vec<SafeU64>>,
 ) -> Result<BatchView, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let preview_ids = crate::review_selection::preview_ids(preview_ids)?;
         with_current(&app, id.get(), Purpose::Batch, |d| {
-            d.batch_timing_view(id.get(), offset, limit)
+            d.batch_timing_view_for_cues(id.get(), offset, limit, preview_ids.as_ref())
         })
     })
     .await

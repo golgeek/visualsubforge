@@ -9,6 +9,7 @@ import {
   type DocumentAction,
   type MediaAction,
   type BatchTimingRequest,
+  type ReviewSelection,
   type BatchTimingView,
 } from '../../../src/lib/client';
 import { batchTimingView as sample } from '../ipc-contract-samples';
@@ -103,16 +104,13 @@ async function clickCue(id: number, modifiers: MouseEventInit = {}) {
 async function open() {
   await until(() => !button('Commands').disabled);
   await chooseCommand(host, 'shiftCues');
-  await until(() => !!host.querySelector('dialog[open]'));
+  await until(() => !!host.querySelector('[aria-label="Live timing review"]'));
+}
+function applyButton() {
+  return host.querySelector<HTMLButtonElement>('.timing-review .apply')!;
 }
 async function preview() {
-  const label = () =>
-    host.querySelector('dialog[open]')?.textContent?.includes('Preview again')
-      ? 'Preview again'
-      : 'Preview changes';
-  await until(() => !button(label()).disabled);
-  button(label()).click();
-  await until(() => !button('Apply changes').disabled);
+  await until(() => !!applyButton() && !applyButton().disabled);
 }
 
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
@@ -133,6 +131,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         offset?: number;
         limit?: number;
         request?: BatchTimingRequest;
+        selection?: ReviewSelection;
+        previewIds?: number[];
       },
     ) => {
       switch (command) {
@@ -194,6 +194,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                 : null,
             rows: cues.map((c) => ({
               cueId: String(c.id),
+              selected: !args.selection?.excluded.includes(c.id),
               cueIndex: c.id - 1,
               oldStartMs: c.startMs,
               oldEndMs: c.endMs,
@@ -201,6 +202,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               newEndMs: c.endMs + delta,
             })),
           };
+          view.changed = view.rows.filter((row) => row.selected).length;
           return holdStart
             ? new Promise<number>((r) => {
                 releaseStart = r;
@@ -211,13 +213,20 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return {
             ...structuredClone(view),
             offset: args.offset ?? 0,
-            rows: view.rows.slice(
-              args.offset ?? 0,
-              (args.offset ?? 0) + (args.limit ?? 100),
-            ),
+            rows: view.rows
+              .filter(
+                (row) =>
+                  !args.previewIds ||
+                  args.previewIds.includes(Number(row.cueId)),
+              )
+              .slice(
+                args.offset ?? 0,
+                (args.offset ?? 0) + (args.limit ?? 100),
+              ),
           };
         case 'batch_timing_cancel':
           cancelled.push(args.id!);
+          if (view.id === args.id) view = { ...view, phase: 'cancelled' };
           return;
         case 'batch_timing_accept': {
           if (failAccept) throw new Error('Subtitles changed; preview again');
@@ -230,7 +239,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             canUndo: true,
             canRedo: false,
             cues: doc.cues.map((c) => {
-              const r = view.rows.find((r) => r.cueId === String(c.id));
+              const r = view.rows.find(
+                (r) => r.selected && r.cueId === String(c.id),
+              );
               return r ? { ...c, startMs: r.newStartMs, endMs: r.newEndMs } : c;
             }),
           };
@@ -330,8 +341,17 @@ async function run() {
       'Failed draft application changed selection',
     );
     await open();
-    assert(button('Preview changes').disabled, 'Draft did not protect preview');
-    button('Discard cue draft').click();
+    assert(
+      applyButton().disabled && starts === 0,
+      'Draft did not protect preview',
+    );
+    const editor = field('Subtitle text');
+    editor.focus();
+    editor.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    await until(() => field('Subtitle text').value !== 'unapplied');
+    input('Review scope', 'selected');
     failEdit = false;
     await preview();
     assert(
@@ -339,28 +359,19 @@ async function run() {
       'Selection not captured in proposal',
     );
     assert(
-      host.querySelectorAll('dialog[open] tbody tr').length === 6 && !doc.dirty,
+      host.querySelectorAll('.change').length === 6 && !doc.dirty,
       'Preview changed document or missing review',
     );
-    input('Batch offset milliseconds', '200');
+    input('Shift offset in milliseconds', '200');
     await tick();
-    assert(
-      button('Apply changes').disabled,
-      'Changed offset retained acceptance',
-    );
-    await until(
-      () =>
-        host
-          .querySelector('dialog[open]')
-          ?.textContent?.includes('preview again') ?? false,
-    );
+    assert(applyButton().disabled, 'Changed offset retained acceptance');
     await preview();
     failAccept = true;
-    button('Apply changes').click();
+    applyButton().click();
     await until(
       () =>
         host
-          .querySelector('dialog[open] [role="alert"]')
+          .querySelector('.timing-review [role="alert"]')
           ?.textContent?.includes('Subtitles changed') ?? false,
     );
     assert(
@@ -368,8 +379,12 @@ async function run() {
       'Rejected acceptance mutated state',
     );
     failAccept = false;
-    button('Apply changes').click();
-    await until(() => !host.querySelector('dialog[open]'));
+    button('Retry preview').click();
+    await preview();
+    applyButton().click();
+    await until(() => accepts === 1);
+    await until(() => !button('Close').disabled);
+    button('Close').click();
     assert(
       doc.cues[0]!.startMs === 1200 && accepts === 1 && selected().length === 6,
       'Batch not reconciled with selection',
@@ -388,12 +403,33 @@ async function run() {
     await clickCue(2);
     await clickCue(4, { ctrlKey: true });
     await open();
-    input('Batch scope', 'following');
+    input('Review scope', 'following');
     await preview();
     assert(
-      request?.scope.kind === 'following' && request.scope.cueId === 4,
+      request?.scope.kind === 'selected' &&
+        request.scope.cueIds.join(',') === '4,5,6',
       'Following scope not based on current cue',
     );
+    input('Review scope', 'playhead');
+    await preview();
+    assert(
+      request?.scope.kind === 'selected' &&
+        request.scope.cueIds.join(',') === '4,5,6',
+      'Temporal scope did not capture paused playhead',
+    );
+    const capturedScope = JSON.stringify(request?.scope);
+    positionSeconds = 5.015;
+    await until(
+      () =>
+        host.querySelector('.transport output')?.textContent?.trim() ===
+        '00:00:05,015',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert(
+      JSON.stringify(request?.scope) === capturedScope,
+      'Captured temporal scope chased later playback',
+    );
+    input('Review scope', 'selected');
     input('Batch operation', 'align');
     positionSeconds = 5.015;
     await until(
@@ -403,11 +439,7 @@ async function run() {
     );
     button('Capture paused playhead').click();
     await tick();
-    assert(
-      button('Apply changes').disabled,
-      'Changed operation retained acceptance',
-    );
-    await until(() => cancelled.includes(starts));
+    assert(applyButton().disabled, 'Changed operation retained acceptance');
     await preview();
     assert(
       request?.change.kind === 'align' &&
@@ -416,20 +448,18 @@ async function run() {
         request.scope.cueIds.length === 2,
       'Alignment lost captured playhead or disjoint selection',
     );
-    button('Cancel').click();
-    await until(() => !host.querySelector('dialog[open]'));
+    button('Close').click();
+    await until(() => !host.querySelector('[aria-label="Review panel"]'));
     passed(
       'Following rows and playhead alignment capture explicit scope and displayed target',
     );
 
-    await open();
     holdStart = true;
-    button('Preview changes').click();
+    await open();
     await until(() => releaseStart !== null);
-    button('Cancel').click();
-    await until(() => !host.querySelector('dialog[open]'));
+    button('Close').click();
+    await until(() => !host.querySelector('[aria-label="Review panel"]'));
     releaseStart!(starts);
-    await until(() => cancelled.includes(starts));
     assert(accepts === 1, 'Closed dialog accepted a late start');
     passed('Closing during delayed admission cancels the late proposal');
     heading.textContent = `PASS: all ${output.children.length} batch timing checks`;

@@ -54,6 +54,8 @@
   import { CueTableView } from './lib/cues/cue-table-view.svelte';
   import { Workspace } from './lib/workspace/workspace.svelte';
   import { WorkspaceLayout } from './lib/layout/workspace-layout.svelte';
+  import ReviewDock from './lib/workspace/ReviewDock.svelte';
+  import type { TimingPreview } from './lib/timing/review-preview';
   import ProblemsPanel from './lib/quality/ProblemsPanel.svelte';
   import TranslationPanel from './lib/translation/TranslationPanel.svelte';
   import { TranslationSession } from './lib/translation/translation-session.svelte';
@@ -316,12 +318,10 @@
       workspace,
       workspaceModal,
       subtitles,
-      media,
       quality,
       cueMenu,
       view,
       preferences,
-      scenes,
       timeline,
       {
         requestProblem: navigation.requestProblem,
@@ -391,12 +391,27 @@
     scenes,
   );
 
+  let timingPreview = $state.raw<TimingPreview | null>(null);
+  const reviewGhosts = $derived(
+    timingPreview?.document === subtitles.snapshot &&
+      !subtitles.dirty &&
+      view.problemsOpen &&
+      ['timing', 'shift'].includes(view.reviewTab)
+      ? timingPreview.ghosts
+      : [],
+  );
+  const reviewPreviewIds = () => [
+    ...new Set(
+      [...tableView.visibleCues, ...timeline.waveCues].map((cue) => cue.id),
+    ),
+  ];
   const cueFixes = disposeWithComponent(
     new CueFixes(() => {
       const issues = quality.view?.selectedIssues;
       if (
         !workspace.ready ||
         workspaceModal.active ||
+        (view.problemsOpen && ['timing', 'shift'].includes(view.reviewTab)) ||
         workspace.confirming ||
         subtitles.dirty ||
         !subtitles.stateConfirmed ||
@@ -619,6 +634,7 @@
   workspace.connect({
     activity: () =>
       layout.active ||
+      view.reviewBusy ||
       workspaceModal.opening ||
       gestures.active ||
       cueMenu.active ||
@@ -684,6 +700,7 @@
   >
     <div class="top" style:--wave-width={`${layout.wavePct}%`}>
       <WaveformPanel
+        ghosts={reviewGhosts}
         {timeline}
         {gestures}
         {subtitles}
@@ -739,6 +756,7 @@
         class:with-problems={view.problemsOpen || view.translationOpen}
       >
         <CueTable
+          ghosts={reviewGhosts}
           {subtitles}
           {quality}
           {tableView}
@@ -763,18 +781,53 @@
             />
           {/snippet}
         </CueTable>
-        {#if view.problemsOpen}<ProblemsPanel
-            session={quality}
-            disabled={workspace.busy || workspace.confirming}
-            pending={navigation.pendingProblem !== null}
-            onnavigate={navigation.requestProblem}
-            onlanguage={(operation) => void dialogs.openText(operation)}
-            onresolve={(choice) => void navigation.resolveProblem(choice)}
+        {#if view.problemsOpen}<ReviewDock
+            {view}
+            {subtitles}
+            {tableView}
+            playhead={() =>
+              media.status.loaded &&
+              media.status.paused &&
+              !media.status.seeking &&
+              media.status.positionSeconds !== null
+                ? Math.round(media.status.positionSeconds * 1000)
+                : null}
+            mediaSession={() => media.status.session}
+            context={() =>
+              `${preferences.qualityContext}/${scenes.sceneState.qualityKey}`}
+            previewIds={reviewPreviewIds}
+            enabled={() =>
+              (workspace.canAct || view.reviewBusy) &&
+              !workspaceModal.active &&
+              !timeline.interacting}
+            onpreview={(value) => (timingPreview = value)}
+            onaccepted={() => {
+              workspace.notice =
+                'Timings accepted. Undo restores the whole change.';
+              quality.restart();
+            }}
             onclose={() =>
-              view.closeProblems(() => {
-                navigation.pendingProblem = null;
-              })}
-          />{/if}
+              view.closeProblems(() => (navigation.pendingProblem = null))}
+            onnavigate={(id) => {
+              view.revealProblems();
+              navigation.requestProblem(id);
+            }}
+          >
+            {#snippet issues()}
+              <ProblemsPanel
+                session={quality}
+                disabled={workspace.busy || workspace.confirming}
+                pending={navigation.pendingProblem !== null}
+                onnavigate={navigation.requestProblem}
+                onlanguage={(operation) => void dialogs.openText(operation)}
+                onresolve={(choice) => void navigation.resolveProblem(choice)}
+                onclose={() =>
+                  view.closeProblems(() => {
+                    navigation.pendingProblem = null;
+                  })}
+              />
+            {/snippet}
+          </ReviewDock>{/if}
         {#if view.translationOpen}<TranslationPanel
             {subtitles}
             session={translation}

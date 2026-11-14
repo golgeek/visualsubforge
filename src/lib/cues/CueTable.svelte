@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { timingDelta, type TimingGhost } from '../timing/review-preview';
   import { onMount, type Snippet } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { QualitySession } from '../quality/quality-session.svelte';
@@ -19,6 +20,7 @@
   import type { SelectionMode } from './cue-selection';
   import type { CueTableView } from './cue-table-view.svelte';
   let {
+    ghosts = [],
     subtitles,
     quality,
     tableView,
@@ -28,6 +30,7 @@
     actions,
     controls,
   }: {
+    ghosts?: TimingGhost[];
     subtitles: DocumentSession;
     quality: QualitySession;
     tableView: CueTableView;
@@ -49,6 +52,9 @@
       focusText: () => Promise<void>;
     };
   } = $props();
+  const deltas = $derived(
+    new Map(ghosts.map((ghost) => [ghost.id, timingDelta(ghost)])),
+  );
   const doc = $derived(subtitles.snapshot);
   const columns = $derived(tableView.visibleColumns);
   const minimumWidth = $derived(
@@ -342,7 +348,16 @@
                   >
                 {:else}<span
                     class:cue-text={column.id === 'text'}
-                    data-cell={column.id}>{cell(row, column.id, metric)}</span
+                    data-cell={column.id}
+                    >{cell(
+                      row,
+                      column.id,
+                      metric,
+                    )}{#if column.id === 'text' && deltas.has(row.cue.id)}<small
+                        class="timing-delta"
+                        data-preview-cue={row.cue.id}
+                        >{deltas.get(row.cue.id)}</small
+                      >{/if}</span
                   >{/if}
               {/each}
             </button>
@@ -353,6 +368,13 @@
 </div>
 
 <style>
+  .timing-delta {
+    margin-left: 8px;
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    padding: 0 3px;
+    font-size: 10px;
+  }
   .cue-table {
     container-type: inline-size;
     container-name: cue-table;

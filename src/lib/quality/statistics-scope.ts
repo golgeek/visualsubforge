@@ -1,34 +1,25 @@
-import type { StatisticsSelection } from '../client';
-export function statisticsScope(
-  scope: 'document' | 'range',
-  first: string,
-  last: string,
-  excluded: string,
+import type { Cue, StatisticsSelection } from '../client';
+/** Translate accepted stable IDs to the existing Rust statistics position contract.
+ * Whole-document evaluation still happens in Rust before this display scope. */
+export function statisticsSelection(
+  cues: readonly Pick<Cue, 'id'>[],
+  ids: readonly number[] | null,
 ): { selection: StatisticsSelection | null; error: string } {
-  const integer = (s: string) =>
-    /^\d+$/.test(s) &&
-    Number.isSafeInteger(Number(s)) &&
-    Number(s) > 0 &&
-    Number(s) <= 100000;
-  if (scope === 'range' && (!integer(first) || !integer(last)))
+  if (ids === null)
+    return { selection: { range: null, excluded: [] }, error: '' };
+  const known = new Set(cues.map((cue) => cue.id));
+  if (ids.some((id) => !known.has(id)))
     return {
       selection: null,
-      error:
-        'Enter whole cue numbers from 1 to 100000 for both range endpoints.',
+      error: 'List scope changed; select current cues again.',
     };
-  const numbers = excluded.trim()
-    ? excluded.split(',').map((s) => s.trim())
-    : [];
-  if (numbers.length > 100000 || numbers.some((s) => !integer(s)))
-    return {
-      selection: null,
-      error: 'Enter excluded cue numbers separated by commas.',
-    };
+  const selected = new Set(ids);
   return {
     selection: {
-      range:
-        scope === 'range' ? { first: Number(first), last: Number(last) } : null,
-      excluded: numbers.map(Number),
+      range: null,
+      excluded: cues.flatMap((cue, index) =>
+        selected.has(cue.id) ? [] : [index + 1],
+      ),
     },
     error: '',
   };

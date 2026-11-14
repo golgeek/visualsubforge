@@ -152,13 +152,32 @@ export const commands = {
       'plugin_accept',
       { id, input },
     ),
-  gapStart: (session: number, generation: number, revision: number) =>
-    __TAURI_INVOKE<number>('gap_start', { session, generation, revision }),
-  gapView: (id: number, offset: number, limit: number) =>
+  gapStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    selection: {
+      scope: number[] | null;
+      excluded: number[];
+    } | null,
+  ) =>
+    __TAURI_INVOKE<number>('gap_start', {
+      session,
+      generation,
+      revision,
+      selection,
+    }),
+  gapView: (
+    id: number,
+    offset: number,
+    limit: number,
+    previewIds: number[] | null,
+  ) =>
     __TAURI_INVOKE<visualsubforge_gap_review_GapView_Serialize>('gap_view', {
       id,
       offset,
       limit,
+      previewIds,
     }),
   gapCancel: (id: number) => __TAURI_INVOKE<null>('gap_cancel', { id }),
   gapAccept: (id: number, acknowledgeNoMedia: boolean) =>
@@ -171,18 +190,29 @@ export const commands = {
     generation: number,
     revision: number,
     request: visualsubforge_batch_timing_BatchRequest,
+    selection: {
+      scope: number[] | null;
+      excluded: number[];
+    } | null,
   ) =>
     __TAURI_INVOKE<number>('batch_timing_start', {
       session,
       generation,
       revision,
       request,
+      selection,
     }),
-  batchTimingView: (id: number, offset: number, limit: number) =>
+  batchTimingView: (
+    id: number,
+    offset: number,
+    limit: number,
+    previewIds: number[] | null,
+  ) =>
     __TAURI_INVOKE<visualsubforge_batch_timing_BatchView>('batch_timing_view', {
       id,
       offset,
       limit,
+      previewIds,
     }),
   batchTimingCancel: (id: number) =>
     __TAURI_INVOKE<null>('batch_timing_cancel', { id }),
@@ -191,16 +221,30 @@ export const commands = {
       'batch_timing_accept',
       { id },
     ),
-  sceneRepairStart: (session: number, generation: number, revision: number) =>
+  sceneRepairStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    selection: {
+      scope: number[] | null;
+      excluded: number[];
+    } | null,
+  ) =>
     __TAURI_INVOKE<number>('scene_repair_start', {
       session,
       generation,
       revision,
+      selection,
     }),
-  sceneRepairView: (id: number, offset: number, limit: number) =>
+  sceneRepairView: (
+    id: number,
+    offset: number,
+    limit: number,
+    previewIds: number[] | null,
+  ) =>
     __TAURI_INVOKE<visualsubforge_timing_review_SceneRepairView_Serialize>(
       'scene_repair_view',
-      { id, offset, limit },
+      { id, offset, limit, previewIds },
     ),
   sceneRepairCancel: (id: number) =>
     __TAURI_INVOKE<null>('scene_repair_cancel', { id }),
@@ -214,17 +258,27 @@ export const commands = {
     generation: number,
     revision: number,
     selectedCueId: string | null,
+    selection: {
+      scope: number[] | null;
+      excluded: number[];
+    } | null,
   ) =>
     __TAURI_INVOKE<number>('duration_repair_start', {
       session,
       generation,
       revision,
       selectedCueId,
+      selection,
     }),
-  durationRepairView: (id: number, offset: number, limit: number) =>
+  durationRepairView: (
+    id: number,
+    offset: number,
+    limit: number,
+    previewIds: number[] | null,
+  ) =>
     __TAURI_INVOKE<visualsubforge_timing_review_DurationRepairView_Serialize>(
       'duration_repair_view',
-      { id, offset, limit },
+      { id, offset, limit, previewIds },
     ),
   durationRepairCancel: (id: number) =>
     __TAURI_INVOKE<null>('duration_repair_cancel', { id }),
@@ -973,6 +1027,7 @@ export type visualsubforge_batch_timing_BatchRequest = {
 export type visualsubforge_batch_timing_BatchRow = {
   cueId: string;
   cueIndex: number;
+  selected: boolean;
   oldStartMs: number;
   oldEndMs: number;
   newStartMs: number;
@@ -985,6 +1040,7 @@ export type visualsubforge_batch_timing_BatchView = {
   session: number;
   phase: visualsubforge_gap_review_Phase;
   error: string | null;
+  selectionError: string | null;
   total: number;
   changed: number;
   offset: number;
@@ -1252,6 +1308,7 @@ export type visualsubforge_timing_review_DurationRepairView_Deserialize = {
   profile: vsf_application_quality_profile_Profile_Deserialize;
   profileHash: string;
   error: string | null;
+  selectionError: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
@@ -1271,6 +1328,7 @@ export type visualsubforge_timing_review_DurationRepairView_Serialize = {
   profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;
   error: string | null;
+  selectionError: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
@@ -1284,6 +1342,7 @@ export type visualsubforge_timing_review_DurationRepairView_Serialize = {
 export type visualsubforge_timing_review_DurationRow = {
   cueId: string;
   cueIndex: number;
+  selected: boolean;
   newEndMs: number | null;
   skipped: vsf_application_quality_duration_Skip | null;
   explanation: string | null;
@@ -1421,6 +1480,7 @@ export type visualsubforge_gap_review_GapView_Deserialize = {
   profile: vsf_application_quality_profile_Profile_Deserialize;
   profileHash: string;
   error: string | null;
+  selectionError: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
@@ -1439,6 +1499,7 @@ export type visualsubforge_gap_review_GapView_Serialize = {
   profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;
   error: string | null;
+  selectionError: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
@@ -2103,6 +2164,7 @@ export type visualsubforge_document_translation_Row = {
 export type visualsubforge_gap_review_Row = {
   cueId: string;
   cueIndex: number;
+  selected: boolean;
   nextCueIndex: number;
   newEndMs: number | null;
   skipped: vsf_application_quality_gap_Skip | null;
@@ -2135,6 +2197,7 @@ export type visualsubforge_text_review_Row = {
 export type visualsubforge_timing_review_Row = {
   cueId: string;
   cueIndex: number;
+  selected: boolean;
   newStartMs: number | null;
   newEndMs: number | null;
   skipped: vsf_application_quality_scene_repair_Skip | null;
@@ -2236,6 +2299,7 @@ export type visualsubforge_timing_review_SceneRepairView_Deserialize = {
   profile: vsf_application_quality_profile_Profile_Deserialize;
   profileHash: string;
   error: string | null;
+  selectionError: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
@@ -2254,6 +2318,7 @@ export type visualsubforge_timing_review_SceneRepairView_Serialize = {
   profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string;
   error: string | null;
+  selectionError: string | null;
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   total: number;
   changed: number;
@@ -2315,6 +2380,11 @@ export type visualsubforge_resync_view_SectionRow = {
   targetEndUs: number;
   anchors: number;
   maxResidualUs: number;
+};
+
+export type visualsubforge_review_selection_Selection = {
+  scope: number[] | null;
+  excluded: number[];
 };
 
 export type vsf_application_quality_statistics_Selection = {

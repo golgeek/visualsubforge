@@ -26,6 +26,7 @@ pub(crate) use crate::gap_review::Phase;
 pub(crate) struct Row {
     pub cue_id: String,
     pub cue_index: u32,
+    pub selected: bool,
     pub new_start_ms: Option<SafeU64>,
     pub new_end_ms: Option<SafeU64>,
     pub skipped: Option<Skip>,
@@ -43,6 +44,7 @@ pub(crate) struct SceneRepairView {
     pub profile: Profile,
     pub profile_hash: String,
     pub error: Option<String>,
+    pub selection_error: Option<String>,
     pub coverage: Option<SceneCoverage>,
     pub total: u32,
     pub changed: u32,
@@ -57,6 +59,7 @@ pub(crate) struct SceneRepairView {
 pub(crate) struct DurationRow {
     pub cue_id: String,
     pub cue_index: u32,
+    pub selected: bool,
     pub new_end_ms: Option<SafeU64>,
     pub skipped: Option<vsf_application::quality::duration::Skip>,
     pub explanation: Option<String>,
@@ -74,6 +77,7 @@ pub(crate) struct DurationRepairView {
     pub profile: Profile,
     pub profile_hash: String,
     pub error: Option<String>,
+    pub selection_error: Option<String>,
     pub coverage: Option<SceneCoverage>,
     pub total: u32,
     pub changed: u32,
@@ -90,8 +94,10 @@ pub(crate) async fn scene_repair_start(
     session: SafeU64,
     generation: SafeU64,
     revision: SafeU64,
+    selection: Option<crate::review_selection::Selection>,
 ) -> Result<SafeU64, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let selection = selection.map(|s| s.domain()).transpose()?;
         app.state::<crate::media::Media>()
             .with_context(session.get(), |path| {
                 let scenes = app
@@ -99,7 +105,12 @@ pub(crate) async fn scene_repair_start(
                     .capture_quality(session.get(), path.is_some())?;
                 Ok(app
                     .state::<Documents>()
-                    .scene_repair_start(generation.get(), revision.get(), scenes)?
+                    .scene_repair_start_selected(
+                        generation.get(),
+                        revision.get(),
+                        scenes,
+                        selection,
+                    )?
                     .try_into()?)
             })
     })
@@ -138,10 +149,12 @@ pub(crate) async fn scene_repair_view(
     id: SafeU64,
     offset: u32,
     limit: u32,
+    preview_ids: Option<Vec<SafeU64>>,
 ) -> Result<SceneRepairView, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let preview_ids = crate::review_selection::preview_ids(preview_ids)?;
         with_current(&app, id.get(), Purpose::Scene, |documents| {
-            documents.scene_repair_view(id.get(), offset, limit)
+            documents.scene_repair_view_for_cues(id.get(), offset, limit, preview_ids.as_ref())
         })
     })
     .await
@@ -179,6 +192,7 @@ pub(crate) async fn duration_repair_start(
     generation: SafeU64,
     revision: SafeU64,
     selected_cue_id: Option<String>,
+    selection: Option<crate::review_selection::Selection>,
 ) -> Result<SafeU64, String> {
     let scope = match selected_cue_id {
         Some(id) => vsf_application::quality::duration::Scope::Cue(subtitle_core::CueId(
@@ -188,6 +202,7 @@ pub(crate) async fn duration_repair_start(
         None => vsf_application::quality::duration::Scope::Document,
     };
     tauri::async_runtime::spawn_blocking(move || {
+        let selection = selection.map(|s| s.domain()).transpose()?;
         app.state::<crate::media::Media>()
             .with_context(session.get(), |path| {
                 let scenes = app
@@ -195,7 +210,13 @@ pub(crate) async fn duration_repair_start(
                     .capture_quality(session.get(), path.is_some())?;
                 Ok(app
                     .state::<Documents>()
-                    .duration_repair_start(generation.get(), revision.get(), scenes, scope)?
+                    .duration_repair_start_selected(
+                        generation.get(),
+                        revision.get(),
+                        scenes,
+                        scope,
+                        selection,
+                    )?
                     .try_into()?)
             })
     })
@@ -209,10 +230,12 @@ pub(crate) async fn duration_repair_view(
     id: SafeU64,
     offset: u32,
     limit: u32,
+    preview_ids: Option<Vec<SafeU64>>,
 ) -> Result<DurationRepairView, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let preview_ids = crate::review_selection::preview_ids(preview_ids)?;
         with_current(&app, id.get(), Purpose::Duration, |documents| {
-            documents.duration_repair_view(id.get(), offset, limit)
+            documents.duration_repair_view_for_cues(id.get(), offset, limit, preview_ids.as_ref())
         })
     })
     .await

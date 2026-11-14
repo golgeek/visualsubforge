@@ -4,7 +4,10 @@ import {
   durationRepairCancel,
 } from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
-import { TimingRepairSession } from './timing-repair-session.svelte';
+import {
+  TimingRepairSession,
+  type LiveTimingReview,
+} from './timing-repair-session.svelte';
 const client = {
   durationRepairStart,
   durationRepairView,
@@ -18,6 +21,7 @@ export class DurationRepairSession extends TimingRepairSession<
     mediaSession: () => number,
     scope: () => string | null,
     api = client,
+    live?: LiveTimingReview,
   ) {
     super(
       subtitles,
@@ -30,6 +34,8 @@ export class DurationRepairSession extends TimingRepairSession<
       },
       scope,
       ['checked', 'reduced', 'notRequired'],
+      Object.is,
+      live,
     );
   }
 }

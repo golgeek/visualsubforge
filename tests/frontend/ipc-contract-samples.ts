@@ -2078,6 +2078,7 @@ export const gapView = {
         longestLine: 6,
       },
       nextCueIndex: 1,
+      selected: true,
       skipped: null,
     },
     {
@@ -2198,9 +2199,11 @@ export const gapView = {
         longestLine: 5,
       },
       nextCueIndex: 2,
+      selected: true,
       skipped: null,
     },
   ],
+  selectionError: null,
   session: 0,
   skipped: 0,
   total: 2,
@@ -2326,6 +2329,7 @@ export const sceneRepairView = {
       explanation: null,
       newEndMs: 3000,
       newStartMs: 1130,
+      selected: true,
       skipped: null,
     },
     {
@@ -2390,6 +2394,7 @@ export const sceneRepairView = {
       explanation: null,
       newEndMs: 5870,
       newStartMs: 4130,
+      selected: true,
       skipped: null,
     },
     {
@@ -2455,9 +2460,11 @@ export const sceneRepairView = {
         'Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review.',
       newEndMs: null,
       newStartMs: null,
+      selected: true,
       skipped: 'markupNeedsReview',
     },
   ],
+  selectionError: null,
   session: 7,
   skipped: 1,
   total: 3,
@@ -2484,6 +2491,7 @@ export const batchTimingView = {
       newStartMs: 1123,
       oldEndMs: 3000,
       oldStartMs: 1000,
+      selected: true,
     },
     {
       cueId: '2',
@@ -2492,6 +2500,7 @@ export const batchTimingView = {
       newStartMs: 4173,
       oldEndMs: 6050,
       oldStartMs: 4050,
+      selected: true,
     },
     {
       cueId: '3',
@@ -2500,8 +2509,10 @@ export const batchTimingView = {
       newStartMs: 8123,
       oldEndMs: 10000,
       oldStartMs: 8000,
+      selected: true,
     },
   ],
+  selectionError: null,
   session: 7,
   total: 3,
 } satisfies BatchTimingView;
@@ -2625,6 +2636,7 @@ export const durationRepairView = {
       cueIndex: 0,
       explanation: null,
       newEndMs: 3130,
+      selected: true,
       skipped: null,
     },
     {
@@ -2688,6 +2700,7 @@ export const durationRepairView = {
       cueIndex: 1,
       explanation: null,
       newEndMs: 6870,
+      selected: true,
       skipped: null,
     },
     {
@@ -2752,10 +2765,12 @@ export const durationRepairView = {
       explanation:
         'Timing-sensitive ASS tags or event effects, WebVTT timestamp markers, ambiguous markup or a cue over 64 KiB require manual timing review.',
       newEndMs: null,
+      selected: true,
       skipped: 'markupNeedsReview',
     },
   ],
   selectedCueId: null,
+  selectionError: null,
   session: 7,
   skipped: 1,
   total: 3,

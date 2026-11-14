@@ -40,30 +40,34 @@ export async function batchPerformance({
           'dialog[aria-labelledby="action-browser-title"]',
         ),
     );
-    await b.wait(() => document.querySelector('dialog[open]'));
+    await b.wait(() => document.querySelector('[aria-label="Review panel"]'));
     await b.frame();
     started = performance.now();
-    b.button('Preview changes').click();
-    await b.wait(() => !b.button('Apply changes').disabled);
-    await b.frame();
-    times.previewMs = performance.now() - started;
-    const rows = document.querySelectorAll('dialog tbody tr').length;
-    b.button('Next candidates').click();
     await b.wait(
       () =>
-        document.querySelector('dialog tbody td')?.textContent.trim() === '101',
+        !!document.querySelector('.timing-review .apply') &&
+        !document.querySelector('.timing-review .apply').disabled,
+    );
+    await b.frame();
+    times.previewMs = performance.now() - started;
+    const rows = document.querySelectorAll('.timing-review .change').length;
+    b.button('Next').click();
+    await b.wait(
+      () =>
+        document.querySelector('.change strong')?.textContent.trim() ===
+        'Cue 101',
     );
     const before = await b.state();
     started = performance.now();
-    b.button('Apply changes').click();
+    document.querySelector('.timing-review .apply').click();
     await b.wait(
       async () =>
-        !document.querySelector('dialog[open]') &&
-        (await b.state()).revision === before.revision + 1 &&
-        b.ready(),
+        (await b.state()).revision === before.revision + 1 && b.ready(),
     );
     await b.frame();
     times.acceptMs = performance.now() - started;
+    b.button('Close').click();
+    await b.wait(() => !document.querySelector('[aria-label="Review panel"]'));
     const shifted = await b.state();
     if (
       !shifted.cues.every(

@@ -4,7 +4,7 @@
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { StatisticsSummary } from '../client';
   import { StatisticsSession } from './statistics-session.svelte';
-  import { statisticsScope } from './statistics-scope';
+  import { statisticsSelection } from './statistics-scope';
   import { qualityRules, sceneCoverage, rating } from './quality-display';
   let {
     subtitles,
@@ -12,23 +12,31 @@
     context,
     onclose,
     onnavigate,
+    scopeIds = () => null,
+    enabled = () => true,
   }: {
+    scopeIds?: () => number[] | null;
+    enabled?: () => boolean;
     subtitles: DocumentSession;
     mediaSession: () => number;
     context: () => string;
     onclose: () => void;
     onnavigate: (id: string) => void;
   } = $props();
-  let scope = $state<'document' | 'range'>('document');
-  let first = $state('1');
-  let last = $state(untrack(() => String(subtitles.snapshot.cues.length || 1)));
-  let excluded = $state('');
   const input = $derived({
-    ...statisticsScope(scope, first, last, excluded),
-    key: JSON.stringify([scope, first, last, excluded]),
+    ...statisticsSelection(subtitles.snapshot.cues, scopeIds()),
+    key: JSON.stringify(scopeIds()),
   });
   const session = untrack(
-    () => new StatisticsSession(subtitles, mediaSession, context, () => input),
+    () =>
+      new StatisticsSession(
+        subtitles,
+        mediaSession,
+        context,
+        () => input,
+        undefined,
+        () => enabled(),
+      ),
   );
   const view = $derived(session.view);
   const summary = $derived(
@@ -56,31 +64,13 @@
   );
   const number = (n: number | null | undefined) =>
     n == null ? 'unavailable' : Number(n.toFixed(3)).toLocaleString();
-  let dialog: HTMLDialogElement;
-  let calculate: HTMLButtonElement;
   function navigate(id: string) {
     if (summary && !session.pending) onnavigate(id);
   }
-  onMount(() => {
-    dialog.showModal();
-    calculate.focus();
-    void session.start();
-    const timer = setInterval(() => void session.poll(), 400);
-    return () => {
-      clearInterval(timer);
-      session.dispose();
-    };
-  });
+  onMount(() => () => session.dispose());
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="statistics-title"
-  oncancel={(e) => {
-    e.preventDefault();
-    onclose();
-  }}
->
+<section class="statistics" aria-labelledby="statistics-title">
   <header>
     <h2 id="statistics-title">Document statistics</h2>
     <button onclick={onclose}>Close</button>
@@ -93,53 +83,10 @@
       The current cue has an unapplied draft. It is not included in these
       statistics.
     </p>{/if}
-  <div class="scope">
-    <label
-      >Scope <select aria-label="Statistics scope" bind:value={scope}
-        ><option value="document">Whole document</option><option value="range"
-          >Cue range</option
-        ></select
-      ></label
-    >
-    {#if scope === 'range'}<label
-        >First cue <input
-          aria-label="First statistics cue"
-          type="text"
-          inputmode="numeric"
-          bind:value={first}
-          maxlength="6"
-        /></label
-      ><label
-        >Last cue <input
-          aria-label="Last statistics cue"
-          type="text"
-          inputmode="numeric"
-          bind:value={last}
-          maxlength="6"
-        /></label
-      >{/if}
-    <label class="exclusions"
-      >Exclude cue numbers <input
-        aria-label="Excluded statistics cues"
-        bind:value={excluded}
-        maxlength="700000"
-        placeholder="For example: 2, 5, 8"
-      /></label
-    >
-    <button
-      bind:this={calculate}
+  {#if session.error || view?.phase === 'stale' || view?.phase === 'failed'}<button
       disabled={!session.canStart}
-      onclick={() => void session.start()}>Calculate statistics</button
-    >
-    {#if session.running}<button
-        disabled={session.pending}
-        onclick={() => void session.cancel()}>Cancel statistics</button
-      >{/if}
-  </div>
-  <p class="hint">
-    Cue numbers are one-based document positions. Range endpoints are inclusive.
-    Exclusions must fall inside the scope.
-  </p>
+      onclick={() => void session.start()}>Retry statistics</button
+    >{/if}
   {#if input.error || session.error}<p role="alert">
       {input.error || session.error}
     </p>{/if}
@@ -324,26 +271,17 @@
         >
       </nav>{/if}
   {/if}
-</dialog>
+</section>
 
 <style>
-  dialog {
+  .statistics {
     color: var(--text);
     background: var(--surface-panel);
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
-    width: min(1060px, 92vw);
-    max-height: 90dvh;
-    overflow: auto;
-    padding: 20px;
-    font-size: 13px;
+    padding: 10px;
+    font-size: 12px;
     line-height: 1.5;
   }
-  dialog::backdrop {
-    background: var(--scrim);
-  }
   header,
-  .scope,
   .counts,
   nav,
   .rule-counts {
@@ -357,25 +295,6 @@
   }
   h2 {
     margin: 0;
-  }
-  label {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  input[inputmode] {
-    width: 70px;
-  }
-  .exclusions {
-    flex: 1;
-  }
-  .exclusions input {
-    min-width: 150px;
-    flex: 1;
-  }
-  .hint {
-    color: var(--text-muted);
   }
   .notice {
     padding: 8px;

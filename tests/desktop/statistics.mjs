@@ -1,3 +1,4 @@
+import { setReviewScope } from './review.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Actual WebView/IPC and independent CLI parity. Fixtures have known source
@@ -132,7 +133,7 @@ export async function statisticsWorkflow({
     await ready();
     await chooseCommand(browser, 'statistics');
     const dialog = await browser.$(
-      'dialog[aria-labelledby="statistics-title"]',
+      'section[aria-labelledby="statistics-title"]',
     );
     await until('statistics summary visible', () =>
       dialog.$('[aria-label="Metric summaries"]').then((e) => e.isExisting()),
@@ -185,6 +186,7 @@ export async function statisticsWorkflow({
     JSON.stringify(parity, null, 2),
   );
   const text = await browser.$('[aria-label="Subtitle text"]');
+  await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Keep statistics draft');
   let dialog = await open();
   assert.match(await dialog.getText(), /not included in these\s+statistics/);
@@ -213,9 +215,13 @@ export async function statisticsWorkflow({
     async () => (await text.getValue()) === '0',
   );
   assert.deepEqual(await status(), before);
+  const startField = await browser.$('[aria-label="Cue start"]');
+  const acceptedStart = await startField.getValue();
+  await startField.setValue('invalid');
   await text.setValue('Explicit statistics navigation');
   dialog = await open();
   await navigate(dialog, 1);
+  await startField.setValue(acceptedStart);
   await (await browser.$('button=Apply draft and navigate')).click();
   await until(
     'explicit statistics navigation Apply',
@@ -228,35 +234,36 @@ export async function statisticsWorkflow({
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
   dialog = await open();
-  await browser.execute(() => {
-    const s = document.querySelector('[aria-label="Statistics scope"]');
-    s.value = 'range';
-    s.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  await (await dialog.$('[aria-label="Last statistics cue"]')).setValue('4');
-  await (
-    await dialog.$('[aria-label="Excluded statistics cues"]')
-  ).setValue('2, 4');
-  await (await dialog.$('button=Calculate statistics')).click();
+  for (const [id, ctrlKey] of [
+    [1, false],
+    [3, true],
+  ]) {
+    await browser.execute(
+      (id, ctrlKey) =>
+        document
+          .querySelector(`[data-cue-id="${id}"]`)
+          .dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey })),
+      id,
+      ctrlKey,
+    );
+    await until('statistics list selection', () =>
+      browser
+        .$(`[data-cue-id="${id}"]`)
+        .then((row) => row.getAttribute('aria-pressed'))
+        .then((value) => value === 'true'),
+    );
+  }
+  await setReviewScope(browser, 'selected');
   await until('scoped statistics summary', async () =>
     /2 included cues/.test(await dialog.getText()),
   );
   assert.deepEqual(await status(), before);
   await browser.saveScreenshot(join(evidence, 'statistics-scoped.png'));
-  await (
-    await dialog.$('[aria-label="Excluded statistics cues"]')
-  ).setValue('99');
-  await (await dialog.$('button=Calculate statistics')).click();
-  await until('invalid statistics scope', async () =>
-    /within the selected scope/.test(await dialog.getText()),
-  );
-  assert.equal(
-    await dialog
-      .$('[aria-label="Metric summaries"]')
-      .then((e) => e.isExisting()),
-    false,
-  );
   await close();
+  await assert.rejects(
+    () => report({ range: null, excluded: [99] }),
+    /within the selected scope/,
+  );
   assert.deepEqual(await status(), before);
   assert.equal(
     await readFile(join(root, 'statistics-small.srt'), 'utf8'),
@@ -397,7 +404,7 @@ async function statisticsPerformance({
       /101–200 of/.test(await dialog.getText()),
     );
     await browser.execute(() => {
-      const d = document.querySelector('dialog[open]');
+      const d = document.querySelector('.review-dock .body');
       d.scrollTop = d.scrollHeight;
     });
     await browser.saveScreenshot(

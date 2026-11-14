@@ -1,3 +1,4 @@
+import { acceptReview, closeReview } from './review.mjs';
 import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real WebView, IPC and files; queued choices and DOM input are test supplied.
@@ -366,24 +367,22 @@ export async function webvttWorkflow({
 
     const beforeTiming = await status();
     await chooseCommand(browser, 'shiftCues');
-    await input('Batch scope', 'all');
-    await input('Batch offset milliseconds', '1');
-    await click('Preview changes');
+    await input('Review scope', 'all');
+    await input('Shift offset in milliseconds', '1');
     await until('WebVTT absolute marker refusal', () =>
       browser.execute(() =>
         document
-          .querySelector('dialog[open]')
+          .querySelector('[aria-label="Review panel"]')
           ?.textContent.includes('absolute media time'),
       ),
     );
     assert.deepEqual(await status(), beforeTiming);
-    await click('Cancel');
+    await closeReview(browser, until);
     await ready();
     await chooseCommand(browser, 'shiftCues');
-    await input('Batch scope', 'selected');
-    await input('Batch offset milliseconds', '1');
-    await click('Preview changes');
-    await click('Apply changes');
+    await input('Review scope', 'selected');
+    await input('Shift offset in milliseconds', '1');
+    await acceptReview(browser, status, until);
     const shifted = await documentIs(
       'WebVTT millisecond batch',
       (d) => d.revision === beforeTiming.revision + 1,

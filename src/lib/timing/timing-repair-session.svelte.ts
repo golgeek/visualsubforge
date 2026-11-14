@@ -1,22 +1,44 @@
-import type { SceneRepairView, DocumentSnapshot } from '../client';
+import { untrack } from 'svelte';
+import type {
+  SceneRepairView,
+  DocumentSnapshot,
+  ReviewSelection,
+} from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
 type Review = Pick<SceneRepairView, 'phase' | 'changed' | 'error'> &
-  Partial<Pick<SceneRepairView, 'coverage'>>;
+  Partial<Pick<SceneRepairView, 'coverage' | 'selectionError'>>;
 interface Client<V, S> {
   start(
     session: number,
     document: DocumentSnapshot,
     selectedCueId: S,
+    selection: ReviewSelection | null,
   ): Promise<number>;
-  view(id: number, offset: number, limit: number): Promise<V>;
+  view(
+    id: number,
+    offset: number,
+    limit: number,
+    previewIds?: readonly number[] | null,
+  ): Promise<V>;
   cancel(id: number): Promise<void>;
   accept(id: number, document: DocumentSnapshot): Promise<boolean>;
 }
 
-// Dialog lifetime and bounded projections only. Rust owns the immutable proposal;
+export const LIVE_REVIEW_DELAY_MS = 250;
+export interface LiveTimingReview {
+  enabled: () => boolean;
+  selection: () => ReviewSelection | null;
+  context: () => string;
+  previewIds: () => readonly number[];
+}
+const selectionKey = (selection: ReviewSelection | null) =>
+  JSON.stringify(selection);
+
+// Presentation lifetime and bounded projections only. Rust owns the immutable proposal;
 // DocumentSession reconciles its accepted reply with ordinary document operations.
 export class TimingRepairSession<V extends Review, S = string | null> {
   view = $state.raw<V | null>(null);
+  preview = $state.raw<V | null>(null);
   error = $state('');
   pending = $state(false);
   accepting = $state(false);
@@ -24,13 +46,24 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   private alive = true;
   private epoch = 0;
   private id: number | null = null;
-  private capture: {
+  private capture = $state.raw<{
     document: DocumentSnapshot;
     session: number;
     selectedCueId: S;
-  } | null = null;
+    selection: string;
+    context: string;
+  } | null>(null);
   private polling = false;
   private offset = 0;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private liveSignature = '';
+  private liveDocument: DocumentSnapshot | null = null;
+  private viewportKey = '';
+  private liveDirty = false;
+  private liveWanted = false;
+  private attempts = 0;
+  private previewKey = '';
+
   constructor(
     private subtitles: DocumentSession,
     private mediaSession: () => number,
@@ -38,7 +71,159 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     private scope: () => S,
     private allowedCoverage: readonly string[],
     private sameScope: (a: S, b: S) => boolean = Object.is,
-  ) {}
+    private live?: LiveTimingReview,
+  ) {
+    if (live)
+      $effect(() => {
+        const document = subtitles.snapshot;
+        const signature = JSON.stringify([
+          subtitles.snapshot.generation,
+          subtitles.snapshot.revision,
+          mediaSession(),
+          scope(),
+          live.selection(),
+          live.context(),
+          live.enabled(),
+          subtitles.dirty,
+        ]);
+        const wanted = live.enabled() && !subtitles.dirty;
+        // Viewport changes only refresh a bounded projection, never the proposal.
+        const ids = JSON.stringify(live.previewIds().slice(0, 200));
+        untrack(() => {
+          if (
+            signature === this.liveSignature &&
+            ids === this.viewportKey &&
+            document === this.liveDocument
+          )
+            return;
+          this.viewportKey = ids;
+          if (
+            signature !== this.liveSignature ||
+            document !== this.liveDocument
+          ) {
+            this.liveDocument = document;
+            this.liveSignature = signature;
+            this.liveDirty = true;
+            this.attempts = 0;
+            this.preview = null;
+            this.previewKey = '';
+            this.error = '';
+          }
+          this.liveWanted = wanted;
+          this.schedule(LIVE_REVIEW_DELAY_MS);
+        });
+      });
+  }
+  get previewDocument() {
+    return this.capture?.document ?? null;
+  }
+  private schedule(delay: number) {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.drive();
+    }, delay);
+  }
+  /** Latest input only, with bounded retries for read-only admission while a
+   * retired worker drains. Mutations are never retried here. */
+  private async drive() {
+    if (!this.alive || !this.live) return;
+    if (this.pending || this.polling || this.accepting) {
+      this.schedule(100);
+      return;
+    }
+    const signature = this.liveSignature;
+    const document = this.liveDocument;
+    if (!this.liveWanted) {
+      if (this.id !== null && this.view?.phase !== 'cancelled')
+        await this.cancel();
+      this.preview = null;
+      if (this.running) this.schedule(LIVE_REVIEW_DELAY_MS);
+      return;
+    }
+    if (this.liveDirty) {
+      if (
+        this.id !== null &&
+        (!this.view ||
+          !['cancelled', 'stale', 'failed', 'closed', 'accepted'].includes(
+            this.view.phase,
+          ))
+      ) {
+        await this.cancel();
+        if (this.alive) this.schedule(LIVE_REVIEW_DELAY_MS);
+        return;
+      }
+      if (!this.canStart) {
+        this.schedule(LIVE_REVIEW_DELAY_MS);
+        return;
+      }
+      await this.start();
+      if (!this.alive) return;
+      if (signature !== this.liveSignature || document !== this.liveDocument) {
+        this.schedule(LIVE_REVIEW_DELAY_MS);
+        return;
+      }
+      if (this.id === null) {
+        if (++this.attempts < 3) this.schedule(LIVE_REVIEW_DELAY_MS);
+        else this.liveDirty = false;
+        return;
+      }
+      this.liveDirty = false;
+    } else await this.poll();
+    if (!this.alive) return;
+    if (signature !== this.liveSignature || document !== this.liveDocument) {
+      this.schedule(LIVE_REVIEW_DELAY_MS);
+      return;
+    }
+    if (this.current && this.view?.phase === 'reviewing')
+      await this.readPreview();
+    else {
+      this.preview = null;
+      this.previewKey = '';
+    }
+    if (this.alive && this.id !== null) this.schedule(400);
+  }
+  private async readPreview() {
+    if (
+      !this.live ||
+      this.id === null ||
+      this.pending ||
+      this.polling ||
+      this.accepting
+    )
+      return;
+    const ids = this.live.previewIds().slice(0, 200);
+    const key = JSON.stringify([this.id, ids]);
+    if (key === this.previewKey) return;
+    const epoch = this.epoch;
+    this.polling = true;
+    try {
+      const view = await this.api.view(this.id, 0, 200, ids);
+      if (
+        !this.active(epoch) ||
+        !this.current ||
+        key !== JSON.stringify([this.id, this.live.previewIds().slice(0, 200)])
+      )
+        return;
+      this.preview = view.phase === 'reviewing' ? view : null;
+      this.previewKey = key;
+    } catch (error) {
+      if (this.active(epoch)) {
+        this.preview = null;
+        this.error = String(error);
+      }
+    } finally {
+      this.polling = false;
+    }
+  }
+  retry() {
+    if (!this.alive || this.accepting) return;
+    this.error = '';
+    this.liveDirty = true;
+    this.attempts = 0;
+    if (this.live) this.schedule(0);
+    else void this.start();
+  }
   get running() {
     return (
       this.id !== null &&
@@ -57,15 +242,20 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       this.capture.document === this.subtitles.snapshot &&
       !this.subtitles.dirty &&
       this.capture.session === this.mediaSession() &&
-      this.sameScope(this.capture.selectedCueId, this.scope())
+      this.sameScope(this.capture.selectedCueId, this.scope()) &&
+      this.capture.selection === selectionKey(this.live?.selection() ?? null) &&
+      this.capture.context === (this.live?.context() ?? '')
     );
   }
   get canAccept() {
     return (
       this.canStart &&
+      (!this.live || this.live.enabled()) &&
       this.current &&
       this.view?.phase === 'reviewing' &&
       this.view.changed > 0 &&
+      !this.view.selectionError &&
+      (!this.live || !this.error) &&
       this.eligible(this.view)
     );
   }
@@ -98,7 +288,10 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       !this.subtitles.snapshot.cues.length
     )
       return;
+    const selection = this.live?.selection() ?? null;
     const capture = {
+      selection: selectionKey(selection),
+      context: this.live?.context() ?? '',
       document: this.subtitles.snapshot,
       session: this.mediaSession(),
       selectedCueId: this.scope(),
@@ -107,6 +300,8 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     this.pending = true;
     this.error = '';
     this.view = null;
+    this.preview = null;
+    this.previewKey = '';
     this.offset = 0;
     try {
       if (this.id !== null) await this.api.cancel(this.id);
@@ -117,6 +312,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
         capture.session,
         capture.document,
         capture.selectedCueId,
+        selection,
       );
       if (!this.active(epoch)) {
         await this.api.cancel(id).catch(() => {});
@@ -231,6 +427,9 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   dispose() {
     if (!this.alive) return;
     this.alive = false;
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+    this.preview = null;
     ++this.epoch;
     if (this.id !== null) void this.api.cancel(this.id).catch(() => {});
   }

@@ -2,20 +2,17 @@ import { HideVideo, type HideVideoEffects } from './hide-video.svelte';
 import type { Workspace } from '../workspace/workspace.svelte';
 export type AuthoringModal = 'styles' | 'fonts' | 'conversion' | 'plugins';
 
-export type TimingKind = 'gap' | 'scene' | 'duration' | 'batch';
 export type WorkspaceModalIdentity =
   | AuthoringModal
   | 'settings'
   | 'resync'
-  | 'statistics'
   | 'commands'
   | 'shortcuts'
   | 'actionMenu'
   | 'layout'
   | 'columns'
   | 'cueIssues'
-  | 'text'
-  | { kind: 'timing'; variant: TimingKind };
+  | 'text';
 
 type Effects = HideVideoEffects & { captureFocus: () => () => void };
 
@@ -29,11 +26,6 @@ export class WorkspaceModal {
     private effects: Effects,
   ) {
     this.video = new HideVideo(effects);
-  }
-  get timingKind() {
-    return this.identity !== null && typeof this.identity === 'object'
-      ? this.identity.variant
-      : null;
   }
   get opening() {
     return this.video.opening;

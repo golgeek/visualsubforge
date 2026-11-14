@@ -18,6 +18,12 @@ source-line counts, meters and combined safe fixes remain bounded projections.
 The interaction defaults still require owner trial. Nominal frame nudges do not
 establish variable-rate frame-boundary accuracy.
 
+The docked Review panel combines Issues, timing repairs, Shift and Statistics.
+Live proposals stay read-only until Apply; Rust validates checked subsets and
+commits one Undo step. Visible ghost/list projections are bounded to 200 cue IDs;
+complete plans remain in Rust. Native video and physical-input acceptance still
+require the platform-specific checks listed in each PR.
+
 ## Feature and platform matrix
 
 | Area | Implemented scope | Remaining limits |

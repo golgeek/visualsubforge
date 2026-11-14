@@ -1,3 +1,4 @@
+import { acceptReview } from './review.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -130,18 +131,20 @@ export async function batchTiming({
     await b.wait(() =>
       document.querySelector('[aria-label="Batch operation"]'),
     );
+    b.input('Review scope', 'selected');
     b.input('Batch operation', 'align');
-    await b.click('Preview changes');
-    await b.wait(() => !b.button('Apply changes').disabled);
-    const table = document.querySelector('dialog[open]');
+    await b.wait(
+      () => !document.querySelector('.timing-review .apply')?.disabled,
+    );
+    const table = document.querySelector('[aria-label="Review panel"]');
     if (
       !table.textContent.includes(target) ||
-      table.querySelectorAll('tbody tr').length !== 2
+      table.querySelectorAll('.change').length !== 2
     )
       throw new Error('Incorrect native playhead/selection review');
   }, time(targetMs));
   await browser.saveScreenshot(join(evidence, 'batch-native-review.png'));
-  await browser.execute(() => window.__batchUI.click('Apply changes'));
+  await acceptReview(browser, status, until);
   const accepted = await until('batch alignment accepted', async () => {
     const d = await status();
     return d.revision === baseline.revision + 1 && d;

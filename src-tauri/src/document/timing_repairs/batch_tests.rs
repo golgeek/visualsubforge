@@ -25,6 +25,51 @@ pub(super) fn start(docs: &Documents, scenes: &crate::scenes::Scenes, offset: i6
     .unwrap()
 }
 #[test]
+fn selected_batch_projection_and_acceptance_use_the_same_immutable_subset() {
+    let (_dir, docs, scenes) = tests::fixture();
+    let original = docs.apply(Action::Status, 0, 0).unwrap();
+    let id = docs
+        .batch_timing_start_selected(
+            original.generation,
+            original.revision,
+            scenes.capture_quality(7, true).unwrap(),
+            batch::Request {
+                scope: batch::Scope::All,
+                change: batch::Change::Shift(123),
+            },
+            Some(timing_selection::Selection {
+                scope: Some(vec![CueId(original.cues[0].id), CueId(original.cues[1].id)]),
+                excluded: vec![CueId(original.cues[1].id)],
+            }),
+        )
+        .unwrap();
+    let view = ready(&docs, id);
+    assert_eq!(view.phase, Phase::Reviewing, "{:?}", view.error);
+    assert_eq!((view.total, view.changed), (2, 1));
+    assert!(view.rows[0].selected);
+    assert!(!view.rows[1].selected);
+    let visible = HashSet::from([CueId(original.cues[0].id)]);
+    let projected = docs
+        .batch_timing_view_for_cues(id, 0, 200, Some(&visible))
+        .unwrap();
+    assert_eq!(projected.rows.len(), 1);
+    let accepted = docs.batch_timing_accept(id).unwrap();
+    assert_eq!(accepted.cues[0].start_ms, original.cues[0].start_ms + 123);
+    assert_eq!(
+        serde_json::to_value(&accepted.cues[1..]).unwrap(),
+        serde_json::to_value(&original.cues[1..]).unwrap()
+    );
+    let undone = docs
+        .apply(Action::Undo, accepted.generation, accepted.revision)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&undone.cues).unwrap(),
+        serde_json::to_value(&original.cues).unwrap()
+    );
+    assert!(!undone.can_undo);
+    assert!(docs.batch_timing_accept(id).is_err());
+}
+#[test]
 fn batch_owner_pages_history_kind_guards_and_atomic_failures() {
     let (_dir, docs, scenes) = tests::fixture();
     let original = docs.apply(Action::Status, 0, 0).unwrap();
