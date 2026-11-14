@@ -28,7 +28,7 @@ MPV_LINUX = ('alsa libpulse libpipewire-0.3 sndio libdrm libdisplay-info gbm egl
 PLACEBO_COMMON = 'libunwind lcms2 dovi libxxhash shaderc glslang spirv-cross-c-shared dav1d libavutil libavcodec libavformat'.split()
 FFMPEG_PACKAGES = ['bash', 'make', 'diffutils', 'patch', 'tar', 'xz', 'coreutils'] + [
     'mingw-w64-clang-x86_64-' + name for name in
-    'clang clang-libs lld llvm llvm-libs compiler-rt libc++ libunwind headers crt winpthreads pkgconf nasm dav1d opus libvpx libx264 zlib bzip2 xz'.split()]
+    'clang clang-libs lld llvm-libs compiler-rt libc++ libunwind headers crt winpthreads pkgconf nasm dav1d opus libvpx libx264 zlib bzip2 xz'.split()]
 COMMON_FILES = ['scripts/native-stage.sh', 'tests/native/build-requirements.txt']
 SUPPORT = ['scripts/native_evidence.py', 'scripts/source_archive.py']
 
