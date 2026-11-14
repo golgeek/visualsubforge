@@ -1,3 +1,4 @@
+import type { CueColumns } from '../cues/cue-columns';
 import { clamp } from '../timeline/timeline';
 import { paneLayout } from './pane-layout';
 import {
@@ -49,6 +50,16 @@ export class WorkspaceLayout {
   get description() {
     return layoutPresets[this.preset];
   }
+  get columns() {
+    return this.current[this.preset].columns;
+  }
+  setColumns(value: CueColumns) {
+    if (!this.alive || this.changing) return;
+    // Column geometry stays inside the cue list. The chooser owns its own
+    // HideVideo lifetime; reuse the existing save queue without moving panes.
+    this.current[this.preset].columns = structuredClone($state.snapshot(value));
+    this.scheduleSave();
+  }
   get topPct() {
     return this.current[this.preset].topPct;
   }
@@ -76,7 +87,10 @@ export class WorkspaceLayout {
   }
   async reset() {
     await this.change(() => {
-      this.current[this.preset] = { ...this.description.defaults };
+      this.current[this.preset] = {
+        ...structuredClone(this.description.defaults),
+        columns: this.current[this.preset].columns,
+      };
     });
   }
   resizeWaveform(value: number) {

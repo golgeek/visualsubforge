@@ -125,16 +125,22 @@ export class DocumentSession {
         this.style !== (cue.style ?? ''))
     );
   }
-  select(id: number | null, mode: SelectionMode = 'replace') {
+  select(
+    id: number | null,
+    mode: SelectionMode = 'replace',
+    order: readonly { id: number }[] = this.accepted.cues,
+  ) {
     if (!this.alive) return;
-    this.multi = selectCues(this.accepted.cues, this.multi, id, mode);
+    this.multi = selectCues(order, this.multi, id, mode);
     this.selection = this.multi.primary;
     this.revert();
   }
-  selectAll() {
+  selectAll(order: readonly { id: number }[] = this.accepted.cues) {
     if (!this.alive) return;
-    this.selection = this.selection ?? this.accepted.cues[0]?.id ?? null;
-    this.multi = selectAllCues(this.accepted.cues, this.selection);
+    this.selection = order.some((c) => c.id === this.selection)
+      ? this.selection
+      : (order[0]?.id ?? null);
+    this.multi = selectAllCues(order, this.selection);
     this.revert();
   }
   revert() {

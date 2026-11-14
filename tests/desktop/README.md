@@ -283,3 +283,9 @@ and larger client budgets independently. Every preset checks two editor text
 lines and video-placeholder separation. Playback-free runs verify DOM bounds;
 the browser layout harness checks modeled hide/bounds acknowledgments. Neither
 establishes physical native-video composition acceptance.
+
+The cue-columns browser harness records 120 animation-frame intervals while
+scrolling 10,000 generated cues, plus the maximum mounted-row count and browser
+identity. Interpret mean/p95/max as an observation of that test environment, not
+a portable performance threshold or native-video/real-waveform benchmark. Column
+fit measures only mounted rows; both fixed row densities retain virtualization.

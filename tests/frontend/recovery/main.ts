@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { defaultPreferences } from '../../../src/lib/client';
 import { mount, tick, unmount } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
@@ -88,10 +89,14 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
   Object.defineProperty(window, '__TAURI_INTERNALS__', {
     configurable: true,
     value: {
-      invoke(command: string) {
+      invoke(command: string, args: unknown) {
         if (command === 'preferences_get')
           return structuredClone(defaultPreferences);
         switch (command) {
+          case 'quality_read':
+            return emptyQuality(args);
+          case 'quality_cancel':
+            return null;
           case 'document_action':
             return Promise.resolve({ ...emptyDocument });
           case 'recovery_status':

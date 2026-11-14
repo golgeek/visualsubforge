@@ -103,8 +103,8 @@ cues are explicit. Profile snapshots and their canonical SHA-256 identify result
 
 ## Desktop checking
 
-Enable **Cue metrics** above the subtitle list for accepted CPS/RS columns and a
-selected-cue readout: duration, speed/rating, character count, line lengths and next
+Use **Columns** in the list header to show accepted metrics. **Cue metrics**
+toggles the selected-cue editor readout: duration, speed/rating, character count, line lengths and next
 gap. Settings controls the startup default. Unapplied text/time edits get a
 separate **Draft · not applied** readout; invalid drafts show an explanation.
 Draft calculations use the same full-document overlap policy, but never replace
@@ -122,8 +122,11 @@ Apply, Discard or Cancel choice; failed Apply keeps the draft and selection.
 Checks run on one cancellable Rust worker. Document edits, Undo/Redo and policy
 or workspace/scene replacement retire old results; late replies cannot publish into a
 new context. Checking does not occupy the UI thread. **Pause checking** retains
-valid accepted results and stops new work until **Check again**. Hiding both
-metrics and Problems releases checking; reopening requests a fresh check.
+valid accepted results and stops new work until **Check again**. The mandatory
+issue column keeps accepted-state checking enabled while a document is loaded,
+even when editor metrics and Problems are hidden. Issue indexing reads bounded
+pages, includes related cues and shows incomplete coverage explicitly. **Issues**
+filters the list independently of the Problems rule/severity filters.
 No profile or check action changes subtitle history, dirty state or save policy.
 
 The desktop and CLI share the same engine and profile snapshot/hash. Executable

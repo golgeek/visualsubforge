@@ -102,3 +102,15 @@ test('EOF uses reported position and retains selection when the final cue ends',
     1,
   );
 });
+
+test('row selection preserves following; manual scroll pauses and Jump resumes', () => {
+  for (const mode of ['off', 'following', 'suspended'] as const) {
+    assert.equal(changeFollowing(mode, 'select', false), mode);
+    assert.equal(changeFollowing(mode, 'select', true), mode);
+  }
+  assert.equal(changeFollowing('following', 'scroll', false), 'suspended');
+  assert.equal(changeFollowing('off', 'scroll', false), 'off');
+  assert.equal(changeFollowing('suspended', 'resume', false), 'following');
+  assert.equal(changeFollowing('suspended', 'resume', true), 'suspended');
+  assert.equal(revealCueRow(10, 0, 96, 24), 168);
+});

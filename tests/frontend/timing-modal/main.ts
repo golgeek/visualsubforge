@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -143,6 +144,10 @@ async function fixture(variant: (typeof variants)[number], above = true) {
         },
       ) => {
         switch (command) {
+          case 'quality_read':
+            return emptyQuality(args);
+          case 'quality_cancel':
+            return null;
           case 'plugin:event|listen':
             handler = args.handler!;
             return 1;

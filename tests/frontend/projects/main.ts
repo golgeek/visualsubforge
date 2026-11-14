@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import type { updateMenu } from '../../../src/lib/client';
 import { defaultPreferences } from '../../../src/lib/client';
@@ -135,6 +136,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(defaultPreferences);
       switch (command) {
+        case 'quality_read':
+          return emptyQuality(args);
+        case 'quality_cancel':
+          return null;
         case 'plugin:event|listen':
           document.body.dataset.workspaceListener = 'waiting';
           await registration;

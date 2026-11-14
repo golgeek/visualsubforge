@@ -219,6 +219,8 @@ pub struct Snapshot {
 #[serde(rename_all = "camelCase")]
 struct CueView {
     #[serde(skip_serializing_if = "Option::is_none")]
+    actor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     style: Option<String>,
     #[serde(with = "crate::ipc_number")]
     #[specta(type = crate::ipc_number::SafeU64)]
@@ -312,6 +314,10 @@ impl Store {
                     .cues()
                     .iter()
                     .map(|c| CueView {
+                        actor: c
+                            .metadata()
+                            .and_then(|m| m.get("Name"))
+                            .map(|s| s.trim().to_owned()),
                         style: c
                             .metadata()
                             .and_then(|m| m.get("Style"))

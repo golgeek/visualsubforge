@@ -152,6 +152,7 @@ export const styledDocument = {
   canUndo: false,
   cues: [
     {
+      actor: 'actor',
       endMs: 3000,
       id: 1,
       startMs: 1000,
@@ -159,6 +160,7 @@ export const styledDocument = {
       text: 'Red title',
     },
     {
+      actor: '',
       endMs: 4000,
       id: 2,
       startMs: 1000,
@@ -2925,26 +2927,376 @@ export const preferences = {
   layout: {
     active: 'timing',
     bigPicture: {
+      columns: {
+        density: 'compact',
+        items: [
+          {
+            id: 'issue',
+            visible: true,
+            width: 24,
+          },
+          {
+            id: 'number',
+            visible: true,
+            width: 44,
+          },
+          {
+            id: 'start',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'end',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'duration',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'cps',
+            visible: false,
+            width: 76,
+          },
+          {
+            id: 'rs',
+            visible: false,
+            width: 64,
+          },
+          {
+            id: 'longestLine',
+            visible: false,
+            width: 100,
+          },
+          {
+            id: 'lineCount',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'gap',
+            visible: false,
+            width: 90,
+          },
+          {
+            id: 'style',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'actor',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'text',
+            visible: true,
+            width: 240,
+          },
+        ],
+      },
       editorPct: 16.0,
       topPct: 40.0,
       wavePct: 35.0,
     },
     editorAbove: {
+      columns: {
+        density: 'compact',
+        items: [
+          {
+            id: 'issue',
+            visible: true,
+            width: 24,
+          },
+          {
+            id: 'number',
+            visible: true,
+            width: 44,
+          },
+          {
+            id: 'start',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'end',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'duration',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'cps',
+            visible: false,
+            width: 76,
+          },
+          {
+            id: 'rs',
+            visible: false,
+            width: 64,
+          },
+          {
+            id: 'longestLine',
+            visible: false,
+            width: 100,
+          },
+          {
+            id: 'lineCount',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'gap',
+            visible: false,
+            width: 90,
+          },
+          {
+            id: 'style',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'actor',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'text',
+            visible: true,
+            width: 240,
+          },
+        ],
+      },
       editorPct: 16.0,
       topPct: 13.0,
       wavePct: 65.0,
     },
     review: {
+      columns: {
+        density: 'compact',
+        items: [
+          {
+            id: 'issue',
+            visible: true,
+            width: 24,
+          },
+          {
+            id: 'number',
+            visible: true,
+            width: 44,
+          },
+          {
+            id: 'start',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'end',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'duration',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'cps',
+            visible: false,
+            width: 76,
+          },
+          {
+            id: 'rs',
+            visible: false,
+            width: 64,
+          },
+          {
+            id: 'longestLine',
+            visible: false,
+            width: 100,
+          },
+          {
+            id: 'lineCount',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'gap',
+            visible: false,
+            width: 90,
+          },
+          {
+            id: 'style',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'actor',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'text',
+            visible: true,
+            width: 240,
+          },
+        ],
+      },
       editorPct: 16.0,
       topPct: 13.0,
       wavePct: 65.0,
     },
     timing: {
+      columns: {
+        density: 'compact',
+        items: [
+          {
+            id: 'issue',
+            visible: true,
+            width: 24,
+          },
+          {
+            id: 'number',
+            visible: true,
+            width: 44,
+          },
+          {
+            id: 'start',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'end',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'duration',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'cps',
+            visible: false,
+            width: 76,
+          },
+          {
+            id: 'rs',
+            visible: false,
+            width: 64,
+          },
+          {
+            id: 'longestLine',
+            visible: false,
+            width: 100,
+          },
+          {
+            id: 'lineCount',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'gap',
+            visible: false,
+            width: 90,
+          },
+          {
+            id: 'style',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'actor',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'text',
+            visible: true,
+            width: 240,
+          },
+        ],
+      },
       editorPct: 16.0,
       topPct: 13.0,
       wavePct: 65.0,
     },
     translation: {
+      columns: {
+        density: 'comfortable',
+        items: [
+          {
+            id: 'issue',
+            visible: true,
+            width: 24,
+          },
+          {
+            id: 'number',
+            visible: true,
+            width: 44,
+          },
+          {
+            id: 'start',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'end',
+            visible: true,
+            width: 104,
+          },
+          {
+            id: 'duration',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'cps',
+            visible: false,
+            width: 76,
+          },
+          {
+            id: 'rs',
+            visible: false,
+            width: 64,
+          },
+          {
+            id: 'longestLine',
+            visible: false,
+            width: 100,
+          },
+          {
+            id: 'lineCount',
+            visible: false,
+            width: 80,
+          },
+          {
+            id: 'gap',
+            visible: false,
+            width: 90,
+          },
+          {
+            id: 'style',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'actor',
+            visible: false,
+            width: 120,
+          },
+          {
+            id: 'text',
+            visible: true,
+            width: 240,
+          },
+        ],
+      },
       editorPct: 16.0,
       topPct: 13.0,
       wavePct: 65.0,
@@ -3006,5 +3358,5 @@ export const preferences = {
     snapDistancePx: 8,
     snapScenes: true,
   },
-  version: 2,
+  version: 3,
 } satisfies Preferences;

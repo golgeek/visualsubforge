@@ -1,3 +1,4 @@
+import { defaultColumns } from '../cues/cue-columns.ts';
 import type {
   visualsubforge_preferences_layout_LayoutPreferences as LayoutPreferences,
   visualsubforge_preferences_layout_PaneSizes as PaneSizes,
@@ -12,7 +13,12 @@ export interface LayoutDescription {
   dock: 'review' | 'translation' | null;
   defaults: PaneSizes;
 }
-const timing = { topPct: 13, editorPct: 16, wavePct: 65 };
+const timing = {
+  topPct: 13,
+  editorPct: 16,
+  wavePct: 65,
+  columns: defaultColumns(),
+};
 export const layoutPresets: Record<LayoutPreset, LayoutDescription> = {
   timing: {
     label: 'Timing',
@@ -36,22 +42,30 @@ export const layoutPresets: Record<LayoutPreset, LayoutDescription> = {
     label: 'Translation',
     rows: ['preview', 'transport', 'cues', 'editor'],
     dock: 'translation',
-    defaults: timing,
+    defaults: {
+      ...timing,
+      columns: { ...defaultColumns(), density: 'comfortable' },
+    },
   },
   bigPicture: {
     label: 'Big picture',
     rows: ['preview', 'transport', 'cues', 'editor'],
     dock: null,
-    defaults: { topPct: 40, editorPct: 16, wavePct: 35 },
+    defaults: {
+      topPct: 40,
+      editorPct: 16,
+      wavePct: 35,
+      columns: defaultColumns(),
+    },
   },
 };
 export function defaultLayout(): LayoutPreferences {
   return {
     active: 'timing',
-    timing: { ...layoutPresets.timing.defaults },
-    editorAbove: { ...layoutPresets.editorAbove.defaults },
-    review: { ...layoutPresets.review.defaults },
-    translation: { ...layoutPresets.translation.defaults },
-    bigPicture: { ...layoutPresets.bigPicture.defaults },
+    timing: structuredClone(layoutPresets.timing.defaults),
+    editorAbove: structuredClone(layoutPresets.editorAbove.defaults),
+    review: structuredClone(layoutPresets.review.defaults),
+    translation: structuredClone(layoutPresets.translation.defaults),
+    bigPicture: structuredClone(layoutPresets.bigPicture.defaults),
   };
 }

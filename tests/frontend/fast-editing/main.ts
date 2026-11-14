@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import type { updateMenu } from '../../../src/lib/client';
 import { defaultPreferences } from '../../../src/lib/client';
 import { mount, tick, unmount } from 'svelte';
@@ -84,6 +85,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(defaultPreferences);
       switch (command) {
+        case 'quality_read':
+          return emptyQuality(args);
+        case 'quality_cancel':
+          return null;
         case 'plugin:event|listen':
           return 1;
         case 'plugin:event|unlisten':

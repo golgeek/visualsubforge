@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ColumnChooser from './lib/cues/ColumnChooser.svelte';
   import LayoutPicker from './lib/layout/LayoutPicker.svelte';
   // Theme: fonts, then tokens, then element defaults that use them.
   import '@fontsource-variable/inter/wght.css';
@@ -222,6 +223,9 @@
   const tableView = disposeWithComponent(
     new CueTableView({
       cues: () => doc.cues,
+      columns: () => layout.columns,
+      styled: () => subtitles.styled,
+      issues: () => quality.issues,
       position: () =>
         status.loaded && !media.pending && !status.seeking
           ? status.positionSeconds
@@ -378,7 +382,6 @@
     tableView,
     preferences,
     scenes,
-    view,
   );
 
   const layout: WorkspaceLayout = disposeWithComponent(
@@ -708,10 +711,11 @@
           {quality}
           {tableView}
           {workspace}
-          metrics={preferences.showQualityMetrics}
+          {layout}
           bind:list
           actions={{
-            suspendCueFollowing: navigation.suspendFollowing,
+            listScrolled: navigation.listScrolled,
+            columns: () => void workspaceModal.open('columns'),
             openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
             selectCue: navigation.selectCue,
             cueSelectionKey: navigation.cueSelectionKey,
@@ -791,6 +795,11 @@
   </div>
   <FontDiagnostics {media} />
   <TooltipLayer owner={tooltips} />
+  {#if workspaceModal.identity === 'columns'}<ColumnChooser
+      {layout}
+      styled={subtitles.styled}
+      onclose={() => workspaceModal.close()}
+    />{/if}
   {#if workspaceModal.identity === 'layout'}
     <LayoutPicker
       active={layout.preset}
