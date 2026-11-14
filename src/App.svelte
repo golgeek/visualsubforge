@@ -786,19 +786,13 @@
     height: 100dvh;
     min-height: 610px;
     display: grid;
-    grid-template-rows: 48px minmax(var(--workspace-min-height), 1fr) auto 28px;
+    grid-template-rows: 48px minmax(var(--workspace-min-height), 1fr) 28px;
     isolation: isolate;
     overflow: auto;
   }
 
   main.has-recovery {
-    grid-template-rows:
-      48px auto minmax(var(--workspace-min-height), 1fr)
-      auto 28px;
-  }
-
-  main:has(:global(.shortcut-help[open])) {
-    min-height: 700px;
+    grid-template-rows: 48px auto minmax(var(--workspace-min-height), 1fr) 28px;
   }
 
   .workspace {
