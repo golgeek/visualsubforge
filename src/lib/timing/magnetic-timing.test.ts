@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { defaultTiming, snapBoundary } from './magnetic-timing.ts';
+import { defaultTiming, snapBoundary, snapGuide } from './magnetic-timing.ts';
 const settings = { ...defaultTiming, enabled: true };
 const cues = [
   { id: 1, startMs: 1000, endMs: 2000, text: 'Previous' },
@@ -10,7 +10,11 @@ const cues = [
 test('Cue edges land at the configured gap and ignore their own accepted edges', () => {
   assert.deepEqual(
     snapBoundary(2090, 'start', 4000, 2, cues, [], settings, 30, 10000),
-    { milliseconds: 2080, target: 'cue gap' },
+    {
+      milliseconds: 2080,
+      target: 'cue gap',
+      reference: { cueId: 1, milliseconds: 2000 },
+    },
   );
   assert.equal(
     snapBoundary(4900, 'end', 3000, 2, cues, [], settings, 30, 10000)
@@ -122,5 +126,29 @@ test('Ties favor cue gaps, then earlier timestamps regardless of input order', (
       10000,
     ).milliseconds,
     1990,
+  );
+});
+
+test('snap labels use original cue numbers and describe the actual legal buffer edge', () => {
+  assert.deepEqual(
+    snapGuide(
+      snapBoundary(2090, 'start', 4000, 2, cues, [], settings, 30, 10000),
+      new Map([[1, 12]]),
+    ),
+    { milliseconds: 2080, label: '80 ms after #12' },
+  );
+  assert.deepEqual(
+    snapGuide(
+      snapBoundary(1880, 'end', 1000, null, [], [2], settings, 30, 10000),
+      new Map(),
+    ),
+    { milliseconds: 1870, label: '130 ms before shot change' },
+  );
+  assert.equal(
+    snapGuide(
+      snapBoundary(1880, 'end', 1000, null, [], [2], settings, 30, 10000, true),
+      new Map(),
+    ),
+    null,
   );
 });

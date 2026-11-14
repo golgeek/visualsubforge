@@ -15,6 +15,7 @@ export const defaultTiming: TimingSettings = {
 export interface SnapResult {
   milliseconds: number;
   target: 'cue gap' | 'scene buffer' | null;
+  reference?: { cueId: number | null; milliseconds: number };
 }
 
 // The pointer proposes integer milliseconds. Snap only to valid endpoints;
@@ -45,6 +46,7 @@ export function snapBoundary(
   const consider = (
     candidate: number,
     target: NonNullable<SnapResult['target']>,
+    reference: NonNullable<SnapResult['reference']>,
   ) => {
     candidate = Math.round(candidate);
     if (
@@ -87,7 +89,7 @@ export function snapBoundary(
           : target === 'cue gap'))
     ) {
       distance = delta;
-      best = { milliseconds: candidate, target };
+      best = { milliseconds: candidate, target, reference };
     }
   };
   if (settings.snapCues)
@@ -97,6 +99,10 @@ export function snapBoundary(
           ? cue.endMs + settings.cueGapMs
           : cue.startMs - settings.cueGapMs,
         'cue gap',
+        {
+          cueId: cue.id,
+          milliseconds: boundary === 'start' ? cue.endMs : cue.startMs,
+        },
       );
   if (settings.snapScenes)
     for (const seconds of cuts)
@@ -106,6 +112,35 @@ export function snapBoundary(
             ? settings.sceneAfterMs
             : -settings.sceneBeforeMs),
         'scene buffer',
+        { cueId: null, milliseconds: Math.round(seconds * 1000) },
       );
   return best;
+}
+
+export interface SnapGuide {
+  milliseconds: number;
+  label: string;
+}
+/** Describe the selected legal endpoint; never substitute the cut for its buffer. */
+export function snapGuide(
+  result: SnapResult,
+  cueNumbers: ReadonlyMap<number, number>,
+): SnapGuide | null {
+  if (!result.target || !result.reference) return null;
+  const delta = result.milliseconds - result.reference.milliseconds;
+  const target =
+    result.reference.cueId === null
+      ? 'shot change'
+      : cueNumbers.has(result.reference.cueId)
+        ? `#${cueNumbers.get(result.reference.cueId)}`
+        : 'cue';
+  return {
+    milliseconds: result.milliseconds,
+    label:
+      delta === 0
+        ? target === 'shot change'
+          ? 'Shot change'
+          : target
+        : `${Math.abs(delta)} ms ${delta > 0 ? 'after' : 'before'} ${target}`,
+  };
 }

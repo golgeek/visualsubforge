@@ -549,7 +549,9 @@ async function run() {
     );
     // Status replies are fresh objects even when paused playback is unchanged.
     // Count actual canvas redraws, with a moved playhead as the positive control.
-    const canvas = host.querySelector<HTMLCanvasElement>('.wave canvas')!;
+    const canvas = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform:"]',
+    )!;
     const widthDescriptor = Object.getOwnPropertyDescriptor(
       HTMLCanvasElement.prototype,
       'width',

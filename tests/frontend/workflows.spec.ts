@@ -40,6 +40,7 @@ for (const name of [
   'scenes',
   'cue-timing',
   'waveform-selection',
+  'timeline-overview',
   'workspace-lifecycle',
   'timing-modal',
   'feature-modal',

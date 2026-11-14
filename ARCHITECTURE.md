@@ -558,3 +558,24 @@ Distinct cue counts per quality rule are computed once from the accepted report
 on the existing cancellable worker, deduplicating primary and related cue IDs.
 The bounded projection uses the same report identity/epoch and stale guards as
 `QualitySession`; there is no frontend evaluator or extra analysis worker.
+
+## Timeline visual projections
+
+The waveform, full-file minimap and video scrubber remain frontend projections.
+`timeline-marks.ts` computes display geometry and bounded cue-density bins;
+accepted cue issue severities come from `QualitySession`. Gap colors and cut
+warnings describe the effective profile, without adding a frontend quality
+report or changing accepted timing. `snapBoundary` returns the reference for its
+selected legal endpoint; captured original cue indices supply descriptive labels.
+The existing gesture owner alone commits cue timing, with its stale-version guards.
+
+`SceneOverview` reads completed visual cuts through existing `scenes_view` calls.
+One read is in flight; truncated windows subdivide, bounded to 128 reads and
+100,000 retained cuts. Generation, media identity, epoch and disposal retire late
+results. Incomplete/error/bounded coverage stays explicit. It does not start or
+cancel scans, introduce a Rust worker, or treat visible-window cuts as full-file
+coverage. Minimap drawing bins density, issues and cut ticks independently of
+playhead redraws. Pointer capture cancels on resize, media replacement, disabling,
+blur or disposal. The scrubber holds only a transient position and seeks once on
+release through the existing media owner. It is a DOM sibling below the native
+surface; the existing bounds observer tracks that smaller surface rectangle.

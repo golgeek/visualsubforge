@@ -1,4 +1,7 @@
 <script lang="ts">
+  import TimelineStrip from './TimelineStrip.svelte';
+  import { gapMarks } from './timeline-marks';
+  import type { IssueSeverity } from '../quality/cue-issues';
   import TimingGhosts from '../timing/TimingGhosts.svelte';
   import type { TimingGhost } from '../timing/review-preview';
   import Tooltip from '../ui/Tooltip.svelte';
@@ -15,6 +18,8 @@
   import type { Preferences } from '../client';
   let {
     ghosts = [],
+    issues = new Map(),
+    qualityTiming,
     timeline,
     gestures,
     subtitles,
@@ -34,6 +39,11 @@
     actions,
   }: {
     ghosts?: TimingGhost[];
+    issues?: ReadonlyMap<string, IssueSeverity>;
+    qualityTiming?: Pick<
+      TimingSettings,
+      'cueGapMs' | 'sceneBeforeMs' | 'sceneAfterMs'
+    >;
     timeline: TimelineView;
     gestures: TimingGesture;
     subtitles: DocumentSession;
@@ -67,6 +77,38 @@
       ) => Promise<void>;
     };
   } = $props();
+  let overviewCuts = $state.raw<number[]>([]);
+  let overviewIncomplete = $state(true);
+  const cueNumbers = $derived(
+    new Map(subtitles.snapshot.cues.map((cue, index) => [cue.id, index + 1])),
+  );
+  // Fresh quality polls contain fresh profile objects. Compare scalar thresholds
+  // before invalidating canvas geometry while playback is paused.
+  const qualityGap = $derived(
+    qualityTiming?.cueGapMs ?? timingSettings.cueGapMs,
+  );
+  const qualityBefore = $derived(
+    qualityTiming?.sceneBeforeMs ?? timingSettings.sceneBeforeMs,
+  );
+  const qualityAfter = $derived(
+    qualityTiming?.sceneAfterMs ?? timingSettings.sceneAfterMs,
+  );
+  const warningTiming = $derived({
+    ...timingSettings,
+    cueGapMs: qualityGap,
+    sceneBeforeMs: qualityBefore,
+    sceneAfterMs: qualityAfter,
+  });
+  const allGaps = $derived(
+    gapMarks(subtitles.snapshot.cues, warningTiming.cueGapMs),
+  );
+  const gaps = $derived(
+    allGaps.filter(
+      (gap) =>
+        gap.toMs >= timeline.start * 1000 &&
+        gap.fromMs <= (timeline.start + timeline.span) * 1000,
+    ),
+  );
   const status = $derived(media.status);
   const mediaPending = $derived(media.pending);
   const busy = $derived(workspace.busy);
@@ -94,6 +136,9 @@
 <section class="wave panel" aria-label="Waveform">
   <div class="panelbar">
     <strong>Audio waveform</strong><span class="spacer"></span>
+    <label class="follow"
+      ><input type="checkbox" bind:checked={follow} /> Follow playback</label
+    >
     <SceneControls
       bind:this={sceneControls}
       autoScan={preferences.autoScanScenes}
@@ -113,6 +158,11 @@
       loaded={status.loaded}
       {start}
       {span}
+      {duration}
+      onoverview={(cuts, incomplete) => {
+        overviewCuts = cuts;
+        overviewIncomplete = incomplete;
+      }}
       position={status.positionSeconds}
       disabled={busy || confirming || mediaPending || !ready}
       oncuts={(cuts) => (sceneCuts = cuts)}
@@ -140,10 +190,37 @@
       }}>Fit</button
     >
   </div>
+  <TimelineStrip
+    overview
+    cues={subtitles.snapshot.cues}
+    {issues}
+    cuts={overviewCuts}
+    {start}
+    {span}
+    {duration}
+    position={status.positionSeconds}
+    {selected}
+    mediaKey={status.session}
+    incomplete={status.loaded && showScenes && overviewIncomplete}
+    enabled={!busy && !confirming && !mediaPending && status.loaded}
+    onmove={(seconds) => {
+      gestures.cancelHeld();
+      follow = false;
+      timeline.start = seconds;
+    }}
+    ongesture={(active) => {
+      timeline.interacting = active;
+    }}
+  />
   <div class="wavecanvas" bind:this={waveHost}>
     <Waveform
       view={wave}
       {sceneCuts}
+      {issues}
+      {cueNumbers}
+      {gaps}
+      {warningTiming}
+      externalGuide={gestures.snap}
       timing={timingSettings}
       editingCueId={timingEdit?.original.id ?? null}
       enabled={!busy && !confirming && !mediaPending && status.loaded}
@@ -201,25 +278,6 @@
               ? 'No mapped audio track'
               : 'Open media to display its audio waveform')}
       </div>{/if}
-  </div>
-  <div class="wavefooter">
-    <!-- WebKit can reset the thumb when max changes without updating the
-               bound value. Recreate only when the range extent changes. -->
-    <label class="pan"
-      >Pan {#key Math.max(0, duration - span)}<input
-          aria-label="Waveform position"
-          oninput={() => (follow = false)}
-          type="range"
-          min="0"
-          max={Math.max(0, duration - span)}
-          step="0.01"
-          bind:value={timeline.start}
-          disabled={busy || duration <= span}
-        />{/key}</label
-    ><label
-      ><input type="checkbox" bind:checked={follow} /> Follow playback</label
-    >
-    <span>{start.toFixed(2)}–{(start + span).toFixed(2)} s</span>
   </div>
 </section>
 
@@ -282,23 +340,11 @@
     text-align: center;
   }
 
-  .wavefooter {
+  .follow {
     display: flex;
     align-items: center;
-    padding: 2px 8px;
-    gap: 8px;
-    font-size: 11px;
-  }
-
-  .pan {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex: 1;
-  }
-
-  .pan input {
-    width: 100%;
-    padding: 0;
+    gap: 3px;
+    font-size: 10px;
+    white-space: nowrap;
   }
 </style>

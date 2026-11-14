@@ -25,6 +25,8 @@
   let shown = $state(false);
   let cuts = $state<number[]>([]);
   let position = $state(0);
+  let overview = $state<number[]>([]);
+  let incomplete = $state(true);
 </script>
 
 <button
@@ -70,6 +72,11 @@
   bind:shown
   start={0}
   span={10}
+  duration={100}
+  onoverview={(value, partial) => {
+    overview = value;
+    incomplete = partial;
+  }}
   {position}
   disabled={false}
   oncuts={(value) => {
@@ -81,3 +88,6 @@
 />
 <output id="cuts">{JSON.stringify(cuts)}</output>
 <output id="position">{position}</output>
+
+<output id="overview">{JSON.stringify(overview)}</output>
+<output id="incomplete">{String(incomplete)}</output>

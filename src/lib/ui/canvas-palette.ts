@@ -6,6 +6,10 @@
  */
 
 export interface CanvasPalette {
+  warning: string;
+  error: string;
+  accent: string;
+  fontMono: string;
   background: string;
   rulerLine: string;
   rulerText: string;
@@ -26,6 +30,10 @@ export interface CanvasPalette {
 
 /** The custom property behind each palette role. */
 export const canvasTokens: Readonly<Record<keyof CanvasPalette, string>> = {
+  warning: '--warn',
+  error: '--err',
+  accent: '--accent',
+  fontMono: '--font-mono',
   background: '--surface-timeline',
   rulerLine: '--line',
   rulerText: '--text-muted',

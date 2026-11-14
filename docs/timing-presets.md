@@ -1,6 +1,7 @@
 # Magnetic timing and portable presets
 
-Expand **Magnetic timing** above the workspace and check **Enable snapping**.
+Use the **Snap** toggle in the transport strip; configure its policy in
+Settings › Timing and snapping.
 Cue gaps and scene buffers can be enabled independently. Drag a cue edge near a
 guide or drag a new waveform range; release commits the result. Hold **Alt/Option**
 to bypass. Arrow-key nudges stay exact (10 ms, Shift 100 ms, Alt 1 ms). Escape
@@ -8,10 +9,10 @@ cancels the preview and restores an enabled loop. Changing settings never retime
 existing cues or runs a batch quality check.
 
 - Between cues: a start snaps to another cue's end plus the gap; an end snaps to
-  another cue's start minus the gap. Blue-green bands show the gaps.
+  another cue's start minus the gap. Hatched bands show these targets while dragging.
 - Before cut: a cue end can snap this many milliseconds before a scene marker.
 - After cut: a cue start can snap this many milliseconds after a scene marker.
-  Purple bands show both offsets. Hide **Scenes** to remove scene targets too.
+  Violet ruler brackets remain visible at rest; hatched bands appear during a drag. Hide **Scenes** to remove scene targets too.
 - Snap distance is measured in logical pixels, so zoom controls timing precision.
   Nearest valid target wins; ties prefer a cue gap, then the earlier timestamp.
   Targets inside another cue/gap, inside an overlapping scene buffer, outside
@@ -85,3 +86,22 @@ legacy JavaScript is loaded or executed. INI files with no supported timing fiel
 negative offsets or invalid values fail explicitly. UTF-16/legacy code pages and
 export back to VSS are not supported. This is timing-subset migration, not full
 VSS preset compatibility.
+
+## Timeline display
+
+Solid violet lines and ruler markers show visual shot changes. The gap lane uses
+neutral marks for sufficient gaps, warning marks below the effective minimum and
+error marks for overlaps. Distance tags mark cue endpoints inside a shot buffer;
+hatching collapses below six logical pixels. Multiple endpoints near one cut share
+a tag showing the nearest distance and the number of affected edges. These are display aids, not a second
+quality report. Existing accepted Issues and **Snap to cut…** open the Rust-owned
+review; snapping lands on a legal buffer endpoint, not necessarily the cut itself.
+
+The minimap shows full-file density, accepted issue dots, cut ticks and the visible
+window. Drag or use arrows/Home/End to navigate. Partial cut coverage is labelled;
+bounded reads never silently treat viewport cuts as the whole file. The video
+scrubber shows the same window and previews a seek until release. Escape, blur,
+resize, media replacement or disabling cancels it without seeking. Cut buttons use
+the existing scene navigation. Native video remains above the scrubber, never
+under a DOM control. Real cut-detection accuracy and native playback require the
+optional media build; browser fixtures model them.

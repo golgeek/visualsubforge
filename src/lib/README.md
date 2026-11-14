@@ -585,3 +585,21 @@ Replace collision fixed; the VSF mode-aware scheme is an opt-in trial.
 `QualitySession.view.ruleCues` supplies distinct accepted cue counts per rule;
 checking/stale counts are labeled unavailable. See the
 [Settings guide](../../docs/settings-shortcuts.md) for focus and recovery behavior.
+
+## Timeline marks and overview
+
+`timeline/timeline-marks.ts` contains pure gap, buffer, distance-tag and density
+geometry. `draw-timeline-marks.ts` renders token-palette marks; Rust's accepted
+issue index supplies cue stripes and minimap dots. Magnetic target metadata comes
+from the existing snap helper, with original document cue numbers captured by the
+gesture owner. Temporary hatch bands disappear when dragging ends; cut brackets
+and profile-based warning tags remain visible independently of Alt bypass.
+
+`TimelineStrip` is shared by the full-file minimap and same-window video scrubber.
+It owns captured pointer mapping and a transient seek preview, never subtitle
+state. Scrubber release sends one seek; cancellation sends none. The minimap
+replaces Pan and updates only TimelineView's transient viewport. `SceneOverview`
+serializes bounded full-file scene reads and ignores retired epochs. Visible scene
+polling remains in SceneControls; scans and completed cuts remain Rust-owned.
+The video scrubber sits outside the native video rectangle, with normal bounds
+tracking and no decoded frames in IPC. Review ghosts retain their existing owner.

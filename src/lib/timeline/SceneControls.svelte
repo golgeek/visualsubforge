@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SceneOverview } from './scene-overview.svelte';
   import { onMount, untrack } from 'svelte';
   import {
     scenesStart,
@@ -18,6 +19,8 @@
     oncuts,
     onseek,
     padding = 0,
+    duration = 0,
+    onoverview = () => {},
     restored = null,
     shown = $bindable(true),
     autoScan = true,
@@ -25,6 +28,8 @@
     onstate = () => {},
     onfinish = () => {},
   }: {
+    duration?: number;
+    onoverview?: (cuts: number[], incomplete: boolean) => void;
     onfinish?: (message: string) => void;
     autoScan?: boolean;
     detail?: SceneDetail;
@@ -48,6 +53,31 @@
     oncuts: (cuts: number[]) => void;
     onseek: (seconds: number) => void;
   } = $props();
+  const overview = new SceneOverview();
+  $effect(() => {
+    overview.configure(
+      shown &&
+        loaded &&
+        duration > 0 &&
+        generation !== null &&
+        view?.mode === 'visual' &&
+        !view.running &&
+        !pending &&
+        !error &&
+        !view.error
+        ? {
+            session,
+            generation,
+            duration,
+            total: view.total,
+            partial: view.partial,
+          }
+        : null,
+    );
+  });
+  $effect(() =>
+    onoverview(shown ? overview.cuts : [], shown && overview.incomplete),
+  );
   let generation = $state<number | null>(null);
   let view = $state<SceneView | null>(null);
   let pending = $state(false);
@@ -221,6 +251,7 @@
   onMount(() => {
     const timer = setInterval(() => void poll(), 150);
     return () => {
+      overview.dispose();
       alive = false;
       ++epoch;
       clearInterval(timer);
@@ -228,7 +259,7 @@
   });
 </script>
 
-{#if view?.running || error || view?.error}
+{#if view?.running || error || view?.error || view?.truncated || view?.partial}
   <div class="scenes" aria-label="Scene detection">
     {#if view?.running}
       <progress

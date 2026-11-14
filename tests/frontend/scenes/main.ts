@@ -132,6 +132,15 @@ async function run() {
       host.querySelector('#cuts')?.textContent === '[1,2]',
       'Completed cuts reach waveform overlay',
     );
+    await until(
+      () =>
+        host.querySelector('#overview')?.textContent === '[1,2]' &&
+        host.querySelector('#incomplete')?.textContent === 'false',
+    );
+    assert(
+      true,
+      'Completed visual scan supplies an independent whole-file minimap projection',
+    );
     host.querySelector<HTMLInputElement>('input')!.click();
     await tick();
     assert(
@@ -263,7 +272,7 @@ async function run() {
       'Manual scan remains available with automatic scanning disabled',
     );
     document.querySelector('#result')!.textContent =
-      'PASS: all 18 scene checks';
+      'PASS: all 19 scene checks';
   } catch (e) {
     document.querySelector('#result')!.textContent = 'FAIL: ' + String(e);
   } finally {
