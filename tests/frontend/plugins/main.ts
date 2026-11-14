@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, unmount, tick } from 'svelte';
 import PluginDialog from '../../../src/lib/authoring/PluginDialog.svelte';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
@@ -35,6 +36,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 let doc: DocumentSnapshot = structuredClone(styledDocument);
 let input: PluginInput | null = null;

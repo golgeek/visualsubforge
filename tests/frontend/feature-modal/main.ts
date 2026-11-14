@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
@@ -43,6 +44,7 @@ async function until(check: () => boolean) {
     await settle();
   }
   await settle();
+  await visualCheckpoint();
 }
 function button(label: string, root: ParentNode = host) {
   const result = [

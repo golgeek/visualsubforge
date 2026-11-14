@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import type { updateMenu } from '../../../src/lib/client';
@@ -417,6 +418,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 function assert(ok: boolean, text: string) {
   if (!ok) throw new Error(text);

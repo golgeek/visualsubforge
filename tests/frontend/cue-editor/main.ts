@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -33,6 +34,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 15));
   }
   await tick();
+  await visualCheckpoint();
 }
 function button(label: string) {
   const found = [...host.querySelectorAll('button')].find(

@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -55,6 +56,7 @@ async function until(predicate: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {

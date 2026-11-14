@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, tick, unmount } from 'svelte';
 import { WindowChrome } from '../../../src/lib/workspace/window-chrome.svelte';
 import WorkspaceToolbar from '../../../src/lib/workspace/WorkspaceToolbar.svelte';
@@ -33,6 +34,7 @@ async function until(condition: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   await tick();
+  await visualCheckpoint();
 }
 function fixture(platform: WindowPlatform) {
   const order: string[] = [];

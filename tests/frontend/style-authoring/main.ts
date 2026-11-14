@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, unmount, tick } from 'svelte';
 import StyleInspector from '../../../src/lib/authoring/StyleInspector.svelte';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
@@ -48,6 +49,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 let doc: DocumentSnapshot = {
   ...structuredClone(styledDocument),

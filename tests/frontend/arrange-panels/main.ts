@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { pauseChecks } from './pause';
 import { ownerChecks } from './owners';
 import { emptyQuality } from '../empty-quality';
@@ -68,6 +69,7 @@ async function until(predicate: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {

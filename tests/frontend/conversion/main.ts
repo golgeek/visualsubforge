@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, unmount, tick } from 'svelte';
 import ConversionDialog from '../../../src/lib/authoring/ConversionDialog.svelte';
 import { ConversionSession } from '../../../src/lib/authoring/conversion-session.svelte';
@@ -50,6 +51,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;

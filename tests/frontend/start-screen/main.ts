@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { openingCases } from './owners';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -171,6 +172,7 @@ async function until(condition: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   await tick();
+  await visualCheckpoint();
 }
 function drop(paths: string[]) {
   callbacks.get(events.get('tauri://drag-drop')!)!({ payload: { paths } });

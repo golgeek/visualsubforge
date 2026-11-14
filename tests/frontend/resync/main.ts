@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
@@ -47,6 +48,7 @@ async function until(check: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   await tick();
+  await visualCheckpoint();
 }
 function snapshot(count = 2): DocumentSnapshot {
   return {
