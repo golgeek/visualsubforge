@@ -35,6 +35,9 @@ async function geometry(browser) {
         scrollWidth: toolbar.scrollWidth,
       },
       menus: toolbar.querySelectorAll('nav button').length,
+      menuGroups: [...toolbar.querySelectorAll('nav button')].map((button) =>
+        button.textContent.trim(),
+      ),
       captions: toolbar.querySelectorAll('.captions button').length,
       drag: drag ? { x: drag.x, right: drag.right } : null,
       video: {
@@ -70,11 +73,27 @@ export async function startChrome({
   } else if (state.platform.startsWith('Win')) {
     assert.equal(state.decorated, true);
     assert.equal(state.captions, 0);
-    assert.equal(state.menus, 8);
+    assert.deepEqual(state.menuGroups, [
+      'File',
+      'Edit',
+      'Cue',
+      'View',
+      'Playback',
+      'Review',
+      'Help',
+    ]);
   } else if (state.platform.startsWith('Linux')) {
     assert.equal(state.decorated, !restart);
     assert.equal(state.captions, restart ? 3 : 0);
-    assert.equal(state.menus, 8);
+    assert.deepEqual(state.menuGroups, [
+      'File',
+      'Edit',
+      'Cue',
+      'View',
+      'Playback',
+      'Review',
+      'Help',
+    ]);
   }
   const dropFits = await browser.execute(() => {
     const drop = document.querySelector('.drop').getBoundingClientRect();

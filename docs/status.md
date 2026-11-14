@@ -23,9 +23,10 @@ establish variable-rate frame-boundary accuracy.
 The docked Review panel combines Issues, timing repairs, Shift and Statistics.
 Review menu actions and issue entry points reveal it in the current layout;
 Translation restores a displaced Review dock when closed. Layout presets inherit
-the current preview height until explicitly resized. Native video alignment and
-Arrange pointer swaps have been checked in the macOS native debug app; Windows
-and Linux native geometry/input still require platform trials.
+the current preview height until explicitly resized. Targeted macOS native debug
+checks covered video alignment and Arrange pointer swaps before the latest navigation/menu review changes; current native menus
+and navigation still need an on-screen trial. Windows and Linux native
+geometry/input still require platform trials.
 Live proposals stay read-only until Apply; Rust validates checked subsets and
 commits one Undo step. Visible ghost/list projections are bounded to 200 cue IDs;
 complete plans remain in Rust. This targeted check does not establish playback,
