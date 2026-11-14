@@ -14,7 +14,12 @@ import {
   type TimingEdit,
   type CueBoundary,
 } from './cue-timing';
-import { snapBoundary, type TimingSettings } from './magnetic-timing';
+import {
+  snapBoundary,
+  snapGuide,
+  type SnapGuide,
+  type TimingSettings,
+} from './magnetic-timing';
 import {
   planCueOperation,
   type CueOperationPlan,
@@ -48,12 +53,14 @@ export class TimingGesture {
   edit = $state<TimingEdit | null>(null);
   active = $state(false);
   snapHint = $state('');
+  snap = $state.raw<SnapGuide | null>(null);
   private alive = true;
   private pressedAt = 0;
   private magnets: {
     cues: Cue[];
     cuts: number[];
     settings: TimingSettings;
+    cueNumbers: ReadonlyMap<number, number>;
   } | null = null;
   private rangeBefore: [number, number] | null = null;
   constructor(
@@ -83,7 +90,7 @@ export class TimingGesture {
     this.held = beginHeldTiming(this.subtitles.snapshot, this.media.status);
     this.workspace.notice = this.held
       ? 'Tap Space to pause; hold at least 400 ms to create a cue. Escape cancels.'
-      : 'Start playback with ⌘/Ctrl+Alt+Enter, then hold Space to mark a cue.';
+      : 'Start playback, then hold Space to mark a cue.';
   }
   cancelHeld() {
     this.held = null;
@@ -161,6 +168,11 @@ export class TimingGesture {
         cues: this.subtitles.snapshot.cues,
         cuts: [...this.effects.cuts()],
         settings: { ...this.effects.settings() },
+        // Immutable index captured with the gesture, not a reactive collection.
+        // eslint-disable-next-line svelte/prefer-svelte-reactivity
+        cueNumbers: new Map(
+          this.subtitles.snapshot.cues.map((cue, index) => [cue.id, index + 1]),
+        ),
       };
       this.active = true;
       this.navigation.suspendFollowing();
@@ -194,7 +206,8 @@ export class TimingGesture {
         Math.floor(this.timeline.duration * 1000),
         !pointer || pointer.bypass,
       );
-      this.snapHint = result.target ? `Snapped to ${result.target}` : '';
+      this.snap = snapGuide(result, this.magnets.cueNumbers);
+      this.snapHint = this.snap ? `Snapped to ${this.snap.label}` : '';
       this.edit = previewBoundary(this.edit, boundary, result.milliseconds);
       this.timeline.selectRange([
         this.edit.preview.startMs / 1000,
@@ -245,6 +258,7 @@ export class TimingGesture {
           this.edit = null;
           this.magnets = null;
           this.snapHint = '';
+          this.snap = null;
           this.active = false;
         }
       }
@@ -253,6 +267,8 @@ export class TimingGesture {
 
   dispose() {
     this.alive = false;
+    this.snap = null;
+    this.snapHint = '';
     this.held = null;
     this.edit = null;
     this.magnets = null;

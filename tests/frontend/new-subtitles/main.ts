@@ -220,11 +220,15 @@ async function run() {
     );
     assert(pickers === 3, 'Later save requested a second destination');
     passed('successful first save adopts its path; later Save reuses it');
-    const canvas = host.querySelector('canvas')!;
+    const canvas = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform:"]',
+    )!;
     const checkbox = [...host.querySelectorAll('label')]
       .find((l) => l.textContent?.trim() === 'Follow playback')!
       .querySelector('input')!;
-    const pan = host.querySelector<HTMLInputElement>('.pan input')!;
+    const pan = host.querySelector<HTMLCanvasElement>(
+      '[aria-label="Timeline minimap"]',
+    )!;
     canvas.dispatchEvent(
       new WheelEvent('wheel', {
         deltaX: 3000,
@@ -233,11 +237,15 @@ async function run() {
         cancelable: true,
       }),
     );
-    await until(() => !checkbox.checked && Number(pan.value) > 5);
+    await until(
+      () => !checkbox.checked && Number(pan.getAttribute('aria-valuenow')) > 5,
+    );
     assert(transport.length === 0, 'Navigation moved media');
     passed('horizontal wheel pans independently and unchecks Follow playback');
     checkbox.click();
-    await until(() => checkbox.checked && Number(pan.value) === 0);
+    await until(
+      () => checkbox.checked && Number(pan.getAttribute('aria-valuenow')) === 0,
+    );
     assert(transport.length === 0, 'Follow checkbox sought the video');
     passed(
       'Follow playback checkbox restores the playhead viewport without seeking',

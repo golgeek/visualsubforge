@@ -1,9 +1,33 @@
 <script lang="ts">
+  import TimelineStrip from '../timeline/TimelineStrip.svelte';
+  import type { TimelineView } from '../timeline/timeline-view.svelte';
+  import type { Cue } from '../client';
   import type { MediaSession } from './media-session.svelte';
   let {
     media,
+    timeline,
+    cues = [],
+    selected = null,
+    cuts = [],
+    disabled = true,
+    previousCut = false,
+    nextCut = false,
+    oncut = () => {},
+    onseek = () => {},
     video = $bindable(),
-  }: { media: MediaSession; video: HTMLDivElement | undefined } = $props();
+  }: {
+    media: MediaSession;
+    video: HTMLDivElement | undefined;
+    timeline?: TimelineView;
+    cues?: Cue[];
+    selected?: number | null;
+    cuts?: number[];
+    disabled?: boolean;
+    previousCut?: boolean;
+    nextCut?: boolean;
+    oncut?: (backwards: boolean) => void;
+    onseek?: (seconds: number) => void;
+  } = $props();
   const status = $derived(media.status);
 </script>
 
@@ -22,12 +46,58 @@
     {#if !status.loaded}<p>
         {status.available
           ? 'Open media to preview video'
-          : 'Video playback isn’t available here. Editing and the waveform still work.'}
+          : 'Video playback unavailable'}
       </p>{/if}
   </div>
+  {#if timeline}<div class="scrubber">
+      <button
+        aria-label="Previous shot change"
+        disabled={disabled || !previousCut}
+        onclick={() => oncut(true)}>◂</button
+      >
+      <TimelineStrip
+        {cues}
+        {cuts}
+        {selected}
+        start={timeline.start}
+        span={timeline.span}
+        duration={timeline.duration}
+        position={status.positionSeconds}
+        mediaKey={status.session}
+        enabled={!disabled && status.loaded}
+        onmove={onseek}
+        ongesture={(active) => {
+          if (timeline) timeline.interacting = active;
+        }}
+      />
+      <button
+        aria-label="Next shot change"
+        disabled={disabled || !nextCut}
+        onclick={() => oncut(false)}>▸</button
+      >
+    </div>{/if}
 </section>
 
 <style>
+  .scrubber {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 20px;
+    flex-shrink: 0;
+    z-index: 2;
+    background: var(--surface-timeline);
+  }
+  .scrubber button {
+    height: 20px;
+    min-height: 0;
+    padding: 0 5px;
+    flex-shrink: 0;
+  }
+  .scrubber :global(canvas) {
+    flex: 1;
+    width: 0;
+  }
   .filename {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -74,7 +144,15 @@
 
   .video-space p {
     position: absolute;
-    inset: 20% 10%;
+    inset: 0;
+    margin: 0;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 14px;
+    overflow: hidden;
     text-align: center;
     color: var(--text-on-video);
   }

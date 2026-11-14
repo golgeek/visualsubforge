@@ -80,6 +80,8 @@ export async function workspaceLayouts({
           cueControls: rect('.cue-followbar'),
           video: rect('.video-space'),
           waveform: rect('[aria-label="Waveform"]'),
+          minimap: rect('[aria-label="Timeline minimap"]'),
+          scrubber: rect('[aria-label="Video scrubber"]'),
           transport: rect('.transport'),
           editor: rect('[aria-label="Subtitle text"]'),
           textLines:
@@ -102,6 +104,19 @@ export async function workspaceLayouts({
       assert.ok(
         bounds.video.x >= bounds.waveform.right,
         'video overlaps waveform',
+      );
+      assert.ok(
+        bounds.scrubber.y >= bounds.video.bottom - 1 &&
+          bounds.scrubber.right <= bounds.video.right + 1 &&
+          bounds.scrubber.bottom <= bounds.transport.y + 1,
+        'scrubber must remain outside native surface: ' +
+          JSON.stringify(bounds),
+      );
+      assert.ok(
+        bounds.minimap.y >= bounds.waveform.y &&
+          bounds.minimap.bottom <= bounds.waveform.bottom &&
+          bounds.minimap.height === 20,
+        'minimap stays inside waveform panel: ' + JSON.stringify(bounds),
       );
       assert.ok(bounds.list.height >= 64, 'preset loses usable cue rows');
       assert.ok(

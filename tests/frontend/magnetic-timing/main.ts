@@ -288,7 +288,11 @@ async function drag(
   const to =
     x +
     ((targetMs - original) / 10000) *
-      host.querySelector('canvas')!.getBoundingClientRect().width;
+      host
+        .querySelector<HTMLCanvasElement>(
+          'canvas[aria-label^="Audio waveform:"]',
+        )!
+        .getBoundingClientRect().width;
   pointer(element, 'pointerdown', x);
   await tick();
   pointer(element, 'pointermove', to, bypass);
@@ -372,7 +376,9 @@ async function run() {
       doc.cues[1]!.endMs === 4379,
       'Alt-arrow remains an exact one-millisecond nudge',
     );
-    const canvas = host.querySelector('canvas')!;
+    const canvas = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform:"]',
+    )!;
     capture(canvas);
     const rect = canvas.getBoundingClientRect();
     const at = (ms: number) => rect.left + (rect.width * ms) / 10000;

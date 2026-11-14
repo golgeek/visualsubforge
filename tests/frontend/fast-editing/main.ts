@@ -177,7 +177,9 @@ async function run() {
   const app = mount(App, { target: host });
   try {
     await until(() => !(!menuState || menuState.busy));
-    const canvas = host.querySelector('canvas')!;
+    const canvas = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform:"]',
+    )!;
     const editor = host.querySelector('textarea')!;
     const mode = host.querySelector<HTMLInputElement>(
       '[aria-label="Tap-to-time · hold Space"]',
@@ -399,17 +401,19 @@ async function run() {
     passed(
       'Enter explicitly edits text with ordinary spaces; Escape returns to continuous timing',
     );
-    const pan = host.querySelector<HTMLInputElement>('.pan input')!;
+    const pan = host.querySelector<HTMLCanvasElement>(
+      '[aria-label="Timeline minimap"]',
+    )!;
     const follow = [...host.querySelectorAll('label')]
       .find((l) => l.textContent?.trim() === 'Follow playback')!
       .querySelector('input')!;
     media.positionSeconds = 18;
-    await until(() => Number(pan.value) === 10);
+    await until(() => Number(pan.getAttribute('aria-valuenow')) === 10);
     key(canvas, ' ');
     media.positionSeconds = 19;
-    await until(() => Number(pan.value) === 11);
+    await until(() => Number(pan.getAttribute('aria-valuenow')) === 11);
     media.positionSeconds = 21;
-    await until(() => Number(pan.value) === 13);
+    await until(() => Number(pan.getAttribute('aria-valuenow')) === 13);
     await new Promise((resolve) => setTimeout(resolve, 450));
     key(canvas, ' ', {}, 'keyup');
     await until(
@@ -445,7 +449,10 @@ async function run() {
           button: 0,
           bubbles: true,
           cancelable: true,
-          clientX: rect.left + (rect.width * (19 - Number(pan.value))) / 20,
+          clientX:
+            rect.left +
+            (rect.width * (19 - Number(pan.getAttribute('aria-valuenow')))) /
+              20,
           clientY: rect.top + 40,
         }),
       );
@@ -555,15 +562,15 @@ async function run() {
     passed('Cue-list click seeks to cue start and preserves paused state');
     follow.click();
     await tick();
-    const detachedStart = Number(pan.value);
+    const detachedStart = Number(pan.getAttribute('aria-valuenow'));
     media.positionSeconds = 40;
     await settle();
     assert(
-      Number(pan.value) === detachedStart,
+      Number(pan.getAttribute('aria-valuenow')) === detachedStart,
       'Disabled Follow moved viewport',
     );
     follow.click();
-    await until(() => Number(pan.value) === 32);
+    await until(() => Number(pan.getAttribute('aria-valuenow')) === 32);
     passed(
       'Follow can be disabled and resumed independently after held timing',
     );

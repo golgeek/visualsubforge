@@ -116,7 +116,9 @@
         '\u00a0'}</span
     >
     {#if current}<button {disabled} onclick={() => onreview(current!.rule)}
-        >Review fix…</button
+        >{current.rule === 'scene_start' || current.rule === 'scene_end'
+          ? 'Snap to cut…'
+          : 'Review fix…'}</button
       >{/if}
   </div>
 </div>

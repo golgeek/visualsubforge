@@ -707,6 +707,9 @@
     <div class="top" style:--wave-width={`${layout.wavePct}%`}>
       <WaveformPanel
         ghosts={reviewGhosts}
+        issues={quality.issues}
+        qualityTiming={quality.view?.profile.timing ??
+          preferences.timingSettings}
         {timeline}
         {gestures}
         {subtitles}
@@ -737,7 +740,22 @@
         value={layout.wavePct}
         onchange={(v) => layout.resizeWaveform(v)}
       />
-      <VideoPreview {media} bind:video />
+      <VideoPreview
+        {media}
+        bind:video
+        {timeline}
+        cues={subtitles.snapshot.cues}
+        selected={subtitles.selected}
+        cuts={scenes.sceneCuts}
+        disabled={workspace.busy ||
+          workspace.confirming ||
+          media.pending ||
+          !workspace.ready}
+        previousCut={scenes.sceneState.previous}
+        nextCut={scenes.sceneState.next}
+        oncut={(backwards) => scenes.sceneControls?.navigate(backwards)}
+        onseek={(seconds) => void seekMedia(mediaActions, seconds)}
+      />
     </div>
     <Splitter
       label="Resize preview and subtitle list"

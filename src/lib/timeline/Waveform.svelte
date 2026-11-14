@@ -2,8 +2,13 @@
   import {
     defaultTiming,
     snapBoundary,
+    snapGuide,
+    type SnapGuide,
     type TimingSettings,
   } from '../timing/magnetic-timing';
+  import { bufferVisibility, gapMarks, type GapMark } from './timeline-marks';
+  import { hatch, drawTimelineMarks } from './draw-timeline-marks';
+  import type { IssueSeverity } from '../quality/cue-issues';
   import { onMount } from 'svelte';
   import '../ui/tokens.css';
   import {
@@ -35,7 +40,17 @@
     sceneCuts = [],
     timing = defaultTiming,
     editingCueId = null,
+    externalGuide = null,
+    cueNumbers = new Map(),
+    issues = new Map(),
+    gaps,
+    warningTiming,
   }: {
+    warningTiming?: TimingSettings;
+    externalGuide?: SnapGuide | null;
+    cueNumbers?: ReadonlyMap<number, number>;
+    issues?: ReadonlyMap<string, IssueSeverity>;
+    gaps?: readonly GapMark[];
     sceneCuts?: number[];
     timing?: TimingSettings;
     editingCueId?: number | null;
@@ -62,6 +77,7 @@
     ) => void;
     onnavigate?: (view: { start: number; span: number }) => void;
   } = $props();
+  const snapId = $props.id();
   let canvas: HTMLCanvasElement;
   let width = $state(600);
   let height = $state(160);
@@ -79,7 +95,12 @@
     span: number;
     duration: number;
     preview: [number, number] | null;
+    guides: SnapGuide[];
   } | null>(null);
+  const displayedGaps = $derived(gaps ?? gapMarks(cues, timing.cueGapMs));
+  const guides = $derived(
+    gesture?.guides ?? (externalGuide ? [externalGuide] : []),
+  );
   const displayedRange = $derived(gesture?.preview ?? previewRange ?? range);
   // The parent receives fresh media-status objects on every poll. Compare the
   // position itself before invalidating this expensive canvas draw.
@@ -100,44 +121,18 @@
     context.fillStyle = colors.background;
     context.fillRect(0, 0, width, height);
     const x = (t: number) => timeToX(t, start, span, width);
-    if (timing.enabled) {
-      const band = (from: number, to: number, color: string) => {
-        const left = Math.max(0, x(from));
-        const right = Math.min(width, x(to));
-        if (right <= left) return;
-        context.fillStyle = color;
-        context.fillRect(left, 20, right - left, height - 20);
-      };
-      if (timing.snapCues)
-        for (const cue of cues) {
-          // The moving cue is not its own magnetic neighbor.
-          if (cue.id === editingCueId) continue;
-          band(
-            (cue.startMs - timing.cueGapMs) / 1000,
-            cue.startMs / 1000,
-            colors.cueBuffer,
-          );
-          band(
-            cue.endMs / 1000,
-            (cue.endMs + timing.cueGapMs) / 1000,
-            colors.cueBuffer,
-          );
-        }
-      if (timing.snapScenes)
-        for (const cut of sceneCuts)
-          band(
-            cut - timing.sceneBeforeMs / 1000,
-            cut + timing.sceneAfterMs / 1000,
-            colors.cutBuffer,
-          );
-    }
+    const plotHeight = Math.max(20, height - 12);
+    const buffers = bufferVisibility(
+      !!gesture?.preview || editingCueId !== null || previewRange !== null,
+    );
+
     for (const cue of cues) {
       const left = Math.max(0, x(cue.startMs / 1000));
       const right = Math.min(width, x(cue.endMs / 1000));
       if (right <= left) continue;
       context.fillStyle =
         cue.id === selected ? colors.cueFillSelected : colors.cueFill;
-      context.fillRect(left, 20, right - left, height - 20);
+      context.fillRect(left, 20, right - left, plotHeight - 20);
       context.strokeStyle =
         cue.id === selected ? colors.cueLineSelected : colors.cueLine;
       context.lineWidth = cue.id === selected ? 2 : 1;
@@ -145,18 +140,34 @@
         left + 0.5,
         21,
         Math.max(0, right - left - 1),
-        height - 22,
+        plotHeight - 22,
       );
+      const severity = issues.get(String(cue.id));
+      if (severity) {
+        context.fillStyle =
+          severity === 'violation' ? colors.error : colors.warning;
+        context.fillRect(
+          left,
+          21,
+          Math.min(3, right - left),
+          Math.max(0, plotHeight - 22),
+        );
+      }
       context.save();
       context.beginPath();
-      context.rect(left + 4, height - 22, Math.max(0, right - left - 8), 20);
+      context.rect(
+        left + 4,
+        plotHeight - 22,
+        Math.max(0, right - left - 8),
+        20,
+      );
       context.clip();
       context.fillStyle = colors.cueText;
       context.font = `11px ${colors.fontFamily}`;
       context.fillText(
         cue.text.replaceAll('\n', ' ↵ ') || 'Untitled cue',
         left + 5,
-        height - 7,
+        plotHeight - 7,
       );
       context.restore();
     }
@@ -172,12 +183,12 @@
       const px = x(t);
       context.beginPath();
       context.moveTo(px, 20);
-      context.lineTo(px, height);
+      context.lineTo(px, plotHeight);
       context.stroke();
       context.fillText(`${t.toFixed(span < 5 ? 2 : 1)} s`, px + 3, 13);
     }
-    const center = (height + 8) / 2;
-    const amplitude = Math.max(10, (height - 58) / 2);
+    const center = (plotHeight + 8) / 2;
+    const amplitude = Math.max(10, (plotHeight - 58) / 2);
     context.strokeStyle = colors.wave;
     context.lineWidth = 1;
     context.beginPath();
@@ -199,29 +210,57 @@
         x(displayedRange[0]),
         20,
         x(displayedRange[1]) - x(displayedRange[0]),
-        height - 20,
+        plotHeight - 20,
       );
       context.strokeStyle = colors.rangeLine;
       for (const t of displayedRange) {
         context.beginPath();
         context.moveTo(x(t), 20);
-        context.lineTo(x(t), height);
+        context.lineTo(x(t), plotHeight);
         context.stroke();
       }
     }
-    // Cut candidates are an overlay, not editable subtitle boundaries.
-    context.strokeStyle = colors.cut;
-    context.lineWidth = 1;
-    context.setLineDash([3, 3]);
-    for (const cut of sceneCuts) {
-      if (cut < start || cut > start + span) continue;
-      const px = x(cut);
-      context.beginPath();
-      context.moveTo(px, 20);
-      context.lineTo(px, height);
-      context.stroke();
+    if (buffers.shotBands || buffers.cueBands) {
+      const band = (from: number, to: number, color: string) => {
+        const left = Math.max(0, x(from));
+        const right = Math.min(width, x(to));
+        if (right <= left) return;
+        hatch(context, left, right, 20, plotHeight, color);
+      };
+      if (buffers.cueBands)
+        for (const cue of cues) {
+          // The moving cue is not its own magnetic neighbor.
+          if (cue.id === editingCueId) continue;
+          band(
+            (cue.startMs - timing.cueGapMs) / 1000,
+            cue.startMs / 1000,
+            colors.cueBuffer,
+          );
+          band(
+            cue.endMs / 1000,
+            (cue.endMs + timing.cueGapMs) / 1000,
+            colors.cueBuffer,
+          );
+        }
+      if (buffers.shotBands)
+        for (const cut of sceneCuts)
+          band(
+            cut - timing.sceneBeforeMs / 1000,
+            cut + timing.sceneAfterMs / 1000,
+            colors.cutBuffer,
+          );
     }
-    context.setLineDash([]);
+    drawTimelineMarks(context, colors, {
+      width,
+      height,
+      start,
+      span,
+      cuts: sceneCuts,
+      cues,
+      gaps: displayedGaps,
+      timing: warningTiming ?? timing,
+      guides,
+    });
     if (playhead === null) return;
     context.strokeStyle = colors.playhead;
     context.lineWidth = 2;
@@ -239,7 +278,11 @@
     void selected;
     void sceneCuts;
     void timing;
+    void warningTiming;
     void editingCueId;
+    void displayedGaps;
+    void guides;
+    void issues;
     void displayedRange;
     void palette;
     void width;
@@ -344,6 +387,7 @@
       anchorX: e.clientX,
       cueId: e.clientY - rect.top >= 20 ? cueAt(time(e, mapping)) : null,
       preview: null,
+      guides: [],
     };
     ongesture?.(true);
   }
@@ -382,6 +426,10 @@
       Math.floor(mapping.duration * 1000),
       e.altKey,
     );
+    mapping.guides = [
+      snapGuide(first, cueNumbers),
+      snapGuide(last, cueNumbers),
+    ].filter((guide): guide is SnapGuide => guide !== null);
     // Preserve the original fractional pointer mapping when no target is selected.
     return [
       first.target ? first.milliseconds / 1000 : raw[0],
@@ -390,13 +438,11 @@
   }
   function move(e: PointerEvent) {
     if (!gesture || gesture.pointer !== e.pointerId) return;
-    gesture = {
-      ...gesture,
-      preview:
-        Math.abs(e.clientX - gesture.anchorX) > 3
-          ? snappedRange(e, gesture)
-          : null,
-    };
+    const preview =
+      Math.abs(e.clientX - gesture.anchorX) > 3
+        ? snappedRange(e, gesture)
+        : null;
+    gesture = { ...gesture, preview, guides: preview ? gesture.guides : [] };
   }
   function end(e: PointerEvent) {
     const previous = gesture;
@@ -454,6 +500,7 @@
 <canvas
   bind:this={canvas}
   aria-label="Audio waveform: click a cue to select it, click empty space to seek, drag to select a range"
+  aria-describedby={guides.length ? snapId : undefined}
   title="Click a cue to select its range; click inside it again to seek. Scroll horizontally to pan; vertically to zoom. Shift+wheel also pans."
   tabindex="0"
   oncontextmenu={contextMenu}
@@ -464,7 +511,22 @@
   onlostpointercapture={cancelPointer}
 ></canvas>
 
+<span id={snapId} class="snap-description" role="status"
+  >{guides.map((guide) => `Snapped to ${guide.label}`).join('; ')}</span
+>
+
 <style>
+  .snap-description {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
   canvas {
     display: block;
     width: 100%;

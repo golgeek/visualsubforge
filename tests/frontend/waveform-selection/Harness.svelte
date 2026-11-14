@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import Waveform from '../../../src/lib/timeline/Waveform.svelte';
+  import { defaultTiming } from '../../../src/lib/timing/magnetic-timing';
   import type { Cue } from '../../../src/lib/client';
 
+  let sceneCuts = $state<number[]>([]);
+  let timing = $state({ ...defaultTiming });
   let host: HTMLDivElement;
   let mounted = $state(true);
   let width = $state(600);
@@ -36,6 +39,8 @@
   async function reset() {
     mounted = false;
     await tick();
+    sceneCuts = [];
+    timing = { ...defaultTiming };
     ranges = [];
     seeks = [];
     cues = [];
@@ -308,6 +313,76 @@
       results.push(
         'PASS: exact selected cue range seeks on repeat click; a different range reselects',
       );
+      for (const theme of ['dark', 'light']) {
+        await reset();
+        document.documentElement.dataset.theme = theme;
+        range = null;
+        sceneCuts = [5];
+        await paint();
+        const element = canvas(),
+          ctx = element.getContext('2d')!;
+        const scale = element.width / element.getBoundingClientRect().width;
+        const pixel = (x: number, y: number) =>
+          Array.from(
+            ctx.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1)
+              .data,
+          ).join(',');
+        const cut = pixel(300, 40);
+        assert(
+          Array.from({ length: 30 }, (_, i) => pixel(300, 40 + i)).every(
+            (value) => value === cut,
+          ),
+          'Cut must be solid, not dashed',
+        );
+        assert(cut !== pixel(303, 40), 'Cut must contrast with background');
+        cues = [
+          { id: 1, startMs: 1000, endMs: 2000, text: '' },
+          { id: 2, startMs: 3000, endMs: 4000, text: '' },
+        ];
+        await paint();
+        assert(
+          pixel(150, 149) !== pixel(270, 149),
+          'Gap lane must paint neutral gaps',
+        );
+        timing = { ...defaultTiming, enabled: true, cueGapMs: 1500 };
+        await paint();
+        assert(
+          pixel(150, 149) !== pixel(270, 149),
+          'Gap lane must paint below-minimum warning',
+        );
+        sceneCuts = [];
+        cues = [{ id: 500, startMs: 5000, endMs: 6000, text: '' }];
+        timing = { ...defaultTiming, enabled: true };
+        await paint();
+        await pointer('pointerdown', 60);
+        await pointer('pointermove', 294);
+        assert(
+          !!host
+            .querySelector('[role="status"]')
+            ?.textContent?.includes('80 ms before #12'),
+          'Snap label must name original cue number and legal endpoint',
+        );
+        canvas().dispatchEvent(
+          new PointerEvent('pointermove', {
+            pointerId: 1,
+            isPrimary: true,
+            button: 0,
+            bubbles: true,
+            altKey: true,
+            clientX: canvas().getBoundingClientRect().left + 294,
+          }),
+        );
+        await tick();
+        assert(
+          !canvas().getAttribute('aria-describedby'),
+          'Alt bypass clears snap label',
+        );
+        window.dispatchEvent(new Event('blur'));
+        await paint();
+        results.push(
+          `PASS: ${theme} solid cuts, gap lane, named snap guide and Alt bypass`,
+        );
+      }
       complete = true;
     } catch (error) {
       results.push(`FAIL: ${String(error)}`);
@@ -327,6 +402,9 @@
   {#if mounted}
     <Waveform
       view={null}
+      {sceneCuts}
+      {timing}
+      cueNumbers={new Map([[500, 12]])}
       {start}
       {span}
       {duration}
