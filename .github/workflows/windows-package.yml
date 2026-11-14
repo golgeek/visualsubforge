@@ -31,19 +31,12 @@ jobs:
           rustup show
           python -m pip install --only-binary=:all: --require-hashes -r tests/release/windows-requirements.txt
           python -m unittest discover -s tests/release -p 'test_*.py'
-      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
-        with:
-          arch: x86
-      - name: Build and inventory the pinned NSIS helper before native compilation
-        run: |
-          $PSNativeCommandUseErrorActionPreference = $true
-          python scripts/windows-installer.py build --build "$env:RUNNER_TEMP/installer"
-          "VSF_NSIS_PLUGIN_DIR=$env:RUNNER_TEMP/installer/plugin" >> $env:GITHUB_ENV
       - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         id: msys
         with:
           msystem: CLANG64
-          path-type: inherit
+          # Package installation/cache cleanup does not need the MSVC environment.
+          path-type: strict
           update: true
           install: >-
             git make diffutils patch curl tar lzip
@@ -62,6 +55,14 @@ jobs:
             mingw-w64-clang-x86_64-zlib
             mingw-w64-clang-x86_64-bzip2
             mingw-w64-clang-x86_64-xz
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x86
+      - name: Build and inventory the pinned NSIS helper before native compilation
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python scripts/windows-installer.py build --build "$env:RUNNER_TEMP/installer"
+          "VSF_NSIS_PLUGIN_DIR=$env:RUNNER_TEMP/installer/plugin" >> $env:GITHUB_ENV
       - name: Check source-signature verification before native compilation
         env:
           VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
@@ -76,6 +77,8 @@ jobs:
       - name: Build native SDKs, GUI and CLI through Make
         shell: msys2 {0}
         env:
+          # The native build needs MSVC, Cargo, Node and Windows Python on PATH.
+          MSYS2_PATH_TYPE: inherit
           VSF_WINDOWS_LINK_EVIDENCE: ${{ runner.temp }}/windows-link-inputs
         run: |
           tool_python=$(cygpath -u "$pythonLocation")
@@ -153,6 +156,20 @@ jobs:
             ${{ runner.temp }}/package/native-sources/native-inventory.json
             ${{ runner.temp }}/package/native-sources/msys2/msys-inventory.json
             ${{ runner.temp }}/package/native-sources/msys2/**/*.verification.txt
+            ${{ runner.temp }}/install-check/*.json
+            ${{ runner.temp }}/install-check/*.log
+            ${{ runner.temp }}/install-check/offline/network-isolation.json
+            ${{ runner.temp }}/install-check/offline/cli/packaged-cli-check.json
+            ${{ runner.temp }}/install-check/gui/*
+            ${{ runner.temp }}/virtual-audio/*.json
+            ${{ runner.temp }}/virtual-audio/*.log
+          retention-days: 14
+      - name: Preserve native compilation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() && env.VSF_NATIVE_CACHE != '' }}
+        with:
+          name: windows-native-build-evidence-x64
+          path: |
             ${{ env.VSF_NATIVE_CACHE }}/ffmpeg/*.txt
             ${{ env.VSF_NATIVE_CACHE }}/ffmpeg/configure.log
             ${{ env.VSF_NATIVE_CACHE }}/ffmpeg/config.log
@@ -162,11 +179,4 @@ jobs:
             ${{ env.VSF_NATIVE_CACHE }}/ffmpeg/config_components.h
             ${{ env.VSF_NATIVE_CACHE }}/mpv/build-receipt.json
             ${{ env.VSF_NATIVE_CACHE }}/mpv/commands.log
-            ${{ runner.temp }}/install-check/*.json
-            ${{ runner.temp }}/install-check/*.log
-            ${{ runner.temp }}/install-check/offline/network-isolation.json
-            ${{ runner.temp }}/install-check/offline/cli/packaged-cli-check.json
-            ${{ runner.temp }}/install-check/gui/*
-            ${{ runner.temp }}/virtual-audio/*.json
-            ${{ runner.temp }}/virtual-audio/*.log
           retention-days: 14
