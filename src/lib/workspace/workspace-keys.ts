@@ -1,3 +1,4 @@
+import { actionDescription, matchesShortcut } from './action-registry.ts';
 import {
   editingShortcut,
   windowsShortcut,
@@ -42,6 +43,7 @@ export type WorkspaceKeyRoute =
   | { kind: 'problem'; previous: boolean }
   | { kind: 'editing'; action: EditingShortcut }
   | { kind: 'action'; action: WorkspaceAction }
+  | { kind: 'browser'; mode: 'commands' | 'shortcuts' }
   | { kind: 'held' }
   | { kind: 'consume' };
 
@@ -53,23 +55,32 @@ export function routeWorkspaceKey(
   if (e.isComposing || e.defaultPrevented || context.menu || context.confirming)
     return null;
   if (
-    (e.metaKey || e.ctrlKey) &&
-    !e.altKey &&
     !e.repeat &&
-    ((e.key.toLowerCase() === 'f' && !e.shiftKey) ||
-      (e.key.toLowerCase() === 'h' &&
-        ((e.ctrlKey && !e.shiftKey) || (e.metaKey && e.shiftKey))))
+    matchesShortcut(actionDescription('commandPalette').shortcut, e)
+  )
+    return { kind: 'browser', mode: 'commands' };
+  if (
+    !e.repeat &&
+    !context.editing &&
+    matchesShortcut(actionDescription('shortcutSheet').shortcut, e)
+  )
+    return { kind: 'browser', mode: 'shortcuts' };
+  if (
+    !e.repeat &&
+    (matchesShortcut(actionDescription('find').shortcut, e) ||
+      matchesShortcut(actionDescription('replace').shortcut, e) ||
+      matchesShortcut(actionDescription('replace').macShortcut!, e))
   )
     return {
       kind: 'text',
-      mode: e.key.toLowerCase() === 'f' ? 'find' : 'replace',
+      mode: matchesShortcut(actionDescription('find').shortcut, e)
+        ? 'find'
+        : 'replace',
     };
   if (
     context.problems &&
-    e.key === 'F4' &&
-    !e.metaKey &&
-    !e.ctrlKey &&
-    !e.altKey
+    (matchesShortcut(actionDescription('previousProblem').shortcut, e) ||
+      matchesShortcut(actionDescription('nextProblem').shortcut, e))
   )
     return { kind: 'problem', previous: e.shiftKey };
   const shortcut = editingShortcut(e, context.editing);
@@ -83,12 +94,8 @@ export function routeWorkspaceKey(
         : { kind: 'action', action };
   }
   if (
-    e.code === 'Space' &&
+    matchesShortcut(actionDescription('play').alternateShortcuts[1]!, e) &&
     !context.editing &&
-    !e.ctrlKey &&
-    !e.metaKey &&
-    !e.altKey &&
-    !e.shiftKey &&
     !context.control
   ) {
     if (e.repeat || !context.canAct) return { kind: 'consume' };
@@ -111,6 +118,7 @@ interface KeyOwners {
   waveformGesture: boolean;
   problemsOpen: boolean;
   windows: boolean;
+  openCommands: (mode: 'commands' | 'shortcuts') => Promise<void>;
   openText: (mode: 'find' | 'replace') => Promise<void>;
   requestProblem: (id: string) => void;
   focusWaveform: () => void;
@@ -141,6 +149,9 @@ export function workspaceKeydown(e: KeyboardEvent, owners: KeyOwners) {
   if (!route) return;
   e.preventDefault();
   switch (route.kind) {
+    case 'browser':
+      void owners.openCommands(route.mode);
+      break;
     case 'text':
       void owners.openText(route.mode);
       break;

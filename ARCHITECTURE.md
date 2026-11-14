@@ -61,8 +61,26 @@ relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
 PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
 renders feature content from the modal identity. TransportBar, CueOperationsBar, SubtitleToolbar and VideoPreview own their region
 markup and scoped styles. WorkspaceDecisions and WorkspaceLegacyImport render
-decision-owned payloads; ShortcutHelp owns keyboard help. App creates owners and
+decision-owned payloads; ActionBrowser presents command discovery and searchable keyboard help. App creates owners and
 lays out regions.
+Action labels, aliases and shortcut descriptions live in
+`workspace/action-descriptions.json`, imported by the frontend and embedded by
+Rust's native menu builder. The existing pure keyboard routers read these
+bindings while retaining their focus, composition, repeat and Windows fallback
+rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
+to existing owners after modal close; it owns no accepted state or background
+work. Cue jumps recheck the captured document before entering ordinary protected
+selection. Native menus retain their platform layout and eligibility projection.
+
+The command palette, Commands menu and shortcut sheet use `WorkspaceModal` and
+`HideVideo` for hide-before-presentation, close ordering and return focus.
+`Tooltips` owns one delayed tooltip and delegates the same native-video lifetime
+to `HideVideo`; cancellation/disposal retires its timer and pending presentation.
+Modal/menu admission retires hover presentation first, and active workspace
+operations/modals/menus block new tooltips. Other overlays include active tooltips when restoring remaining occlusion, and
+tooltips preserve active modal/menu/diagnostic occlusion. Tooltip presentation
+never changes a document or admits an operation.
+
 Appearance comes from `src/lib/ui/`: `tokens.css` defines the dark and light
 palettes, type and shape, and `base.css` styles native elements. Components use
 tokens in their scoped styles instead of color literals. The waveform canvas reads
@@ -150,7 +168,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `CueMenu` | Captured cue/range context, menu replacement, command activity and menu focus lifetime. |
 | `Recovery` | Recovery listing, polling/response epochs, discard confirmation and recovery action activity. |
 | `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
-| `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
+| `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for command discovery/keyboard help, styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
 | `CueNavigation` | Selection/focus/reveal orchestration, pending problem navigation and cue-following effects; uses workspace tasks without assigning the gate. |
 | `WorkspaceView` / `WorkspaceLayout` | Panel visibility/rules and measured pane sizes/splitter constraints, respectively. |
 | `WorkspacePreferences` | Saved defaults, effective project timing, metric visibility and quality-context invalidation, updated through initialization, acceptance and restore methods. |

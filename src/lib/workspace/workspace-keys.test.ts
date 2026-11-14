@@ -175,3 +175,20 @@ test('plain Space starts held timing only when playing in timing mode', () => {
   assert.equal(route(' ', {}, { control: true }), null);
   assert.equal(route(' ', { shiftKey: true }), null);
 });
+
+test('palette works while typing; question-mark help stays outside text input', () => {
+  assert.deepEqual(route('k', { ctrlKey: true }, { editing: true }), {
+    kind: 'browser',
+    mode: 'commands',
+  });
+  assert.deepEqual(route('k', { metaKey: true }), {
+    kind: 'browser',
+    mode: 'commands',
+  });
+  assert.deepEqual(route('?', { shiftKey: true }), {
+    kind: 'browser',
+    mode: 'shortcuts',
+  });
+  assert.equal(route('?', { shiftKey: true }, { editing: true }), null);
+  assert.equal(route('k', { ctrlKey: true }, { confirming: true }), null);
+});

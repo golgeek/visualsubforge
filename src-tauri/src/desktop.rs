@@ -62,17 +62,43 @@ impl WorkspaceAction {
 #[derive(Default)]
 pub struct ExitGate(pub AtomicBool);
 
+#[derive(Deserialize)]
+struct ActionDescription {
+    label: String,
+    shortcut: String,
+}
+fn action_descriptions() -> tauri::Result<std::collections::BTreeMap<String, ActionDescription>> {
+    serde_json::from_str(include_str!(
+        "../../src/lib/workspace/action-descriptions.json"
+    ))
+    .map_err(|error| tauri::Error::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, error)))
+}
+
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
-    let item = |id: &str, title: &str, shortcut: &str| {
-        MenuItemBuilder::with_id(id, title)
-            .accelerator(shortcut)
-            .build(app)
+    let descriptions = action_descriptions()?;
+    let description = |id: &str| {
+        descriptions.get(id).ok_or_else(|| {
+            tauri::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Missing action description: {id}"),
+            ))
+        })
+    };
+    let item = |id: &str| {
+        let action = description(id)?;
+        let builder = MenuItemBuilder::with_id(id, &action.label);
+        let builder = if action.shortcut.is_empty() {
+            builder
+        } else {
+            builder.accelerator(&action.shortcut)
+        };
+        builder.build(app)
     };
     #[cfg(target_os = "macos")]
     let application = SubmenuBuilder::new(app, "VisualSubForge")
         .about(None)
         .separator()
-        .item(&item("settings", "Settings…", "CmdOrCtrl+,")?)
+        .item(&item("settings")?)
         .separator()
         .hide()
         .hide_others()
@@ -81,83 +107,73 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .quit()
         .build()?;
     let file = SubmenuBuilder::new(app, "File")
-        .text("openProject", "Open Project…")
-        .text("importLegacyProject", "Import VisualSubSync Project…")
-        .text("saveProject", "Save Project")
-        .text("saveProjectAs", "Save Project As…")
+        .item(&item("openProject")?)
+        .item(&item("importLegacyProject")?)
+        .item(&item("saveProject")?)
+        .item(&item("saveProjectAs")?)
         .separator()
-        .item(&item("openMedia", "Open Media…", "CmdOrCtrl+O")?)
-        .item(&item(
-            "openSubtitles",
-            "Open Subtitles…",
-            "CmdOrCtrl+Shift+O",
-        )?)
+        .item(&item("openMedia")?)
+        .item(&item("openSubtitles")?)
         .separator()
-        .item(&item("save", "Save Subtitles", "CmdOrCtrl+S")?)
-        .item(&item("saveAs", "Save Subtitles As…", "CmdOrCtrl+Shift+S")?)
-        .text("convertSubtitles", "Export As…")
+        .item(&item("save")?)
+        .item(&item("saveAs")?)
+        .item(&item("convertSubtitles")?)
         .separator()
-        .text("closeMedia", "Close Media")
-        .text("closeSubtitles", "Close Subtitles")
+        .item(&item("closeMedia")?)
+        .item(&item("closeSubtitles")?)
         .build()?;
     let edit = SubmenuBuilder::new(app, "Edit")
-        .item(&item("undo", "Undo", "CmdOrCtrl+Z")?)
-        .item(&item("redo", "Redo", "CmdOrCtrl+Shift+Z")?)
-        .item(&item("apply", "Apply Cue Edit", "CmdOrCtrl+Return")?)
+        .item(&item("undo")?)
+        .item(&item("redo")?)
+        .item(&item("apply")?)
         .separator()
-        .item(&item("createCue", "Create Cue", "CmdOrCtrl+Shift+N")?)
-        .item(&item("deleteCue", "Delete Cue", "CmdOrCtrl+Shift+D")?)
-        .item(&item("splitCue", "Split at Playhead", "CmdOrCtrl+Shift+K")?)
-        .item(&item(
-            "mergePrevious",
-            "Merge with Previous",
-            "CmdOrCtrl+Shift+H",
-        )?)
-        .item(&item("mergeNext", "Merge with Next", "CmdOrCtrl+Shift+J")?)
+        .item(&item("createCue")?)
+        .item(&item("deleteCue")?)
+        .item(&item("splitCue")?)
+        .item(&item("mergePrevious")?)
+        .item(&item("mergeNext")?)
         .separator()
         .cut()
         .copy()
         .paste()
         .select_all();
     #[cfg(not(target_os = "macos"))]
-    let edit = edit
-        .separator()
-        .item(&item("settings", "Settings…", "CmdOrCtrl+,")?);
+    let edit = edit.separator().item(&item("settings")?);
     let edit = edit.build()?;
     let view = SubmenuBuilder::new(app, "View")
-        .text("translationReference", "Translation Reference")
+        .item(&item("translationReference")?)
         .item(
-            &CheckMenuItemBuilder::with_id("showScenes", "Show Scene Changes")
+            &CheckMenuItemBuilder::with_id("showScenes", &description("showScenes")?.label)
                 .checked(true)
                 .build(app)?,
         )
         .separator()
-        .text("resetLayout", "Reset Pane Sizes")
+        .item(&item("resetLayout")?)
         .item(
-            &CheckMenuItemBuilder::with_id("diagnostics", "Playback Diagnostics")
+            &CheckMenuItemBuilder::with_id("diagnostics", &description("diagnostics")?.label)
                 .checked(false)
                 .build(app)?,
         )
         .build()?;
     let playback = SubmenuBuilder::new(app, "Playback")
-        .item(&item("play", "Play / Pause", "CmdOrCtrl+Alt+Return")?)
-        .text("previousFrame", "Previous Frame")
-        .text("nextFrame", "Next Frame")
+        .item(&item("play")?)
+        .item(&item("previousFrame")?)
+        .item(&item("nextFrame")?)
         .separator()
-        .text("playRange", "Loop Selected Range")
-        .text("clearLoop", "Clear Loop")
+        .item(&item("playRange")?)
+        .item(&item("clearLoop")?)
         .build()?;
     let tools = SubmenuBuilder::new(app, "Tools")
-        .text("resync", "Resynchronize Subtitles…")
-        .text("plugins", "Subtitle Plugins…")
+        .item(&item("resync")?)
+        .item(&item("plugins")?)
         .separator()
-        .text("scanScenes", "Scan Scene Changes")
-        .text("cancelSceneScan", "Cancel Scene Scan")
+        .item(&item("scanScenes")?)
+        .item(&item("cancelSceneScan")?)
         .separator()
-        .text("previousScene", "Previous Scene Change")
-        .text("nextScene", "Next Scene Change")
+        .item(&item("previousScene")?)
+        .item(&item("nextScene")?)
         .separator()
-        .text("timingSettings", "Timing and Scene Settings…")
+        .item(&item("timingSettings")?)
         .build()?;
     let menu = MenuBuilder::new(app);
     #[cfg(target_os = "macos")]
@@ -483,4 +499,17 @@ fn workspace_event_preserves_name_and_native_menu_payloads() {
         assert!(WorkspaceAction::from_menu_id(value.as_str().unwrap()).is_some());
     }
     assert!(WorkspaceAction::from_menu_id("os-unknown").is_none());
+}
+
+#[test]
+fn shared_action_descriptions_preserve_native_labels_and_accelerators() {
+    let descriptions = action_descriptions().expect("valid bundled action descriptions");
+    for value in ipc_sample().as_array().unwrap() {
+        let id = value.as_str().unwrap();
+        assert!(!descriptions[id].label.is_empty(), "{id}");
+    }
+    assert_eq!(descriptions["save"].shortcut, "CmdOrCtrl+S");
+    assert_eq!(descriptions["splitCue"].shortcut, "CmdOrCtrl+Shift+K");
+    assert_eq!(descriptions["play"].shortcut, "CmdOrCtrl+Alt+Return");
+    assert_eq!(descriptions["convertSubtitles"].label, "Export As…");
 }

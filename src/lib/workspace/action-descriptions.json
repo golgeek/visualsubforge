@@ -1,0 +1,569 @@
+{
+  "settings": {
+    "label": "Settings…",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+,",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "openMedia": {
+    "label": "Open Media…",
+    "group": "File",
+    "native": true,
+    "shortcut": "CmdOrCtrl+O",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "openSubtitles": {
+    "label": "Open Subtitles…",
+    "group": "File",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+O",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "save": {
+    "label": "Save Subtitles",
+    "group": "File",
+    "native": true,
+    "shortcut": "CmdOrCtrl+S",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "saveAs": {
+    "label": "Save Subtitles As…",
+    "group": "File",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+S",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "undo": {
+    "label": "Undo",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Z",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "redo": {
+    "label": "Redo",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+Z",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "apply": {
+    "label": "Apply Cue Edit",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Return",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "createCue": {
+    "label": "Create Cue",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+N",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "deleteCue": {
+    "label": "Delete Cue",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+D",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "splitCue": {
+    "label": "Split at Playhead",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+K",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "mergePrevious": {
+    "label": "Merge with Previous",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+H",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "mergeNext": {
+    "label": "Merge with Next",
+    "group": "Edit",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Shift+J",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "play": {
+    "label": "Play / Pause",
+    "group": "Playback",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Alt+Return",
+    "aliases": [],
+    "alternateShortcuts": ["Alt+Space", "Space"],
+    "macShortcut": null
+  },
+  "openProject": {
+    "label": "Open Project…",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "importLegacyProject": {
+    "label": "Import VisualSubSync Project…",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "saveProject": {
+    "label": "Save Project",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "saveProjectAs": {
+    "label": "Save Project As…",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "convertSubtitles": {
+    "label": "Export As…",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["Convert subtitles"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "closeMedia": {
+    "label": "Close Media",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "closeSubtitles": {
+    "label": "Close Subtitles",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "translationReference": {
+    "label": "Translation Reference",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "showScenes": {
+    "label": "Show Scene Changes",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "resetLayout": {
+    "label": "Reset Pane Sizes",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "diagnostics": {
+    "label": "Playback Diagnostics",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "previousFrame": {
+    "label": "Previous Frame",
+    "group": "Playback",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "nextFrame": {
+    "label": "Next Frame",
+    "group": "Playback",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "playRange": {
+    "label": "Loop Selected Range",
+    "group": "Playback",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "clearLoop": {
+    "label": "Clear Loop",
+    "group": "Playback",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "resync": {
+    "label": "Resynchronize Subtitles…",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "plugins": {
+    "label": "Subtitle Plugins…",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "scanScenes": {
+    "label": "Scan Scene Changes",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "cancelSceneScan": {
+    "label": "Cancel Scene Scan",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "previousScene": {
+    "label": "Previous Scene Change",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "nextScene": {
+    "label": "Next Scene Change",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "timingSettings": {
+    "label": "Timing and Scene Settings…",
+    "group": "Tools",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "quit": {
+    "label": "Quit",
+    "group": "File",
+    "native": true,
+    "shortcut": "CmdOrCtrl+Q",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "find": {
+    "label": "Find…",
+    "group": "Edit",
+    "native": false,
+    "shortcut": "CmdOrCtrl+F",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "replace": {
+    "label": "Replace…",
+    "group": "Edit",
+    "native": false,
+    "shortcut": "Ctrl+H",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": "Meta+Shift+H"
+  },
+  "fixGaps": {
+    "label": "Fix gaps and overlaps…",
+    "group": "Review",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Enforce minimum gaps"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "fixReadingSpeed": {
+    "label": "Fix reading speed…",
+    "group": "Review",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Repair duration / speed"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "snapShots": {
+    "label": "Snap to shot changes…",
+    "group": "Review",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Repair scene timing"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "shiftCues": {
+    "label": "Shift / align cues…",
+    "group": "Review",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "statistics": {
+    "label": "Statistics…",
+    "group": "Review",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "problems": {
+    "label": "Problems",
+    "group": "Review",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "focusText": {
+    "label": "Edit selected cue",
+    "group": "Cue",
+    "native": false,
+    "shortcut": "Enter",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "focusWaveform": {
+    "label": "Focus waveform",
+    "group": "View",
+    "native": false,
+    "shortcut": "Escape",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "seekBack": {
+    "label": "Seek back 1 second",
+    "group": "Playback",
+    "native": false,
+    "shortcut": "Alt+Left",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "seekForward": {
+    "label": "Seek forward 1 second",
+    "group": "Playback",
+    "native": false,
+    "shortcut": "Alt+Right",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "seekBackFar": {
+    "label": "Seek back 5 seconds",
+    "group": "Playback",
+    "native": false,
+    "shortcut": "Alt+Shift+Left",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "seekForwardFar": {
+    "label": "Seek forward 5 seconds",
+    "group": "Playback",
+    "native": false,
+    "shortcut": "Alt+Shift+Right",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "previousCue": {
+    "label": "Edit previous cue",
+    "group": "Cue",
+    "native": false,
+    "shortcut": "Alt+Up",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "nextCue": {
+    "label": "Edit next cue",
+    "group": "Cue",
+    "native": false,
+    "shortcut": "Alt+Down",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "previousProblem": {
+    "label": "Previous problem",
+    "group": "Review",
+    "native": false,
+    "shortcut": "Shift+F4",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "nextProblem": {
+    "label": "Next problem",
+    "group": "Review",
+    "native": false,
+    "shortcut": "F4",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "commandPalette": {
+    "label": "Command palette",
+    "group": "Help",
+    "native": false,
+    "shortcut": "CmdOrCtrl+K",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "shortcutSheet": {
+    "label": "Keyboard shortcuts",
+    "group": "Help",
+    "native": false,
+    "shortcut": "?",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "revertDraft": {
+    "label": "Revert edit",
+    "group": "Cue",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "styles": {
+    "label": "Styles…",
+    "group": "Edit",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "fonts": {
+    "label": "Fonts…",
+    "group": "Edit",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "zoomIn": {
+    "label": "Zoom in",
+    "group": "View",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "zoomOut": {
+    "label": "Zoom out",
+    "group": "View",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "fitWaveform": {
+    "label": "Fit waveform",
+    "group": "View",
+    "native": false,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  }
+}

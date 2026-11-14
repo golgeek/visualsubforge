@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tooltip from '../ui/Tooltip.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
   import type { MediaSession } from './media-session.svelte';
   import type { TimelineView } from '../timeline/timeline-view.svelte';
@@ -30,14 +31,20 @@
     disabled={!status.loaded || workspace.busy}
     onclick={() => void workspace.run('play')}
     >{!status.loaded || status.paused ? 'Play' : 'Pause'}</button
-  ><button
-    disabled={!status.loaded || workspace.busy}
-    onclick={() => void workspace.run('previousFrame')}
-    aria-label="Previous frame">◀|</button
-  ><button
-    disabled={!status.loaded || workspace.busy}
-    onclick={() => void workspace.run('nextFrame')}
-    aria-label="Next frame">|▶</button
+  ><Tooltip action="previousFrame"
+    ><button
+      aria-describedby="workspace-tooltip"
+      disabled={!status.loaded || workspace.busy}
+      onclick={() => void workspace.run('previousFrame')}
+      aria-label="Previous frame">◀|</button
+    ></Tooltip
+  ><Tooltip action="nextFrame"
+    ><button
+      aria-describedby="workspace-tooltip"
+      disabled={!status.loaded || workspace.busy}
+      onclick={() => void workspace.run('nextFrame')}
+      aria-label="Next frame">|▶</button
+    ></Tooltip
   ><output
     >{status.positionSeconds === null
       ? '—'

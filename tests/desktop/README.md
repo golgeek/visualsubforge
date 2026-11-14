@@ -40,6 +40,8 @@ Rust commands. It covers:
 - Read-only minimum-gap proposals, no-media acknowledgment, atomic acceptance
   and Undo/Redo; tag-aware text search/replacement, join/reflow skips and formatting
   that remains a draft until Apply.
+- Command palette and searchable shortcut sheet through the actual WebView,
+  generated key input, focus restoration and 1100×720 / 1440×900 palette bounds.
 - Refresh-only stale-edit reconciliation that retains the draft without replaying
   the mutation or adding history.
 

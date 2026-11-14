@@ -1,6 +1,7 @@
 import { nativeLayoutCases } from './native-layout';
 import { stateOwnerCases } from './state-owners.svelte';
 import { overlayCases } from './overlays';
+import { tooltipCases } from './tooltips';
 import { workspaceCases } from './workspace';
 import { decisionCases } from './decisions';
 import { timelineCases } from './timeline.svelte';
@@ -856,6 +857,7 @@ try {
   await stateOwnerCases(passed);
   await modalCases(passed);
   await overlayCases(passed);
+  await tooltipCases(passed);
   await decisionCases(passed);
   await timelineCases(passed);
   await documentCases();

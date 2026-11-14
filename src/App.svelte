@@ -7,7 +7,8 @@
   import TransportBar from './lib/media/TransportBar.svelte';
   import CueOperationsBar from './lib/cues/CueOperationsBar.svelte';
   import SubtitleToolbar from './lib/cues/SubtitleToolbar.svelte';
-  import ShortcutHelp from './lib/workspace/ShortcutHelp.svelte';
+  import ActionBrowser from './lib/workspace/ActionBrowser.svelte';
+  import { WorkspaceCommands } from './lib/workspace/workspace-commands';
   import WorkspaceDecisions from './lib/dialogs/WorkspaceDecisions.svelte';
   import WorkspaceLegacyImport from './lib/project/WorkspaceLegacyImport.svelte';
   import VideoPreview from './lib/media/VideoPreview.svelte';
@@ -68,7 +69,9 @@
     WorkspaceDecision,
     decisionEffects,
   } from './lib/dialogs/workspace-decision.svelte';
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, setContext } from 'svelte';
+  import { Tooltips, tooltipContext } from './lib/ui/tooltips.svelte';
+  import TooltipLayer from './lib/ui/TooltipLayer.svelte';
   import {
     type WorkspaceAction,
     type ProjectReferenceIssue,
@@ -126,12 +129,34 @@
 
   const nativeMenus = isTauri();
 
+  const tooltips: Tooltips = disposeWithComponent(
+    new Tooltips(
+      {
+        occlude: (value) => media.occlude(value),
+        remainingOcclusion: () =>
+          view.diagnostics || workspace.confirming || cueMenu.active,
+        afterRender: tick,
+      },
+      (error) => {
+        if (!workspace.disposed) workspace.error = String(error);
+      },
+      () => !workspace.confirming && !workspace.busy && !cueMenu.active,
+    ),
+  );
+  setContext(tooltipContext, tooltips);
+
+  // Retire hover presentation before publishing another interactive overlay.
+  async function occludeOverlay(value: boolean) {
+    if (value) await tooltips.hide();
+    await media.occlude(value);
+  }
+
   // Modal presentation and unsaved-work decisions.
 
   const workspaceModal = disposeWithComponent(
     new WorkspaceModal(workspace, {
-      occlude: (value) => media.occlude(value),
-      remainingOcclusion: () => view.diagnostics,
+      occlude: occludeOverlay,
+      remainingOcclusion: () => view.diagnostics || tooltips.active,
       afterRender: tick,
       captureFocus,
     }),
@@ -143,21 +168,25 @@
       workspace,
       decisionEffects(
         media,
-        () => view.diagnostics,
+        () => view.diagnostics || tooltips.active,
         () => confirmation!.close(),
       ),
     ),
   );
 
   const legacyDecision = disposeWithComponent(
-    new LegacyImportDecision(workspace, media, () => view.diagnostics),
+    new LegacyImportDecision(
+      workspace,
+      media,
+      () => view.diagnostics || tooltips.active,
+    ),
   );
 
   const projectExitDecision = disposeWithComponent(
     new WorkspaceDecision<ProjectExitChoice, string>(
       'cancel',
       workspace,
-      decisionEffects(media, () => view.diagnostics),
+      decisionEffects(media, () => view.diagnostics || tooltips.active),
     ),
   );
 
@@ -168,7 +197,7 @@
     >(
       'cancel',
       workspace,
-      decisionEffects(media, () => view.diagnostics),
+      decisionEffects(media, () => view.diagnostics || tooltips.active),
     ),
   );
 
@@ -243,8 +272,9 @@
 
   const cueMenu = disposeWithComponent(
     new CueMenu(workspace, subtitles, media, timeline, gestures, navigation, {
-      occlude: (value) => media.occlude(value),
-      remainingOcclusion: () => view.diagnostics || workspace.confirming,
+      occlude: occludeOverlay,
+      remainingOcclusion: () =>
+        view.diagnostics || tooltips.active || workspace.confirming,
       afterRender: tick,
       captureFocus,
       operationContext: () => cueEditing.context,
@@ -388,9 +418,11 @@
     view,
     scenes,
     layout,
+    remainingOcclusion: () => tooltips.active,
   };
 
   async function run(action: WorkspaceAction, event?: Event) {
+    await tooltips.hide();
     if (!workspace.canAct || cueMenu.context || timeline.interacting) return;
     switch (action) {
       case 'closeSubtitles':
@@ -455,6 +487,7 @@
       return view.problemsOpen;
     },
     windows: __WINDOWS__,
+    openCommands: (mode: 'commands' | 'shortcuts') => commands.open(mode),
     openText: (mode: 'find' | 'replace') => dialogs.openText(mode),
     requestProblem: navigation.requestProblem,
     focusWaveform: navigation.focusWaveform,
@@ -462,6 +495,30 @@
     revealSelection: navigation.revealSelection,
     seek: (time: number) => seekMedia(mediaActions, time),
   };
+
+  const commands: WorkspaceCommands = new WorkspaceCommands({
+    workspace,
+    subtitles,
+    media,
+    scenes,
+    timeline,
+    view,
+    quality,
+    cueEditing,
+    navigation,
+    dialogs,
+    workspaceModal,
+    gestures,
+    cueMenu,
+    keys: () => keys,
+  });
+  const commandMode = $derived(
+    workspaceModal.identity === 'commands' ||
+      workspaceModal.identity === 'shortcuts' ||
+      workspaceModal.identity === 'actionMenu'
+      ? workspaceModal.identity
+      : null,
+  );
 
   const menus = disposeWithComponent(
     new WorkspaceMenus(
@@ -524,6 +581,8 @@
   style:--table-min-height={`${layout.panes.tableMinimum}px`}
 >
   <WorkspaceToolbar
+    oncommands={() => void commands.open('actionMenu')}
+    onshortcuts={() => void commands.open('shortcuts')}
     {workspace}
     {media}
     {subtitles}
@@ -668,7 +727,17 @@
     />
   </div>
   <FontDiagnostics {media} />
-  <ShortcutHelp />
+  <TooltipLayer owner={tooltips} />
+  {#if commandMode}
+    <ActionBrowser
+      mode={commandMode}
+      context={commands.context}
+      cues={doc.cues}
+      onaction={(id) => commands.run(id)}
+      oncue={(id) => commands.selectCue(id)}
+      onclose={() => workspaceModal.close()}
+    />
+  {/if}
   <WorkspaceFooter {workspace} {media} {gestures} {timeline} />
   <PlaybackDiagnostics
     {workspace}
