@@ -6,7 +6,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   const before = await status();
   const text = await browser.$('[aria-label="Subtitle text"]');
   await text.setValue('Unapplied gap review draft');
-  await chooseCommand(browser, 'fixGaps');
+  await chooseCommand(browser, 'fixGaps', { keyboard: true });
   let dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
   await until('gap review modal', () => dialog.isDisplayed());
   assert.equal(
@@ -23,7 +23,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   await until('gap close restored workspace interaction', () =>
     browser.$('button=Commands').then((button) => button.isEnabled()),
   );
-  await chooseCommand(browser, 'fixGaps');
+  await chooseCommand(browser, 'fixGaps', { keyboard: true });
   // The first modal was unmounted; the embedded driver retains its element ID.
   dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
   await until('reopened gap review', () => dialog.isDisplayed());

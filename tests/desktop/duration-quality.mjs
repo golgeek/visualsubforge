@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
 // prepared project caches exercise restoration separately from the live rescan.
@@ -159,7 +160,7 @@ export async function durationQuality({
   );
   assert.equal(await text.getValue(), 'Preserve duration draft');
   assert.deepEqual(await status(), before);
-  await (await browser.$('button=Revert')).click();
+  await discardCue(browser);
   await chooseCommand(browser, 'fixReadingSpeed');
   let selectedDialog = await browser.$(
     'dialog[aria-labelledby="duration-repair-title"]',
@@ -375,7 +376,7 @@ async function durationPerformance({
     );
     assert.equal(result.interaction.phase, 'cancelled');
     assert.ok(result.interaction.typingMs < 1000);
-    await (await browser.$('button=Revert')).click();
+    await discardCue(browser);
     await ready();
     await chooseCommand(browser, 'fixReadingSpeed');
     const dialog = await browser.$(
@@ -433,7 +434,7 @@ async function durationPerformance({
       .$('[aria-label="Subtitle text"]')
       .then((e) => e.setValue('Invalidate duration proposal'));
     const invalidationStart = Date.now();
-    await (await browser.$('button=Apply')).click();
+    await commitCue(browser);
     await until('10k scene invalidation', async () => {
       const v = await invoke('duration_repair_view', {
         id: captured.id,

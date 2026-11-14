@@ -288,7 +288,7 @@ export async function languagePerformance({
               async () => (await b.read({ run: false })).phase === 'cancelled',
             );
             const checkingCancellationMs = performance.now() - cancelStart;
-            b.button('Revert').click();
+            window.__vsfEditorInput.discard();
             await b.frame();
             const operation = {
               kind: 'languageCorrection',
@@ -410,7 +410,7 @@ export async function languagePerformance({
           b.input(`${original}!`);
           await b.frame();
           const start = performance.now();
-          b.button('Apply').click();
+          window.__vsfEditorInput.commit();
           await b.wait(async () => {
             const v = await b.view(id);
             return v.phase === 'stale' && !v.rows.length && b.ready();

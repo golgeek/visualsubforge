@@ -1,3 +1,4 @@
+import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real WebView, IPC and files; queued choices and DOM input are test supplied.
 // Independent native-window captures are needed to inspect the video sibling.
@@ -310,12 +311,16 @@ export async function webvttWorkflow({
           .value.includes('<b>Été</b>'),
       ),
     );
-    assert.deepEqual(await status(), opened);
-    await input('Cue start', '00:00:01,002');
-    await click('Apply');
-    const formatted = await documentIs(
-      'WebVTT formatted edit',
+    const textFormatted = await documentIs(
+      'WebVTT formatting accepted',
       (d) => d.revision === opened.revision + 1,
+    );
+    assert.equal(textFormatted.cues[0].startMs, opened.cues[0].startMs);
+    await input('Cue start', '00:00:01,002');
+    await commitCue(browser);
+    const formatted = await documentIs(
+      'WebVTT timing edit after formatting',
+      (d) => d.revision === textFormatted.revision + 1,
     );
     assert.equal(formatted.cues[0].startMs, 1002);
     assert.equal(
@@ -323,7 +328,7 @@ export async function webvttWorkflow({
       opened.cues[0].text.replace('Été', '<b>Été</b>'),
     );
     await ready();
-    await undo(opened);
+    await undo(textFormatted);
     await click('Redo edit');
     await documentIs('WebVTT Redo', (d) => d.cues[0].startMs === 1002);
     assert.deepEqual((await status()).cues, formatted.cues);
@@ -444,7 +449,7 @@ export async function webvttWorkflow({
 
     const recoveryText = changed.cues[0].text.replace('Hiver', 'Recovery');
     await input('Subtitle text', recoveryText);
-    await click('Apply');
+    await commitCue(browser);
     await documentIs(
       'WebVTT recovery edit accepted',
       (d) => d.cues[0].text === recoveryText && d.dirty,

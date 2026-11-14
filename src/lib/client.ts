@@ -287,6 +287,7 @@ export const emptyStatus: MediaStatus = {
   queuedAudioClock: false,
   positionSeconds: null,
   durationSeconds: null,
+  nominalFrameRate: null,
   audioTrack: null,
   audioTracks: [],
   avSyncSeconds: null,
@@ -326,11 +327,12 @@ export const emptyDocument: DocumentSnapshot = {
 export async function documentAction(
   action: DocumentAction,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  textSession: string | null = null,
 ): Promise<DocumentSnapshot> {
   const started = traceWorkflow ? performance.now() : null;
   const startedUnixMs = traceWorkflow ? Date.now() : null;
   const result = await commands
-    .documentAction(action, document.generation, document.revision)
+    .documentAction(action, document.generation, document.revision, textSession)
     .catch((error: unknown) => {
       throw documentFailure(error);
     });
@@ -635,4 +637,27 @@ export async function batchTimingCancel(id: number): Promise<void> {
 }
 export function batchTimingAccept(id: number): Promise<DocumentSnapshot> {
   return commands.batchTimingAccept(id);
+}
+
+export type CueFixesView = Awaited<ReturnType<typeof commands.cueFixesView>>;
+export function cueFixesStart(
+  session: number,
+  document: DocumentSnapshot,
+  cueId: number,
+) {
+  return commands.cueFixesStart(
+    session,
+    document.generation,
+    document.revision,
+    cueId,
+  );
+}
+export function cueFixesView(id: number) {
+  return commands.cueFixesView(id);
+}
+export async function cueFixesCancel(id: number): Promise<void> {
+  await commands.cueFixesCancel(id);
+}
+export function cueFixesAccept(id: number): Promise<DocumentSnapshot> {
+  return commands.cueFixesAccept(id);
 }

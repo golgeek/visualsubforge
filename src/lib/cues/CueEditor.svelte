@@ -1,14 +1,20 @@
 <script lang="ts">
+  import type { CueEditing } from './cue-editing.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
   import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
+  import type { CueFixes } from '../quality/cue-fixes.svelte';
+  import CueIssueStrip from '../quality/CueIssueStrip.svelte';
+  import TimecodeField from '../ui/TimecodeField.svelte';
   import CueMetrics from '../quality/CueMetrics.svelte';
   import { formatTime } from '../timeline/timeline';
   import { measurePaneControl } from '../layout/measure-pane-control';
-  import type { TextFormat } from '../client';
+  import type { TextFormat, QualityRule } from '../client';
   import type { AuthoringModal } from '../dialogs/workspace-modal.svelte';
   let {
+    editing,
+    fixes,
     subtitles,
     media,
     quality,
@@ -22,6 +28,8 @@
     onmove,
     actions,
   }: {
+    editing: CueEditing;
+    fixes: CueFixes;
     subtitles: DocumentSession;
     media: MediaSession;
     quality: QualitySession;
@@ -34,6 +42,8 @@
     onmove?: () => void;
     onmeasure: (part: 'bar' | 'footer' | 'metrics', height: number) => void;
     actions: {
+      showIssues: () => void;
+      reviewIssue: (rule: QualityRule) => void;
       suspendCueFollowing: () => void;
       openAuthoring: (kind: AuthoringModal) => Promise<void>;
       formatText: (style: TextFormat) => Promise<void>;
@@ -49,7 +59,26 @@
   const draftDirty = $derived(subtitles.dirty);
   const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
 
+  const lineMetric = $derived(
+    !showQualityMetrics || quality.stale
+      ? null
+      : draftDirty
+        ? quality.view?.draft?.data.cueId === String(selected)
+          ? quality.view.draft
+          : null
+        : quality.view?.selected?.data.cueId === String(selected)
+          ? quality.view.selected
+          : null,
+  );
+
   function editorKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && !e.isComposing) {
+      e.preventDefault();
+      e.stopPropagation();
+      void editing.escape();
+      return;
+    }
+    if (!(e.target instanceof HTMLTextAreaElement)) return;
     if (
       (e.metaKey || e.ctrlKey) &&
       !e.altKey &&
@@ -91,8 +120,17 @@
       e.target instanceof HTMLSelectElement ||
       e.target instanceof HTMLTextAreaElement;
     if (editorFocused) actions.suspendCueFollowing();
+    if (e.target instanceof HTMLTextAreaElement) editing.focusText();
   }}
-  onfocusout={() => (editorFocused = false)}
+  onfocusout={(e) => {
+    editorFocused = false;
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    )
+      editing.blur();
+  }}
 >
   <div
     class="editorbar"
@@ -109,23 +147,29 @@
       >{cue
         ? `Cue ${doc.cues.findIndex((c) => c.id === selected) + 1}`
         : 'Cue editor'}</strong
-    ><label
-      >Start <input
-        aria-label="Cue start"
-        bind:value={subtitles.start}
-        disabled={!cue}
-        readonly={busy}
-        spellcheck="false"
-      /></label
-    ><label
-      >End <input
-        aria-label="Cue end"
-        bind:value={subtitles.end}
-        disabled={!cue}
-        readonly={busy}
-        spellcheck="false"
-      /></label
     >
+    <TimecodeField
+      label="Start"
+      bind:value={subtitles.start}
+      disabled={!cue}
+      readonly={busy || editing.escaping}
+      {timeStepMs}
+      frameRate={status.loaded ? (status.nominalFrameRate ?? null) : null}
+      invalid={!!subtitles.editError}
+      onerror={(message) => (subtitles.editError = message)}
+      onkeydown={editorKeydown}
+    />
+    <TimecodeField
+      label="End"
+      bind:value={subtitles.end}
+      disabled={!cue}
+      readonly={busy || editing.escaping}
+      {timeStepMs}
+      frameRate={status.loaded ? (status.nominalFrameRate ?? null) : null}
+      invalid={!!subtitles.editError}
+      onerror={(message) => (subtitles.editError = message)}
+      onkeydown={editorKeydown}
+    />
     {#if status.loaded}
       <button
         disabled={!cue ||
@@ -156,6 +200,7 @@
     {#if doc.format && subtitles.styled}
       <label
         >Style <select
+          onkeydown={editorKeydown}
           aria-label="Cue style"
           bind:value={subtitles.style}
           disabled={!cue || busy || confirming}
@@ -197,41 +242,80 @@
       >
     {/if}
   </div>
-  {#if showQualityMetrics && cue}<div
-      class="quality-readout"
-      use:measurePaneControl={(height) => onmeasure('metrics', height)}
-    >
-      {#if quality.view?.selected?.data.cueId === String(cue.id)}<CueMetrics
-          value={quality.view.selected}
-          label="Accepted"
-        />{:else}<span
-          >Accepted metrics {quality.paused ? 'paused' : 'pending'}…</span
-        >{/if}
+  <div
+    class="quality-readout"
+    use:measurePaneControl={(height) => onmeasure('metrics', height)}
+  >
+    <CueIssueStrip
+      {quality}
+      {fixes}
+      cueId={selected}
+      disabled={!workspace.canAct}
+      onfix={() =>
+        void workspace.task(async () => {
+          if (await fixes.accept()) workspace.notice = 'Safe cue fixes applied';
+        })}
+      onmore={actions.showIssues}
+      onreview={actions.reviewIssue}
+    />
+    {#if showQualityMetrics && cue}
       {#if draftDirty}
         {#if draftMetricError || quality.view?.draftError}<span role="status"
             >Draft metrics unavailable: {draftMetricError ||
               quality.view?.draftError}</span
           >
-        {:else if quality.view?.draft?.data.cueId === String(cue.id) && !quality.stale}<CueMetrics
+        {:else if quality.view?.draft?.data.cueId === String(cue.id) && !quality.stale}
+          <CueMetrics
             value={quality.view.draft}
-            label="Draft · not applied"
-          />{:else}<span
+            profile={quality.view.profile}
+            label="Draft"
+          />
+        {:else}<span
             >Draft metrics {quality.paused ? 'paused' : 'pending'}…</span
           >{/if}
-      {/if}
+      {:else if quality.view?.selected?.data.cueId === String(cue.id)}
+        <CueMetrics
+          value={quality.view.selected}
+          profile={quality.view.profile}
+          label="Accepted"
+        />
+      {:else}<span
+          >Accepted metrics {quality.paused ? 'paused' : 'pending'}…</span
+        >{/if}
       {#if quality.error || quality.view?.error}<span role="alert"
           >{quality.error || quality.view?.error}</span
         >{/if}
-    </div>{/if}
-  <textarea
-    aria-label="Subtitle text"
-    bind:this={textEditor}
-    bind:value={subtitles.text}
-    disabled={!cue && !draftDirty}
-    readonly={busy || !cue}
-    placeholder="Select a subtitle to edit its text."
-    spellcheck="false"
-    onkeydown={editorKeydown}></textarea>
+    {/if}
+  </div>
+  <div class="text-area">
+    <textarea
+      onkeydown={editorKeydown}
+      aria-label="Subtitle text"
+      bind:this={textEditor}
+      bind:value={subtitles.text}
+      disabled={!cue && !draftDirty}
+      readonly={busy || editing.escaping || !cue}
+      placeholder="Select a subtitle to edit its text."
+      spellcheck="false"
+      class:commit-error={!!subtitles.editError}
+      aria-invalid={!!subtitles.editError}
+      aria-describedby={subtitles.editError ? 'cue-commit-error' : undefined}
+      oncompositionstart={() => editing.composition(true)}
+      oncompositionend={() => editing.composition(false)}></textarea>
+    {#if lineMetric}<aside
+        aria-label="Source line character counts"
+        title={lineMetric.linesTruncated
+          ? 'First 20 source lines; wrapped display lines do not change the source counts'
+          : 'Source line character counts; wrapped display lines do not change these counts'}
+      >
+        {#each lineMetric.data.lineCharacters as count, index (index)}<span
+            >L{index + 1}: {count}</span
+          >{/each}
+        {#if lineMetric.linesTruncated}<span
+            >… {lineMetric.lineCount} lines</span
+          >{/if}
+      </aside>{/if}
+  </div>
   <div
     class="editorfooter"
     use:measurePaneControl={(height) => onmeasure('footer', height)}
@@ -255,27 +339,40 @@
       onclick={() => void actions.formatText('underline')}>Underline</button
     >
     <button
-      disabled={!cue || !draftDirty || busy}
-      onclick={(e) => void workspace.run('apply', e)}>Apply</button
-    ><button disabled={!draftDirty || busy} onclick={() => subtitles.revert()}
-      >Revert</button
-    ><button
-      disabled={!doc.canUndo || draftDirty || busy}
+      disabled={(!doc.canUndo && !draftDirty) || busy}
       onclick={(e) => void workspace.run('undo', e)}>Undo edit</button
     ><button
       disabled={!doc.canRedo || draftDirty || busy}
       onclick={(e) => void workspace.run('redo', e)}>Redo edit</button
     ><span class="spacer"></span><span
       >{draftDirty
-        ? 'Unapplied edit'
+        ? subtitles.committing
+          ? 'Recording…'
+          : 'Editing…'
         : doc.dirty
           ? 'Unsaved changes'
           : 'Saved'}</span
     >
+    {#if subtitles.editError}<button
+        disabled={busy || subtitles.committing}
+        onclick={() => void editing.flush().catch(() => {})}>Retry edit</button
+      ><span id="cue-commit-error" role="alert">{subtitles.editError}</span
+      >{/if}
   </div>
 </section>
 
 <style>
+  .commit-error {
+    outline: 1px solid var(--err);
+  }
+  #cue-commit-error {
+    color: var(--err);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .panel {
     background: var(--surface-panel);
     position: relative;
@@ -325,11 +422,6 @@
     gap: 5px;
   }
 
-  .editorbar input {
-    width: 116px;
-    font-variant-numeric: tabular-nums;
-  }
-
   .editorbar select {
     max-width: 150px;
   }
@@ -338,6 +430,21 @@
     color: var(--text-muted);
   }
 
+  .text-area {
+    display: flex;
+    flex: 1;
+    min-height: 34px;
+    gap: 6px;
+  }
+  aside {
+    display: flex;
+    flex-direction: column;
+    width: 70px;
+    flex-shrink: 0;
+    overflow: auto;
+    font: 11px/1.6 var(--font-mono);
+    color: var(--text-muted);
+  }
   .editor textarea {
     resize: none;
     flex: 1;

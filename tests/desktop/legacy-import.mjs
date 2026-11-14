@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 // Actual WebView/Rust/files and native playback. File choices and DOM events
 // are supplied; native-window observations and real OS choosers are separate.
 import assert from 'node:assert/strict';
@@ -280,7 +281,7 @@ export async function legacyImportWorkflow({
       await ready();
       const attachedBytes = await readFile(activeProject);
       await input('Active accepted 世界');
-      await click('Apply');
+      await commitCue(browser);
       const accepted = await documentIs(
         'active edit accepted',
         (d) => d.dirty && d.revision === activeOpened.revision + 1,
@@ -393,7 +394,7 @@ export async function legacyImportWorkflow({
         await ready();
         assert.deepEqual(await status(), before);
         assert.equal(await editorText(), 'Unapplied active draft');
-        await click('Revert');
+        await discardCue(browser);
         await click('Undo edit');
         await documentIs(
           'active Undo after import',
@@ -433,7 +434,7 @@ export async function legacyImportWorkflow({
       );
       const edited = `Imported ${firstText}`;
       await input(edited);
-      await click('Apply');
+      await commitCue(browser);
       const changed = await documentIs(
         'imported edit accepted',
         (d) => d.dirty && d.cues[0].text === edited,
@@ -467,7 +468,7 @@ export async function legacyImportWorkflow({
       await ready();
       assert.deepEqual((await status()).cues, restored.cues);
       await input(`Recovered ${firstText}`);
-      await click('Apply');
+      await commitCue(browser);
       const recovery = await documentIs(
         'imported recovery edit accepted',
         (d) => d.dirty && d.cues[0].text === `Recovered ${firstText}`,

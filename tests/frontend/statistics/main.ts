@@ -166,6 +166,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_read':
           return {
             ...structuredClone(qualitySample),
+            selectedIssues: null,
             key: {
               ...qualitySample.key,
               generation: doc.generation,

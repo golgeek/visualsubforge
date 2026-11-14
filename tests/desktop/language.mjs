@@ -1,3 +1,4 @@
+import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real native webview, production Rust commands and isolated files. DOM-generated
 // events are not physical input or GPU presentation evidence.
@@ -496,7 +497,7 @@ export async function languageTools({
             : `{\\i1}${visible}{\\i0}`;
         const savedState = await status();
         await input('Subtitle text', editorialLine);
-        await click('Apply');
+        await commitCue(browser);
         await documentIs(
           'editorial source accepted',
           (d) => d.cues[0].text === editorialLine,

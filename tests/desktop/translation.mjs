@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 // Real WebView/Rust/files and native preview. Supplied chooser results/DOM input
 // do not establish actual OS picker or physical keyboard/device acceptance.
 import assert from 'node:assert/strict';
@@ -314,7 +315,7 @@ export async function translationWorkflow({
         ).includes(firstText),
       );
       assert.equal(await editorText(), translatedText);
-      await click('Apply');
+      await commitCue(browser);
       const edited = await documentIs(
         'translation edit accepted',
         (d) => d.cues[0].text === translatedText && d.canUndo,
@@ -397,7 +398,7 @@ export async function translationWorkflow({
           'Protect draft across reference preflight',
         );
         assert.equal((await media()).session, session);
-        await click('Revert');
+        await discardCue(browser);
         await menu('openProject');
         await until('explicit reference reload', () =>
           browser.$('button=Reload Changed Reference').isExisting(),
@@ -452,7 +453,7 @@ export async function translationWorkflow({
       );
       const recoveryText = `Recovered ${firstText}`;
       await input('Subtitle text', recoveryText);
-      await click('Apply');
+      await commitCue(browser);
       await documentIs(
         'recovery target edit',
         (d) => d.cues[0].text === recoveryText,
@@ -613,7 +614,7 @@ export async function translationWorkflow({
     assert.deepEqual((await status()).cues, before.cues);
     assert.deepEqual((await status()).format, before.format);
     assert.equal((await status()).revision, before.revision);
-    await click('Revert');
+    await discardCue(browser);
     await menu('saveProject');
     await until(
       'mixed project saved',

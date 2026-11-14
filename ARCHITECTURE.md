@@ -157,6 +157,8 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | --- | --- |
 | `Workspace` | Workspace task counter, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
+| `CueEditing` | Pause/blur/IME/Escape triggers, focus identity and cancellable auto-commit timer. It owns no accepted history. |
+| `CueFixes` | Debounced selected-cue repair admission, bounded polling and stale/disposal guards; the existing Rust timing worker owns the plan. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
 | `CueTableView` | Filtered file-indexed rows, fixed-density virtualization, column projection and active cue IDs. App supplies accepted cues/playback reads; CueTable owns its DOM observer and cleanup. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
@@ -258,7 +260,7 @@ planning. They introduce no registry or second accepted-state owner.
 
 ## Two end-to-end paths
 
-### Apply a cue edit
+### Commit a cue edit
 
 1. The component edits a local draft. `DocumentSession` captures its generation,
    revision and cue identity and sends an action through `src/lib/client.ts`.
@@ -269,17 +271,56 @@ planning. They introduce no registry or second accepted-state owner.
 4. `DocumentSession` replaces its projection and reconciles drafts/selection.
    Background recovery and subtitle preview observe the accepted revision.
 
-A stale/refused-version or unknown-outcome cue-draft Apply performs one authoritative
-status read and retains the current draft. It never resends the edit automatically.
-The ordinary single-window edit path already serializes mutations through
-DocumentSession; no field merge or separate conflict lock is maintained. An absent
-cue or replaced document clears selection so retained text is not assigned to a new
-target. Existing selection and Revert actions remain available. Failed refresh leaves
-the prior projection and draft intact and reports the failure.
+`CueEditing` commits after a 700 ms typing pause, ordinary blur, protected cue
+navigation or a cue command. IME composition defers pause/blur; Escape cancels an
+unsent timer, waits for a dispatched commit and restores the latest confirmed
+accepted fields. Modal/decision focus transfers keep their existing draft
+protection: blur cannot mutate underneath a newly mounted review or Save/Discard
+choice, and returning to an available workspace starts a fresh pause interval.
+There is no file autosave change. The interaction timing remains subject to owner
+trial; see the [cue editor guide](docs/cue-editor.md).
 
-The command gate stays held through refresh. Disposal suppresses follow-up reads and
-late adoption; it cannot reverse an accepted Rust commit. Newer input during a
-successful reply remains a draft and prevents save/navigation continuation.
+An optional opaque focus-session argument accompanies text commits through the
+same command boundary. Rust supplies its monotonic timestamp. The core merges
+validated same-cue, text-only commits in one focus with at most five seconds idle,
+keeping the first before state and latest after state. Every accepted commit still
+advances revision and content identity. Timing/style/structural edits, ungrouped
+commands, Undo/Redo and save checkpoints seal the group. Failed validation does
+not alter history. No frontend clock or undo stack authorizes merging.
+
+A stale/refused-version or unknown-outcome commit performs one authoritative
+status read and retains the latest draft without replay. A failed refresh marks
+accepted state unconfirmed; the next explicit retry is read-only, then requires
+review before mutation. Deleted/replaced targets clear selection so retained text
+cannot attach to another cue. Known rejection retains an inline error and stops
+automatic retries until new input or an explicit retry. Newer input during an
+automatic success remains a draft; an explicit navigation/command waits for that
+request, then commits the latest fields once. Manual continuations still stop if
+newer input arrives during their own commit. Disposal retires timers and follow-up
+reads and suppresses late adoption; it cannot reverse an accepted Rust commit.
+
+Formatting flushes existing fields, captures a version and source selection,
+checks the reply against live inputs, then accepts the formatted text as a separate
+ungrouped command. Rust remains the sole formatting/validation/history owner.
+
+Selected-cue issue pages are independent of Problems filters and bounded to 200.
+They include related-cue findings, group CPS/RS findings and sort violations first.
+The fixed-height strip renders three chips; overflow uses WorkspaceModal/HideVideo
+and pages the complete result. Meters and source-line counts use Rust projections.
+
+Safe cue fixes reuse the existing single timing-proposal worker, cancellation,
+10-second deadline and media → scenes → document acceptance lock order. The pure
+application planner composes deterministic text and timing operations, keeps only
+the selected cue, and validates whole-document non-worsening before publishing an
+immutable plan. Coupled text/duration changes are checked together. One validated
+`UpdateBatch` is one Undo entry. No split, inferred spelling choice or missing-scene
+acknowledgment is automatic; at most 200 deterministic language corrections are
+considered per preparation. Opening another modal retires the transient plan.
+Failed acceptance refreshes authoritative state and is never blindly replayed.
+
+Nominal frame cadence is read by the existing native control worker, without new
+native resources. Frame nudges quantize once to format precision. Unavailable
+cadence disables nudges, and variable-rate boundary accuracy is not claimed.
 
 ### Review and accept a batch operation
 

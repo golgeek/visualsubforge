@@ -645,7 +645,7 @@ export async function pluginPerformance({
               `Stale control preparation: ${review.error}`,
             );
             b.input('Subtitle text', `Stale control ${before.cues[0].text}`);
-            await b.click('Apply');
+            await window.__vsfEditorInput.commit();
             await b.wait(
               async () =>
                 (await b.state()).revision === before.revision + 1 && b.ready(),

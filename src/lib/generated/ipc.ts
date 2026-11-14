@@ -14,10 +14,11 @@ export const commands = {
     action: visualsubforge_document_Action_Deserialize,
     generation: number,
     revision: number,
+    textSession: string | null,
   ) =>
     __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
       'document_action',
-      { action, generation, revision },
+      { action, generation, revision, textSession },
     ),
   translationAction: (action: visualsubforge_document_translation_Action) =>
     __TAURI_INVOKE<visualsubforge_document_translation_Reply_Serialize>(
@@ -65,6 +66,27 @@ export const commands = {
       { request },
     ),
   qualityCancel: (id: number) => __TAURI_INVOKE<null>('quality_cancel', { id }),
+  cueFixesStart: (
+    session: number,
+    generation: number,
+    revision: number,
+    cueId: number,
+  ) =>
+    __TAURI_INVOKE<number>('cue_fixes_start', {
+      session,
+      generation,
+      revision,
+      cueId,
+    }),
+  cueFixesView: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_cue_fixes_View>('cue_fixes_view', { id }),
+  cueFixesCancel: (id: number) =>
+    __TAURI_INVOKE<null>('cue_fixes_cancel', { id }),
+  cueFixesAccept: (id: number) =>
+    __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>(
+      'cue_fixes_accept',
+      { id },
+    ),
   statisticsStart: (
     session: number,
     generation: number,
@@ -1119,6 +1141,22 @@ export type vsf_application_language_analysis_Coverage = {
   personalized: boolean;
 };
 
+/**
+ *  Selected-cue projection is independent of the Problems filters. Speed rules
+ *  share one issue, while each other finding retains its own identity/detail.
+ */
+export type visualsubforge_quality_check_CueIssue = {
+  rule: vsf_application_quality_check_Rule;
+  findings: vsf_application_quality_check_Finding[];
+};
+
+export type visualsubforge_quality_check_CueIssues = {
+  cueId: string;
+  count: number;
+  offset: number;
+  issues: visualsubforge_quality_check_CueIssue[];
+};
+
 export type vsf_application_quality_check_CueMetrics = {
   cueId: string;
   cueIndex: number;
@@ -2043,6 +2081,7 @@ export type visualsubforge_quality_check_Request = {
   metricsOffset: number;
   metricsLimit: number;
   selected: number | null;
+  selectedOffset?: number;
   rule: vsf_application_quality_check_Rule | null;
   severity: vsf_application_quality_check_Severity | null;
   draft: visualsubforge_quality_check_DraftChange | null;
@@ -2427,6 +2466,8 @@ export type visualsubforge_media_Status_Deserialize = {
   queuedAudioClock: boolean;
   positionSeconds: number | null;
   durationSeconds: number | null;
+  /**  Container-declared cadence for approximate editor nudges, not frame PTS. */
+  nominalFrameRate?: number | null;
   audioTrack: number | null;
   audioTracks: visualsubforge_media_AudioTrack[];
   avSyncSeconds: number | null;
@@ -2453,6 +2494,8 @@ export type visualsubforge_media_Status_Serialize = {
   queuedAudioClock: boolean;
   positionSeconds: number | null;
   durationSeconds: number | null;
+  /**  Container-declared cadence for approximate editor nudges, not frame PTS. */
+  nominalFrameRate: number | null;
   audioTrack: number | null;
   audioTracks: visualsubforge_media_AudioTrack[];
   avSyncSeconds: number | null;
@@ -2671,6 +2714,16 @@ export type vsf_application_quality_statistics_UnavailableCounts = {
   readingAllowance: number;
 };
 
+export type visualsubforge_cue_fixes_View = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_gap_review_Phase;
+  error: string | null;
+  cueId: string | null;
+  fixed: number;
+  remaining: number;
+};
+
 export type visualsubforge_plugin_review_View = {
   id: number;
   key: visualsubforge_quality_check_Key;
@@ -2737,6 +2790,7 @@ export type visualsubforge_quality_check_View_Deserialize = {
   findings: vsf_application_quality_check_Finding[];
   metrics: visualsubforge_quality_check_Metric[];
   selected: visualsubforge_quality_check_Metric | null;
+  selectedIssues: visualsubforge_quality_check_CueIssues | null;
   previousCue: string | null;
   nextCue: string | null;
   draft: visualsubforge_quality_check_Metric | null;
@@ -2761,6 +2815,7 @@ export type visualsubforge_quality_check_View_Serialize = {
   findings: vsf_application_quality_check_Finding[];
   metrics: visualsubforge_quality_check_Metric[];
   selected: visualsubforge_quality_check_Metric | null;
+  selectedIssues: visualsubforge_quality_check_CueIssues | null;
   previousCue: string | null;
   nextCue: string | null;
   draft: visualsubforge_quality_check_Metric | null;

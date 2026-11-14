@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 import assert from 'node:assert/strict';
 
 export async function editReconciliation({
@@ -45,7 +46,7 @@ export async function editReconciliation({
     { generation: original.generation, revision: original.revision },
   );
   assert.equal(refusal.kind, 'staleRevision');
-  await (await browser.$('button=Apply')).click();
+  await commitCue(browser);
   await until('stale state refreshed without replay', () =>
     browser
       .$('footer [role="status"]')
@@ -55,8 +56,8 @@ export async function editReconciliation({
   await ready();
   assert.equal((await status()).revision, concurrent.revision);
   assert.equal(await editor.getValue(), 'Retained draft');
-  assert.equal(await (await browser.$('button=Apply')).isEnabled(), true);
-  await (await browser.$('button=Revert')).click();
+  assert.equal(await (await browser.$('#cue-commit-error')).isExisting(), true);
+  await discardCue(browser);
   assert.equal(await editor.getValue(), cue.text);
   await (await browser.$('button=Undo edit')).click();
   await until(

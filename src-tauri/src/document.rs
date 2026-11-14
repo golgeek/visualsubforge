@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
-use subtitle_core::{CueId, Edit, Editor, Milliseconds};
+use subtitle_core::{CueId, Edit, Editor, Milliseconds, TextCommit, TextEditSession};
 use subtitle_formats::{Source, srt};
 
 mod autosave;
@@ -268,6 +268,23 @@ impl Loaded {
             .map(|_| ())
             .map_err(String::from)
     }
+    fn apply_cue_edit(&mut self, revision: u64, edit: Edit, session: Option<String>) -> Result<()> {
+        let Some(session) = session else {
+            return self.apply_edit(revision, edit);
+        };
+        self.editor
+            .apply_text_commit(
+                revision,
+                edit,
+                TextCommit {
+                    session: TextEditSession(session),
+                    at: std::time::Instant::now(),
+                },
+                vsf_application::subtitle_file::validate_document,
+            )
+            .map(|_| ())
+            .map_err(String::from)
+    }
 }
 
 impl Store {
@@ -356,15 +373,41 @@ impl Store {
         generation: u64,
         revision: u64,
     ) -> std::result::Result<Snapshot, CommandError> {
+        self.apply_command_with_session(action, generation, revision, None)
+    }
+    fn apply_command_with_session(
+        &mut self,
+        action: Action,
+        generation: u64,
+        revision: u64,
+        text_session: Option<String>,
+    ) -> std::result::Result<Snapshot, CommandError> {
+        if let Some(session) = &text_session
+            && (session.is_empty()
+                || session.len() > 128
+                || !session
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+                || !matches!(&action, Action::Edit { .. } | Action::EditStyled { .. }))
+        {
+            return Err(CommandError::Rejected {
+                message: "Invalid text editing session".into(),
+            });
+        }
         if matches!(action, Action::Status) {
             return Ok(self.snapshot());
         }
         self.check_version(generation, revision)?;
-        self.apply_current(action, revision)
+        self.apply_current(action, revision, text_session)
             .map_err(|message| CommandError::Rejected { message })
     }
     // Called only after the version check, under the same document lock.
-    fn apply_current(&mut self, action: Action, revision: u64) -> Result<Snapshot> {
+    fn apply_current(
+        &mut self,
+        action: Action,
+        revision: u64,
+        text_session: Option<String>,
+    ) -> Result<Snapshot> {
         match action {
             Action::EditStyled {
                 cue_id,
@@ -394,7 +437,7 @@ impl Store {
                     source.validate_style(&style)?;
                 }
                 let text = loaded.source().prepare_text(text)?;
-                loaded.apply_edit(
+                loaded.apply_cue_edit(
                     revision,
                     Edit::StyledText {
                         id: CueId(cue_id),
@@ -403,6 +446,7 @@ impl Store {
                         text,
                         style,
                     },
+                    text_session,
                 )?;
             }
             Action::Status => unreachable!(),
@@ -462,7 +506,7 @@ impl Store {
                 text,
             } => {
                 let text = self.loaded_mut()?.source().prepare_text(text)?;
-                self.loaded_mut()?.apply_edit(
+                self.loaded_mut()?.apply_cue_edit(
                     revision,
                     Edit::Text {
                         id: CueId(cue_id),
@@ -470,6 +514,7 @@ impl Store {
                         end: Milliseconds::new(end_ms)?,
                         text,
                     },
+                    text_session,
                 )?;
             }
             Action::Undo => {
@@ -683,16 +728,26 @@ impl Documents {
         Ok(())
     }
 
+    #[cfg(test)]
     fn apply_command(
         &self,
         action: Action,
         generation: u64,
         revision: u64,
     ) -> std::result::Result<Snapshot, CommandError> {
+        self.apply_command_with_session(action, generation, revision, None)
+    }
+    fn apply_command_with_session(
+        &self,
+        action: Action,
+        generation: u64,
+        revision: u64,
+        text_session: Option<String>,
+    ) -> std::result::Result<Snapshot, CommandError> {
         let mut store = self.0.lock().map_err(|_| CommandError::Rejected {
             message: "Document worker state is unavailable".into(),
         })?;
-        let result = store.apply_command(action, generation, revision);
+        let result = store.apply_command_with_session(action, generation, revision, text_session);
         store.invalidate_checks();
         result
     }
@@ -802,10 +857,11 @@ pub async fn document_action(
     action: Action,
     generation: crate::ipc_number::SafeU64,
     revision: crate::ipc_number::SafeU64,
+    text_session: Option<String>,
 ) -> std::result::Result<Snapshot, CommandError> {
     let documents = documents.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        documents.apply_command(action, generation.get(), revision.get())
+        documents.apply_command_with_session(action, generation.get(), revision.get(), text_session)
     })
     .await
     .map_err(|e| CommandError::OutcomeUnknown {

@@ -208,7 +208,7 @@ export async function fontPerformance({
           field.value = cue.text + ' stale';
           field.dispatchEvent(new Event('input', { bubbles: true }));
           await b.frame();
-          b.button('Apply').click();
+          window.__vsfEditorInput.commit();
           await b.wait(
             async () =>
               (await b.state()).revision === doc.revision + 1 && b.ready(),

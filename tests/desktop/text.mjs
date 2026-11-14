@@ -1,3 +1,4 @@
+import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
@@ -26,7 +27,7 @@ export async function textEditing({
     );
     const before = await status();
     await editor.setValue(text);
-    await (await browser.$('button=Apply')).click();
+    await commitCue(browser);
     await until(
       'text fixture accepted',
       async () => (await status()).revision === before.revision + 1,
@@ -87,19 +88,22 @@ export async function textEditing({
   }
   await editCue(0, '{\\an8}<i>ÉTÉ 😀 été</i>');
   await editCue(1, '<u>été</u>\nAnother line');
-  const baseline = await status();
-  await editor.setValue('Unapplied text-tool draft');
+  await browser.execute(() => {
+    document.querySelector('[aria-label="Subtitle text"]').blur();
+  });
+  const beforeBlur = await status();
+  await editor.setValue('Text committed before opening tools');
   await open('find');
+  assert.equal(await (await dialog.$('button=Find matches')).isEnabled(), true);
   assert.equal(
-    await (await dialog.$('button=Find matches')).isEnabled(),
-    false,
+    (await status()).cues[1].text,
+    'Text committed before opening tools',
   );
-  await (await dialog.$('button=Cancel text tools')).click();
-  await ready();
-  assert.equal(await editor.getValue(), 'Unapplied text-tool draft');
-  assert.deepEqual(await status(), baseline);
+  await (await dialog.$('button=Close text tools')).click();
+  await undo();
+  assert.deepEqual((await status()).cues, beforeBlur.cues);
+  const baseline = await status();
   await open('find');
-  await (await dialog.$('button=Discard cue draft')).click();
   await preview('find');
   await (await dialog.$('button=Go to match 2 in cue 1')).click();
   await ready();
@@ -189,6 +193,8 @@ export async function textEditing({
     'formatting cue selected',
     async () => (await editor.getValue()) === baseline.cues[0].text,
   );
+  const formattedBefore = await status();
+  assert.deepEqual(formattedBefore.cues, baseline.cues);
   await browser.execute(() => {
     const e = document.querySelector('[aria-label="Subtitle text"]');
     e.focus();
@@ -202,14 +208,11 @@ export async function textEditing({
       }),
     );
   });
-  await until('formatting draft returned', async () =>
+  await until('formatted text returned', async () =>
     (await editor.getValue()).includes('<b>ÉTÉ</b>'),
   );
-  const formattedBefore = await status();
-  assert.deepEqual(formattedBefore.cues, baseline.cues);
-  await (await browser.$('button=Apply')).click();
   await until(
-    'formatted draft accepted',
+    'formatting committed',
     async () => (await status()).revision === formattedBefore.revision + 1,
   );
   assert.equal(
@@ -223,7 +226,7 @@ export async function textEditing({
   assert.deepEqual(restored.cues, original.cues);
   assert.equal(restored.dirty, original.dirty);
   await record({
-    step: 'real text tools: protected search, Unicode source navigation, Replace All and single match, failed save, join/reflow skips, formatting draft, atomic Undo/Redo',
+    step: 'real text tools: protected search, Unicode source navigation, Replace All and single match, failed save, join/reflow skips, formatting commit, atomic Undo/Redo',
     baselineRevision: baseline.revision,
     acceptedRevision: replaced.revision,
     restoredRevision: restored.revision,

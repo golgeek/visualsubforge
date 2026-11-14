@@ -19,6 +19,7 @@ export function emptyQuality(args: unknown): QualityView {
     findings: [],
     metrics: [],
     selected: null,
+    selectedIssues: null,
     draft: null,
     findingsCount: 0,
     affectedCues: 0,

@@ -92,6 +92,6 @@ test('extreme ratios and wrapped controls preserve minima, allowing workspace ov
       showQualityMetrics: true,
       qualityReadoutHeight: 100,
     }).editorMinimum,
-    132,
+    238,
   );
 });

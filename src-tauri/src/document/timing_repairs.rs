@@ -20,6 +20,7 @@ enum Operation {
     Scene,
     Duration(Scope),
     Batch(batch::Request),
+    CueFixes(CueId),
 }
 impl Operation {
     fn purpose(&self) -> Purpose {
@@ -27,6 +28,7 @@ impl Operation {
             Self::Scene => Purpose::Scene,
             Self::Duration(_) => Purpose::Duration,
             Self::Batch(_) => Purpose::Batch,
+            Self::CueFixes(_) => Purpose::CueFixes,
         }
     }
 }
@@ -34,6 +36,7 @@ enum Proposal {
     Scene(engine::scene::Proposal),
     Duration(engine::duration::Proposal),
     Batch(batch::Proposal),
+    CueFixes(engine::cue_fixes::Proposal),
 }
 impl Proposal {
     fn edit(&self, document: &subtitle_core::Document) -> engine::Result<Edit> {
@@ -41,6 +44,7 @@ impl Proposal {
             Self::Scene(p) => p.edit(document),
             Self::Duration(p) => p.edit(document),
             Self::Batch(p) => p.edit(document),
+            Self::CueFixes(p) => p.edit(document),
         }
     }
 }
@@ -181,6 +185,46 @@ impl Documents {
     ) -> Result<u64> {
         self.timing_repair_start(generation, revision, scenes, Operation::Batch(request))
     }
+    pub(crate) fn cue_fixes_start(
+        &self,
+        generation: u64,
+        revision: u64,
+        scenes: SceneCapture,
+        cue: CueId,
+    ) -> Result<u64> {
+        self.timing_repair_start(generation, revision, scenes, Operation::CueFixes(cue))
+    }
+    pub(crate) fn cue_fixes_view(&self, id: u64) -> Result<crate::cue_fixes::View> {
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        let key = store.quality_key()?;
+        store.timing_repairs.invalidate(key);
+        let closed = store.timing_repairs.closed;
+        let job = store
+            .timing_repairs
+            .job
+            .as_mut()
+            .filter(|job| job.id == id && job.operation.purpose() == Purpose::CueFixes)
+            .ok_or("Cue fixes were replaced")?;
+        job.refresh();
+        let mut view = crate::cue_fixes::View {
+            id: id.try_into()?,
+            key: job.key,
+            phase: phase(job, closed),
+            error: job.error.clone(),
+            cue_id: None,
+            fixed: 0,
+            remaining: 0,
+        };
+        if let Some(Proposal::CueFixes(plan)) = &job.proposal {
+            view.cue_id = Some(plan.cue_id.0.to_string());
+            view.fixed = plan.fixed;
+            view.remaining = plan.remaining;
+        }
+        Ok(view)
+    }
+    pub(crate) fn cue_fixes_accept(&self, id: u64) -> Result<Snapshot> {
+        self.timing_repair_accept(id, Purpose::CueFixes)
+    }
     fn timing_repair_start(
         &self,
         generation: u64,
@@ -217,6 +261,18 @@ impl Documents {
                     Ok(())
                 };
                 match operation {
+                    Operation::CueFixes(cue) => engine::cue_fixes::propose(
+                        document,
+                        engine::Evaluation {
+                            profile: &captured,
+                            format,
+                            lexicon: Some(&lexicon),
+                        },
+                        &scenes.data,
+                        cue,
+                        checkpoint,
+                    )
+                    .map(Proposal::CueFixes),
                     Operation::Batch(request) => {
                         batch::propose(document, format, request, checkpoint).map(Proposal::Batch)
                     }

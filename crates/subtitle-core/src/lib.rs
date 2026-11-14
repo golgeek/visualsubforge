@@ -7,4 +7,7 @@ pub use error::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub use editor::{CueText, CueTiming, CueUpdate, Edit, EditOutcome, Editor};
+pub use editor::{
+    CueText, CueTiming, CueUpdate, Edit, EditOutcome, Editor, TEXT_COALESCE_WINDOW, TextCommit,
+    TextEditSession,
+};

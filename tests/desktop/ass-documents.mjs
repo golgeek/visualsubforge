@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 // Actual native-enabled desktop workflow. Only file choices and app-data paths
 // are supplied by the harness; all edits use the production Svelte/IPC boundary.
 import assert from 'node:assert/strict';
@@ -223,7 +224,7 @@ export async function assDocuments({
       await ready();
       await input('Cue style', 'Default');
       await input('Cue start', '00:00:01,001');
-      await click('Apply');
+      await commitCue(browser);
       await until('exact precision rejected', async () =>
         /10 ms/.test(
           await (await browser.$('footer [role="status"]')).getText(),
@@ -234,13 +235,13 @@ export async function assDocuments({
         await (await browser.$('[aria-label="Cue style"]')).getValue(),
         'Default',
       );
-      await click('Revert');
+      await discardCue(browser);
       await ready();
       const text = `{\\pos(320,160)}Edited ${extension.toUpperCase()}\\N世界`;
       await input('Cue style', 'Default');
       await input('Cue start', '00:00:01,010');
       await input('Subtitle text', text.replace('\\N', '\n'));
-      await click('Apply');
+      await commitCue(browser);
       const changed = await documentIs(
         'combined styled acceptance',
         (d) =>
@@ -335,7 +336,7 @@ export async function assDocuments({
 
       const recoveryText = text.replace('Edited', 'Recovery');
       await input('Subtitle text', recoveryText);
-      await click('Apply');
+      await commitCue(browser);
       await documentIs(
         'unsaved styled recovery edit',
         (d) => d.cues[0].text === recoveryText && d.dirty,
@@ -483,7 +484,7 @@ export async function assDocuments({
     await preview('fansub-moving-early', 1.2);
     const edited = before.cues[0].text.replace('Fansub', 'Fansub edited');
     await input('Subtitle text', edited);
-    await click('Apply');
+    await commitCue(browser);
     const after = await documentIs(
       'fansub edited',
       (d) => d.cues[0].text === edited,
@@ -532,7 +533,7 @@ export async function assDocuments({
     await ready();
     await preview('ass-embedded-font');
     await input('Subtitle text', 'BA');
-    await click('Apply');
+    await commitCue(browser);
     await documentIs('embedded font edit', (d) => d.cues[0].text === 'BA');
     await ready();
     await undoTo(attached);

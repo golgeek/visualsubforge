@@ -259,7 +259,7 @@ export async function conversionPerformance({
             field.value = doc.cues[0].text + ' stale';
             field.dispatchEvent(new Event('input', { bubbles: true }));
             await b.frame();
-            b.button('Apply').click();
+            window.__vsfEditorInput.commit();
             await b.wait(
               async () =>
                 (await b.state()).revision === doc.revision + 1 && b.ready(),

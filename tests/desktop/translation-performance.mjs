@@ -457,7 +457,7 @@ export async function translationPerformance({
             await b.frame();
             const selectedReferenceMs = performance.now() - at;
             const editAt = performance.now();
-            await b.click('Apply');
+            await window.__vsfEditorInput.commit();
             const accepted = await b.wait(async () => {
               const d = await b.state();
               return d.revision === before.revision + 1 && b.ready() && d;
@@ -603,7 +603,7 @@ export async function translationPerformance({
         if ((await b.finish(next.job.id)).job.phase !== 'ready')
           throw new Error('Reference preparation failed');
         b.input('Subtitle text', `Stale guard ${before.cues[0].text}`);
-        await b.click('Apply');
+        await window.__vsfEditorInput.commit();
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),
@@ -640,7 +640,7 @@ export async function translationPerformance({
         b.input('Subtitle text', text);
         await b.frame();
         const at = performance.now();
-        await b.click('Apply');
+        await window.__vsfEditorInput.commit();
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),
@@ -839,7 +839,7 @@ export async function translationPerformance({
               draft
           )
             throw new Error('Detachment changed target or draft');
-          await b.click('Revert');
+          await window.__vsfEditorInput.discard();
           await b.menu('saveAs');
           await b.wait(
             () =>

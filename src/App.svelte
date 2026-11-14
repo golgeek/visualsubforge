@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { CueFixes } from './lib/quality/cue-fixes.svelte';
+  import CueIssuesDialog from './lib/quality/CueIssuesDialog.svelte';
   import ColumnChooser from './lib/cues/ColumnChooser.svelte';
   import LayoutPicker from './lib/layout/LayoutPicker.svelte';
   // Theme: fonts, then tokens, then element defaults that use them.
@@ -244,7 +246,12 @@
     }),
   );
 
-  const cueEditing = new CueEditing(subtitles, media, timeline);
+  const cueEditing = disposeWithComponent(
+    new CueEditing(subtitles, media, timeline, {
+      canCommit: () => workspace.canAct,
+      leaveEditor: () => waveHost?.querySelector('canvas')?.focus(),
+    }),
+  );
 
   const gestures = disposeWithComponent(
     new TimingGesture(subtitles, media, timeline, workspace, {
@@ -382,6 +389,31 @@
     tableView,
     preferences,
     scenes,
+  );
+
+  const cueFixes = disposeWithComponent(
+    new CueFixes(() => {
+      const issues = quality.view?.selectedIssues;
+      if (
+        !workspace.ready ||
+        workspaceModal.active ||
+        workspace.confirming ||
+        subtitles.dirty ||
+        !subtitles.stateConfirmed ||
+        quality.paused ||
+        quality.stale ||
+        !subtitles.cue ||
+        issues?.cueId !== String(subtitles.selected) ||
+        !issues.count
+      )
+        return null;
+      return {
+        document: subtitles.snapshot,
+        cueId: subtitles.cue.id,
+        session: media.status.session,
+        context: `${preferences.qualityContext}/${scenes.sceneState.qualityKey}/${quality.view?.key.epoch}`,
+      };
+    }, subtitles),
   );
 
   const layout: WorkspaceLayout = disposeWithComponent(
@@ -763,6 +795,8 @@
         layout.resizeEditor(layout.preset === 'editorAbove' ? 100 - v : v)}
     />
     <CueEditor
+      editing={cueEditing}
+      fixes={cueFixes}
       editorAbove={layout.preset === 'editorAbove'}
       onmove={() =>
         void layout.select(
@@ -779,6 +813,31 @@
       onmeasure={(part, height) => layout.measureEditor(part, height)}
       actions={{
         suspendCueFollowing: navigation.suspendFollowing,
+        showIssues: () => void workspaceModal.open('cueIssues'),
+        reviewIssue: (rule) => {
+          if (
+            [
+              'rs_high',
+              'rs_low',
+              'cps_high',
+              'cps_low',
+              'duration_short',
+              'duration_long',
+              'speed_unavailable',
+            ].includes(rule)
+          )
+            void dialogs.openTimingReview('duration');
+          else if (rule === 'gap' || rule === 'overlap')
+            void dialogs.openTimingReview('gap');
+          else if (rule === 'scene_start' || rule === 'scene_end')
+            void dialogs.openTimingReview('scene');
+          else if (rule === 'line_count' || rule === 'line_length')
+            void dialogs.openText({ kind: 'reflow' });
+          else {
+            quality.rule = rule;
+            view.problemsOpen = true;
+          }
+        },
         openAuthoring: (kind: AuthoringModal) => dialogs.openAuthoring(kind),
         formatText: (style) =>
           formatCueText(
@@ -795,6 +854,14 @@
   </div>
   <FontDiagnostics {media} />
   <TooltipLayer owner={tooltips} />
+  {#if workspaceModal.identity === 'cueIssues'}<CueIssuesDialog
+      {quality}
+      cueId={subtitles.selected}
+      onclose={async () => {
+        await workspaceModal.close();
+        quality.selectedOffset = 0;
+      }}
+    />{/if}
   {#if workspaceModal.identity === 'columns'}<ColumnChooser
       {layout}
       styled={subtitles.styled}

@@ -523,7 +523,19 @@ async function run() {
         `${route} Escape restores native video and launcher focus`,
       );
     }
-    button('Revert');
+    host
+      .querySelector('[aria-label="Subtitle text"]')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+    await until(
+      () =>
+        (
+          host.querySelector(
+            '[aria-label="Subtitle text"]',
+          ) as HTMLTextAreaElement
+        ).value === doc.cues[0]!.text,
+    );
     await until(() => calls.includes('scenes_view'));
     assert(
       media.positionSeconds === 12.5 &&

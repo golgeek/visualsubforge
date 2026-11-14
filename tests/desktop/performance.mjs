@@ -1,3 +1,4 @@
+import { discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Opt-in actual WebView/IPC measurement. Events are generated in the webview;
 // rAF measures event-loop availability, not physical input or GPU presentation.
@@ -255,18 +256,20 @@ export async function qualityPerformance({
         elapsedMs: performance.now() - began,
         admissionPhase: first.phase,
         draft: editor.value,
-        applyEnabled: !b.button('Apply').disabled,
+        draftEditable: !editor.readOnly && !editor.disabled,
       };
     });
     await save();
     assert.equal(result.typing.admissionPhase, 'checking');
-    assert.equal(result.typing.applyEnabled, true);
+    assert.equal(result.typing.draftEditable, true);
     assert.ok(result.typing.elapsedMs < interactionBudgetMs);
     assert.deepEqual(await status(), before);
-    await (await browser.$('button=Revert')).click();
+    await discardCue(browser);
     await until(
       'large draft reverted',
-      async () => !(await (await browser.$('button=Apply')).isEnabled()),
+      async () =>
+        (await (await browser.$('[aria-label="Subtitle text"]')).getValue()) ===
+        before.cues[0].text,
     );
     result.cancellation = await browser.execute(async () => {
       const b = window.__qualityBench;
@@ -307,7 +310,7 @@ export async function qualityPerformance({
       editor.dispatchEvent(new Event('input', { bubbles: true }));
       await b.frame();
       const began = performance.now();
-      b.button('Apply').click();
+      window.__vsfEditorInput.commit();
       const rejection = await b.wait(async () => {
         try {
           await b.read({ run: false });

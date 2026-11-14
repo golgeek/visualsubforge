@@ -44,6 +44,8 @@ for (const name of [
   'timing-modal',
   'feature-modal',
   'edit-reconciliation',
+  'auto-commit',
+  'cue-editor',
   'resync',
   'quality-settings',
   'quality-checking',

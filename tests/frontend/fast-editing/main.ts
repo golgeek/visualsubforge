@@ -211,7 +211,7 @@ async function run() {
     await until(() => !media.paused && !(!menuState || menuState.busy));
     passed('Modified Space controls playback while text remains focused');
     key(editor, 'Escape');
-    await tick();
+    await until(() => document.activeElement === canvas);
     assert(document.activeElement === canvas, 'Escape did not focus waveform');
     key(canvas, 'Enter');
     await until(() => document.activeElement === editor);
@@ -391,7 +391,7 @@ async function run() {
       'Explicit text editing intercepted a space',
     );
     key(editor, 'Escape');
-    await tick();
+    await until(() => document.activeElement === canvas);
     assert(
       document.activeElement === canvas,
       'Escape did not return to timing',

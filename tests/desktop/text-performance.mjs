@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
@@ -60,7 +61,7 @@ export async function textPerformance({
     );
     assert.equal(result.cancelAndInteraction.phase, 'cancelled');
     assert.ok(result.cancelAndInteraction.typingMs < result.budgetMs);
-    await (await browser.$('button=Revert')).click();
+    await discardCue(browser);
     await chooseCommand(browser, 'textTools');
     let dialog = await browser.$('dialog[aria-labelledby="text-title"]');
     await until('10k text dialog', () => dialog.isDisplayed());
@@ -163,7 +164,7 @@ export async function textPerformance({
     const oldText = await editor.getValue();
     await editor.setValue(`${oldText}!`);
     const invalidationStart = Date.now();
-    await (await browser.$('button=Apply')).click();
+    await commitCue(browser);
     await until('accepted edit invalidates text preview', async () =>
       browser.execute(async (id) => {
         const view = await window.__TAURI__.core.invoke('text_view', {

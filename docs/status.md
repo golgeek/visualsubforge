@@ -12,6 +12,12 @@ Text stay visible; text/file-number and Issues filters preserve original cue
 indices. Metrics come from Rust's checker, and ASS/SSA also expose Style/Actor.
 Manual list scrolling pauses following; row clicks retain it and Jump resumes.
 
+[Cue editing](cue-editor.md) commits on pause/ordinary blur with Rust-owned text
+history grouping. Escape retains confirmed-state semantics; fixed-height issues,
+source-line counts, meters and combined safe fixes remain bounded projections.
+The interaction defaults still require owner trial. Nominal frame nudges do not
+establish variable-rate frame-boundary accuracy.
+
 ## Feature and platform matrix
 
 | Area | Implemented scope | Remaining limits |
@@ -48,6 +54,6 @@ The [feature roadmap](feature-roadmap.md) describes product scope. Public setup,
 contracts and test instructions work without local task histories or research.
 
 Workspace layout provides five user presets, per-preset pane sizes and active-preset
-reset. User preferences migrate from version 1 to 2 without rewriting on read.
+reset. User preferences migrate from versions 1/2 to 3 without rewriting on read.
 Projects do not yet retain layout. Desktop preset screenshots and modeled native
 hide/bounds ordering are separate from native playback/composition acceptance.

@@ -374,6 +374,7 @@ fn project_view(
         findings: vec![],
         metrics: vec![],
         selected: None,
+        selected_issues: None,
         previous_cue: None,
         next_cue: None,
         draft: checks.draft_metric.clone(),
@@ -431,6 +432,10 @@ fn project_view(
         .as_ref()
         .and_then(|id| report.metrics.iter().position(|m| &m.cue_id == id));
     view.selected = index.map(|i| (&report.metrics[i]).into());
+    view.selected_issues = selected
+        .as_deref()
+        .filter(|_| index.is_some())
+        .map(|id| cue_issues(&report.findings, id, request.selected_offset));
     view.next_cue = cues
         .iter()
         .find(|m| index.is_none_or(|i| m.cue_index as usize > i))
@@ -443,6 +448,57 @@ fn project_view(
         .or(cues.last())
         .map(|m| m.cue_id.clone());
     Ok(view)
+}
+
+fn cue_issues(
+    findings: &[vsf_application::quality::Finding],
+    id: &str,
+    offset: u32,
+) -> crate::quality_check::CueIssues {
+    use crate::quality_check::{CueIssue, CueIssues};
+    use vsf_application::quality::{Finding, Rule, Severity};
+    let mut issues: Vec<(Rule, Vec<&Finding>)> = Vec::new();
+    for finding in findings
+        .iter()
+        .filter(|finding| finding.cue_id == id || finding.related_cue_id.as_deref() == Some(id))
+    {
+        let rule = match finding.rule {
+            Rule::CpsHigh | Rule::RsHigh => Rule::RsHigh,
+            Rule::CpsLow | Rule::RsLow => Rule::RsLow,
+            rule => rule,
+        };
+        if matches!(rule, Rule::RsHigh | Rule::RsLow)
+            && let Some(issue) = issues.iter_mut().find(|issue| issue.0 == rule)
+        {
+            issue.1.push(finding);
+        } else {
+            issues.push((rule, vec![finding]));
+        }
+    }
+    // Stable within one immutable report; errors precede advisories. Clone only
+    // the requested page, including both source findings for a speed issue.
+    issues.sort_by_key(|issue| {
+        !issue
+            .1
+            .iter()
+            .any(|finding| finding.severity == Severity::Violation)
+    });
+    let count = issues.len() as u32;
+    let offset = offset.min(count.saturating_sub(1) / 200 * 200);
+    CueIssues {
+        cue_id: id.into(),
+        count,
+        offset,
+        issues: issues
+            .into_iter()
+            .skip(offset as usize)
+            .take(200)
+            .map(|(rule, findings)| CueIssue {
+                rule,
+                findings: findings.into_iter().cloned().collect(),
+            })
+            .collect(),
+    }
 }
 
 #[cfg(test)]

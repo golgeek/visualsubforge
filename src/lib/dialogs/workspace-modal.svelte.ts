@@ -13,6 +13,7 @@ export type WorkspaceModalIdentity =
   | 'actionMenu'
   | 'layout'
   | 'columns'
+  | 'cueIssues'
   | 'text'
   | { kind: 'timing'; variant: TimingKind };
 

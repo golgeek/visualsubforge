@@ -73,6 +73,9 @@ pub struct Status {
     pub queued_audio_clock: bool,
     pub position_seconds: Option<f64>,
     pub duration_seconds: Option<f64>,
+    /// Container-declared cadence for approximate editor nudges, not frame PTS.
+    #[serde(default)]
+    pub nominal_frame_rate: Option<f64>,
     pub audio_track: Option<f64>,
     pub audio_tracks: Vec<AudioTrack>,
     pub av_sync_seconds: Option<f64>,
@@ -537,6 +540,9 @@ impl Media {
                             status.position_seconds =
                                 crate::media_transport::position(active, status.queued_audio_clock);
                             status.duration_seconds = active.number(c"duration");
+                            status.nominal_frame_rate = active
+                                .number(c"container-fps")
+                                .filter(|rate| *rate >= 1.0 && *rate <= 1000.0);
                             status.audio_track = active.number(c"aid");
                             status.av_sync_seconds = active.signed_number(c"avsync");
                             // Headers/duration and renderer updates can precede
