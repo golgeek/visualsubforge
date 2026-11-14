@@ -207,13 +207,23 @@ export async function languagePerformance({
         );
         const checked = await browser.execute(async () => {
           const b = window.__languageBench;
-          const problems = [
-            ...document.querySelectorAll(
-              'button:not(dialog:not([open]) button)',
-            ),
-          ].find((e) => e.textContent.trim().startsWith('Problems'));
-          if (problems.getAttribute('aria-expanded') !== 'true')
-            problems.click();
+          if (!document.querySelector('[aria-label="Subtitle Problems"]')) {
+            const launcher = [...document.querySelectorAll('button')].find(
+              (button) => button.textContent.trim() === 'Commands',
+            );
+            launcher.focus();
+            launcher.click();
+            await b.wait(() =>
+              document.querySelector('[data-action="problems"]:not(:disabled)'),
+            );
+            document.querySelector('[data-action="problems"]').click();
+            await b.wait(
+              () =>
+                !document.querySelector(
+                  'dialog[aria-labelledby="action-browser-title"]',
+                ),
+            );
+          }
           await b.wait(
             () => document.querySelectorAll('.finding').length === 100,
           );

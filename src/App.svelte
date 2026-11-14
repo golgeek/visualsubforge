@@ -1,11 +1,11 @@
 <script lang="ts">
+  import LayoutPicker from './lib/layout/LayoutPicker.svelte';
   // Theme: fonts, then tokens, then element defaults that use them.
   import '@fontsource-variable/inter/wght.css';
   import '@fontsource-variable/jetbrains-mono/wght.css';
   import './lib/ui/tokens.css';
   import './lib/ui/base.css';
   import TransportBar from './lib/media/TransportBar.svelte';
-  import CueOperationsBar from './lib/cues/CueOperationsBar.svelte';
   import SubtitleToolbar from './lib/cues/SubtitleToolbar.svelte';
   import ActionBrowser from './lib/workspace/ActionBrowser.svelte';
   import { WorkspaceCommands } from './lib/workspace/workspace-commands';
@@ -134,7 +134,10 @@
       {
         occlude: (value) => media.occlude(value),
         remainingOcclusion: () =>
-          view.diagnostics || workspace.confirming || cueMenu.active,
+          view.diagnostics ||
+          workspace.confirming ||
+          cueMenu.active ||
+          layout.active,
         afterRender: tick,
       },
       (error) => {
@@ -156,7 +159,8 @@
   const workspaceModal = disposeWithComponent(
     new WorkspaceModal(workspace, {
       occlude: occludeOverlay,
-      remainingOcclusion: () => view.diagnostics || tooltips.active,
+      remainingOcclusion: () =>
+        view.diagnostics || tooltips.active || layout.active,
       afterRender: tick,
       captureFocus,
     }),
@@ -168,7 +172,7 @@
       workspace,
       decisionEffects(
         media,
-        () => view.diagnostics || tooltips.active,
+        () => view.diagnostics || tooltips.active || layout.active,
         () => confirmation!.close(),
       ),
     ),
@@ -178,7 +182,7 @@
     new LegacyImportDecision(
       workspace,
       media,
-      () => view.diagnostics || tooltips.active,
+      () => view.diagnostics || tooltips.active || layout.active,
     ),
   );
 
@@ -186,7 +190,10 @@
     new WorkspaceDecision<ProjectExitChoice, string>(
       'cancel',
       workspace,
-      decisionEffects(media, () => view.diagnostics || tooltips.active),
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
     ),
   );
 
@@ -197,7 +204,10 @@
     >(
       'cancel',
       workspace,
-      decisionEffects(media, () => view.diagnostics || tooltips.active),
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
     ),
   );
 
@@ -274,7 +284,10 @@
     new CueMenu(workspace, subtitles, media, timeline, gestures, navigation, {
       occlude: occludeOverlay,
       remainingOcclusion: () =>
-        view.diagnostics || tooltips.active || workspace.confirming,
+        view.diagnostics ||
+        tooltips.active ||
+        layout.active ||
+        workspace.confirming,
       afterRender: tick,
       captureFocus,
       operationContext: () => cueEditing.context,
@@ -368,7 +381,31 @@
     view,
   );
 
-  const layout = new WorkspaceLayout(preferences, subtitles);
+  const layout: WorkspaceLayout = disposeWithComponent(
+    new WorkspaceLayout(preferences, subtitles, {
+      occlude: occludeOverlay,
+      remainingOcclusion: () =>
+        view.diagnostics ||
+        tooltips.active ||
+        workspace.confirming ||
+        cueMenu.active,
+      afterRender: async () => {
+        await tick();
+        await videoLayout.flush();
+      },
+      error: (error) => {
+        workspace.error = String(error);
+      },
+      preset: (preset) => {
+        view.problemsOpen = preset === 'review';
+        view.translationOpen = preset === 'translation';
+        if (!view.problemsOpen) navigation.pendingProblem = null;
+      },
+    }),
+  );
+  $effect(() => {
+    if (workspace.ready) layout.initialize(preferences.preferences.layout);
+  });
 
   // Action wiring and native platform lifetimes.
 
@@ -501,6 +538,7 @@
   };
 
   const commands: WorkspaceCommands = new WorkspaceCommands({
+    layout,
     workspace,
     subtitles,
     media,
@@ -545,6 +583,7 @@
   );
   workspace.connect({
     activity: () =>
+      layout.active ||
       workspaceModal.opening ||
       gestures.active ||
       cueMenu.active ||
@@ -581,10 +620,11 @@
   class:has-recovery={recovery.status.entries.length > 0 ||
     !!recovery.status.error}
   style:--workspace-height={`${layout.workspaceHeight}px`}
-  style:--workspace-min-height={`${148 + layout.panes.tableMinimum + layout.panes.editorMinimum}px`}
+  style:--workspace-min-height={`${layout.panes.minimum + 16}px`}
   style:--table-min-height={`${layout.panes.tableMinimum}px`}
 >
   <WorkspaceToolbar
+    onlayout={() => void workspaceModal.open('layout')}
     oncommands={() => void commands.open('actionMenu')}
     onshortcuts={() => void commands.open('shortcuts')}
     {workspace}
@@ -600,9 +640,12 @@
 
   <div
     class="workspace"
+    class:editor-above={layout.preset === 'editorAbove'}
+    data-preset={layout.preset}
     bind:clientHeight={layout.workspaceHeight}
     style:--top-height={`${layout.panes.topPixels}px`}
     style:--editor-height={`${layout.panes.editorPixels}px`}
+    style:--transport-height={`${layout.panes.transportPixels}px`}
   >
     <div class="top" style:--wave-width={`${layout.wavePct}%`}>
       <WaveformPanel
@@ -643,20 +686,19 @@
       value={(layout.panes.topPixels / layout.panes.paneHeight) * 100}
       onchange={(v) => layout.resizePreview(v)}
     />
+    <TransportBar
+      {workspace}
+      {media}
+      {timeline}
+      {layout}
+      {mediaActions}
+      {gestures}
+      {navigation}
+      {cueEditing}
+      {preferences}
+      {scenes}
+    />
     <section class="subtitle-panel panel" aria-label="Subtitle table">
-      <TransportBar {workspace} {media} {timeline} {layout} {mediaActions} />
-      <CueOperationsBar {workspace} {cueEditing} {layout} />
-      <SubtitleToolbar
-        {workspace}
-        {subtitles}
-        {dialogs}
-        {view}
-        {quality}
-        {preferences}
-        {gestures}
-        {navigation}
-        {layout}
-      />
       <div
         class="subtitle-review"
         class:with-problems={view.problemsOpen || view.translationOpen}
@@ -675,7 +717,16 @@
             cueSelectionKey: navigation.cueSelectionKey,
             focusText: navigation.focusText,
           }}
-        />
+        >
+          {#snippet controls()}
+            <SubtitleToolbar
+              {workspace}
+              {subtitles}
+              {preferences}
+              {navigation}
+            />
+          {/snippet}
+        </CueTable>
         {#if view.problemsOpen}<ProblemsPanel
             session={quality}
             disabled={workspace.busy || workspace.confirming}
@@ -701,10 +752,18 @@
     </section>
     <Splitter
       label="Resize subtitle list and editor"
-      value={100 - (layout.panes.editorPixels / layout.panes.paneHeight) * 100}
-      onchange={(v) => layout.resizeEditor(v)}
+      value={layout.preset === 'editorAbove'
+        ? (layout.panes.editorPixels / layout.panes.paneHeight) * 100
+        : 100 - (layout.panes.editorPixels / layout.panes.paneHeight) * 100}
+      onchange={(v) =>
+        layout.resizeEditor(layout.preset === 'editorAbove' ? 100 - v : v)}
     />
     <CueEditor
+      editorAbove={layout.preset === 'editorAbove'}
+      onmove={() =>
+        void layout.select(
+          layout.preset === 'editorAbove' ? 'timing' : 'editorAbove',
+        )}
       {subtitles}
       {media}
       {quality}
@@ -732,6 +791,16 @@
   </div>
   <FontDiagnostics {media} />
   <TooltipLayer owner={tooltips} />
+  {#if workspaceModal.identity === 'layout'}
+    <LayoutPicker
+      active={layout.preset}
+      onclose={() => workspaceModal.close()}
+      onselect={async (preset) => {
+        await workspaceModal.close();
+        if (workspace.canAct) await layout.select(preset);
+      }}
+    />
+  {/if}
   {#if commandMode}
     <ActionBrowser
       mode={commandMode}
@@ -786,26 +855,49 @@
     height: 100dvh;
     min-height: 610px;
     display: grid;
-    grid-template-rows: 48px minmax(var(--workspace-min-height), 1fr) 28px;
+    grid-template-rows: 40px minmax(var(--workspace-min-height), 1fr) 20px;
     isolation: isolate;
     overflow: auto;
   }
 
   main.has-recovery {
-    grid-template-rows: 48px auto minmax(var(--workspace-min-height), 1fr) 28px;
+    grid-template-rows: 40px auto minmax(var(--workspace-min-height), 1fr) 20px;
   }
 
   .workspace {
     display: grid;
+    grid-template-areas: 'preview' 'previewResize' 'transport' 'cues' 'editorResize' 'editor';
     grid-template-rows:
-      var(--top-height) 6px minmax(var(--table-min-height), 1fr)
+      var(--top-height) 6px var(--transport-height) minmax(
+        var(--table-min-height),
+        1fr
+      )
       6px var(--editor-height);
     min-height: 0;
     padding: 8px;
     gap: 0;
   }
 
+  .workspace.editor-above {
+    grid-template-areas: 'preview' 'previewResize' 'transport' 'editor' 'editorResize' 'cues';
+    grid-template-rows:
+      var(--top-height) 6px var(--transport-height) var(--editor-height)
+      6px minmax(var(--table-min-height), 1fr);
+  }
+  .workspace > :global(.transport) {
+    grid-area: transport;
+  }
+  .workspace > :global(.editor) {
+    grid-area: editor;
+  }
+  .workspace > :global([aria-label='Resize preview and subtitle list']) {
+    grid-area: previewResize;
+  }
+  .workspace > :global([aria-label='Resize subtitle list and editor']) {
+    grid-area: editorResize;
+  }
   .top {
+    grid-area: preview;
     display: grid;
     grid-template-columns: var(--wave-width) 6px minmax(150px, 1fr);
     min-height: 0;
@@ -821,6 +913,7 @@
   }
 
   .subtitle-panel {
+    grid-area: cues;
     display: flex;
     flex-direction: column;
   }
@@ -844,8 +937,14 @@
     }
 
     .workspace {
-      grid-template-rows: auto minmax(320px, auto) minmax(210px, auto);
+      grid-template-areas: 'preview' 'transport' 'cues' 'editor';
+      grid-template-rows: auto auto minmax(320px, auto) minmax(210px, auto);
       gap: 8px;
+    }
+
+    .workspace.editor-above {
+      grid-template-areas: 'preview' 'transport' 'editor' 'cues';
+      grid-template-rows: auto auto minmax(210px, auto) minmax(320px, auto);
     }
 
     .workspace > :global(.splitter) {

@@ -565,5 +565,59 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null
+  },
+  "layoutTiming": {
+    "label": "Timing layout",
+    "group": "Layout",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Timing preset"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "layoutEditorAbove": {
+    "label": "Editor above list layout",
+    "group": "Layout",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Editor above list preset"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "layoutReview": {
+    "label": "Review layout",
+    "group": "Layout",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Review preset"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "layoutTranslation": {
+    "label": "Translation layout",
+    "group": "Layout",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Translation preset"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "layoutBigPicture": {
+    "label": "Big picture layout",
+    "group": "Layout",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Big picture preset"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "textTools": {
+    "label": "Find / Replace…",
+    "group": "Edit",
+    "native": false,
+    "shortcut": "",
+    "aliases": ["Text tools"],
+    "alternateShortcuts": [],
+    "macShortcut": null
   }
 }

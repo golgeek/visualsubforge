@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -16,7 +17,7 @@ export async function textPerformance({
   const result = { budgetMs: 1000, cues: 10_000, status: 'running' };
   const ready = () =>
     until('text performance workspace ready', () =>
-      browser.$('button=Find / Replace…').then((b) => b.isEnabled()),
+      browser.$('button=Commands').then((b) => b.isEnabled()),
     );
   try {
     await ready();
@@ -60,7 +61,7 @@ export async function textPerformance({
     assert.equal(result.cancelAndInteraction.phase, 'cancelled');
     assert.ok(result.cancelAndInteraction.typingMs < result.budgetMs);
     await (await browser.$('button=Revert')).click();
-    await (await browser.$('button=Find / Replace…')).click();
+    await chooseCommand(browser, 'textTools');
     let dialog = await browser.$('dialog[aria-labelledby="text-title"]');
     await until('10k text dialog', () => dialog.isDisplayed());
     await browser.execute(() => {

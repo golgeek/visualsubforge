@@ -42,4 +42,45 @@ export async function nativeLayoutCases(passed: (message: string) => void) {
     owner.dispose();
     host.remove();
   }
+  const moving = document.createElement('div');
+  moving.style.cssText = 'position:fixed;left:0;top:0;width:100px;height:100px';
+  document.body.append(moving);
+  let release!: () => void;
+  const widths: number[] = [];
+  const draining = new NativeVideoLayout(messages, {
+    status: { ...emptyStatus, available: true, loaded: true },
+    layout: async (bounds) => {
+      widths.push(bounds.width);
+      if (widths.length === 1)
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+    },
+  });
+  try {
+    draining.mount(moving);
+    window.dispatchEvent(new Event('resize'));
+    moving.style.width = '200px';
+    let acknowledged = false;
+    const flush = draining.flush().then(() => {
+      acknowledged = true;
+    });
+    await Promise.resolve();
+    assert(
+      !acknowledged && widths.length === 1,
+      'Flush waits for the old in-flight native bounds',
+    );
+    release();
+    await flush;
+    assert(
+      widths.join(',') === '100,200',
+      'Flush acknowledges current rendered bounds after draining the old position',
+    );
+    passed(
+      'Native layout flush drains old bounds and acknowledges current geometry before returning',
+    );
+  } finally {
+    draining.dispose();
+    moving.remove();
+  }
 }

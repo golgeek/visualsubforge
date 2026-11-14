@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 // Actual WebView/IPC and independent CLI parity. Fixtures have known source
 // positions and cut times; only file choices and app-data paths are supplied.
 import assert from 'node:assert/strict';
@@ -109,7 +110,7 @@ export async function statisticsWorkflow({
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
   const ready = () =>
     until('statistics workspace ready', () =>
-      browser.$('button=Statistics…').then((b) => b.isEnabled()),
+      browser.$('button=Commands').then((b) => b.isEnabled()),
     );
   async function report(selection = { range: null, excluded: [] }) {
     const doc = await status(),
@@ -128,7 +129,7 @@ export async function statisticsWorkflow({
   }
   async function open() {
     await ready();
-    await (await browser.$('button=Statistics…')).click();
+    await chooseCommand(browser, 'statistics');
     const dialog = await browser.$(
       'dialog[aria-labelledby="statistics-title"]',
     );

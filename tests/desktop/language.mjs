@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 // Real native webview, production Rust commands and isolated files. DOM-generated
 // events are not physical input or GPU presentation evidence.
 import assert from 'node:assert/strict';
@@ -85,12 +86,8 @@ export async function languageTools({
   const settings = join(root, 'settings-v1.json');
   async function spellingFilter() {
     await ready();
-    await browser.execute(() => {
-      const b = [...document.querySelectorAll('button')].find((e) =>
-        e.textContent.trim().startsWith('Problems'),
-      );
-      if (b?.getAttribute('aria-expanded') !== 'true') b?.click();
-    });
+    if (!(await browser.$('[aria-label="Subtitle Problems"]').isExisting()))
+      await chooseCommand(browser, 'problems');
     await until('Problems filter', () =>
       browser.execute(
         () => !!document.querySelector('[aria-label="Problem rule"]'),

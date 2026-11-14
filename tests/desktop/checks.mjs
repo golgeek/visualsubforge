@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
@@ -17,15 +18,11 @@ export async function qualityChecking({
 }) {
   const before = await status();
   const context = (await invoke('quality_settings')).current;
-  const metrics = await browser.$(
-    '//label[normalize-space(.)="Cue metrics"]/input',
-  );
+  const metrics = await browser.$('input[aria-label="Cue metrics"]');
   await metrics.click();
   const accepted = await browser.$('[aria-label="Accepted cue metrics"]');
   await until('accepted cue metrics', () => accepted.isExisting());
-  await (
-    await browser.$('//button[starts-with(normalize-space(.), "Problems")]')
-  ).click();
+  await chooseCommand(browser, 'problems');
   const request = {
     session: 0,
     generation: before.generation,
@@ -118,12 +115,21 @@ export async function qualityChecking({
     async () => (await next.isEnabled()) && (await accepted.isExisting()),
   );
   const layout = await browser.execute(() => ({
+    controlsRight: document
+      .querySelector('.cue-followbar')
+      .getBoundingClientRect().right,
+    tableRight: document.querySelector('.cue-table').getBoundingClientRect()
+      .right,
     listHeight: document.querySelector('.cue-list').getBoundingClientRect()
       .height,
     editorHeight: document
       .querySelector('[aria-label="Subtitle text"]')
       .getBoundingClientRect().height,
   }));
+  assert.ok(
+    layout.controlsRight <= layout.tableRight + 1,
+    'Metrics/review clipped cue controls',
+  );
   assert.ok(layout.listHeight >= 64, 'Problems squeezed out the cue list');
   assert.ok(layout.editorHeight >= 34, 'Metrics squeezed out the text editor');
   await browser.execute(() => {

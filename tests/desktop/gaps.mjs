@@ -1,3 +1,4 @@
+import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 
@@ -5,7 +6,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   const before = await status();
   const text = await browser.$('[aria-label="Subtitle text"]');
   await text.setValue('Unapplied gap review draft');
-  await (await browser.$('button=Fix gaps and overlaps…')).click();
+  await chooseCommand(browser, 'fixGaps');
   let dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
   await until('gap review modal', () => dialog.isDisplayed());
   assert.equal(
@@ -20,11 +21,9 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   assert.equal(await text.getValue(), 'Unapplied gap review draft');
   assert.deepEqual(await status(), before);
   await until('gap close restored workspace interaction', () =>
-    browser
-      .$('button=Fix gaps and overlaps…')
-      .then((button) => button.isEnabled()),
+    browser.$('button=Commands').then((button) => button.isEnabled()),
   );
-  await (await browser.$('button=Fix gaps and overlaps…')).click();
+  await chooseCommand(browser, 'fixGaps');
   // The first modal was unmounted; the embedded driver retains its element ID.
   dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
   await until('reopened gap review', () => dialog.isDisplayed());
@@ -47,9 +46,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   // Unmount precedes the asynchronous native occlusion/focus restoration.
   // The workspace's modal guard stays active until that transition completes.
   await until('accepted gap dialog restored workspace interaction', () =>
-    browser
-      .$('button=Fix gaps and overlaps…')
-      .then((button) => button.isEnabled()),
+    browser.$('button=Commands').then((button) => button.isEnabled()),
   );
   const changed = await status();
   assert.equal(changed.revision, before.revision + 1);

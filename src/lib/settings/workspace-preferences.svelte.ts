@@ -23,6 +23,9 @@ export class WorkspacePreferences {
     this.timing = { ...value.timing };
     this.showQualityMetrics = value.showQualityMetrics;
   }
+  acceptLayout(layout: Preferences['layout']) {
+    this.saved = { ...this.saved, layout };
+  }
   accept(value: Preferences) {
     this.initialize(value);
     this.invalidateQuality();
@@ -30,6 +33,9 @@ export class WorkspacePreferences {
   restoreTiming(value?: TimingSettings | null) {
     this.invalidateQuality();
     this.timing = { ...(value ?? this.saved.timing) };
+  }
+  setSnapping(enabled: boolean) {
+    this.timing = { ...this.timing, enabled };
   }
   resetTiming() {
     this.timing = { ...this.saved.timing };

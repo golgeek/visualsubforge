@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -58,6 +59,9 @@ const variants = [
   { name: 'text', close: 'Close text tools', action: null },
 ] as const;
 async function fixture(variant: (typeof variants)[number], above = true) {
+  // Discovery has its own lifecycle harness. Delay/count the feature's native
+  // hide after the Commands menu closes, preserving the feature boundary tests.
+  let discovering = false;
   const calls: string[] = [];
 
   let occluded = false;
@@ -113,8 +117,12 @@ async function fixture(variant: (typeof variants)[number], above = true) {
           case 'media_action': {
             const action = args.action as MediaAction;
             if (action.kind === 'occlude') {
-              calls.push(`occlude:${action.occluded}`);
-              await (action.occluded ? hide?.promise : restore?.promise);
+              if (discovering) {
+                if (!action.occluded) discovering = false;
+              } else {
+                calls.push(`occlude:${action.occluded}`);
+                await (action.occluded ? hide?.promise : restore?.promise);
+              }
               occluded = action.occluded;
             } else if (action.kind !== 'status' && action.kind !== 'layout')
               calls.push(`media:${action.kind}`);
@@ -174,21 +182,16 @@ async function fixture(variant: (typeof variants)[number], above = true) {
         ...host.querySelectorAll<HTMLButtonElement>(
           'button:not(dialog:not([open]) button)',
         ),
-      ].some(
-        (b) =>
-          b.textContent?.trim() ===
-            (variant.name === 'statistics'
-              ? 'Statistics…'
-              : 'Find / Replace…') && !b.disabled,
-      ),
+      ].some((b) => b.textContent?.trim() === 'Commands' && !b.disabled),
   );
   // Media polling has started synchronously on mount; allow its projection to render.
   await settle();
   calls.length = 0;
-  const launcher = button(
-    variant.name === 'statistics' ? 'Statistics…' : 'Find / Replace…',
-  );
-  const dialog = () => host.querySelector<HTMLDialogElement>('dialog[open]');
+  const launcher = button('Commands');
+  const dialog = () =>
+    host.querySelector<HTMLDialogElement>(
+      'dialog[open]:not([aria-labelledby="action-browser-title"])',
+    );
   const action = (value: WorkspaceAction) =>
     callbacks.get(handler)!({ payload: value });
   return {
@@ -202,12 +205,24 @@ async function fixture(variant: (typeof variants)[number], above = true) {
     begin: () => {
       launcher.focus();
       if (variant.action) action(variant.action);
-      else launcher.click();
+      else {
+        discovering = true;
+        void chooseCommand(
+          host,
+          variant.name === 'statistics' ? 'statistics' : 'textTools',
+        );
+      }
     },
     open: async () => {
       launcher.focus();
       if (variant.action) action(variant.action);
-      else launcher.click();
+      else {
+        discovering = true;
+        void chooseCommand(
+          host,
+          variant.name === 'statistics' ? 'statistics' : 'textTools',
+        );
+      }
       await until(() => !!dialog());
     },
     close: async () => {

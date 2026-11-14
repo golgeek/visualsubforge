@@ -494,3 +494,22 @@ and webview Replace both use Command+Shift+H on different routing surfaces;
 this cross-surface collision remains explicit in registry tests until a shortcut
 preset decision resolves it. The shortcut sheet describes native/text behavior;
 it does not claim all chords are globally conflict-free.
+
+## Layout slots and presets
+
+`layout/layout-presets.ts` describes Timing, Editor above list, Review,
+Translation and Big picture. `pane-layout.ts` computes slot minima and clamped
+sizes; `WorkspaceLayout` retains independent ratios, measurements and serialized
+save work. Switching CSS grid areas does not recreate feature/session owners.
+The layout picker uses `WorkspaceModal`; palette presets and the editor arrow
+enter the same layout owner. Reset Pane Sizes resets only the active preset.
+
+Before changing geometry, the layout owner waits for `HideVideo`, then renders
+and awaits `NativeVideoLayout.flush()` before restoring remaining occlusion.
+Pointer updates coalesce while hiding; saves debounce and serialize. Disposal
+cancels timers and ignores late acknowledgments. Saved sizes pass through the
+single typed client, without quality-context invalidation or accepted edits.
+The transport strip contains playback, range, timing, shots, snapping and compact
+cue operations. Tool launchers use Commands/palette; following and metric controls
+share the cue header. Snap changes the effective editing aid; saved profile defaults
+remain under Settings. Per-project layout is not implemented.

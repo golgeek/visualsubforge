@@ -41,7 +41,8 @@ Rust commands. It covers:
   and Undo/Redo; tag-aware text search/replacement, join/reflow skips and formatting
   that remains a draft until Apply.
 - Command palette and searchable shortcut sheet through the actual WebView,
-  generated key input, focus restoration and 1100×720 / 1440×900 palette bounds.
+  generated key input, focus restoration and palette bounds at requested
+  1100×720 / 1440×900 window sizes.
 - Refresh-only stale-edit reconciliation that retains the draft without replaying
   the mutation or adding history.
 
@@ -271,3 +272,14 @@ Reports, failure screenshots and traces are generated under ignored
 preserves desktop receipts. These tests use production components with modeled
 IPC and synthetic events; they do not establish native WebView, filesystem,
 physical keyboard, GPU or audio-device behavior.
+
+The canonical desktop run requests 1100×720 and 1440×900 windows, switches all
+five workspace presets, and records ten screenshots plus requested/actual sizes.
+Some hosted displays clamp window height. The receipt lists unavailable sizes;
+a clamped run does not establish acceptance at the requested larger size. Timing
+requires eight rows in the smaller tested client area and fourteen when the host
+supplies the requested 900-pixel window. Exact-size browser cases cover the smaller
+and larger client budgets independently. Every preset checks two editor text
+lines and video-placeholder separation. Playback-free runs verify DOM bounds;
+the browser layout harness checks modeled hide/bounds acknowledgments. Neither
+establishes physical native-video composition acceptance.

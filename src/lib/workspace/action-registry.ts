@@ -137,14 +137,10 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
     case 'shiftCues':
       return state.cues ? null : 'Open subtitles with cues';
     case 'snapShots':
-      return !state.cues
-        ? 'Open subtitles with cues'
-        : state.media &&
-            !state.scenesRunning &&
-            !state.scenesPending &&
-            (state.previousScene || state.nextScene)
-          ? null
-          : 'Needs a completed shot-change scan';
+    case 'textTools':
+      // Opening review is safe; its session explains missing coverage and gates
+      // preparation/acceptance. A completed empty scan is valid coverage too.
+      return state.cues ? null : 'Open subtitles with cues';
     case 'previousProblem':
     case 'nextProblem':
       return state.problems &&

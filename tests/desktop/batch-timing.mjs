@@ -61,6 +61,21 @@ export async function batchTiming({
         (b) => b.textContent.trim() === text,
       );
     const click = async (text) => {
+      if (text === 'Shift / align cues…') {
+        button('Commands').focus();
+        button('Commands').click();
+        await wait(() =>
+          document.querySelector('[data-action="shiftCues"]:not(:disabled)'),
+        );
+        document.querySelector('[data-action="shiftCues"]').click();
+        await wait(
+          () =>
+            !document.querySelector(
+              'dialog[aria-labelledby="action-browser-title"]',
+            ),
+        );
+        return;
+      }
       await wait(() => button(text) && !button(text).disabled);
       button(text).click();
     };

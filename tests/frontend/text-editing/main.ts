@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -91,9 +92,8 @@ function input(label: string, value: string) {
   e.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Find / Replace…').disabled);
-  button('Find / Replace…').focus();
-  button('Find / Replace…').click();
+  await until(() => !button('Commands').disabled);
+  await chooseCommand(host, 'textTools');
   await until(() => !!host.querySelector('dialog[open]'));
 }
 async function mode(value: string) {
@@ -410,7 +410,7 @@ async function run() {
         doc.cues[1]!.text === sample.rows[1]!.after,
       'Batch not reconciled',
     );
-    await until(() => !button('Find / Replace…').disabled);
+    await until(() => !button('Commands').disabled);
     button('Undo edit').click();
     await until(() => doc.revision === original.revision + 2);
     assert(
@@ -450,9 +450,9 @@ async function run() {
     await until(() => starts >= 4);
     button('Close text tools').click();
     await until(() => !host.querySelector('dialog[open]'));
-    await until(() => !button('Find / Replace…').disabled);
+    await until(() => !button('Commands').disabled);
     assert(
-      document.activeElement === button('Find / Replace…'),
+      document.activeElement === button('Commands'),
       'Text launcher focus restored',
     );
     const lateId = starts;
@@ -462,7 +462,7 @@ async function run() {
       'Closing during admission cancels the eventual job and cannot reopen the dialog',
     );
     heldStart = null;
-    await until(() => !button('Find / Replace…').disabled);
+    await until(() => !button('Commands').disabled);
     window.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'f',
@@ -478,7 +478,7 @@ async function run() {
       'Find shortcut opened wrong mode',
     );
     button('Close text tools').click();
-    await until(() => !button('Find / Replace…').disabled);
+    await until(() => !button('Commands').disabled);
     window.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'h',
@@ -505,7 +505,7 @@ async function run() {
       'Replace shortcut opened wrong mode',
     );
     button('Close text tools').click();
-    await until(() => !button('Find / Replace…').disabled);
+    await until(() => !button('Commands').disabled);
     passed('Find and replace keyboard entry preserves the Mac Cmd+H shortcut');
     languageEnabled = true;
     input('Subtitle text', '😀 <i>helo helo</i>');
@@ -514,14 +514,9 @@ async function run() {
     await until(
       () =>
         doc.cues[0]!.text === '😀 <i>helo helo</i>' &&
-        !button('Find / Replace…').disabled,
+        !button('Commands').disabled,
     );
-    const problems = [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        'button:not(dialog:not([open]) button)',
-      ),
-    ].find((b) => b.textContent?.trim().startsWith('Problems'))!;
-    if (problems.getAttribute('aria-expanded') !== 'true') problems.click();
+    await chooseCommand(host, 'problems');
     await until(() => host.textContent!.includes('Fixture spelling finding'));
     const startingAccepts = accepts;
     button('Suggestions').click();
@@ -543,9 +538,7 @@ async function run() {
     );
     button('Accept text repairs').click();
     await until(
-      () =>
-        !host.querySelector('dialog[open]') &&
-        !button('Find / Replace…').disabled,
+      () => !host.querySelector('dialog[open]') && !button('Commands').disabled,
     );
     assert(
       doc.cues[0]!.text === '😀 <i>hello helo</i>' &&

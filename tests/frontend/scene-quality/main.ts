@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -69,8 +70,8 @@ function type(text: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Snap to shot changes…').disabled);
-  button('Snap to shot changes…').click();
+  await until(() => !button('Commands').disabled);
+  await chooseCommand(host, 'snapShots');
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {

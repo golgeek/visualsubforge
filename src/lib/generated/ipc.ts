@@ -44,6 +44,9 @@ export const commands = {
     preferences: visualsubforge_preferences_Preferences_Deserialize,
     epoch: number,
   ) => __TAURI_INVOKE<null>('preferences_save', { preferences, epoch }),
+  layoutSave: (
+    layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize,
+  ) => __TAURI_INVOKE<null>('layout_save', { layout }),
   qualitySettings: () =>
     __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
       'quality_settings',
@@ -1452,6 +1455,28 @@ export type vsf_application_quality_profile_Kind = 'quality';
 
 export type vsf_application_language_Language = 'en-US' | 'fr';
 
+export type visualsubforge_preferences_layout_LayoutPreferences =
+  | visualsubforge_preferences_layout_LayoutPreferences_Serialize
+  | visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
+
+export type visualsubforge_preferences_layout_LayoutPreferences_Deserialize = {
+  active: visualsubforge_preferences_layout_Preset;
+  timing: visualsubforge_preferences_layout_PaneSizes_Deserialize;
+  editorAbove: visualsubforge_preferences_layout_PaneSizes_Deserialize;
+  review: visualsubforge_preferences_layout_PaneSizes_Deserialize;
+  translation: visualsubforge_preferences_layout_PaneSizes_Deserialize;
+  bigPicture: visualsubforge_preferences_layout_PaneSizes_Deserialize;
+};
+
+export type visualsubforge_preferences_layout_LayoutPreferences_Serialize = {
+  active: visualsubforge_preferences_layout_Preset;
+  timing: visualsubforge_preferences_layout_PaneSizes_Serialize;
+  editorAbove: visualsubforge_preferences_layout_PaneSizes_Serialize;
+  review: visualsubforge_preferences_layout_PaneSizes_Serialize;
+  translation: visualsubforge_preferences_layout_PaneSizes_Serialize;
+  bigPicture: visualsubforge_preferences_layout_PaneSizes_Serialize;
+};
+
 export type visualsubforge_project_import_api_LegacyImportPhase =
   | 'preparing'
   | 'reviewing'
@@ -1664,6 +1689,22 @@ export type visualsubforge_document_translation_Page = {
   selected: visualsubforge_document_translation_Row | null;
 };
 
+export type visualsubforge_preferences_layout_PaneSizes =
+  | visualsubforge_preferences_layout_PaneSizes_Serialize
+  | visualsubforge_preferences_layout_PaneSizes_Deserialize;
+
+export type visualsubforge_preferences_layout_PaneSizes_Deserialize = {
+  topPct: number;
+  editorPct: number;
+  wavePct: number;
+};
+
+export type visualsubforge_preferences_layout_PaneSizes_Serialize = {
+  topPct: number;
+  editorPct: number;
+  wavePct: number;
+};
+
 /**  Pipeline snapshots contain metadata only. The caller must reject stale jobs. */
 export type media_analysis_scenes_Phase = 'candidates' | 'verifying' | 'full';
 
@@ -1750,6 +1791,7 @@ export type visualsubforge_preferences_Preferences =
 
 export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
+  layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -1760,6 +1802,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
 
 export type visualsubforge_preferences_Preferences_Serialize = {
   version: number;
+  layout: visualsubforge_preferences_layout_LayoutPreferences_Serialize;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -1767,6 +1810,9 @@ export type visualsubforge_preferences_Preferences_Serialize = {
   showQualityMetrics: boolean;
   personalWords: vsf_application_language_dictionary_WordLists;
 };
+
+export type visualsubforge_preferences_layout_Preset =
+  'timing' | 'editorAbove' | 'review' | 'translation' | 'bigPicture';
 
 export type visualsubforge_timing_preset_Preset = {
   version: number;

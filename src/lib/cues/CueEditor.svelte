@@ -18,6 +18,8 @@
     textEditor = $bindable(),
     editorFocused = $bindable(false),
     onmeasure,
+    editorAbove = false,
+    onmove,
     actions,
   }: {
     subtitles: DocumentSession;
@@ -28,6 +30,8 @@
     draftMetricError: string;
     textEditor: HTMLTextAreaElement | undefined;
     editorFocused: boolean;
+    editorAbove?: boolean;
+    onmove?: () => void;
     onmeasure: (part: 'bar' | 'footer' | 'metrics', height: number) => void;
     actions: {
       suspendCueFollowing: () => void;
@@ -94,6 +98,13 @@
     class="editorbar"
     use:measurePaneControl={(height) => onmeasure('bar', height)}
   >
+    {#if onmove}<button
+        disabled={!workspace.canAct}
+        aria-label={editorAbove
+          ? 'Move editor below list'
+          : 'Move editor above list'}
+        onclick={onmove}>{editorAbove ? '↓' : '↑'}</button
+      >{/if}
     <strong
       >{cue
         ? `Cue ${doc.cues.findIndex((c) => c.id === selected) + 1}`
@@ -295,8 +306,8 @@
   .editor {
     display: flex;
     flex-direction: column;
-    padding: 6px 8px;
-    gap: 6px;
+    padding: 3px 8px;
+    gap: 3px;
   }
 
   .editorbar,

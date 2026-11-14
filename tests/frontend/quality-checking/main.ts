@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -247,13 +248,7 @@ async function run() {
     passed(
       'Accepted metrics appear without media and checking leaves document/history unchanged',
     );
-    [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        'button:not(dialog:not([open]) button)',
-      ),
-    ]
-      .find((b) => b.textContent?.trim().startsWith('Problems'))!
-      .click();
+    await chooseCommand(host, 'problems');
     await until(
       () => !!host.querySelector('[aria-label="Subtitle Problems"] .finding'),
       'Problems did not appear',

@@ -1,12 +1,15 @@
 //! Small versioned user preferences; blocking IO stays off the UI thread.
 //! Projects retain their own timing policy and never write these defaults.
+pub mod layout;
 use crate::timing_preset::Settings as Timing;
+use layout::LayoutPreferences;
 use media_analysis::scenes::Detail;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::Read,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 use tauri::Manager;
 type Result<T> = std::result::Result<T, String>;
@@ -15,6 +18,7 @@ type Result<T> = std::result::Result<T, String>;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     version: u32,
+    layout: LayoutPreferences,
     auto_scan_scenes: bool,
     scene_detail: Detail,
     timing: Timing,
@@ -26,7 +30,8 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            version: 1,
+            version: 2,
+            layout: Default::default(),
             auto_scan_scenes: true,
             scene_detail: Detail::Standard,
             timing: Timing::default(),
@@ -38,9 +43,10 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
-        if self.version != 1 {
+        if self.version != 2 {
             return Err("Unsupported settings version".into());
         }
+        self.layout.validate()?;
         self.personal_words.validate().map_err(|e| e.to_string())?;
         self.policy().map(|_| ())
     }
@@ -64,6 +70,13 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
     let mut json: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|e| format!("Invalid settings: {e}"))?;
     let object = json.as_object_mut().ok_or("Settings must be an object")?;
+    if object.get("version").and_then(serde_json::Value::as_u64) == Some(1) {
+        object.insert("version".into(), 2.into());
+        object.insert(
+            "layout".into(),
+            serde_json::to_value(LayoutPreferences::default()).map_err(|e| e.to_string())?,
+        );
+    }
     if !object.contains_key("quality") {
         let timing: Timing = serde_json::from_value(
             object
@@ -96,6 +109,28 @@ pub(crate) fn write(path: &Path, value: &Preferences) -> Result<()> {
         .map_err(|e| e.to_string())?;
     crate::atomic_file::write(path, &bytes)
 }
+// All production preference writes use this read/modify/write lock. Document
+// operations acquire their document lock first; layout saves never acquire it.
+// Atomic publication permits concurrent readers to see either complete version.
+static WRITER: Mutex<()> = Mutex::new(());
+pub(crate) fn update(path: &Path, change: impl FnOnce(&mut Preferences)) -> Result<()> {
+    let _writer = WRITER.lock().map_err(|_| "Settings writer lock failed")?;
+    let mut value = read(path)?;
+    change(&mut value);
+    write(path, &value)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn layout_save(app: tauri::AppHandle, layout: LayoutPreferences) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        layout.validate()?;
+        update(&settings_path(&app)?, |value| value.layout = layout)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
@@ -122,7 +157,15 @@ pub async fn preferences_save(
             epoch.get(),
             policy,
             preferences.personal_words.clone(),
-            || write(&path, &preferences),
+            || {
+                update(&path, |current| {
+                    // The dialog captures policy/words under the document epoch,
+                    // while pane changes can be saved independently during its life.
+                    let layout = current.layout.clone();
+                    *current = preferences;
+                    current.layout = layout;
+                })
+            },
         )
     })
     .await
@@ -144,6 +187,58 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn version_one_layout_migrates_without_writing_and_invalid_sizes_preserve_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        old["version"] = 1.into();
+        old.as_object_mut().unwrap().remove("layout");
+        let bytes = serde_json::to_vec(&old).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        let migrated = read(&path).unwrap();
+        assert_eq!(migrated.version, 2);
+        assert_eq!(migrated.layout, LayoutPreferences::default());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        update(&path, |p| {
+            p.layout.active = layout::Preset::BigPicture;
+            p.layout.big_picture.wave_pct = 29.0;
+        })
+        .unwrap();
+        let saved = fs::read(&path).unwrap();
+        assert_eq!(read(&path).unwrap().layout.big_picture.wave_pct, 29.0);
+        assert!(update(&path, |p| p.layout.timing.top_pct = f64::NAN).is_err());
+        assert_eq!(fs::read(&path).unwrap(), saved);
+        assert!(update(&path, |p| p.layout.timing.top_pct = 100.0).is_err());
+        assert_eq!(fs::read(&path).unwrap(), saved);
+    }
+    #[test]
+    fn independent_layout_and_word_updates_preserve_each_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let barrier = std::sync::Barrier::new(2);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                barrier.wait();
+                for size in 20..40 {
+                    update(&path, |p| p.layout.timing.top_pct = f64::from(size)).unwrap();
+                }
+            });
+            scope.spawn(|| {
+                barrier.wait();
+                update(&path, |p| {
+                    p.personal_words.french = vec!["Élodiex".into()];
+                    p.auto_scan_scenes = false;
+                })
+                .unwrap();
+            });
+        });
+        let saved = read(&path).unwrap();
+        assert_eq!(saved.layout.timing.top_pct, 39.0);
+        assert_eq!(saved.personal_words.french, ["Élodiex"]);
+        assert!(!saved.auto_scan_scenes);
+        assert_eq!(saved.quality, Preferences::default().quality);
+    }
     #[test]
     fn personal_words_roundtrip_but_ignores_are_session_only_and_failed_writes_preserve_both() {
         use crate::{document::Documents, language_tools::Change};

@@ -85,6 +85,11 @@ test('unavailable actions explain the missing condition and become available', (
     assert.ok(unavailable(id, empty), id);
   assert.equal(unavailable('play', { ...empty, media: true }), null);
   assert.equal(
+    unavailable('snapShots', { ...empty, cues: true }),
+    null,
+    'review can explain missing scene coverage before preparation',
+  );
+  assert.equal(
     unavailable('convertSubtitles', { ...empty, document: true, webvtt: true }),
     'WebVTT export is not available',
   );

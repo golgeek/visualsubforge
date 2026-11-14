@@ -611,7 +611,7 @@ async function appCases() {
     );
   async function open() {
     phase = 'reviewing';
-    button('Find / Replace…').focus();
+    button('Commands').focus();
     dispatch('resync');
     await until(() => !!dialog());
     assert(occluded, 'Dialog visible before native occlusion');
@@ -649,7 +649,7 @@ async function appCases() {
     button('Cancel resync', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
     assert(
-      document.activeElement === button('Find / Replace…'),
+      document.activeElement === button('Commands'),
       'Resync launcher focus restored',
     );
     assert(
@@ -669,7 +669,7 @@ async function appCases() {
     button('Close', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
     assert(
-      document.activeElement === button('Find / Replace…'),
+      document.activeElement === button('Commands'),
       'Resync launcher focus restored',
     );
     text.value = 'Draft revised';
@@ -713,7 +713,7 @@ async function appCases() {
     button('Close', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
     assert(
-      document.activeElement === button('Find / Replace…'),
+      document.activeElement === button('Commands'),
       'Resync launcher focus restored',
     );
     assert(
@@ -812,7 +812,7 @@ async function appCases() {
     button('Close', dialog()!).click();
     await until(() => !dialog() && !menu!.busy);
     assert(
-      document.activeElement === button('Find / Replace…'),
+      document.activeElement === button('Commands'),
       'Resync launcher focus restored',
     );
     passed(

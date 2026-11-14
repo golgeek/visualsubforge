@@ -3,7 +3,7 @@ import type { MediaSession } from './media-session.svelte';
 /** One native-layout request at a time; disposal removes every observer/listener/timer. */
 export class NativeVideoLayout {
   private alive = true;
-  private pending = false;
+  private pending: Promise<void> | null = null;
   private last = '';
   private observer: ResizeObserver | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -14,7 +14,8 @@ export class NativeVideoLayout {
   ) {}
   mount(video: HTMLDivElement) {
     this.update = async () => {
-      if (!this.alive || this.pending || !this.media.status.available) return;
+      if (!this.alive || !this.media.status.available) return;
+      if (this.pending) return this.pending;
       const rect = video.getBoundingClientRect();
       const bounds = {
         kind: 'layout' as const,
@@ -36,28 +37,42 @@ export class NativeVideoLayout {
         devicePixelRatio,
       ]);
       if (key === this.last) return;
-      this.pending = true;
+      const pending = this.media
+        .layout(bounds)
+        .then(() => {
+          if (this.alive) this.last = key;
+        })
+        .catch((error: unknown) => {
+          if (this.alive) this.workspace.error = String(error);
+          throw error;
+        });
+      this.pending = pending;
       try {
-        await this.media.layout(bounds);
-        if (this.alive) this.last = key;
-      } catch (e) {
-        if (this.alive) this.workspace.error = String(e);
+        await pending;
       } finally {
-        this.pending = false;
+        if (this.pending === pending) this.pending = null;
       }
     };
-    this.observer = new ResizeObserver(() => void this.update());
+    this.observer = new ResizeObserver(this.request);
     this.observer.observe(video);
 
-    window.addEventListener('resize', this.update);
-    window.addEventListener('scroll', this.update, true);
-    this.timer = setInterval(() => void this.update(), 100);
+    window.addEventListener('resize', this.request);
+    window.addEventListener('scroll', this.request, true);
+    this.timer = setInterval(this.request, 100);
+  }
+  private request = () => {
+    void this.update().catch(() => {});
+  };
+  /** Drain an old position, then acknowledge the currently rendered placeholder. */
+  async flush() {
+    await this.pending;
+    if (this.alive) await this.update();
   }
   dispose() {
     this.alive = false;
     this.observer?.disconnect();
     if (this.timer !== null) clearInterval(this.timer);
-    window.removeEventListener('resize', this.update);
-    window.removeEventListener('scroll', this.update, true);
+    window.removeEventListener('resize', this.request);
+    window.removeEventListener('scroll', this.request, true);
   }
 }

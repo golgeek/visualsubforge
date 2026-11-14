@@ -1,3 +1,4 @@
+import { chooseCommand } from '../command-discovery';
 import type { updateMenu } from '../../../src/lib/client';
 import { defaultPreferences } from '../../../src/lib/client';
 import type {
@@ -481,7 +482,7 @@ async function run() {
       ...host.querySelectorAll<HTMLButtonElement>(
         'button:not(dialog:not([open]) button)',
       ),
-    ].find((b) => b.textContent?.trim() === 'Subtitle plugins…')!;
+    ].find((b) => b.textContent?.trim() === 'Commands')!;
     const authoringDraft = host.querySelector<HTMLTextAreaElement>(
       '[aria-label="Subtitle text"]',
     )!;
@@ -494,7 +495,7 @@ async function run() {
       hideReply = new Promise<void>((resolve) => {
         release = resolve;
       });
-      if (route === 'toolbar') launcher.click();
+      if (route === 'toolbar') void chooseCommand(host, 'plugins');
       else menuAction('plugins');
       await until(() => !!menuState?.busy);
       assert(
