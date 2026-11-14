@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tooltip from '../ui/Tooltip.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
   import type { CueEditing } from './cue-editing.svelte';
   import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
@@ -17,13 +18,12 @@
   use:measurePaneControl={(height) => (layout.cueOperationsHeight = height)}
 >
   {#each cueEditing.operations as op (op.operation)}
-    <button
-      disabled={!op.plan || workspace.busy || workspace.confirming}
-      title={op.reason ||
-        (op.operation === 'splitCue'
-          ? 'Split timing and duplicate the accepted text in both halves.'
-          : op.label)}
-      onclick={() => void workspace.run(op.operation)}>{op.label}</button
+    <Tooltip action={op.operation}
+      ><button
+        aria-describedby="workspace-tooltip"
+        disabled={!op.plan || workspace.busy || workspace.confirming}
+        onclick={() => void workspace.run(op.operation)}>{op.label}</button
+      ></Tooltip
     >
   {/each}
 </div>

@@ -12,6 +12,8 @@
     diagnostics,
     showScenes = $bindable(),
     sceneState,
+    oncommands,
+    onshortcuts,
   }: {
     workspace: Workspace;
     media: MediaSession;
@@ -20,6 +22,8 @@
     nativeMenus: boolean;
     diagnostics: boolean;
     showScenes: boolean;
+    oncommands: () => void;
+    onshortcuts: () => void;
     sceneState: { pending: boolean; running: boolean };
   } = $props();
   const doc = $derived(subtitles.snapshot);
@@ -29,6 +33,12 @@
 
 <header class="toolbar">
   <strong>VisualSubForge</strong>
+  <button disabled={!workspace.canAct} onclick={oncommands}>Commands</button>
+  <button
+    disabled={!workspace.canAct}
+    onclick={onshortcuts}
+    aria-label="Keyboard shortcuts">?</button
+  >
   {#if !nativeMenus}
     <button
       disabled={workspace.busy || !workspace.ready}

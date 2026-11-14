@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tooltip from '../ui/Tooltip.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
@@ -113,14 +114,20 @@
       oncuts={(cuts) => (sceneCuts = cuts)}
       onseek={(seconds) => void actions.seek(seconds)}
     />
-    <button
-      disabled={!status.loaded || busy}
-      onclick={() => zoom(0.5)}
-      aria-label="Zoom in waveform">+</button
-    ><button
-      disabled={!status.loaded || busy}
-      onclick={() => zoom(2)}
-      aria-label="Zoom out waveform">−</button
+    <Tooltip action="zoomIn"
+      ><button
+        aria-describedby="workspace-tooltip"
+        disabled={!status.loaded || busy}
+        onclick={() => zoom(0.5)}
+        aria-label="Zoom in waveform">+</button
+      ></Tooltip
+    ><Tooltip action="zoomOut"
+      ><button
+        aria-describedby="workspace-tooltip"
+        disabled={!status.loaded || busy}
+        onclick={() => zoom(2)}
+        aria-label="Zoom out waveform">−</button
+      ></Tooltip
     ><button
       disabled={!status.loaded || busy}
       onclick={() => {

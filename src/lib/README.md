@@ -125,7 +125,7 @@ Its disposal disconnects the observer, removes window listeners and clears the
 The shell components own toolbar, recovery-banner, footer, diagnostics and font
 notice markup and styles. TransportBar, CueOperationsBar and SubtitleToolbar own
 the subtitle controls; five review buttons share one list and disabled condition.
-VideoPreview and ShortcutHelp own their markup and styles. WorkspaceDecisions
+VideoPreview and ActionBrowser own their markup and styles. WorkspaceDecisions
 and WorkspaceLegacyImport render decisions, retaining their DOM order around
 WorkspaceDialogs and the native dialog binding used by UnsavedChanges. WorkspaceDialogs renders feature dialogs from the
 modal identity; WorkspaceDialogsState owns their eligibility and post-close
@@ -465,3 +465,32 @@ options, complete-text access and validation boundaries.
 
 Validation commands and their scope are in the [test guide](../../tests/desktop/README.md).
 Record exact run results and evidence in the PR description, not this ownership guide.
+
+## Action discovery and tooltips
+
+`workspace/action-descriptions.json` is the shared source of labels, legacy
+aliases and shortcuts. Rust embeds it for native menu labels/accelerators;
+`action-registry.ts` supplies typed discovery and availability reasons.
+`workspace-keys.ts` and `timing/shortcuts.ts` retain pure routing and existing
+focus/AltGr/composition rules while reading registry bindings. Native menus keep
+their platform placement and existing `WorkspaceMenus` eligibility projection.
+
+`WorkspaceCommands` coordinates existing owners after closing discovery, checks
+current eligibility again and rejects cue jumps if the document changed during
+close. It owns no draft, transaction, timer or subscription. `ActionBrowser`
+keeps only query/focus/pending interaction state; palette, Commands menu and
+shortcut sheet use the existing `WorkspaceModal` lifetime. Escape restores focus
+and remaining native-video occlusion before another command can start.
+
+`Tooltips` owns a cancellable delay and one presentation through `HideVideo`.
+Modal/menu admission retires hover presentation; other active operations and
+overlays block new tooltips. Its serialized close prevents a newer hover from racing a pending restore;
+disposal retires both delay and presentation. `Tooltip` anchors and `TooltipLayer`
+render registry labels/shortcuts with tokens. Other overlays preserve tooltip
+occlusion, and tooltip close preserves modal/menu/diagnostic occlusion.
+
+Default bindings are unchanged. The existing macOS native Merge with Previous
+and webview Replace both use Command+Shift+H on different routing surfaces;
+this cross-surface collision remains explicit in registry tests until a shortcut
+preset decision resolves it. The shortcut sheet describes native/text behavior;
+it does not claim all chords are globally conflict-free.

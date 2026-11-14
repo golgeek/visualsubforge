@@ -35,6 +35,7 @@ interface Owners {
   layout: { topPct: number; editorPct: number; wavePct: number };
   view: WorkspaceView;
   scenes: WorkspaceScenes;
+  remainingOcclusion: () => boolean;
 }
 
 export async function runViewAction(action: ViewAction, owners: Owners) {
@@ -96,7 +97,7 @@ export async function runViewAction(action: ViewAction, owners: Owners) {
         } else {
           view.diagnostics = false;
           await tick();
-          await media.occlude(false);
+          await media.occlude(owners.remainingOcclusion());
         }
         break;
     }

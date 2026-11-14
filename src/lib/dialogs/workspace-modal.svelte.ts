@@ -8,6 +8,9 @@ export type WorkspaceModalIdentity =
   | 'settings'
   | 'resync'
   | 'statistics'
+  | 'commands'
+  | 'shortcuts'
+  | 'actionMenu'
   | 'text'
   | { kind: 'timing'; variant: TimingKind };
 

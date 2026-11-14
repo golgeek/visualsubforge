@@ -1,3 +1,7 @@
+import {
+  actionDescription,
+  matchesShortcut,
+} from '../workspace/action-registry.ts';
 import type { WorkspaceAction } from '../client';
 
 type Key = Pick<
@@ -26,31 +30,28 @@ export function windowsShortcut(
     e.metaKey
   )
     return null;
-  if (e.key === 'Enter' && !e.shiftKey) return e.altKey ? 'play' : 'apply';
-  // Ctrl+Alt can represent AltGr; never reinterpret it as a file/edit command.
-  if (e.altKey) return null;
-  switch (e.key.toLowerCase()) {
-    case ',':
-      return e.shiftKey ? null : 'settings';
-    case 'n':
-      return e.shiftKey ? 'createCue' : null;
-    case 'd':
-      return e.shiftKey ? 'deleteCue' : null;
-    case 'k':
-      return e.shiftKey ? 'splitCue' : null;
-    case 'h':
-      return e.shiftKey ? 'mergePrevious' : null;
-    case 'j':
-      return e.shiftKey ? 'mergeNext' : null;
-    case 'o':
-      return e.shiftKey ? 'openSubtitles' : 'openMedia';
-    case 's':
-      return e.shiftKey ? 'saveAs' : 'save';
-    case 'z':
-      return editingText ? null : e.shiftKey ? 'redo' : 'undo';
-    default:
-      return null;
+  // Preserve the existing WebView2 fallback set and text-history boundary.
+  const fallback: WorkspaceAction[] = [
+    'settings',
+    'createCue',
+    'deleteCue',
+    'splitCue',
+    'mergePrevious',
+    'mergeNext',
+    'openMedia',
+    'openSubtitles',
+    'save',
+    'saveAs',
+    'undo',
+    'redo',
+    'apply',
+    'play',
+  ];
+  for (const action of fallback) {
+    if (editingText && (action === 'undo' || action === 'redo')) continue;
+    if (matchesShortcut(actionDescription(action).shortcut, e)) return action;
   }
+  return null;
 }
 
 export type EditingShortcut =
@@ -72,22 +73,21 @@ export function editingShortcut(
 ): EditingShortcut | null {
   if (e.defaultPrevented || e.isComposing || e.repeat || e.ctrlKey || e.metaKey)
     return null;
-  if (e.key === 'Escape' && !e.altKey && !e.shiftKey) return 'focusWaveform';
-  if (!editingText && e.key === 'Enter' && !e.altKey && !e.shiftKey)
-    return 'focusText';
-  if (!e.altKey) return null;
-  switch (e.key) {
-    case ' ':
-      return e.shiftKey ? null : 'play';
-    case 'ArrowLeft':
-      return e.shiftKey ? 'seekBackFar' : 'seekBack';
-    case 'ArrowRight':
-      return e.shiftKey ? 'seekForwardFar' : 'seekForward';
-    case 'ArrowUp':
-      return e.shiftKey ? null : 'previousCue';
-    case 'ArrowDown':
-      return e.shiftKey ? null : 'nextCue';
-    default:
-      return null;
+  const candidates: EditingShortcut[] = [
+    'focusWaveform',
+    'focusText',
+    'seekBack',
+    'seekForward',
+    'seekBackFar',
+    'seekForwardFar',
+    'previousCue',
+    'nextCue',
+  ];
+  for (const action of candidates) {
+    if (action === 'focusText' && editingText) continue;
+    if (matchesShortcut(actionDescription(action).shortcut, e)) return action;
   }
+  return matchesShortcut(actionDescription('play').alternateShortcuts[0]!, e)
+    ? 'play'
+    : null;
 }

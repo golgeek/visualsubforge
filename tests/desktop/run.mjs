@@ -20,6 +20,7 @@ import { remote } from 'webdriverio';
 import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
 import { gapReview } from './gaps.mjs';
+import { actionDiscovery } from './discovery.mjs';
 import { textEditing } from './text.mjs';
 import { textPerformance } from './text-performance.mjs';
 import { qualityPerformance } from './performance.mjs';
@@ -384,6 +385,7 @@ try {
     source,
     cli,
   });
+  await actionDiscovery({ browser, until, evidence, record });
   opened = await gapReview({ browser, status, until, evidence, record });
   opened = await textEditing({
     browser,
