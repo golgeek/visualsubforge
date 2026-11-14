@@ -96,6 +96,12 @@ pub(crate) struct CueIssues {
     pub offset: u32,
     pub issues: Vec<CueIssue>,
 }
+#[derive(Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RuleCues {
+    pub rule: Rule,
+    pub cues: u32,
+}
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct View {
@@ -108,6 +114,8 @@ pub(crate) struct View {
     pub language_coverage: Option<vsf_application::language::Coverage>,
     pub error: Option<String>,
     pub findings_count: u32,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rule_cues: Vec<RuleCues>,
     pub affected_cues: u32,
     pub filtered_count: u32,
     pub filtered_cues: u32,

@@ -10,6 +10,8 @@ import {
   emptyDocument,
   emptyStatus,
   type MediaAction,
+  type DocumentAction,
+  type Preferences,
 } from '../../../src/lib/client';
 
 // Production workspace, modeled IPC. Visibility follows accepted media status;
@@ -30,6 +32,9 @@ const snapshot = {
 const callbacks = new Map<number, (value: unknown) => void>();
 let listener = 0;
 let occluded = false;
+let preferences = structuredClone(defaultPreferences);
+let settingsEpoch = 1;
+let creations = 0;
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }
@@ -67,7 +72,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     unregisterCallback() {},
     async invoke(
       command: string,
-      args: { action?: MediaAction; handler?: number },
+      args: {
+        action?: MediaAction | DocumentAction;
+        handler?: number;
+        preferences?: Preferences;
+      },
     ) {
       switch (command) {
         case 'quality_read':
@@ -81,8 +90,21 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'update_menu':
           return;
         case 'preferences_get':
-          return structuredClone(defaultPreferences);
+          return structuredClone(preferences);
+        case 'preferences_save':
+          preferences = structuredClone(args.preferences!);
+          return ++settingsEpoch;
         case 'document_action':
+          if (args.action?.kind === 'create') {
+            creations++;
+            snapshot.cues.push({
+              id: 2 + creations,
+              startMs: args.action.startMs,
+              endMs: args.action.endMs,
+              text: args.action.text,
+            });
+            snapshot.revision++;
+          }
           return structuredClone(snapshot);
         case 'media_action':
           if (args.action?.kind === 'occlude') occluded = args.action.occluded;
@@ -92,15 +114,15 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_settings':
           return {
             current: {
-              epoch: 1,
-              profile: defaultPreferences.quality,
-              timing: defaultPreferences.timing,
+              epoch: settingsEpoch,
+              profile: preferences.quality,
+              timing: preferences.timing,
             },
             builtins: [defaultPreferences.quality],
           };
         case 'language_words':
           return {
-            epoch: 1,
+            epoch: settingsEpoch,
             personal: { englishUs: [], french: [] },
             ignored: { englishUs: [], french: [] },
           };
@@ -165,7 +187,7 @@ async function run() {
     )!;
     assert(
       play.disabled && play.textContent!.includes('Open media first'),
-      'Unavailable command explains why',
+      `Unavailable command explains why: disabled=${play.disabled}, text=${play.textContent}`,
     );
     await search('Enforce minimum gaps');
     assert(
@@ -249,6 +271,40 @@ async function run() {
     await until(() => !host.querySelector('[role="tooltip"]') && !occluded);
     passed(
       'Searchable shortcut sheet, command menu and delayed tooltip share metadata and safe video restoration',
+    );
+    callbacks.get(listener)!({ payload: 'settings' });
+    await until(() => !!host.querySelector('[aria-label="Shortcut preset"]'));
+    button('Shortcuts')!.click();
+    const preset = host.querySelector<HTMLSelectElement>(
+      '[aria-label="Shortcut preset"]',
+    )!;
+    await until(() => !preset.disabled);
+    preset.value = 'vsfDefault';
+    preset.dispatchEvent(new Event('change', { bubbles: true }));
+    await until(() => preferences.shortcuts.preset === 'vsfDefault');
+    button('Close')!.click();
+    await until(() => !host.querySelector('dialog[open]') && !occluded);
+    editor.focus();
+    key(editor, 'n');
+    await tick();
+    assert(creations === 0, 'Single-letter command stays ordinary cue text');
+    const row = host.querySelector<HTMLButtonElement>('.cue-row')!;
+    row.focus();
+    key(row, 'n', { isComposing: true });
+    await tick();
+    assert(creations === 0, 'Composition cannot dispatch a list command');
+    key(row, 'n');
+    await until(() => creations === 1);
+    await until(() => document.activeElement === editor);
+    commands.focus();
+    key(commands, 'n');
+    await tick();
+    assert(
+      Number(creations) === 1,
+      'Other buttons retain ordinary control focus',
+    );
+    passed(
+      'Confirmed trial preset routes cue-row keys through Rust while protecting text, composition and other controls',
     );
     heading.textContent = `PASS: all ${output.childElementCount} action discovery checks`;
   } catch (error) {

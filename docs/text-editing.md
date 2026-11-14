@@ -5,7 +5,7 @@ lines or Reflow lines. Resolve an unapplied cue draft with Apply, Discard or
 Cancel before creating a preview. Searching and reviewing never change accepted
 subtitles. **Go to match** closes the dialog, selects its cue and highlights the
 original source range, including correct UTF-16 offsets for Unicode text.
-Ctrl/Cmd+F opens Find; Ctrl+H or Cmd+Shift+H opens replacement review. Cmd+H keeps
+Ctrl/Cmd+F opens Find; Ctrl/Cmd+Shift+F opens replacement review. Cmd+H keeps
 its ordinary Mac behavior.
 
 Find is literal, across individual cues in document order, with optional case

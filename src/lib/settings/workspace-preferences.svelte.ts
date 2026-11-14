@@ -27,7 +27,7 @@ export class WorkspacePreferences {
     this.saved = { ...this.saved, layout };
   }
   accept(value: Preferences) {
-    this.initialize(value);
+    this.initialize({ ...value, layout: this.saved.layout });
     this.invalidateQuality();
   }
   restoreTiming(value?: TimingSettings | null) {

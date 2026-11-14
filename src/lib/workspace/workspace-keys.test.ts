@@ -38,17 +38,20 @@ function route(
   );
 }
 
-test('find and replace precede Windows merge shortcuts, including inside text', () => {
+test('Find and Replace stay distinct from Merge on both platforms', () => {
   for (const modifier of ['ctrlKey', 'metaKey'])
     assert.deepEqual(
       route('f', { [modifier]: true }, { editing: true, windows: true }),
       { kind: 'text', mode: 'find' },
     );
-  assert.deepEqual(route('h', { ctrlKey: true }, { windows: true }), {
-    kind: 'text',
-    mode: 'replace',
-  });
-  assert.deepEqual(route('h', { metaKey: true, shiftKey: true }), {
+  assert.deepEqual(
+    route('f', { ctrlKey: true, shiftKey: true }, { windows: true }),
+    {
+      kind: 'text',
+      mode: 'replace',
+    },
+  );
+  assert.deepEqual(route('f', { metaKey: true, shiftKey: true }), {
     kind: 'text',
     mode: 'replace',
   });
@@ -191,4 +194,93 @@ test('palette works while typing; question-mark help stays outside text input', 
   });
   assert.equal(route('?', { shiftKey: true }, { editing: true }), null);
   assert.equal(route('k', { ctrlKey: true }, { confirming: true }), null);
+});
+
+test('edge shortcuts commit pending text, round once and reject a changed selection', async () => {
+  const { editingKey } = await import('./workspace-keys.ts');
+  type Owners = Parameters<typeof editingKey>[1];
+  const calls: unknown[] = [];
+  let switchSelection = false;
+  const subtitles = {
+    selected: 1,
+    snapshot: { generation: 3, format: { timeStepMs: 10 } },
+    cue: { startMs: 1000, endMs: 3000 },
+    start: '',
+    end: '',
+    async apply(session?: null) {
+      calls.push(session === null ? ['edge', this.start, this.end] : 'draft');
+      if (switchSelection) this.selected = 2;
+      return true;
+    },
+  };
+  const owners = {
+    workspace: {
+      canAct: true,
+      disposed: false,
+      task: async (operation: () => Promise<void>) => operation(),
+    },
+    gestures: { cancelHeld() {} },
+    media: {
+      status: {
+        loaded: true,
+        seeking: false,
+        positionSeconds: 2.345,
+        session: 4,
+      },
+    },
+    subtitles,
+    menu: false,
+    waveformGesture: false,
+  } as unknown as Owners;
+  await editingKey('setStart', owners);
+  assert.deepEqual(calls, ['draft', ['edge', '00:00:02,350', '']]);
+  calls.length = 0;
+  switchSelection = true;
+  await editingKey('setEnd', owners);
+  assert.deepEqual(calls, ['draft']);
+  switchSelection = false;
+  owners.media.status.positionSeconds = 0.5;
+  await assert.rejects(
+    editingKey('setEnd', owners),
+    /start must be before the end/,
+  );
+  assert.equal(calls.filter((call) => Array.isArray(call)).length, 0);
+});
+
+test('replay seeks before playing and never resumes after a rejected or stale seek', async () => {
+  const { editingKey } = await import('./workspace-keys.ts');
+  type Owners = Parameters<typeof editingKey>[1];
+  for (const outcome of ['accepted', 'rejected', 'replaced'] as const) {
+    const calls: unknown[] = [];
+    const media = {
+      pending: false,
+      status: { loaded: true, positionSeconds: 1.5, session: 7, paused: true },
+      async command(action: unknown) {
+        calls.push(action);
+        if (outcome === 'replaced')
+          this.status = { ...this.status, session: 8 };
+        return outcome !== 'rejected';
+      },
+    };
+    await editingKey('replay', {
+      workspace: {
+        canAct: true,
+        disposed: false,
+        task: async (operation: () => Promise<void>) => operation(),
+      },
+      gestures: { cancelHeld() {} },
+      media,
+      menu: false,
+      waveformGesture: false,
+    } as unknown as Owners);
+    assert.deepEqual(
+      calls,
+      outcome === 'accepted'
+        ? [
+            { kind: 'seek', seconds: 0 },
+            { kind: 'pause', paused: false },
+          ]
+        : [{ kind: 'seek', seconds: 0 }],
+    );
+  }
 });

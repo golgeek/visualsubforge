@@ -13,20 +13,33 @@
     onimport: () => void;
     onexport: () => void;
   } = $props();
+  let error = $state('');
+  $effect(() => {
+    if (value) error = '';
+  });
   function number(
     key: 'cueGapMs' | 'sceneBeforeMs' | 'sceneAfterMs' | 'snapDistancePx',
     event: Event,
   ) {
     const input = event.currentTarget as HTMLInputElement;
+    error = '';
     if (input.validity.valid && Number.isInteger(input.valueAsNumber))
       onchange({ ...value, [key]: input.valueAsNumber });
-    else input.value = String(value[key]);
+    else {
+      error =
+        'Enter a whole number within the displayed limits. This value has not been saved.';
+    }
   }
 </script>
 
 <section class="settings" aria-label="Magnetic timing">
   <h3>Magnetic timing</h3>
-  <fieldset {disabled}>
+  <fieldset
+    {disabled}
+    oninput={() => {
+      error = '';
+    }}
+  >
     <label
       ><input
         type="checkbox"
@@ -94,6 +107,7 @@
     <button type="button" onclick={onimport}>Import timing preset</button>
     <button type="button" onclick={onexport}>Export timing preset</button>
   </fieldset>
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
   <p>
     Drag a cue edge or a new range near a guide to snap. Hold Alt/Option to
     bypass; arrow-key nudges stay exact. Scene buffers use the displayed
@@ -102,6 +116,9 @@
 </section>
 
 <style>
+  .error {
+    color: var(--err);
+  }
   .settings {
     font-size: 12px;
     padding: 16px;

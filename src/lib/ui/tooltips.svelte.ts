@@ -1,3 +1,4 @@
+import type { ShortcutPreferences } from '../client';
 import { HideVideo, type HideVideoEffects } from '../dialogs/hide-video.svelte';
 import { actionDescription, type ActionId } from '../workspace/action-registry';
 
@@ -14,6 +15,7 @@ export class Tooltips {
     effects: HideVideoEffects,
     private failure: (error: unknown) => void,
     private available: () => boolean = () => true,
+    private shortcuts?: () => ShortcutPreferences,
   ) {
     this.video = new HideVideo(effects);
   }
@@ -82,6 +84,6 @@ export class Tooltips {
     this.content = null;
   }
   description(id: ActionId) {
-    return actionDescription(id);
+    return actionDescription(id, this.shortcuts?.());
   }
 }

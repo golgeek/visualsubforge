@@ -1,3 +1,4 @@
+import { shortcutPreset } from './workspace/shortcut-settings';
 import { defaultLayout } from './layout/layout-presets';
 import { commands, events } from './generated/ipc';
 import type * as IPC from './generated/ipc';
@@ -224,6 +225,10 @@ export type ProjectAttachment =
   IPC.visualsubforge_project_store_Attachment_Serialize;
 export type SaveProjectRequest =
   IPC.visualsubforge_project_SaveRequest_Deserialize;
+export type ShortcutPreferences =
+  IPC.visualsubforge_preferences_shortcuts_Shortcuts;
+export type ShortcutBinding = IPC.visualsubforge_preferences_shortcuts_Binding;
+export type ShortcutMode = IPC.visualsubforge_preferences_shortcuts_Mode;
 export type Preferences = IPC.visualsubforge_preferences_Preferences_Serialize;
 export type QualityProfile =
   IPC.vsf_application_quality_profile_Profile_Serialize;
@@ -600,7 +605,8 @@ export async function exportTimingPreset(
 }
 
 export const defaultPreferences: Preferences = {
-  version: 3,
+  version: 4,
+  shortcuts: shortcutPreset('current'),
   layout: defaultLayout(),
   autoScanScenes: true,
   sceneDetail: 'standard',
@@ -618,8 +624,8 @@ export function getPreferences(): Promise<Preferences> {
 export async function savePreferences(
   preferences: Preferences,
   epoch: number,
-): Promise<void> {
-  await commands.preferencesSave(preferences, epoch);
+): Promise<number> {
+  return commands.preferencesSave(preferences, epoch);
 }
 export function getQualitySettings(): Promise<QualitySettingsData> {
   return commands.qualitySettings();

@@ -5,7 +5,7 @@
 use super::*;
 use crate::quality_check::{Draft, DraftChange, Key, Metric, Phase, Request, View};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle,
     time::{Duration, Instant},
@@ -21,6 +21,7 @@ pub(super) struct Checks {
     id_scenes: Option<crate::scenes::SceneKey>,
     worker: Option<Worker>,
     report: Option<Report>,
+    rule_cues: Vec<crate::quality_check::RuleCues>,
     error: Option<String>,
     draft: Option<Draft>,
     draft_metric: Option<Metric>,
@@ -35,7 +36,7 @@ struct Worker {
     handle: Option<JoinHandle<Result<Output>>>,
 }
 enum Output {
-    Accepted(Report),
+    Accepted(Report, Vec<crate::quality_check::RuleCues>),
     Draft(Metric),
 }
 impl Drop for Worker {
@@ -83,7 +84,10 @@ impl Checks {
             return;
         }
         match result {
-            Ok(Output::Accepted(report)) => self.report = Some(report),
+            Ok(Output::Accepted(report, counts)) => {
+                self.report = Some(report);
+                self.rule_cues = counts;
+            }
             Ok(Output::Draft(metric)) if worker.draft == self.draft => {
                 self.draft_metric = Some(metric)
             }
@@ -134,7 +138,18 @@ impl Checks {
                     .find(|m| m.cue_id == draft.cue_id.get().to_string())
                     .map(|m| Output::Draft(m.into()))
                     .ok_or_else(|| "Draft cue no longer exists".into()),
-                None => Ok(Output::Accepted(report)),
+                None => {
+                    let counts = rule_cues(&report.findings, || {
+                        if cancel.load(Ordering::Relaxed) {
+                            return Err("Quality check cancelled".into());
+                        }
+                        if began.elapsed() > Duration::from_secs(10) {
+                            return Err("Quality check exceeded its 10 second deadline".into());
+                        }
+                        Ok(())
+                    })?;
+                    Ok(Output::Accepted(report, counts))
+                }
             }
         })
     }
@@ -332,6 +347,32 @@ impl Documents {
         self.shutdown_plugins()
     }
 }
+/// Distinct affected cue IDs per rule, including related cues. Computed once on
+/// the existing worker; the UI receives at most one small count per rule.
+fn rule_cues(
+    findings: &[engine::Finding],
+    mut checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Vec<crate::quality_check::RuleCues>> {
+    let mut rules: HashMap<engine::Rule, HashSet<&str>> = HashMap::new();
+    for finding in findings {
+        checkpoint()?;
+        let cues = rules.entry(finding.rule).or_default();
+        cues.insert(&finding.cue_id);
+        if let Some(related) = &finding.related_cue_id {
+            cues.insert(related);
+        }
+    }
+    let mut counts: Vec<_> = rules
+        .into_iter()
+        .map(|(rule, cues)| crate::quality_check::RuleCues {
+            rule,
+            cues: cues.len() as u32,
+        })
+        .collect();
+    counts.sort_by_key(|count| count.rule as u8);
+    Ok(counts)
+}
+
 fn project_view(
     checks: &Checks,
     key: Key,
@@ -367,6 +408,7 @@ fn project_view(
         language_coverage: None,
         error: checks.error.clone(),
         findings_count: 0,
+        rule_cues: vec![],
         affected_cues: 0,
         filtered_count: 0,
         filtered_cues: 0,
@@ -387,6 +429,7 @@ fn project_view(
     let Some(report) = &checks.report else {
         return Ok(view);
     };
+    view.rule_cues = checks.rule_cues.clone();
     view.profile_hash = Some(report.profile_hash.clone());
     view.scene_coverage = Some(report.scene_coverage);
     view.language_coverage = Some(report.language_coverage.clone());

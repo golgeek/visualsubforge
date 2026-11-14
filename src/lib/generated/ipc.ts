@@ -44,7 +44,7 @@ export const commands = {
   preferencesSave: (
     preferences: visualsubforge_preferences_Preferences_Deserialize,
     epoch: number,
-  ) => __TAURI_INVOKE<null>('preferences_save', { preferences, epoch }),
+  ) => __TAURI_INVOKE<number>('preferences_save', { preferences, epoch }),
   layoutSave: (
     layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize,
   ) => __TAURI_INVOKE<null>('layout_save', { layout }),
@@ -1049,6 +1049,12 @@ export type visualsubforge_batch_timing_BatchView = {
   rows: visualsubforge_batch_timing_BatchRow[];
 };
 
+export type visualsubforge_preferences_shortcuts_Binding = {
+  action: string;
+  mode: visualsubforge_preferences_shortcuts_Mode;
+  key: string;
+};
+
 export type visualsubforge_batch_timing_Change =
   | { kind: 'shift'; earlier: boolean; amountMs: number }
   | { kind: 'align'; playheadMs: number };
@@ -1725,6 +1731,9 @@ export type visualsubforge_quality_check_Metric = {
 
 export type visualsubforge_plugin_review_Mode = 'check' | 'fix';
 
+export type visualsubforge_preferences_shortcuts_Mode =
+  'global' | 'alternate' | 'workspace' | 'text';
+
 export type visualsubforge_scenes_Mode = 'keyframes' | 'visual';
 
 export type visualsubforge_language_tools_Notices = {
@@ -1924,6 +1933,7 @@ export type visualsubforge_preferences_Preferences =
 export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
+  shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -1935,6 +1945,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
 export type visualsubforge_preferences_Preferences_Serialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Serialize;
+  shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -1945,6 +1956,9 @@ export type visualsubforge_preferences_Preferences_Serialize = {
 
 export type visualsubforge_preferences_layout_Preset =
   'timing' | 'editorAbove' | 'review' | 'translation' | 'bigPicture';
+
+export type visualsubforge_preferences_shortcuts_Preset =
+  'current' | 'vsfDefault' | 'visualSubSyncClassic' | 'custom';
 
 export type visualsubforge_timing_preset_Preset = {
   version: number;
@@ -2232,6 +2246,11 @@ export type vsf_application_quality_statistics_RuleCount = {
   count: number;
 };
 
+export type visualsubforge_quality_check_RuleCues = {
+  rule: vsf_application_quality_check_Rule;
+  cues: number;
+};
+
 export type vsf_application_quality_profile_Rules = {
   duration: vsf_application_quality_profile_DurationRule;
   speed: vsf_application_quality_profile_SpeedRule;
@@ -2426,6 +2445,11 @@ export type visualsubforge_quality_profile_SettingsData_Serialize = {
 };
 
 export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
+
+export type visualsubforge_preferences_shortcuts_Shortcuts = {
+  preset: visualsubforge_preferences_shortcuts_Preset;
+  bindings: visualsubforge_preferences_shortcuts_Binding[];
+};
 
 export type vsf_application_quality_duration_Skip =
   | 'sceneDataUnavailable'
@@ -2853,6 +2877,7 @@ export type visualsubforge_quality_check_View_Deserialize = {
   languageCoverage: vsf_application_language_analysis_Coverage | null;
   error: string | null;
   findingsCount: number;
+  ruleCues: visualsubforge_quality_check_RuleCues[];
   affectedCues: number;
   filteredCount: number;
   filteredCues: number;
@@ -2878,6 +2903,7 @@ export type visualsubforge_quality_check_View_Serialize = {
   languageCoverage: vsf_application_language_analysis_Coverage | null;
   error: string | null;
   findingsCount: number;
+  ruleCues?: visualsubforge_quality_check_RuleCues[];
   affectedCues: number;
   filteredCount: number;
   filteredCues: number;

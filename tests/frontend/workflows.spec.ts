@@ -48,6 +48,7 @@ for (const name of [
   'cue-editor',
   'resync',
   'quality-settings',
+  'settings-live',
   'quality-checking',
   'gap-review',
   'live-review',

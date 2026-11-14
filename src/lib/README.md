@@ -241,10 +241,13 @@ do not establish native GPU/audio behavior.
 
 ## Quality profile Settings
 
-Settings holds a deep, dialog-local draft of the accepted quality profile and
-timing settings fetched from Rust. Its captured policy epoch guards Apply;
-failed persistence and stale drafts cannot change accepted rules. Import changes
-only this draft, export writes it explicitly, and Cancel discards it. The pure
+`SettingsSession` keeps a deep dialog draft, confirmed snapshot and one settings
+Undo checkpoint. Valid edits debounce for 250ms and serialize through Rust's
+policy epoch; replies supply the next epoch. Invalid controls stay mounted across
+sidebar changes. Failed or missing replies stop automatic writes and offer
+read-only reconciliation followed by explicit Retry. Closing flushes valid edits;
+disposal retires timers and late publication. Import prepares a draft for the same
+validation/save path; export writes the current draft explicitly. The pure
 `quality-profile.ts` helpers prepare custom drafts; they do not evaluate quality
 or own accepted state. Built-in values come from Rust-generated
 `generated/quality-defaults.ts`, avoiding a second handwritten rule definition.
@@ -481,8 +484,8 @@ Record exact run results and evidence in the PR description, not this ownership 
 `workspace/action-descriptions.json` is the shared source of labels, legacy
 aliases and shortcuts. Rust embeds it for native menu labels/accelerators;
 `action-registry.ts` supplies typed discovery and availability reasons.
-`workspace-keys.ts` and `timing/shortcuts.ts` retain pure routing and existing
-focus/AltGr/composition rules while reading registry bindings. Native menus keep
+`workspace-keys.ts` retains pure routing and existing
+focus/AltGr/composition rules while reading confirmed preference bindings. Native menus keep
 their platform placement and existing `WorkspaceMenus` eligibility projection.
 
 `WorkspaceCommands` coordinates existing owners after closing discovery, checks
@@ -499,11 +502,10 @@ disposal retires both delay and presentation. `Tooltip` anchors and `TooltipLaye
 render registry labels/shortcuts with tokens. Other overlays preserve tooltip
 occlusion, and tooltip close preserves modal/menu/diagnostic occlusion.
 
-Default bindings are unchanged. The existing macOS native Merge with Previous
-and webview Replace both use Command+Shift+H on different routing surfaces;
-this cross-surface collision remains explicit in registry tests until a shortcut
-preset decision resolves it. The shortcut sheet describes native/text behavior;
-it does not claim all chords are globally conflict-free.
+Current bindings migrate with Replace moved to Cmd/Ctrl+Shift+F, resolving the
+macOS Merge Previous collision. The trial mode-aware and supported Classic presets
+remain explicit choices; the shortcut sheet labels focus modes. Rust validates
+conflicts across overlapping modes before publishing native accelerators.
 
 ## Layout slots and presets
 
@@ -570,3 +572,16 @@ unknown acceptance without replay. The application validates combined reflow,
 unambiguous language and timing changes against the whole document; only the
 selected cue changes, without splitting. See [cue editing](../../docs/cue-editor.md)
 for interaction semantics and conservative repair limits.
+
+## Settings pages and shortcut preferences
+
+The searchable Settings sidebar owns presentation only. ShortcutsSettings edits
+focus-scoped bindings; `shortcut-settings.ts` validates draft conflicts and
+`shortcut-presets.json` is shared with Rust's authoritative validator. App passes
+confirmed bindings explicitly to routing, CueEditor, ActionBrowser and Tooltips;
+there is no mutable global registry. Native publication and rollback live behind
+Rust's desktop boundary. Current bindings remain the migration default, with the
+Replace collision fixed; the VSF mode-aware scheme is an opt-in trial.
+`QualitySession.view.ruleCues` supplies distinct accepted cue counts per rule;
+checking/stale counts are labeled unavailable. See the
+[Settings guide](../../docs/settings-shortcuts.md) for focus and recovery behavior.

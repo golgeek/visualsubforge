@@ -30,7 +30,7 @@ libass without rounding cue times. See the [tag contract](subtitle-tags.md) for
 cue opt-in, literal/malformed handling and fixed SRT preview defaults. The VSS
 counting policy can exclude syntax which preview renders literally; it counts
 ASS text escapes and drawing instructions outside blocks as source characters,
-not rendered layout. Its name and details remain available in Settings → Subtitle quality → About this profile. SRT
+not rendered layout. Its name and details remain available in Settings → Quality profile → About this profile. SRT
 preserves original tags on save. [Full ASS/SSA documents](ass-ssa-documents.md)
 retain styles and metadata while sharing this same named counting policy.
 
@@ -71,20 +71,22 @@ immutable identities; customization produces a separate named profile.
 The new VSF scene endpoint policy does not establish complete equivalence to the
 archived scene/filter family; existing profile identities and limitations remain.
 
-Settings → Subtitle quality selects a built-in or imports a version-2 profile.
+Settings → Quality profile selects a built-in or imports a version-2 profile.
 Its unsupported rules and source/counting policy remain visible. **Customize a
 copy** assigns a new identity and enables rule editing. Export writes the complete
-draft, including provenance and limitations, without applying it. A blank speed
+draft, including provenance and limitations, independently of instant preference acceptance. A blank speed
 bound disables that bound; the rule switches are separate.
 
 Profile selection also changes the three shared cue/scene timing thresholds.
 Changing those thresholds or importing a version-1 timing preset makes a custom
 profile while preserving every quality rule and coverage limitation. Interaction
-options such as snapping stay in the timing settings. Apply validates this pair,
-atomically saves defaults, and then accepts the current workspace policy. Cancel,
-invalid imports and failed writes preserve accepted rules and subtitle history.
-A draft opened before the workspace policy changes cannot overwrite the newer
-policy; reopen Settings to edit it.
+options such as snapping stay in Timing and snapping. Valid edits apply after a
+short pause: Rust validates the pair, atomically saves defaults and accepts the
+current policy. Undo restores the previous confirmed settings. Invalid inputs and
+failed writes retain their drafts without changing subtitle history. Stale or
+uncertain saves require Check saved settings before an explicit Retry; no mutation
+is replayed automatically. Live per-rule counts describe distinct cues in the
+accepted report, including related cues, and are unavailable while checks are stale.
 
 Projects save Rust's accepted effective profile snapshot, including its source,
 revision and limitations. Restoring one applies that snapshot only after its media

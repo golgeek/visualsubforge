@@ -65,9 +65,10 @@ decision-owned payloads; ActionBrowser presents command discovery and searchable
 lays out regions.
 Action labels, aliases and shortcut descriptions live in
 `workspace/action-descriptions.json`, imported by the frontend and embedded by
-Rust's native menu builder. The existing pure keyboard routers read these
-bindings while retaining their focus, composition, repeat and Windows fallback
-rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
+Rust's native menu builder. Version-4 preferences hold validated bindings by
+focus mode; bundled presets share one JSON source across Rust and TypeScript.
+The pure workspace router resolves those bindings while retaining composition,
+repeat, text-history and Windows fallback rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
 to existing owners after modal close; it owns no accepted state or background
 work. Cue jumps recheck the captured document before entering ordinary protected
 selection. Native menus retain their platform layout and eligibility projection.
@@ -498,7 +499,7 @@ policy. All production settings-file writes serialize read/modify/write under on
 writer mutex, preserving unrelated layout, profile and personal-word fields.
 Document preference/word operations acquire the document lock before this writer;
 layout writes acquire only the writer. Atomic publication permits concurrent reads
-of either complete version. Versions 1 and 2 migrate in memory to version 3; the historical
+of either complete version. Versions 1–3 migrate in memory to version 4; the historical
 settings filename remains valid. Projects do not yet store pane placement.
 
 
@@ -524,3 +525,36 @@ remain independent. Report identity, revision/context changes, failures and disp
 prevent stale publication. Incomplete indexing is visible; no frontend quality rules
 are evaluated. The mandatory issue column enables accepted checking for loaded
 documents; explicit Pause checking remains available.
+
+## Instant Settings and shortcut publication
+
+`SettingsSession` owns the mounted dialog draft, last confirmed preference snapshot,
+one settings Undo checkpoint and a 250ms debounce. It serializes writes, retaining
+only the newest unsent draft. Rust validates and persists the complete policy and
+returns its next epoch; accepted policy/history remain Rust-owned. Invalid raw
+controls remain mounted across sidebar changes and prevent persistence. A failed
+or missing save reply blocks automatic writes; read-only reconciliation checks the
+stored preferences and effective policy/word epoch. Only explicit Retry sends a
+new mutation. Disposal ignores late replies without claiming cancellation of an
+already dispatched Rust operation. Settings Undo changes preferences, not subtitle
+history. Closing flushes valid drafts; discarding an invalid draft is explicit.
+
+Native accelerator publication runs in the existing blocking preference operation.
+Tauri marshals menu changes to its UI thread; no filesystem work moves there.
+Lock ordering is document → shortcut runtime → settings writer; layout writes
+acquire only the writer. All accelerators are cleared before new primary global
+bindings are installed. Publication or persistence failure restores the last
+confirmed accelerator set; failed rollback reports that restart is required.
+The runtime advances only after successful persistence. Scoped and alternate
+bindings dispatch in the webview; primary native bindings use menus, with the
+existing unconsumed Windows fallback. Text formatting/history, Escape and OS keys
+retain their owners. Ordinary cue-row focus belongs to the list shortcut mode;
+other buttons retain Enter/Space activation and other fields retain Tab navigation.
+
+The mode-aware preset remains opt-in pending owner trials. Migrated settings keep
+current bindings except Replace moves to Cmd/Ctrl+Shift+F to resolve the macOS
+Merge Previous collision. See [Settings and shortcuts](docs/settings-shortcuts.md).
+Distinct cue counts per quality rule are computed once from the accepted report
+on the existing cancellable worker, deduplicating primary and related cue IDs.
+The bounded projection uses the same report identity/epoch and stale guards as
+`QualitySession`; there is no frontend evaluator or extra analysis worker.

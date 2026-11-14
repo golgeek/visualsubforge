@@ -9,10 +9,12 @@
   import type { WorkspaceDialogsState } from './workspace-dialogs.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
+  import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Preferences } from '../client';
   import type { TimingSettings } from '../timing/magnetic-timing';
   let {
     dialogs,
+    quality,
     subtitles,
     media,
     mediaPath,
@@ -22,6 +24,7 @@
     timingSettings,
   }: {
     dialogs: WorkspaceDialogsState;
+    quality: QualitySession;
     subtitles: DocumentSession;
     media: MediaSession;
     mediaPath: string;
@@ -89,7 +92,8 @@
   <SettingsDialog
     {preferences}
     timing={timingSettings}
-    onapply={(value) => void dialogs.closeSettings(value)}
+    checks={quality}
+    onapply={(value) => dialogs.acceptSettings(value)}
     onclose={() => void dialogs.closeSettings()}
   />
 {/if}

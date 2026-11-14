@@ -122,9 +122,9 @@ export async function languagePerformance({
         await invoke('preferences_save', { preferences, epoch: context.epoch });
         await menu('settings');
         await until('scale Settings loaded', () =>
-          browser.$('button=Apply settings').then((b) => b.isEnabled()),
+          browser.$('button=Close').then((b) => b.isEnabled()),
         );
-        await (await browser.$('button=Apply settings')).click();
+        await (await browser.$('button=Close')).click();
         await until('scale Settings applied', () =>
           browser.execute(
             () =>
