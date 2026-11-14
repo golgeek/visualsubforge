@@ -27,6 +27,7 @@ async function run() {
   let maximum = 0;
   let blocked = '';
   let failure = false;
+  let loseReply = false;
   let release: (() => void) | null = null;
   let hold = false;
   const accepted: Preferences[] = [];
@@ -56,7 +57,9 @@ async function run() {
         if (failure) throw new Error('Injected settings failure');
         if (captured !== epoch) throw new Error('Stale settings');
         saved = copy(value);
-        return ++epoch;
+        ++epoch;
+        if (loseReply) throw new Error('Lost accepted reply');
+        return epoch;
       } finally {
         active--;
       }
@@ -143,6 +146,43 @@ async function run() {
   check(
     !saved.autoScanScenes && !session.dirty,
     'Explicit retry uses the reconciled identity',
+  );
+  loseReply = true;
+  session.draft.autoScanScenes = true;
+  await session.flush();
+  const lost = calls;
+  loseReply = false;
+  await session.reconcile();
+  check(
+    !session.dirty && calls === lost,
+    'A lost accepted reply reconciles without replay',
+  );
+  session.draft.sceneDetail = 'reduced';
+  await session.changed();
+  await until(() => saved.sceneDetail === 'reduced' && !session.saving);
+  check(
+    calls === lost + 1,
+    'New edits resume instant saving after a fully reconciled accepted reply',
+  );
+  loseReply = true;
+  session.draft.autoScanScenes = false;
+  await session.flush();
+  const olderAccepted = calls;
+  session.draft.sceneDetail = 'standard';
+  loseReply = false;
+  await session.reconcile();
+  await session.changed();
+  await delay();
+  check(
+    session.dirty &&
+      calls === olderAccepted &&
+      session.notice.includes('draft is retained'),
+    'A newer draft after a lost accepted reply retains explicit Retry and never saves automatically',
+  );
+  await session.flush();
+  check(
+    saved.sceneDetail === 'standard' && !session.dirty,
+    'Explicit retry accepts the newer retained draft once',
   );
   hold = true;
   session.draft.autoScanScenes = true;

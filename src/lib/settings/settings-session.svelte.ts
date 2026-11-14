@@ -204,14 +204,17 @@ export class SettingsSession {
       else if (identity(current) !== identity(this.confirmed))
         this.undoValue = null;
       this.confirmed = current;
+      this.retryRequired = this.dirty;
       this.epoch = data.current.epoch;
       this.uncertain = false;
       this.failedAttempt = null;
       this.accepted(copy(current));
       this.error = '';
-      this.notice = wasAccepted
-        ? 'The settings change was saved. No retry was sent.'
-        : 'Saved settings checked. Your draft is retained; review it, then retry.';
+      this.notice = this.dirty
+        ? 'Saved settings checked. Your draft is retained; review it, then retry.'
+        : wasAccepted
+          ? 'The settings change was saved. No retry was sent.'
+          : 'Saved settings checked. Your draft matches the saved settings.';
       // Deliberately do not schedule a retry from this read-only recovery.
     } catch (error) {
       if (this.alive) this.error = String(error);
