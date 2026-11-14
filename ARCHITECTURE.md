@@ -516,8 +516,11 @@ Windows x64 and Ubuntu 24.04 amd64. A shell bootstrap selects the platform's
 compiler/search paths and takes one per-platform build lock; `build/native.mk`
 owns SDK dependency ordering, app profiles, packaging and installation. Existing
 Python SDK/audit helpers retain their responsibilities. Successful stages are
-cached in recipe/toolchain-keyed prefixes without moving their embedded paths;
-failed stages retain evidence. Packaging uses a new directory and publishes only
+cached in separate per-library prefixes without moving their embedded paths.
+`scripts/native-cache.py` records explicit recipe/toolchain and selected dependency
+inputs; mpv includes its private libplacebo/FFmpeg key. ANGLE's CI cache uses its
+own key rather than the path manifest or an inventory of all installed packages.
+Failed stages retain evidence. Packaging uses a new directory and publishes only
 after the platform assembler succeeds, retaining the previous completed package.
 The preview workflows call the same `make app` prerequisites and consume a
 recorded SDK/Cargo-path manifest before release-specific assembly and audits.

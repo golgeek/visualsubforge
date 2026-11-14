@@ -31,7 +31,9 @@ class HomebrewSources(unittest.TestCase):
                 upstream = b'class Example < Formula\n  bottle do\n    revision 1\n  end\n\nend\n'
                 sha = 'a' * 40
                 with patch('homebrew_sources.subprocess.check_output',
-                           return_value=json.dumps([{'sha': sha}])) as commits, \
+                           side_effect=[json.dumps({'formulae': [{'name': name, 'tap': 'homebrew/core',
+                                                                'ruby_source_path': relative}]}),
+                                        json.dumps([{'sha': sha}])]) as commits, \
                         patch('homebrew_sources.urllib.request.urlopen',
                               return_value=io.BytesIO(upstream)) as request:
                     record = matching_recipe(formula, root)
@@ -50,12 +52,27 @@ class HomebrewSources(unittest.TestCase):
             formula = root / 'libb2.rb'
             formula.write_text('installed recipe')
             with patch('homebrew_sources.subprocess.check_output',
-                       return_value=json.dumps([{'sha': 'a' * 40}])), \
+                       side_effect=[json.dumps({'formulae': [{'name': 'libb2', 'tap': 'homebrew/core',
+                                                            'ruby_source_path': 'Formula/lib/libb2.rb'}]}),
+                                    json.dumps([{'sha': 'a' * 40}])]), \
                     patch('homebrew_sources.urllib.request.urlopen',
                           return_value=io.BytesIO(b'different recipe')):
                 with self.assertRaisesRegex(ValueError, 'No matching historical formula for libb2 in 1 revisions'):
                     matching_recipe(formula, root)
             self.assertFalse((root / 'upstream-formula.rb').exists())
+
+    def test_formula_metadata_cannot_redirect_history_outside_core(self):
+        for relative in ('../libb2.rb', '/Formula/lib/libb2.rb', 'Formula/lib/other.rb'):
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                formula = root / 'libb2.rb'
+                formula.write_text('installed recipe')
+                metadata = {'formulae': [{'name': 'libb2', 'tap': 'homebrew/core',
+                                         'ruby_source_path': relative}]}
+                with patch('homebrew_sources.subprocess.check_output', return_value=json.dumps(metadata)) as query:
+                    with self.assertRaisesRegex(ValueError, 'Unsafe Homebrew'):
+                        matching_recipe(formula, root)
+                    self.assertEqual(query.call_count, 1)
 
     def test_reviewed_raw_font_is_retained_without_treating_it_as_a_tar(self):
         resource = dict(HARFBUZZ_TEST_FONT, name='homebrew-test-ttf')

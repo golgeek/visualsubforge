@@ -61,21 +61,21 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
-            ${{ env.VSF_NATIVE_CACHE }}/angle/sdk
-            ${{ env.VSF_NATIVE_CACHE }}/angle/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/angle/.complete
-          key: make-angle-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('target/native/macos/build-paths.json') }}
+            ${{ env.VSF_ANGLE_BUILD }}/sdk
+            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/.complete
+          key: make-angle-${{ matrix.os }}-${{ matrix.arch }}-${{ env.VSF_ANGLE_KEY }}
       - name: Build native SDKs, GUI and CLI through Make
         run: make app JOBS=3 PYTHON=python
       # Preserve a completed SDK even if later compilation/packaging fails.
       - name: Save the completed ANGLE SDK
-        if: ${{ !cancelled() && steps.angle-cache.outputs.cache-hit != 'true' && hashFiles('target/native/macos/*/angle/.complete') != '' }}
+        if: ${{ !cancelled() && steps.angle-cache.outputs.cache-hit != 'true' && hashFiles(format('{0}/.complete', env.VSF_ANGLE_BUILD)) != '' }}
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
-            ${{ env.VSF_NATIVE_CACHE }}/angle/sdk
-            ${{ env.VSF_NATIVE_CACHE }}/angle/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/angle/.complete
+            ${{ env.VSF_ANGLE_BUILD }}/sdk
+            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/.complete
           key: ${{ steps.angle-cache.outputs.cache-primary-key }}
       - name: Capture matching Rust/frontend sources and notices
         run: python scripts/application-sources.py --target ${{ matrix.arch }}-apple-darwin --features visualsubforge/macos-angle,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
@@ -87,12 +87,12 @@ jobs:
             --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
             --vsf "$CARGO_TARGET_DIR/release/vsf" \
             --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
-            --library-dir "$VSF_NATIVE_CACHE/mpv/build" --library-dir "$VSF_NATIVE_CACHE/angle/sdk/out/Metal" \
-            --library-dir "$VSF_NATIVE_CACHE/placebo/sdk/lib" --placebo-build "$VSF_NATIVE_CACHE/placebo" \
+            --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_ANGLE_BUILD/sdk/out/Metal" \
+            --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" --placebo-build "$VSF_PLACEBO_BUILD" \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --native-sources "$RUNNER_TEMP/native-sources" --homebrew-cellar "$(brew --cellar)" \
-            --mpv-build "$VSF_NATIVE_CACHE/mpv" --angle-sdk "$VSF_NATIVE_CACHE/angle/sdk" \
-            --angle-receipt "$VSF_NATIVE_CACHE/angle/build-receipt.json" \
+            --mpv-build "$VSF_MPV_BUILD" --angle-sdk "$VSF_ANGLE_BUILD/sdk" \
+            --angle-receipt "$VSF_ANGLE_BUILD/build-receipt.json" \
             --output "$RUNNER_TEMP/package/VisualSubForge.app"
       - name: Exercise relocated packaged tools and failed-install behavior
         run: |
@@ -126,12 +126,14 @@ jobs:
         with:
           name: macos-package-evidence-${{ matrix.arch }}
           path: |
-            ${{ env.VSF_NATIVE_CACHE }}/angle/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/angle/sdk/dependency-revisions.txt
-            ${{ env.VSF_NATIVE_CACHE }}/mpv/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/mpv/commands.log
-            ${{ env.VSF_NATIVE_CACHE }}/placebo/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/placebo/commands.log
+            target/native/macos/cache-inputs.json
+            target/native/macos/build-paths.json
+            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/sdk/dependency-revisions.txt
+            ${{ env.VSF_MPV_BUILD }}/build-receipt.json
+            ${{ env.VSF_MPV_BUILD }}/commands.log
+            ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
+            ${{ env.VSF_PLACEBO_BUILD }}/commands.log
             ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
           retention-days: 14
   sign:

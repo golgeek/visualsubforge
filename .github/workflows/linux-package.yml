@@ -45,12 +45,12 @@ jobs:
           python scripts/package-linux.py \
             --visualsubforge "$CARGO_TARGET_DIR/release/visualsubforge" --vsf "$CARGO_TARGET_DIR/release/vsf" \
             --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe \
-            --library-dir "$VSF_NATIVE_CACHE/mpv/build" --library-dir "$VSF_NATIVE_CACHE/placebo/sdk/lib" \
-            --native-source "mpv=$VSF_NATIVE_CACHE/mpv/source.tar.gz" \
-            --native-source "libplacebo=$VSF_NATIVE_CACHE/placebo/source.tar.gz" \
-            --native-notices "mpv=$VSF_NATIVE_CACHE/mpv/prepared/source" \
-            --native-notices "libplacebo=$VSF_NATIVE_CACHE/placebo/source" \
-            --placebo-build "$VSF_NATIVE_CACHE/placebo" \
+            --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" \
+            --native-source "mpv=$VSF_MPV_BUILD/source.tar.gz" \
+            --native-source "libplacebo=$VSF_PLACEBO_BUILD/source.tar.gz" \
+            --native-notices "mpv=$VSF_MPV_BUILD/prepared/source" \
+            --native-notices "libplacebo=$VSF_PLACEBO_BUILD/source" \
+            --placebo-build "$VSF_PLACEBO_BUILD" \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --output "$RUNNER_TEMP/package"
       # Retain exact candidate bytes even if a later runtime assertion fails.
@@ -114,13 +114,15 @@ jobs:
         with:
           name: linux-package-evidence-amd64
           path: |
+            target/native/linux/cache-inputs.json
+            target/native/linux/build-paths.json
             ${{ runner.temp }}/package/assembly-receipt.json
             ${{ runner.temp }}/package/install-image.json
             ${{ runner.temp }}/package/gui-image.json
-            ${{ env.VSF_NATIVE_CACHE }}/placebo/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/placebo/commands.log
-            ${{ env.VSF_NATIVE_CACHE }}/mpv/build-receipt.json
-            ${{ env.VSF_NATIVE_CACHE }}/mpv/commands.log
+            ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
+            ${{ env.VSF_PLACEBO_BUILD }}/commands.log
+            ${{ env.VSF_MPV_BUILD }}/build-receipt.json
+            ${{ env.VSF_MPV_BUILD }}/commands.log
             ${{ runner.temp }}/install-check/cli/packaged-cli-check.json
             ${{ runner.temp }}/install-check/gui/*
             ${{ runner.temp }}/install-check/*.txt

@@ -116,8 +116,17 @@ Rust uses MSVC and an import library generated from the exact mpv DLL being bund
 ## Rebuilds and diagnostics
 
 Run the same Make command after editing. Rust rebuilds incrementally. Successful
-native SDK stages are reused under `target/native/<platform>/<recipe-key>`;
-recipe, compiler and installed-package changes select a new cache. A completion
+native SDK stages are reused under `target/native/<platform>/<library>/<key>`.
+Each library hashes its own recipe and build inputs. ANGLE uses its pinned manifest,
+build helpers, architecture, Xcode and macOS SDK versions. mpv/libplacebo use their
+recipes, patches, compiler flags and selected pkg-config dependency versions and
+prefixes (including optional dependency availability). Windows FFmpeg uses its
+recipe and the specific MSYS2 build/runtime packages it consumes. mpv includes the
+private libplacebo/FFmpeg key; the Windows import SDK includes the mpv key.
+Unrelated installed packages, packaging scripts and other platforms' recipes do
+not invalidate Mac libraries. `cache-inputs.json` records the inputs and keys for
+diagnostics. Keep the dependency probes in `scripts/native-cache.py` aligned with
+recipe changes. A completion
 marker is written only after the stage succeeds. Do not edit cached SDK files;
 remove the affected cache directory to rebuild a damaged cache.
 
@@ -148,7 +157,8 @@ render/baseline/candidate native experiments retain their focused commands.
 
 `make paths` selects the toolchain and records
 `target/native/<platform>/build-paths.json` without compiling. The macOS workflow
-uses those exact paths for its ANGLE cache. Make also records them before each
+uses ANGLE’s own key and selected path for its ANGLE cache. Make also records them before each
 app build, so packaging and failure-evidence steps use the selected SDKs and
 Cargo target directory. `scripts/native-build-paths.py github <manifest>` exports
-only those two paths to GitHub Actions; it does not build or select dependencies.
+only the validated per-library paths/keys and Cargo path to GitHub Actions; it does
+not build or select dependencies.

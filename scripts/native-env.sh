@@ -38,7 +38,6 @@ case "$(uname -s)" in
             done
         done
         PKG_CONFIG_PATH="$PKG_CONFIG_PATH$prefix/lib/pkgconfig"
-        host=$(printf '%s\n' "$(uname -m)" "$(xcodebuild -version)" "$(xcrun --sdk macosx --show-sdk-version)" "$(brew list --versions)")
         ;;
     Linux)
         platform=linux
@@ -47,7 +46,6 @@ case "$(uname -s)" in
         [[ "$ID:$VERSION_ID:$(uname -m)" == ubuntu:24.04:x86_64 ]] || fail 'The native Linux package currently requires Ubuntu 24.04 amd64'
         for tool in patchelf ffmpeg ffprobe; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
         pkg-config --exists gtk+-3.0 epoxy libavcodec libass || fail 'Missing native development packages'
-        host=$(printf '%s\n' "$(cc --version)" "$(dpkg-query -W)")
         ;;
     MINGW*|MSYS*)
         platform=windows
@@ -64,23 +62,15 @@ case "$(uname -s)" in
         export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER
         export CC_x86_64_pc_windows_msvc="${CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER%/link.exe}/cl.exe"
         export CXX_x86_64_pc_windows_msvc="$CC_x86_64_pc_windows_msvc"
-        host=$(printf '%s\n' "$(pacman -Q)" "${VCToolsVersion:-}" "${WindowsSDKVersion:-}")
         ;;
     *) fail 'Unsupported native build platform';;
 esac
-# Include the native recipes and their manifests/patches, not application files.
-# A changed toolchain/dependency set gets a fresh prefix instead of stale SDKs.
-key=$({ git hash-object tests/native/build-requirements.txt tests/release/windows-requirements.txt; printf '%s\n' "$host" "${CC:-}" "${CXX:-}" "${CFLAGS:-}" "${CXXFLAGS:-}" "${LDFLAGS:-}";
-    find build scripts tests/native/angle tests/native/mpv-clock tests/native/mpv-coreaudio-cleanup tests/native/mpv-render tests/native/ffmpeg-windows -type f \( -name '*.mk' -o -name '*.py' -o -name '*.sh' -o -name '*.patch' -o -name '*.json' -o -name '*requirements.txt' \) ! -path '*/__pycache__/*' -print | LC_ALL=C sort | while IFS= read -r file; do git hash-object "$file"; done;
-} | git hash-object --stdin)
-cache="target/native/$platform/$key"
 mkdir -p "target/native/$platform"
 lock="target/native/$platform/build.lock"
 mkdir "$lock" 2>/dev/null || fail "Another native build owns $lock. If it was killed, verify it stopped before removing that directory."
 printf '%s\n' "$$" > "$lock/pid"
 trap 'rm -f "$lock/pid"; rmdir "$lock"' EXIT
 export VSF_NATIVE_PLATFORM="$platform"
-export VSF_NATIVE_CACHE="$cache"
 export VSF_NATIVE_PROFILE="$profile"
 export VSF_NATIVE_JOBS="$jobs"
 venv="target/native/$platform/tools"
@@ -94,6 +84,10 @@ if [[ "$platform" == windows ]]; then
 fi
 export CARGO_TARGET_DIR="$PWD/target/native/$platform/app-target"
 if [[ "$platform" == windows ]]; then CARGO_TARGET_DIR="$(cygpath -m "$CARGO_TARGET_DIR")"; fi
+# Each library gets an immutable prefix from its own recipe/toolchain inputs.
+# The selector emits only shell-quoted assignments, never user-supplied code.
+cache_assignments=$("$VSF_NATIVE_PYTHON" scripts/native-cache.py --platform "$platform")
+eval "$cache_assignments"
 # Record paths before compilation so CI can retain failed-stage evidence too.
 "$VSF_NATIVE_PYTHON" scripts/native-build-paths.py record
 "$make_command" --no-print-directory -f build/native.mk "$action"
