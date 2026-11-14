@@ -4,7 +4,7 @@
 effect callbacks and delegates actions through a readable switch to
 `workspace-file-actions.ts`, `media-actions.ts`, `cue-actions.ts` and `view-actions.ts`. `Workspace`
 owns `ready`, `error`, `notice` and its task counter; it derives `busy`/`confirming`
-from modal, decision and gesture activity. App constructs and connects owners; some workspace controls and dialog markup still live at the root. Its Svelte session objects live for one
+from modal, decision and gesture activity. App creates owners and lays out regions. Its Svelte session objects live for one
 mount and are disposed on unmount; they are not global stores.
 
 Owners with state, reactive projections or a lifetime are classes. Stateless actions,
@@ -100,7 +100,11 @@ Its disposal disconnects the observer, removes window listeners and clears the
 100 ms timer; in-flight replies cannot publish after disposal.
 
 The shell components own toolbar, recovery-banner, footer, diagnostics and font
-notice markup and styles. WorkspaceDialogs renders feature dialogs from the
+notice markup and styles. TransportBar, CueOperationsBar and SubtitleToolbar own
+the subtitle controls; five review buttons share one list and disabled condition.
+VideoPreview and ShortcutHelp own their markup and styles. WorkspaceDecisions
+and WorkspaceLegacyImport render decisions, retaining their DOM order around
+WorkspaceDialogs and the native dialog binding used by UnsavedChanges. WorkspaceDialogs renders feature dialogs from the
 modal identity; WorkspaceDialogsState owns their eligibility and post-close
 continuations. Recovery owns one polling timer, rejects stale listings around
 discard and stops polling on disposal. Recovery and CueMenu expose action

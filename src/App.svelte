@@ -1,4 +1,11 @@
 <script lang="ts">
+  import TransportBar from './lib/TransportBar.svelte';
+  import CueOperationsBar from './lib/CueOperationsBar.svelte';
+  import SubtitleToolbar from './lib/SubtitleToolbar.svelte';
+  import ShortcutHelp from './lib/ShortcutHelp.svelte';
+  import WorkspaceDecisions from './lib/WorkspaceDecisions.svelte';
+  import WorkspaceLegacyImport from './lib/WorkspaceLegacyImport.svelte';
+  import VideoPreview from './lib/VideoPreview.svelte';
   import { WorkspacePreferences } from './lib/workspace-preferences.svelte';
   import { WorkspaceScenes } from './lib/workspace-scenes.svelte';
   import { LegacyImportDecision } from './lib/legacy-import-decision.svelte';
@@ -25,25 +32,19 @@
   import WorkspaceFooter from './lib/WorkspaceFooter.svelte';
   import WorkspaceToolbar from './lib/WorkspaceToolbar.svelte';
   import { runFileAction } from './lib/workspace-file-actions';
-  import {
-    runMediaAction,
-    seekMedia,
-    selectAudioTrack,
-  } from './lib/media-actions';
+  import { runMediaAction, seekMedia } from './lib/media-actions';
   import { runCueAction, formatCueText } from './lib/cue-actions';
-  import { runViewAction, setTimingMode } from './lib/view-actions';
+  import { runViewAction } from './lib/view-actions';
   import { workspaceKeydown, workspaceKeyup } from './lib/workspace-keys';
   import CueTable from './lib/CueTable.svelte';
   import CueEditor from './lib/CueEditor.svelte';
   import WaveformPanel from './lib/WaveformPanel.svelte';
   import { CueTableView } from './lib/cue-table-view.svelte';
   import { Workspace } from './lib/workspace.svelte';
-  import { measurePaneControl } from './lib/measure-pane-control';
   import { WorkspaceLayout } from './lib/workspace-layout.svelte';
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import TranslationPanel from './lib/TranslationPanel.svelte';
   import { TranslationSession } from './lib/translation-session.svelte';
-  import LegacyImportDialog from './lib/LegacyImportDialog.svelte';
   import { QualitySession } from './lib/quality-session.svelte';
   import { isTauri } from '@tauri-apps/api/core';
   import { DocumentSession } from './lib/document-session.svelte';
@@ -64,13 +65,9 @@
     type WorkspaceAction,
     type ProjectReferenceIssue,
   } from './lib/client';
-  import { formatTime } from './lib/timeline';
   import CueContextMenu from './lib/CueContextMenu.svelte';
   import Splitter from './lib/Splitter.svelte';
-  import ProjectSaveFailureDialog, {
-    type ProjectExitChoice,
-  } from './lib/ProjectSaveFailureDialog.svelte';
-  import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
+  import type { ProjectExitChoice } from './lib/ProjectSaveFailureDialog.svelte';
   import { disposeWithComponent } from './lib/component-owner';
   import { captureFocus } from './lib/capture-focus';
   import { NativeVideoLayout } from './lib/native-video-layout';
@@ -82,11 +79,11 @@
 
   let waveHost = $state<HTMLDivElement>();
 
-  let video: HTMLDivElement;
+  let video = $state<HTMLDivElement>();
 
   let list = $state<HTMLDivElement>();
 
-  let confirmation: HTMLDialogElement;
+  let confirmation = $state<HTMLDialogElement>();
 
   // Suppress workspace error continuations first. All teardown guards are invalidated synchronously;
   // decision answers only queue continuations, which then see every owner disposed.
@@ -119,8 +116,6 @@
 
   const doc = $derived(subtitles.snapshot);
 
-  const draftDirty = $derived(subtitles.dirty);
-
   const nativeMenus = isTauri();
 
   // Modal presentation and unsaved-work decisions.
@@ -141,7 +136,7 @@
       decisionEffects(
         media,
         () => view.diagnostics,
-        () => confirmation.close(),
+        () => confirmation!.close(),
       ),
     ),
   );
@@ -171,7 +166,7 @@
 
   const unsaved = disposeWithComponent(
     new UnsavedChanges(workspace, subtitles, subtitleDecision, () =>
-      confirmation.showModal(),
+      confirmation!.showModal(),
     ),
   );
 
@@ -499,7 +494,7 @@
     startup.start();
     menus.startListening();
     timeline.startPolling();
-    videoLayout.mount(video);
+    videoLayout.mount(video!);
     recovery.startPolling();
     media.startPolling();
   });
@@ -570,25 +565,7 @@
         value={layout.wavePct}
         onchange={(v) => layout.resizeWaveform(v)}
       />
-      <section class="video-panel" aria-label="Video preview">
-        <div class="panelbar">
-          <strong>Video</strong><span class="filename" title={media.path}
-            >{media.path.split(/[\\/]/).pop()}</span
-          >
-        </div>
-        <div
-          bind:this={video}
-          class="video-space"
-          class:covered={status.surfaceAboveWebview || !status.loaded}
-          aria-label="Native video surface"
-        >
-          {#if !status.loaded}<p>
-              {status.available
-                ? 'Open media to preview video'
-                : 'GPU playback is unavailable in this build'}
-            </p>{/if}
-        </div>
-      </section>
+      <VideoPreview {media} bind:video />
     </div>
     <Splitter
       label="Resize preview and subtitle list"
@@ -596,160 +573,19 @@
       onchange={(v) => layout.resizePreview(v)}
     />
     <section class="subtitle-panel panel" aria-label="Subtitle table">
-      <div
-        class="transport"
-        use:measurePaneControl={(height) => (layout.transportHeight = height)}
-      >
-        <button
-          disabled={!status.loaded || workspace.busy}
-          onclick={() => void run('play')}
-          >{status.paused ? 'Play' : 'Pause'}</button
-        ><button
-          disabled={!status.loaded || workspace.busy}
-          onclick={() => void run('previousFrame')}
-          aria-label="Previous frame">◀|</button
-        ><button
-          disabled={!status.loaded || workspace.busy}
-          onclick={() => void run('nextFrame')}
-          aria-label="Next frame">|▶</button
-        ><output
-          >{status.positionSeconds === null
-            ? '—'
-            : formatTime(status.positionSeconds * 1000)}</output
-        ><label
-          >Audio <select
-            value={status.audioTrack ?? ''}
-            disabled={!status.loaded || workspace.busy}
-            onchange={(e) =>
-              void selectAudioTrack(
-                mediaActions,
-                Number(e.currentTarget.value),
-              )}
-            >{#each status.audioTracks as track (track.id)}<option
-                value={track.id}>{track.title}</option
-              >{/each}</select
-          ></label
-        ><span class="spacer"></span><button
-          disabled={!timeline.range || !status.loaded || workspace.busy}
-          onclick={() => void run('playRange')}>Loop range</button
-        ><button
-          disabled={!status.loaded || workspace.busy}
-          onclick={() => void run('clearLoop')}>Clear loop</button
-        >
-      </div>
-      <div
-        class="cue-operationbar"
-        aria-label="Cue operations"
-        use:measurePaneControl={(height) =>
-          (layout.cueOperationsHeight = height)}
-      >
-        {#each cueEditing.operations as op (op.operation)}
-          <button
-            disabled={!op.plan || workspace.busy || workspace.confirming}
-            title={op.reason ||
-              (op.operation === 'splitCue'
-                ? 'Split timing and duplicate the accepted text in both halves.'
-                : op.label)}
-            onclick={() => void run(op.operation)}>{op.label}</button
-          >
-        {/each}
-      </div>
-      <div
-        class="cue-followbar"
-        use:measurePaneControl={(height) =>
-          (layout.cueFollowingHeight = height)}
-      >
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void dialogs.openText()}>Find / Replace…</button
-        >
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void dialogs.openTimingReview('gap')}
-          >Enforce minimum gaps…</button
-        >
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void dialogs.openTimingReview('scene')}
-          >Repair scene timing…</button
-        >
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void dialogs.openTimingReview('duration')}
-          >Repair duration / speed…</button
-        >
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.cues.length}
-          onclick={() => void dialogs.openTimingReview('batch')}
-          >Shift / align cues…</button
-        >
-
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.loaded}
-          onclick={() => void dialogs.openStatistics()}>Statistics…</button
-        >
-        <button
-          disabled={workspace.busy || workspace.confirming || !doc.loaded}
-          onclick={() => void dialogs.openAuthoring('plugins')}
-          >Subtitle plugins…</button
-        >
-        <button
-          aria-expanded={view.problemsOpen}
-          onclick={() =>
-            view.toggleProblems(() => {
-              navigation.pendingProblem = null;
-            })}
-          >Problems{quality.view?.profileHash
-            ? ` · ${quality.view.findingsCount}`
-            : ''}</button
-        >
-        <button
-          disabled={!workspace.canAct}
-          aria-expanded={view.translationOpen}
-          onclick={() => view.toggleTranslation()}
-          >Translation reference{doc.translation?.dirty ? ' •' : ''}</button
-        >
-        <label
-          ><input
-            type="checkbox"
-            bind:checked={preferences.showQualityMetrics}
-          /> Cue metrics</label
-        >
-        <label
-          title="Tap Space to play/pause. While playing, hold Space for at least 400 ms to create a cue and keep timing. Enter edits text; Escape returns to the waveform."
-        >
-          <input
-            type="checkbox"
-            checked={gestures.mode}
-            disabled={workspace.busy || workspace.confirming}
-            onchange={(e) =>
-              setTimingMode(gestures, navigation, e.currentTarget.checked)}
-          />
-          Timing mode · hold Space
-        </label>
-        <label
-          ><input
-            type="checkbox"
-            checked={navigation.following !== 'off'}
-            onchange={(e) => {
-              navigation.setFollowing(e.currentTarget.checked);
-            }}
-          /> Follow active subtitle</label
-        >
-        {#if navigation.following === 'suspended'}
-          <span
-            >{draftDirty
-              ? 'Apply or revert the draft to resume.'
-              : 'Following suspended.'}</span
-          >
-          <button
-            disabled={draftDirty || workspace.busy || workspace.confirming}
-            onclick={() => {
-              navigation.resumeFollowing();
-            }}>Resume following</button
-          >
-        {/if}
-      </div>
+      <TransportBar {workspace} {media} {timeline} {layout} {mediaActions} />
+      <CueOperationsBar {workspace} {cueEditing} {layout} />
+      <SubtitleToolbar
+        {workspace}
+        {subtitles}
+        {dialogs}
+        {view}
+        {quality}
+        {preferences}
+        {gestures}
+        {navigation}
+        {layout}
+      />
       <div
         class="subtitle-review"
         class:with-problems={view.problemsOpen || view.translationOpen}
@@ -824,24 +660,7 @@
     />
   </div>
   <FontDiagnostics {media} />
-  <details class="shortcut-help">
-    <summary>Keyboard shortcuts</summary>
-    <p>
-      ⌘/Ctrl+Alt+Enter: play/pause while typing (Alt+Space also works when the
-      OS allows it) · Alt+←/→: seek 1 s (Shift: 5 s) · Alt+↑/↓: edit
-      previous/next cue · In cue rows: Shift+click/arrows selects a range;
-      Ctrl/Cmd+click or Space toggles, Ctrl/Cmd+arrows moves focus, Ctrl/Cmd+A
-      selects all · Enter: edit selected cue · Escape: return to waveform /
-      cancel held timing. In Timing mode, tap Space to play/pause; hold it for
-      at least 400 ms during playback to create a cue and keep timing. Press
-      Enter to edit its text.
-    </p>
-    <p>
-      ⌘/Ctrl+Shift+N: create cue · ⌘/Ctrl+Shift+D: delete cue · ⌘/Ctrl+Enter:
-      apply text · ⌘/Ctrl+S: save. Right-click the waveform selection or a cue
-      for actions. Plain Space remains a text character in the editor.
-    </p>
-  </details>
+  <ShortcutHelp />
   <WorkspaceFooter {workspace} {media} {gestures} {timeline} />
   <PlaybackDiagnostics
     {workspace}
@@ -850,47 +669,13 @@
     diagnostics={view.diagnostics}
     bind:hardware={media.hardware}
   />
-  <dialog
-    bind:this={confirmation}
-    oncancel={(e) => {
-      e.preventDefault();
-      subtitleDecision.answer('cancel');
-    }}
-    aria-label={doc.translation?.dirty
-      ? 'Unsaved project changes'
-      : 'Unsaved subtitle changes'}
-  >
-    <h2>
-      {doc.translation?.dirty
-        ? 'Save project changes?'
-        : 'Save subtitle changes?'}
-    </h2>
-    <p>
-      {doc.translation?.dirty
-        ? 'Save your subtitle changes and the translation reference and offset in a project.'
-        : 'Your current document or cue draft has changes.'}
-    </p>
-    <div class="dialog-actions">
-      <button onclick={() => subtitleDecision.answer('cancel')}>Cancel</button
-      ><button onclick={() => subtitleDecision.answer('discard')}
-        >Discard changes</button
-      ><button onclick={() => subtitleDecision.answer('save')}
-        >{doc.translation?.dirty ? 'Save project' : 'Save changes'}</button
-      >
-    </div>
-  </dialog>
-  {#if projectExitDecision.payload !== null}
-    <ProjectSaveFailureDialog
-      error={projectExitDecision.payload}
-      onchoose={(choice) => void projectExitDecision.answer(choice)}
-    />
-  {/if}
-  {#if projectReferenceDecision.payload !== null}
-    <ProjectReferenceDialog
-      issue={projectReferenceDecision.payload}
-      onchoose={(choice) => void projectReferenceDecision.answer(choice)}
-    />
-  {/if}
+  <WorkspaceDecisions
+    {subtitles}
+    {subtitleDecision}
+    {projectExitDecision}
+    {projectReferenceDecision}
+    bind:confirmation
+  />
   <WorkspaceDialogs
     {dialogs}
     {subtitles}
@@ -901,12 +686,7 @@
     preferences={preferences.preferences}
     timingSettings={preferences.timingSettings}
   />
-  {#if legacyDecision.payload}
-    <LegacyImportDialog
-      canOpen={status.available}
-      onclose={(path, open) => void legacyDecision.finish(projects, path, open)}
-    />
-  {/if}
+  <WorkspaceLegacyImport {legacyDecision} {media} {projects} />
   {#if cueMenu.context && cueMenu.items.length}
     {#key cueMenu.context}
       <CueContextMenu
@@ -998,34 +778,6 @@
     min-height: 700px;
   }
 
-  .shortcut-help {
-    position: relative;
-    z-index: 2;
-    padding: 4px 12px;
-    background: #192e3c;
-    font-size: 12px;
-    max-height: 120px;
-    overflow: auto;
-  }
-
-  .shortcut-help summary {
-    cursor: pointer;
-  }
-
-  .shortcut-help p {
-    margin: 5px 0;
-    line-height: 1.5;
-  }
-
-  .filename {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-    color: #b4c5d0;
-  }
-
   .workspace {
     display: grid;
     grid-template-rows:
@@ -1051,57 +803,6 @@
     overflow: hidden;
   }
 
-  .panelbar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 4px 8px;
-    background: #203542;
-    flex-shrink: 0;
-  }
-
-  .panelbar strong {
-    font-size: 12px;
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .video-panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-  }
-
-  .video-panel .panelbar {
-    z-index: 2;
-  }
-
-  .video-space {
-    flex: 1;
-    position: relative;
-    min-height: 0;
-    background: transparent;
-    /* Cover the scrollable workspace while retaining the legacy video hole. */
-    box-shadow: 0 0 0 max(100vmax, var(--workspace-height)) #14232d;
-    z-index: 0;
-  }
-
-  .video-space p {
-    position: absolute;
-    inset: 20% 10%;
-    text-align: center;
-    color: #a7bdca;
-  }
-
-  .video-space.covered {
-    /* Only the loaded legacy renderer needs a transparent webview hole. */
-    background: #101e28;
-  }
-
   .subtitle-panel {
     display: flex;
     flex-direction: column;
@@ -1111,53 +812,6 @@
     display: flex;
     flex: 1;
     min-height: 0;
-  }
-
-  .transport {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 8px;
-    background: #203542;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-  }
-
-  .transport output {
-    font-variant-numeric: tabular-nums;
-    min-width: 98px;
-  }
-
-  .transport label {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-  }
-
-  .transport select {
-    max-width: 130px;
-  }
-
-  .cue-operationbar,
-  .cue-followbar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 4px 8px;
-    font-size: 11px;
-    background: #203542;
-    flex-shrink: 0;
-  }
-
-  .cue-followbar label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  .cue-followbar button {
-    padding: 2px 6px;
   }
 
   /* A scaled desktop can be smaller than the normal three-pane workspace.
@@ -1170,10 +824,6 @@
       min-height: 100dvh;
       grid-template-rows: auto;
       overflow: visible;
-    }
-
-    .filename {
-      flex-basis: 100%;
     }
 
     .workspace {
@@ -1209,29 +859,5 @@
     .top > :global(.splitter) {
       display: none;
     }
-  }
-
-  dialog {
-    color: #e7eef3;
-    background: #203542;
-    border: 1px solid #81ddc6;
-    border-radius: 8px;
-    max-width: 440px;
-    padding: 24px;
-  }
-
-  dialog::backdrop {
-    background: #0009;
-  }
-
-  .dialog-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-  }
-
-  h2 {
-    margin-top: 0;
-    font-size: 18px;
   }
 </style>
