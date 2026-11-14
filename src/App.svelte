@@ -422,7 +422,11 @@
   };
 
   async function run(action: WorkspaceAction, event?: Event) {
-    await tooltips.hide();
+    // Preserve synchronous admission when no tooltip is presenting. A pending
+    // delay is cancelled immediately; only an active native hide needs waiting.
+    const tooltipActive = tooltips.active;
+    const tooltipClosed = tooltips.hide();
+    if (tooltipActive) await tooltipClosed;
     if (!workspace.canAct || cueMenu.context || timeline.interacting) return;
     switch (action) {
       case 'closeSubtitles':
