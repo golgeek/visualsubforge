@@ -55,7 +55,7 @@
     max-height: 130px;
     overflow: auto;
     padding: 4px 12px;
-    background: #304b54;
+    background: var(--warn-soft);
   }
   .recovery p {
     margin: 4px 0;

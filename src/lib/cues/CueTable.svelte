@@ -143,8 +143,8 @@
   .table-head {
     height: 25px;
     flex-shrink: 0;
-    background: #304753;
-    color: #bfd0da;
+    background: var(--surface-raised);
+    color: var(--text-muted);
     font-size: 11px;
   }
 
@@ -162,16 +162,16 @@
     width: 100%;
     height: 32px;
     border: 0;
-    border-bottom: 1px solid #29404d;
+    border-bottom: 1px solid var(--line);
     border-radius: 0;
-    background: #172934;
+    background: var(--surface-panel);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
   }
 
   .cue-row.selected {
-    background: #32566a;
-    box-shadow: inset 3px 0 #80dfc8;
+    background: var(--selection);
+    box-shadow: inset 3px 0 var(--accent);
   }
 
   .table-head.with-metrics,
@@ -180,7 +180,7 @@
   }
 
   .row-metrics {
-    color: #a4dccf;
+    color: var(--text-muted);
     font-size: 11px;
   }
 
@@ -192,11 +192,11 @@
   }
 
   .cue-row.active {
-    border-inline-end: 4px solid #e8c76a;
+    border-inline-end: 4px solid var(--cue);
   }
 
   .cue-row.active > span:first-child {
-    color: #ffe39a;
+    color: var(--cue-line-selected);
     font-weight: 700;
   }
 
@@ -208,7 +208,7 @@
 
   .empty {
     padding: 16px;
-    color: #9cb2c1;
+    color: var(--text-muted);
   }
 
   @media (max-width: 799px) {

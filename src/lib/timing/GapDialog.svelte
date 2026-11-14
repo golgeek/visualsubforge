@@ -221,9 +221,9 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #1e303d;
-    border: 1px solid #6c8b9d;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     width: min(1000px, 92vw);
     max-height: 90dvh;
@@ -231,7 +231,7 @@
     padding: 20px;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   h2 {
     margin-top: 0;
@@ -254,12 +254,12 @@
   .draft,
   .coverage {
     padding: 10px;
-    background: #344d5d;
-    border: 1px solid #778b90;
+    background: var(--surface-raised);
+    border: 1px solid var(--line-strong);
     margin-block: 12px;
   }
   .error {
-    color: #ffb3ad;
+    color: var(--err);
   }
   details {
     font-size: 12px;
@@ -277,7 +277,7 @@
   }
   th,
   td {
-    border-bottom: 1px solid #496270;
+    border-bottom: 1px solid var(--line);
     text-align: left;
     padding: 8px;
     vertical-align: top;
@@ -285,7 +285,7 @@
   th {
     position: sticky;
     top: 0;
-    background: #263e4d;
+    background: var(--surface-raised);
   }
   td:nth-child(2) {
     font-variant-numeric: tabular-nums;
@@ -293,10 +293,10 @@
   }
   small {
     display: block;
-    color: #bfd1dc;
+    color: var(--text-muted);
     margin-top: 4px;
   }
   .skipped {
-    background: #403a31;
+    background: var(--warn-soft);
   }
 </style>

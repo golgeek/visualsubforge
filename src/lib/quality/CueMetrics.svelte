@@ -38,9 +38,9 @@
     flex-wrap: wrap;
     gap: 4px 12px;
     font-size: 11px;
-    color: #bfd3df;
+    color: var(--text-muted);
   }
   strong {
-    color: #92e0d2;
+    color: var(--text);
   }
 </style>

@@ -264,8 +264,8 @@
     min-height: 0;
     overflow: auto;
     padding: 8px;
-    border-left: 1px solid #537080;
-    background: #213744;
+    border-left: 1px solid var(--line);
+    background: var(--surface-raised);
     font-size: 12px;
   }
   header,
@@ -278,14 +278,14 @@
     gap: 6px 10px;
   }
   header strong {
-    color: #a2e6d9;
+    color: var(--text);
   }
   header span {
     flex: 1;
   }
   .policy {
     margin: 6px 0;
-    color: #bfd3df;
+    color: var(--text-muted);
   }
   details {
     margin-block: 5px;
@@ -298,20 +298,20 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 4px 8px;
-    border-top: 1px solid #415763;
+    border-top: 1px solid var(--line);
     padding-block: 5px;
   }
   .finding small {
     flex-basis: 100%;
-    color: #bfd3df;
+    color: var(--text-muted);
   }
   .draft-choice {
-    background: #344f5d;
+    background: var(--surface-raised);
     padding: 6px;
     margin-block: 6px;
   }
   [role='alert'] {
-    color: #ffb3ad;
+    color: var(--err);
   }
   @media (max-width: 999px) {
     .problems {

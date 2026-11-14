@@ -533,6 +533,21 @@ async function run() {
       'width',
     )!;
     let redraws = 0;
+    const redrawDetails: unknown[] = [];
+    let canvasSize = { width: 0, height: 0 };
+    const sizes = new ResizeObserver(([entry]) => {
+      if (entry)
+        canvasSize = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+    });
+    sizes.observe(canvas);
+    let fontEvents = 0;
+    const fontLoaded = () => {
+      fontEvents++;
+    };
+    document.fonts.addEventListener('loadingdone', fontLoaded);
     Object.defineProperty(canvas, 'width', {
       configurable: true,
       get() {
@@ -540,19 +555,32 @@ async function run() {
       },
       set(value: number) {
         redraws++;
+        redrawDetails.push({
+          ...canvasSize,
+          value,
+          fontEvents,
+          fonts: document.fonts.status,
+          position: media.positionSeconds,
+          polls: statusPolls,
+        });
         widthDescriptor.set!.call(this, value);
       },
     });
     try {
+      // Bundled fonts legitimately repaint canvas labels and can resize the
+      // layout. Finish that startup work before measuring status-only polls.
+      await document.fonts.ready;
       // Allow project restoration, scene queries and layout to settle first.
       let baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
       redraws = 0;
+      redrawDetails.length = 0;
       baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
       assert(
         redraws === 0,
-        'Unchanged paused status polls do not repaint the waveform',
+        'Unchanged paused status polls do not repaint the waveform: ' +
+          JSON.stringify(redrawDetails),
       );
       media.positionSeconds = 13.5;
       await until(() => redraws > 0);
@@ -564,6 +592,8 @@ async function run() {
       redraws = 0;
       await until(() => redraws > 0);
     } finally {
+      sizes.disconnect();
+      document.fonts.removeEventListener('loadingdone', fontLoaded);
       Reflect.deleteProperty(canvas, 'width');
     }
     menuAction('saveProject');

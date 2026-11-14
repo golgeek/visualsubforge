@@ -1,4 +1,9 @@
 <script lang="ts">
+  // Theme: fonts, then tokens, then element defaults that use them.
+  import '@fontsource-variable/inter/wght.css';
+  import '@fontsource-variable/jetbrains-mono/wght.css';
+  import './lib/ui/tokens.css';
+  import './lib/ui/base.css';
   import TransportBar from './lib/media/TransportBar.svelte';
   import CueOperationsBar from './lib/cues/CueOperationsBar.svelte';
   import SubtitleToolbar from './lib/cues/SubtitleToolbar.svelte';
@@ -704,64 +709,6 @@
 </main>
 
 <style>
-  :global(*) {
-    box-sizing: border-box;
-  }
-
-  :global(body) {
-    margin: 0;
-    background: transparent;
-    color: #e7eef3;
-    font-family: system-ui, sans-serif;
-    font-size: 13px;
-  }
-
-  :global(button),
-  :global(input),
-  :global(select),
-  :global(textarea) {
-    font: inherit;
-    color: inherit;
-  }
-
-  :global(button) {
-    border: 1px solid #49616f;
-    border-radius: 4px;
-    background: #263e4d;
-    padding: 5px 9px;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  :global(button:hover:not(:disabled):not([aria-disabled='true'])) {
-    background: #385765;
-  }
-
-  :global(button:disabled),
-  :global(button[aria-disabled='true']) {
-    opacity: 0.42;
-    cursor: default;
-  }
-
-  :global(input),
-  :global(select),
-  :global(textarea) {
-    border: 1px solid #49616f;
-    border-radius: 3px;
-    background: #12232e;
-    padding: 4px 6px;
-  }
-
-  :global(:focus-visible) {
-    outline: 2px solid #81ddc6;
-    outline-offset: 1px;
-  }
-
-  :global(select) {
-    /* Keep native controls legible alongside the workspace's light text. */
-    color-scheme: dark;
-  }
-
   main {
     height: 100dvh;
     min-height: 610px;
@@ -798,7 +745,7 @@
   }
 
   .panel {
-    background: #172934;
+    background: var(--surface-panel);
     position: relative;
     z-index: 2;
     min-width: 0;

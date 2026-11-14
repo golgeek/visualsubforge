@@ -200,9 +200,9 @@
 
 <style>
   dialog {
-    color: #dceaf1;
-    background: #172b37;
-    border: 1px solid #5e8196;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 18px;
     width: min(620px, 90vw);
@@ -210,7 +210,7 @@
     overflow: auto;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   header {
     display: flex;
@@ -240,7 +240,7 @@
   }
   small {
     display: block;
-    color: #b4cad6;
+    color: var(--text-muted);
   }
   select {
     min-width: 0;
@@ -256,7 +256,7 @@
   td {
     text-align: left;
     padding: 4px 8px;
-    border-bottom: 1px solid #355263;
+    border-bottom: 1px solid var(--line);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
   }
@@ -265,6 +265,6 @@
   }
   .note {
     font-size: 12px;
-    color: #b4cad6;
+    color: var(--text-muted);
   }
 </style>

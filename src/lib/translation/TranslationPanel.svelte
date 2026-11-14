@@ -224,8 +224,8 @@
     min-width: 280px;
     padding: 10px;
     overflow: auto;
-    border-left: 1px solid #638299;
-    background: #203542;
+    border-left: 1px solid var(--line-strong);
+    background: var(--surface-raised);
     font-size: 12px;
   }
   header,
@@ -245,14 +245,14 @@
     white-space: pre-wrap;
   }
   .hint {
-    color: #b5cbd6;
+    color: var(--text-muted);
     font-size: 11px;
   }
   input {
     width: 110px;
   }
   [role='alert'] {
-    color: #ffc4b7;
+    color: var(--err);
   }
   .reference-rows {
     max-height: 230px;
@@ -271,7 +271,7 @@
     overflow-wrap: anywhere;
   }
   .selected {
-    outline: 1px solid #80dfc8;
+    outline: 1px solid var(--accent);
     outline-offset: -2px;
   }
   h3,

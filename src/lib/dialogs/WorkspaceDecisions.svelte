@@ -69,16 +69,16 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #203542;
-    border: 1px solid #81ddc6;
+    color: var(--text);
+    background: var(--surface-raised);
+    border: 1px solid var(--accent);
     border-radius: 8px;
     max-width: 440px;
     padding: 24px;
   }
 
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
 
   .dialog-actions {

@@ -257,7 +257,7 @@
     width: 75px;
     height: 8px;
     flex-shrink: 0;
-    accent-color: #b794f4;
+    accent-color: var(--cut);
   }
   .status {
     max-width: 230px;

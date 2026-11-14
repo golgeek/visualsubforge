@@ -21,7 +21,7 @@
     position: relative;
     z-index: 2;
     padding: 4px 12px;
-    background: #192e3c;
+    background: var(--surface-panel);
     font-size: 12px;
     max-height: 120px;
     overflow: auto;

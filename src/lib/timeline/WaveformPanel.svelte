@@ -213,7 +213,7 @@
 
 <style>
   .panel {
-    background: #172934;
+    background: var(--surface-panel);
     position: relative;
     z-index: 2;
     min-width: 0;
@@ -227,7 +227,7 @@
     gap: 6px;
     height: 32px;
     padding: 4px 8px;
-    background: #203542;
+    background: var(--surface-raised);
     flex-shrink: 0;
   }
 
@@ -266,7 +266,7 @@
     left: 12px;
     right: 12px;
     pointer-events: none;
-    color: #a7bdca;
+    color: var(--text-muted);
     text-align: center;
   }
 

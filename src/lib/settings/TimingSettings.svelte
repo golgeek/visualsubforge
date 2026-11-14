@@ -105,7 +105,7 @@
   .settings {
     font-size: 12px;
     padding: 16px;
-    background: #20323f;
+    background: var(--surface-raised);
   }
   h3 {
     margin: 0 0 12px;
@@ -140,6 +140,6 @@
   }
   p {
     margin: 6px 0;
-    color: #b5c7d3;
+    color: var(--text-muted);
   }
 </style>

@@ -266,9 +266,9 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #1e303d;
-    border: 1px solid #6c8b9d;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     width: min(920px, 92vw);
     max-height: 90dvh;
@@ -276,7 +276,7 @@
     padding: 20px;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   h2 {
     margin-top: 0;
@@ -304,11 +304,11 @@
     justify-content: flex-end;
   }
   .error {
-    color: #ffb3ad;
+    color: var(--err);
   }
   section {
     padding: 10px;
-    background: #344d5d;
+    background: var(--surface-raised);
   }
   .table-scroll {
     max-height: 38vh;
@@ -323,13 +323,13 @@
   }
   th,
   td {
-    border-bottom: 1px solid #496270;
+    border-bottom: 1px solid var(--line);
     text-align: left;
     padding: 8px;
   }
   th {
     position: sticky;
     top: 0;
-    background: #263e4d;
+    background: var(--surface-raised);
   }
 </style>

@@ -43,6 +43,7 @@ not a second workspace gate.
 | `settings/` | Preferences and quality/timing settings. |
 | `translation/` | Reference session, file operations and panel. |
 | `layout/` | Pane geometry, measurement and splitters. |
+| `ui/` | Theme tokens, element defaults and the canvas palette read from tokens. |
 
 Pure unit tests live beside the code they exercise. `client.ts` remains the single
 IPC facade; `generated/` contains generated contracts. The owner map below explains

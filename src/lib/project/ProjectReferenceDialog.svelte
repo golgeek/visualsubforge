@@ -43,9 +43,9 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #1e303d;
-    border: 1px solid #638299;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 20px;
     width: min(520px, calc(100vw - 24px));
@@ -53,7 +53,7 @@
     overflow: auto;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   h2 {
     margin-top: 0;
@@ -62,7 +62,7 @@
     overflow-wrap: anywhere;
   }
   .error {
-    color: #ffc4b7;
+    color: var(--err);
   }
   .actions {
     display: flex;
