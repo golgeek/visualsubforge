@@ -28,8 +28,13 @@ pub struct Preferences {
     timing: Timing,
     quality: crate::quality_profile::Profile,
     show_quality_metrics: bool,
+    #[serde(default = "enabled_by_default")]
+    zoom_waveform_to_cue: bool,
     #[serde(default)]
     pub(crate) personal_words: vsf_application::language::WordLists,
+}
+fn enabled_by_default() -> bool {
+    true
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -43,6 +48,7 @@ impl Default for Preferences {
             timing: Timing::default(),
             quality: Default::default(),
             show_quality_metrics: false,
+            zoom_waveform_to_cue: true,
             personal_words: Default::default(),
         }
     }

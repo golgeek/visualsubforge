@@ -77,16 +77,16 @@ test('composition, consumed keys and modal/menu presentation leave keys alone', 
   );
 });
 
-test('Problems F4 routes direction and permits repeat only with the panel open', () => {
+test('F4 opens Issues and routes direction with repeat', () => {
   assert.deepEqual(route('F4', {}, { problems: true }), {
-    kind: 'problem',
-    previous: false,
+    kind: 'command',
+    action: 'nextProblem',
   });
   assert.deepEqual(
     route('F4', { shiftKey: true, repeat: true }, { problems: true }),
-    { kind: 'problem', previous: true },
+    { kind: 'command', action: 'previousProblem' },
   );
-  assert.equal(route('F4'), null);
+  assert.deepEqual(route('F4'), { kind: 'command', action: 'nextProblem' });
   for (const modifier of ['ctrlKey', 'metaKey', 'altKey'])
     assert.equal(route('F4', { [modifier]: true }, { problems: true }), null);
 });

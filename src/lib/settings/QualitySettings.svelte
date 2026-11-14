@@ -23,8 +23,8 @@
     onimport: () => void;
     onexport: () => void;
   } = $props();
-  let editableId = $state<string | null>(null);
-  const readOnly = $derived(disabled || editableId !== value.id);
+  const builtin = $derived(builtins.some((profile) => profile.id === value.id));
+  const readOnly = $derived(disabled || builtin);
   const language = $derived(value.languageTools ?? defaultLanguageTools);
   const languageRules = [
     ['spelling', 'Check spelling'],
@@ -45,9 +45,7 @@
     onchange(draft);
   }
   function customize() {
-    const draft = customizeProfile(value);
-    editableId = draft.id;
-    onchange(draft);
+    if (!disabled && builtin) onchange(customizeProfile(value));
   }
 </script>
 
@@ -71,7 +69,6 @@
               (p) => p.id === e.currentTarget.value,
             );
             if (profile) {
-              editableId = null;
               onchange(copyProfile(profile));
             }
           }}
@@ -87,7 +84,6 @@
       <div class="actions">
         <button type="button" onclick={onimport}>Import quality profile</button>
         <button type="button" onclick={onexport}>Export quality profile</button>
-        <button type="button" onclick={customize}>Customize a copy</button>
       </div>
     </fieldset>
     <p class="coverage" role="status">
@@ -122,6 +118,15 @@
       make speed unavailable. Display rounding never changes a rule decision.
     </p>
   </div>
+  {#if builtin}
+    <p>
+      Built-in profiles are read-only. <button
+        type="button"
+        {disabled}
+        onclick={customize}>Customize a copy</button
+      >
+    </p>
+  {/if}
   <fieldset disabled={readOnly} class="rules">
     <div class="rules wide" hidden={page !== 'language'}>
       <label class="wide"

@@ -66,11 +66,6 @@
   );
   const pages = [
     {
-      id: 'general',
-      label: 'General',
-      keywords: 'defaults workspace project preferences',
-    },
-    {
       id: 'editing',
       label: 'Editing',
       keywords: 'cue metrics auto commit text undo history',
@@ -109,11 +104,6 @@
       keywords: 'layout density columns theme fonts',
     },
     {
-      id: 'plugins',
-      label: 'Plugins',
-      keywords: 'javascript checker installed packages',
-    },
-    {
       id: 'advanced',
       label: 'Advanced',
       keywords:
@@ -121,7 +111,7 @@
     },
   ] as const;
   type Page = (typeof pages)[number]['id'];
-  let page = $state<Page>('general');
+  let page = $state<Page>('editing');
   let query = $state('');
   const matching = $derived(
     pages.filter((item) =>
@@ -253,20 +243,13 @@
         {#if session.loading}<p role="status">
             Loading current workspace settings…
           </p>{/if}
-        <section hidden={!shown('general')}>
-          <h3>General</h3>
-          <p>
-            Valid changes update this workspace and save your defaults. A
-            project’s saved quality profile and timing settings take precedence
-            when it opens. Settings changes never retime cues or enter subtitle
-            Undo history.
-          </p>
-          <p>
-            Use Undo below to restore the last confirmed settings change.
-            Invalid fields remain unsaved until corrected.
-          </p>
-        </section>
         <section hidden={!shown('editing')}>
+          <label
+            ><input
+              type="checkbox"
+              bind:checked={draft.zoomWaveformToCue}
+            />Zoom waveform to the selected cue</label
+          >
           <h3>Editing</h3>
           <label
             ><input
@@ -434,14 +417,7 @@
             Fonts.
           </p>
         </section>
-        <section hidden={!shown('plugins')}>
-          <h3>Plugins</h3>
-          <p>
-            Open Subtitle Plugins from Commands to choose an installed checker
-            or review its proposed fixes. Each plugin declares its own supported
-            settings and scope; fixes require explicit review.
-          </p>
-        </section>
+
         {#if !matching.length}<p>
             No matching settings. Try “duration”, “snapping” or “shortcuts”.
           </p>{/if}

@@ -1739,26 +1739,8 @@ export type visualsubforge_project_MediaIdentity_Serialize = {
 };
 
 export type visualsubforge_desktop_MenuState = {
-  diagnostics: boolean;
-  available: boolean;
-  media: boolean;
-  document: boolean;
-  convert: boolean;
-  resync: boolean;
-  undo: boolean;
-  redo: boolean;
-  range: boolean;
-  busy: boolean;
-  createCue: boolean;
-  deleteCue: boolean;
-  splitCue: boolean;
-  mergePrevious: boolean;
-  mergeNext: boolean;
-  showScenes: boolean;
-  scenesRunning: boolean;
-  scenesPending: boolean;
-  previousScene: boolean;
-  nextScene: boolean;
+  enabled: string[];
+  checked: string[];
 };
 
 export type visualsubforge_quality_check_Metric = {
@@ -1874,6 +1856,7 @@ export type visualsubforge_preferences_layout_PaneSizes =
   | visualsubforge_preferences_layout_PaneSizes_Deserialize;
 
 export type visualsubforge_preferences_layout_PaneSizes_Deserialize = {
+  topResized?: boolean;
   columns: visualsubforge_preferences_layout_columns_Columns;
   topPct: number;
   editorPct: number;
@@ -1881,6 +1864,7 @@ export type visualsubforge_preferences_layout_PaneSizes_Deserialize = {
 };
 
 export type visualsubforge_preferences_layout_PaneSizes_Serialize = {
+  topResized?: boolean;
   columns: visualsubforge_preferences_layout_columns_Columns;
   topPct: number;
   editorPct: number;
@@ -1990,6 +1974,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
   timing: visualsubforge_timing_preset_Settings;
   quality: vsf_application_quality_profile_Profile_Deserialize;
   showQualityMetrics: boolean;
+  zoomWaveformToCue?: boolean;
   personalWords?: vsf_application_language_dictionary_WordLists;
 };
 
@@ -2003,6 +1988,7 @@ export type visualsubforge_preferences_Preferences_Serialize = {
   timing: visualsubforge_timing_preset_Settings;
   quality: vsf_application_quality_profile_Profile_Serialize;
   showQualityMetrics: boolean;
+  zoomWaveformToCue: boolean;
   personalWords: vsf_application_language_dictionary_WordLists;
 };
 
@@ -3039,6 +3025,41 @@ export type visualsubforge_language_tools_Words = {
 
 /**  Shared native-menu/quit payload; the wire event name stays workspace-action. */
 export type visualsubforge_desktop_WorkspaceAction =
+  | 'commandPalette'
+  | 'shortcutSheet'
+  | 'themeSystem'
+  | 'themeDark'
+  | 'themeLight'
+  | 'densityCompact'
+  | 'densityComfortable'
+  | 'layoutOptions'
+  | 'layoutTiming'
+  | 'layoutEditorAbove'
+  | 'layoutReview'
+  | 'layoutTranslation'
+  | 'layoutBigPicture'
+  | 'problems'
+  | 'statistics'
+  | 'fixGaps'
+  | 'fixReadingSpeed'
+  | 'snapShots'
+  | 'shiftCues'
+  | 'previousProblem'
+  | 'nextProblem'
+  | 'find'
+  | 'replace'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'fitWaveform'
+  | 'setStart'
+  | 'setEnd'
+  | 'replay'
+  | 'seekBack'
+  | 'seekForward'
+  | 'textTools'
+  | 'styles'
+  | 'fonts'
+  | 'followPlayhead'
   | 'settings'
   | 'timingSettings'
   | 'resync'

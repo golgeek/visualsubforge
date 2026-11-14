@@ -28,8 +28,15 @@ export async function batchPerformance({
     );
     await b.frame();
     times.selectAllMs = performance.now() - started;
-    b.button('Commands').focus();
-    b.button('Commands').click();
+    document.querySelector('canvas[aria-label^="Audio waveform"]').focus();
+    document.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'k',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
     await b.wait(() =>
       document.querySelector('[data-action="shiftCues"]:not(:disabled)'),
     );

@@ -389,7 +389,7 @@ try {
     source,
     cli,
   });
-  await actionDiscovery({ browser, until, evidence, record });
+  await actionDiscovery({ browser, until, evidence, record, menu });
   await workspaceLayouts({ browser, invoke, until, evidence, record });
   opened = await gapReview({ browser, status, until, evidence, record });
   opened = await textEditing({

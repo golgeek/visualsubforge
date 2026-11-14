@@ -2,6 +2,7 @@ export type TimingKind = 'gap' | 'scene' | 'duration' | 'batch';
 /** Only workspace panel visibility and its existing open/close rules. */
 export class WorkspaceView {
   translationOpen = $state(false);
+  private reviewBeforeTranslation = false;
   problemsOpen = $state(false);
   diagnostics = $state(false);
   reviewBusy = $state(false);
@@ -33,9 +34,15 @@ export class WorkspaceView {
     cancelNavigation();
   }
   toggleTranslation() {
+    if (this.reviewBusy) return;
     this.translationOpen = !this.translationOpen;
-    // Hiding Problems from this toggle does not resolve its pending choice.
-    if (this.translationOpen) this.problemsOpen = false;
+    if (this.translationOpen) {
+      this.reviewBeforeTranslation = this.problemsOpen;
+      this.problemsOpen = false;
+    } else {
+      this.problemsOpen = this.reviewBeforeTranslation;
+      this.reviewBeforeTranslation = false;
+    }
   }
   revealProblems() {
     this.reviewTab = 'issues';

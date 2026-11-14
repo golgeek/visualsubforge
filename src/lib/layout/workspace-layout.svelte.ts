@@ -219,6 +219,8 @@ export class WorkspaceLayout {
   async select(preset: LayoutPreset) {
     await this.change(() => {
       this.current.custom = null;
+      if (!this.current[preset].topResized)
+        this.current[preset].topPct = this.topPct;
       this.current.active = preset;
       this.effects.preset(preset);
     }).catch(() => {});
@@ -241,6 +243,7 @@ export class WorkspaceLayout {
   resizePreview(value: number) {
     void this.change(() => {
       this.current[this.preset].topPct = clamp(value, 10, 65);
+      this.current[this.preset].topResized = true;
     }).catch(() => {});
   }
   resizeEditor(value: number) {

@@ -86,7 +86,10 @@ export async function sceneQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('scene workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });

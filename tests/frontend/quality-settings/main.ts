@@ -212,8 +212,14 @@ async function run() {
   );
   choose('vsf-default');
   await tick();
+  await page('Advanced');
+  check(
+    host.textContent!.includes('Built-in profiles are read-only'),
+    'Advanced explains built-in profile locking',
+  );
   button('Customize a copy').click();
   await tick();
+  await page('Quality profile');
   check(
     selected().startsWith('custom-') &&
       !field('Custom profile name').matches(':disabled'),
@@ -228,6 +234,27 @@ async function run() {
       current.quality.rules.speed.maximumCps === null,
     'Debounced save keeps complete custom rules and nullable speed bounds coherent',
   );
+  await open();
+  await page('Advanced');
+  const speed = () =>
+    [...host.querySelectorAll('label')]
+      .find((label) =>
+        label.textContent?.trim().startsWith('Speed calculation'),
+      )!
+      .querySelector('select')!;
+  check(
+    !speed().matches(':disabled'),
+    'Reopened custom profile remains editable in Advanced',
+  );
+  const customId = current.quality.id;
+  speed().value = 'vss_overlap_v1';
+  speed().dispatchEvent(new Event('change', { bubbles: true }));
+  await until(() => current.quality.speedBasis === 'vss_overlap_v1');
+  check(
+    current.quality.id === customId,
+    'Editing a custom profile preserves its identity',
+  );
+  await page('Quality profile');
   const beforeInvalid = saves;
   set('Minimum duration', '0');
   await pause();
@@ -237,7 +264,7 @@ async function run() {
       host.textContent!.includes('not saved'),
     'Invalid input remains visible with a reason and is not saved',
   );
-  await page('General');
+  await page('Editing');
   await page('Quality profile');
   check(
     field('Minimum duration').value === '0',
@@ -335,7 +362,10 @@ async function run() {
   button('Retry save').click();
   await until(() => current.timing.cueGapMs === 220);
   await page('Spelling and language');
-  button('Customize a copy').click();
+  check(
+    !field('Check spelling').matches(':disabled'),
+    'Existing custom language profile is editable without copying',
+  );
   await tick();
   const dictionary = host.querySelector<HTMLSelectElement>(
     '[aria-label="Language dictionary"]',

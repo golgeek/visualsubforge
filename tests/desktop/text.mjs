@@ -15,7 +15,10 @@ export async function textEditing({
   const editor = await browser.$('[aria-label="Subtitle text"]');
   const ready = () =>
     until('text workspace enabled', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   async function editCue(index, text) {
     await ready();

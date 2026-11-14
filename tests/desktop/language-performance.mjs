@@ -208,11 +208,18 @@ export async function languagePerformance({
         const checked = await browser.execute(async () => {
           const b = window.__languageBench;
           if (!document.querySelector('[aria-label="Subtitle Problems"]')) {
-            const launcher = [...document.querySelectorAll('button')].find(
-              (button) => button.textContent.trim() === 'Commands',
+            const launcher = document.querySelector(
+              'canvas[aria-label^="Audio waveform"]',
             );
             launcher.focus();
-            launcher.click();
+            launcher.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key: 'k',
+                ctrlKey: true,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
             await b.wait(() =>
               document.querySelector('[data-action="problems"]:not(:disabled)'),
             );

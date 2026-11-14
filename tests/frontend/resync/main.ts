@@ -624,7 +624,9 @@ async function appCases() {
     );
   async function open() {
     phase = 'reviewing';
-    button('Commands').focus();
+    host
+      .querySelector<HTMLCanvasElement>('canvas[aria-label^="Audio waveform"]')!
+      .focus();
     dispatch('resync');
     await until(() => !!dialog());
     assert(occluded, 'Dialog visible before native occlusion');
@@ -636,9 +638,14 @@ async function appCases() {
     await until(() => !!dialog()?.querySelector('table'));
   }
   try {
-    await until(() => !!listener && !!menu && !menu.busy);
+    await until(
+      () => !!listener && !!menu && !!menu!.enabled.includes('settings'),
+    );
     dispatch('openMedia');
-    await until(() => !!menu && !menu.busy && media.session === 2);
+    await until(
+      () =>
+        !!menu && !!menu!.enabled.includes('settings') && media.session === 2,
+    );
     if (new URLSearchParams(location.search).has('review')) {
       await open();
       await analyze();
@@ -660,9 +667,12 @@ async function appCases() {
       'Draft analysis was enabled',
     );
     button('Cancel resync', dialog()!).click();
-    await until(() => !dialog() && !menu!.busy);
+    await until(() => !dialog() && !!menu!.enabled.includes('settings'));
     assert(
-      document.activeElement === button('Commands'),
+      document.activeElement ===
+        host.querySelector<HTMLCanvasElement>(
+          'canvas[aria-label^="Audio waveform"]',
+        )!,
       'Resync launcher focus restored',
     );
     assert(
@@ -680,9 +690,12 @@ async function appCases() {
       'Discarding a draft changed accepted content',
     );
     button('Close', dialog()!).click();
-    await until(() => !dialog() && !menu!.busy);
+    await until(() => !dialog() && !!menu!.enabled.includes('settings'));
     assert(
-      document.activeElement === button('Commands'),
+      document.activeElement ===
+        host.querySelector<HTMLCanvasElement>(
+          'canvas[aria-label^="Audio waveform"]',
+        )!,
       'Resync launcher focus restored',
     );
     text.value = 'Draft revised';
@@ -724,9 +737,12 @@ async function appCases() {
         dialog()!.textContent!.includes('101–200 of 205'),
     );
     button('Close', dialog()!).click();
-    await until(() => !dialog() && !menu!.busy);
+    await until(() => !dialog() && !!menu!.enabled.includes('settings'));
     assert(
-      document.activeElement === button('Commands'),
+      document.activeElement ===
+        host.querySelector<HTMLCanvasElement>(
+          'canvas[aria-label^="Audio waveform"]',
+        )!,
       'Resync launcher focus restored',
     );
     assert(
@@ -745,7 +761,10 @@ async function appCases() {
       'Video roles are missing',
     );
     button('Accept timings', dialog()!).click();
-    await until(() => !dialog() && !menu!.busy && doc.requiresSaveAs);
+    await until(
+      () =>
+        !dialog() && !!menu!.enabled.includes('settings') && doc.requiresSaveAs,
+    );
     assert(
       doc.cues.every((cue, i) => cue.startMs === 1500 + i * 2000) &&
         files.get('/original.srt') === original,
@@ -760,21 +779,21 @@ async function appCases() {
     );
     (document.activeElement as HTMLElement | null)?.blur();
     dispatch('undo');
-    await until(() => !menu!.busy && doc.canRedo);
+    await until(() => !!menu!.enabled.includes('settings') && doc.canRedo);
     assert(
       doc.cues.every((cue, i) => cue.startMs === 1000 + i * 2000) &&
         doc.requiresSaveAs,
       'Undo did not restore all cues or dropped protection',
     );
     dispatch('redo');
-    await until(() => !menu!.busy && !doc.canRedo);
+    await until(() => !!menu!.enabled.includes('settings') && !doc.canRedo);
     passed(
       'one App Undo/Redo restores every cue while retaining source protection',
     );
     savePath = null;
     const saves = calls.filter((call) => call === 'document_action').length;
     dispatch('save');
-    await until(() => !menu!.busy);
+    await until(() => !!menu!.enabled.includes('settings'));
     assert(
       calls.filter((call) => call === 'document_action').length === saves &&
         doc.requiresSaveAs,
@@ -784,13 +803,16 @@ async function appCases() {
     dispatch('save');
     await until(
       () =>
-        !menu!.busy && host.textContent!.includes('Choose a different file'),
+        !!menu!.enabled.includes('settings') &&
+        host.textContent!.includes('Choose a different file'),
     );
     savePath = '/target.srt';
     failSave = true;
     dispatch('saveProject');
     await until(
-      () => !menu!.busy && host.textContent!.includes('Injected save failure'),
+      () =>
+        !!menu!.enabled.includes('settings') &&
+        host.textContent!.includes('Injected save failure'),
     );
     assert(
       projectSubtitle === undefined &&
@@ -800,7 +822,11 @@ async function appCases() {
     );
     failSave = false;
     dispatch('saveProject');
-    await until(() => !menu!.busy && projectSubtitle === '/target.srt');
+    await until(
+      () =>
+        !!menu!.enabled.includes('settings') &&
+        projectSubtitle === '/target.srt',
+    );
     assert(
       !doc.requiresSaveAs &&
         files.has('/target.srt') &&
@@ -823,9 +849,12 @@ async function appCases() {
       'Cancelled analysis can apply',
     );
     button('Close', dialog()!).click();
-    await until(() => !dialog() && !menu!.busy);
+    await until(() => !dialog() && !!menu!.enabled.includes('settings'));
     assert(
-      document.activeElement === button('Commands'),
+      document.activeElement ===
+        host.querySelector<HTMLCanvasElement>(
+          'canvas[aria-label^="Audio waveform"]',
+        )!,
       'Resync launcher focus restored',
     );
     passed(

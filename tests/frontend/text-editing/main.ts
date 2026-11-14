@@ -94,7 +94,9 @@ function input(label: string, value: string) {
   e.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   await chooseCommand(host, 'textTools');
   await until(() => !!host.querySelector('dialog[open]'));
 }
@@ -418,7 +420,9 @@ async function run() {
         doc.cues[1]!.text === sample.rows[1]!.after,
       'Batch not reconciled',
     );
-    await until(() => !button('Commands').disabled);
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     button('Undo edit').click();
     await until(() => doc.revision === original.revision + 2);
     assert(
@@ -463,9 +467,14 @@ async function run() {
     await until(() => starts >= 4);
     button('Close text tools').click();
     await until(() => !host.querySelector('dialog[open]'));
-    await until(() => !button('Commands').disabled);
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     assert(
-      document.activeElement === button('Commands'),
+      document.activeElement ===
+        host.querySelector<HTMLCanvasElement>(
+          'canvas[aria-label^="Audio waveform"]',
+        )!,
       'Text launcher focus restored',
     );
     const lateId = starts;
@@ -475,7 +484,9 @@ async function run() {
       'Closing during admission cancels the eventual job and cannot reopen the dialog',
     );
     heldStart = null;
-    await until(() => !button('Commands').disabled);
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     window.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'f',
@@ -491,7 +502,9 @@ async function run() {
       'Find shortcut opened wrong mode',
     );
     button('Close text tools').click();
-    await until(() => !button('Commands').disabled);
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     window.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'h',
@@ -518,7 +531,9 @@ async function run() {
       'Replace shortcut opened wrong mode',
     );
     button('Close text tools').click();
-    await until(() => !button('Commands').disabled);
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     passed('Find and replace keyboard entry preserves the Mac Cmd+H shortcut');
     languageEnabled = true;
     input('Subtitle text', '😀 <i>helo helo</i>');
@@ -526,7 +541,7 @@ async function run() {
     await until(
       () =>
         doc.cues[0]!.text === '😀 <i>helo helo</i>' &&
-        !button('Commands').disabled,
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     await chooseCommand(host, 'problems');
     await until(() => host.textContent!.includes('Fixture spelling finding'));
@@ -550,7 +565,9 @@ async function run() {
     );
     button('Accept text repairs').click();
     await until(
-      () => !host.querySelector('dialog[open]') && !button('Commands').disabled,
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     assert(
       doc.cues[0]!.text === '😀 <i>hello helo</i>' &&

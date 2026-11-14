@@ -39,7 +39,7 @@
   {#if navigation.following === 'suspended'}
     <span
       >{draftDirty
-        ? 'Apply or revert your edit to follow playback.'
+        ? 'Finish editing to follow playback.'
         : 'Following paused.'}</span
     >
     <button

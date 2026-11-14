@@ -15,6 +15,41 @@ use tauri_specta::Event;
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 #[serde(rename_all = "camelCase")]
 pub enum WorkspaceAction {
+    CommandPalette,
+    ShortcutSheet,
+    ThemeSystem,
+    ThemeDark,
+    ThemeLight,
+    DensityCompact,
+    DensityComfortable,
+    LayoutOptions,
+    LayoutTiming,
+    LayoutEditorAbove,
+    LayoutReview,
+    LayoutTranslation,
+    LayoutBigPicture,
+    Problems,
+    Statistics,
+    FixGaps,
+    FixReadingSpeed,
+    SnapShots,
+    ShiftCues,
+    PreviousProblem,
+    NextProblem,
+    Find,
+    Replace,
+    ZoomIn,
+    ZoomOut,
+    FitWaveform,
+    SetStart,
+    SetEnd,
+    Replay,
+    SeekBack,
+    SeekForward,
+    TextTools,
+    Styles,
+    Fonts,
+    FollowPlayhead,
     Settings,
     TimingSettings,
     Resync,
@@ -68,6 +103,8 @@ pub struct ExitGate(pub AtomicBool);
 #[derive(Deserialize)]
 struct ActionDescription {
     native: bool,
+    group: String,
+    order: u32,
     label: String,
     shortcut: String,
 }
@@ -111,83 +148,111 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .separator()
         .quit()
         .build()?;
-    let file = SubmenuBuilder::new(app, "File")
-        .item(&item("openProject")?)
-        .item(&item("importLegacyProject")?)
-        .item(&item("saveProject")?)
-        .item(&item("saveProjectAs")?)
-        .separator()
-        .item(&item("openMedia")?)
-        .item(&item("openSubtitles")?)
-        .separator()
-        .item(&item("save")?)
-        .item(&item("saveAs")?)
-        .item(&item("convertSubtitles")?)
-        .separator()
-        .item(&item("closeMedia")?)
-        .item(&item("closeSubtitles")?)
-        .build()?;
-    let edit = SubmenuBuilder::new(app, "Edit")
-        .item(&item("undo")?)
-        .item(&item("redo")?)
-        .item(&item("apply")?)
-        .separator()
-        .item(&item("createCue")?)
-        .item(&item("deleteCue")?)
-        .item(&item("splitCue")?)
-        .item(&item("mergePrevious")?)
-        .item(&item("mergeNext")?)
-        .separator()
-        .cut()
-        .copy()
-        .paste()
-        .select_all();
-    #[cfg(not(target_os = "macos"))]
-    let edit = edit.separator().item(&item("settings")?);
-    let edit = edit.build()?;
-    let view = SubmenuBuilder::new(app, "View")
-        .item(&item("translationReference")?)
-        .item(
-            &CheckMenuItemBuilder::with_id("showScenes", &description("showScenes")?.label)
-                .checked(true)
-                .build(app)?,
-        )
-        .separator()
-        .item(&item("arrangePanels")?)
-        .item(&item("resetLayout")?)
-        .item(
-            &CheckMenuItemBuilder::with_id("diagnostics", &description("diagnostics")?.label)
-                .checked(false)
-                .build(app)?,
-        )
-        .build()?;
-    let playback = SubmenuBuilder::new(app, "Playback")
-        .item(&item("play")?)
-        .item(&item("previousFrame")?)
-        .item(&item("nextFrame")?)
-        .separator()
-        .item(&item("playRange")?)
-        .item(&item("clearLoop")?)
-        .build()?;
-    let tools = SubmenuBuilder::new(app, "Tools")
-        .item(&item("resync")?)
-        .item(&item("plugins")?)
-        .separator()
-        .item(&item("scanScenes")?)
-        .item(&item("cancelSceneScan")?)
-        .separator()
-        .item(&item("previousScene")?)
-        .item(&item("nextScene")?)
-        .separator()
-        .item(&item("timingSettings")?)
-        .build()?;
-    let menu = MenuBuilder::new(app);
+    let checked_ids = [
+        "translationReference",
+        "showScenes",
+        "diagnostics",
+        "problems",
+        "statistics",
+        "followPlayhead",
+        "layoutTiming",
+        "layoutEditorAbove",
+        "layoutReview",
+        "layoutTranslation",
+        "layoutBigPicture",
+    ];
+    let mut ordered: Vec<_> = descriptions.iter().collect();
+    ordered.sort_by_key(|(_, action)| action.order);
+    let mut groups = Vec::new();
+    for name in ["File", "Edit", "Cue", "Playback", "Review", "View", "Help"] {
+        let mut group = SubmenuBuilder::new(app, name);
+        if name == "Edit" {
+            group = group
+                .item(&item("undo")?)
+                .item(&item("redo")?)
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .separator();
+        }
+        for &(id, action) in &ordered {
+            if (name == "Edit" && matches!(id.as_str(), "undo" | "redo"))
+                || !action.native
+                || action.group != name
+                || id.starts_with("theme")
+                || id.starts_with("density")
+                || id.starts_with("layout")
+                || id == "quit"
+                || id == "arrangePanels"
+                || id == "resetLayout"
+            {
+                continue;
+            }
+            #[cfg(target_os = "macos")]
+            if id == "settings" {
+                continue;
+            }
+            if checked_ids.contains(&id.as_str()) {
+                let check = CheckMenuItemBuilder::with_id(id, &action.label);
+                let check = if action.shortcut.is_empty() {
+                    check
+                } else {
+                    check.accelerator(&action.shortcut)
+                };
+                group = group.item(&check.build(app)?);
+            } else {
+                group = group.item(&item(id)?);
+            }
+        }
+        if name == "View" {
+            let mut layout = SubmenuBuilder::new(app, "Layout");
+            for id in [
+                "layoutTiming",
+                "layoutEditorAbove",
+                "layoutReview",
+                "layoutTranslation",
+                "layoutBigPicture",
+            ] {
+                layout = layout
+                    .item(&CheckMenuItemBuilder::with_id(id, &description(id)?.label).build(app)?);
+            }
+            layout = layout
+                .separator()
+                .item(&item("layoutOptions")?)
+                .item(&item("arrangePanels")?)
+                .item(&item("resetLayout")?);
+            group = group.item(&layout.build()?);
+            for (name, ids) in [
+                ("Theme", vec!["themeSystem", "themeDark", "themeLight"]),
+                ("Density", vec!["densityCompact", "densityComfortable"]),
+            ] {
+                let mut submenu = SubmenuBuilder::new(app, name);
+                for id in ids {
+                    submenu = submenu.item(
+                        &CheckMenuItemBuilder::with_id(id, &description(id)?.label).build(app)?,
+                    );
+                }
+                group = group.item(&submenu.build()?);
+            }
+        }
+        let group = group.build()?;
+        groups.push(group);
+    }
+    let mut menu = MenuBuilder::new(app);
     #[cfg(target_os = "macos")]
-    let menu = menu.item(&application);
-    let menu = menu
-        .items(&[&file, &edit, &view, &playback, &tools])
-        .build()?;
-    app.set_menu(menu)?;
+    {
+        menu = menu.item(&application);
+    }
+    for group in &groups {
+        menu = menu.item(group);
+    }
+    app.set_menu(menu.build()?)?;
+    #[cfg(target_os = "macos")]
+    if let Some(help) = groups.last() {
+        help.set_as_help_menu_for_nsapp()?;
+    }
     app.on_menu_event(|app, event| {
         if let Some(action) = WorkspaceAction::from_menu_id(event.id().as_ref()) {
             let _ = action.emit(app);
@@ -198,98 +263,37 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
 #[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuState {
-    diagnostics: bool,
-    available: bool,
-    media: bool,
-    document: bool,
-    convert: bool,
-    resync: bool,
-    undo: bool,
-    redo: bool,
-    range: bool,
-    busy: bool,
-    create_cue: bool,
-    delete_cue: bool,
-    split_cue: bool,
-    merge_previous: bool,
-    merge_next: bool,
-    show_scenes: bool,
-    scenes_running: bool,
-    scenes_pending: bool,
-    previous_scene: bool,
-    next_scene: bool,
+    enabled: Vec<String>,
+    checked: Vec<String>,
+}
+fn sync_menu(
+    items: Vec<tauri::menu::MenuItemKind<tauri::Wry>>,
+    state: &MenuState,
+) -> Result<(), String> {
+    for item in items {
+        let enabled = state.enabled.iter().any(|id| id == item.id().as_ref());
+        match item {
+            tauri::menu::MenuItemKind::Submenu(menu) => {
+                sync_menu(menu.items().map_err(|e| e.to_string())?, state)?
+            }
+            tauri::menu::MenuItemKind::MenuItem(item) => {
+                item.set_enabled(enabled).map_err(|e| e.to_string())?
+            }
+            tauri::menu::MenuItemKind::Check(item) => {
+                item.set_enabled(enabled).map_err(|e| e.to_string())?;
+                item.set_checked(state.checked.iter().any(|id| id == item.id().as_ref()))
+                    .map_err(|e| e.to_string())?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 #[tauri::command]
 #[specta::specta]
 pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String> {
     if let Some(menu) = app.menu() {
-        for (id, enabled) in [
-            ("resync", state.resync),
-            ("plugins", state.document),
-            ("translationReference", true),
-            ("settings", true),
-            ("timingSettings", true),
-            (
-                "scanScenes",
-                state.media && !state.scenes_running && !state.scenes_pending,
-            ),
-            (
-                "cancelSceneScan",
-                state.media && state.scenes_running && !state.scenes_pending,
-            ),
-            ("previousScene", state.media && state.previous_scene),
-            ("nextScene", state.media && state.next_scene),
-            ("openProject", true),
-            ("importLegacyProject", true),
-            ("saveProject", state.media || state.document),
-            ("saveProjectAs", state.media || state.document),
-            ("openMedia", state.available),
-            ("openSubtitles", true),
-            ("save", state.document),
-            ("apply", state.document),
-            ("createCue", state.create_cue),
-            ("deleteCue", state.delete_cue),
-            ("splitCue", state.split_cue),
-            ("mergePrevious", state.merge_previous),
-            ("mergeNext", state.merge_next),
-            ("saveAs", state.document),
-            ("convertSubtitles", state.document && state.convert),
-            ("closeSubtitles", state.document),
-            ("closeMedia", state.media),
-            ("undo", state.undo),
-            ("redo", state.redo),
-            ("play", state.media),
-            ("previousFrame", state.media),
-            ("nextFrame", state.media),
-            ("playRange", state.media && state.range),
-            ("clearLoop", state.media),
-        ] {
-            if let Some(item) = menu
-                .items()
-                .map_err(|e| e.to_string())?
-                .into_iter()
-                .find_map(|v| v.as_submenu().and_then(|submenu| submenu.get(id)))
-                .and_then(|v| v.as_menuitem().cloned())
-            {
-                item.set_enabled(enabled && !state.busy)
-                    .map_err(|e| e.to_string())?;
-            }
-        }
-        for (id, checked) in [
-            ("showScenes", state.show_scenes),
-            ("diagnostics", state.diagnostics),
-        ] {
-            if let Some(item) = menu
-                .items()
-                .map_err(|e| e.to_string())?
-                .into_iter()
-                .find_map(|v| v.as_submenu().and_then(|submenu| submenu.get(id)))
-                .and_then(|v| v.as_check_menuitem().cloned())
-            {
-                item.set_checked(checked).map_err(|e| e.to_string())?;
-                item.set_enabled(!state.busy).map_err(|e| e.to_string())?;
-            }
-        }
+        sync_menu(menu.items().map_err(|e| e.to_string())?, &state)?;
     }
     Ok(())
 }
@@ -458,46 +462,15 @@ pub async fn finish_exit(
 
 #[cfg(test)]
 pub(crate) fn ipc_sample() -> serde_json::Value {
-    let values = serde_json::json!([
-        "settings",
-        "timingSettings",
-        "resync",
-        "plugins",
-        "translationReference",
-        "showScenes",
-        "scanScenes",
-        "cancelSceneScan",
-        "previousScene",
-        "nextScene",
-        "openProject",
-        "importLegacyProject",
-        "saveProject",
-        "saveProjectAs",
-        "createCue",
-        "deleteCue",
-        "splitCue",
-        "mergePrevious",
-        "mergeNext",
-        "apply",
-        "openMedia",
-        "openSubtitles",
-        "save",
-        "saveAs",
-        "convertSubtitles",
-        "closeMedia",
-        "closeSubtitles",
-        "undo",
-        "redo",
-        "play",
-        "previousFrame",
-        "nextFrame",
-        "playRange",
-        "clearLoop",
-        "resetLayout",
-        "arrangePanels",
-        "diagnostics",
-        "quit"
-    ]);
+    let values = serde_json::to_value(
+        action_descriptions()
+            .unwrap()
+            .into_iter()
+            .filter(|(_, description)| description.native)
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
     let actions: Vec<WorkspaceAction> = serde_json::from_value(values.clone()).unwrap();
     assert_eq!(serde_json::to_value(actions).unwrap(), values);
     values

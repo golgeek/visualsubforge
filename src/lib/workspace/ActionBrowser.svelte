@@ -152,7 +152,11 @@
           ? (action.macShortcut ?? action.shortcut)
           : action.shortcut}
         {#if mode === 'shortcuts'}
-          <div class="shortcut-row" data-action={action.id}>
+          <div
+            class="shortcut-row"
+            data-action={action.id}
+            aria-pressed={context.checks?.[action.id]}
+          >
             <span>{action.label}</span><span class="bindings">
               {#if shortcuts}
                 {#each shortcuts.bindings.filter((binding) => binding.action === action.id && binding.key) as binding (binding.mode)}
@@ -178,6 +182,7 @@
           <button
             data-result
             data-action={action.id}
+            aria-pressed={context.checks?.[action.id]}
             disabled={pending || !!reason}
             onclick={() => void run(() => onaction(action.id))}
             ><span

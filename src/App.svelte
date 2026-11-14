@@ -290,6 +290,7 @@
       tableView,
       gestures,
       {
+        zoomToCue: () => preferences.preferences.zoomWaveformToCue ?? true,
         readList: () =>
           list
             ? { scrollTop: list.scrollTop, height: list.clientHeight }
@@ -539,6 +540,7 @@
   );
   const startVisible = $derived(!doc.loaded && !status.loaded);
   const recent = disposeWithComponent(new RecentWork());
+  let recentSavedIdentity = '';
   $effect(() => {
     if (!workspace.ready || workspace.busy || workspace.confirming) return;
     const request = {
@@ -549,18 +551,24 @@
     };
     const hasPath = projects.path || doc.path || (status.loaded && media.path);
     const report = quality.view;
+    if (!doc.dirty)
+      recentSavedIdentity = JSON.stringify([
+        doc.generation,
+        doc.revision,
+        report?.phase === 'ready' ? report.id : null,
+        report?.profileHash,
+      ]);
     recent.configure(
       hasPath
         ? {
             request,
             identity: JSON.stringify([
-              request,
+              request.session,
+              request.generation,
+              request.projectToken,
               doc.path,
-              doc.dirty,
               media.path,
-              report?.id,
-              report?.phase,
-              report?.profileHash,
+              recentSavedIdentity,
             ]),
           }
         : null,
@@ -642,6 +650,8 @@
       case 'timingSettings':
       case 'translationReference':
         return runViewAction(action, viewActions);
+      default:
+        return commands.run(action, true);
     }
   }
 
@@ -678,6 +688,7 @@
   };
 
   const commands: WorkspaceCommands = new WorkspaceCommands({
+    preferences,
     layout,
     workspace,
     subtitles,
@@ -702,18 +713,7 @@
       : null,
   );
 
-  const menus = disposeWithComponent(
-    new WorkspaceMenus(
-      workspace,
-      subtitles,
-      media,
-      view,
-      scenes,
-      timeline,
-      navigation,
-      cueEditing,
-    ),
-  );
+  const menus = disposeWithComponent(new WorkspaceMenus(workspace, commands));
 
   const startup = disposeWithComponent(
     new WorkspaceStartup(workspace, subtitles, preferences),
@@ -779,27 +779,25 @@
   onkeydown={(event) => workspaceKeydown(event, keys)}
 />
 <main
-  aria-busy={workspace.busy || !workspace.ready}
+  aria-busy={!workspace.canAct}
   class:start-visible={startVisible}
   style:--workspace-height={`${layout.workspaceHeight}px`}
   style:--workspace-min-height={`${layout.panes.minimum + 16}px`}
   style:--table-min-height={`${layout.panes.tableMinimum}px`}
 >
   <WorkspaceToolbar
+    issueCount={!quality.stale && quality.view?.phase === 'ready'
+      ? quality.view.affectedCues
+      : null}
+    onissues={() => view.openReview('issues')}
     recoveryAvailable={!startVisible &&
       (recovery.status.entries.length > 0 || !!recovery.status.error)}
     onrecovery={() => void workspaceModal.open('recovery')}
-    onlayout={() => void workspaceModal.open('layout')}
     {chrome}
     ongroup={(group) => {
       commandGroup = group;
       void commands.open('actionMenu');
     }}
-    oncommands={() => {
-      commandGroup = null;
-      void commands.open('actionMenu');
-    }}
-    onshortcuts={() => void commands.open('shortcuts')}
     {workspace}
     {media}
     {subtitles}
@@ -1081,7 +1079,7 @@
         onmeasure={(part, height) => layout.measureEditor(part, height)}
         actions={{
           suspendCueFollowing: navigation.suspendFollowing,
-          showIssues: () => void workspaceModal.open('cueIssues'),
+          showIssues: () => view.openReview('issues'),
           reviewIssue: (rule) => {
             if (
               [

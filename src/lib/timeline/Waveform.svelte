@@ -36,6 +36,7 @@
     previewRange = null,
     oncontext,
     onselect,
+    onedge,
     ongesture,
     sceneCuts = [],
     timing = defaultTiming,
@@ -64,6 +65,17 @@
     enabled?: boolean;
     onseek: (time: number) => void;
     onselect?: (cueId: number) => void;
+    onedge?:
+      | {
+          begin: (id: number, current: () => boolean) => Promise<boolean>;
+          preview: (
+            boundary: 'start' | 'end',
+            milliseconds: number,
+            pointer: { bypass: boolean; millisecondsPerPixel: number },
+          ) => void;
+          finish: (commit: boolean) => void;
+        }
+      | undefined;
     ongesture?: (active: boolean) => void;
     onrange: (range: [number, number]) => void;
     onwidth: (width: number) => void;
@@ -88,6 +100,7 @@
     timing: TimingSettings;
     anchorX: number;
     cueId: number | null;
+    edge: { cue: Cue; boundary: 'start' | 'end' } | null;
     anchor: number;
     left: number;
     width: number;
@@ -97,6 +110,48 @@
     preview: [number, number] | null;
     guides: SnapGuide[];
   } | null>(null);
+  let edge: {
+    pointer: number;
+    cue: Cue;
+    boundary: 'start' | 'end';
+    x: number;
+    width: number;
+    span: number;
+    ready: boolean;
+    latest: PointerEvent;
+  } | null = null;
+  function edgeAt(event: PointerEvent) {
+    const rect = canvas.getBoundingClientRect();
+    if (!onedge || event.clientY - rect.top < 20) return null;
+    let closest: {
+      cue: Cue;
+      boundary: 'start' | 'end';
+      distance: number;
+    } | null = null;
+    for (const cue of cues)
+      for (const boundary of ['start', 'end'] as const) {
+        const distance = Math.abs(
+          timeToX(
+            cue[boundary === 'start' ? 'startMs' : 'endMs'] / 1000,
+            start,
+            span,
+            rect.width,
+          ) -
+            (event.clientX - rect.left),
+        );
+        if (distance <= 6 && (!closest || distance < closest.distance))
+          closest = { cue, boundary, distance };
+      }
+    return closest;
+  }
+  function finishEdge(commit: boolean) {
+    const previous = edge;
+    edge = null;
+    if (!previous) return;
+    if (canvas.hasPointerCapture(previous.pointer))
+      canvas.releasePointerCapture(previous.pointer);
+    if (previous.ready) onedge?.finish(commit);
+  }
   const displayedGaps = $derived(gaps ?? gapMarks(cues, timing.cueGapMs));
   const guides = $derived(
     gesture?.guides ?? (externalGuide ? [externalGuide] : []),
@@ -335,6 +390,7 @@
     onnavigate(next);
   }
   function cancel() {
+    finishEdge(false);
     const previous = gesture;
     gesture = null;
     if (previous) ongesture?.(false);
@@ -363,7 +419,14 @@
     );
   }
   function begin(e: PointerEvent) {
-    if (gesture || !enabled || !e.isPrimary || e.button !== 0 || duration <= 0)
+    if (
+      gesture ||
+      edge ||
+      !enabled ||
+      !e.isPrimary ||
+      e.button !== 0 ||
+      duration <= 0
+    )
       return;
     const rect = canvas.getBoundingClientRect();
     if (rect.width <= 0) return;
@@ -386,6 +449,7 @@
       anchor: time(e, mapping),
       anchorX: e.clientX,
       cueId: e.clientY - rect.top >= 20 ? cueAt(time(e, mapping)) : null,
+      edge: edgeAt(e),
       preview: null,
       guides: [],
     };
@@ -437,7 +501,59 @@
     ];
   }
   function move(e: PointerEvent) {
+    canvas.style.cursor =
+      edge || (enabled && edgeAt(e)) ? 'ew-resize' : 'crosshair';
+    if (edge?.pointer === e.pointerId) {
+      edge.latest = e;
+      if (edge.ready) {
+        const delta = e.clientX - edge.x;
+        const original =
+          edge.cue[edge.boundary === 'start' ? 'startMs' : 'endMs'];
+        onedge?.preview(
+          edge.boundary,
+          Math.round(
+            clamp(
+              original + (delta * edge.span * 1000) / edge.width,
+              0,
+              duration * 1000,
+            ),
+          ),
+          {
+            bypass: e.altKey || delta === 0,
+            millisecondsPerPixel: (edge.span * 1000) / edge.width,
+          },
+        );
+      }
+      return;
+    }
     if (!gesture || gesture.pointer !== e.pointerId) return;
+    if (gesture.edge && onedge && Math.abs(e.clientX - gesture.anchorX) > 3) {
+      const captured = {
+        pointer: gesture.pointer,
+        cue: gesture.edge.cue,
+        boundary: gesture.edge.boundary,
+        x: gesture.anchorX,
+        width: gesture.width,
+        span: gesture.span,
+        ready: false,
+        latest: e,
+      };
+      // Keep capture while transferring the pending click to the timing owner.
+      // Below the threshold, release retains ordinary cue selection and seeking.
+      gesture = null;
+      ongesture?.(false);
+      edge = captured;
+      void onedge
+        .begin(captured.cue.id, () => edge === captured)
+        .then((ready) => {
+          if (edge === captured) {
+            captured.ready = ready;
+            if (ready) move(captured.latest);
+            else finishEdge(false);
+          } else if (ready) onedge?.finish(false);
+        });
+      return;
+    }
     const preview =
       Math.abs(e.clientX - gesture.anchorX) > 3
         ? snappedRange(e, gesture)
@@ -445,6 +561,11 @@
     gesture = { ...gesture, preview, guides: preview ? gesture.guides : [] };
   }
   function end(e: PointerEvent) {
+    if (edge?.pointer === e.pointerId) {
+      move(e);
+      finishEdge(true);
+      return;
+    }
     const previous = gesture;
     if (!previous || previous.pointer !== e.pointerId) return;
     // Clear capture ownership before publishing so capture loss cannot cancel
@@ -484,6 +605,7 @@
     );
   }
   function cancelPointer(e: PointerEvent) {
+    if (edge?.pointer === e.pointerId) finishEdge(false);
     if (gesture?.pointer === e.pointerId) cancel();
   }
 </script>
@@ -491,7 +613,7 @@
 <svelte:window
   onblur={cancel}
   onkeydown={(e) => {
-    if (e.key === 'Escape' && gesture) {
+    if (e.key === 'Escape' && (gesture || edge)) {
       e.preventDefault();
       cancel();
     }

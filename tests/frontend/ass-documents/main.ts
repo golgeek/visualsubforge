@@ -99,7 +99,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         text?: string;
         start?: number;
         end?: number;
-        state?: { convert: boolean };
+        state?: { enabled: string[] };
       },
     ) => {
       switch (command) {
@@ -114,7 +114,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'plugin:event|unlisten':
           return;
         case 'update_menu':
-          menuConversion = args.state!.convert;
+          menuConversion = args.state!.enabled.includes('convertSubtitles');
           return;
         case 'preferences_get':
           return structuredClone(defaultPreferences);
@@ -569,7 +569,9 @@ async function run() {
     passed('WebVTT formatting commits through the versioned document boundary');
     input('Subtitle text', `${vttEditor.value} draft`);
     await tick();
-    const pluginButton = button('Commands');
+    const pluginButton = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform"]',
+    )!;
     pluginButton.focus();
     await chooseCommand(host, 'plugins');
     await until(

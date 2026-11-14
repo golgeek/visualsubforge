@@ -178,7 +178,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 
 async function openArrange() {
   await until(
-    () => !!listener && !!button('Layout') && !button('Layout')!.disabled,
+    () =>
+      !!listener &&
+      !!host.querySelector('main') &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
   callbacks.get(listener)!({ payload: 'arrangePanels' });
   await until(
@@ -208,7 +211,10 @@ async function run() {
   let app = mount(App, { target: host });
   try {
     await until(
-      () => !!listener && !!button('Layout') && !button('Layout')!.disabled,
+      () =>
+        !!listener &&
+        !!host.querySelector('main') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     const video = host.querySelector<HTMLElement>('.video-space')!;
     const waveform = host.querySelector<HTMLElement>(
@@ -243,35 +249,14 @@ async function run() {
     passed(
       'slot swaps move mounted panels and retain native occlusion while saving user preferences',
     );
-    const transfer = new DataTransfer();
-    const videoTile = host.querySelector<HTMLButtonElement>(
-      'button[aria-label$=" at Video"]',
-    )!;
-    const waveformTile = host.querySelector<HTMLButtonElement>(
-      'button[aria-label$=" at Waveform"]',
-    )!;
-    videoTile.dispatchEvent(
-      new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }),
-    );
-    await tick();
-    waveformTile.dispatchEvent(
-      new DragEvent('drop', {
-        bubbles: true,
-        cancelable: true,
-        dataTransfer: transfer,
-      }),
-    );
-    await tick();
-    await until(
-      () =>
-        !button('Done')!.disabled &&
-        waveform.getBoundingClientRect().x < video.getBoundingClientRect().x,
-    );
+    host.dataset.awaitingDrag = 'true';
+    await until(() => stored.custom?.rows[0]?.panels[0] === 'waveform');
+    delete host.dataset.awaitingDrag;
     assert(occluded, 'Drag drop retains native hiding');
     await place('waveform', 'Video');
     await until(() => stored.custom?.rows[0]?.panels[0] === 'video');
     passed(
-      'HTML drag-and-drop uses the same protected slot move as keyboard controls',
+      'real pointer drag uses the same protected slot move as keyboard controls',
     );
     const before = JSON.stringify(stored.custom);
     await place('transport', 'Cue editor', 'beside');
@@ -299,10 +284,12 @@ async function run() {
     await until(
       () =>
         nativeBounds?.kind === 'layout' &&
-        nativeBounds.width === 0 &&
+        nativeBounds.width === 1 &&
         nativeBounds.visible === false,
     );
-    passed('hiding Video sends visible:false for its zero-size native surface');
+    passed(
+      'hiding Video sends visible:false with valid native dimensions for its zero-size placeholder',
+    );
     await place('video', 'Waveform', 'beside');
     assert(
       video.getBoundingClientRect().width > 0,
@@ -323,8 +310,8 @@ async function run() {
     app = mount(App, { target: host });
     await until(
       () =>
-        !!button('Layout') &&
-        !button('Layout')!.disabled &&
+        !!host.querySelector('main') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
         !!host.querySelector('.workspace.custom'),
     );
     assert(JSON.stringify(stored.custom) === saved, 'User arrangement reloads');
@@ -346,7 +333,11 @@ async function run() {
       'reset and Escape restore the standard preset and release native occlusion',
     );
     callbacks.get(listener)!({ payload: 'saveProject' });
-    await until(() => projectSaves.length === 1 && !button('Layout')!.disabled);
+    await until(
+      () =>
+        projectSaves.length === 1 &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     await openArrange();
     const remember = host.querySelector<HTMLInputElement>(
       'dialog input[type="checkbox"]',

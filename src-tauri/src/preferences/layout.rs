@@ -16,6 +16,8 @@ pub enum Preset {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PaneSizes {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub top_resized: bool,
     pub columns: columns::Columns,
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
@@ -26,6 +28,9 @@ pub struct PaneSizes {
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub wave_pct: f64,
+}
+fn is_false(value: &bool) -> bool {
+    !value
 }
 impl PaneSizes {
     fn validate(&self) -> Result<(), String> {
@@ -45,6 +50,7 @@ impl PaneSizes {
 impl Default for PaneSizes {
     fn default() -> Self {
         Self {
+            top_resized: false,
             columns: Default::default(),
             top_pct: 13.0,
             editor_pct: 16.0,

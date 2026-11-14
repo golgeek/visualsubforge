@@ -25,6 +25,7 @@ interface TimelineEffects {
 export class TimelineView {
   follow = $state(true);
   interacting = $state(false);
+  suspended = $state(false);
   start = $state(0);
   span = $state(20);
   range = $state<[number, number] | null>(null);
@@ -79,11 +80,18 @@ export class TimelineView {
             this.error = String(e);
         });
     });
+    let wasPaused = this.effects.status().paused;
+    $effect(() => {
+      const paused = this.effects.status().paused;
+      if (wasPaused && !paused) this.suspended = false;
+      wasPaused = paused;
+    });
     $effect(() => {
       if (!this.alive) return;
       const position = this.effects.status().positionSeconds;
       if (
         this.follow &&
+        !this.suspended &&
         !this.effects.preview?.() &&
         !this.interacting &&
         !this.effects.pending() &&
@@ -124,6 +132,7 @@ export class TimelineView {
     this.waveKey = '';
   }
   reset(rewind = false) {
+    this.suspended = false;
     ++this.waveRequest;
     this.wave = null;
     this.generation = null;
@@ -144,13 +153,39 @@ export class TimelineView {
       ),
     );
   }
+  frameCue(cue: Cue, zoom = true) {
+    if (!this.alive) return;
+    const span = zoom
+      ? clamp((cue.endMs - cue.startMs) / 600, 8, 120)
+      : this.span;
+    const next = viewport(
+      (cue.startMs + cue.endMs) / 2000 - span / 2,
+      span,
+      this.duration || 20,
+    );
+    this.suspended = true;
+    this.start = next.start;
+    this.span = next.span;
+  }
+  resumeFollowing() {
+    this.suspended = false;
+  }
+  navigate(next: { start: number; span: number }) {
+    if (!this.alive) return;
+    if (next.span !== this.span) {
+      if (this.follow && !this.suspended) this.zoom(next.span / this.span);
+      else this.restore(next.start, next.span);
+    } else {
+      this.suspended = true;
+      this.start = next.start;
+    }
+  }
   zoom(factor: number) {
     if (!this.alive) return;
-    const center = clamp(
-      this.effects.status().positionSeconds ?? this.start + this.span / 2,
-      this.start,
-      this.start + this.span,
-    );
+    const center =
+      this.follow && !this.suspended
+        ? (this.effects.status().positionSeconds ?? this.start + this.span / 2)
+        : this.start + this.span / 2;
     const next = viewport(
       center - (this.span * factor) / 2,
       this.span * factor,

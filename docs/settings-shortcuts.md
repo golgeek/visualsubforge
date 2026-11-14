@@ -1,10 +1,18 @@
 # Settings and shortcuts
 
-Settings has a searchable sidebar: General, Editing, Timing and snapping,
-Quality profile, Spelling and language, Video and shot changes, Shortcuts,
-Appearance, Plugins and Advanced. Counting units and speed calculation live in
-Advanced; profile limitations remain under About this profile. Appearance points
-to existing layout/column controls; Plugins points to the existing package manager.
+Settings has a searchable sidebar: Editing, Timing and snapping, Quality profile,
+Spelling and language, Video and shot changes, Shortcuts, Appearance and Advanced.
+Counting units and speed calculation live in Advanced. Built-in profiles are
+read-only; Quality, Language and Advanced offer **Customize a copy**. Custom
+profiles remain editable after reopening Settings and retain their identity.
+Plugins are available from Review → Subtitle Plugins.
+
+Editing includes **Zoom waveform to the selected cue**, enabled by default.
+Selecting a cue centers its waveform range and, when enabled, gives it about 60%
+of a view clamped to 8–120 seconds and the media duration. Zoom keeps the explicit
+Follow Playhead preference; panning suspends it until playback starts or Jump is
+chosen. While following is off or suspended, wheel zoom stays anchored at the
+pointer in the current view. Temporary suspension is never saved as following off.
 
 Valid changes save after a short pause without closing Settings. The footer shows
 confirmation and **Undo settings change**, which restores the previous confirmed
@@ -73,3 +81,23 @@ uses inset native traffic lights and a draggable filename area; Windows keeps
 native captions and snap behavior. Windows/Linux also provide grouped menus in
 the top bar. The filename area supports drag and double-click maximize/restore
 when an overlay or custom bar is active.
+
+## Menus and panels
+
+Cue and Review group their editing and checking operations. Review → Issues
+(Cmd/Ctrl+1), Statistics (Cmd/Ctrl+2), and View → Translation Reference
+(Cmd/Ctrl+3) open docks in the current layout. Closing Translation restores the
+Review tab it temporarily replaced. Issue overflow, the title-bar issue count,
+and F4 also reveal Issues without selecting a different preset.
+
+View → Layout contains all five presets, Arrange Panels and Reset Pane Sizes.
+Unresized presets inherit the current preview height; explicitly resized presets
+retain their saved height. Presets have no number shortcuts because 1–3 belong
+to the review/translation panels. Existing custom bindings remain unchanged;
+select a bundled preset in Settings to adopt its current defaults.
+
+Edit → Command Palette and Help → Keyboard Shortcuts replace the title-bar
+launchers. macOS registers Help for system menu search. Windows/Linux menus use
+the same registry and checked-state projection. View's Theme and Density choices
+use the same confirmed preference save path as Settings. Unsupported operations,
+including WebVTT conversion, are not offered as working menu actions.

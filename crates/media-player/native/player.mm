@@ -64,6 +64,21 @@ struct Playback {
 using SurfaceRef = std::shared_ptr<Surface>;
 using PlayerRef = std::shared_ptr<Playback>;
 
+// Main-thread only. Tauri's parent is the content view; the webview may start
+// below a standard title bar or extend beneath an overlay title bar. Convert
+// its actual bounds instead of assuming either window decoration style.
+static NSView *webContentView(NSView *parent) {
+    if ([parent isKindOfClass:NSClassFromString(@"WKWebView")]) return parent;
+    for (NSView *child in parent.subviews) {
+        if (NSView *web = webContentView(child)) return web;
+    }
+    return nil;
+}
+static NSRect webContentBounds(NSView *parent) {
+    NSView *web = webContentView(parent);
+    return web ? [parent convertRect:web.bounds fromView:web] : parent.bounds;
+}
+
 // Main never waits for rendering. Coalesce layout changes and retry between
 // frames. The same mutex guards all context accesses, including init/cleanup.
 static void applyLayout(const SurfaceRef &surface) {
@@ -83,7 +98,7 @@ static void applyLayout(const SurfaceRef &surface) {
         return;
     }
     NSView *parent = surface->clip.superview;
-    NSRect content = [parent convertRect:parent.window.contentLayoutRect fromView:nil];
+    NSRect content = webContentBounds(parent);
     NSRect rect = surface->desired;
     surface->clip.frame = content;
     // Clip has an unflipped local coordinate system, independent of its parent.
@@ -163,10 +178,9 @@ extern "C" void *vsf_surface_create(void *parentPointer) try {
     if (!context) return nullptr;
     view.wantsBestResolutionOpenGLSurface = YES;
 #endif
-    // Match the web content's origin, excluding the title bar. The content
-    // view may extend underneath it; parent.bounds alone puts video too high.
+    // Match the webview for both standard and overlay title bars.
     // Start hidden at a fallback size until the frontend supplies its bounds.
-    NSRect bounds = [parent convertRect:parent.window.contentLayoutRect fromView:nil];
+    NSRect bounds = webContentBounds(parent);
     view.frame = NSMakeRect(bounds.origin.x + 24,
         parent.isFlipped ? NSMinY(bounds) + 76 : NSMaxY(bounds) - 436, 640, 360);
     view.autoresizingMask = NSViewNotSizable;

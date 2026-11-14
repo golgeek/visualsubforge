@@ -191,16 +191,14 @@ async function fixture(variant: (typeof variants)[number], above = true) {
   await until(
     () =>
       !!callbacks.get(handler) &&
-      [
-        ...host.querySelectorAll<HTMLButtonElement>(
-          'button:not(dialog:not([open]) button)',
-        ),
-      ].some((b) => b.textContent?.trim() === 'Commands' && !b.disabled),
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
   // Media polling has started synchronously on mount; allow its projection to render.
   await settle();
   calls.length = 0;
-  const launcher = button('Commands');
+  const launcher = host.querySelector<HTMLCanvasElement>(
+    'canvas[aria-label^="Audio waveform"]',
+  )!;
   const dialog = () =>
     host.querySelector<HTMLDialogElement>(
       variant.name === 'statistics'
@@ -242,7 +240,11 @@ async function fixture(variant: (typeof variants)[number], above = true) {
     },
     close: async () => {
       button(variant.close, dialog()!).click();
-      await until(() => !dialog() && !launcher.disabled);
+      await until(
+        () =>
+          !dialog() &&
+          !(host.querySelector('main')?.getAttribute('aria-busy') !== 'false'),
+      );
     },
     dispose: () => unmount(app),
   };
@@ -295,18 +297,25 @@ async function run() {
       assert(!f.dialog(), 'Dialog mounted before hide acknowledgment');
       f.action('settings');
       f.action('openProject');
-      assert(f.launcher.disabled, 'Workspace admitted during hide');
+      assert(
+        host.querySelector('main')?.getAttribute('aria-busy') !== 'false',
+        'Workspace admitted during hide',
+      );
       hide.resolve();
       await until(() => !!f.dialog());
       const restore = f.holdRestore();
       button(variant.close, host.querySelector('dialog[open]')!).click();
       await until(() => f.calls.includes('occlude:false'));
       assert(
-        !f.dialog() && f.launcher.disabled,
-        `Close released workspace before restoration: ${variant.name}, dialog=${f.dialog()?.outerHTML.slice(0, 300)}, disabled=${f.launcher.disabled}, calls=${f.calls.join(',')}`,
+        !f.dialog() &&
+          host.querySelector('main')?.getAttribute('aria-busy') !== 'false',
+        `Close released workspace before restoration: ${variant.name}, dialog=${f.dialog()?.outerHTML.slice(0, 300)}, disabled=${host.querySelector('main')?.getAttribute('aria-busy') !== 'false'}, calls=${f.calls.join(',')}`,
       );
       restore.resolve();
-      await until(() => !f.launcher.disabled);
+      await until(
+        () =>
+          !(host.querySelector('main')?.getAttribute('aria-busy') !== 'false'),
+      );
       assert(document.activeElement === f.launcher, 'Return focus missing');
       passed(`${variant.name}: acknowledged hide/restore and focus ordering`);
     } finally {

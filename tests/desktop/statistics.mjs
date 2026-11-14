@@ -112,7 +112,10 @@ export async function statisticsWorkflow({
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
   const ready = () =>
     until('statistics workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   async function report(selection = { range: null, excluded: [] }) {
     const doc = await status(),

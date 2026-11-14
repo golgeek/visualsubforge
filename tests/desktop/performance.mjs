@@ -371,7 +371,10 @@ export async function qualityPerformance({
     );
     assert.deepEqual(await status(), restored);
     await until('large workspace restored', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
     await chooseCommand(browser, 'problems');
     await until('large Issues tab visible', () =>

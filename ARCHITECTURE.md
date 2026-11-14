@@ -82,7 +82,10 @@ owner. Rust captures version-checked paths and completed checker metadata from
 existing media/scene/document/project owners, releases those locks, then hashes
 saved bytes and atomically updates a separate recent-work-v1.json file. Its own
 writer mutex serializes only metadata IO; the list is capped at 12 entries and
-128 KiB. Dirty, recovered, resynced or unmatched checks have no displayed counts.
+128 KiB. New dirty, recovered, resynced or unmatched checks supply no counts. A missing
+summary retains historical counts only when the saved subtitle bytes still match
+their recorded hash. Capture identity tracks open/save/completed clean checks,
+not each dirty edit.
 Recorded source/profile hashes, completion coverage and check time describe the
 saved content at capture, not a fresh check of today's disk bytes. Reading the
 list never opens old documents or starts checking. Frontend capture is debounced
@@ -97,7 +100,11 @@ The pure workspace router resolves those bindings while retaining composition,
 repeat, text-history and Windows fallback rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
 to existing owners after modal close; it owns no accepted state or background
 work. Cue jumps recheck the captured document before entering ordinary protected
-selection. Native menus retain their platform layout and eligibility projection.
+selection. Native menus use registry groups/order and the same eligibility and checked-state
+projection as discovery. Nested Layout, Theme and Density items participate in
+recursive accelerator publication. Theme/density commands borrow a temporary
+SettingsSession and dispose it after one confirmed save; failures are reported
+without replaying writes.
 
 The command palette, Commands menu and shortcut sheet use `WorkspaceModal` and
 `HideVideo` for hide-before-presentation, close ordering and return focus.
@@ -368,8 +375,8 @@ ungrouped command. Rust remains the sole formatting/validation/history owner.
 
 Selected-cue issue pages are independent of Problems filters and bounded to 200.
 They include related-cue findings, group CPS/RS findings and sort violations first.
-The fixed-height strip renders three chips; overflow uses WorkspaceModal/HideVideo
-and pages the complete result. Meters and source-line counts use Rust projections.
+The fixed-height strip renders three chips; overflow reveals the existing Issues
+dock without changing the preset. Meters and source-line counts use Rust projections.
 
 Safe cue fixes reuse the existing single timing-proposal worker, cancellation,
 10-second deadline and media → scenes → document acceptance lock order. The pure
@@ -499,7 +506,10 @@ floating-point outputs must be finite. Optional native measurements may be null.
 ## Native media boundary
 
 One media control worker owns the native player and playback session. Native
-surface creation and window changes respect the platform UI thread. Mac rendering
+surface creation and window changes respect the platform UI thread. macOS maps
+the actual WKWebView bounds into the native surface parent on the main thread,
+so standard and overlay title bars share the DOM coordinate origin. The lookup
+borrows the existing view hierarchy and owns no additional native resource. Mac rendering
 uses a dedicated render worker, Linux GLArea rendering belongs to GTK's main
 context, and Windows delegates rendering to mpv's video output. Native rendering
 on a platform UI thread does not permit blocking analysis or file IO there.
@@ -527,7 +537,9 @@ historical decision/task records.
 ## Workspace layout preferences
 
 `WorkspaceLayout` owns the active preset, independent sizes for five presets,
-measured control heights and coalesced resize/persistence work. Pure slot math
+measured control heights and coalesced resize/persistence work. A persisted
+`topResized` marker distinguishes deliberately resized preview heights from
+presets that inherit the current height. Pure slot math
 reserves preview, transport, cue rows and two text lines before applying ratios.
 CSS slot placement keeps the waveform, native placeholder, table and editor
 mounted. Preset changes and splitter updates use `HideVideo`: acknowledge hiding,
@@ -552,7 +564,8 @@ viewport and preserves panel minima through scrolling when a saved layout is
 restored in a smaller window.
 
 Arrange Panels pauses playback, then uses WorkspaceModal/HideVideo for its whole
-lifetime. Nested layout transitions retain modal occlusion and acknowledge native
+lifetime. Pointer capture and destination hit-testing drive tile moves; native
+file drops retain their separate Tauri listener. Nested layout transitions retain modal occlusion and acknowledge native
 bounds before closing. CSS slots move existing mounted components; hiding Video
 retains its zero-size placeholder shadow to paint the window without an opaque
 body. Review and Statistics share their existing dock owner. Tool visibility
@@ -648,3 +661,12 @@ playhead redraws. Pointer capture cancels on resize, media replacement, disablin
 blur or disposal. The scrubber holds only a transient position and seeks once on
 release through the existing media owner. It is a DOM sibling below the native
 surface; the existing bounds observer tracks that smaller surface rectangle.
+
+Waveform following stores the explicit preference separately from transient pan
+suspension. Playback restart and Jump clear suspension; selecting a cue centers
+its range using the saved zoom preference. Edge hit-testing delegates to the same
+TimingGesture owner only after movement exceeds the click threshold, followed by
+draft commit and generation/session/pointer checks. Wheel zoom uses the pointer
+anchor while following is disabled or suspended; otherwise it uses the playhead.
+WorkspaceView remembers the Review dock displaced by Translation and restores it
+on close; accepted subtitle state remains entirely in Rust.

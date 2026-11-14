@@ -16,12 +16,9 @@ export interface ActionDescription {
 // A Rust event added without a description fails TypeScript checking.
 const nativeCoverage: Record<WorkspaceAction, ActionDescription> = descriptions;
 void nativeCoverage;
-export const actions = Object.entries(descriptions).map(
-  ([id, description]) => ({
-    id: id as ActionId,
-    ...description,
-  }),
-);
+export const actions = Object.entries(descriptions)
+  .map(([id, description]) => ({ id: id as ActionId, ...description }))
+  .sort((left, right) => left.order - right.order);
 export function actionDescription(
   id: ActionId,
   shortcuts?: ShortcutPreferences,
@@ -52,6 +49,7 @@ export function isNativeAction(id: ActionId): id is WorkspaceAction {
 }
 
 export interface ActionContext {
+  checks?: Partial<Record<ActionId, boolean>>;
   ready: boolean;
   busy: boolean;
   document: boolean;
@@ -169,10 +167,7 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
       return state.cues ? null : 'Open subtitles with cues';
     case 'previousProblem':
     case 'nextProblem':
-      return state.problems &&
-        (id === 'previousProblem' ? state.previousProblem : state.nextProblem)
-        ? null
-        : 'Open Problems and select a finding';
+      return state.document ? null : 'Open subtitles first';
     case 'save':
     case 'saveAs':
     case 'closeSubtitles':

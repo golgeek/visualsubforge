@@ -1,3 +1,5 @@
+import { SettingsSession } from '../settings/settings-session.svelte';
+import type { WorkspacePreferences } from '../settings/workspace-preferences.svelte';
 import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
 import {
   unavailable,
@@ -20,6 +22,7 @@ import type { WorkspaceModal } from '../dialogs/workspace-modal.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
 import type { CueMenu } from '../cues/cue-menu.svelte';
 interface Owners {
+  preferences: WorkspacePreferences;
   layout: WorkspaceLayout;
   workspace: Workspace;
   subtitles: DocumentSession;
@@ -55,6 +58,34 @@ export class WorkspaceCommands {
     const doc = subtitles.snapshot;
     const status = media.status;
     return {
+      checks: {
+        themeSystem:
+          this.owners.preferences.preferences.appearance.theme === 'system',
+        themeDark:
+          this.owners.preferences.preferences.appearance.theme === 'dark',
+        themeLight:
+          this.owners.preferences.preferences.appearance.theme === 'light',
+        densityCompact:
+          this.owners.preferences.preferences.appearance.density === 'compact',
+        densityComfortable:
+          this.owners.preferences.preferences.appearance.density ===
+          'comfortable',
+        translationReference: view.translationOpen,
+        problems: view.problemsOpen && view.reviewTab === 'issues',
+        statistics: view.problemsOpen && view.reviewTab === 'statistics',
+        followPlayhead: timeline.follow,
+        showScenes: scenes.showScenes,
+        diagnostics: view.diagnostics,
+        ...Object.fromEntries(
+          ['timing', 'editorAbove', 'review', 'translation', 'bigPicture'].map(
+            (preset) => [
+              `layout${preset[0]!.toUpperCase()}${preset.slice(1)}`,
+              !this.owners.layout.custom &&
+                this.owners.layout.preset === preset,
+            ],
+          ),
+        ),
+      },
       ready: workspace.ready,
       busy: workspace.busy || timeline.interacting || !!cueMenu.context,
       document: doc.loaded,
@@ -90,7 +121,7 @@ export class WorkspaceCommands {
     gestures.cancelHeld();
     await workspaceModal.open(mode);
   }
-  async run(id: ActionId) {
+  async run(id: ActionId, fromNative = false) {
     const {
       workspace,
       timeline,
@@ -107,11 +138,61 @@ export class WorkspaceCommands {
       workspace.notice = reason;
       return;
     }
-    if (isNativeAction(id)) {
+    if (isNativeAction(id) && !fromNative) {
       await workspace.run(id, new Event('command'));
       return;
     }
     switch (id) {
+      case 'themeSystem':
+      case 'themeDark':
+      case 'themeLight':
+      case 'densityCompact':
+      case 'densityComfortable': {
+        const preferences = this.owners.preferences;
+        await workspace.task(async () => {
+          const session = new SettingsSession(
+            preferences.preferences,
+            (value) => {
+              if (!workspace.disposed) preferences.accept(value);
+            },
+            () => null,
+          );
+          try {
+            await session.load();
+            if (workspace.disposed) return;
+            if (!session.ready) throw new Error(session.error);
+            switch (id) {
+              case 'themeSystem':
+                session.draft.appearance.theme = 'system';
+                break;
+              case 'themeDark':
+                session.draft.appearance.theme = 'dark';
+                break;
+              case 'themeLight':
+                session.draft.appearance.theme = 'light';
+                break;
+              case 'densityCompact':
+                session.draft.appearance.density = 'compact';
+                break;
+              case 'densityComfortable':
+                session.draft.appearance.density = 'comfortable';
+                break;
+            }
+            if (!(await session.flush()))
+              throw new Error(session.error || session.notice);
+          } finally {
+            session.dispose();
+          }
+        });
+        break;
+      }
+      case 'followPlayhead':
+        timeline.follow = !timeline.follow;
+        timeline.resumeFollowing();
+        break;
+      case 'layoutOptions':
+        await workspaceModal.open('layout');
+        break;
       case 'layoutTiming':
         await this.owners.layout.select('timing');
         break;
@@ -147,7 +228,11 @@ export class WorkspaceCommands {
         await dialogs.openTimingReview('batch');
         break;
       case 'statistics':
-        await dialogs.openStatistics();
+        if (view.problemsOpen && view.reviewTab === 'statistics')
+          view.closeProblems(() => {
+            navigation.pendingProblem = null;
+          });
+        else await dialogs.openStatistics();
         break;
       case 'problems':
         view.toggleProblems(() => {
@@ -169,6 +254,7 @@ export class WorkspaceCommands {
         break;
       case 'previousProblem':
       case 'nextProblem': {
+        view.openReview('issues');
         const cue =
           id === 'previousProblem'
             ? quality.view?.previousCue
@@ -186,8 +272,19 @@ export class WorkspaceCommands {
         timeline.start = 0;
         timeline.span = timeline.duration;
         break;
-      default:
+      case 'focusText':
+      case 'focusWaveform':
+      case 'seekBack':
+      case 'seekForward':
+      case 'seekBackFar':
+      case 'seekForwardFar':
+      case 'previousCue':
+      case 'nextCue':
+      case 'setStart':
+      case 'setEnd':
+      case 'replay':
         await editingKey(id, this.owners.keys());
+        break;
     }
   }
   async selectCue(id: number) {

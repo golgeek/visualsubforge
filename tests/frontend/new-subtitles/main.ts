@@ -165,14 +165,22 @@ async function run() {
   try {
     await until(
       () =>
-        !(!menuState || menuState.busy) &&
-        !(!menuState || menuState.busy || !menuState.available),
+        !(!menuState || !menuState!.enabled.includes('settings')) &&
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('openMedia')
+        ),
     );
     button('Create cue').click();
     await until(
       () =>
         snapshot.loaded &&
-        !(!menuState || menuState.busy || !menuState.document),
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('save')
+        ),
     );
     assert(
       snapshot.cues[0]?.startMs === 5000 && snapshot.cues[0]?.endMs === 7000,
@@ -186,7 +194,12 @@ async function run() {
     menuAction('save');
     await until(
       () =>
-        pickers === 1 && !(!menuState || menuState.busy || !menuState.document),
+        pickers === 1 &&
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('save')
+        ),
     );
     assert(
       saves === 0 && snapshot.dirty && snapshot.path === null,
@@ -200,7 +213,12 @@ async function run() {
     menuAction('save');
     await until(
       () =>
-        saves === 1 && !(!menuState || menuState.busy || !menuState.document),
+        saves === 1 &&
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('save')
+        ),
     );
     assert(
       snapshot.path === null &&
@@ -213,7 +231,12 @@ async function run() {
     menuAction('save');
     await until(
       () =>
-        saves === 2 && !(!menuState || menuState.busy || !menuState.document),
+        saves === 2 &&
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('save')
+        ),
     );
     assert(
       snapshot.path === destination && !snapshot.dirty && pickers === 3,
@@ -222,7 +245,12 @@ async function run() {
     menuAction('save');
     await until(
       () =>
-        saves === 3 && !(!menuState || menuState.busy || !menuState.document),
+        saves === 3 &&
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('save')
+        ),
     );
     assert(pickers === 3, 'Later save requested a second destination');
     passed('successful first save adopts its path; later Save reuses it');
@@ -244,18 +272,16 @@ async function run() {
       }),
     );
     await until(
-      () => !checkbox.checked && Number(pan.getAttribute('aria-valuenow')) > 5,
+      () => checkbox.checked && Number(pan.getAttribute('aria-valuenow')) > 5,
     );
     assert(transport.length === 0, 'Navigation moved media');
-    passed('horizontal wheel pans independently and unchecks Follow playback');
-    checkbox.click();
+    passed('horizontal wheel pans independently and preserves Follow playback');
+    button('Jump to waveform playhead').click();
     await until(
       () => checkbox.checked && Number(pan.getAttribute('aria-valuenow')) === 0,
     );
     assert(transport.length === 0, 'Follow checkbox sought the video');
-    passed(
-      'Follow playback checkbox restores the playhead viewport without seeking',
-    );
+    passed('Jump to playhead resumes following without seeking');
     heading.textContent = 'PASS: all 6 new-subtitle/navigation checks';
   } catch (error) {
     heading.textContent = `FAIL: ${String(error)}`;

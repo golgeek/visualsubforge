@@ -102,7 +102,9 @@ async function clickCue(id: number, modifiers: MouseEventInit = {}) {
   await until(() => row(id).getAttribute('aria-disabled') === 'false');
 }
 async function open() {
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   await chooseCommand(host, 'shiftCues');
   await until(() => !!host.querySelector('[aria-label="Live timing review"]'));
 }

@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 
 // Actual WebView and owners, generated key events; physical/native input is separate.
-export async function actionDiscovery({ browser, until, evidence, record }) {
+export async function actionDiscovery({
+  browser,
+  until,
+  evidence,
+  record,
+  menu,
+}) {
   const selector = 'dialog[aria-labelledby="action-browser-title"][open]';
   await browser.execute(() => {
     const editor = document.querySelector('[aria-label="Subtitle text"]');
@@ -65,9 +71,7 @@ export async function actionDiscovery({ browser, until, evidence, record }) {
       selector,
     ),
   );
-  await browser.execute(() =>
-    document.querySelector('button[aria-label="Keyboard shortcuts"]').click(),
-  );
+  await menu('shortcutSheet');
   await until('shortcut sheet', () => browser.$(selector).isExisting());
   assert.match(await browser.$(selector).getText(), /Keyboard shortcuts/);
   await browser.execute(

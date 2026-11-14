@@ -151,8 +151,31 @@ fn update(path: &Path, change: impl FnOnce(&mut Vec<Entry>)) -> Result<Vec<Entry
     crate::atomic_file::write(path, &bytes)?;
     Ok(entries)
 }
-fn remember(path: &Path, entry: Entry) -> Result<Vec<Entry>> {
+fn remember(path: &Path, mut entry: Entry) -> Result<Vec<Entry>> {
     update(path, |entries| {
+        if entry.summary.is_none()
+            && let Some(old) = entries.iter().find(|old| {
+                old.kind == entry.kind
+                    && old.path == entry.path
+                    && old.subtitle_path == entry.subtitle_path
+            })
+            && let (Some(summary), Some(source)) = (&old.summary, &entry.subtitle_path)
+        {
+            // Historical counts remain valid only for exactly these saved bytes.
+            // Bound the read just like accepted subtitle input.
+            if let Ok(file) = fs::File::open(source) {
+                let mut bytes = Vec::new();
+                if file
+                    .take(64 * 1024 * 1024 + 1)
+                    .read_to_end(&mut bytes)
+                    .is_ok()
+                    && bytes.len() <= 64 * 1024 * 1024
+                    && format!("{:x}", Sha256::digest(&bytes)) == summary.source_sha256
+                {
+                    entry.summary = Some(summary.clone());
+                }
+            }
+        }
         entries.retain(|old| old.kind != entry.kind || old.path != entry.path);
         entries.insert(0, entry);
         entries.truncate(MAX_ENTRIES);
@@ -296,6 +319,34 @@ mod tests {
         .unwrap();
         assert_eq!(read(&path).unwrap().len(), 11);
         assert_eq!(fs::read(&checked.path).unwrap(), b"original subtitle bytes");
+    }
+    #[test]
+    fn missing_summary_preserves_only_identical_saved_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("recent.json");
+        let mut checked = entry(dir.path(), 1);
+        checked.subtitle_path = Some(checked.path.clone());
+        fs::write(&checked.path, b"saved").unwrap();
+        checked.summary = Some(Summary {
+            cues: 2,
+            issues: 1,
+            complete: true,
+            profile_name: "Test".into(),
+            profile_hash: "a".repeat(64),
+            source_sha256: format!("{:x}", Sha256::digest(b"saved")),
+            checked_at_ms: 1.try_into().unwrap(),
+        });
+        remember(&path, checked.clone()).unwrap();
+        let mut dirty = checked.clone();
+        dirty.summary = None;
+        assert_eq!(
+            remember(&path, dirty.clone()).unwrap()[0].summary,
+            checked.summary
+        );
+        fs::write(&checked.path, b"different").unwrap();
+        assert!(remember(&path, dirty.clone()).unwrap()[0].summary.is_none());
+        fs::remove_file(&checked.path).unwrap();
+        assert!(remember(&path, dirty).unwrap()[0].summary.is_none());
     }
     #[test]
     fn rejected_metadata_and_unknown_versions_preserve_stored_bytes() {

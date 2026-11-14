@@ -63,8 +63,15 @@ export async function batchTiming({
       );
     const click = async (text) => {
       if (text === 'Shift / align cues…') {
-        button('Commands').focus();
-        button('Commands').click();
+        document.querySelector('canvas[aria-label^="Audio waveform"]').focus();
+        document.activeElement.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'k',
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
         await wait(() =>
           document.querySelector('[data-action="shiftCues"]:not(:disabled)'),
         );

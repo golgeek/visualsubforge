@@ -404,7 +404,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
 function workspaceReady() {
-  return callbacks.has(eventHandler) && !!menuState && !menuState.busy;
+  return (
+    callbacks.has(eventHandler) &&
+    !!menuState &&
+    !!menuState!.enabled.includes('settings')
+  );
 }
 function menuAction(action: string) {
   callbacks.get(eventHandler)!({ payload: action });
@@ -491,11 +495,9 @@ async function run() {
       host.querySelector<HTMLDialogElement>(
         'dialog[aria-labelledby="plugin-title"][open]',
       );
-    const launcher = [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        'button:not(dialog:not([open]) button)',
-      ),
-    ].find((b) => b.textContent?.trim() === 'Commands')!;
+    const launcher = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform"]',
+    )!;
     const authoringDraft = host.querySelector<HTMLTextAreaElement>(
       '[aria-label="Subtitle text"]',
     )!;
@@ -510,7 +512,7 @@ async function run() {
       });
       if (route === 'toolbar') void chooseCommand(host, 'plugins');
       else menuAction('plugins');
-      await until(() => !!menuState?.busy);
+      await until(() => !menuState?.enabled.includes('settings'));
       assert(
         !pluginDialog(),
         `${route} waits for native hide before mounting authoring content`,
@@ -639,7 +641,11 @@ async function run() {
     await until(
       () =>
         saves.length === 1 &&
-        !(!menuState || menuState.busy || !menuState.media),
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState!.enabled.includes('play')
+        ),
     );
     const saved = saves[0]!;
     assert(
@@ -667,11 +673,13 @@ async function run() {
       saves.length === 1 && doc.loaded,
       'Conflicting project save reports failure without replacing the workspace',
     );
-    await until(() => !menuState?.busy);
+    await until(() => !!menuState?.enabled.includes('settings'));
     projectSaveError = null;
     chosenPath = '/copy.vsfproject';
     menuAction('saveProjectAs');
-    await until(() => saves.length === 2 && !menuState?.busy);
+    await until(
+      () => saves.length === 2 && !!menuState?.enabled.includes('settings'),
+    );
     assert(
       saves[1]?.path === chosenPath && saves[1]?.token === 42,
       'Save As retains the current Rust save token after a conflict',
@@ -694,7 +702,7 @@ async function run() {
     holdSceneCompletion = true;
     const restores = calls.filter((c) => c === 'scenes_restore').length;
     await restoreProject();
-    await until(() => !!menuState?.scenesRunning);
+    await until(() => !!menuState?.enabled.includes('cancelSceneScan'));
     assert(
       calls.filter((c) => c === 'scenes_restore').length === restores &&
         calls.includes('scenes_start') &&
@@ -725,7 +733,7 @@ async function run() {
       'Quit failure defaults keyboard focus to Cancel Quit',
     );
     exitDialog()!.dispatchEvent(new Event('cancel', { cancelable: true }));
-    await until(() => !menuState?.busy);
+    await until(() => !!menuState?.enabled.includes('settings'));
     assert(
       !exitDialog() && !occluded && !calls.includes('finish_exit'),
       'Escape cancels quitting and restores native video',
@@ -735,7 +743,7 @@ async function run() {
     await until(() => !!exitDialog());
     chosenPath = null;
     button('Save Project As…');
-    await until(() => !menuState?.busy);
+    await until(() => !!menuState?.enabled.includes('settings'));
     assert(
       !calls.includes('finish_exit') && !exitDialog(),
       'Cancelling Save As cancels quit without discarding the workspace',
@@ -823,7 +831,7 @@ async function run() {
       await until(
         () => !!host.textContent?.includes(`Injected ${stage} failure`),
       );
-      await until(() => !menuState?.busy);
+      await until(() => !!menuState?.enabled.includes('settings'));
       menuAction('quit');
       await until(() => calls.includes('finish_exit'));
       assert(
@@ -833,7 +841,7 @@ async function run() {
         `Failed ${stage} restore leaves no attachment to autosave on quit`,
       );
       restoreFailure = null;
-      await until(() => !menuState?.busy);
+      await until(() => !!menuState?.enabled.includes('settings'));
       await restoreProject();
       assert(
         calls.includes('project_attach') &&
@@ -861,7 +869,7 @@ async function run() {
           ),
       );
       assert(
-        occluded && !!menuState?.busy,
+        occluded && !menuState?.enabled.includes('settings'),
         'Legacy import occludes native video and gates workspace commands',
       );
       chosenPath = '/old.vssprj';

@@ -167,8 +167,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 
 async function choose(label: string) {
-  await until(() => !!button('Layout') && !button('Layout')!.disabled);
-  button('Layout')!.click();
+  await until(
+    () =>
+      !!host.querySelector('main') &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
+  callbacks.get(listener)!({ payload: 'layoutOptions' });
   await until(
     () => !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
   );
@@ -176,7 +180,7 @@ async function choose(label: string) {
   await until(
     () =>
       !host.querySelector('dialog[open]') &&
-      !button('Layout')!.disabled &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
       !occluded,
   );
 }
@@ -285,7 +289,11 @@ async function run() {
     );
     assert(saves > 0, 'No persistence happened');
     callbacks.get(listener)!({ payload: 'resetLayout' });
-    await until(() => !button('Layout')!.disabled && !occluded);
+    await until(
+      () =>
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+        !occluded,
+    );
     assert(
       columns()[1] === 'duration',
       'Reset Pane Sizes reset column choices',

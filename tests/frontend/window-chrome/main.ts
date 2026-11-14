@@ -179,9 +179,6 @@ async function run() {
       diagnostics: false,
       showScenes: false,
       sceneState: { pending: false, running: false },
-      oncommands: () => {},
-      onshortcuts: () => {},
-      onlayout: () => {},
       ongroup: (group) => {
         selected = group;
       },
@@ -190,7 +187,7 @@ async function run() {
   try {
     await tick();
     const menu = [...host.querySelectorAll('nav button')];
-    assert(menu.length === 8, 'All application groups available');
+    assert(menu.length === 7, 'All application groups available');
     (menu[0] as HTMLButtonElement).click();
     assert(selected === 'File', 'Top bar routes group');
     const move = host.querySelector<HTMLButtonElement>('[data-window-drag]')!;

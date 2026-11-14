@@ -18,7 +18,10 @@ export async function textPerformance({
   const result = { budgetMs: 1000, cues: 10_000, status: 'running' };
   const ready = () =>
     until('text performance workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   try {
     await ready();

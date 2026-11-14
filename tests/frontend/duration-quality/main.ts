@@ -72,7 +72,9 @@ function type(text: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   await chooseCommand(host, 'fixReadingSpeed');
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });

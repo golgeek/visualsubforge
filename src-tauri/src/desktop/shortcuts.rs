@@ -10,16 +10,23 @@ pub(super) struct Runtime(Mutex<Shortcuts>);
 fn publish(app: &tauri::AppHandle, shortcuts: &Shortcuts) -> Result<(), String> {
     let menu = app.menu().ok_or("Native menu unavailable")?;
     let descriptions = super::action_descriptions().map_err(|e| e.to_string())?;
-    let submenus = menu.items().map_err(|e| e.to_string())?;
+    fn find(items: Vec<MenuItemKind<tauri::Wry>>, id: &str) -> Option<MenuItemKind<tauri::Wry>> {
+        for item in items {
+            if item.id().as_ref() == id {
+                return Some(item);
+            }
+            if let Some(submenu) = item.as_submenu()
+                && let Some(found) = find(submenu.items().ok()?, id)
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
     let items: Vec<_> = descriptions
         .into_iter()
         .filter(|(_, d)| d.native)
-        .filter_map(|(id, _)| {
-            submenus
-                .iter()
-                .find_map(|v| v.as_submenu().and_then(|m| m.get(&id)))
-                .map(|item| (id, item))
-        })
+        .filter_map(|(id, _)| find(menu.items().ok()?, &id).map(|item| (id, item)))
         .collect();
     // Clear first so a swap never temporarily installs duplicate accelerators.
     for (_, item) in &items {

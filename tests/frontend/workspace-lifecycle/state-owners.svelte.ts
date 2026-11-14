@@ -57,6 +57,12 @@ export async function stateOwnerCases(passed: (message: string) => void) {
     panels.translationOpen && !panels.problemsOpen && cancelled === 0,
     'Translation toggle preserves the existing pending-navigation policy',
   );
+  panels.toggleTranslation();
+  assert(
+    panels.problemsOpen && !panels.translationOpen,
+    'Closing Translation restores Review',
+  );
+  panels.toggleTranslation();
   panels.revealProblems();
   assert(
     panels.problemsOpen && panels.translationOpen,

@@ -75,9 +75,29 @@ for (const name of [
   'cue-columns',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
-    const result = await verifyChecks(page, () =>
-      page.goto(`/tests/frontend/${name}/`),
-    );
+    const result = await verifyChecks(page, async () => {
+      await page.goto(`/tests/frontend/${name}/`);
+      if (name === 'arrange-panels') {
+        await expect(page.locator('[data-awaiting-drag="true"]')).toBeVisible();
+        const source = await page.locator('[data-panel="video"]').boundingBox();
+        const target = await page
+          .locator('[data-panel="waveform"]')
+          .boundingBox();
+        expect(source).not.toBeNull();
+        expect(target).not.toBeNull();
+        await page.mouse.move(
+          source!.x + source!.width / 2,
+          source!.y + source!.height / 2,
+        );
+        await page.mouse.down();
+        await page.mouse.move(
+          target!.x + target!.width / 2,
+          target!.y + target!.height / 2,
+          { steps: 10 },
+        );
+        await page.mouse.up();
+      }
+    });
     await info.attach('harness-results', {
       body: [result.summary, ...result.rows].join('\n'),
       contentType: 'text/plain',

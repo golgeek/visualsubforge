@@ -137,8 +137,16 @@
   <div class="panelbar">
     <strong>Audio waveform</strong><span class="spacer"></span>
     <label class="follow"
-      ><input type="checkbox" bind:checked={follow} /> Follow playback</label
+      ><input
+        type="checkbox"
+        bind:checked={follow}
+        onchange={() => timeline.resumeFollowing()}
+      /> Follow playback</label
     >
+    {#if follow && timeline.suspended}<button
+        onclick={() => timeline.resumeFollowing()}
+        >Jump to waveform playhead</button
+      >{/if}
     <SceneControls
       bind:this={sceneControls}
       autoScan={preferences.autoScanScenes}
@@ -205,7 +213,7 @@
     enabled={!busy && !confirming && !mediaPending && status.loaded}
     onmove={(seconds) => {
       gestures.cancelHeld();
-      follow = false;
+      timeline.suspended = true;
       timeline.start = seconds;
     }}
     ongesture={(active) => {
@@ -241,6 +249,29 @@
       onseek={(t) => void actions.seek(t)}
       onselect={(id) => void actions.selectCue(id)}
       {ongesture}
+      onedge={{
+        begin: async (id, current) => {
+          const generation = subtitles.snapshot.generation;
+          const session = media.status.session;
+          const applied = await workspace.task(() => subtitles.apply());
+          if (
+            !applied ||
+            !current() ||
+            subtitles.snapshot.generation !== generation ||
+            media.status.session !== session ||
+            !workspace.canAct
+          )
+            return false;
+          subtitles.select(id);
+          timeline.suspended = true;
+          return gestures.beginBoundary();
+        },
+        preview: (boundary, milliseconds, pointer) =>
+          gestures.preview(boundary, milliseconds, pointer),
+        finish: (commit) => {
+          void gestures.finish(commit);
+        },
+      }}
       onrange={(r) => {
         if (!busy) {
           gestures.cancelHeld();
@@ -250,9 +281,7 @@
       onwidth={(w) => (timeline.width = w)}
       onnavigate={(next) => {
         gestures.cancelHeld();
-        follow = false;
-        timeline.start = next.start;
-        timeline.span = next.span;
+        timeline.navigate(next);
       }}
     />
     <TimingGhosts {ghosts} {start} {span} />

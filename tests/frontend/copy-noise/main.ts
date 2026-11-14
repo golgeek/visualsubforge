@@ -148,7 +148,8 @@ async function run() {
     menu.dispatchEvent(new Event('cancel', { cancelable: true }));
     await until(
       () =>
-        !host.querySelector('dialog[open]') && !button('Commands')!.disabled,
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     assert(button('Export As…'), 'Export name remains visible');
     passed('Tool discovery uses the subtitler-facing names');

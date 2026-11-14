@@ -13,7 +13,10 @@ export async function editReconciliation({
   const editor = await browser.$('[aria-label="Subtitle text"]');
   const ready = () =>
     until('reconciliation workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   await ready();
   await (await browser.$$('.cue-row'))[0].click();

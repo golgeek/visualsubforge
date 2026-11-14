@@ -29,7 +29,7 @@ async function until(check: () => boolean) {
   while (!check()) {
     if (performance.now() > deadline)
       throw new Error(
-        `UI response timeout (${stage}): selected ${selectedForChecks}; editor ${editor()?.value}; chips ${host.querySelectorAll('.issue-strip [aria-pressed]').length}; busy ${menuState?.busy}; text ${host.querySelector('.issue-strip')?.textContent}`,
+        `UI response timeout (${stage}): selected ${selectedForChecks}; editor ${editor()?.value}; chips ${host.querySelectorAll('.issue-strip [aria-pressed]').length}; busy ${!menuState?.enabled.includes('settings')}; text ${host.querySelector('.issue-strip')?.textContent}`,
       );
     await new Promise((r) => setTimeout(r, 15));
   }
@@ -93,9 +93,6 @@ const media = {
   positionSeconds: 2,
   nominalFrameRate: 25,
 };
-let occluded = false;
-let releaseHide: (() => void) | null = null;
-let holdHide = false;
 function issueProjection(
   cueId: number,
 ): NonNullable<QualityView['selectedIssues']> {
@@ -187,8 +184,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return {
             ...view,
             selectedIssues: projection,
-            findingsCount: 0,
-            findings: [],
+            findingsCount: 9,
+            affectedCues: 3,
+            filteredCount: 9,
+            filteredCues: 3,
+            findings: [1, 2, 3].flatMap((id) =>
+              issueProjection(id).issues.flatMap((issue) => issue.findings),
+            ),
           };
         }
         case 'cue_fixes_start': {
@@ -236,11 +238,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         }
         case 'media_action': {
           const action = args.action as MediaAction;
-          if (action.kind === 'occlude') {
-            if (holdHide && action.occluded)
-              await new Promise<void>((resolve) => (releaseHide = resolve));
-            occluded = action.occluded;
-          }
+
           if (action.kind === 'seek') media.positionSeconds = action.seconds;
           return structuredClone(media);
         }
@@ -306,19 +304,22 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
   },
 });
 async function select(id: number) {
-  await until(() => !!menuState && !menuState.busy);
+  await until(() => !!menuState && !!menuState!.enabled.includes('settings'));
   host.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)!.click();
   await until(
     () =>
       selectedForChecks === id &&
-      !menuState?.busy &&
+      !!menuState?.enabled.includes('settings') &&
       editor().value === snapshot.cues.find((c) => c.id === id)!.text,
   );
 }
 async function run() {
   const app = mount(App, { target: host });
   try {
-    await until(() => !!menuState && !menuState.busy && !!editor());
+    await until(
+      () =>
+        !!menuState && !!menuState!.enabled.includes('settings') && !!editor(),
+    );
     assert(
       ![...host.querySelectorAll('.editor button')].some((b) =>
         ['Apply', 'Revert'].includes(b.textContent!.trim()),
@@ -372,28 +373,44 @@ async function run() {
       heights.every((height) => height === heights[0]),
       'Issue count changed strip height',
     );
-    stage = 'hold hide';
-    holdHide = true;
+    const previousPreset = host
+      .querySelector('.workspace')
+      ?.getAttribute('data-preset');
     button('+2').click();
-    await until(() => releaseHide !== null);
+    await until(() => {
+      const findings = host.querySelectorAll(
+        '[aria-label="Subtitle Problems"] .finding',
+      );
+      return (
+        [...findings].filter((finding) =>
+          finding.querySelector('button')?.textContent?.startsWith('Cue 3 ·'),
+        ).length === 5
+      );
+    });
+    const listedIssues = [
+      ...host.querySelectorAll('[aria-label="Subtitle Problems"] .finding'),
+    ]
+      .filter((finding) =>
+        finding.querySelector('button')?.textContent?.startsWith('Cue 3 ·'),
+      )
+      .map((finding) => finding.querySelector('small')?.textContent);
     assert(
-      !host.querySelector('[aria-label="All cue issues"]'),
-      'Issues covered video before hide acknowledgment',
+      issueProjection(3).issues.every((issue) =>
+        listedIssues.includes(issue.findings[0]!.explanation),
+      ),
+      'Issues dock lists all five findings for the selected cue',
     );
-    stage = 'show overflow';
-    holdHide = false;
-    releaseHide!();
-    releaseHide = null;
-    await until(() => !!host.querySelector('[aria-label="All cue issues"]'));
     assert(
-      occluded &&
-        host.querySelectorAll('[aria-label="All cue issues"] li').length === 5,
-      'Overflow omitted issues or native hide',
+      host.querySelector('.workspace')?.getAttribute('data-preset') ===
+        previousPreset,
+      'Issue overflow keeps the current layout',
     );
-    button('Close').click();
-    await until(() => !host.querySelector('[aria-label="All cue issues"]'));
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Close review panel"]')!
+      .click();
+    await until(() => !host.querySelector('[aria-label="Review panel"]'));
     passed(
-      'One, three and five issues keep fixed height; overflow waits for HideVideo',
+      'One, three and five issues keep fixed height; overflow lists all five findings in Issues without changing layout',
     );
 
     await until(() =>

@@ -17,6 +17,7 @@ import type { CueTableView } from './cue-table-view.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
 import type { CueMenu } from './cue-menu.svelte';
 interface Effects {
+  zoomToCue?: () => boolean;
   readList: () => { scrollTop: number; height: number } | null;
   scrollList: (top: number) => number;
   focusCue: (id: number) => void;
@@ -151,6 +152,8 @@ export class CueNavigation {
       );
       const selectedCue = this.subtitles.cue;
       if (selectedCue)
+        this.timeline.frameCue(selectedCue, this.effects.zoomToCue?.() ?? true);
+      if (selectedCue)
         this.timeline.selectRange([
           selectedCue.startMs / 1000,
           selectedCue.endMs / 1000,
@@ -224,7 +227,11 @@ export class CueNavigation {
       !this.subtitles.snapshot.cues.some((c) => String(c.id) === id)
     )
       return;
-    if (String(this.subtitles.selected) === id) return;
+    if (String(this.subtitles.selected) === id) {
+      const cue = this.subtitles.cue;
+      if (cue) this.timeline.frameCue(cue, this.effects.zoomToCue?.() ?? true);
+      return;
+    }
     this.suspendFollowing();
     if (this.subtitles.dirty) {
       this.pendingProblemVersion = `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}`;
@@ -309,6 +316,7 @@ export class CueNavigation {
         ];
       if (next) {
         this.subtitles.select(next.id);
+        this.timeline.frameCue(next, this.effects.zoomToCue?.() ?? true);
         await this.revealSelection();
         await this.focusText();
       }

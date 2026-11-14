@@ -131,3 +131,13 @@ test('legacy tool aliases remain searchable and platform glyphs agree', () => {
     'Ctrl+S',
   );
 });
+
+test('Edit discovery uses the registry order with Undo and Redo first', () => {
+  assert.deepEqual(
+    actions
+      .filter((action) => action.group === 'Edit')
+      .slice(0, 2)
+      .map((action) => action.id),
+    ['undo', 'redo'],
+  );
+});
