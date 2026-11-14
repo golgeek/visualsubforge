@@ -1,5 +1,5 @@
-import { StatisticsSession } from '../../../src/lib/statistics-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { StatisticsSession } from '../../../src/lib/quality/statistics-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type {
   StatisticsView,
   DocumentSnapshot,

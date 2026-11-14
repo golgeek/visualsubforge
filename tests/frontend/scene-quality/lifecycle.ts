@@ -1,5 +1,5 @@
-import { SceneRepairSession } from '../../../src/lib/scene-repair-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { SceneRepairSession } from '../../../src/lib/timing/scene-repair-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type {
   SceneRepairView,
   DocumentSnapshot,

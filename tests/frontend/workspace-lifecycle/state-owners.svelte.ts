@@ -1,6 +1,6 @@
-import { WorkspacePreferences } from '../../../src/lib/workspace-preferences.svelte';
-import { WorkspaceView } from '../../../src/lib/workspace-view.svelte';
-import { WorkspaceDecision } from '../../../src/lib/workspace-decision.svelte';
+import { WorkspacePreferences } from '../../../src/lib/settings/workspace-preferences.svelte';
+import { WorkspaceView } from '../../../src/lib/workspace/workspace-view.svelte';
+import { WorkspaceDecision } from '../../../src/lib/dialogs/workspace-decision.svelte';
 import { defaultPreferences } from '../../../src/lib/client';
 
 export async function stateOwnerCases(passed: (message: string) => void) {

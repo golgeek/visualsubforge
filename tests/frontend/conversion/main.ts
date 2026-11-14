@@ -1,7 +1,7 @@
 import { mount, unmount, tick } from 'svelte';
-import ConversionDialog from '../../../src/lib/ConversionDialog.svelte';
-import { ConversionSession } from '../../../src/lib/conversion-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import ConversionDialog from '../../../src/lib/authoring/ConversionDialog.svelte';
+import { ConversionSession } from '../../../src/lib/authoring/conversion-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import {
   emptyDocument,
   type ConversionOptions,

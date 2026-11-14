@@ -1,6 +1,6 @@
 import { mount, unmount, tick } from 'svelte';
-import LegacyImportDialog from '../../../src/lib/LegacyImportDialog.svelte';
-import { LegacyImportSession } from '../../../src/lib/legacy-import-session.svelte';
+import LegacyImportDialog from '../../../src/lib/project/LegacyImportDialog.svelte';
+import { LegacyImportSession } from '../../../src/lib/project/legacy-import-session.svelte';
 import type {
   FileChoice,
   LegacyImportRequest,

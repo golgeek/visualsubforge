@@ -1,8 +1,8 @@
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
 import App from '../../../src/App.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
-import { ResyncSession } from '../../../src/lib/resync-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
+import { ResyncSession } from '../../../src/lib/timing/resync-session.svelte';
 import {
   emptyDocument,
   emptyStatus,

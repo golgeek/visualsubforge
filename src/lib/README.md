@@ -26,6 +26,28 @@ already task-gated and its confirmation projection uses visible/closing; other
 decisions expose their full active lifecycle. These are existing entry-point rules,
 not a second workspace gate.
 
+## Browse by area
+
+| Folder | What to look for |
+| --- | --- |
+| `workspace/` | Workspace gate, startup, actions, keyboard routing, menu subscription and shell controls. |
+| `cues/` | Selection, editing, navigation, cue menu, table and subtitle controls. |
+| `document/` | Accepted document projection, drafts, unsaved-work guard and recovery. |
+| `timeline/` | Waveform viewport/navigation and scene controls/state. |
+| `timing/` | Held timing, magnets, cue endpoints and reviewed timing repairs/resynchronization. |
+| `media/` | Playback session/actions, live loop, native layout, video, transport and diagnostics. |
+| `dialogs/` | Shared modal/decision presentation, focus capture and workspace dialog rendering. |
+| `project/` | Project open/save/restore, reference/save decisions and legacy import. |
+| `quality/` | Checks, metrics, findings, language notices and statistics. |
+| `authoring/` | Text, styles, fonts, conversion and plugin review sessions/dialogs. |
+| `settings/` | Preferences and quality/timing settings. |
+| `translation/` | Reference session, file operations and panel. |
+| `layout/` | Pane geometry, measurement and splitters. |
+
+Pure unit tests live beside the code they exercise. `client.ts` remains the single
+IPC facade; `generated/` contains generated contracts. The owner map below explains
+responsibilities across these folders.
+
 | Owner | State and responsibility |
 | --- | --- |
 | `Workspace` | Workspace task counter, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |

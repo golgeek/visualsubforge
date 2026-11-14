@@ -1,6 +1,6 @@
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import {
   defaultPreferences,
   emptyStatus,

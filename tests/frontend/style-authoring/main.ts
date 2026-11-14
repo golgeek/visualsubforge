@@ -1,6 +1,6 @@
 import { mount, unmount, tick } from 'svelte';
-import StyleInspector from '../../../src/lib/StyleInspector.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import StyleInspector from '../../../src/lib/authoring/StyleInspector.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type {
   DocumentSnapshot,
   StyleOperation,

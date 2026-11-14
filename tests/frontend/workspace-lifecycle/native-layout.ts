@@ -1,4 +1,4 @@
-import { NativeVideoLayout } from '../../../src/lib/native-video-layout';
+import { NativeVideoLayout } from '../../../src/lib/media/native-video-layout';
 import { emptyStatus } from '../../../src/lib/client';
 export async function nativeLayoutCases(passed: (message: string) => void) {
   const assert = (condition: unknown, message: string) => {

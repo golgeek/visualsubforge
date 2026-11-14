@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import Waveform from '../../../src/lib/Waveform.svelte';
+  import Waveform from '../../../src/lib/timeline/Waveform.svelte';
   import type { Cue } from '../../../src/lib/client';
 
   let host: HTMLDivElement;

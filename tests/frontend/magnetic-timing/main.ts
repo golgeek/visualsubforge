@@ -4,7 +4,7 @@ import { builtinQualityProfiles } from '../../../src/lib/generated/quality-defau
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
 import App from '../../../src/App.svelte';
-import { defaultTiming } from '../../../src/lib/magnetic-timing';
+import { defaultTiming } from '../../../src/lib/timing/magnetic-timing';
 import {
   emptyDocument,
   emptyStatus,

@@ -1,5 +1,5 @@
-import { DurationRepairSession } from '../../../src/lib/duration-repair-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { DurationRepairSession } from '../../../src/lib/timing/duration-repair-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type {
   DurationRepairView,
   DocumentSnapshot,

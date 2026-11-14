@@ -1,6 +1,6 @@
-import type { LegacyImportChoice } from '../../../src/lib/LegacyImportDialog.svelte';
-import { WorkspaceDecision } from '../../../src/lib/workspace-decision.svelte';
-import type { ProjectExitChoice } from '../../../src/lib/ProjectSaveFailureDialog.svelte';
+import type { LegacyImportChoice } from '../../../src/lib/project/LegacyImportDialog.svelte';
+import { WorkspaceDecision } from '../../../src/lib/dialogs/workspace-decision.svelte';
+import type { ProjectExitChoice } from '../../../src/lib/project/ProjectSaveFailureDialog.svelte';
 
 export async function decisionCases(passed: (message: string) => void) {
   const assert = (value: unknown, message: string) => {

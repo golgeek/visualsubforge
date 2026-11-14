@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import CueTiming from '../../../src/lib/CueTiming.svelte';
+  import CueTiming from '../../../src/lib/timing/CueTiming.svelte';
   import {
     previewBoundary,
     type TimingEdit,
-  } from '../../../src/lib/cue-timing';
+  } from '../../../src/lib/timing/cue-timing';
   import type { Cue } from '../../../src/lib/client';
 
   let accepted = $state<Cue>({

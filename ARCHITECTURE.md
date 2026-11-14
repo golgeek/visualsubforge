@@ -80,7 +80,7 @@ Follow the cue-edit walkthrough below, then read these entry points in order:
    `Documents::apply` and `Store::apply` to see version checks and accepted state.
 3. [editor.rs](crates/subtitle-core/src/editor.rs): follow `apply_edit` and history
    publication; [source.rs](crates/subtitle-formats/src/source.rs) supplies format policy.
-4. [DocumentSession](src/lib/document-session.svelte.ts): follow draft submission
+4. [DocumentSession](src/lib/document/document-session.svelte.ts): follow draft submission
    and accepted-reply reconciliation through the [typed client](src/lib/client.ts).
 
 ## Accepted state and transactions

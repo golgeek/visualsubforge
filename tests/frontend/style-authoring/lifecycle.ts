@@ -1,5 +1,5 @@
-import { StyleSession } from '../../../src/lib/style-session.svelte';
-import { DocumentSession } from '../../../src/lib/document-session.svelte';
+import { StyleSession } from '../../../src/lib/authoring/style-session.svelte';
+import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import type {
   StyleForm,
   StyleReview,

@@ -1,7 +1,7 @@
 import { commands, events } from './generated/ipc';
 import type * as IPC from './generated/ipc';
 import { isTauri } from '@tauri-apps/api/core';
-import { defaultTiming } from './magnetic-timing';
+import { defaultTiming } from './timing/magnetic-timing';
 import { builtinQualityProfiles } from './generated/quality-defaults';
 
 export type DocumentAction = IPC.visualsubforge_document_Action_Deserialize;
