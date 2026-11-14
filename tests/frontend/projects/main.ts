@@ -577,6 +577,13 @@ async function run() {
       // Allow project restoration, scene queries and layout to settle first.
       let baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
+      // Timer polls can run ahead of WebKit's rendering opportunity under CI
+      // load. Let the restored layout's ResizeObserver delivery and resulting
+      // canvas effect finish before measuring a status-only interval.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+      await tick();
       redraws = 0;
       redrawDetails.length = 0;
       baselinePolls = statusPolls;
