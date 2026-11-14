@@ -7,9 +7,12 @@ MAKE_COMMAND := $(MAKE)
 JOBS ?= 6
 PYTHON ?= python3
 
-.PHONY: build debug install help
+.PHONY: build debug app paths install help
 build debug:
 	@bash scripts/native-env.sh "$(MAKE_COMMAND)" "$(PROFILE)" "$(JOBS)" "$(PYTHON)" build
+
+app paths:
+	@bash scripts/native-env.sh "$(MAKE_COMMAND)" "$(PROFILE)" "$(JOBS)" "$(PYTHON)" "$@"
 
 # With two goals, the build above has already completed. install alone builds first.
 install:

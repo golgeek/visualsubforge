@@ -137,3 +137,18 @@ For SDK diagnostics and individual recipes, see the [native maintenance contract
 and [manual macOS recipes](build-macos-manual.md). Direct Cargo/Tauri commands
 without native features remain available for media-free editor tests; they cannot
 open media projects.
+
+## Shared release compilation
+
+The preview-package workflows call `make app JOBS=3`: the same SDK and GUI/CLI
+prerequisites used by `make build`, stopping before local bundle assembly.
+They then collect matching sources/notices, assemble audited release packages,
+and run their existing installation/signing checks. Normal tests and the
+render/baseline/candidate native experiments retain their focused commands.
+
+`make paths` selects the toolchain and records
+`target/native/<platform>/build-paths.json` without compiling. The macOS workflow
+uses those exact paths for its ANGLE cache. Make also records them before each
+app build, so packaging and failure-evidence steps use the selected SDKs and
+Cargo target directory. `scripts/native-build-paths.py github <manifest>` exports
+only those two paths to GitHub Actions; it does not build or select dependencies.

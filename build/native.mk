@@ -38,7 +38,10 @@ else
 $(error Run the root Makefile, not build/native.mk directly)
 endif
 
-.PHONY: build build-install app package install
+.PHONY: build build-install app package install paths
+paths:
+	@:
+
 build: package
 build-install: build install
 

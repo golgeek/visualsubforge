@@ -1,5 +1,11 @@
 # Preview release preparation
 
+Native SDK and production GUI/CLI compilation is shared with local builds through
+`make app JOBS=3` in all three preview-package workflows. The workflows retain
+source inventories, audited release assembly, installer/runtime checks and
+macOS signing/notarization. See [the Make build guide](build.md#shared-release-compilation).
+
+
 `v0.0.1-alpha` is in preparation and has not been published. Release builds are
 to run on GitHub Actions, including native media dependencies. The repository
 became public on 2026-10-11; standard hosted Actions jobs now run successfully.

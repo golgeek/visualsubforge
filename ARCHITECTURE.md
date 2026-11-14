@@ -519,6 +519,8 @@ Python SDK/audit helpers retain their responsibilities. Successful stages are
 cached in recipe/toolchain-keyed prefixes without moving their embedded paths;
 failed stages retain evidence. Packaging uses a new directory and publishes only
 after the platform assembler succeeds, retaining the previous completed package.
+The preview workflows call the same `make app` prerequisites and consume a
+recorded SDK/Cargo-path manifest before release-specific assembly and audits.
 Local installation copies the macOS/Windows private bundle or installs the Ubuntu
 package through apt. These are local builds, separate from release source
 inventories, signing and notarization. `media-prototype` and `macos-angle` remain

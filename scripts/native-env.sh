@@ -94,4 +94,6 @@ if [[ "$platform" == windows ]]; then
 fi
 export CARGO_TARGET_DIR="$PWD/target/native/$platform/app-target"
 if [[ "$platform" == windows ]]; then CARGO_TARGET_DIR="$(cygpath -m "$CARGO_TARGET_DIR")"; fi
+# Record paths before compilation so CI can retain failed-stage evidence too.
+"$VSF_NATIVE_PYTHON" scripts/native-build-paths.py record
 "$make_command" --no-print-directory -f build/native.mk "$action"
