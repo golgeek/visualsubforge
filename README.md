@@ -22,11 +22,8 @@ linked feature contracts, test instructions and remaining gates.
 
 ## Start here
 
-- [Set up and run the default editor](CONTRIBUTING.md#install-and-launch), then
-  use the [pinned checks](CONTRIBUTING.md#checks) for development.
-- [Build native playback on Mac](docs/build-macos.md), or follow the experimental
-  [Windows](docs/native-runtime.md#windows-native-playback-experiment) and
-  [Linux](docs/native-runtime.md#linux-native-playback-experiment) recipes.
+- [Build the native app](docs/build.md): `make build`, `make debug`, and `make install`.
+- [Set up development and tests](CONTRIBUTING.md#install-and-launch).
 - [Understand the architecture](ARCHITECTURE.md) and trace
   [frontend ownership](src/lib/README.md).
 - [Run actual desktop workflows](tests/desktop/README.md), generate
@@ -35,8 +32,9 @@ linked feature contracts, test instructions and remaining gates.
 - [Prepare preview packages](docs/releases.md) and review
   [native adoption requirements](docs/native-runtime.md#remaining-adoption-gates).
 
-The default desktop build edits subtitles without native playback or a legacy
-checkout. Browser previews use modeled IPC in explicit test fixtures. Rust owns
+The Make builds include native media on each configured platform. The low-dependency Cargo/Tauri
+default is retained for editor tests without playback; it cannot open projects
+containing media. Neither build requires a legacy checkout. Browser previews use modeled IPC in explicit test fixtures. Rust owns
 accepted documents and history; unapplied frontend drafts remain separate.
 Recovery restores accepted content, not drafts or Undo history, and requires Save As.
 
