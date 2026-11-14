@@ -109,9 +109,9 @@
     align-items: center;
     gap: 8px;
     padding: 0 12px;
-    background: #1e303d;
+    background: var(--surface-panel);
     z-index: 2;
-    border-bottom: 1px solid #415560;
+    border-bottom: 1px solid var(--line);
   }
   .toolbar strong {
     margin-right: 8px;
@@ -135,7 +135,7 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
-    color: #b4c5d0;
+    color: var(--text-muted);
   }
   @media (max-width: 799px), (max-height: 609px) {
     .filename {

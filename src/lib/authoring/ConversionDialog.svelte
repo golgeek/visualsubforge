@@ -195,9 +195,9 @@
 
 <style>
   dialog {
-    color: #dceaf1;
-    background: #172b37;
-    border: 1px solid #5e8196;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 18px;
     width: min(780px, 90vw);
@@ -205,7 +205,7 @@
     overflow: auto;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   header,
   .actions {
@@ -232,7 +232,7 @@
     font-size: 14px;
   }
   fieldset {
-    border: 1px solid #466475;
+    border: 1px solid var(--line-strong);
   }
   label {
     display: flex;
@@ -246,16 +246,16 @@
     max-width: 100%;
   }
   article {
-    border-left: 3px solid #68889b;
+    border-left: 3px solid var(--line-strong);
     padding: 10px 12px;
     margin: 12px 0;
-    background: #1c3442;
+    background: var(--surface-raised);
   }
   article.blocked {
-    border-color: #f49898;
+    border-color: var(--err);
   }
   article.loss {
-    border-color: #e6c279;
+    border-color: var(--warn);
   }
   p,
   li,
@@ -270,7 +270,7 @@
     white-space: pre-wrap;
   }
   .note {
-    color: #b4cad6;
+    color: var(--text-muted);
     font-size: 12px;
   }
 </style>

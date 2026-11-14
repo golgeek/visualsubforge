@@ -48,9 +48,9 @@
     gap: 16px;
     align-items: center;
     padding: 0 12px;
-    background: #203542;
+    background: var(--surface-raised);
     z-index: 2;
-    color: #adc4d1;
+    color: var(--text-muted);
     font-size: 11px;
   }
   .message {

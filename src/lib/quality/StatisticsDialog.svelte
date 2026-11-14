@@ -327,9 +327,9 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #1e303d;
-    border: 1px solid #6c8b9d;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     width: min(1060px, 92vw);
     max-height: 90dvh;
@@ -339,7 +339,7 @@
     line-height: 1.5;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   header,
   .scope,
@@ -374,15 +374,15 @@
     flex: 1;
   }
   .hint {
-    color: #b9cdd8;
+    color: var(--text-muted);
   }
   .notice {
     padding: 8px;
-    background: #344d5d;
-    border: 1px solid #778b90;
+    background: var(--surface-raised);
+    border: 1px solid var(--line-strong);
   }
   [role='alert'] {
-    color: #ffb3ad;
+    color: var(--err);
   }
   .counts {
     padding-block: 8px;
@@ -398,7 +398,7 @@
   td {
     text-align: left;
     padding: 7px;
-    border-bottom: 1px solid #496270;
+    border-bottom: 1px solid var(--line);
   }
   th {
     font-weight: 600;
@@ -409,11 +409,11 @@
     flex-wrap: wrap;
     gap: 6px;
     padding-block: 7px;
-    border-top: 1px solid #496270;
+    border-top: 1px solid var(--line);
   }
   .finding small {
     flex-basis: 100%;
-    color: #bfd3df;
+    color: var(--text-muted);
   }
   .findings {
     max-height: 34vh;

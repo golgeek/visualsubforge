@@ -387,9 +387,9 @@
 
 <style>
   dialog {
-    color: #dceaf1;
-    background: #172b37;
-    border: 1px solid #5e8196;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 18px;
     width: min(900px, 92vw);
@@ -397,7 +397,7 @@
     overflow: auto;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   header,
   .actions,
@@ -451,7 +451,7 @@
     overflow-wrap: anywhere;
     max-height: 300px;
     overflow: auto;
-    background: #10222d;
+    background: var(--surface-field);
     padding: 8px;
   }
   dl {
@@ -464,7 +464,7 @@
     overflow-wrap: anywhere;
   }
   .note {
-    color: #b4cad6;
+    color: var(--text-muted);
     font-size: 12px;
   }
   [aria-label='Plugin path'] {

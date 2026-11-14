@@ -5,6 +5,12 @@
     type TimingSettings,
   } from '../timing/magnetic-timing';
   import { onMount } from 'svelte';
+  import '../ui/tokens.css';
+  import {
+    readCanvasPalette,
+    watchCanvasPalette,
+    type CanvasPalette,
+  } from '../ui/canvas-palette';
   import { wheelViewport } from './waveform-navigation';
   import type { Cue, WaveformView } from '../client';
   import { clamp, orderedRange, timeToX, xToTime } from './timeline';
@@ -78,6 +84,10 @@
   // The parent receives fresh media-status objects on every poll. Compare the
   // position itself before invalidating this expensive canvas draw.
   const playhead = $derived(position);
+  // Resolved once per theme or font change, not on every frame.
+  const readPalette = () =>
+    readCanvasPalette(getComputedStyle(document.documentElement));
+  let palette = $state.raw<CanvasPalette>(readPalette());
   function draw() {
     if (!canvas) return;
     const context = canvas.getContext('2d');
@@ -86,7 +96,8 @@
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
     context.scale(scale, scale);
-    context.fillStyle = '#101c25';
+    const colors = palette;
+    context.fillStyle = colors.background;
     context.fillRect(0, 0, width, height);
     const x = (t: number) => timeToX(t, start, span, width);
     if (timing.enabled) {
@@ -104,12 +115,12 @@
           band(
             (cue.startMs - timing.cueGapMs) / 1000,
             cue.startMs / 1000,
-            '#75cbd626',
+            colors.cueBuffer,
           );
           band(
             cue.endMs / 1000,
             (cue.endMs + timing.cueGapMs) / 1000,
-            '#75cbd626',
+            colors.cueBuffer,
           );
         }
       if (timing.snapScenes)
@@ -117,16 +128,18 @@
           band(
             cut - timing.sceneBeforeMs / 1000,
             cut + timing.sceneAfterMs / 1000,
-            '#e992ef24',
+            colors.cutBuffer,
           );
     }
     for (const cue of cues) {
       const left = Math.max(0, x(cue.startMs / 1000));
       const right = Math.min(width, x(cue.endMs / 1000));
       if (right <= left) continue;
-      context.fillStyle = cue.id === selected ? '#6b9eff40' : '#7392ca22';
+      context.fillStyle =
+        cue.id === selected ? colors.cueFillSelected : colors.cueFill;
       context.fillRect(left, 20, right - left, height - 20);
-      context.strokeStyle = cue.id === selected ? '#a1c9ff' : '#6f90ba';
+      context.strokeStyle =
+        cue.id === selected ? colors.cueLineSelected : colors.cueLine;
       context.lineWidth = cue.id === selected ? 2 : 1;
       context.strokeRect(
         left + 0.5,
@@ -138,8 +151,8 @@
       context.beginPath();
       context.rect(left + 4, height - 22, Math.max(0, right - left - 8), 20);
       context.clip();
-      context.fillStyle = '#d6e5ff';
-      context.font = '11px system-ui';
+      context.fillStyle = colors.cueText;
+      context.font = `11px ${colors.fontFamily}`;
       context.fillText(
         cue.text.replaceAll('\n', ' ↵ ') || 'Untitled cue',
         left + 5,
@@ -147,9 +160,9 @@
       );
       context.restore();
     }
-    context.font = '10px system-ui';
-    context.fillStyle = '#92a8b7';
-    context.strokeStyle = '#2a3a46';
+    context.font = `10px ${colors.fontFamily}`;
+    context.fillStyle = colors.rulerText;
+    context.strokeStyle = colors.rulerLine;
     const tick =
       Math.pow(10, Math.floor(Math.log10(span / 5))) *
       ([1, 2, 5, 10].find(
@@ -165,7 +178,7 @@
     }
     const center = (height + 8) / 2;
     const amplitude = Math.max(10, (height - 58) / 2);
-    context.strokeStyle = '#77d8c0';
+    context.strokeStyle = colors.wave;
     context.lineWidth = 1;
     context.beginPath();
     if (view)
@@ -181,14 +194,14 @@
       }
     context.stroke();
     if (displayedRange) {
-      context.fillStyle = '#e9ba4538';
+      context.fillStyle = colors.rangeFill;
       context.fillRect(
         x(displayedRange[0]),
         20,
         x(displayedRange[1]) - x(displayedRange[0]),
         height - 20,
       );
-      context.strokeStyle = '#e9ba45';
+      context.strokeStyle = colors.rangeLine;
       for (const t of displayedRange) {
         context.beginPath();
         context.moveTo(x(t), 20);
@@ -197,7 +210,7 @@
       }
     }
     // Cut candidates are an overlay, not editable subtitle boundaries.
-    context.strokeStyle = '#e992ef';
+    context.strokeStyle = colors.cut;
     context.lineWidth = 1;
     context.setLineDash([3, 3]);
     for (const cut of sceneCuts) {
@@ -210,7 +223,7 @@
     }
     context.setLineDash([]);
     if (playhead === null) return;
-    context.strokeStyle = '#ff7f7f';
+    context.strokeStyle = colors.playhead;
     context.lineWidth = 2;
     context.beginPath();
     context.moveTo(x(playhead), 18);
@@ -228,6 +241,7 @@
     void timing;
     void editingCueId;
     void displayedRange;
+    void palette;
     void width;
     void height;
     draw();
@@ -242,7 +256,11 @@
     });
     observer.observe(canvas);
     canvas.addEventListener('wheel', navigate, { passive: false });
+    const unwatch = watchCanvasPalette(document.documentElement, () => {
+      palette = readPalette();
+    });
     return () => {
+      unwatch();
       canvas.removeEventListener('wheel', navigate);
       observer.disconnect();
       cancel();

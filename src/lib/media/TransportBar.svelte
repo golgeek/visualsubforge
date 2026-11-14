@@ -67,7 +67,7 @@
     align-items: center;
     gap: 5px;
     padding: 5px 8px;
-    background: #203542;
+    background: var(--surface-raised);
     flex-wrap: wrap;
     flex-shrink: 0;
   }

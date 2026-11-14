@@ -74,10 +74,10 @@
     max-height: calc(100vh - 16px);
     overflow: auto;
     padding: 5px;
-    border: 1px solid #638299;
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
-    background: #1a2d3b;
-    box-shadow: 0 5px 24px #0008;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-pop);
   }
   button {
     display: block;
@@ -86,13 +86,13 @@
     background: transparent;
     border: 0;
     padding: 9px 12px;
-    color: #f0f5fa;
+    color: var(--text);
     cursor: pointer;
     border-radius: 3px;
   }
   button:hover,
   button:focus-visible {
-    background: #36556e;
-    outline: 1px solid #88b8df;
+    background: var(--surface-hover);
+    outline: 1px solid var(--focus);
   }
 </style>

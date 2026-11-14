@@ -34,7 +34,7 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
-    color: #b4c5d0;
+    color: var(--text-muted);
   }
 
   .panelbar {
@@ -43,7 +43,7 @@
     gap: 6px;
     height: 32px;
     padding: 4px 8px;
-    background: #203542;
+    background: var(--surface-raised);
     flex-shrink: 0;
   }
 
@@ -68,7 +68,7 @@
     min-height: 0;
     background: transparent;
     /* Cover the scrollable workspace while retaining the legacy video hole. */
-    box-shadow: 0 0 0 max(100vmax, var(--workspace-height)) #14232d;
+    box-shadow: 0 0 0 max(100vmax, var(--workspace-height)) var(--surface-base);
     z-index: 0;
   }
 
@@ -76,12 +76,12 @@
     position: absolute;
     inset: 20% 10%;
     text-align: center;
-    color: #a7bdca;
+    color: var(--text-on-video);
   }
 
   .video-space.covered {
     /* Only the loaded legacy renderer needs a transparent webview hole. */
-    background: #101e28;
+    background: var(--surface-video);
   }
 
   @media (max-width: 799px), (max-height: 609px) {

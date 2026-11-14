@@ -270,14 +270,14 @@
     width: min(760px, calc(100vw - 32px));
     max-height: calc(100dvh - 48px);
     overflow: hidden;
-    border: 1px solid #49616f;
+    border: 1px solid var(--line-strong);
     border-radius: 10px;
     padding: 24px;
-    color: #e7eef3;
-    background: #192e3c;
+    color: var(--text);
+    background: var(--surface-panel);
   }
   dialog::backdrop {
-    background: #08121bb3;
+    background: var(--scrim);
   }
   form {
     display: flex;
@@ -300,7 +300,7 @@
   section {
     padding: 16px;
     margin-bottom: 12px;
-    background: #20323f;
+    background: var(--surface-raised);
   }
   fieldset {
     margin: 0;
@@ -314,7 +314,7 @@
   }
   p {
     font-size: 12px;
-    color: #b5c7d3;
+    color: var(--text-muted);
     line-height: 1.5;
   }
   footer {
@@ -325,6 +325,6 @@
     margin-top: 20px;
   }
   .error {
-    color: #ffb0ae;
+    color: var(--err);
   }
 </style>

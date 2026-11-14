@@ -53,7 +53,7 @@
   .splitter {
     border: 0;
     padding: 0;
-    background: #31434e;
+    background: var(--line);
     cursor: row-resize;
     touch-action: none;
     user-select: none;
@@ -67,7 +67,7 @@
   }
   .splitter:hover,
   .splitter:focus-visible {
-    background: #74c9b7;
+    background: var(--accent);
     outline: none;
   }
 </style>

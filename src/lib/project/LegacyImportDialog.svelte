@@ -198,9 +198,9 @@
 
 <style>
   dialog {
-    color: #dceaf1;
-    background: #172b37;
-    border: 1px solid #5e8196;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 18px;
     width: min(780px, 90vw);
@@ -208,7 +208,7 @@
     overflow: auto;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   header,
   .actions {
@@ -235,16 +235,16 @@
     font-size: 14px;
   }
   fieldset {
-    border: 1px solid #466475;
+    border: 1px solid var(--line-strong);
   }
   .reference {
     margin-top: 16px;
   }
   article {
-    border-left: 3px solid #68889b;
+    border-left: 3px solid var(--line-strong);
     padding: 10px 12px;
     margin: 12px 0;
-    background: #1c3442;
+    background: var(--surface-raised);
   }
   p,
   li,
@@ -257,10 +257,10 @@
   .value {
     display: block;
     white-space: pre-wrap;
-    color: #c5d6e1;
+    color: var(--text-muted);
   }
   .note {
-    color: #b4cad6;
+    color: var(--text-muted);
     font-size: 12px;
   }
 </style>

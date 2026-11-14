@@ -55,8 +55,8 @@
     right: 12px;
     top: 52px;
     width: min(520px, 90%);
-    border: 1px solid #87b4bb;
-    box-shadow: 0 8px 30px #0008;
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow-pop);
     z-index: 5;
     padding: 10px;
     max-height: calc(100dvh - 64px);
@@ -75,7 +75,7 @@
     }
   }
   .panel {
-    background: #172934;
+    background: var(--surface-panel);
     position: relative;
     z-index: 2;
     min-width: 0;
@@ -88,7 +88,7 @@
     gap: 6px;
     height: 32px;
     padding: 4px 8px;
-    background: #203542;
+    background: var(--surface-raised);
     flex-shrink: 0;
   }
   .panelbar strong {

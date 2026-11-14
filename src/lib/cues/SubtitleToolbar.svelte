@@ -137,7 +137,7 @@
     gap: 8px;
     padding: 4px 8px;
     font-size: 11px;
-    background: #203542;
+    background: var(--surface-raised);
     flex-shrink: 0;
   }
 

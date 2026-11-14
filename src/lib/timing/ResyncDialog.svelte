@@ -289,9 +289,9 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #1e303d;
-    border: 1px solid #638299;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 20px;
     width: min(1080px, calc(100vw - 24px));
@@ -299,7 +299,7 @@
     overflow: auto;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   h2 {
     margin-top: 0;
@@ -324,8 +324,8 @@
   }
   button {
     color: inherit;
-    background: #2d4354;
-    border: 1px solid #638299;
+    background: var(--surface-raised);
+    border: 1px solid var(--line-strong);
     border-radius: 4px;
     padding: 6px 10px;
     cursor: pointer;
@@ -348,16 +348,16 @@
   }
   .error,
   .unresolved {
-    color: #ffc4b7;
+    color: var(--err);
   }
   .draft {
-    border: 1px solid #d2b068;
+    border: 1px solid var(--warn);
     padding: 12px;
   }
   .table-scroll {
     max-height: 28vh;
     overflow: auto;
-    border: 1px solid #638299;
+    border: 1px solid var(--line-strong);
   }
   table {
     border-collapse: collapse;
@@ -367,14 +367,14 @@
   th,
   td {
     padding: 8px;
-    border-bottom: 1px solid #405668;
+    border-bottom: 1px solid var(--line);
     text-align: left;
     vertical-align: top;
   }
   th {
     position: sticky;
     top: 0;
-    background: #263e4e;
+    background: var(--surface-raised);
   }
   td {
     white-space: nowrap;

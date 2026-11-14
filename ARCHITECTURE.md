@@ -63,6 +63,12 @@ renders feature content from the modal identity. TransportBar, CueOperationsBar,
 markup and scoped styles. WorkspaceDecisions and WorkspaceLegacyImport render
 decision-owned payloads; ShortcutHelp owns keyboard help. App creates owners and
 lays out regions.
+Appearance comes from `src/lib/ui/`: `tokens.css` defines the dark and light
+palettes, type and shape, and `base.css` styles native elements. Components use
+tokens in their scoped styles instead of color literals. The waveform canvas reads
+tokens through `canvas-palette.ts` and redraws when the theme or loaded fonts
+change. The page body stays transparent so the native video surface can show
+through; the visible window color is painted by the video placeholder.
 CueNavigation coordinates selection, following, reveal and focus through narrow
 DOM callbacks. WorkspaceStartup loads initial state, WorkspaceMenus owns the native
 menu subscription, and NativeVideoLayout owns native layout tracking;

@@ -210,9 +210,9 @@
     padding: 0;
     transform: translateX(-50%);
     border: 0;
-    border-left: 2px solid #a1c9ff;
-    background: #77acff20;
-    color: white;
+    border-left: 2px solid var(--cue-line-selected);
+    background: var(--cue-fill);
+    color: var(--text);
     cursor: ew-resize;
     pointer-events: auto;
     touch-action: none;
@@ -223,7 +223,7 @@
     display: block;
     width: 5px;
     height: 18px;
-    background: #a1c9ff;
+    background: var(--cue-line-selected);
     border-radius: 2px;
     position: absolute;
     top: 50%;
@@ -233,7 +233,7 @@
     opacity: 0.6;
   }
   .boundary:focus-visible {
-    outline: 2px solid #ffd873;
+    outline: 2px solid var(--focus);
     outline-offset: 1px;
   }
 </style>

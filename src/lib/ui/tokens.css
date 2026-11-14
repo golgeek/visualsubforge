@@ -1,0 +1,147 @@
+/*
+  Design tokens: the only place where workspace colors, type and shape are
+  defined. Components refer to these custom properties instead of literals.
+
+  Dark is the default. `data-theme="light"` on the root element selects the
+  light palette; no workspace setting chooses it yet, so the application keeps
+  its dark appearance until a preference owns that choice.
+
+  Colors are written out, not computed with color-mix() or relative color
+  syntax, so WKWebView, WebView2 and WebKitGTK resolve identical values.
+  Translucent colors use rgba() over whatever surface they are placed on.
+*/
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, from the window background up to hovered controls. */
+  --surface-base: #0e1115;
+  --surface-panel: #151a20;
+  --surface-raised: #1c222a;
+  --surface-hover: #242b35;
+  --surface-pressed: #2b333e;
+  --surface-field: #0e1115;
+  --surface-timeline: #101419;
+  --surface-video: #05070a;
+  /* The video area stays dark in both themes, so its text does too. */
+  --text-on-video: #8a94a3;
+
+  --line: #262d37;
+  --line-strong: #36404c;
+
+  --text: #e4e8ee;
+  --text-muted: #8a94a3;
+  --text-faint: #5e6876;
+
+  /* Ember marks what the user is acting on: focus, playhead, primary action. */
+  --accent: #ff7a2f;
+  --accent-hover: #ff8c4a;
+  --accent-text: #ff9a5c;
+  --accent-ink: #1b0c03;
+  --accent-soft: rgba(255, 122, 47, 0.15);
+  --selection: rgba(255, 122, 47, 0.1);
+  --text-selection: rgba(255, 122, 47, 0.32);
+  --focus: #ff7a2f;
+
+  --ok: #3fc79a;
+  --ok-soft: rgba(63, 199, 154, 0.15);
+  --warn: #f2c14e;
+  --warn-soft: rgba(242, 193, 78, 0.15);
+  --err: #f0616d;
+  --err-soft: rgba(240, 97, 109, 0.15);
+
+  /* Timeline and waveform. Cues are steel blue, shot changes violet. */
+  --cue: #4c7fe6;
+  --cue-fill: rgba(76, 127, 230, 0.17);
+  --cue-fill-selected: rgba(76, 127, 230, 0.32);
+  --cue-line: rgba(76, 127, 230, 0.7);
+  --cue-line-selected: #8fb2f5;
+  --cue-text: #dce6fa;
+  --wave: #5fa3c4;
+  --cut: #b49cff;
+  --cut-soft: rgba(180, 156, 255, 0.14);
+  --buffer-cue: rgba(76, 127, 230, 0.14);
+  --range-fill: rgba(255, 122, 47, 0.1);
+  --range-line: #ff7a2f;
+  --playhead: #ff7a2f;
+
+  --scrim: rgba(5, 7, 10, 0.62);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  /* Type. Inter for the interface, JetBrains Mono for timecodes and counts. */
+  --font-ui:
+    'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans',
+    sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas,
+    monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 15px;
+  --font-size-xl: 20px;
+
+  /* Shape and density. */
+  --radius-sm: 5px;
+  --radius: 7px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  --control-height: 28px;
+  --control-height-sm: 24px;
+
+  --motion-fast: 120ms;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --surface-base: #eceff3;
+  --surface-panel: #ffffff;
+  --surface-raised: #f3f5f8;
+  --surface-hover: #e8ecf1;
+  --surface-pressed: #dfe4eb;
+  --surface-field: #ffffff;
+  --surface-timeline: #f7f8fa;
+  --surface-video: #05070a;
+  --text-on-video: #8a94a3;
+
+  --line: #dce2ea;
+  --line-strong: #c5cdd8;
+
+  --text: #151a21;
+  --text-muted: #5c6676;
+  --text-faint: #8a94a3;
+
+  --accent: #c4500c;
+  --accent-hover: #ad460a;
+  --accent-text: #b84a0c;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(196, 80, 12, 0.12);
+  --selection: rgba(196, 80, 12, 0.07);
+  --text-selection: rgba(196, 80, 12, 0.22);
+  --focus: #c4500c;
+
+  --ok: #12805c;
+  --ok-soft: rgba(22, 149, 108, 0.12);
+  --warn: #805c04;
+  --warn-soft: rgba(176, 127, 7, 0.14);
+  --err: #c43344;
+  --err-soft: rgba(208, 59, 76, 0.12);
+
+  --cue: #3466d6;
+  --cue-fill: rgba(52, 102, 214, 0.12);
+  --cue-fill-selected: rgba(52, 102, 214, 0.24);
+  --cue-line: rgba(52, 102, 214, 0.6);
+  --cue-line-selected: #2453b8;
+  --cue-text: #1c3b80;
+  --wave: #3e89ad;
+  --cut: #6a4bd6;
+  --cut-soft: rgba(106, 75, 214, 0.12);
+  --buffer-cue: rgba(52, 102, 214, 0.12);
+  --range-fill: rgba(196, 80, 12, 0.08);
+  --range-line: #c4500c;
+  --playhead: #c4500c;
+
+  --scrim: rgba(30, 40, 55, 0.28);
+  --shadow-pop: 0 20px 50px rgba(20, 30, 50, 0.16);
+}

@@ -278,7 +278,7 @@
 
 <style>
   .panel {
-    background: #172934;
+    background: var(--surface-panel);
     position: relative;
     z-index: 2;
     min-width: 0;
@@ -301,12 +301,12 @@
   }
 
   .quality-readout small {
-    color: #a9c1ce;
+    color: var(--text-muted);
     font-size: 10px;
   }
 
   .quality-readout [role='alert'] {
-    color: #ffb3ad;
+    color: var(--err);
   }
 
   .editor {
@@ -341,7 +341,7 @@
   }
 
   .editorbar small {
-    color: #a9c1ce;
+    color: var(--text-muted);
   }
 
   .editor textarea {
@@ -356,7 +356,7 @@
 
   .editorfooter span {
     font-size: 11px;
-    color: #a9c1ce;
+    color: var(--text-muted);
   }
 
   /* A scaled desktop can be smaller than the normal three-pane workspace.

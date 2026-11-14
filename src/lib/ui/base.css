@@ -1,0 +1,196 @@
+/*
+  Element defaults for the whole workspace, built on tokens.css. Components
+  keep layout in their own scoped styles; scoped rules are more specific than
+  these selectors and win where a component needs something different.
+
+  Buttons take an optional data-variant attribute instead of a global class,
+  so these defaults cannot collide with a component's own class names:
+  data-variant="primary" for the one main action in a view, "quiet" for
+  low-emphasis actions in dense bars and "danger" for destructive confirmations.
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  /* Stays transparent: the native video surface can sit behind the webview.
+     The visible window color is painted by the video placeholder's shadow. */
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-md);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--text-selection);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+a {
+  color: var(--accent-text);
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Controls */
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--surface-hover);
+}
+
+button:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--surface-pressed);
+}
+
+button[data-variant='primary'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+button[data-variant='primary']:hover:not(:disabled):not(
+    [aria-disabled='true']
+  ) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+button[data-variant='quiet'] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+button[data-variant='quiet']:hover:not(:disabled):not([aria-disabled='true']) {
+  color: var(--text);
+}
+
+button[data-variant='danger'] {
+  border-color: var(--err);
+  background: var(--err-soft);
+  color: var(--err);
+  font-weight: 600;
+}
+
+button:disabled,
+button[aria-disabled='true'] {
+  opacity: 0.42;
+  cursor: default;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-field);
+  padding: 4px 6px;
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--text-faint);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+}
+
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'],
+progress {
+  accent-color: var(--accent);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  input,
+  select,
+  textarea {
+    transition:
+      background-color var(--motion-fast) ease-out,
+      border-color var(--motion-fast) ease-out;
+  }
+}
+
+/* Containers */
+
+dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+
+dialog::backdrop {
+  background: var(--scrim);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+summary {
+  cursor: pointer;
+}

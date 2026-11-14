@@ -340,9 +340,9 @@
 
 <style>
   dialog {
-    color: #e7eef3;
-    background: #1e303d;
-    border: 1px solid #6c8b9d;
+    color: var(--text);
+    background: var(--surface-panel);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     width: min(1000px, 92vw);
     max-height: 90dvh;
@@ -350,7 +350,7 @@
     padding: 20px;
   }
   dialog::backdrop {
-    background: #0009;
+    background: var(--scrim);
   }
   h2 {
     margin-top: 0;
@@ -395,7 +395,7 @@
   }
   .row {
     padding: 12px 4px;
-    border-bottom: 1px solid #6c8b9d;
+    border-bottom: 1px solid var(--line-strong);
   }
   .comparison {
     display: grid;
@@ -416,15 +416,15 @@
     margin-block: 6px;
   }
   .skip {
-    color: #f1d7a2;
+    color: var(--warn);
     font-size: 12px;
   }
   .draft {
     padding: 10px;
-    background: #344d5d;
+    background: var(--surface-raised);
     margin-block: 10px;
   }
   .error {
-    color: #ffb3ad;
+    color: var(--err);
   }
 </style>

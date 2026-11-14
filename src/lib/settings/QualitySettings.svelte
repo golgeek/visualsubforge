@@ -313,7 +313,7 @@
 <style>
   section {
     padding: 16px;
-    background: #20323f;
+    background: var(--surface-raised);
     font-size: 12px;
   }
   h3 {
@@ -364,7 +364,7 @@
   }
   p,
   li {
-    color: #c2d3df;
+    color: var(--text-muted);
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
