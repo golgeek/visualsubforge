@@ -45,9 +45,11 @@ function passed(message: string) {
   output.append(row);
 }
 function button(text: string) {
-  const b = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const b = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!b) throw new Error(`Missing ${text}`);
   return b;
 }
@@ -68,8 +70,8 @@ function type(text: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Repair duration / speed…').disabled);
-  button('Repair duration / speed…').click();
+  await until(() => !button('Fix reading speed…').disabled);
+  button('Fix reading speed…').click();
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
@@ -196,7 +198,7 @@ async function run() {
         !!host.querySelector('dialog[open] [aria-label="Unapplied cue draft"]'),
     );
     assert(
-      button('Create duration preview').disabled && starts === 0,
+      button('Preview changes').disabled && starts === 0,
       'Draft bypassed preview protection',
     );
     button('Cancel duration review').click();
@@ -228,7 +230,7 @@ async function run() {
     button('Discard cue draft').click();
     await tick();
     failApply = false;
-    button('Create duration preview').click();
+    button('Preview changes').click();
     await until(() => host.textContent!.includes('1 safe changes'));
     assert(
       scopes.at(-1) === '1' &&
@@ -240,7 +242,7 @@ async function run() {
       'Preview changed document',
     );
     assert(
-      !button('Accept duration changes').disabled,
+      !button('Apply changes').disabled,
       'Completed scene plan not acceptable',
     );
     passed(
@@ -253,7 +255,7 @@ async function run() {
     scope.dispatchEvent(new Event('change', { bubbles: true }));
     await tick();
     assert(
-      button('Accept duration changes').disabled,
+      button('Apply changes').disabled,
       'Changed scope kept an acceptable preview',
     );
     button('Preview again').click();
@@ -268,20 +270,20 @@ async function run() {
     );
     for (const coverage of ['noMedia', 'unavailable', 'partial'] as const) {
       view = { ...view, coverage };
-      await until(() => button('Accept duration changes').disabled);
+      await until(() => button('Apply changes').disabled);
       assert(
         !host.querySelector('dialog input[type="checkbox"]'),
         'Missing scenes could be acknowledged away',
       );
       view = { ...view, coverage: 'checked' };
-      await until(() => !button('Accept duration changes').disabled);
+      await until(() => !button('Apply changes').disabled);
     }
     view = { ...view, coverage: 'reduced' };
     await until(() =>
       host.textContent!.includes('Reduced detection can miss cuts'),
     );
     assert(
-      !button('Accept duration changes').disabled,
+      !button('Apply changes').disabled,
       'Completed Reduced scan unnecessarily disabled',
     );
     passed(
@@ -290,14 +292,14 @@ async function run() {
     view = { ...view, coverage: 'notRequired' };
     await until(() => host.textContent!.includes('Scene checks are disabled'));
     assert(
-      !button('Accept duration changes').disabled,
+      !button('Apply changes').disabled,
       'Explicit zero-buffer plan requires media',
     );
     passed(
       'Explicitly disabled scene buffers allow a duration preview without scene input',
     );
     failAccept = true;
-    button('Accept duration changes').click();
+    button('Apply changes').click();
     await until(() =>
       host.textContent!.includes('Injected stale duration proposal'),
     );
@@ -306,7 +308,7 @@ async function run() {
       'Failed acceptance mutated document',
     );
     failAccept = false;
-    button('Accept duration changes').click();
+    button('Apply changes').click();
     await until(
       () =>
         accepts === 1 &&
@@ -360,10 +362,10 @@ async function run() {
     pagesScope.value = 'document';
     pagesScope.dispatchEvent(new Event('change', { bubbles: true }));
     await tick();
-    button('Create duration preview').click();
+    button('Preview changes').click();
     await until(() => host.querySelectorAll('dialog tbody tr').length === 100);
     assert(
-      button('Accept duration changes').disabled,
+      button('Apply changes').disabled,
       'All-skipped proposal was acceptable',
     );
     button('Next candidates').click();
@@ -378,10 +380,10 @@ async function run() {
     view = { ...view, phase: 'stale' };
     await until(() => host.textContent!.includes('quality profile changed'));
     assert(
-      button('Accept duration changes').disabled,
+      button('Apply changes').disabled,
       'Stale proposal remains acceptable',
     );
-    button('Close duration review').click();
+    button('Cancel').click();
     await until(
       () =>
         !host.querySelector(
@@ -403,9 +405,9 @@ async function run() {
         ),
     );
     const prior = starts;
-    button('Create duration preview').click();
+    button('Preview changes').click();
     await until(() => starts > prior);
-    button('Close duration review').click();
+    button('Cancel').click();
     await until(
       () =>
         !host.querySelector(

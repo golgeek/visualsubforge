@@ -40,9 +40,11 @@ function passed(message: string) {
   output.append(row);
 }
 function button(text: string) {
-  const button = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const button = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!button) throw new Error(`Missing ${text}`);
   return button;
 }
@@ -276,19 +278,19 @@ async function run() {
       'Existing styles and original fields are inspectable without changing the cue',
     );
 
-    const convert = button('Convert subtitles…');
+    const convert = button('Export As…');
     convert.focus();
     convert.click();
     await until(() => !!host.querySelector('#conversion-dialog-title'));
     assert(
-      occluded && button('Apply edit').disabled,
+      occluded && button('Apply').disabled,
       'Conversion dialog did not occlude native video and protect workspace',
     );
     assert(
       field('Conversion format').value === 'srt' && edits.length === 0,
       'Conversion changed accepted state or selected the source format',
     );
-    button('Close conversion').click();
+    button('Cancel').click();
     await until(() => !host.querySelector('dialog[open]') && !convert.disabled);
     assert(
       !occluded && document.activeElement === convert,
@@ -298,7 +300,7 @@ async function run() {
     callbacks.get(eventHandler)!({ payload: 'convertSubtitles' });
     await until(() => !!host.querySelector('#conversion-dialog-title'));
     assert(occluded, 'Native menu conversion skipped modal occlusion');
-    button('Close conversion').click();
+    button('Cancel').click();
     await until(() => !host.querySelector('dialog[open]') && !convert.disabled);
     passed(
       'Conversion toolbar and menu share protected modal lifetime and restore native video and focus',
@@ -335,14 +337,14 @@ async function run() {
     input('Cue start', '00:00:01,010');
     await tick();
     assert(
-      doc.cues[0]!.style === 'Title' && !button('Apply edit').disabled,
+      doc.cues[0]!.style === 'Title' && !button('Apply').disabled,
       'Style change bypassed the draft',
     );
-    button('Apply edit').click();
+    button('Apply').click();
     await until(
       () =>
         edits.length === 1 &&
-        button('Apply edit').disabled &&
+        button('Apply').disabled &&
         !button('Undo edit').disabled,
     );
     assert(
@@ -369,7 +371,7 @@ async function run() {
     input('Cue style', 'Title');
     input('Cue start', '00:00:01,001');
     await tick();
-    button('Apply edit').click();
+    button('Apply').click();
     await until(() => host.textContent!.includes('10 ms increments'));
     assert(
       field('Cue style').value === 'Title' &&
@@ -384,10 +386,10 @@ async function run() {
         field('Cue style').value === 'Title',
       'Failed draft was discarded during navigation',
     );
-    button('Revert draft').click();
+    button('Revert').click();
     await tick();
     assert(
-      field('Cue style').value === 'Default' && button('Apply edit').disabled,
+      field('Cue style').value === 'Default' && button('Apply').disabled,
       'Revert did not restore accepted style',
     );
     passed(
@@ -405,10 +407,10 @@ async function run() {
         !field('Cue style').hasAttribute('disabled'),
     );
     assert(
-      field('Cue style').value === 'Title' && !button('Apply edit').disabled,
+      field('Cue style').value === 'Title' && !button('Apply').disabled,
       'Inspector lost an unapplied style',
     );
-    button('Revert draft').click();
+    button('Revert').click();
     await tick();
     passed(
       'Opening and closing the inspector preserves an unapplied style draft',
@@ -428,8 +430,8 @@ async function run() {
         edits.length === 1,
       'Formatting committed a draft or lost the source selection',
     );
-    await until(() => !button('Revert draft').disabled);
-    button('Revert draft').click();
+    await until(() => !button('Revert').disabled);
+    button('Revert').click();
     await tick();
     passed(
       'Formatting captures the draft style and version while preserving explicit Apply',
@@ -480,7 +482,7 @@ async function run() {
     assert(
       !host.querySelector('[aria-label="Cue style"]') &&
         !host.textContent!.includes('Inspect styles…') &&
-        button('Convert subtitles…').disabled,
+        !host.textContent!.includes('Export As…'),
       'WebVTT exposed ASS controls or conversion',
     );
     assert(
@@ -500,11 +502,11 @@ async function run() {
     input('Cue start', '00:00:01,002');
     input('Subtitle text', '<v Alice>Bonjour</v>\n{\\b1}literal\\N');
     await tick();
-    button('Apply edit').click();
+    button('Apply').click();
     await until(
       () =>
         doc.revision === 1 &&
-        button('Apply edit').disabled &&
+        button('Apply').disabled &&
         !button('Undo edit').disabled,
     );
     assert(
@@ -535,12 +537,11 @@ async function run() {
     button('Bold').click();
     await until(
       () =>
-        vttEditor.value.includes('<b>Bonjour</b>') &&
-        !button('Apply edit').disabled,
+        vttEditor.value.includes('<b>Bonjour</b>') && !button('Apply').disabled,
     );
     assert(
       doc.cues[0]!.text.includes('<v Alice>Bonjour</v>') &&
-        !button('Apply edit').disabled,
+        !button('Apply').disabled,
       'WebVTT formatting committed before Apply',
     );
     passed('WebVTT formatting remains a versioned draft until explicit Apply');

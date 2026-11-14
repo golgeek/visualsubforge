@@ -5,11 +5,11 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   const before = await status();
   const text = await browser.$('[aria-label="Subtitle text"]');
   await text.setValue('Unapplied gap review draft');
-  await (await browser.$('button=Enforce minimum gaps…')).click();
+  await (await browser.$('button=Fix gaps and overlaps…')).click();
   let dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
   await until('gap review modal', () => dialog.isDisplayed());
   assert.equal(
-    await (await dialog.$('button=Create gap preview')).isEnabled(),
+    await (await dialog.$('button=Preview changes')).isEnabled(),
     false,
   );
   await (await dialog.$('button=Cancel gap review')).click();
@@ -21,20 +21,20 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   assert.deepEqual(await status(), before);
   await until('gap close restored workspace interaction', () =>
     browser
-      .$('button=Enforce minimum gaps…')
+      .$('button=Fix gaps and overlaps…')
       .then((button) => button.isEnabled()),
   );
-  await (await browser.$('button=Enforce minimum gaps…')).click();
+  await (await browser.$('button=Fix gaps and overlaps…')).click();
   // The first modal was unmounted; the embedded driver retains its element ID.
   dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
   await until('reopened gap review', () => dialog.isDisplayed());
   await (await dialog.$('button=Discard cue draft')).click();
-  await (await dialog.$('button=Create gap preview')).click();
+  await (await dialog.$('button=Preview changes')).click();
   await until('completed gap proposal', async () =>
     (await dialog.getText()).includes('1 safe changes'),
   );
   assert.deepEqual(await status(), before);
-  const accept = await dialog.$('button=Accept gap changes');
+  const accept = await dialog.$('button=Apply changes');
   assert.equal(await accept.isEnabled(), false);
   await (await dialog.$('input[type="checkbox"]')).click();
   await until('explicit partial-plan acknowledgment', () => accept.isEnabled());
@@ -48,7 +48,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   // The workspace's modal guard stays active until that transition completes.
   await until('accepted gap dialog restored workspace interaction', () =>
     browser
-      .$('button=Enforce minimum gaps…')
+      .$('button=Fix gaps and overlaps…')
       .then((button) => button.isEnabled()),
   );
   const changed = await status();

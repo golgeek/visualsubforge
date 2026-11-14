@@ -29,7 +29,7 @@
   <button
     disabled={!status.loaded || workspace.busy}
     onclick={() => void workspace.run('play')}
-    >{status.paused ? 'Play' : 'Pause'}</button
+    >{!status.loaded || status.paused ? 'Play' : 'Pause'}</button
   ><button
     disabled={!status.loaded || workspace.busy}
     onclick={() => void workspace.run('previousFrame')}

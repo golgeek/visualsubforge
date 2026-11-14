@@ -57,9 +57,11 @@ function passed(message: string) {
   output.append(row);
 }
 function button(text: string) {
-  const b = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const b = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!b) throw new Error(`Missing ${text}`);
   return b;
 }
@@ -74,9 +76,11 @@ async function until(check: () => boolean) {
 }
 async function actionable(label: string) {
   await until(() =>
-    [...host.querySelectorAll('button')].some(
-      (b) => b.textContent?.trim() === label && !b.disabled,
-    ),
+    [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        'button:not(dialog:not([open]) button)',
+      ),
+    ].some((b) => b.textContent?.trim() === label && !b.disabled),
   );
 }
 function input(label: string, value: string) {
@@ -435,7 +439,7 @@ async function run() {
     passed(
       'Formatting shortcut changes only the draft and restores the selected text',
     );
-    button('Revert draft').click();
+    button('Revert').click();
     await tick();
     await open();
     let release!: (id: number) => void;
@@ -506,15 +510,17 @@ async function run() {
     languageEnabled = true;
     input('Subtitle text', '😀 <i>helo helo</i>');
     await tick();
-    button('Apply edit').click();
+    button('Apply').click();
     await until(
       () =>
         doc.cues[0]!.text === '😀 <i>helo helo</i>' &&
         !button('Find / Replace…').disabled,
     );
-    const problems = [...host.querySelectorAll('button')].find((b) =>
-      b.textContent?.trim().startsWith('Problems'),
-    )!;
+    const problems = [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        'button:not(dialog:not([open]) button)',
+      ),
+    ].find((b) => b.textContent?.trim().startsWith('Problems'))!;
     if (problems.getAttribute('aria-expanded') !== 'true') problems.click();
     await until(() => host.textContent!.includes('Fixture spelling finding'));
     const startingAccepts = accepts;

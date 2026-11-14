@@ -102,9 +102,9 @@ export async function legacyImportWorkflow({
   const click = (label) =>
     until(`enabled ${label}`, () =>
       browser.execute((label) => {
-        const b = [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === label && !b.disabled,
-        );
+        const b = [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === label && !b.disabled);
         if (!b) return false;
         b.click();
         return true;
@@ -133,9 +133,9 @@ export async function legacyImportWorkflow({
         const review = document.querySelector(
           '[aria-label="Legacy import review"]',
         );
-        const start = [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === 'Review import',
-        );
+        const start = [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === 'Review import');
         return !!review && !start?.disabled;
       }),
     );
@@ -280,7 +280,7 @@ export async function legacyImportWorkflow({
       await ready();
       const attachedBytes = await readFile(activeProject);
       await input('Active accepted 世界');
-      await click('Apply edit');
+      await click('Apply');
       const accepted = await documentIs(
         'active edit accepted',
         (d) => d.dirty && d.revision === activeOpened.revision + 1,
@@ -393,7 +393,7 @@ export async function legacyImportWorkflow({
         await ready();
         assert.deepEqual(await status(), before);
         assert.equal(await editorText(), 'Unapplied active draft');
-        await click('Revert draft');
+        await click('Revert');
         await click('Undo edit');
         await documentIs(
           'active Undo after import',
@@ -433,7 +433,7 @@ export async function legacyImportWorkflow({
       );
       const edited = `Imported ${firstText}`;
       await input(edited);
-      await click('Apply edit');
+      await click('Apply');
       const changed = await documentIs(
         'imported edit accepted',
         (d) => d.dirty && d.cues[0].text === edited,
@@ -467,7 +467,7 @@ export async function legacyImportWorkflow({
       await ready();
       assert.deepEqual((await status()).cues, restored.cues);
       await input(`Recovered ${firstText}`);
-      await click('Apply edit');
+      await click('Apply');
       const recovery = await documentIs(
         'imported recovery edit accepted',
         (d) => d.dirty && d.cues[0].text === `Recovered ${firstText}`,
@@ -512,9 +512,9 @@ export async function legacyImportWorkflow({
           );
           const b =
             row &&
-            [...row.querySelectorAll('button')].find(
-              (b) => b.textContent.trim() === 'Recover' && !b.disabled,
-            );
+            [
+              ...row.querySelectorAll('button:not(dialog:not([open]) button)'),
+            ].find((b) => b.textContent.trim() === 'Recover' && !b.disabled);
           if (!b) return false;
           b.click();
           return true;

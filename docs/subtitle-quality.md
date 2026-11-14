@@ -30,7 +30,7 @@ libass without rounding cue times. See the [tag contract](subtitle-tags.md) for
 cue opt-in, literal/malformed handling and fixed SRT preview defaults. The VSS
 counting policy can exclude syntax which preview renders literally; it counts
 ASS text escapes and drawing instructions outside blocks as source characters,
-not rendered layout. Its name/details must remain visible with metrics. SRT
+not rendered layout. Its name and details remain available in Settings → Subtitle quality → About this profile. SRT
 preserves original tags on save. [Full ASS/SSA documents](ass-ssa-documents.md)
 retain styles and metadata while sharing this same named counting policy.
 
@@ -104,7 +104,7 @@ cues are explicit. Profile snapshots and their canonical SHA-256 identify result
 ## Desktop checking
 
 Enable **Cue metrics** above the subtitle list for accepted CPS/RS columns and a
-selected-cue readout: duration, speed/rating, UTF-16 count, line lengths and next
+selected-cue readout: duration, speed/rating, character count, line lengths and next
 gap. Settings controls the startup default. Unapplied text/time edits get a
 separate **Draft · not applied** readout; invalid drafts show an explanation.
 Draft calculations use the same full-document overlap policy, but never replace
@@ -134,10 +134,10 @@ limitations remain visible even when there are no findings.
 
 ## Previewing minimum-gap changes
 
-Choose **Enforce minimum gaps…** above the cue list, resolve any unapplied cue
-draft, then **Create gap preview**. Review old/new endpoints, before/after reading
+Choose **Fix gaps and overlaps…** above the cue list, resolve any unapplied cue
+draft, then **Preview changes**. Review old/new endpoints, before/after reading
 metrics, skipped reasons and total finding counts. The table pages 100 candidates
-at a time; **Accept gap changes** commits all safe changes in the proposal,
+at a time; **Apply changes** commits all safe changes in the proposal,
 including other pages, together. Cancel and Close leave accepted subtitles alone.
 Without media, acceptance requires the explicit scene-check acknowledgment.
 Saving remains a separate action. Existing recovery/resync Save As protections

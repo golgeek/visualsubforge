@@ -95,7 +95,7 @@ export async function qualityChecking({
     '[aria-label="Draft · not applied cue metrics"]',
   );
   await until('labeled draft metrics', () => draft.isExisting());
-  assert.match(await draft.getText(), /12 UTF-16 units/);
+  assert.match(await draft.getText(), /12 characters/);
   assert.deepEqual(await status(), before);
   const next = await browser.$('button=Next cue · F4');
   await until('problem navigation ready', () => next.isEnabled());

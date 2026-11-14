@@ -15,7 +15,7 @@
   <span title={rateReason(value.data.rs)}
     >RS {rate(value.data.rs)} · {rating(value.data.rating)}</span
   >
-  <span>{value.data.characters} UTF-16 units</span>
+  <span>{value.data.characters} characters</span>
   <span>{value.lineCount} lines · longest {value.longestLine}</span>
   <span
     title={value.linesTruncated

@@ -197,7 +197,7 @@
       bind:this={preview}
       disabled={!session.canStart || !request || subtitles.dirty}
       onclick={() => void session.start()}
-      >{view ? 'Preview again' : 'Create batch preview'}</button
+      >{view ? 'Preview again' : 'Preview changes'}</button
     >
     {#if session.running}<button
         disabled={session.pending || session.accepting}
@@ -254,12 +254,10 @@
         >
       </nav>{/if}
   {/if}
-  <p>Saving remains separate. Invalid endpoints reject the entire batch.</p>
   <div class="actions end">
-    <button disabled={!session.canClose} onclick={onclose}
-      >Close batch review</button
+    <button disabled={!session.canClose} onclick={onclose}>Cancel</button
     ><button disabled={!session.canAccept} onclick={() => void accept()}
-      >Accept batch timings</button
+      >Apply changes</button
     >
   </div>
 </dialog>

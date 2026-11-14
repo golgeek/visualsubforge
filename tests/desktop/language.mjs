@@ -499,7 +499,7 @@ export async function languageTools({
             : `{\\i1}${visible}{\\i0}`;
         const savedState = await status();
         await input('Subtitle text', editorialLine);
-        await click('Apply edit');
+        await click('Apply');
         await documentIs(
           'editorial source accepted',
           (d) => d.cues[0].text === editorialLine,

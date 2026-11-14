@@ -22,7 +22,7 @@
     {#if !status.loaded}<p>
         {status.available
           ? 'Open media to preview video'
-          : 'GPU playback is unavailable in this build'}
+          : 'Video playback isn’t available here. Editing and the waveform still work.'}
       </p>{/if}
   </div>
 </section>

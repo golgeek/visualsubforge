@@ -415,9 +415,11 @@ function assert(ok: boolean, text: string) {
 async function run() {
   let app = mount(App, { target: host });
   function button(text: string) {
-    const button = [...host.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === text,
-    );
+    const button = [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        'button:not(dialog:not([open]) button)',
+      ),
+    ].find((button) => button.textContent?.trim() === text);
     if (!button) throw new Error(`Missing button: ${text}`);
     button.click();
   }
@@ -475,9 +477,11 @@ async function run() {
       host.querySelector<HTMLDialogElement>(
         'dialog[aria-labelledby="plugin-title"][open]',
       );
-    const launcher = [...host.querySelectorAll('button')].find(
-      (b) => b.textContent?.trim() === 'Subtitle plugins…',
-    )!;
+    const launcher = [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        'button:not(dialog:not([open]) button)',
+      ),
+    ].find((b) => b.textContent?.trim() === 'Subtitle plugins…')!;
     const authoringDraft = host.querySelector<HTMLTextAreaElement>(
       '[aria-label="Subtitle text"]',
     )!;
@@ -513,7 +517,7 @@ async function run() {
         `${route} Escape restores native video and launcher focus`,
       );
     }
-    button('Revert draft');
+    button('Revert');
     await until(() => calls.includes('scenes_view'));
     assert(
       media.positionSeconds === 12.5 &&
@@ -573,6 +577,13 @@ async function run() {
       // Allow project restoration, scene queries and layout to settle first.
       let baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
+      // Timer polls can run ahead of WebKit's rendering opportunity under CI
+      // load. Let the restored layout's ResizeObserver delivery and resulting
+      // canvas effect finish before measuring a status-only interval.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+      await tick();
       redraws = 0;
       redrawDetails.length = 0;
       baselinePolls = statusPolls;

@@ -85,9 +85,11 @@ export async function conversionPerformance({
               }),
             frame: () => new Promise((r) => requestAnimationFrame(r)),
             button: (label) =>
-              [...document.querySelectorAll('button')].find(
-                (b) => b.textContent.trim() === label && !b.disabled,
-              ),
+              [
+                ...document.querySelectorAll(
+                  'button:not(dialog:not([open]) button)',
+                ),
+              ].find((b) => b.textContent.trim() === label && !b.disabled),
             wait: async (probe) => {
               const end = performance.now() + 12000;
               while (performance.now() < end) {
@@ -101,9 +103,12 @@ export async function conversionPerformance({
               document.querySelector('main').getAttribute('aria-busy') ===
                 'false' &&
               !document.querySelector('dialog[open]') &&
-              [...document.querySelectorAll('button')].some(
-                (b) =>
-                  b.textContent.trim() === 'Convert subtitles…' && !b.disabled,
+              [
+                ...document.querySelectorAll(
+                  'button:not(dialog:not([open]) button)',
+                ),
+              ].some(
+                (b) => b.textContent.trim() === 'Export As…' && !b.disabled,
               ),
             select: (label, value) => {
               const field = document.querySelector(`[aria-label="${label}"]`);
@@ -146,7 +151,7 @@ export async function conversionPerformance({
               await b.wait(b.ready);
               const before = await b.state(),
                 opening = performance.now();
-              b.button('Convert subtitles…').click();
+              b.button('Export As…').click();
               await b.wait(() =>
                 document.querySelector('[aria-label="Conversion format"]'),
               );
@@ -180,7 +185,7 @@ export async function conversionPerformance({
               if (JSON.stringify(await b.state()) !== JSON.stringify(before))
                 throw new Error('Export changed document state');
               const closing = performance.now();
-              b.button('Close conversion').click();
+              b.button('Cancel').click();
               await b.wait(b.ready);
               await b.frame();
               return {
@@ -254,7 +259,7 @@ export async function conversionPerformance({
             field.value = doc.cues[0].text + ' stale';
             field.dispatchEvent(new Event('input', { bubbles: true }));
             await b.frame();
-            b.button('Apply edit').click();
+            b.button('Apply').click();
             await b.wait(
               async () =>
                 (await b.state()).revision === doc.revision + 1 && b.ready(),

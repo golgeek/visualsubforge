@@ -49,46 +49,48 @@ async function until(check: () => boolean) {
   await settle();
 }
 function button(label: string) {
-  const result = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === label,
-  );
+  const result = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === label);
   assert(result, `Missing button: ${label}`);
   return result!;
 }
 const variants = [
   {
     name: 'gap',
-    launcher: 'Enforce minimum gaps…',
-    close: 'Close gap review',
-    preview: 'Create gap preview',
-    accept: 'Accept gap changes',
+    launcher: 'Fix gaps and overlaps…',
+    close: 'Cancel',
+    preview: 'Preview changes',
+    accept: 'Apply changes',
     prefix: 'gap',
     sample: gapView,
   },
   {
     name: 'scene',
-    launcher: 'Repair scene timing…',
-    close: 'Close scene review',
-    preview: 'Create scene preview',
-    accept: 'Accept scene changes',
+    launcher: 'Snap to shot changes…',
+    close: 'Cancel',
+    preview: 'Preview changes',
+    accept: 'Apply changes',
     prefix: 'scene_repair',
     sample: sceneRepairView,
   },
   {
     name: 'duration',
-    launcher: 'Repair duration / speed…',
-    close: 'Close duration review',
-    preview: 'Create duration preview',
-    accept: 'Accept duration changes',
+    launcher: 'Fix reading speed…',
+    close: 'Cancel',
+    preview: 'Preview changes',
+    accept: 'Apply changes',
     prefix: 'duration_repair',
     sample: durationRepairView,
   },
   {
     name: 'batch',
     launcher: 'Shift / align cues…',
-    close: 'Close batch review',
-    preview: 'Create batch preview',
-    accept: 'Accept batch timings',
+    close: 'Cancel',
+    preview: 'Preview changes',
+    accept: 'Apply changes',
     prefix: 'batch_timing',
     sample: batchTimingView,
   },
@@ -213,9 +215,11 @@ async function fixture(variant: (typeof variants)[number], above = true) {
   await until(
     () =>
       !!callbacks.get(handler) &&
-      [...host.querySelectorAll('button')].some(
-        (b) => b.textContent?.trim() === variant.launcher && !b.disabled,
-      ),
+      [
+        ...host.querySelectorAll<HTMLButtonElement>(
+          'button:not(dialog:not([open]) button)',
+        ),
+      ].some((b) => b.textContent?.trim() === variant.launcher && !b.disabled),
   );
   // Media polling has started synchronously on mount; allow its projection to render.
   await settle();

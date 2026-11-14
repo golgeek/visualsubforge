@@ -45,10 +45,8 @@
   }}
 >
   <header>
-    <h2 id="conversion-dialog-title">Convert subtitles</h2>
-    <button disabled={!session.canClose} onclick={close}
-      >Close conversion</button
-    >
+    <h2 id="conversion-dialog-title">Export As</h2>
+    <button disabled={!session.canClose} onclick={close}>Cancel</button>
   </header>
   <p>
     Review changes and losses before exporting a new file. Your open subtitles,

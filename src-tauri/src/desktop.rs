@@ -95,7 +95,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .separator()
         .item(&item("save", "Save Subtitles", "CmdOrCtrl+S")?)
         .item(&item("saveAs", "Save Subtitles As…", "CmdOrCtrl+Shift+S")?)
-        .text("convertSubtitles", "Convert Subtitles…")
+        .text("convertSubtitles", "Export As…")
         .separator()
         .text("closeMedia", "Close Media")
         .text("closeSubtitles", "Close Subtitles")

@@ -28,7 +28,7 @@ can miss cuts. A completed empty scan is different from unavailable data.
 
 ## Review and acceptance
 
-**Repair scene timing…** creates an immutable preview. Starts move inward to the
+**Snap to shot changes…** creates an immutable preview. Starts move inward to the
 right edge of their exclusion window; ends move inward to the left edge. No cue
 is extended or shifted. Text, tags, IDs and document order are preserved. The
 dialog shows both endpoints, duration, CPS/RS, total before/after findings and

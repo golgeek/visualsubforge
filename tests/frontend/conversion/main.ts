@@ -27,9 +27,11 @@ function passed(message: string) {
   output.append(row);
 }
 function button(label: string) {
-  const found = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === label,
-  );
+  const found = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === label);
   if (!found) throw new Error(`Missing ${label}`);
   return found;
 }
@@ -625,7 +627,7 @@ async function run() {
         subtitles.snapshot.dirty,
       'Export changed document history or saved state',
     );
-    button('Close conversion').click();
+    button('Cancel').click();
     assert(
       closed && closePath === '/fixture/export.ass',
       'Close lost the publication receipt',

@@ -38,9 +38,11 @@ function passed(message: string) {
 }
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
 function button(label: string) {
-  const found = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === label,
-  );
+  const found = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === label);
   if (!found) throw new Error(`Missing ${label}`);
   return found;
 }
@@ -173,7 +175,7 @@ async function run() {
     const canvas = host.querySelector('canvas')!;
     const editor = host.querySelector('textarea')!;
     const mode = [...host.querySelectorAll('label')]
-      .find((l) => l.textContent?.trim() === 'Timing mode · hold Space')!
+      .find((l) => l.textContent?.trim() === 'Tap-to-time · hold Space')!
       .querySelector('input')!;
     button('Create cue').click();
     await until(() => document.activeElement === editor && !editor.readOnly);

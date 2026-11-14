@@ -130,6 +130,6 @@ export async function formatCueText(
     editor.focus();
     editor.setSelectionRange(result.start, result.end);
     workspace.notice =
-      'Formatting updated in the cue draft. Apply edit to accept it.';
+      'Formatting updated in the cue draft. Apply to accept it.';
   });
 }

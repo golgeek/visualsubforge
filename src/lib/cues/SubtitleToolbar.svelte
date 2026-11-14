@@ -33,18 +33,20 @@
   import { setTimingMode } from '../workspace/view-actions';
   const doc = $derived(subtitles.snapshot);
   const draftDirty = $derived(subtitles.dirty);
+  // Search aliases for the action registry: Enforce minimum gaps,
+  // Repair duration / speed, Repair scene timing, Convert subtitles.
   const reviews = [
     { label: 'Find / Replace…', open: () => dialogs.openText() },
     {
-      label: 'Enforce minimum gaps…',
+      label: 'Fix gaps and overlaps…',
       open: () => dialogs.openTimingReview('gap'),
     },
     {
-      label: 'Repair scene timing…',
+      label: 'Snap to shot changes…',
       open: () => dialogs.openTimingReview('scene'),
     },
     {
-      label: 'Repair duration / speed…',
+      label: 'Fix reading speed…',
       open: () => dialogs.openTimingReview('duration'),
     },
     {
@@ -103,7 +105,7 @@
       onchange={(e) =>
         setTimingMode(gestures, navigation, e.currentTarget.checked)}
     />
-    Timing mode · hold Space
+    Tap-to-time · hold Space
   </label>
   <label
     ><input
@@ -117,14 +119,14 @@
   {#if navigation.following === 'suspended'}
     <span
       >{draftDirty
-        ? 'Apply or revert the draft to resume.'
-        : 'Following suspended.'}</span
+        ? 'Apply or revert your edit to follow playback.'
+        : 'Following paused.'}</span
     >
     <button
       disabled={draftDirty || workspace.busy || workspace.confirming}
       onclick={() => {
         navigation.resumeFollowing();
-      }}>Resume following</button
+      }}>Jump to playhead</button
     >
   {/if}
 </div>

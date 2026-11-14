@@ -158,9 +158,11 @@ export async function languagePerformance({
                 document.querySelector('main').getAttribute('aria-busy') ===
                 'false',
               button: (label) =>
-                [...document.querySelectorAll('button')].find(
-                  (e) => e.textContent.trim() === label,
-                ),
+                [
+                  ...document.querySelectorAll(
+                    'button:not(dialog:not([open]) button)',
+                  ),
+                ].find((e) => e.textContent.trim() === label),
               input: (value) => {
                 const e = document.querySelector(
                   '[aria-label="Subtitle text"]',
@@ -205,9 +207,11 @@ export async function languagePerformance({
         );
         const checked = await browser.execute(async () => {
           const b = window.__languageBench;
-          const problems = [...document.querySelectorAll('button')].find((e) =>
-            e.textContent.trim().startsWith('Problems'),
-          );
+          const problems = [
+            ...document.querySelectorAll(
+              'button:not(dialog:not([open]) button)',
+            ),
+          ].find((e) => e.textContent.trim().startsWith('Problems'));
           if (problems.getAttribute('aria-expanded') !== 'true')
             problems.click();
           await b.wait(
@@ -274,7 +278,7 @@ export async function languagePerformance({
               async () => (await b.read({ run: false })).phase === 'cancelled',
             );
             const checkingCancellationMs = performance.now() - cancelStart;
-            b.button('Revert draft').click();
+            b.button('Revert').click();
             await b.frame();
             const operation = {
               kind: 'languageCorrection',
@@ -396,7 +400,7 @@ export async function languagePerformance({
           b.input(`${original}!`);
           await b.frame();
           const start = performance.now();
-          b.button('Apply edit').click();
+          b.button('Apply').click();
           await b.wait(async () => {
             const v = await b.view(id);
             return v.phase === 'stale' && !v.rows.length && b.ready();

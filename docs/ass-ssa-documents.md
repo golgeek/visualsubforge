@@ -49,7 +49,7 @@ with direct source-grid rounding and refusal of unsafe timed-effect duration cha
 
 ## Style editing and safe tools
 
-The cue editor's **Cue style** selector changes a draft. **Apply edit** commits
+The cue editor's **Cue style** selector changes a draft. **Apply** commits
 style, text and timing together, so one Undo restores all three. **Inspect styles…**
 shows original style fields and script settings without assigning or editing them;
 opening it preserves the current draft. Undefined existing style names remain

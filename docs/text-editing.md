@@ -37,10 +37,10 @@ and resynchronization Save As protections remain in force.
 
 ## Concurrent cue edits
 
-If **Apply edit** receives a stale-version refusal or loses its reply, it refreshes
+If **Apply** receives a stale-version refusal or loses its reply, it refreshes
 accepted subtitles once, keeps your draft and shows a message. It never resends the
 edit automatically: a lost reply may follow a successful commit. Review the current
-subtitles before explicitly applying again, or use **Revert draft** to load accepted
+subtitles before explicitly applying again, or use **Revert** to load accepted
 content. There is no additional conflict lock on Apply or cue selection.
 
 If the cue disappeared or the document was replaced, selection clears and the draft
@@ -54,7 +54,7 @@ a successful reply stays unapplied and prevents save/navigation continuation.
 Select a span in the cue text editor, then use **Bold**, **Italic**, **Underline**
 or Ctrl/Cmd+B/I/U. The shortcut wraps plain selected source with the matching
 HTML style in SRT; selecting exactly the text inside that wrapper toggles it off. It
-updates the draft and restores its selection. **Apply edit** accepts it through
+updates the draft and restores its selection. **Apply** accepts it through
 the normal document operation. Empty selections, partial Unicode characters,
 tag/escape boundaries and conflicting existing same-style markup are rejected
 with an explanation. ASS/SSA overrides remain byte-for-byte intact; a style

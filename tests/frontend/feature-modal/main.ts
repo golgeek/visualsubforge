@@ -43,16 +43,18 @@ async function until(check: () => boolean) {
   await settle();
 }
 function button(label: string, root: ParentNode = host) {
-  const result = [...root.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === label,
-  );
+  const result = [
+    ...root.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === label);
   assert(result, `Missing button: ${label}`);
   return result!;
 }
 const variants = [
   { name: 'settings', close: 'Cancel', action: 'settings' },
   { name: 'resync', close: 'Close', action: 'resync' },
-  { name: 'statistics', close: 'Close statistics', action: null },
+  { name: 'statistics', close: 'Close', action: null },
   { name: 'text', close: 'Close text tools', action: null },
 ] as const;
 async function fixture(variant: (typeof variants)[number], above = true) {
@@ -168,7 +170,11 @@ async function fixture(variant: (typeof variants)[number], above = true) {
   await until(
     () =>
       !!callbacks.get(handler) &&
-      [...host.querySelectorAll('button')].some(
+      [
+        ...host.querySelectorAll<HTMLButtonElement>(
+          'button:not(dialog:not([open]) button)',
+        ),
+      ].some(
         (b) =>
           b.textContent?.trim() ===
             (variant.name === 'statistics'

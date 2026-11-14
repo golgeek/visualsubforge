@@ -56,7 +56,7 @@
   }}
 >
   <h2 {id}>
-    {isDuration ? 'Repair duration and reading speed' : 'Repair scene timing'}
+    {isDuration ? 'Fix reading speed' : 'Snap to shot changes'}
   </h2>
   <p>
     {#if isDuration}Preview the smallest safe end-time changes that meet the
@@ -106,11 +106,7 @@
         !subtitles.snapshot.cues.length ||
         (isDuration && scope === 'selected' && !subtitles.cue)}
       onclick={() => void session.start()}
-      >{view
-        ? 'Preview again'
-        : isDuration
-          ? 'Create duration preview'
-          : 'Create scene preview'}</button
+      >{view ? 'Preview again' : 'Preview changes'}</button
     >
     {#if session.running}<button
         disabled={session.pending || session.accepting}
@@ -166,10 +162,8 @@
         unknown tags require manual review.
       </p>
       <p>
-        Counting: {view.profile.textAlgorithm} · reading speed: {view.profile
-          .speedBasis}. Scene endpoint buffers: {view.profile.timing
-          .sceneBeforeMs} ms before / {view.profile.timing.sceneAfterMs} ms after;
-        exact boundaries are allowed.
+        Shot-change buffers: {view.profile.timing.sceneBeforeMs} ms before / {view
+          .profile.timing.sceneAfterMs} ms after; exact boundaries are allowed.
       </p>
       {#if isDuration}
         <p>
@@ -272,20 +266,12 @@
         >
       </nav>{/if}
   {/if}
-  <p>
-    Saving remains a separate action. Existing recovery or resynchronization
-    Save As protection is preserved.
-  </p>
   <div class="actions end">
     <button disabled={!session.canClose} onclick={onclose}
-      >{session.running
-        ? 'Cancel and close'
-        : isDuration
-          ? 'Close duration review'
-          : 'Close scene review'}</button
+      >{session.running ? 'Cancel and close' : 'Cancel'}</button
     >
     <button disabled={!session.canAccept} onclick={() => void accept()}
-      >{isDuration ? 'Accept duration changes' : 'Accept scene changes'}</button
+      >Apply changes</button
     >
   </div>
 </dialog>

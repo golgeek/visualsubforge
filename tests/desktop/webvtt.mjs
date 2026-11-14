@@ -93,9 +93,9 @@ export async function webvttWorkflow({
   const click = (label) =>
     until(`enabled ${label}`, () =>
       browser.execute((label) => {
-        const b = [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === label && !b.disabled,
-        );
+        const b = [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === label && !b.disabled);
         if (!b) return false;
         b.click();
         return true;
@@ -218,10 +218,7 @@ export async function webvttWorkflow({
       await browser.$('[aria-label="Cue style"]').isExisting(),
       false,
     );
-    assert.equal(
-      await browser.$('button=Convert subtitles…').isEnabled(),
-      false,
-    );
+    assert.equal(await browser.$('button=Export As…').isExisting(), false);
     await preview('webvtt-css-voice', 1.5);
     await preview('webvtt-timed-ruby', 4.5);
     await preview('webvtt-literal-ass', 6);
@@ -314,7 +311,7 @@ export async function webvttWorkflow({
     );
     assert.deepEqual(await status(), opened);
     await input('Cue start', '00:00:01,002');
-    await click('Apply edit');
+    await click('Apply');
     const formatted = await documentIs(
       'WebVTT formatted edit',
       (d) => d.revision === opened.revision + 1,
@@ -365,7 +362,7 @@ export async function webvttWorkflow({
     await click('Shift / align cues…');
     await input('Batch scope', 'all');
     await input('Batch offset milliseconds', '1');
-    await click('Create batch preview');
+    await click('Preview changes');
     await until('WebVTT absolute marker refusal', () =>
       browser.execute(() =>
         document
@@ -374,13 +371,13 @@ export async function webvttWorkflow({
       ),
     );
     assert.deepEqual(await status(), beforeTiming);
-    await click('Close batch review');
+    await click('Cancel');
     await ready();
     await click('Shift / align cues…');
     await input('Batch scope', 'selected');
     await input('Batch offset milliseconds', '1');
-    await click('Create batch preview');
-    await click('Accept batch timings');
+    await click('Preview changes');
+    await click('Apply changes');
     const shifted = await documentIs(
       'WebVTT millisecond batch',
       (d) => d.revision === beforeTiming.revision + 1,
@@ -446,7 +443,7 @@ export async function webvttWorkflow({
 
     const recoveryText = changed.cues[0].text.replace('Hiver', 'Recovery');
     await input('Subtitle text', recoveryText);
-    await click('Apply edit');
+    await click('Apply');
     await documentIs(
       'WebVTT recovery edit accepted',
       (d) => d.cues[0].text === recoveryText && d.dirty,

@@ -43,7 +43,7 @@
     if (session.canClose) onclose();
   }}
 >
-  <h2 id="gap-title">Enforce minimum gaps</h2>
+  <h2 id="gap-title">Fix gaps and overlaps</h2>
   <p>
     Preview safe end-time reductions across the document. Cue starts and text
     stay fixed. Accepting the displayed changes creates one Undo step.
@@ -70,7 +70,7 @@
         subtitles.dirty ||
         !subtitles.snapshot.cues.length}
       onclick={() => void session.start()}
-      >{view ? 'Preview again' : 'Create gap preview'}</button
+      >{view ? 'Preview again' : 'Preview changes'}</button
     >
     {#if session.running}<button
         disabled={session.pending || session.accepting}
@@ -114,10 +114,8 @@
         withhold a whole overlapping group.
       </p>
       <p>
-        Counting: {view.profile.textAlgorithm} · reading speed: {view.profile
-          .speedBasis}. Scene endpoint buffers: {view.profile.timing
-          .sceneBeforeMs} ms before / {view.profile.timing.sceneAfterMs} ms after;
-        exact boundaries are allowed.
+        Shot-change buffers: {view.profile.timing.sceneBeforeMs} ms before / {view
+          .profile.timing.sceneAfterMs} ms after; exact boundaries are allowed.
       </p>
       {#if view.profile.limitations.length}<strong
           >Partial profile coverage</strong
@@ -130,13 +128,13 @@
     </details>
     {#if view.coverage === 'noMedia'}
       <div class="coverage">
-        <p>No media is attached. Scene constraints were not checked.</p>
+        <p>Shot changes weren’t checked because no video is open.</p>
         <label
           ><input
             type="checkbox"
             bind:checked={session.acknowledgeNoMedia}
             disabled={session.accepting}
-          /> I accept this partial plan without scene checks.</label
+          /> Apply without checking shot changes.</label
         >
       </div>
     {:else}<p class="coverage">{sceneCoverage(view.coverage)}</p>{/if}
@@ -205,16 +203,12 @@
         >
       </nav>{/if}
   {/if}
-  <p>
-    Saving remains a separate action. Existing recovery or resynchronization
-    Save As protection is preserved.
-  </p>
   <div class="actions end">
     <button disabled={!session.canClose} onclick={onclose}
-      >{session.running ? 'Cancel and close' : 'Close gap review'}</button
+      >{session.running ? 'Cancel and close' : 'Cancel'}</button
     >
     <button disabled={!session.canAccept} onclick={() => void accept()}
-      >Accept gap changes</button
+      >Apply changes</button
     >
   </div>
 </dialog>

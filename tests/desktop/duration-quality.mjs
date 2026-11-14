@@ -81,7 +81,7 @@ export async function durationQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('duration workspace ready', () =>
-      browser.$('button=Repair duration / speed…').then((b) => b.isEnabled()),
+      browser.$('button=Fix reading speed…').then((b) => b.isEnabled()),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -141,13 +141,11 @@ export async function durationQuality({
   const text = await browser.$('[aria-label="Subtitle text"]');
   await text.setValue('Preserve duration draft');
   await browser.execute(() => {
-    [...document.querySelectorAll('button')]
-      .find(
-        (button) => button.textContent.trim() === 'Repair duration / speed…',
-      )
+    [...document.querySelectorAll('button:not(dialog:not([open]) button)')]
+      .find((button) => button.textContent.trim() === 'Fix reading speed…')
       .focus();
   });
-  await (await browser.$('button=Repair duration / speed…')).click();
+  await (await browser.$('button=Fix reading speed…')).click();
   await until('duration draft guard', () =>
     browser.$('button=Cancel duration review').then((b) => b.isExisting()),
   );
@@ -155,24 +153,24 @@ export async function durationQuality({
   await ready();
   assert.equal(
     await browser.execute(() => document.activeElement?.textContent?.trim()),
-    'Repair duration / speed…',
+    'Fix reading speed…',
     'Closing native timing review restores its enabled launcher focus',
   );
   assert.equal(await text.getValue(), 'Preserve duration draft');
   assert.deepEqual(await status(), before);
-  await (await browser.$('button=Revert draft')).click();
-  await (await browser.$('button=Repair duration / speed…')).click();
+  await (await browser.$('button=Revert')).click();
+  await (await browser.$('button=Fix reading speed…')).click();
   let selectedDialog = await browser.$(
     'dialog[aria-labelledby="duration-repair-title"]',
   );
   await until('selected duration dialog', () => selectedDialog.isDisplayed());
-  await (await selectedDialog.$('button=Create duration preview')).click();
+  await (await selectedDialog.$('button=Preview changes')).click();
   await until('selected duration proposal', async () =>
     (await selectedDialog.getText()).includes('1 safe changes'),
   );
   assert.equal((await selectedDialog.$$('tbody tr')).length, 1);
   assert.deepEqual(await status(), before);
-  await (await selectedDialog.$('button=Accept duration changes')).click();
+  await (await selectedDialog.$('button=Apply changes')).click();
   await ready();
   assert.deepEqual(
     (await status()).cues.map((c) => c.endMs),
@@ -182,7 +180,7 @@ export async function durationQuality({
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
-  await (await browser.$('button=Repair duration / speed…')).click();
+  await (await browser.$('button=Fix reading speed…')).click();
   let dialog = await browser.$(
     'dialog[aria-labelledby="duration-repair-title"]',
   );
@@ -192,14 +190,14 @@ export async function durationQuality({
     scope.value = 'document';
     scope.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await (await dialog.$('button=Create duration preview')).click();
+  await (await dialog.$('button=Preview changes')).click();
   await until('duration preview rows', async () =>
     (await dialog.getText()).includes('2 safe changes'),
   );
   assert.match(await dialog.getText(), /timing review/i);
   assert.deepEqual(await status(), before);
   await browser.saveScreenshot(join(evidence, 'duration-preview.png'));
-  await (await dialog.$('button=Accept duration changes')).click();
+  await (await dialog.$('button=Apply changes')).click();
   await ready();
   const accepted = await status();
   assert.equal(accepted.revision, before.revision + 1);
@@ -376,9 +374,9 @@ async function durationPerformance({
     );
     assert.equal(result.interaction.phase, 'cancelled');
     assert.ok(result.interaction.typingMs < 1000);
-    await (await browser.$('button=Revert draft')).click();
+    await (await browser.$('button=Revert')).click();
     await ready();
-    await (await browser.$('button=Repair duration / speed…')).click();
+    await (await browser.$('button=Fix reading speed…')).click();
     const dialog = await browser.$(
       'dialog[aria-labelledby="duration-repair-title"]',
     );
@@ -389,7 +387,7 @@ async function durationPerformance({
       scope.dispatchEvent(new Event('change', { bubbles: true }));
     });
     const began = Date.now();
-    await (await dialog.$('button=Create duration preview')).click();
+    await (await dialog.$('button=Preview changes')).click();
     await until(
       '10k completed scene preview',
       async () => (await dialog.getText()).includes('10000 safe changes'),
@@ -403,7 +401,7 @@ async function durationPerformance({
     );
     await browser.saveScreenshot(join(evidence, 'duration-10000-preview.png'));
     const acceptStart = Date.now();
-    await (await dialog.$('button=Accept duration changes')).click();
+    await (await dialog.$('button=Apply changes')).click();
     await ready();
     result.acceptanceMs = Date.now() - acceptStart;
     assert.ok(
@@ -434,7 +432,7 @@ async function durationPerformance({
       .$('[aria-label="Subtitle text"]')
       .then((e) => e.setValue('Invalidate duration proposal'));
     const invalidationStart = Date.now();
-    await (await browser.$('button=Apply edit')).click();
+    await (await browser.$('button=Apply')).click();
     await until('10k scene invalidation', async () => {
       const v = await invoke('duration_repair_view', {
         id: captured.id,
