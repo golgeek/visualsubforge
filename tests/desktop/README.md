@@ -297,3 +297,12 @@ emulated, and these helpers never invoke document mutations directly. Individual
 workflows still wait for accepted snapshots, exact fields or inline rejection.
 Pause/blur/IME triggering has separate browser coverage; generated keyboard events
 do not establish physical native-input acceptance.
+
+
+The default desktop workflow also inspects the empty Start screen, platform menu
+and caption geometry, light/comfortable workspace geometry, persisted recent work,
+and light appearance after an actual process restart. Linux additionally enables
+the custom-caption preference before restart and checks native decoration state
+and caption controls afterward. These are WebView/IPC and persistence checks;
+physical title-bar dragging, Windows snap hover, window-manager behavior and
+native playback require separate platform trials.

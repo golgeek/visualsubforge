@@ -64,3 +64,12 @@ on each color-scheme change. Dark and compact remain the migration defaults.
 Control density does not change the row density saved for each layout preset;
 choose that separately in Columns. The page body remains transparent for native
 video in both themes.
+
+
+On Linux, **Custom title bar (after restart)** opts into in-app minimize,
+maximize/restore and Close buttons. Native decorations remain the default; restart
+after enabling or disabling the option. Close still protects unsaved work. macOS
+uses inset native traffic lights and a draggable filename area; Windows keeps
+native captions and snap behavior. Windows/Linux also provide grouped menus in
+the top bar. The filename area supports drag and double-click maximize/restore
+when an overlay or custom bar is active.

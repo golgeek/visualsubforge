@@ -658,3 +658,15 @@ Unknown counts stay unknown; partial coverage is explicit. Capture never opens a
 file or admits a checker. Removal waits for capture and only edits list metadata;
 errors preserve the projection without automatic mutation replay. Recent entries
 route through WorkspaceOpen and retain protected, sequential pair opening.
+
+
+## Platform window chrome
+
+WindowChrome reads the saved Linux opt-in once at mount. macOS reserves an inset
+for native traffic lights; Windows retains native captions/snap behavior; Linux
+keeps native decorations by default. Caption Close calls protected workspace Quit.
+Decoration/maximize changes use HideVideo and acknowledge current native bounds
+before restoring remaining overlays. Unknown writes reconcile by reading native
+decoration state, never repeating the write. Disposal retires presentation.
+Native calls remain in client.ts. The grouped Windows/Linux top-bar menus filter
+the shared action registry and retain WorkspaceModal ownership and eligibility.

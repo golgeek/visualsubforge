@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { shortcutPreset } from './workspace/shortcut-settings';
 import { defaultLayout } from './layout/layout-presets';
 import { commands, events } from './generated/ipc';
@@ -741,3 +742,20 @@ export const captureRecent = (request: RecentRequest) =>
   commands.recentCapture(request);
 export const forgetRecent = (entry: Pick<RecentEntry, 'kind' | 'path'>) =>
   commands.recentForget(entry.kind, entry.path);
+
+export type WindowPlatform = 'macos' | 'windows' | 'linux' | 'other';
+export function windowPlatform(platform = navigator.platform): WindowPlatform {
+  if (platform.startsWith('Mac')) return 'macos';
+  if (platform.startsWith('Win')) return 'windows';
+  if (platform.startsWith('Linux')) return 'linux';
+  return 'other';
+}
+// Native window operations stay in the typed client. Quit uses ProjectWorkflow.
+export const setWindowDecorations = (value: boolean) =>
+  getCurrentWindow().setDecorations(value);
+export const windowIsDecorated = () => getCurrentWindow().isDecorated();
+export const dragWindow = () => getCurrentWindow().startDragging();
+export const minimizeWindow = () => getCurrentWindow().minimize();
+export const toggleWindowMaximized = () => getCurrentWindow().toggleMaximize();
+
+export { isTauri };

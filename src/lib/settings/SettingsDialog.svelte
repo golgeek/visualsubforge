@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { windowPlatform } from '../client';
   import { onMount, untrack } from 'svelte';
   import TimingSettingsPanel from './TimingSettings.svelte';
   import QualitySettings from './QualitySettings.svelte';
@@ -405,6 +406,19 @@
               <option value="compact">Compact</option>
             </select>
           </label>
+          {#if windowPlatform() === 'linux'}
+            <label
+              ><input
+                type="checkbox"
+                bind:checked={draft.appearance.customTitleBar}
+                {disabled}
+              /> Custom title bar (after restart)</label
+            >
+            <p>
+              Native window decorations remain the default. Restart to apply or
+              remove custom caption buttons.
+            </p>
+          {/if}
           <p>
             System follows your operating system’s appearance. Control density
             does not change cue-row density.

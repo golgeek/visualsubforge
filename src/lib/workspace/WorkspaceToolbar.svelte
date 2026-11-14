@@ -1,10 +1,24 @@
 <script lang="ts">
+  import type { WindowChrome } from './window-chrome.svelte';
+  import type { ActionGroup } from './action-registry';
+  const groups: ActionGroup[] = [
+    'File',
+    'Edit',
+    'Cue',
+    'View',
+    'Playback',
+    'Tools',
+    'Review',
+    'Help',
+  ];
   import type { Workspace } from './workspace.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { ProjectWorkflow } from '../project/project-workflow.svelte';
   let {
     workspace,
+    chrome,
+    ongroup,
     media,
     subtitles,
     projects,
@@ -19,9 +33,11 @@
     recoveryAvailable = false,
   }: {
     workspace: Workspace;
+    chrome?: WindowChrome;
+    ongroup?: (group: ActionGroup) => void;
     media: MediaSession;
     subtitles: DocumentSession;
-    projects: ProjectWorkflow;
+    projects: Pick<ProjectWorkflow, 'path'>;
     nativeMenus: boolean;
     diagnostics: boolean;
     showScenes: boolean;
@@ -37,8 +53,22 @@
   const draftDirty = $derived(subtitles.dirty);
 </script>
 
-<header class="toolbar">
-  <strong>VisualSubForge</strong>
+<header
+  class="toolbar"
+  class:mac-overlay={chrome?.overlay && chrome.platform === 'macos'}
+>
+  <strong>{chrome?.menus ? 'VSF' : 'VisualSubForge'}</strong>
+  {#if chrome?.menus}
+    <nav aria-label="Application menus">
+      {#each groups as group (group)}
+        <button
+          disabled={!workspace.canAct}
+          aria-haspopup="dialog"
+          onclick={() => ongroup?.(group)}>{group}</button
+        >
+      {/each}
+    </nav>
+  {/if}
   {#if recoveryAvailable}<button
       disabled={!workspace.canAct}
       onclick={onrecovery}>Recovery</button
@@ -81,13 +111,42 @@
       onclick={() => void workspace.run('save')}>Save</button
     >
   {/if}
-  <span class="filename" title={doc.path ?? ''}
-    >{doc.path?.split(/[\\/]/).pop() ??
+  {#snippet filename()}
+    {doc.path?.split(/[\\/]/).pop() ??
       (doc.loaded ? 'Untitled subtitles' : 'No subtitles')}{doc.dirty ||
     draftDirty
       ? ' •'
-      : ''}{doc.requiresSaveAs ? ' (Save As required)' : ''}</span
-  >
+      : ''}{doc.requiresSaveAs ? ' (Save As required)' : ''}
+  {/snippet}
+  {#if chrome?.overlay}
+    <button
+      class="filename drag-region"
+      data-window-drag
+      aria-label="Move window"
+      title={`${doc.path ?? 'VisualSubForge'} · Drag to move; double-click to maximize or restore`}
+      onmousedown={(event) => void chrome?.drag(event)}
+      ondblclick={() => void chrome?.maximize()}>{@render filename()}</button
+    >
+  {:else}
+    <span class="filename" title={doc.path ?? ''}>{@render filename()}</span>
+  {/if}
+  {#if chrome?.custom}
+    <div class="captions" aria-label="Window controls">
+      <button
+        aria-label="Minimize window"
+        onclick={() => void chrome?.minimize()}>—</button
+      >
+      <button
+        aria-label="Maximize or restore window"
+        onclick={() => void chrome?.maximize()}>□</button
+      >
+      <button
+        aria-label="Close window"
+        disabled={!workspace.canAct}
+        onclick={() => void workspace.run('quit')}>×</button
+      >
+    </div>
+  {/if}
   {#if !nativeMenus}
     <button
       class="quiet"
@@ -134,6 +193,32 @@
     z-index: 2;
     border-bottom: 1px solid var(--line);
   }
+  .mac-overlay {
+    padding-left: 88px;
+  }
+  nav,
+  .captions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  nav button {
+    background: transparent;
+    border-color: transparent;
+    padding: 4px 5px;
+  }
+  .captions button {
+    width: 32px;
+    padding: 4px;
+  }
+  .drag-region {
+    min-width: 40px;
+    text-align: left;
+    background: transparent;
+    border-color: transparent;
+    cursor: move;
+    color: var(--text-muted);
+  }
   .toolbar strong {
     margin-right: 8px;
   }
@@ -145,6 +230,32 @@
       flex-wrap: wrap;
       min-height: 48px;
       padding: 8px;
+    }
+    .mac-overlay {
+      padding-left: 88px;
+    }
+    nav,
+    .captions {
+      display: flex;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    nav button {
+      background: transparent;
+      border-color: transparent;
+      padding: 4px 5px;
+    }
+    .captions button {
+      width: 32px;
+      padding: 4px;
+    }
+    .drag-region {
+      min-width: 40px;
+      text-align: left;
+      background: transparent;
+      border-color: transparent;
+      cursor: move;
+      color: var(--text-muted);
     }
     .toolbar strong {
       flex-basis: 100%;

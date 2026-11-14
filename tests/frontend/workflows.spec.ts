@@ -54,6 +54,7 @@ for (const name of [
   'appearance',
   'start-screen',
   'recent-work',
+  'window-chrome',
   'quality-checking',
   'gap-review',
   'live-review',

@@ -117,6 +117,18 @@ with one system color-scheme listener per mounted workspace and disposal cleanup
 Settings retains draft/save/Undo ownership; failed saves do not change effective
 appearance. Global control padding tokens do not change per-preset cue-row density.
 Modal close acknowledges native bounds after any density-driven geometry changes.
+
+WindowChrome owns native window presentation only. macOS uses an overlay title
+bar with reserved traffic-light space; Windows keeps native captions and OS snap
+behavior. Windows/Linux expose registry-backed top-bar menu groups through the
+existing HideVideo modal. Linux reads its confirmed custom-caption opt-in once
+per mount, so changing it requires restart. Decoration/maximize operations hide
+video, acknowledge rendered bounds, then restore remaining occlusion. Unknown
+decoration outcomes reconcile through a read without replaying the write and
+retain caption controls if that read fails. Close enters the protected workspace
+Quit operation. All native window calls pass through client.ts with main-window
+capabilities; disposal suppresses later presentation. Drag and physical snap
+behavior remain platform acceptance work, not browser-test conclusions.
 The page body stays transparent so the native video surface can show
 through; the visible window color is painted by the video placeholder.
 CueNavigation coordinates selection, following, reveal and focus through narrow

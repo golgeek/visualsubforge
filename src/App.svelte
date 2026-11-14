@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { WindowChrome } from './lib/workspace/window-chrome.svelte';
+  import type { ActionGroup } from './lib/workspace/action-registry';
+  let commandGroup = $state<ActionGroup | null>(null);
   import { Appearance } from './lib/ui/appearance';
   import { CueFixes } from './lib/quality/cue-fixes.svelte';
   import CueIssuesDialog from './lib/quality/CueIssuesDialog.svelte';
@@ -718,6 +721,24 @@
   const videoLayout = disposeWithComponent(
     new NativeVideoLayout(workspace, media),
   );
+  const chrome = disposeWithComponent(
+    new WindowChrome(workspace, {
+      occlude: occludeOverlay,
+      remainingOcclusion: () =>
+        workspace.confirming ||
+        view.diagnostics ||
+        tooltips.active ||
+        layout.active,
+      afterRender: async () => {
+        await tick();
+        await videoLayout.flush();
+      },
+    }),
+  );
+  $effect(() => {
+    if (workspace.ready && workspace.canAct)
+      void chrome.start(preferences.preferences.appearance.customTitleBar);
+  });
   workspace.connect({
     activity: () =>
       layout.active ||
@@ -769,7 +790,15 @@
       (recovery.status.entries.length > 0 || !!recovery.status.error)}
     onrecovery={() => void workspaceModal.open('recovery')}
     onlayout={() => void workspaceModal.open('layout')}
-    oncommands={() => void commands.open('actionMenu')}
+    {chrome}
+    ongroup={(group) => {
+      commandGroup = group;
+      void commands.open('actionMenu');
+    }}
+    oncommands={() => {
+      commandGroup = null;
+      void commands.open('actionMenu');
+    }}
     onshortcuts={() => void commands.open('shortcuts')}
     {workspace}
     {media}
@@ -1132,6 +1161,7 @@
     <ActionBrowser
       shortcuts={preferences.preferences.shortcuts}
       mode={commandMode}
+      group={commandMode === 'actionMenu' ? commandGroup : null}
       context={commands.context}
       cues={doc.cues}
       onaction={(id) => commands.run(id)}

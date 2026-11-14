@@ -97,6 +97,12 @@
     border-radius: var(--radius-lg);
     background: var(--surface-panel);
   }
+  .drop strong,
+  .drop span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
   .drop strong {
     font-size: 18px;
   }
