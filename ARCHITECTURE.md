@@ -510,8 +510,19 @@ the native rendering path; ordinary commands/events carry status, geometry,
 waveform peaks, scene markers and other bounded data. Accepted subtitle preview
 is serialized for the native player without transferring video pixels through IPC.
 
-The default editor build supports subtitle work without native playback.
-`media-prototype` and `macos-angle` opt into native integration. Runtime patches,
+The low-dependency Cargo/Tauri default supports editor tests without native
+playback. The root Makefile selects native release/debug builds on macOS,
+Windows x64 and Ubuntu 24.04 amd64. A shell bootstrap selects the platform's
+compiler/search paths and takes one per-platform build lock; `build/native.mk`
+owns SDK dependency ordering, app profiles, packaging and installation. Existing
+Python SDK/audit helpers retain their responsibilities. Successful stages are
+cached in recipe/toolchain-keyed prefixes without moving their embedded paths;
+failed stages retain evidence. Packaging uses a new directory and publishes only
+after the platform assembler succeeds, retaining the previous completed package.
+Local installation copies the macOS/Windows private bundle or installs the Ubuntu
+package through apt. These are local builds, separate from release source
+inventories, signing and notarization. `media-prototype` and `macos-angle` remain
+explicit Cargo features for other development paths. Runtime patches,
 build provenance, platform differences and remaining adoption gates are described
 in the [native maintenance contract](docs/native-runtime.md).
 
