@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -6,6 +7,7 @@ import {
   emptyStatus,
   defaultPreferences,
   type DocumentAction,
+  type MediaAction,
   type BatchTimingRequest,
   type BatchTimingView,
 } from '../../../src/lib/client';
@@ -32,6 +34,7 @@ let view: BatchTimingView = structuredClone(sample);
 let request: BatchTimingRequest | null = null;
 let failEdit = false,
   failAccept = false;
+let positionSeconds = 5.015;
 let starts = 0,
   accepts = 0;
 let releaseStart: ((id: number) => void) | null = null;
@@ -142,15 +145,20 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(defaultPreferences);
         case 'recovery_status':
           return { entries: [], error: null };
-        case 'media_action':
+        case 'media_action': {
+          const action = args.action as MediaAction;
+          if (action.kind === 'seek') positionSeconds = action.seconds;
           return {
             ...emptyStatus,
             loaded: true,
             paused: true,
-            positionSeconds: 5.015,
+            positionSeconds,
           };
+        }
         case 'quality_read':
-          throw new Error('Quality disabled in this fixture');
+          return emptyQuality(args);
+        case 'quality_cancel':
+          return null;
         case 'choose_file':
           return null;
         case 'batch_timing_start': {
@@ -387,6 +395,13 @@ async function run() {
       'Following scope not based on current cue',
     );
     input('Batch operation', 'align');
+    positionSeconds = 5.015;
+    await until(
+      () =>
+        host.querySelector('.transport output')?.textContent?.trim() ===
+        '00:00:05,015',
+    );
+    button('Capture paused playhead').click();
     await tick();
     assert(
       button('Apply changes').disabled,

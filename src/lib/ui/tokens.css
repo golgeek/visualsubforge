@@ -53,9 +53,9 @@
   /* Timeline and waveform. Cues are steel blue, shot changes violet. */
   --cue: #4c7fe6;
   --cue-fill: rgba(76, 127, 230, 0.17);
-  --cue-fill-selected: rgba(76, 127, 230, 0.32);
+  --cue-fill-selected: var(--selection);
   --cue-line: rgba(76, 127, 230, 0.7);
-  --cue-line-selected: #8fb2f5;
+  --cue-line-selected: var(--accent);
   --cue-text: #dce6fa;
   --wave: #5fa3c4;
   --cut: #b49cff;
@@ -130,9 +130,9 @@
 
   --cue: #3466d6;
   --cue-fill: rgba(52, 102, 214, 0.12);
-  --cue-fill-selected: rgba(52, 102, 214, 0.24);
+  --cue-fill-selected: var(--selection);
   --cue-line: rgba(52, 102, 214, 0.6);
-  --cue-line-selected: #2453b8;
+  --cue-line-selected: var(--accent);
   --cue-text: #1c3b80;
   --wave: #3e89ad;
   --cut: #6a4bd6;

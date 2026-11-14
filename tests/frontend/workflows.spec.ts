@@ -62,6 +62,7 @@ for (const name of [
   'copy-noise',
   'action-discovery',
   'layout-presets',
+  'cue-columns',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

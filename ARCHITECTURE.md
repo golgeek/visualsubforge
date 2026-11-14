@@ -158,7 +158,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `Workspace` | Workspace task counter, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
-| `CueTableView` | Virtual-row offset/height, visible cues and active cue IDs. App supplies accepted cues/playback reads; CueTable owns its DOM observer and cleanup. |
+| `CueTableView` | Filtered file-indexed rows, fixed-density virtualization, column projection and active cue IDs. App supplies accepted cues/playback reads; CueTable owns its DOM observer and cleanup. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Playback projection, polling and response ordering, plus serialized/coalesced live-loop requests. |
 | `ProjectWorkflow` | Project attachment projection and ordered open/save/quit continuations. Rust owns the persisted identity. |
@@ -440,5 +440,29 @@ policy. All production settings-file writes serialize read/modify/write under on
 writer mutex, preserving unrelated layout, profile and personal-word fields.
 Document preference/word operations acquire the document lock before this writer;
 layout writes acquire only the writer. Atomic publication permits concurrent reads
-of either complete version. Version 1 migrates in memory to version 2; the historical
+of either complete version. Versions 1 and 2 migrate in memory to version 3; the historical
 settings filename remains valid. Projects do not yet store pane placement.
+
+
+## Cue columns and issue projections
+
+Column order, visibility, whole-CSS-pixel widths and fixed row density belong to
+WorkspaceLayout's per-preset presentation preferences and existing serialized
+save queue. Rust validates the complete model, mandatory Issues/Text columns and
+width bounds before atomic publication. The chooser uses WorkspaceModal/HideVideo;
+resizing stays inside the list. Actor is a read-only projection of existing ASS/SSA
+Name metadata. No column operation changes subtitle content or history.
+
+CueTableView derives filtered rows once from accepted cues, query and issue index,
+retaining original file indices for numbering and metric windows. Keyboard ranges
+and Select All use visible order. CueNavigation distinguishes acknowledged
+programmatic scrolling from manual scrolling: clicking retains following; manual
+scrolling pauses it; Jump clears filters and resumes subject to draft protection.
+
+QualitySession retains the existing single in-flight request lifetime. It pages
+Rust findings into a highest-severity-per-cue index (including related cues), and
+caches at most 32 windows of at most 200 accepted metrics. Problems filters/pages
+remain independent. Report identity, revision/context changes, failures and disposal
+prevent stale publication. Incomplete indexing is visible; no frontend quality rules
+are evaluated. The mandatory issue column enables accepted checking for loaded
+documents; explicit Pause checking remains available.

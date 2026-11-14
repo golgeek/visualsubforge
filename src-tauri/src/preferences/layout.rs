@@ -1,5 +1,6 @@
 //! User workspace placement only; never part of subtitle state or history.
 use serde::{Deserialize, Serialize};
+pub mod columns;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -14,6 +15,7 @@ pub enum Preset {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PaneSizes {
+    pub columns: columns::Columns,
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub top_pct: f64,
@@ -26,6 +28,7 @@ pub struct PaneSizes {
 }
 impl PaneSizes {
     fn validate(&self) -> Result<(), String> {
+        self.columns.validate()?;
         for (value, minimum, maximum) in [
             (self.top_pct, 10.0, 65.0),
             (self.editor_pct, 10.0, 45.0),
@@ -41,6 +44,7 @@ impl PaneSizes {
 impl Default for PaneSizes {
     fn default() -> Self {
         Self {
+            columns: Default::default(),
             top_pct: 13.0,
             editor_pct: 16.0,
             wave_pct: 65.0,
@@ -65,7 +69,13 @@ impl Default for LayoutPreferences {
             timing: Default::default(),
             editor_above: Default::default(),
             review: Default::default(),
-            translation: Default::default(),
+            translation: PaneSizes {
+                columns: columns::Columns {
+                    density: columns::Density::Comfortable,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             big_picture: PaneSizes {
                 top_pct: 40.0,
                 wave_pct: 35.0,

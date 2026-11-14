@@ -189,12 +189,14 @@ fn ass_ssa_edit_style_save_reopen_and_history_preserve_opaque_content() {
         assert_eq!(snapshot.format.as_ref().unwrap().name, extension);
         assert_eq!(snapshot.format.as_ref().unwrap().styles.len(), 2);
         assert_eq!(snapshot.cues[0].style.as_deref(), Some("Title"));
+        assert_eq!(snapshot.cues[0].actor.as_deref(), Some("actor"));
         apply(&mut store, Action::Save { path: None }).unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), source);
         let snapshot = apply(&mut store, edit("Default", 1010, "{\\b1}Edited\n世界")).unwrap();
         assert_eq!(snapshot.revision, 1);
         assert_eq!(snapshot.cues[0].text, "{\\b1}Edited\\N世界");
         assert_eq!(snapshot.cues[0].style.as_deref(), Some("Default"));
+        assert_eq!(snapshot.cues[0].actor.as_deref(), Some("actor"));
         let changed = bytes(&store);
         let expected = source.replace("Red title", "{\\b1}Edited\\N世界");
         let expected = if extension == "ass" {

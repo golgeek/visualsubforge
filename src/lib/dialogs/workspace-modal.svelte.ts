@@ -12,6 +12,7 @@ export type WorkspaceModalIdentity =
   | 'shortcuts'
   | 'actionMenu'
   | 'layout'
+  | 'columns'
   | 'text'
   | { kind: 'timing'; variant: TimingKind };
 

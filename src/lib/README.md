@@ -62,7 +62,7 @@ responsibilities across these folders.
 | `NativeVideoLayout` | Coalesced native layout requests, resize observer, window listeners and polling timer; disposal removes all subscriptions and suppresses late replies. |
 | `DocumentSession` | Replacement-only projection of Rust's document, immutable selected-ID set/primary cue/range anchor, and text/time/style drafts. It permits one document command at a time and reconciles accepted replies and authoritative refreshes while retaining drafts. |
 | `TimingGesture` | Held-Space timing, boundary preview/captured version, magnetic targets and range/loop restoration. It exposes activity; Workspace derives the gate and owns messages. |
-| `CueTableView` | Virtual-list scroll offset/height, visible rows and active cue IDs, read from accepted subtitle and playback callbacks. Synchronous setters ignore updates after disposal. |
+| `CueTableView` | Fixed-density virtual rows, original-index-preserving filters, column projection and active cue IDs, read from accepted subtitle and playback callbacks. Synchronous setters ignore updates after disposal. |
 | `TimelineView` | Waveform viewport, selection range and live-loop preview updates, visible cues, duration, analysis start/polling and stale-reply rejection. App supplies playback and gesture state. |
 | `MediaSession` | Projection of native playback, response ordering, polling timer, and `LiveLoop`. New commands invalidate older status responses. Replacement and loop clearing drain pending loop commands first. |
 | `WorkspaceDecision` | Unsaved-work, project-save-failure, project-reference and legacy-import hide/wait/answer lifetimes. Decisions own typed display payloads; LegacyImportDecision also owns return focus. App supplies media callbacks; Workspace derives confirming; save/exit policy stays in UnsavedChanges and ProjectWorkflow. |
@@ -253,8 +253,8 @@ project save. See the [quality guide](../../docs/subtitle-quality.md).
 
 ## Quality checking
 
-`QualitySession` debounces changed inputs, fetches at most 100 findings/200 metric
-rows and cancels late worker admissions when closed/disposed. It never evaluates
+`QualitySession` debounces changed inputs, fetches at most 100 Problems findings
+(or 200 index findings) and 200 metric rows per request and cancels late worker admissions when closed/disposed. It never evaluates
 rules in TypeScript. App supplies visible rows, selection and the unapplied cue
 draft; accepted and draft metrics remain visibly separate. Profile epochs force
 unchanged drafts to be resubmitted after Rust invalidates them. F4 and Problems
@@ -513,3 +513,27 @@ The transport strip contains playback, range, timing, shots, snapping and compac
 cue operations. Tool launchers use Commands/palette; following and metric controls
 share the cue header. Snap changes the effective editing aid; saved profile defaults
 remain under Settings. Per-project layout is not implemented.
+
+
+## Cue columns and list filters
+
+`cue-columns.ts` defines the presentation model, validation-compatible bounds and
+pure filters. `CueTableView` owns transient query/Issues filtering and virtual-row
+geometry; every row retains its original index and stable ID. The table renders
+24 px compact or 32 px comfortable rows. Timing, Review, Editor above and Big picture
+default to compact; Translation defaults to comfortable. Column order/width/visibility
+and density save independently per preset through WorkspaceLayout. The modal chooser
+uses HideVideo, and header fit measures only mounted rows to bound DOM work.
+
+`QualitySession` uses the same serialized read lifetime for the Problems projection
+and an independent accepted issue index. Only the highest Rust-provided severity per
+cue is retained, including related cues. Accepted metric windows align to original
+200-row ranges and evict beyond 32 windows. Report-key changes clear both projections;
+late context replies cannot republish them. Incomplete/error states stay visible.
+The mandatory issue column requests accepted checks even when editor metrics and
+Problems are hidden. No quality rules are computed in the table.
+
+Filtered Shift selection and Select All use visible order. Row clicks preserve
+following. Programmatic reveals acknowledge their clamped offset before scroll
+events; manual scrolling pauses following. Jump clears filters to reveal the active
+cue and resumes unless a protected draft/editor interaction prevents it.

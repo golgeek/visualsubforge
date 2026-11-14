@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
 import App from '../../../src/App.svelte';
@@ -458,6 +459,10 @@ async function appCases() {
       ) {
         calls.push(command);
         switch (command) {
+          case 'quality_read':
+            return emptyQuality(args);
+          case 'quality_cancel':
+            return null;
           case 'preferences_get':
             return { ...defaultPreferences, autoScanScenes: false };
           case 'plugin:event|listen':

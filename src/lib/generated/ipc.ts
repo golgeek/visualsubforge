@@ -993,6 +993,32 @@ export type visualsubforge_language_tools_Change =
     }
   | { kind: 'clearIgnored' };
 
+export type visualsubforge_preferences_layout_columns_Column = {
+  id: visualsubforge_preferences_layout_columns_ColumnId;
+  visible: boolean;
+  width: number;
+};
+
+export type visualsubforge_preferences_layout_columns_ColumnId =
+  | 'issue'
+  | 'number'
+  | 'start'
+  | 'end'
+  | 'duration'
+  | 'cps'
+  | 'rs'
+  | 'longestLine'
+  | 'lineCount'
+  | 'gap'
+  | 'style'
+  | 'actor'
+  | 'text';
+
+export type visualsubforge_preferences_layout_columns_Columns = {
+  items: visualsubforge_preferences_layout_columns_Column[];
+  density: visualsubforge_preferences_layout_columns_Density;
+};
+
 /**
  *  Structured failures for the document IPC command. Other adapters retain their
  *  existing text contracts. Version refusal is determined under the store lock,
@@ -1126,6 +1152,7 @@ export type visualsubforge_document_CueView =
   | visualsubforge_document_CueView_Deserialize;
 
 export type visualsubforge_document_CueView_Deserialize = {
+  actor: string | null;
   style: string | null;
   id: number;
   startMs: number;
@@ -1134,12 +1161,16 @@ export type visualsubforge_document_CueView_Deserialize = {
 };
 
 export type visualsubforge_document_CueView_Serialize = {
+  actor?: string | null;
   style?: string | null;
   id: number;
   startMs: number;
   endMs: number;
   text: string;
 };
+
+export type visualsubforge_preferences_layout_columns_Density =
+  'comfortable' | 'compact';
 
 /**
  *  Each detail level identifies fixed resolution/threshold semantics in saved
@@ -1694,12 +1725,14 @@ export type visualsubforge_preferences_layout_PaneSizes =
   | visualsubforge_preferences_layout_PaneSizes_Deserialize;
 
 export type visualsubforge_preferences_layout_PaneSizes_Deserialize = {
+  columns: visualsubforge_preferences_layout_columns_Columns;
   topPct: number;
   editorPct: number;
   wavePct: number;
 };
 
 export type visualsubforge_preferences_layout_PaneSizes_Serialize = {
+  columns: visualsubforge_preferences_layout_columns_Columns;
   topPct: number;
   editorPct: number;
   wavePct: number;

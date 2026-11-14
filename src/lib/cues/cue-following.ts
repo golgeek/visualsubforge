@@ -5,15 +5,18 @@ export interface TimedCue {
   endMs: number;
 }
 export type CueFollowing = 'off' | 'following' | 'suspended';
-export type FollowAction = 'enable' | 'disable' | 'suspend' | 'resume';
+export type FollowAction =
+  'enable' | 'disable' | 'suspend' | 'resume' | 'select' | 'scroll';
 
 export function changeFollowing(
   current: CueFollowing,
   action: FollowAction,
   protectedEdit: boolean,
 ): CueFollowing {
+  if (action === 'select') return current;
   if (action === 'disable') return 'off';
-  if (action === 'suspend') return current === 'off' ? 'off' : 'suspended';
+  if (action === 'suspend' || action === 'scroll')
+    return current === 'off' ? 'off' : 'suspended';
   if (action === 'resume' && current === 'off') return 'off';
   return protectedEdit ? 'suspended' : 'following';
 }

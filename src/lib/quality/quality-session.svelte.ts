@@ -1,3 +1,5 @@
+/* eslint-disable svelte/prefer-svelte-reactivity -- Collections are replaced as immutable projections; the private metric cache is not reactive state. */
+import { addIssuePage, type IssueSeverity } from './cue-issues';
 import {
   readQuality,
   cancelQuality,
@@ -16,6 +18,8 @@ export interface QualityInput {
   metricsOffset: number;
   metricsLimit: number;
   draft: QualityDraft | null;
+  indexIssues?: boolean;
+  metricOffsets?: number[];
 }
 const client = { readQuality, cancelQuality };
 
@@ -29,6 +33,15 @@ export class QualitySession {
   rule = $state<QualityRequest['rule']>(null);
   severity = $state<QualityRequest['severity']>(null);
   offset = $state(0);
+  issues = $state.raw<ReadonlyMap<string, IssueSeverity>>(new Map());
+  metrics = $state.raw<ReadonlyMap<string, QualityView['metrics'][number]>>(
+    new Map(),
+  );
+  issueIndexComplete = $state(false);
+  projectionError = $state('');
+  private reportKey = '';
+  private findingOffset = 0;
+  private metricWindows = new Map<number, QualityView['metrics']>();
   private input: QualityInput | null = null;
   private signature = '';
   private version = '';
@@ -55,6 +68,7 @@ export class QualitySession {
     if (version !== this.version) {
       this.version = version;
       this.view = null;
+      this.clearProjection();
       this.draftSignature = undefined;
       this.epoch = null;
       this.offset = 0;
@@ -66,11 +80,129 @@ export class QualitySession {
     if (!input.enabled) {
       this.clearTimer();
       this.view = null;
+      this.clearProjection();
       this.draftSignature = undefined;
       if (this.id !== null)
         void this.api.cancelQuality(this.id).catch(() => {});
       this.restartPending = true;
     } else this.schedule(180);
+  }
+  private clearProjection() {
+    this.reportKey = '';
+    this.findingOffset = 0;
+    this.issues = new Map();
+    this.metrics = new Map();
+    this.metricWindows.clear();
+    this.issueIndexComplete = false;
+    this.projectionError = '';
+  }
+  private reportIdentity(view: QualityView) {
+    return JSON.stringify([view.id, view.key]);
+  }
+  private keepMetrics(offset: number, rows: QualityView['metrics']) {
+    this.metricWindows.delete(offset);
+    this.metricWindows.set(offset, rows);
+    // Bound retained windows even when a filter selects widely separated cues.
+    while (this.metricWindows.size > 32)
+      this.metricWindows.delete(this.metricWindows.keys().next().value!);
+    this.metrics = new Map(
+      [...this.metricWindows.values()].flatMap((page) =>
+        page.map((metric) => [metric.data.cueId, metric] as const),
+      ),
+    );
+  }
+  private missingMetricWindow() {
+    return this.input?.metricOffsets
+      ?.slice(0, 32)
+      .find((offset) => !this.metricWindows.has(offset));
+  }
+  private get projectionPending() {
+    return (
+      !!this.input?.indexIssues &&
+      !this.paused &&
+      !this.projectionError &&
+      (!this.issueIndexComplete || this.missingMetricWindow() !== undefined)
+    );
+  }
+  private async project(
+    view: QualityView,
+    request: QualityRequest,
+    version: string,
+  ) {
+    if (!this.input?.indexIssues || view.phase !== 'ready' || this.paused)
+      return;
+    const identity = this.reportIdentity(view);
+    if (identity !== this.reportKey) {
+      this.clearProjection();
+      this.reportKey = identity;
+    }
+    if (request.metricsLimit)
+      this.keepMetrics(request.metricsOffset, view.metrics);
+    if (
+      !this.issueIndexComplete &&
+      request.rule === null &&
+      request.severity === null &&
+      view.offset === this.findingOffset
+    ) {
+      this.issues = addIssuePage(this.issues, view.findings);
+      this.findingOffset += view.findings.length;
+      this.issueIndexComplete = this.findingOffset >= view.findingsCount;
+    }
+    const metricOffset = this.missingMetricWindow();
+    if (this.issueIndexComplete && metricOffset === undefined) return;
+    try {
+      // Same serialized request lifetime, no new worker and no draft update.
+      // Problems paging/filter state is never replaced by this projection.
+      const page = await this.api.readQuality({
+        ...request,
+        run: false,
+        restart: false,
+        draft: null,
+        selected: null,
+        rule: null,
+        severity: null,
+        offset: this.findingOffset,
+        limit: this.issueIndexComplete ? 0 : 200,
+        metricsOffset: metricOffset ?? 0,
+        metricsLimit: metricOffset === undefined ? 0 : 200,
+      });
+      if (
+        !this.alive ||
+        !this.input?.enabled ||
+        this.paused ||
+        version !== this.version ||
+        identity !== this.reportKey ||
+        page.phase !== 'ready'
+      )
+        return;
+      if (identity !== this.reportIdentity(page)) {
+        this.clearProjection();
+        return;
+      }
+      if (!this.issueIndexComplete) {
+        if (
+          page.offset !== this.findingOffset ||
+          (page.findings.length === 0 &&
+            this.findingOffset < page.findingsCount)
+        )
+          throw new Error('Issue page did not advance; check again to retry.');
+        this.issues = addIssuePage(this.issues, page.findings);
+        this.findingOffset += page.findings.length;
+        this.issueIndexComplete = this.findingOffset >= page.findingsCount;
+      }
+      if (metricOffset !== undefined)
+        this.keepMetrics(metricOffset, page.metrics);
+      this.projectionError = '';
+    } catch (error) {
+      if (
+        this.alive &&
+        this.input?.enabled &&
+        !this.paused &&
+        version === this.version &&
+        identity === this.reportKey
+      )
+        this.projectionError = String(error);
+    }
   }
   private clearTimer() {
     if (this.timer !== null) clearTimeout(this.timer);
@@ -130,18 +262,23 @@ export class QualitySession {
         view.key.revision !== input.revision
       )
         return;
+      if (this.reportKey && this.reportKey !== this.reportIdentity(view))
+        this.clearProjection();
       this.view = view;
       this.error = '';
       this.stale = false;
+      await this.project(view, request, version);
     } catch (error) {
       if (this.alive && sequence === this.sequence) {
         this.error = String(error);
         this.view = null;
+        this.clearProjection();
       }
     } finally {
       this.pending = false;
       this.schedule(
-        sequence !== this.sequence
+        sequence !== this.sequence ||
+          (this.view?.phase === 'ready' && this.projectionPending)
           ? 0
           : this.view?.phase === 'ready' && !this.view.draftChecking
             ? 800
@@ -153,6 +290,7 @@ export class QualitySession {
     this.paused = false;
     this.restartPending = true;
     this.view = null;
+    this.clearProjection();
     this.error = '';
     this.stale = true;
     ++this.sequence;

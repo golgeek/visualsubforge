@@ -74,6 +74,8 @@ export async function workspaceLayouts({
         return {
           width: innerWidth,
           height: innerHeight,
+          rowHeight: document.querySelector('.cue-row').getBoundingClientRect()
+            .height,
           list: rect('.cue-list'),
           cueControls: rect('.cue-followbar'),
           video: rect('.video-space'),
@@ -112,7 +114,7 @@ export async function workspaceLayouts({
       );
       if (id === 'timing')
         assert.ok(
-          bounds.list.height >= requiredRows * 32,
+          bounds.list.height >= requiredRows * bounds.rowHeight,
           'Timing row capacity: ' + JSON.stringify(bounds),
         );
       const filename = `layout-${id}-${width}x${height}.png`;

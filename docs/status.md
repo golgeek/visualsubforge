@@ -7,6 +7,11 @@ Exact commands, source/runtime identities, results and unavailable checks belong
 in each PR description. [The test guide](../tests/desktop/README.md) explains how
 to reproduce suites and what their results can establish.
 
+Cue-list columns, widths and 24/32 px density save per layout preset. Issues and
+Text stay visible; text/file-number and Issues filters preserve original cue
+indices. Metrics come from Rust's checker, and ASS/SSA also expose Style/Actor.
+Manual list scrolling pauses following; row clicks retain it and Jump resumes.
+
 ## Feature and platform matrix
 
 | Area | Implemented scope | Remaining limits |

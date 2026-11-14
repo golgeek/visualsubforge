@@ -12,6 +12,7 @@ import {
 } from '../../../src/lib/client';
 import { qualityView } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
+import { projection } from './projection';
 
 // Production App/client; immutable Rust-generated report, controlled IPC only.
 // These tests exercise projection/navigation, not a second quality evaluator.
@@ -494,6 +495,7 @@ async function run() {
     passed('Checking can be paused and restarted without disabling the editor');
     await unmount(app);
     await lifecycle(structuredClone(qualityView), passed);
+    await projection(structuredClone(qualityView), passed);
     heading.textContent = `PASS: all ${output.children.length} quality checking checks`;
   } catch (e) {
     heading.textContent = `FAIL: ${String(e)}`;

@@ -30,7 +30,7 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            version: 2,
+            version: 3,
             layout: Default::default(),
             auto_scan_scenes: true,
             scene_detail: Detail::Standard,
@@ -43,7 +43,7 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
-        if self.version != 2 {
+        if self.version != 3 {
             return Err("Unsupported settings version".into());
         }
         self.layout.validate()?;
@@ -76,6 +76,37 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
             "layout".into(),
             serde_json::to_value(LayoutPreferences::default()).map_err(|e| e.to_string())?,
         );
+    }
+    if object.get("version").and_then(serde_json::Value::as_u64) == Some(2) {
+        let layout = object
+            .get_mut("layout")
+            .and_then(serde_json::Value::as_object_mut)
+            .ok_or("Settings lack layout values")?;
+        for preset in [
+            "timing",
+            "editorAbove",
+            "review",
+            "translation",
+            "bigPicture",
+        ] {
+            let sizes = layout
+                .get_mut(preset)
+                .and_then(serde_json::Value::as_object_mut)
+                .ok_or("Settings lack a layout preset")?;
+            sizes.insert(
+                "columns".into(),
+                serde_json::to_value(if preset == "translation" {
+                    layout::columns::Columns {
+                        density: layout::columns::Density::Comfortable,
+                        ..Default::default()
+                    }
+                } else {
+                    layout::columns::Columns::default()
+                })
+                .map_err(|e| e.to_string())?,
+            );
+        }
+        object.insert("version".into(), 3.into());
     }
     if !object.contains_key("quality") {
         let timing: Timing = serde_json::from_value(
@@ -197,7 +228,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 2);
+        assert_eq!(migrated.version, 3);
         assert_eq!(migrated.layout, LayoutPreferences::default());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         update(&path, |p| {
@@ -211,6 +242,55 @@ mod tests {
         assert_eq!(fs::read(&path).unwrap(), saved);
         assert!(update(&path, |p| p.layout.timing.top_pct = 100.0).is_err());
         assert_eq!(fs::read(&path).unwrap(), saved);
+    }
+    #[test]
+    fn version_two_columns_migrate_without_rewriting_and_preserve_preset_sizes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        old["version"] = 2.into();
+        for preset in [
+            "timing",
+            "editorAbove",
+            "review",
+            "translation",
+            "bigPicture",
+        ] {
+            old["layout"][preset]
+                .as_object_mut()
+                .unwrap()
+                .remove("columns");
+        }
+        old["layout"]["translation"]["wavePct"] = 45.into();
+        let bytes = serde_json::to_vec(&old).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        let migrated = read(&path).unwrap();
+        assert_eq!(migrated.version, 3);
+        assert_eq!(migrated.layout.translation.wave_pct, 45.0);
+        assert_eq!(
+            migrated.layout.timing.columns,
+            layout::columns::Columns::default()
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        update(&path, |p| {
+            p.layout.translation.columns.items.swap(1, 4);
+            p.layout.translation.columns.items[1].visible = true;
+            p.layout.translation.columns.items[1].width = 150;
+        })
+        .unwrap();
+        let saved = read(&path).unwrap();
+        assert_eq!(
+            saved.layout.timing.columns,
+            layout::columns::Columns::default()
+        );
+        assert_eq!(
+            saved.layout.translation.columns.items[1].id,
+            layout::columns::ColumnId::Duration
+        );
+        assert_eq!(saved.layout.translation.columns.items[1].width, 150);
+        let bytes = fs::read(&path).unwrap();
+        assert!(update(&path, |p| p.layout.timing.columns.items[0].visible = false).is_err());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
     }
     #[test]
     fn independent_layout_and_word_updates_preserve_each_other() {

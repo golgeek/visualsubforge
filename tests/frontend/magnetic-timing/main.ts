@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import type { updateMenu } from '../../../src/lib/client';
 import { defaultPreferences, type Preferences } from '../../../src/lib/client';
 import { builtinQualityProfiles } from '../../../src/lib/generated/quality-defaults';
@@ -78,6 +79,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(defaultPreferences);
       switch (command) {
+        case 'quality_read':
+          return emptyQuality(args);
+        case 'quality_cancel':
+          return null;
         case 'language_words':
           return {
             epoch: settingsEpoch,

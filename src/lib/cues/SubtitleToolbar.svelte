@@ -28,13 +28,13 @@
   <label
     ><input
       type="checkbox"
-      aria-label="Follow active subtitle"
+      aria-label="Follow playhead"
       checked={navigation.following !== 'off'}
       onchange={(e) => {
         navigation.setFollowing(e.currentTarget.checked);
       }}
     />
-    Follow<span class="compact-extra"> active subtitle</span></label
+    Follow<span class="compact-extra"> playhead</span></label
   >
   {#if navigation.following === 'suspended'}
     <span
@@ -43,10 +43,11 @@
         : 'Following paused.'}</span
     >
     <button
+      aria-label="Jump to playhead"
       disabled={draftDirty || workspace.busy || workspace.confirming}
       onclick={() => {
         navigation.resumeFollowing();
-      }}>Jump<span class="compact-extra"> to playhead</span></button
+      }}>Jump<span class="compact-extra">&nbsp;to playhead</span></button
     >
   {/if}
 </div>

@@ -131,6 +131,7 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
         end_ms: 2,
         text: "A".into(),
         style: None,
+        actor: None,
     };
     assert_eq!(
         serde_json::to_value(&valid).unwrap()["id"],
@@ -147,6 +148,7 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
             end_ms: 2,
             text: "A".into(),
             style: None,
+            actor: None,
         },
         CueView {
             id: 1,
@@ -154,6 +156,7 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
             end_ms: MAX_SAFE_INTEGER + 1,
             text: "A".into(),
             style: None,
+            actor: None,
         },
     ] {
         assert!(serde_json::to_value(cue).is_err());

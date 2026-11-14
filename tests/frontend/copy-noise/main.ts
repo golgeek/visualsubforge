@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { openCommands } from '../command-discovery';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -63,6 +64,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: { action?: MediaAction; handler?: number },
     ) {
       switch (command) {
+        case 'quality_read':
+          return emptyQuality(args);
+        case 'quality_cancel':
+          return null;
         case 'plugin:event|listen':
           listener = args.handler!;
           return 1;

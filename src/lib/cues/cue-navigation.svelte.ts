@@ -82,19 +82,22 @@ export class CueNavigation {
         !this.tableView.activeIds.includes(next)
       )
         return;
-      const index = this.subtitles.snapshot.cues.findIndex(
-        (item) => item.id === next,
-      );
-      const key = `${this.subtitles.snapshot.generation}:${next}:${this.tableView.height}`;
+      const index = this.tableView.indexOf(next);
+      const key = `${this.subtitles.snapshot.generation}:${next}:${this.tableView.height}:${this.tableView.filterKey}:${index}`;
       untrack(() => {
         // Automatic selection never calls selectCue: that path commits and seeks.
         if (next !== this.subtitles.selected) {
           this.subtitles.select(next);
         }
         const viewport = this.effects.readList();
-        if (viewport && key !== this.lastRevealedCue) {
+        if (viewport && index >= 0 && key !== this.lastRevealedCue) {
           this.tableView.scrollTop = this.effects.scrollList(
-            revealCueRow(index, viewport.scrollTop, this.tableView.height),
+            revealCueRow(
+              index,
+              viewport.scrollTop,
+              this.tableView.height,
+              this.tableView.rowHeight,
+            ),
           );
           this.lastRevealedCue = key;
         }
@@ -131,13 +134,21 @@ export class CueNavigation {
       !this.subtitles.snapshot.cues.some((c) => c.id === id)
     )
       return;
-    this.suspendFollowing();
+    this.following = changeFollowing(
+      this.following,
+      'select',
+      this.subtitles.dirty,
+    );
     this.gestures.cancelHeld();
     await this.workspace.task(async () => {
       await this.subtitles.apply();
       if (!this.alive || (expected && this.subtitles.snapshot !== expected))
         return;
-      this.subtitles.select(id, mode);
+      this.subtitles.select(
+        id,
+        mode,
+        this.tableView.indexOf(id) >= 0 ? this.tableView.order : undefined,
+      );
       const selectedCue = this.subtitles.cue;
       if (selectedCue)
         this.timeline.selectRange([
@@ -157,7 +168,8 @@ export class CueNavigation {
   cueSelectionKey = (e: KeyboardEvent, id: number) => {
     if (e.isComposing || e.altKey || e.defaultPrevented) return;
     const modifier = e.ctrlKey || e.metaKey;
-    const index = this.subtitles.snapshot.cues.findIndex((c) => c.id === id);
+    const order = this.tableView.order;
+    const index = this.tableView.indexOf(id);
     const targetIndex =
       e.key === 'ArrowUp'
         ? index - 1
@@ -166,7 +178,7 @@ export class CueNavigation {
           : e.key === 'Home'
             ? 0
             : e.key === 'End'
-              ? this.subtitles.snapshot.cues.length - 1
+              ? order.length - 1
               : null;
     if (modifier && e.key.toLowerCase() === 'a') {
       e.preventDefault();
@@ -176,10 +188,7 @@ export class CueNavigation {
       void this.selectCue(id, 'toggle');
     } else if (targetIndex !== null) {
       e.preventDefault();
-      const next =
-        this.subtitles.snapshot.cues[
-          clamp(targetIndex, 0, this.subtitles.snapshot.cues.length - 1)
-        ];
+      const next = order[clamp(targetIndex, 0, order.length - 1)];
       if (next && !this.workspace.busy && !this.workspace.confirming)
         void this.moveCueFocus(next.id, modifier, e.shiftKey);
     }
@@ -204,7 +213,7 @@ export class CueNavigation {
     await this.workspace.task(async () => {
       this.suspendFollowing();
       await this.subtitles.apply();
-      this.subtitles.selectAll();
+      this.subtitles.selectAll(this.tableView.order);
     });
   };
   requestProblem = (id: string) => {
@@ -240,11 +249,27 @@ export class CueNavigation {
     await tick();
     const viewport = this.effects.readList();
     if (!this.alive || !viewport) return;
-    const index = this.subtitles.snapshot.cues.findIndex((c) => c.id === id);
+    const index = this.tableView.indexOf(id);
     if (index >= 0)
-      this.effects.scrollList(
-        revealCueRow(index, viewport.scrollTop, viewport.height),
+      this.tableView.scrollTop = this.effects.scrollList(
+        revealCueRow(
+          index,
+          viewport.scrollTop,
+          viewport.height,
+          this.tableView.rowHeight,
+        ),
       );
+  };
+  listScrolled = (top: number) => {
+    // Programmatic reveals set the acknowledged/clamped offset synchronously,
+    // before the browser delivers its scroll event. Other movement is manual.
+    if (Math.abs(top - this.tableView.scrollTop) > 1)
+      this.following = changeFollowing(
+        this.following,
+        'scroll',
+        this.subtitles.dirty,
+      );
+    this.tableView.scrollTop = top;
   };
   suspendFollowing = () => {
     this.following = changeFollowing(
@@ -262,6 +287,8 @@ export class CueNavigation {
     );
   };
   resumeFollowing = () => {
+    this.tableView.clearFilter();
+    this.lastRevealedCue = '';
     this.following = changeFollowing(
       this.following,
       'resume',

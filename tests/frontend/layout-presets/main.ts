@@ -1,3 +1,4 @@
+import { emptyQuality } from '../empty-quality';
 import { mount, tick, unmount } from 'svelte';
 import { preferences as rustPreferences } from '../ipc-contract-samples';
 import App from '../../../src/App.svelte';
@@ -79,6 +80,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) {
       switch (command) {
+        case 'quality_read':
+          return emptyQuality(args);
+        case 'quality_cancel':
+          return null;
         case 'plugin:event|listen':
           listener = args.handler!;
           return 1;
@@ -178,7 +183,10 @@ async function run() {
     );
     if (capacity) {
       await until(
-        () => host.querySelector('.cue-list')!.clientHeight >= capacity * 32,
+        () =>
+          host.querySelector('.cue-list')!.clientHeight >=
+          capacity *
+            host.querySelector('.cue-row')!.getBoundingClientRect().height,
       );
       const text = host.querySelector<HTMLTextAreaElement>(
         '[aria-label="Subtitle text"]',
