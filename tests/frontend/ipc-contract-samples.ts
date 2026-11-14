@@ -2931,22 +2931,22 @@ export const preferences = {
     },
     editorAbove: {
       editorPct: 16.0,
-      topPct: 15.0,
+      topPct: 13.0,
       wavePct: 65.0,
     },
     review: {
       editorPct: 16.0,
-      topPct: 15.0,
+      topPct: 13.0,
       wavePct: 65.0,
     },
     timing: {
       editorPct: 16.0,
-      topPct: 15.0,
+      topPct: 13.0,
       wavePct: 65.0,
     },
     translation: {
       editorPct: 16.0,
-      topPct: 15.0,
+      topPct: 13.0,
       wavePct: 65.0,
     },
   },

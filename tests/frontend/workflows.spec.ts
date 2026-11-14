@@ -75,6 +75,22 @@ for (const name of [
   });
 }
 
+// Outer window sizes lose native title/menu/border space. Use the smallest
+// observed hosted client height and Windows client width at each target size.
+for (const [width, height, rows] of [
+  [1084, 656, 8],
+  [1424, 836, 14],
+] as const) {
+  test(`layout capacity with native chrome: ${width}x${height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await verifyChecks(page, () =>
+      page.goto(`/tests/frontend/layout-presets/?capacity=${rows}`),
+    );
+  });
+}
+
 test('projects waits for delayed workspace listener registration', async ({
   page,
 }) => {

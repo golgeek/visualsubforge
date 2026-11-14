@@ -29,11 +29,11 @@ export function paneLayout(input: PaneLayoutInput) {
   );
   const tableMinimum = 160;
   const transportPixels = Math.max(38, input.transportHeight);
-  const minimum = 120 + tableMinimum + editorMinimum + transportPixels + 12;
+  const minimum = 100 + tableMinimum + editorMinimum + transportPixels + 12;
   const paneHeight = Math.max(minimum, input.workspaceHeight - 16);
   const topPixels = clamp(
     (paneHeight * input.topPct) / 100,
-    120,
+    100,
     paneHeight - tableMinimum - transportPixels - 12 - editorMinimum,
   );
   const editorPixels = clamp(
@@ -44,7 +44,7 @@ export function paneLayout(input: PaneLayoutInput) {
   const tablePixels =
     paneHeight - topPixels - editorPixels - transportPixels - 12;
   const slots = {
-    preview: { minimum: 120, pixels: topPixels },
+    preview: { minimum: 100, pixels: topPixels },
     transport: { minimum: transportPixels, pixels: transportPixels },
     cues: { minimum: tableMinimum, pixels: tablePixels },
     editor: { minimum: editorMinimum, pixels: editorPixels },

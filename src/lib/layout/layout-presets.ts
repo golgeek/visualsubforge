@@ -12,7 +12,7 @@ export interface LayoutDescription {
   dock: 'review' | 'translation' | null;
   defaults: PaneSizes;
 }
-const timing = { topPct: 15, editorPct: 16, wavePct: 65 };
+const timing = { topPct: 13, editorPct: 16, wavePct: 65 };
 export const layoutPresets: Record<LayoutPreset, LayoutDescription> = {
   timing: {
     label: 'Timing',

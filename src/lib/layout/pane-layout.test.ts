@@ -8,8 +8,8 @@ import {
 } from './layout-presets.ts';
 
 const base: PaneLayoutInput = {
-  workspaceHeight: 612,
-  topPct: 15,
+  workspaceHeight: 601,
+  topPct: 13,
   editorPct: 16,
   showQualityMetrics: false,
   hasCue: true,
@@ -20,8 +20,14 @@ const base: PaneLayoutInput = {
 };
 test('Timing reserves eight and fourteen full rows and two editor lines at desktop sizes', () => {
   for (const [workspaceHeight, rows] of [
-    [612, 8],
-    [792, 14],
+    // Windows outer sizes lose 59 px to native chrome, then 60 px to app bars.
+    [601, 8],
+    [781, 14],
+    // Hosted macOS reports a 64 px difference; local macOS reports 32 px.
+    [596, 8],
+    [776, 14],
+    [628, 8],
+    [808, 14],
   ]) {
     const result = paneLayout({ ...base, workspaceHeight: workspaceHeight! });
     assert.ok(result.tablePixels - 25 >= rows! * 32);
@@ -53,10 +59,10 @@ test('each preset retains slot minima and the editor-above ordering', () => {
   ]);
   const defaults = defaultLayout();
   defaults.timing.topPct = 30;
-  assert.equal(defaults.editorAbove.topPct, 15, 'presets own separate sizes');
+  assert.equal(defaults.editorAbove.topPct, 13, 'presets own separate sizes');
   assert.equal(
     defaultLayout().timing.topPct,
-    15,
+    13,
     'reset defaults remain immutable',
   );
 });

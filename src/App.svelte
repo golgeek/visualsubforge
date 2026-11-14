@@ -855,13 +855,13 @@
     height: 100dvh;
     min-height: 610px;
     display: grid;
-    grid-template-rows: 48px minmax(var(--workspace-min-height), 1fr) 28px;
+    grid-template-rows: 40px minmax(var(--workspace-min-height), 1fr) 20px;
     isolation: isolate;
     overflow: auto;
   }
 
   main.has-recovery {
-    grid-template-rows: 48px auto minmax(var(--workspace-min-height), 1fr) 28px;
+    grid-template-rows: 40px auto minmax(var(--workspace-min-height), 1fr) 20px;
   }
 
   .workspace {

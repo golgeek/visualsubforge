@@ -41,7 +41,7 @@ impl PaneSizes {
 impl Default for PaneSizes {
     fn default() -> Self {
         Self {
-            top_pct: 15.0,
+            top_pct: 13.0,
             editor_pct: 16.0,
             wave_pct: 65.0,
         }

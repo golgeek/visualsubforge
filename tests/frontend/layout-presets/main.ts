@@ -173,6 +173,29 @@ async function run() {
           'Frontend layout defaults match Rust',
         );
     }
+    const capacity = Number(
+      new URLSearchParams(location.search).get('capacity'),
+    );
+    if (capacity) {
+      await until(
+        () => host.querySelector('.cue-list')!.clientHeight >= capacity * 32,
+      );
+      const text = host.querySelector<HTMLTextAreaElement>(
+        '[aria-label="Subtitle text"]',
+      )!;
+      const css = getComputedStyle(text);
+      assert(
+        (text.clientHeight -
+          parseFloat(css.paddingTop) -
+          parseFloat(css.paddingBottom)) /
+          parseFloat(css.lineHeight) >=
+          2,
+        'Two editor lines survive native chrome budget',
+      );
+      passed(
+        'Timing preserves requested rows and two editor lines in the smaller hosted client area',
+      );
+    }
     const waveform = host.querySelector('[aria-label="Waveform"]');
     const editor = host.querySelector('[aria-label="Subtitle text"]');
     const video = host.querySelector('.video-space');
@@ -283,7 +306,7 @@ async function run() {
     passed(
       'reset preserves the active preset and the editor arrow uses protected slot switching',
     );
-    heading.textContent = 'PASS: all 4 layout preset checks';
+    heading.textContent = `PASS: all ${capacity ? 5 : 4} layout preset checks`;
   } finally {
     await unmount(app);
   }
