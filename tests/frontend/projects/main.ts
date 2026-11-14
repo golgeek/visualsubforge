@@ -544,6 +544,9 @@ async function run() {
       },
     });
     try {
+      // Bundled fonts legitimately repaint canvas labels and can resize the
+      // layout. Finish that startup work before measuring status-only polls.
+      await document.fonts.ready;
       // Allow project restoration, scene queries and layout to settle first.
       let baselinePolls = statusPolls;
       await until(() => statusPolls >= baselinePolls + 3);
