@@ -32,6 +32,7 @@ else ifeq ($(PLATFORM),windows)
 export VSF_MPV_SDK := $(shell cygpath -m '$(abspath $(CACHE)/mpv-sdk)')
 export PKG_CONFIG_PATH := $(abspath $(CACHE)/ffmpeg/sdk/lib/pkgconfig)
 export PATH := $(abspath $(CACHE)/ffmpeg/sdk/bin):$(PATH)
+MPV_COMPILER := env CC=clang CXX=clang++
 NATIVE := $(CACHE)/mpv-sdk/.complete
 else
 $(error Run the root Makefile, not build/native.mk directly)
@@ -54,7 +55,7 @@ $(CACHE)/ffmpeg/.complete:
 	$(STAGE) "$(CACHE)/ffmpeg" bash scripts/build-ffmpeg-windows.sh '{output}'
 
 $(CACHE)/mpv/.complete: $(CACHE)/upstream/.complete $(if $(filter windows,$(PLATFORM)),$(CACHE)/ffmpeg/.complete,$(CACHE)/placebo/.complete)
-	$(STAGE) "$(CACHE)/mpv" $(PYTHON) scripts/check-mpv-build.py --source "$(CACHE)/upstream" --output '{output}' --variant candidates --jobs $(JOBS)
+	$(STAGE) "$(CACHE)/mpv" $(MPV_COMPILER) $(PYTHON) scripts/check-mpv-build.py --source "$(CACHE)/upstream" --output '{output}' --variant candidates --jobs $(JOBS)
 
 $(CACHE)/mpv-sdk/.complete: $(CACHE)/mpv/.complete
 	$(STAGE) "$(CACHE)/mpv-sdk" $(PYTHON) scripts/prepare-windows-sdk.py --mpv "$(CACHE)/mpv" --output '{output}'

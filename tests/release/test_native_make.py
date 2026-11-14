@@ -100,6 +100,8 @@ class NativeMakeTests(unittest.TestCase):
                     self.assertNotIn('wrong-interpreter', plan)
                     self.assertIn('package-' + platform + '.py', plan)
                     self.assertNotIn('desktop-e2e', plan)
+                    if platform == 'windows':
+                        self.assertIn('env CC=clang CXX=clang++ python3 scripts/check-mpv-build.py', plan)
                     if profile == 'release':
                         self.assertIn('cargo build --locked --release', plan)
                         self.assertNotIn('build --debug', plan)

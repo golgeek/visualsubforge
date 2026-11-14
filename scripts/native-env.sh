@@ -54,6 +54,7 @@ case "$(uname -s)" in
         [[ "${MSYSTEM:-}" == CLANG64 ]] || fail 'Use MSYS2 CLANG64 with the x64 MSVC developer environment inherited'
         command -v lib.exe >/dev/null || fail 'MSVC lib.exe is missing; start MSYS2 from the x64 VS developer shell'
         command -v cl.exe >/dev/null || fail 'MSVC cl.exe is missing'
+        [[ "${VSCMD_ARG_TGT_ARCH:-}" == x64 ]] || fail 'Select the x64 Native Tools environment, not x86 or ARM64'
         "$python" -c 'import sys; assert sys.platform == "win32", "Use native Windows Python, not MSYS Python"'
         [[ "$(rustc -vV)" == *'host: x86_64-pc-windows-msvc'* ]] || fail 'Use x86_64-pc-windows-msvc Rust'
         export PYTHONUTF8=1
@@ -61,6 +62,8 @@ case "$(uname -s)" in
         msvc_bin=$(dirname "$(command -v cl.exe)")
         CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="$(cygpath -m "$msvc_bin/link.exe")"
         export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER
+        export CC_x86_64_pc_windows_msvc="${CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER%/link.exe}/cl.exe"
+        export CXX_x86_64_pc_windows_msvc="$CC_x86_64_pc_windows_msvc"
         host=$(printf '%s\n' "$(pacman -Q)" "${VCToolsVersion:-}" "${WindowsSDKVersion:-}")
         ;;
     *) fail 'Unsupported native build platform';;
