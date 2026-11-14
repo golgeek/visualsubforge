@@ -66,6 +66,18 @@ class NativeMakeTests(unittest.TestCase):
         self.run_script('native-publish.sh', 'mkdir', '-p', '{output}/VisualSubForge.app')
         self.assertTrue((self.output / 'VisualSubForge.app').is_dir())
 
+    def test_invalid_job_limits_fail_before_build_or_package_changes(self):
+        for jobs in ('0', '17', '-1', 'oops'):
+            result = subprocess.run(['bash', str(ROOT / 'scripts/native-env.sh'),
+                                     'make', 'release', jobs, 'python3', 'build'],
+                                    cwd=ROOT, text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('JOBS must be 1–16', result.stderr)
+        result = subprocess.run(['bash', str(ROOT / 'scripts/build-ffmpeg-windows.sh'),
+                                 str(self.output), '0'], cwd=ROOT, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.output.exists())
+
     def test_root_default_and_debug_install_profile(self):
         default = subprocess.check_output(['make', '-n'], cwd=ROOT, text=True)
         self.assertIn('"release"', default)

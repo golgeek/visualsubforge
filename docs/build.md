@@ -128,7 +128,7 @@ package next to it, as `package.previous-*`; you can delete old packages/caches
 when no build or app is using them. After a forced kill, check that all build
 processes stopped before removing `target/native/<platform>/build.lock`.
 
-`make build JOBS=3` limits native compilation parallelism. `make -j` does not run
+`make build JOBS=3` limits native compilation parallelism (1–16 jobs). `make -j` does not run
 multiple app profiles concurrently. Debug and release app outputs are separate;
 both use the same tested native SDKs. Debug enables Rust symbols and Tauri devtools,
 not the desktop-test instrumentation or hot reload.

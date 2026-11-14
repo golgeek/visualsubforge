@@ -9,7 +9,7 @@ action=$5
 cd "$(dirname "$0")/.."
 fail() { printf '%s\nSee docs/build.md for prerequisites.\n' "$*" >&2; exit 1; }
 [[ "$profile" == release || "$profile" == debug ]] || fail 'Invalid build profile'
-[[ "$jobs" =~ ^[1-9][0-9]*$ && "$jobs" -le 64 ]] || fail 'JOBS must be 1–64'
+[[ "$jobs" =~ ^[1-9][0-9]*$ && "$jobs" -le 16 ]] || fail 'JOBS must be 1–16'
 [[ "$PWD" != *[[:space:]]* ]] || fail 'GNU Make native SDK paths require a checkout path without whitespace'
 for tool in "$python" node npm rustup cargo git pkg-config; do
     command -v "$tool" >/dev/null || fail "Missing $tool"

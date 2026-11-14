@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Run in MSYS2 CLANG64. Build outside the checkout; never modify its toolchain.
 set -euo pipefail
+jobs=${2:-3}
+if [[ ! "$jobs" =~ ^[1-9][0-9]*$ || "$jobs" -gt 64 ]]; then
+  echo 'FFmpeg jobs must be 1–64' >&2
+  exit 1
+fi
 output=$(cygpath -u "$1")
 recipe_root=$(cd "$(dirname "$0")/.." && pwd)
 test ! -e "$output"
@@ -28,7 +33,7 @@ options=(
 )
 printf '%s\n' "${options[@]}" > "$output/configure-options.txt"
 "$output/source/configure" "${options[@]}" > "$output/configure.log" 2>&1
-make -j 3 > "$output/build.log" 2>&1
+make -j "$jobs" > "$output/build.log" 2>&1
 make install > "$output/install.log" 2>&1
 cp config.h config_components.h ffbuild/config.log "$output/"
 pacman -Q > "$output/build-packages.txt"

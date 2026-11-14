@@ -52,7 +52,7 @@ $(CACHE)/upstream/.complete:
 	$(STAGE) "$(CACHE)/upstream" git clone https://github.com/mpv-player/mpv.git '{output}'
 
 $(CACHE)/ffmpeg/.complete:
-	$(STAGE) "$(CACHE)/ffmpeg" bash scripts/build-ffmpeg-windows.sh '{output}'
+	$(STAGE) "$(CACHE)/ffmpeg" bash scripts/build-ffmpeg-windows.sh '{output}' $(JOBS)
 
 $(CACHE)/mpv/.complete: $(CACHE)/upstream/.complete $(if $(filter windows,$(PLATFORM)),$(CACHE)/ffmpeg/.complete,$(CACHE)/placebo/.complete)
 	$(STAGE) "$(CACHE)/mpv" $(MPV_COMPILER) $(PYTHON) scripts/check-mpv-build.py --source "$(CACHE)/upstream" --output '{output}' --variant candidates --jobs $(JOBS)
