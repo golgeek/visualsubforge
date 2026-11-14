@@ -527,6 +527,7 @@ share the cue header. Snap changes the effective editing aid; saved profile defa
 remain under Settings. `ArrangePanels` edits the bounded row schema through `WorkspaceLayout`; seven
 slot wrappers remain mounted while CSS changes placement. Review includes the
 existing Statistics tab. Hiding Video retains its zero-size backdrop placeholder.
+Zero-width or zero-height placeholders send visible:false to native layout.
 The modal owns pause/hide presentation; nested geometry changes preserve its
 occlusion. A hidden tool receives a slot, falling back to its standard preset if
 minimum dimensions cannot fit. Saved layouts may scroll on smaller windows.

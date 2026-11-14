@@ -105,6 +105,18 @@ pub struct Project {
     pub scenes: Option<crate::scenes::Saved>,
 }
 impl Project {
+    // Layout is the only v3 feature. Ordinary view saves (including quit) must
+    // retain the oldest format that represents the actual project contents.
+    fn version_for_save(&self) -> u32 {
+        if self.options.layout.is_some() {
+            3
+        } else if self.media_path.is_none() || self.translation.is_some() {
+            2
+        } else {
+            1
+        }
+    }
+
     fn validate(&self) -> Result<()> {
         self.options.timing.validate()?;
         if let Some(profile) = &self.options.quality {
@@ -378,7 +390,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         .transpose()?
         .flatten();
     let mut project = Project {
-        version: 3,
+        version: if media.is_some() { 1 } else { 2 },
         media_path: media.as_ref().map(|media| portable(base, media)),
         subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
         subtitle_format: None,
@@ -412,6 +424,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                     translation.protect(&destination)?;
                     translation.verify_project_reference()?;
                     project.translation = translation.project_description(base)?;
+                    project.version = project.version_for_save();
                     app.state::<Projects>()
                         .save(&destination, request.token, &project)
                 })
@@ -485,6 +498,45 @@ mod tests {
             scenes: None,
         }
     }
+    #[test]
+    fn saving_and_removing_layout_preserve_compatible_project_versions() {
+        for has_media in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("compatible.vsfproject");
+            let mut project = fixture(dir.path());
+            if !has_media {
+                fs::write(
+                    dir.path().join("captions.srt"),
+                    b"1\n00:00:01,000 --> 00:00:02,000\nText\n",
+                )
+                .unwrap();
+                project.media_path = None;
+                project.media_identity = None;
+                project.position_seconds = 0.;
+                project.subtitle_path = Some("captions.srt".into());
+            }
+            let compatible = if has_media { 1 } else { 2 };
+            for (layout, expected) in [
+                (None, compatible),
+                (Some(Default::default()), 3),
+                (None, compatible),
+            ] {
+                project.options.layout = layout;
+                project.version = project.version_for_save();
+                write(&path, &project).unwrap();
+                let saved = read(&path).unwrap();
+                assert_eq!(saved.version, expected);
+                assert_eq!(saved.options.layout.is_some(), expected == 3);
+                // Ordinary view-only publication after reopening must not upgrade.
+                project = saved;
+                project.position_seconds += if has_media { 1. } else { 0. };
+                project.version = project.version_for_save();
+                write(&path, &project).unwrap();
+                assert_eq!(read(&path).unwrap().version, expected);
+            }
+        }
+    }
+
     #[test]
     fn layout_requires_v3_and_old_projects_are_not_rewritten() {
         let dir = tempfile::tempdir().unwrap();

@@ -345,3 +345,26 @@ fn inconsistent_project_versions_and_reference_metadata_are_rejected() {
     assert!(serialize(&reference, &project).is_err());
     assert!(!reference.exists());
 }
+
+#[test]
+fn translation_layout_add_remove_saves_v3_only_while_needed() {
+    for has_media in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut project, _, _) = fixture(dir.path(), "srt", SRT);
+        if has_media {
+            let media = tests::fixture(dir.path());
+            project.media_path = media.media_path;
+            project.media_identity = media.media_identity;
+        }
+        let path = dir.path().join("translation.vsfproject");
+        for (layout, expected) in [(None, 2), (Some(Default::default()), 3), (None, 2)] {
+            project.options.layout = layout;
+            project.version = project.version_for_save();
+            write(&path, &project).unwrap();
+            project = read(&path).unwrap();
+            assert_eq!(project.version, expected);
+            assert!(project.translation.is_some());
+            assert_eq!(project.options.layout.is_some(), expected == 3);
+        }
+    }
+}

@@ -25,6 +25,8 @@ export class NativeVideoLayout {
         height: rect.height,
         visible:
           this.media.status.loaded &&
+          rect.width > 0 &&
+          rect.height > 0 &&
           rect.bottom > 0 &&
           rect.right > 0 &&
           rect.top < innerHeight &&

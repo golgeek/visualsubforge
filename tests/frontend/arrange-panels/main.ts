@@ -18,7 +18,12 @@ import {
 const host = document.querySelector<HTMLElement>('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
-const media = { ...emptyStatus, available: true, surfaceAboveWebview: true };
+const media = {
+  ...emptyStatus,
+  available: true,
+  loaded: true,
+  surfaceAboveWebview: true,
+};
 const snapshot = {
   ...emptyDocument,
   loaded: true,
@@ -283,6 +288,13 @@ async function run() {
       'Hidden video retains window background',
     );
     assert(occluded, 'Native video stays hidden during arrange');
+    await until(
+      () =>
+        nativeBounds?.kind === 'layout' &&
+        nativeBounds.width === 0 &&
+        nativeBounds.visible === false,
+    );
+    passed('hiding Video sends visible:false for its zero-size native surface');
     await place('video', 'Waveform', 'beside');
     assert(
       video.getBoundingClientRect().width > 0,
@@ -298,6 +310,7 @@ async function run() {
     );
     await until(() => !!stored.custom?.rows[0]?.panels.includes('video'));
     const saved = JSON.stringify(stored.custom);
+    media.loaded = false;
     await unmount(app);
     app = mount(App, { target: host });
     await until(
@@ -374,7 +387,7 @@ async function run() {
     passed(
       'removing Remember restores user placement and saves a null project override',
     );
-    heading.textContent = 'PASS: all 16 arrange panel checks';
+    heading.textContent = 'PASS: all 17 arrange panel checks';
   } finally {
     await unmount(app);
   }

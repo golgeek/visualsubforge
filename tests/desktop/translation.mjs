@@ -348,7 +348,7 @@ export async function translationWorkflow({
       );
       await ready();
       const data = JSON.parse(await readFile(project, 'utf8'));
-      assert.equal(data.version, 3);
+      assert.equal(data.version, 2);
       assert.equal(data.translation.reference.sha256, hash(original));
       assert.equal(data.translation.reference.offsetMs, -1500);
       assert.equal(

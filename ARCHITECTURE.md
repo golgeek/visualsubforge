@@ -516,7 +516,10 @@ standard preset. No floating surface or additional worker is created.
 
 WorkspaceLayout keeps user defaults separate from the optional project override.
 Project version 3 stores a validated layout snapshot through the existing atomic
-project writer; versions 1/2 read with no override and are not rewritten on open.
+project writer. Without a layout, saves retain version 1 for media projects or
+version 2 for subtitle-only/translation projects, including quit/view saves;
+removing the layout returns to that compatible version. Versions 1/2 remain
+readable and are not rewritten on open.
 Restoring project options awaits guarded hide/render/bounds completion before
 publishing the frontend attachment. Old projects restore user defaults. Explicit
 Save project layout reuses the guarded view-save path without saving subtitle

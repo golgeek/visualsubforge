@@ -67,6 +67,7 @@ native playback/composition acceptance.
 Arrange Panels supports constrained row moves/swaps, panel visibility, user defaults
 and optional project layouts. It pauses and hides video until Done/Escape. Minimum
 sizes are refused for new moves; saved layouts scroll when the window is smaller.
-Review includes Statistics. Project saves use version 3; v1/v2 remain readable.
+Review includes Statistics. Only project layouts require version 3; ordinary saves
+retain version 1/2, and removing the layout returns to the compatible version.
 The custom-layout native GPU/input trials remain separate from playback-free
 webview and modeled occlusion checks.
