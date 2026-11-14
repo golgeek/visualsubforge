@@ -120,7 +120,9 @@ history. Cue IDs remain stable independently of table position. History records
 the replaced cue span and, when changed, document properties. It does not take a
 whole-document snapshot for every single-cue edit. Saved-state identity is
 separate from revision, so Undo can return to saved content while revisions keep
-advancing. Format properties participate in the same transaction as cue edits.
+advancing. A coalesced text group that returns to its original content removes
+its empty history entry and restores its prior state identity; it also ends the
+group so later typing cannot merge into earlier history. Format properties participate in the same transaction as cue edits.
 
 A document generation identifies replacement/open/recovery; a revision identifies
 accepted edits within that generation. Document-edit requests carry both. Rust checks

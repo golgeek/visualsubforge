@@ -204,3 +204,62 @@ fn metadata_and_property_changes_never_coalesce_as_text() {
     commit(&mut e, 1, "After document command", "focus", now);
     assert_eq!(e.undo.len(), 4);
 }
+
+#[test]
+fn net_zero_text_group_restores_saved_state_without_an_empty_undo_step() {
+    let now = Instant::now();
+    let mut e = editor();
+    let original = e.document().clone();
+    commit(&mut e, 1, "Original 1!", "focus", now);
+    commit(&mut e, 1, "Original 1", "focus", now);
+    assert_eq!(e.document(), &original);
+    assert_eq!(e.revision(), 2);
+    assert!(!e.can_undo());
+    assert!(!e.can_redo());
+    assert!(!e.dirty());
+    assert!(e.text_group.is_none());
+    commit(&mut e, 1, "New", "focus", now);
+    assert_eq!(e.state, 3);
+    e.mark_saved(3).unwrap();
+    commit(&mut e, 1, "New!", "focus", now);
+    e.undo(4).unwrap();
+    assert!(!e.dirty());
+    e.redo(5).unwrap();
+    assert_eq!(e.document().cues()[0].text(), "New!");
+    assert!(e.dirty());
+}
+
+#[test]
+fn net_zero_group_preserves_prior_history_and_cannot_rejoin_it_or_revive_redo() {
+    let now = Instant::now();
+    for saved in [false, true] {
+        let mut e = editor();
+        commit(&mut e, 1, "Earlier", "earlier", now);
+        if saved {
+            e.mark_saved(e.revision()).unwrap();
+        }
+        let before = e.document().clone();
+        let prior_state = e.state;
+        commit(&mut e, 1, "Temporary", "focus", now);
+        commit(&mut e, 1, "Earlier", "focus", now);
+        assert_eq!(e.document(), &before);
+        assert_eq!(e.undo.len(), 1);
+        assert_eq!(e.state, prior_state);
+        assert_eq!(e.dirty(), !saved);
+        commit(&mut e, 1, "Following", "focus", now);
+        assert_eq!(e.undo.len(), 2);
+        e.undo(e.revision()).unwrap();
+        assert_eq!(e.document(), &before);
+        assert!(e.can_redo());
+        commit(&mut e, 1, "New branch", "focus", now);
+        commit(&mut e, 1, "Earlier", "focus", now);
+        assert!(!e.can_redo());
+        assert_eq!(e.undo.len(), 1);
+        assert_eq!(e.dirty(), !saved);
+        e.undo(e.revision()).unwrap();
+        assert_eq!(e.document().cues()[0].text(), "Original 1");
+        e.redo(e.revision()).unwrap();
+        assert_eq!(e.document(), &before);
+        assert_eq!(e.dirty(), !saved);
+    }
+}

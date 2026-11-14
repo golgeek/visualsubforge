@@ -470,7 +470,7 @@ impl<P: Clone + PartialEq> Editor<P> {
                 .splice(index..index + after.len(), before);
             return Err(Error::ValidationRejected { message: error });
         }
-        let incoming = commit
+        let mut incoming = commit
             .filter(|_| {
                 text_edit
                     && before.len() == 1
@@ -501,12 +501,19 @@ impl<P: Clone + PartialEq> Editor<P> {
                             .last()
                             .is_some_and(|last| last.after_state == self.state)
                 });
+        let mut state = self.next_state;
         if merge {
             // The original before span/state survives; the latest accepted
             // after span/state becomes the redo target. Revision still advances.
             let last = self.undo.last_mut().expect("validated adjacent text group");
             last.after = after;
             last.after_state = self.next_state;
+            if last.before == last.after {
+                state = last.before_state;
+                self.undo.pop();
+                // A later commit must not merge into the preceding history entry.
+                incoming = None;
+            }
         } else {
             self.undo.push(Change {
                 index,
@@ -518,7 +525,7 @@ impl<P: Clone + PartialEq> Editor<P> {
             });
         }
         self.text_group = incoming;
-        self.state = self.next_state;
+        self.state = state;
         self.next_state += 1;
         self.revision += 1;
         self.redo.clear();

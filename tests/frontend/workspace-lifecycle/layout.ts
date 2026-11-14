@@ -69,6 +69,113 @@ export async function layoutCases(passed: (message: string) => void) {
   } finally {
     owner.dispose();
   }
+  for (const remaining of [false, true]) {
+    const calls: boolean[] = [];
+    const recoveryErrors: unknown[] = [];
+    let mutations = 0;
+    let renders = 0;
+    let nativeOccluded = false;
+    const recovering = new WorkspaceLayout(
+      preferences,
+      { cue: undefined },
+      {
+        occlude: async (value) => {
+          calls.push(value);
+          if (calls.length === 2) throw new Error('Rejected native restore');
+          nativeOccluded = value;
+        },
+        remainingOcclusion: () => remaining,
+        afterRender: async () => {
+          ++renders;
+        },
+        preset: () => {
+          ++mutations;
+        },
+        error: (error) => recoveryErrors.push(error),
+      },
+      async () => {},
+    );
+    try {
+      await recovering.select('review');
+      assert(
+        calls.length === 3 &&
+          calls[0] &&
+          calls[1] === remaining &&
+          calls[2] === remaining,
+        'Restore retries once with remaining overlay occlusion',
+      );
+      assert(
+        nativeOccluded === remaining &&
+          recoveryErrors.length === 1 &&
+          mutations === 1 &&
+          renders === 3 &&
+          !recovering.active,
+        'Recovery reacknowledges bounds without replaying layout or dropping another overlay',
+      );
+      passed(
+        `Layout restore recovery preserves remaining occlusion=${remaining} without replaying mutations`,
+      );
+    } finally {
+      recovering.dispose();
+    }
+  }
+  let releaseRecovery: (() => void) | null = null;
+  let recoveryRenders = 0;
+  let recoveryCalls = 0;
+  const disposedRecovery = new WorkspaceLayout(
+    preferences,
+    { cue: undefined },
+    {
+      occlude: async () => {
+        ++recoveryCalls;
+        if (recoveryCalls === 2)
+          throw new Error('Rejected restore before disposal');
+      },
+      remainingOcclusion: () => false,
+      afterRender: async () => {
+        if (++recoveryRenders === 3)
+          await new Promise<void>((resolve) => {
+            releaseRecovery = resolve;
+          });
+      },
+      preset: () => {},
+      error: () => {},
+    },
+    async () => {},
+  );
+  const recoveringBeforeDisposal = disposedRecovery.select('review');
+  await until(() => releaseRecovery !== null);
+  disposedRecovery.dispose();
+  releaseRecovery!();
+  await recoveringBeforeDisposal;
+  assert(recoveryCalls === 2, 'Disposed recovery cannot reveal native video');
+  passed('Layout disposal retires pending visibility reconciliation');
+  const failedCalls: boolean[] = [];
+  const repeatedErrors: unknown[] = [];
+  const repeated = new WorkspaceLayout(
+    preferences,
+    { cue: undefined },
+    {
+      occlude: async (value) => {
+        failedCalls.push(value);
+        if (!value) throw new Error('Persistent native restore failure');
+      },
+      remainingOcclusion: () => false,
+      afterRender: async () => {},
+      preset: () => {},
+      error: (error) => repeatedErrors.push(error),
+    },
+    async () => {},
+  );
+  await repeated.select('review');
+  assert(
+    failedCalls.length === 3 && repeatedErrors.length === 2 && !repeated.active,
+    'Persistent native failure is reported and bounded to one reconciliation',
+  );
+  repeated.dispose();
+  passed(
+    'Repeated layout restore failure has bounded recovery and releases the gate',
+  );
   let release!: () => void;
   let presented = false;
   let saved = false;

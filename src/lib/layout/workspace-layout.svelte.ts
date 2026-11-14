@@ -290,7 +290,13 @@ export class WorkspaceLayout {
       this.saveRequested = false;
       if (this.alive) {
         this.effects.error(error);
-        await this.video.close({ hide: () => {}, failed: this.effects.error });
+        // One visibility reconciliation, including idle after a failed native
+        // hide/restore. Reacknowledge current bounds; never replay the mutation.
+        await this.video.close({
+          hide: () => {},
+          failed: this.effects.error,
+          restoreWhenIdle: true,
+        });
       }
       throw error;
     }

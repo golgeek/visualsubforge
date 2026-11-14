@@ -518,6 +518,11 @@ enter the same layout owner. Reset Pane Sizes resets only the active preset.
 
 Before changing geometry, the layout owner waits for `HideVideo`, then renders
 and awaits `NativeVideoLayout.flush()` before restoring remaining occlusion.
+After a native hide/restore failure, the layout owner drops queued mutations and
+requests one visibility reconciliation through HideVideo, including when its
+phase returned to idle. This reacknowledges rendered bounds and preserves remaining
+overlays; it never repeats the layout mutation. A second failure is reported,
+without an automatic retry loop.
 Pointer updates coalesce while hiding; saves debounce and serialize. Disposal
 cancels timers and ignores late acknowledgments. Saved sizes pass through the
 single typed client, without quality-context invalidation or accepted edits.
