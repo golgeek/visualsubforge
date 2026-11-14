@@ -94,6 +94,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':

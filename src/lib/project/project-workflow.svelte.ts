@@ -65,6 +65,9 @@ export class ProjectWorkflow {
     this.workspace = workspace;
     this.client = api;
   }
+  get token() {
+    return this.attachment?.token ?? null;
+  }
   get path() {
     return this.attachment?.path ?? null;
   }

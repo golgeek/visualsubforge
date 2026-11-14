@@ -76,6 +76,19 @@ paths reuse the picker continuations, projects use guarded ProjectWorkflow.openP
 and legacy paths preselect the existing explicit import review. Late picker and
 listener replies cannot reopen work after disposal. client.ts owns the native
 subscription boundary.
+
+RecentWork keeps a bounded historical projection, not another document/checker
+owner. Rust captures version-checked paths and completed checker metadata from
+existing media/scene/document/project owners, releases those locks, then hashes
+saved bytes and atomically updates a separate recent-work-v1.json file. Its own
+writer mutex serializes only metadata IO; the list is capped at 12 entries and
+128 KiB. Dirty, recovered, resynced or unmatched checks have no displayed counts.
+Recorded source/profile hashes, completion coverage and check time describe the
+saved content at capture, not a fresh check of today's disk bytes. Reading the
+list never opens old documents or starts checking. Frontend capture is debounced
+and serialized, suppresses obsolete replies and does not retry failed mutations.
+Removal waits for pending capture and changes only metadata. Recent opens enter
+the same protected workspace operations as picker/drop actions.
 Action labels, aliases and shortcut descriptions live in
 `workspace/action-descriptions.json`, imported by the frontend and embedded by
 Rust's native menu builder. Version-6 preferences hold validated bindings by

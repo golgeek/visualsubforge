@@ -446,3 +446,92 @@ fn rule_counts_deduplicate_cues_and_related_findings_on_the_worker() {
     );
     assert!(rule_cues(&findings, || Err("cancelled".into())).is_err());
 }
+
+#[test]
+fn recent_summary_uses_only_current_completed_checks_of_saved_content() {
+    let docs = fixture();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("accepted.srt");
+    let snapshot = docs.apply(Action::Status, 0, 0).unwrap();
+    docs.apply(
+        Action::Save {
+            path: Some(path.to_string_lossy().into_owned()),
+        },
+        snapshot.generation,
+        snapshot.revision,
+    )
+    .unwrap();
+    let scenes = crate::scenes::Scenes::default();
+    let key = || scenes.capture_quality(0, false).unwrap().key;
+    let before = request(&docs);
+    assert!(
+        docs.recent_subtitles(before.generation.get(), before.revision.get(), key())
+            .unwrap()
+            .unwrap()
+            .summary
+            .is_none()
+    );
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let report = loop {
+        let view = docs.quality_read(request(&docs)).unwrap();
+        if view.phase == Phase::Ready {
+            break view;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1));
+    };
+    let captured = docs
+        .recent_subtitles(before.generation.get(), before.revision.get(), key())
+        .unwrap()
+        .unwrap();
+    let summary = captured.summary.unwrap();
+    assert_eq!(summary.cues, 3);
+    assert!(
+        !summary.complete,
+        "Media-free scene coverage remains explicitly partial"
+    );
+    assert_eq!(summary.issues, report.findings_count);
+    assert_eq!(Some(summary.profile_hash), report.profile_hash);
+    assert_eq!(captured.bytes.unwrap(), fs::read(&path).unwrap());
+    let recorded = summary.checked_at_ms;
+    assert_eq!(
+        docs.recent_subtitles(before.generation.get(), before.revision.get(), key())
+            .unwrap()
+            .unwrap()
+            .summary
+            .unwrap()
+            .checked_at_ms,
+        recorded
+    );
+    assert!(
+        docs.recent_subtitles(before.generation.get(), before.revision.get() + 1, key())
+            .is_err()
+    );
+    let other_scenes = scenes.capture_quality(7, true).unwrap().key;
+    assert!(
+        docs.recent_subtitles(before.generation.get(), before.revision.get(), other_scenes)
+            .unwrap()
+            .unwrap()
+            .summary
+            .is_none()
+    );
+    docs.apply(
+        Action::Edit {
+            cue_id: 1,
+            start_ms: 1000,
+            end_ms: 2000,
+            text: "Unsaved".into(),
+        },
+        before.generation.get(),
+        before.revision.get(),
+    )
+    .unwrap();
+    let current = request(&docs);
+    assert!(
+        docs.recent_subtitles(current.generation.get(), current.revision.get(), key())
+            .unwrap()
+            .unwrap()
+            .summary
+            .is_none()
+    );
+}

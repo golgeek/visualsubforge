@@ -731,3 +731,13 @@ export function listenFileDrop(receive: (paths: string[]) => void) {
     receive(event.payload.paths),
   );
 }
+
+export type RecentEntry = Awaited<
+  ReturnType<typeof commands.recentList>
+>[number];
+export type RecentRequest = Parameters<typeof commands.recentCapture>[0];
+export const listRecent = () => commands.recentList();
+export const captureRecent = (request: RecentRequest) =>
+  commands.recentCapture(request);
+export const forgetRecent = (entry: Pick<RecentEntry, 'kind' | 'path'>) =>
+  commands.recentForget(entry.kind, entry.path);

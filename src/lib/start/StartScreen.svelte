@@ -1,4 +1,7 @@
 <script lang="ts">
+  import RecentList from './RecentList.svelte';
+  import type { RecentWork } from './recent-work.svelte';
+  import type { RecentEntry } from '../client';
   import RecoveryCard from '../document/RecoveryCard.svelte';
   import type { Recovery } from '../document/recovery.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
@@ -8,12 +11,16 @@
     onopen,
     onnew,
     onimport,
+    recent,
+    onrecent,
   }: {
     workspace: Workspace;
     recovery: Recovery;
     onopen: () => Promise<void>;
     onnew: () => Promise<void>;
     onimport: () => Promise<void>;
+    recent: RecentWork;
+    onrecent: (entry: RecentEntry) => Promise<void>;
   } = $props();
 </script>
 
@@ -51,10 +58,7 @@
     </div>
   </div>
   <aside class="start-side">
-    <section class="recent" aria-label="Recent work">
-      <h2>Recent work</h2>
-      <p>Opened work will appear here.</p>
-    </section>
+    <RecentList {recent} disabled={!workspace.canAct} onopen={onrecent} />
     <RecoveryCard {recovery} {workspace} />
   </aside>
 </section>
@@ -109,19 +113,6 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
-  }
-  .recent {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    background: var(--surface-panel);
-  }
-  h2 {
-    margin: 0 0 12px;
-    font-size: 16px;
-  }
-  .recent p {
-    color: var(--text-muted);
   }
   @media (max-width: 799px) {
     .start-screen {

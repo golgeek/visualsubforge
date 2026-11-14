@@ -143,3 +143,38 @@ fn symlink_aliases_share_the_canonical_save_identity() {
     assert_eq!(read(&path).unwrap().position_seconds, 42.);
     assert!(alias.is_symlink());
 }
+
+#[test]
+fn recent_paths_require_the_current_attached_project_without_adopting_pending_work() {
+    let directory = tempfile::tempdir().unwrap();
+    let project = fixture(directory.path());
+    let a = directory.path().join("active.vsfproject");
+    let b = directory.path().join("pending.vsfproject");
+    write(&a, &project).unwrap();
+    write(&b, &project).unwrap();
+    let projects = Projects::default();
+    assert!(projects.recent_paths(None).unwrap().is_none());
+    let active = attach(&projects, &a);
+    let pending = projects.open(&b).unwrap();
+    assert!(projects.recent_paths(Some(pending.token)).is_err());
+    let captured = projects.recent_paths(Some(active)).unwrap().unwrap();
+    assert_eq!(captured.path, a.canonicalize().unwrap());
+    assert_eq!(
+        captured.media_path,
+        Some(directory.path().join("clip.mkv").canonicalize().unwrap())
+    );
+    assert!(captured.subtitle_path.is_none());
+    projects.attach(pending.token).unwrap();
+    assert!(projects.recent_paths(Some(active)).is_err());
+    assert_eq!(
+        projects
+            .recent_paths(Some(pending.token))
+            .unwrap()
+            .unwrap()
+            .path,
+        b.canonicalize().unwrap()
+    );
+    projects.detach().unwrap();
+    assert!(projects.recent_paths(Some(pending.token)).is_err());
+    assert!(projects.recent_paths(None).unwrap().is_none());
+}

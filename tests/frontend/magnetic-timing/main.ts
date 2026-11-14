@@ -80,6 +80,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(savedSettings ?? defaultPreferences);
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':

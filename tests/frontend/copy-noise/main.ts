@@ -64,6 +64,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: { action?: MediaAction; handler?: number; event?: string },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':

@@ -171,6 +171,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: { action?: DocumentAction; request?: QualityRequest },
     ) => {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'plugin:event|listen':
           return 1;
         case 'plugin:event|unlisten':

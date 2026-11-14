@@ -37,6 +37,7 @@
   import { Recovery } from './lib/document/recovery.svelte';
   import RecoveryDialog from './lib/document/RecoveryDialog.svelte';
   import StartScreen from './lib/start/StartScreen.svelte';
+  import { RecentWork } from './lib/start/recent-work.svelte';
   import { WorkspaceOpen } from './lib/start/workspace-open';
   import { openSubtitlePath } from './lib/workspace/workspace-file-actions';
   import { openMediaPath } from './lib/media/media-actions';
@@ -534,6 +535,34 @@
     ),
   );
   const startVisible = $derived(!doc.loaded && !status.loaded);
+  const recent = disposeWithComponent(new RecentWork());
+  $effect(() => {
+    if (!workspace.ready || workspace.busy || workspace.confirming) return;
+    const request = {
+      session: status.session,
+      generation: doc.generation,
+      revision: doc.revision,
+      projectToken: projects.token,
+    };
+    const hasPath = projects.path || doc.path || (status.loaded && media.path);
+    const report = quality.view;
+    recent.configure(
+      hasPath
+        ? {
+            request,
+            identity: JSON.stringify([
+              request,
+              doc.path,
+              doc.dirty,
+              media.path,
+              report?.id,
+              report?.phase,
+              report?.profileHash,
+            ]),
+          }
+        : null,
+    );
+  });
 
   const cueActions = {
     workspace,
@@ -709,6 +738,7 @@
   });
   onMount(() => {
     startup.start();
+    void recent.load();
     menus.startListening();
     if (nativeMenus) void opener.startListening();
     timeline.startPolling();
@@ -754,6 +784,8 @@
     <StartScreen
       {workspace}
       {recovery}
+      {recent}
+      onrecent={(entry) => opener.recent(entry)}
       onopen={() => opener.pick()}
       onnew={() => workspace.run('createCue')}
       onimport={() => workspace.run('importLegacyProject')}

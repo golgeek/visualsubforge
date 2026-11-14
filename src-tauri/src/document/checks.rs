@@ -21,6 +21,7 @@ pub(super) struct Checks {
     id_scenes: Option<crate::scenes::SceneKey>,
     worker: Option<Worker>,
     report: Option<Report>,
+    completed_at_ms: Option<crate::ipc_number::SafeU64>,
     rule_cues: Vec<crate::quality_check::RuleCues>,
     error: Option<String>,
     draft: Option<Draft>,
@@ -85,6 +86,7 @@ impl Checks {
         }
         match result {
             Ok(Output::Accepted(report, counts)) => {
+                self.completed_at_ms = crate::recent::now().ok();
                 self.report = Some(report);
                 self.rule_cues = counts;
             }
@@ -216,6 +218,52 @@ impl Store {
     }
 }
 impl Documents {
+    /// Small read-only projection; no worker admission, reaping or file reads.
+    pub(crate) fn recent_subtitles(
+        &self,
+        generation: u64,
+        revision: u64,
+        scenes: crate::scenes::SceneKey,
+    ) -> Result<Option<crate::recent::SubtitleCapture>> {
+        let store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        let key = store.quality_key()?;
+        if key.generation.get() != generation || key.revision.get() != revision {
+            return Err("Subtitles changed before recent-work capture".into());
+        }
+        let Some(loaded) = &store.loaded else {
+            return Ok(None);
+        };
+        let Some(path) = &loaded.path else {
+            return Ok(None);
+        };
+        let checks = &store.checks;
+        let report = checks.report.as_ref().filter(|_| {
+            !loaded.subtitle_dirty()
+                && !loaded.recovered
+                && !loaded.resynced
+                && checks.key == Some(key)
+                && checks.scenes == Some(scenes)
+                && !checks.cancelled
+                && !checks.closed
+                && checks.error.is_none()
+        });
+        let summary = report
+            .zip(checks.completed_at_ms)
+            .map(|(report, checked_at_ms)| crate::recent::Summary {
+                cues: loaded.editor.document().cues().len() as u32,
+                issues: report.findings.len() as u32,
+                complete: report.complete,
+                profile_name: report.profile.name.clone(),
+                profile_hash: report.profile_hash.clone(),
+                source_sha256: String::new(),
+                checked_at_ms,
+            });
+        Ok(Some(crate::recent::SubtitleCapture {
+            path: path.clone(),
+            bytes: summary.as_ref().map(|_| loaded.saved_bytes.clone()),
+            summary,
+        }))
+    }
     #[cfg(test)]
     pub(crate) fn quality_read(&self, request: Request) -> Result<View> {
         let capture =

@@ -48,6 +48,17 @@ export const commands = {
   layoutSave: (
     layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize,
   ) => __TAURI_INVOKE<null>('layout_save', { layout }),
+  recentList: () =>
+    __TAURI_INVOKE<visualsubforge_recent_Entry[]>('recent_list'),
+  recentCapture: (request: visualsubforge_recent_Request) =>
+    __TAURI_INVOKE<visualsubforge_recent_Entry[]>('recent_capture', {
+      request,
+    }),
+  recentForget: (kind: visualsubforge_recent_Kind, entryPath: string) =>
+    __TAURI_INVOKE<visualsubforge_recent_Entry[]>('recent_forget', {
+      kind,
+      entryPath,
+    }),
   qualitySettings: () =>
     __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
       'quality_settings',
@@ -1376,6 +1387,15 @@ export type vsf_application_quality_profile_DurationRule = {
   maximumMs: number;
 };
 
+export type visualsubforge_recent_Entry = {
+  kind: visualsubforge_recent_Kind;
+  path: string;
+  mediaPath: string | null;
+  subtitlePath: string | null;
+  usedAtMs: number;
+  summary: visualsubforge_recent_Summary | null;
+};
+
 export type visualsubforge_recovery_store_Entry =
   | visualsubforge_recovery_store_Entry_Serialize
   | visualsubforge_recovery_store_Entry_Deserialize;
@@ -1601,6 +1621,8 @@ export type visualsubforge_quality_check_Key = {
   epoch: number;
   loaded: boolean;
 };
+
+export type visualsubforge_recent_Kind = 'subtitles' | 'media' | 'project';
 
 export type vsf_application_quality_profile_Kind = 'quality';
 
@@ -2192,6 +2214,13 @@ export type visualsubforge_quality_check_Request = {
   draft: visualsubforge_quality_check_DraftChange | null;
 };
 
+export type visualsubforge_recent_Request = {
+  session: number;
+  generation: number;
+  revision: number;
+  projectToken: number | null;
+};
+
 export type visualsubforge_document_translation_Row = {
   index: number;
   startMs: number;
@@ -2708,6 +2737,16 @@ export type visualsubforge_document_translation_Summary = {
   epoch: number;
   dirty: boolean;
   reference: visualsubforge_document_translation_ReferenceInfo | null;
+};
+
+export type visualsubforge_recent_Summary = {
+  cues: number;
+  issues: number;
+  complete: boolean;
+  profileName: string;
+  profileHash: string;
+  sourceSha256: string;
+  checkedAtMs: number;
 };
 
 export type vsf_application_quality_statistics_Summary =

@@ -155,6 +155,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'preferences_get':
           return structuredClone(defaultPreferences);
         case 'recovery_status':

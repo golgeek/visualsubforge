@@ -1,4 +1,4 @@
-import { chooseFile, listenFileDrop } from '../client';
+import { chooseFile, listenFileDrop, type RecentEntry } from '../client';
 import type { Workspace } from '../workspace/workspace.svelte';
 import { classifyFiles, type OpenFile } from './file-kinds';
 const client = { chooseFile, listenFileDrop };
@@ -32,12 +32,23 @@ export class WorkspaceOpen {
       if (this.alive && path) await this.openFiles(classifyFiles([path]));
     });
   }
-  async paths(paths: string[]) {
+  paths(paths: string[]) {
+    return this.dispatch(() => classifyFiles(paths));
+  }
+  recent(entry: RecentEntry) {
+    return this.dispatch(() => [
+      { path: entry.path, kind: entry.kind },
+      ...(entry.kind === 'subtitles' && entry.mediaPath
+        ? [{ path: entry.mediaPath, kind: 'media' as const }]
+        : []),
+    ]);
+  }
+  private async dispatch(files: () => OpenFile[]) {
     if (!this.alive) return;
     await this.prepare();
     if (!this.alive || !this.workspace.canAct) return;
     await this.workspace.task(async () => {
-      await this.openFiles(classifyFiles(paths));
+      await this.openFiles(files());
     });
   }
   private async openFiles(files: OpenFile[]) {

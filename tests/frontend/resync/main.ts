@@ -460,6 +460,10 @@ async function appCases() {
       ) {
         calls.push(command);
         switch (command) {
+          case 'recent_list':
+          case 'recent_capture':
+          case 'recent_forget':
+            return [];
           case 'quality_read':
             return emptyQuality(args);
           case 'quality_cancel':

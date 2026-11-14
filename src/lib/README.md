@@ -649,3 +649,12 @@ unsaved-copy behavior. It appears on Start and in a HideVideo dialog reachable
 from the toolbar after loading work. Dialog actions close presentation before
 entering Recovery's ordinary protected operation. No accepted history moves into
 start or recovery components.
+
+
+RecentWork owns only the start-screen historical list, its debounced single-flight
+capture and stale/disposal guards. Rust supplies at most 12 persisted entries and
+real checker counts with source/profile identity and the original check time.
+Unknown counts stay unknown; partial coverage is explicit. Capture never opens a
+file or admits a checker. Removal waits for capture and only edits list metadata;
+errors preserve the projection without automatic mutation replay. Recent entries
+route through WorkspaceOpen and retain protected, sequential pair opening.
