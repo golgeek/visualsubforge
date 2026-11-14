@@ -48,6 +48,17 @@ export const commands = {
   layoutSave: (
     layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize,
   ) => __TAURI_INVOKE<null>('layout_save', { layout }),
+  recentList: () =>
+    __TAURI_INVOKE<visualsubforge_recent_Entry[]>('recent_list'),
+  recentCapture: (request: visualsubforge_recent_Request) =>
+    __TAURI_INVOKE<visualsubforge_recent_Entry[]>('recent_capture', {
+      request,
+    }),
+  recentForget: (kind: visualsubforge_recent_Kind, entryPath: string) =>
+    __TAURI_INVOKE<visualsubforge_recent_Entry[]>('recent_forget', {
+      kind,
+      entryPath,
+    }),
   qualitySettings: () =>
     __TAURI_INVOKE<visualsubforge_quality_profile_SettingsData_Serialize>(
       'quality_settings',
@@ -963,6 +974,12 @@ export type vsf_application_quality_statistics_Aggregate = {
   mean: number | null;
 };
 
+export type visualsubforge_preferences_appearance_Appearance = {
+  theme: visualsubforge_preferences_appearance_Theme;
+  density: visualsubforge_preferences_appearance_Density;
+  customTitleBar: boolean;
+};
+
 export type visualsubforge_preferences_layout_arrangement_Arrangement = {
   version: number;
   rows: visualsubforge_preferences_layout_arrangement_Row[];
@@ -1274,6 +1291,9 @@ export type visualsubforge_document_CueView_Serialize = {
   text: string;
 };
 
+export type visualsubforge_preferences_appearance_Density =
+  'comfortable' | 'compact';
+
 export type visualsubforge_preferences_layout_columns_Density =
   'comfortable' | 'compact';
 
@@ -1367,6 +1387,15 @@ export type vsf_application_quality_profile_DurationRule = {
   maximumMs: number;
 };
 
+export type visualsubforge_recent_Entry = {
+  kind: visualsubforge_recent_Kind;
+  path: string;
+  mediaPath: string | null;
+  subtitlePath: string | null;
+  usedAtMs: number;
+  summary: visualsubforge_recent_Summary | null;
+};
+
 export type visualsubforge_recovery_store_Entry =
   | visualsubforge_recovery_store_Entry_Serialize
   | visualsubforge_recovery_store_Entry_Deserialize;
@@ -1395,6 +1424,7 @@ export type vsf_application_quality_statistics_Extreme = {
 };
 
 export type visualsubforge_desktop_FileChoice =
+  | 'workspace'
   | 'media'
   | 'subtitles'
   | 'font'
@@ -1591,6 +1621,8 @@ export type visualsubforge_quality_check_Key = {
   epoch: number;
   loaded: boolean;
 };
+
+export type visualsubforge_recent_Kind = 'subtitles' | 'media' | 'project';
 
 export type vsf_application_quality_profile_Kind = 'quality';
 
@@ -1951,6 +1983,7 @@ export type visualsubforge_preferences_Preferences =
 export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
+  appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
@@ -1963,6 +1996,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
 export type visualsubforge_preferences_Preferences_Serialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Serialize;
+  appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
@@ -2178,6 +2212,13 @@ export type visualsubforge_quality_check_Request = {
   rule: vsf_application_quality_check_Rule | null;
   severity: vsf_application_quality_check_Severity | null;
   draft: visualsubforge_quality_check_DraftChange | null;
+};
+
+export type visualsubforge_recent_Request = {
+  session: number;
+  generation: number;
+  revision: number;
+  projectToken: number | null;
 };
 
 export type visualsubforge_document_translation_Row = {
@@ -2698,6 +2739,16 @@ export type visualsubforge_document_translation_Summary = {
   reference: visualsubforge_document_translation_ReferenceInfo | null;
 };
 
+export type visualsubforge_recent_Summary = {
+  cues: number;
+  issues: number;
+  complete: boolean;
+  profileName: string;
+  profileHash: string;
+  sourceSha256: string;
+  checkedAtMs: number;
+};
+
 export type vsf_application_quality_statistics_Summary =
   | vsf_application_quality_statistics_Summary_Serialize
   | vsf_application_quality_statistics_Summary_Deserialize;
@@ -2815,6 +2866,9 @@ export type visualsubforge_text_review_TextView = {
   rows: visualsubforge_text_review_Row[];
   suggestions: string[];
 };
+
+export type visualsubforge_preferences_appearance_Theme =
+  'system' | 'dark' | 'light';
 
 export type vsf_application_quality_profile_Timing = {
   cueGapMs: number;

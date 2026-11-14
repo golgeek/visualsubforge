@@ -57,15 +57,41 @@ callbacks and delegates its short action switch to subtitle/project-file, media,
 cue-editing and view/panel action functions. `Workspace` owns task activity and messages and
 derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor, waveform and shell markup live in components receiving the
-relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
+relevant owners. WorkspaceToolbar, RecoveryCard, WorkspaceFooter,
 PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
 renders feature content from the modal identity. TransportBar, CueOperationsBar, SubtitleToolbar and VideoPreview own their region
 markup and scoped styles. WorkspaceDecisions and WorkspaceLegacyImport render
 decision-owned payloads; ActionBrowser presents command discovery and searchable keyboard help. App creates owners and
-lays out regions.
+lays out regions. With no accepted document or loaded media, StartScreen replaces
+workspace presentation while the region owners remain mounted and inert. The
+zero-size video placeholder retains the window backdrop. New subtitles uses the
+existing accepted Create operation (an untitled SRT with its first empty cue).
+RecoveryCard reuses Recovery; loaded work reaches it through a HideVideo modal.
+
+WorkspaceOpen owns picker/drop admission and a disposable native drop listener.
+Classification rejects ambiguous groups before mutation. A video/subtitle pair
+opens subtitles first so cancellation of unsaved-work protection stops the pair;
+these are sequential operations, not a cross-file transaction. Subtitle/media
+paths reuse the picker continuations, projects use guarded ProjectWorkflow.openPath,
+and legacy paths preselect the existing explicit import review. Late picker and
+listener replies cannot reopen work after disposal. client.ts owns the native
+subscription boundary.
+
+RecentWork keeps a bounded historical projection, not another document/checker
+owner. Rust captures version-checked paths and completed checker metadata from
+existing media/scene/document/project owners, releases those locks, then hashes
+saved bytes and atomically updates a separate recent-work-v1.json file. Its own
+writer mutex serializes only metadata IO; the list is capped at 12 entries and
+128 KiB. Dirty, recovered, resynced or unmatched checks have no displayed counts.
+Recorded source/profile hashes, completion coverage and check time describe the
+saved content at capture, not a fresh check of today's disk bytes. Reading the
+list never opens old documents or starts checking. Frontend capture is debounced
+and serialized, suppresses obsolete replies and does not retry failed mutations.
+Removal waits for pending capture and changes only metadata. Recent opens enter
+the same protected workspace operations as picker/drop actions.
 Action labels, aliases and shortcut descriptions live in
 `workspace/action-descriptions.json`, imported by the frontend and embedded by
-Rust's native menu builder. Version-5 preferences hold validated bindings by
+Rust's native menu builder. Version-6 preferences hold validated bindings by
 focus mode; bundled presets share one JSON source across Rust and TypeScript.
 The pure workspace router resolves those bindings while retaining composition,
 repeat, text-history and Windows fallback rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
@@ -86,7 +112,24 @@ Appearance comes from `src/lib/ui/`: `tokens.css` defines the dark and light
 palettes, type and shape, and `base.css` styles native elements. Components use
 tokens in their scoped styles instead of color literals. The waveform canvas reads
 tokens through `canvas-palette.ts` and redraws when the theme or loaded fonts
-change. The page body stays transparent so the native video surface can show
+change. `Appearance` projects confirmed theme/density preferences onto root attributes,
+with one system color-scheme listener per mounted workspace and disposal cleanup.
+Settings retains draft/save/Undo ownership; failed saves do not change effective
+appearance. Global control padding tokens do not change per-preset cue-row density.
+Modal close acknowledges native bounds after any density-driven geometry changes.
+
+WindowChrome owns native window presentation only. macOS uses an overlay title
+bar with reserved traffic-light space; Windows keeps native captions and OS snap
+behavior. Windows/Linux expose registry-backed top-bar menu groups through the
+existing HideVideo modal. Linux reads its confirmed custom-caption opt-in once
+per mount, so changing it requires restart. Decoration/maximize operations hide
+video, acknowledge rendered bounds, then restore remaining occlusion. Unknown
+decoration outcomes reconcile through a read without replaying the write and
+retain caption controls if that read fails. Close enters the protected workspace
+Quit operation. All native window calls pass through client.ts with main-window
+capabilities; disposal suppresses later presentation. Drag and physical snap
+behavior remain platform acceptance work, not browser-test conclusions.
+The page body stays transparent so the native video surface can show
 through; the visible window color is painted by the video placeholder.
 CueNavigation coordinates selection, following, reveal and focus through narrow
 DOM callbacks. WorkspaceStartup loads initial state, WorkspaceMenus owns the native
@@ -120,7 +163,9 @@ history. Cue IDs remain stable independently of table position. History records
 the replaced cue span and, when changed, document properties. It does not take a
 whole-document snapshot for every single-cue edit. Saved-state identity is
 separate from revision, so Undo can return to saved content while revisions keep
-advancing. Format properties participate in the same transaction as cue edits.
+advancing. A coalesced text group that returns to its original content removes
+its empty history entry and restores its prior state identity; it also ends the
+group so later typing cannot merge into earlier history. Format properties participate in the same transaction as cue edits.
 
 A document generation identifies replacement/open/recovery; a revision identifies
 accepted edits within that generation. Document-edit requests carry both. Rust checks
@@ -499,7 +544,7 @@ policy. All production settings-file writes serialize read/modify/write under on
 writer mutex, preserving unrelated layout, profile and personal-word fields.
 Document preference/word operations acquire the document lock before this writer;
 layout writes acquire only the writer. Atomic publication permits concurrent reads
-of either complete version. Versions 1–4 migrate in memory to version 5; the historical
+of either complete version. Versions 1–5 migrate in memory to version 6; the historical
 settings filename remains valid. Custom arrangements use a bounded version-1
 row schema: seven distinct panel kinds, at most two per row, integer weights and
 split percentages. Pure frontend geometry refuses moves that exceed the current

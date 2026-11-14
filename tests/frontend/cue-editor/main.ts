@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
 import {
@@ -33,6 +34,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 15));
   }
   await tick();
+  await visualCheckpoint();
 }
 function button(label: string) {
   const found = [...host.querySelectorAll('button')].find(
@@ -148,17 +150,23 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         request?: QualityRequest;
         state?: Parameters<typeof updateMenu>[0];
         handler?: number;
+        event?: string;
         cueId?: number;
         id?: number;
         revision?: number;
       },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'preferences_get':
           return structuredClone(defaultPreferences);
         case 'recovery_status':
           return { entries: [], error: null };
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           handler = args.handler!;
           return 1;
         case 'plugin:event|unlisten':

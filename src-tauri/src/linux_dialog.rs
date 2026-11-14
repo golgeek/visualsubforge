@@ -206,7 +206,8 @@ async fn request_file(
                 .send()
                 .await
         }
-        FileChoice::Media
+        FileChoice::Workspace
+        | FileChoice::Media
         | FileChoice::Font
         | FileChoice::Plugin
         | FileChoice::Subtitles
@@ -229,6 +230,8 @@ async fn request_file(
                     "Open VSF Project"
                 } else if legacy_project {
                     "Import VisualSubSync Project"
+                } else if matches!(kind, FileChoice::Workspace) {
+                    "Open video, subtitles or project"
                 } else if subtitles {
                     "Open Subtitles"
                 } else {

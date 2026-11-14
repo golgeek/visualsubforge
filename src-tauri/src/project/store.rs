@@ -64,6 +64,25 @@ impl Store {
     }
 }
 impl Projects {
+    pub(crate) fn recent_paths(
+        &self,
+        token: Option<u64>,
+    ) -> Result<Option<crate::recent::ProjectCapture>> {
+        let Some(token) = token else {
+            return Ok(None);
+        };
+        let store = self.state.lock().map_err(|_| "Project state unavailable")?;
+        let active = store
+            .active
+            .as_ref()
+            .filter(|active| active.token == token)
+            .ok_or("Project changed before recent-work capture")?;
+        Ok(Some(crate::recent::ProjectCapture {
+            path: active.path.clone(),
+            media_path: active.media_path.clone(),
+            subtitle_path: active.subtitle_path.clone(),
+        }))
+    }
     #[cfg(test)]
     pub fn open(&self, path: &Path) -> Result<Opened> {
         self.open_with(path, &ReferenceOverride::default())

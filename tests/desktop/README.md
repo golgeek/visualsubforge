@@ -297,3 +297,21 @@ emulated, and these helpers never invoke document mutations directly. Individual
 workflows still wait for accepted snapshots, exact fields or inline rejection.
 Pause/blur/IME triggering has separate browser coverage; generated keyboard events
 do not establish physical native-input acceptance.
+
+
+The default desktop workflow also inspects the empty Start screen, platform menu
+and caption geometry, light/comfortable workspace geometry, persisted recent work,
+and light appearance after an actual process restart. Linux additionally enables
+the custom-caption preference before restart and checks native decoration state
+and caption controls afterward. These are WebView/IPC and persistence checks;
+physical title-bar dragging, Windows snap hover, window-manager behavior and
+native playback require separate platform trials.
+
+For a reproducible dialog visual review, start `npm run dev`, then run
+`node scripts/audit-dialogs.mjs /tmp/vsf-dialog-audit`. The opt-in `?visual=light`
+fixture checkpoints use production components, bundled fonts and global tokens;
+they pause while the driver records screenshots and geometry receipts, including
+all Settings pages, text-operation variants and scrollable lower content. The
+fixture then resumes its normal behavioral assertions. Normal browser checks do
+not pause. These modeled-IPC captures establish appearance, not native playback.
+Optional trailing fixture names narrow a review (for example `font-authoring`).

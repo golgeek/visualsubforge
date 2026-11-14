@@ -62,8 +62,15 @@ export class HideVideo {
     restored?: () => void;
     failed: (error: unknown) => void;
     focus?: () => void;
+    // A rejected native reply can leave visibility unknown after returning idle.
+    restoreWhenIdle?: boolean;
   }) {
-    if (!this.alive || !this.active || this.closing) return;
+    if (
+      !this.alive ||
+      (!this.active && !content.restoreWhenIdle) ||
+      this.closing
+    )
+      return;
     const epoch = ++this.epoch;
     this.phase = 'closing';
     content.hide();

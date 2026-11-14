@@ -17,7 +17,13 @@
         "height": 720,
         "minWidth": 400,
         "minHeight": 300,
-        "preventOverflow": true
+        "preventOverflow": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 12,
+          "y": 16
+        }
       }
     ],
     "security": {
@@ -28,7 +34,12 @@
           "windows": ["main"],
           "permissions": [
             "core:event:allow-listen",
-            "core:event:allow-unlisten"
+            "core:event:allow-unlisten",
+            "core:window:allow-start-dragging",
+            "core:window:allow-minimize",
+            "core:window:allow-toggle-maximize",
+            "core:window:allow-set-decorations",
+            "core:window:allow-is-decorated"
           ]
         }
       ]

@@ -3044,6 +3044,11 @@ export const mediaStatus = {
   videoOutputConfigured: false,
 } satisfies MediaStatus;
 export const preferences = {
+  appearance: {
+    customTitleBar: false,
+    density: 'compact',
+    theme: 'dark',
+  },
   autoScanScenes: true,
   layout: {
     active: 'timing',
@@ -3854,5 +3859,5 @@ export const preferences = {
     snapDistancePx: 8,
     snapScenes: true,
   },
-  version: 5,
+  version: 6,
 } satisfies Preferences;

@@ -57,6 +57,7 @@ mod preferences;
 mod project;
 mod quality_check;
 mod quality_profile;
+mod recent;
 mod recovery_store;
 mod resync;
 mod review_selection;

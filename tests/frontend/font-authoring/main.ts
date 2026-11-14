@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, unmount, tick } from 'svelte';
 import FontDialog from '../../../src/lib/authoring/FontDialog.svelte';
 import { FontSession } from '../../../src/lib/authoring/font-session.svelte';
@@ -38,6 +39,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 let doc: DocumentSnapshot = {
   ...structuredClone(styledDocument),

@@ -54,3 +54,22 @@ Before adopting the trial preset, exercise ordinary typing/IME/AltGr, Tab and
 Shift+Tab in cue text versus other controls, N/S/M/Backspace in list and waveform,
 Escape focus return, bracket edge edits and Undo. Test a rebind, a conflict,
 restart persistence and both menu and keyboard invocation on your platform.
+
+## Appearance
+
+Settings → Appearance selects System, Dark or Light and comfortable or compact
+control spacing. Changes use the same confirmed-save and Undo flow as other
+settings. System follows the operating system without rewriting the preference
+on each color-scheme change. Dark and compact remain the migration defaults.
+Control density does not change the row density saved for each layout preset;
+choose that separately in Columns. The page body remains transparent for native
+video in both themes.
+
+
+On Linux, **Custom title bar (after restart)** opts into in-app minimize,
+maximize/restore and Close buttons. Native decorations remain the default; restart
+after enabling or disabling the option. Close still protects unsaved work. macOS
+uses inset native traffic lights and a draggable filename area; Windows keeps
+native captions and snap behavior. Windows/Linux also provide grouped menus in
+the top bar. The filename area supports drag and double-click maximize/restore
+when an overlay or custom bar is active.

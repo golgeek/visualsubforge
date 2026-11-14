@@ -69,6 +69,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction;
         handler?: number;
+        event?: string;
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
         preset?: unknown;
@@ -79,6 +80,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(savedSettings ?? defaultPreferences);
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
@@ -92,6 +97,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             ignored: { englishUs: [], french: [] },
           };
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           eventHandler = args.handler!;
           return 1;
         case 'quality_settings':

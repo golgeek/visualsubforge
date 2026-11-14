@@ -7,10 +7,12 @@
     unavailable,
     type ActionId,
     type ActionContext,
+    type ActionGroup,
   } from './action-registry';
   import type { Cue, ShortcutPreferences } from '../client';
   let {
     mode,
+    group = null,
     shortcuts,
     context,
     cues,
@@ -19,6 +21,7 @@
     onclose,
   }: {
     mode: 'commands' | 'shortcuts' | 'actionMenu';
+    group?: ActionGroup | null;
     shortcuts?: ShortcutPreferences;
     context: ActionContext;
     cues: Cue[];
@@ -33,10 +36,12 @@
   const mac = navigator.platform.startsWith('Mac');
   const search = $derived(query.trim().toLocaleLowerCase());
   const filtered = $derived(
-    actionsFor(shortcuts).filter((action) =>
-      [action.label, action.group, ...action.aliases].some((text) =>
-        text.toLocaleLowerCase().includes(search),
-      ),
+    actionsFor(shortcuts).filter(
+      (action) =>
+        (!group || action.group === group) &&
+        [action.label, action.group, ...action.aliases].some((text) =>
+          text.toLocaleLowerCase().includes(search),
+        ),
     ),
   );
   const groups = $derived([...new Set(filtered.map((action) => action.group))]);
@@ -59,7 +64,7 @@
     mode === 'shortcuts'
       ? 'Keyboard shortcuts'
       : mode === 'actionMenu'
-        ? 'Commands'
+        ? (group ?? 'Commands')
         : 'Command palette',
   );
   async function run(operation: () => Promise<void>) {
@@ -107,6 +112,7 @@
 
 <dialog
   bind:this={dialog}
+  class:group-menu={!!group}
   aria-labelledby="action-browser-title"
   onkeydown={keydown}
   oncancel={(event) => {
@@ -198,6 +204,11 @@
     width: min(580px, calc(100vw - 40px));
     max-height: min(680px, calc(100vh - 48px));
     padding: 20px;
+  }
+  .group-menu {
+    margin: 44px auto 0 12px;
+    width: min(420px, calc(100vw - 24px));
+    max-height: calc(100vh - 60px);
   }
   header,
   .shortcut-row,

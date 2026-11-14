@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { mount, unmount, tick } from 'svelte';
 import LegacyImportDialog from '../../../src/lib/project/LegacyImportDialog.svelte';
 import { LegacyImportSession } from '../../../src/lib/project/legacy-import-session.svelte';
@@ -33,6 +34,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 function deferred<T>() {
   let resolve!: (v: T) => void;

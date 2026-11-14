@@ -1,4 +1,5 @@
 import { commitCue, installEditorInput } from './editor-input.mjs';
+import { startChrome, saveAppearance } from './start-appearance.mjs';
 // Real webview + Tauri IPC + filesystem. Only file selection and app-data paths
 // are supplied by the optional desktop-e2e build; document commands are not mocked.
 import assert from 'node:assert/strict';
@@ -360,6 +361,7 @@ try {
     { kind: 'saveSubtitles', path: copy },
     { kind: 'subtitles', path: copy },
   ]);
+  await startChrome({ browser, until, evidence, record });
   await menu('openSubtitles');
   let opened = await documentIs(
     'opened source',
@@ -456,6 +458,13 @@ try {
     step: 'cancelled/failed Save As preservation and successful save/reopen',
   });
 
+  await until('saved copy recorded in recent work', async () => {
+    const recent = await invoke('recent_list');
+    return recent.some(
+      (entry) => samePath(entry.path, copy) && entry.summary?.cues === 2,
+    );
+  });
+  await saveAppearance({ browser, menu, invoke, until, evidence, record });
   await edit('Recovery 世界');
   await until('durable recovery checkpoint', async () => {
     for (const entry of await readdir(join(root, 'recovery-v1'), {
@@ -519,6 +528,7 @@ try {
         ]
       : []),
   ]);
+  await startChrome({ browser, until, evidence, record, restart: true });
   const recover = await browser.$('button=Recover');
   assert.deepEqual(
     (await invoke('quality_settings')).current.profile,

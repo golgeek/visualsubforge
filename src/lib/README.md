@@ -518,6 +518,11 @@ enter the same layout owner. Reset Pane Sizes resets only the active preset.
 
 Before changing geometry, the layout owner waits for `HideVideo`, then renders
 and awaits `NativeVideoLayout.flush()` before restoring remaining occlusion.
+After a native hide/restore failure, the layout owner drops queued mutations and
+requests one visibility reconciliation through HideVideo, including when its
+phase returned to idle. This reacknowledges rendered bounds and preserves remaining
+overlays; it never repeats the layout mutation. A second failure is reported,
+without an automatic retry loop.
 Pointer updates coalesce while hiding; saves debounce and serialize. Disposal
 cancels timers and ignores late acknowledgments. Saved sizes pass through the
 single typed client, without quality-context invalidation or accepted edits.
@@ -617,3 +622,51 @@ serializes bounded full-file scene reads and ignores retired epochs. Visible sce
 polling remains in SceneControls; scans and completed cuts remain Rust-owned.
 The video scrubber sits outside the native video rectangle, with normal bounds
 tracking and no decoded frames in IPC. Review ghosts retain their existing owner.
+
+## Appearance preferences
+
+`ui/appearance.ts` owns one system color-scheme listener and root theme/density
+attributes. App supplies confirmed Preferences through a scoped effect; the owner
+suppresses unchanged attribute writes and retires its listener on disposal.
+SettingsSession retains instant-save, Undo and unknown-outcome reconciliation.
+Dark/compact are migration defaults. System mode follows the operating system;
+explicit Light/Dark ignore its changes. Global control padding uses tokens and
+preserves independent per-preset cue-row density. Modal close drains current native
+bounds after rendering before restoring video. See the Settings guide for controls.
+
+## Start and file opening
+
+StartScreen hides empty workspace presentation without remounting its owners.
+WorkspaceOpen classifies one project or one media/subtitle pair, holds the
+workspace gate during pick/open, and cleans up late native drop registration.
+A cancelled subtitle protection stops a pair before media changes. Projects and
+legacy import retain their own guarded workflows; legacy drops only preselect the
+review input. Picker/drop paths share openSubtitlePath/openMediaPath. Failed media
+commands do not publish a chosen path or detach the current project.
+
+RecoveryCard retains the Recovery owner's polling, discard confirmation and
+unsaved-copy behavior. It appears on Start and in a HideVideo dialog reachable
+from the toolbar after loading work. Dialog actions close presentation before
+entering Recovery's ordinary protected operation. No accepted history moves into
+start or recovery components.
+
+
+RecentWork owns only the start-screen historical list, its debounced single-flight
+capture and stale/disposal guards. Rust supplies at most 12 persisted entries and
+real checker counts with source/profile identity and the original check time.
+Unknown counts stay unknown; partial coverage is explicit. Capture never opens a
+file or admits a checker. Removal waits for capture and only edits list metadata;
+errors preserve the projection without automatic mutation replay. Recent entries
+route through WorkspaceOpen and retain protected, sequential pair opening.
+
+
+## Platform window chrome
+
+WindowChrome reads the saved Linux opt-in once at mount. macOS reserves an inset
+for native traffic lights; Windows retains native captions/snap behavior; Linux
+keeps native decorations by default. Caption Close calls protected workspace Quit.
+Decoration/maximize changes use HideVideo and acknowledge current native bounds
+before restoring remaining overlays. Unknown writes reconcile by reading native
+decoration state, never repeating the write. Disposal retires presentation.
+Native calls remain in client.ts. The grouped Windows/Linux top-bar menus filter
+the shared action registry and retain WorkspaceModal ownership and eligibility.

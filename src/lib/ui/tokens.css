@@ -3,8 +3,7 @@
   defined. Components refer to these custom properties instead of literals.
 
   Dark is the default. `data-theme="light"` on the root element selects the
-  light palette; no workspace setting chooses it yet, so the application keeps
-  its dark appearance until a preference owns that choice.
+  light palette. Confirmed workspace preferences choose Dark, Light or System.
 
   Colors are written out, not computed with color-mix() or relative color
   syntax, so WKWebView, WebView2 and WebKitGTK resolve identical values.
@@ -13,6 +12,11 @@
 
 :root {
   color-scheme: dark;
+
+  --control-pad-y: 5px;
+  --control-pad-x: 9px;
+  --field-pad-y: 4px;
+  --field-pad-x: 6px;
 
   /* Surfaces, from the window background up to hovered controls. */
   --surface-base: #0e1115;
@@ -144,4 +148,11 @@
 
   --scrim: rgba(30, 40, 55, 0.28);
   --shadow-pop: 0 20px 50px rgba(20, 30, 50, 0.16);
+}
+
+:root[data-density='comfortable'] {
+  --control-pad-y: 7px;
+  --control-pad-x: 12px;
+  --field-pad-y: 6px;
+  --field-pad-x: 8px;
 }

@@ -44,18 +44,7 @@ export async function runMediaAction(
     switch (action) {
       case 'openMedia': {
         const path = await chooseFile('media', media.path || null);
-        if (path) {
-          timeline.reset(true);
-          await commandMedia(owners, {
-            kind: 'open',
-            path,
-            hardware: media.hardware,
-          });
-          media.path = path;
-          await projects.detach();
-          scenes.clearRestored();
-          preferences.resetTiming();
-        }
+        if (path) await openMediaPath(owners, path);
         break;
       }
       case 'closeMedia':
@@ -141,4 +130,30 @@ export async function selectAudioTrack(
     },
     { clearError: false },
   );
+}
+
+/** Reuse the media owner and detach policy for picker/drop/recent entry points. */
+export async function openMediaPath(owners: Owners, path: string) {
+  const { workspace, media, timeline, projects, scenes, preferences } = owners;
+  if (workspace.disposed) return false;
+  if (!media.status.available)
+    throw new Error(
+      'Opening media requires a build with native playback enabled.',
+    );
+  timeline.reset(true);
+  if (
+    !(await commandMedia(owners, {
+      kind: 'open',
+      path,
+      hardware: media.hardware,
+    })) ||
+    workspace.disposed
+  )
+    return false;
+  media.path = path;
+  await projects.detach();
+  if (workspace.disposed) return false;
+  scenes.clearRestored();
+  preferences.resetTiming();
+  return true;
 }

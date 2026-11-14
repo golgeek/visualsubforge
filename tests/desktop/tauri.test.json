@@ -11,7 +11,12 @@
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             "core:event:allow-emit",
-            "wdio-webdriver:default"
+            "wdio-webdriver:default",
+            "core:window:allow-start-dragging",
+            "core:window:allow-minimize",
+            "core:window:allow-toggle-maximize",
+            "core:window:allow-set-decorations",
+            "core:window:allow-is-decorated"
           ]
         }
       ]

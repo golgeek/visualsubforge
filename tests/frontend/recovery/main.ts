@@ -93,6 +93,10 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
         if (command === 'preferences_get')
           return structuredClone(defaultPreferences);
         switch (command) {
+          case 'recent_list':
+          case 'recent_capture':
+          case 'recent_forget':
+            return [];
           case 'quality_read':
             return emptyQuality(args);
           case 'quality_cancel':

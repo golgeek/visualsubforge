@@ -1,8 +1,10 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { shortcutPreset } from './workspace/shortcut-settings';
 import { defaultLayout } from './layout/layout-presets';
 import { commands, events } from './generated/ipc';
 import type * as IPC from './generated/ipc';
 import { isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { defaultTiming } from './timing/magnetic-timing';
 import { builtinQualityProfiles } from './generated/quality-defaults';
 
@@ -605,7 +607,8 @@ export async function exportTimingPreset(
 }
 
 export const defaultPreferences: Preferences = {
-  version: 5,
+  version: 6,
+  appearance: { theme: 'dark', density: 'compact', customTitleBar: false },
   shortcuts: shortcutPreset('current'),
   layout: defaultLayout(),
   autoScanScenes: true,
@@ -722,3 +725,37 @@ export async function cueFixesCancel(id: number): Promise<void> {
 export function cueFixesAccept(id: number): Promise<DocumentSnapshot> {
   return commands.cueFixesAccept(id);
 }
+
+/** Native drop paths are metadata only; opening still enters protected owners. */
+export function listenFileDrop(receive: (paths: string[]) => void) {
+  return listen<{ paths: string[] }>('tauri://drag-drop', (event) =>
+    receive(event.payload.paths),
+  );
+}
+
+export type RecentEntry = Awaited<
+  ReturnType<typeof commands.recentList>
+>[number];
+export type RecentRequest = Parameters<typeof commands.recentCapture>[0];
+export const listRecent = () => commands.recentList();
+export const captureRecent = (request: RecentRequest) =>
+  commands.recentCapture(request);
+export const forgetRecent = (entry: Pick<RecentEntry, 'kind' | 'path'>) =>
+  commands.recentForget(entry.kind, entry.path);
+
+export type WindowPlatform = 'macos' | 'windows' | 'linux' | 'other';
+export function windowPlatform(platform = navigator.platform): WindowPlatform {
+  if (platform.startsWith('Mac')) return 'macos';
+  if (platform.startsWith('Win')) return 'windows';
+  if (platform.startsWith('Linux')) return 'linux';
+  return 'other';
+}
+// Native window operations stay in the typed client. Quit uses ProjectWorkflow.
+export const setWindowDecorations = (value: boolean) =>
+  getCurrentWindow().setDecorations(value);
+export const windowIsDecorated = () => getCurrentWindow().isDecorated();
+export const dragWindow = () => getCurrentWindow().startDragging();
+export const minimizeWindow = () => getCurrentWindow().minimize();
+export const toggleWindowMaximized = () => getCurrentWindow().toggleMaximize();
+
+export { isTauri };

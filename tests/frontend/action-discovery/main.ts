@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { mount, tick, unmount } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -55,6 +56,7 @@ async function until(predicate: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
@@ -75,15 +77,21 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction;
         handler?: number;
+        event?: string;
         preferences?: Preferences;
       },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           listener = args.handler!;
           return 1;
         case 'plugin:event|unlisten':

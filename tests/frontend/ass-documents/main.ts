@@ -94,6 +94,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: DocumentAction | MediaAction;
         handler?: number;
+        event?: string;
         context?: TextFormattingContext;
         text?: string;
         start?: number;
@@ -102,7 +103,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) => {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           eventHandler = args.handler!;
           return 1;
         case 'plugin:event|unlisten':

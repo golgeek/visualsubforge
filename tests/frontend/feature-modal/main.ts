@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
@@ -43,6 +44,7 @@ async function until(check: () => boolean) {
     await settle();
   }
   await settle();
+  await visualCheckpoint();
 }
 function button(label: string, root: ParentNode = host) {
   const result = [
@@ -101,15 +103,21 @@ async function fixture(variant: (typeof variants)[number], above = true) {
         args: {
           action?: DocumentAction | MediaAction;
           handler?: number;
+          event?: string;
           id?: number;
         },
       ) => {
         switch (command) {
+          case 'recent_list':
+          case 'recent_capture':
+          case 'recent_forget':
+            return [];
           case 'quality_read':
             return emptyQuality(args);
           case 'quality_cancel':
             return null;
           case 'plugin:event|listen':
+            if (args.event !== 'workspace-action') return 2;
             handler = args.handler!;
             return 1;
           case 'plugin:event|unlisten':

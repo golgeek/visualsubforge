@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import type { updateMenu } from '../../../src/lib/client';
@@ -125,6 +126,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction | TranslationAction;
         handler?: number;
+        event?: string;
         generation?: number;
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
@@ -136,11 +138,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       if (command === 'preferences_get')
         return structuredClone(defaultPreferences);
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           document.body.dataset.workspaceListener = 'waiting';
           await registration;
           document.body.dataset.workspaceListener = 'registered';
@@ -411,6 +418,7 @@ async function until(check: () => boolean) {
     await new Promise((r) => setTimeout(r, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 function assert(ok: boolean, text: string) {
   if (!ok) throw new Error(text);

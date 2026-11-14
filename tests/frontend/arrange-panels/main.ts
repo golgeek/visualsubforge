@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { pauseChecks } from './pause';
 import { ownerChecks } from './owners';
 import { emptyQuality } from '../empty-quality';
@@ -68,6 +69,7 @@ async function until(predicate: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
@@ -89,15 +91,21 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         action?: MediaAction | DocumentAction;
         request?: SaveProjectRequest;
         handler?: number;
+        event?: string;
         layout?: Preferences['layout'];
       },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           listener = args.handler!;
           return 1;
         case 'plugin:event|unlisten':

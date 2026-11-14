@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { mount, tick, unmount } from 'svelte';
 import { preferences as rustPreferences } from '../ipc-contract-samples';
@@ -36,6 +37,9 @@ let nativeBounds: MediaAction | null = null;
 let holdHide: (() => void) | null = null;
 let delayHide = false;
 let boundsBeforeRestore = false;
+let rejectHide = false;
+let rejectRestoreAfterHide = false;
+let rejectRestore = false;
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }
@@ -44,8 +48,8 @@ function passed(message: string) {
   li.textContent = `PASS: ${message}`;
   output.append(li);
 }
-function button(label: string) {
-  return [...host.querySelectorAll('button')].find(
+function button(label: string, scope: ParentNode = host) {
+  return [...scope.querySelectorAll('button')].find(
     (b) => b.textContent?.trim() === label,
   );
 }
@@ -56,7 +60,13 @@ async function until(predicate: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   await tick();
+  await visualCheckpoint();
 }
+// Keep grouped platform menus present even when this fixture runs on macOS.
+Object.defineProperty(navigator, 'platform', {
+  configurable: true,
+  value: 'Linux x86_64',
+});
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
   configurable: true,
@@ -76,15 +86,21 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction;
         handler?: number;
+        event?: string;
         layout?: Preferences['layout'];
       },
     ) {
       switch (command) {
+        case 'recent_list':
+        case 'recent_capture':
+        case 'recent_forget':
+          return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           listener = args.handler!;
           return 1;
         case 'plugin:event|unlisten':
@@ -103,6 +119,17 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(snapshot);
         case 'media_action':
           if (args.action?.kind === 'occlude') {
+            if (args.action.occluded && rejectHide) {
+              rejectHide = false;
+              throw new Error('Injected layout hide failure');
+            }
+            if (args.action.occluded && rejectRestoreAfterHide) {
+              rejectRestoreAfterHide = false;
+              rejectRestore = true;
+            } else if (!args.action.occluded && rejectRestore) {
+              rejectRestore = false;
+              throw new Error('Injected layout restore failure');
+            }
             if (args.action.occluded && delayHide)
               await new Promise<void>((resolve) => {
                 holdHide = resolve;
@@ -150,7 +177,10 @@ async function choose(label: string) {
   await until(
     () => !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
   );
-  button(label)!.click();
+  button(
+    label,
+    host.querySelector('dialog[aria-label="Workspace layout"][open]')!,
+  )!.click();
   await until(
     () =>
       !host.querySelector('dialog[open]') &&
@@ -247,6 +277,50 @@ async function run() {
     passed(
       'all five presets keep mounted owners and acknowledge native bounds before restoring video',
     );
+    for (const failure of ['hide', 'restore'] as const) {
+      await choose('Timing');
+      button('Layout')!.click();
+      await until(
+        () =>
+          !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
+      );
+      if (failure === 'hide') rejectHide = true;
+      else rejectRestoreAfterHide = true;
+      button(
+        'Review',
+        host.querySelector('dialog[aria-label="Workspace layout"][open]')!,
+      )!.click();
+      await until(
+        () =>
+          !!host.textContent?.includes(`Injected layout ${failure} failure`) &&
+          !host.querySelector('dialog[open]') &&
+          !button('Layout')!.disabled &&
+          !occluded,
+      );
+      assert(
+        host.querySelector('.workspace')?.getAttribute('data-preset') ===
+          (failure === 'hide' ? 'timing' : 'review'),
+        'Failed hide preserves preset; failed restore does not replay its change',
+      );
+      assert(
+        !!host.querySelector('.problems') === (failure === 'restore'),
+        'Dock changes only after successful hide',
+      );
+      assert(
+        boundsBeforeRestore,
+        'Recovery acknowledges current native bounds',
+      );
+      await choose('Big picture');
+      assert(
+        host.querySelector('.workspace')?.getAttribute('data-preset') ===
+          'bigPicture',
+        'Subsequent preset switch works after native failure',
+      );
+      passed(
+        `Layout ${failure} failure reports its error and recovers native visibility and workspace gates`,
+      );
+    }
+    await choose('Timing');
     const splitter = host.querySelector<HTMLButtonElement>(
       '[aria-label="Resize waveform and video"]',
     )!;
@@ -314,7 +388,7 @@ async function run() {
     passed(
       'reset preserves the active preset and the editor arrow uses protected slot switching',
     );
-    heading.textContent = `PASS: all ${capacity ? 5 : 4} layout preset checks`;
+    heading.textContent = `PASS: all ${capacity ? 7 : 6} layout preset checks`;
   } finally {
     await unmount(app);
   }

@@ -34,11 +34,9 @@ export async function runFileAction(action: FileAction, owners: Owners) {
     subtitles,
     projects,
     gestures,
-    tableView,
     legacyDecision,
     protect,
     save,
-    resetScroll,
   } = owners;
   gestures.cancelHeld();
   workspace.notice = '';
@@ -58,11 +56,7 @@ export async function runFileAction(action: FileAction, owners: Owners) {
         break;
       case 'openSubtitles': {
         const path = await chooseFile('subtitles', subtitles.snapshot.path);
-        if (path && (await protect())) {
-          await subtitles.command({ kind: 'open', path, discard: true });
-          tableView.scrollTop = 0;
-          resetScroll();
-        }
+        if (path) await openSubtitlePath(owners, path);
         break;
       }
       case 'closeSubtitles':
@@ -80,4 +74,19 @@ export async function runFileAction(action: FileAction, owners: Owners) {
         break;
     }
   });
+}
+
+/** Shared picker/drop/recent continuation; the caller owns the workspace task. */
+export async function openSubtitlePath(owners: Owners, path: string) {
+  const { workspace, subtitles, protect, tableView, resetScroll } = owners;
+  if (workspace.disposed || !(await protect()) || workspace.disposed)
+    return false;
+  if (
+    !(await subtitles.command({ kind: 'open', path, discard: true })) ||
+    workspace.disposed
+  )
+    return false;
+  tableView.scrollTop = 0;
+  resetScroll();
+  return true;
 }

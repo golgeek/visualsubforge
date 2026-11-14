@@ -1,3 +1,4 @@
+import { visualCheckpoint } from '../visual-checkpoint';
 import { emptyQuality } from '../empty-quality';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
@@ -47,6 +48,7 @@ async function until(check: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   await tick();
+  await visualCheckpoint();
 }
 function snapshot(count = 2): DocumentSnapshot {
   return {
@@ -452,6 +454,7 @@ async function appCases() {
           action?: DocumentAction | MediaAction;
           kind?: string;
           handler?: number;
+          event?: string;
           state?: Parameters<typeof updateMenu>[0];
           cueOffset?: number;
           request?: Record<string, unknown>;
@@ -459,6 +462,10 @@ async function appCases() {
       ) {
         calls.push(command);
         switch (command) {
+          case 'recent_list':
+          case 'recent_capture':
+          case 'recent_forget':
+            return [];
           case 'quality_read':
             return emptyQuality(args);
           case 'quality_cancel':
@@ -466,6 +473,7 @@ async function appCases() {
           case 'preferences_get':
             return { ...defaultPreferences, autoScanScenes: false };
           case 'plugin:event|listen':
+            if (args.event !== 'workspace-action') return 2;
             listener = args.handler!;
             return 1;
           case 'plugin:event|unlisten':
