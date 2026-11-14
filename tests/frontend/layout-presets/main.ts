@@ -48,8 +48,8 @@ function passed(message: string) {
   li.textContent = `PASS: ${message}`;
   output.append(li);
 }
-function button(label: string) {
-  return [...host.querySelectorAll('button')].find(
+function button(label: string, scope: ParentNode = host) {
+  return [...scope.querySelectorAll('button')].find(
     (b) => b.textContent?.trim() === label,
   );
 }
@@ -62,6 +62,11 @@ async function until(predicate: () => boolean) {
   await tick();
   await visualCheckpoint();
 }
+// Keep grouped platform menus present even when this fixture runs on macOS.
+Object.defineProperty(navigator, 'platform', {
+  configurable: true,
+  value: 'Linux x86_64',
+});
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
   configurable: true,
@@ -172,7 +177,10 @@ async function choose(label: string) {
   await until(
     () => !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
   );
-  button(label)!.click();
+  button(
+    label,
+    host.querySelector('dialog[aria-label="Workspace layout"][open]')!,
+  )!.click();
   await until(
     () =>
       !host.querySelector('dialog[open]') &&
@@ -278,7 +286,10 @@ async function run() {
       );
       if (failure === 'hide') rejectHide = true;
       else rejectRestoreAfterHide = true;
-      button('Review')!.click();
+      button(
+        'Review',
+        host.querySelector('dialog[aria-label="Workspace layout"][open]')!,
+      )!.click();
       await until(
         () =>
           !!host.textContent?.includes(`Injected layout ${failure} failure`) &&
