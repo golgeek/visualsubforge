@@ -7,10 +7,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import urllib.error
+import urllib.parse
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from homebrew_sources import (HARFBUZZ_TEST_FONT, capture_resource, fetch, verify_legacy_receipt,
+from homebrew_sources import (HARFBUZZ_TEST_FONT, capture_resource, fetch, matching_recipe, verify_legacy_receipt,
                               verify_source_identity, without_bottle_metadata)
 from macos_sources import check_custom_file
 from native_evidence import digest, verified_headers
@@ -18,6 +19,44 @@ from source_notices import source_notices
 
 
 class HomebrewSources(unittest.TestCase):
+    def test_historical_recipe_uses_core_shard_and_preserves_exact_evidence(self):
+        for name, relative in [('libb2', 'Formula/lib/libb2.rb'),
+                               ('libpng', 'Formula/lib/libpng.rb'),
+                               ('little-cms2', 'Formula/l/little-cms2.rb'),
+                               ('openssl@3', 'Formula/o/openssl@3.rb')]:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                formula = root / f'{name}.rb'
+                formula.write_text('class Example < Formula\nend\n')
+                upstream = b'class Example < Formula\n  bottle do\n    revision 1\n  end\n\nend\n'
+                sha = 'a' * 40
+                with patch('homebrew_sources.subprocess.check_output',
+                           return_value=json.dumps([{'sha': sha}])) as commits, \
+                        patch('homebrew_sources.urllib.request.urlopen',
+                              return_value=io.BytesIO(upstream)) as request:
+                    record = matching_recipe(formula, root)
+                query = urllib.parse.parse_qs(commits.call_args.args[0][2].split('?', 1)[1])
+                self.assertEqual(query['path'], [relative])
+                url = f'https://raw.githubusercontent.com/Homebrew/homebrew-core/{sha}/{relative}'
+                request.assert_called_once_with(url, timeout=60)
+                self.assertEqual((record['commit'], record['path'], record['url']), (sha, relative, url))
+                evidence = root / 'upstream-formula.rb'
+                self.assertEqual(evidence.read_bytes(), upstream)
+                self.assertEqual(record['sha256'], digest(evidence))
+
+    def test_lib_recipe_mismatch_does_not_create_provenance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            formula = root / 'libb2.rb'
+            formula.write_text('installed recipe')
+            with patch('homebrew_sources.subprocess.check_output',
+                       return_value=json.dumps([{'sha': 'a' * 40}])), \
+                    patch('homebrew_sources.urllib.request.urlopen',
+                          return_value=io.BytesIO(b'different recipe')):
+                with self.assertRaisesRegex(ValueError, 'No matching historical formula for libb2 in 1 revisions'):
+                    matching_recipe(formula, root)
+            self.assertFalse((root / 'upstream-formula.rb').exists())
+
     def test_reviewed_raw_font_is_retained_without_treating_it_as_a_tar(self):
         resource = dict(HARFBUZZ_TEST_FONT, name='homebrew-test-ttf')
         def downloaded(url, path, checksum):

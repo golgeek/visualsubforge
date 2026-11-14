@@ -74,7 +74,9 @@ def matching_recipe(formula, directory):
     """Search only public Homebrew core history; never use a moving patch URL."""
     name = formula.stem
     original = formula.read_text()
-    relative = f'Formula/{name[0]}/{name}.rb'
+    # Homebrew core keeps lib* formulae in their own shard.
+    shard = 'lib' if name.startswith('lib') else name[0]
+    relative = f'Formula/{shard}/{name}.rb'
     candidates = []
     for page in [1, 2]:
         api = 'repos/Homebrew/homebrew-core/commits?' + urllib.parse.urlencode({
