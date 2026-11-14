@@ -8,16 +8,29 @@ interface WorkspaceEffects {
 
 /** The workspace owns admission; feature owners only expose their activity. */
 export class Workspace {
-  private working = $state(false);
+  private tasks = $state(0);
   private alive = true;
   error = $state('');
   notice = $state('');
   ready = $state(false);
 
-  constructor(private effects: WorkspaceEffects) {}
+  constructor(
+    private effects: WorkspaceEffects = {
+      activity: () => false,
+      confirming: () => false,
+      run: async () => {},
+    },
+  ) {}
+  // Wire the completed owner graph during initialization, before effects/mount.
+  connect(effects: WorkspaceEffects) {
+    this.effects = effects;
+  }
+  get disposed() {
+    return !this.alive;
+  }
 
   get busy(): boolean {
-    return this.working || this.effects.activity();
+    return this.tasks > 0 || this.effects.activity();
   }
   get confirming(): boolean {
     return this.effects.confirming();
@@ -35,7 +48,7 @@ export class Workspace {
     fn: () => Promise<unknown>,
     options: { clearError?: boolean } = {},
   ) {
-    this.working = true;
+    ++this.tasks;
     if (options.clearError !== false) this.error = '';
     try {
       await fn();
@@ -44,7 +57,7 @@ export class Workspace {
       if (this.alive) this.error = String(error);
       return false;
     } finally {
-      if (this.alive) this.working = false;
+      --this.tasks;
     }
   }
 

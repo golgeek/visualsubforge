@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { DocumentSession } from './document-session.svelte';
   import type { QualitySession } from './quality-session.svelte';
   import type { Workspace } from './workspace.svelte';
@@ -45,6 +46,13 @@
   const qualityRows = $derived(
     new Map(quality.view?.metrics.map((m) => [m.data.cueId, m]) ?? []),
   );
+  onMount(() => {
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) tableView.height = entry.contentRect.height;
+    });
+    if (list) observer.observe(list);
+    return () => observer.disconnect();
+  });
 </script>
 
 <div class="cue-table">

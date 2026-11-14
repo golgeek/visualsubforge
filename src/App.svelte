@@ -4,11 +4,15 @@
   import { LegacyImportDecision } from './lib/legacy-import-decision.svelte';
   import { UnsavedChanges } from './lib/unsaved-changes';
   import { TranslationReference } from './lib/translation-reference';
-  import { projectView } from './lib/project-view';
-  import { WorkspaceLifetime } from './lib/workspace-lifetime';
-  import { createCueEditing } from './lib/cue-editing.svelte';
-  import { createWorkspaceQuality } from './lib/workspace-quality.svelte';
-  import { connectWorkspaceMenus } from './lib/workspace-menus.svelte';
+  import {
+    readProjectView,
+    beginProjectRestore,
+    projectMediaOpened,
+    restoreProjectOptions,
+  } from './lib/project-view';
+  import { CueEditing } from './lib/cue-editing.svelte';
+  import { WorkspaceQuality } from './lib/workspace-quality.svelte';
+  import { WorkspaceMenus } from './lib/workspace-menus.svelte';
   import { WorkspaceView } from './lib/workspace-view.svelte';
   import { CueNavigation } from './lib/cue-navigation.svelte';
   import WorkspaceDialogs from './lib/WorkspaceDialogs.svelte';
@@ -36,7 +40,6 @@
   import { Workspace } from './lib/workspace.svelte';
   import { measurePaneControl } from './lib/measure-pane-control';
   import { WorkspaceLayout } from './lib/workspace-layout.svelte';
-
   import ProblemsPanel from './lib/ProblemsPanel.svelte';
   import TranslationPanel from './lib/TranslationPanel.svelte';
   import { TranslationSession } from './lib/translation-session.svelte';
@@ -62,241 +65,280 @@
     type ProjectReferenceIssue,
   } from './lib/client';
   import { formatTime } from './lib/timeline';
-
   import CueContextMenu from './lib/CueContextMenu.svelte';
-
   import Splitter from './lib/Splitter.svelte';
   import ProjectSaveFailureDialog, {
     type ProjectExitChoice,
   } from './lib/ProjectSaveFailureDialog.svelte';
   import ProjectReferenceDialog from './lib/ProjectReferenceDialog.svelte';
-  const lifetime = new WorkspaceLifetime();
+  import { disposeWithComponent } from './lib/component-owner';
+  import { captureFocus } from './lib/capture-focus';
+  import { NativeVideoLayout } from './lib/native-video-layout';
+  import { WorkspaceStartup } from './lib/workspace-startup';
+
+  // DOM ports. Owners receive only the reads, scrolling and focus operations they need.
+
+  let textEditor = $state<HTMLTextAreaElement>();
+
+  let waveHost = $state<HTMLDivElement>();
+
+  let video: HTMLDivElement;
+
+  let list = $state<HTMLDivElement>();
+
+  let confirmation: HTMLDialogElement;
+
+  // Suppress workspace error continuations first. All teardown guards are invalidated synchronously;
+  // decision answers only queue continuations, which then see every owner disposed.
+
+  const workspace = disposeWithComponent(new Workspace());
+
+  // Document, media and view state.
+
   const view = new WorkspaceView();
+
   const preferences = new WorkspacePreferences();
+
   const scenes = new WorkspaceScenes();
-  const workspace: Workspace = new Workspace({
-    activity: () =>
-      workspaceModal.opening ||
-      gestures.active ||
-      cueMenu.active ||
-      recovery.active ||
-      navigation.active,
-    confirming: () =>
-      legacyDecision.visible ||
-      legacyDecision.closing ||
-      subtitleDecision.active ||
-      projectExitDecision.active ||
-      projectReferenceDecision.active ||
-      workspaceModal.active,
-    run: (action, event) => run(action, event),
-  });
-  const subtitles = new DocumentSession();
-  const translation = new TranslationSession(
-    subtitles,
-    undefined,
-    () => view.translationOpen,
+
+  const subtitles = disposeWithComponent(new DocumentSession());
+
+  const media = disposeWithComponent(
+    new MediaSession((failure) => {
+      if (!workspace.disposed) workspace.error = String(failure);
+    }),
   );
 
-  const quality = new QualitySession();
+  const translation = disposeWithComponent(
+    new TranslationSession(subtitles, undefined, () => view.translationOpen),
+  );
 
-  const media = new MediaSession((failure) => {
-    if (lifetime.alive) workspace.error = String(failure);
-  });
-  const timeline: TimelineView = new TimelineView({
-    status: () => status,
-    mediaPath: () => media.path,
-    preview: () => gestures.edit?.preview ?? null,
-    pending: () => media.pending,
-    cues: () => doc.cues,
-    gap: () => preferences.timingSettings.cueGapMs,
-    selectRange: (session, next) => media.loop.update(session, next),
-  });
-  const gestures: TimingGesture = new TimingGesture(
-    subtitles,
-    media,
-    timeline,
-    workspace,
-    {
-      menu: () => cueMenu.context,
+  const quality = disposeWithComponent(new QualitySession());
+
+  const status = $derived(media.status);
+
+  const doc = $derived(subtitles.snapshot);
+
+  const draftDirty = $derived(subtitles.dirty);
+
+  const nativeMenus = isTauri();
+
+  // Modal presentation and unsaved-work decisions.
+
+  const workspaceModal = disposeWithComponent(
+    new WorkspaceModal(workspace, {
+      occlude: (value) => media.occlude(value),
+      remainingOcclusion: () => view.diagnostics,
+      afterRender: tick,
+      captureFocus,
+    }),
+  );
+
+  const subtitleDecision = disposeWithComponent(
+    new WorkspaceDecision<'save' | 'discard' | 'cancel'>(
+      'cancel',
+      workspace,
+      decisionEffects(
+        media,
+        () => view.diagnostics,
+        () => confirmation.close(),
+      ),
+    ),
+  );
+
+  const legacyDecision = disposeWithComponent(
+    new LegacyImportDecision(workspace, media, () => view.diagnostics),
+  );
+
+  const projectExitDecision = disposeWithComponent(
+    new WorkspaceDecision<ProjectExitChoice, string>(
+      'cancel',
+      workspace,
+      decisionEffects(media, () => view.diagnostics),
+    ),
+  );
+
+  const projectReferenceDecision = disposeWithComponent(
+    new WorkspaceDecision<
+      'cancel' | 'choose' | 'reload',
+      ProjectReferenceIssue
+    >(
+      'cancel',
+      workspace,
+      decisionEffects(media, () => view.diagnostics),
+    ),
+  );
+
+  const unsaved = disposeWithComponent(
+    new UnsavedChanges(workspace, subtitles, subtitleDecision, () =>
+      confirmation.showModal(),
+    ),
+  );
+
+  // Timeline and cue interactions, then their mutual connections.
+
+  const tableView = disposeWithComponent(
+    new CueTableView({
+      cues: () => doc.cues,
+      position: () =>
+        status.loaded && !media.pending && !status.seeking
+          ? status.positionSeconds
+          : null,
+    }),
+  );
+
+  const timeline = disposeWithComponent(
+    new TimelineView({
+      status: () => status,
+      mediaPath: () => media.path,
+      pending: () => media.pending,
+      cues: () => doc.cues,
+      gap: () => preferences.timingSettings.cueGapMs,
+      selectRange: (session, next) => media.loop.update(session, next),
+    }),
+  );
+
+  const cueEditing = new CueEditing(subtitles, media, timeline);
+
+  const gestures = disposeWithComponent(
+    new TimingGesture(subtitles, media, timeline, workspace, {
       cuts: () => scenes.sceneCuts,
       settings: () => preferences.timingSettings,
       operationContext: () => cueEditing.context,
       command: (action, plan) =>
         subtitles.command(action, plan ? { plan } : {}),
-      suspendFollowing: () => navigation.suspendFollowing(),
-      revealSelection: () => navigation.revealSelection(),
-      focusWaveform: () => navigation.focusWaveform(),
-    },
+    }),
   );
-  const tableView = new CueTableView({
-    cues: () => doc.cues,
-    position: () =>
-      status.loaded && !media.pending && !status.seeking
-        ? status.positionSeconds
-        : null,
-  });
-  const status = $derived(media.status);
-  const doc = $derived(subtitles.snapshot);
-  const recovery: Recovery = new Recovery(workspace, subtitles, {
-    protect: () => unsaved.protect(() => projects.save(false)),
-    suspendFollowing: () => navigation.suspendFollowing(),
-  });
-  let textEditor = $state<HTMLTextAreaElement>();
-  let waveHost = $state<HTMLDivElement>();
 
-  const cueMenu: CueMenu = new CueMenu(
-    workspace,
-    subtitles,
-    media,
-    timeline,
-    gestures,
-    {
+  const navigation = disposeWithComponent(
+    new CueNavigation(
+      workspace,
+      subtitles,
+      media,
+      timeline,
+      tableView,
+      gestures,
+      {
+        readList: () =>
+          list
+            ? { scrollTop: list.scrollTop, height: list.clientHeight }
+            : null,
+        scrollList: (top) => {
+          if (!list) return 0;
+          list.scrollTop = top;
+          return list.scrollTop;
+        },
+        focusCue: (id) =>
+          list
+            ?.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)
+            ?.focus(),
+        focusText: () => textEditor?.focus(),
+        focusWaveform: () => waveHost?.querySelector('canvas')?.focus(),
+      },
+    ),
+  );
+
+  const cueMenu = disposeWithComponent(
+    new CueMenu(workspace, subtitles, media, timeline, gestures, navigation, {
       occlude: (value) => media.occlude(value),
       remainingOcclusion: () => view.diagnostics || workspace.confirming,
       afterRender: tick,
-      captureFocus: () => {
-        const target = document.activeElement;
-        return () => {
-          if (target instanceof HTMLElement && target.isConnected)
-            target.focus();
-        };
-      },
+      captureFocus,
       operationContext: () => cueEditing.context,
-      suspendFollowing: () => navigation.suspendFollowing(),
-      revealSelection: () => navigation.revealSelection(),
-      focusText: () => navigation.focusText(),
-      focusWaveform: () => navigation.focusWaveform(),
-    },
-  );
-  const workspaceModal = new WorkspaceModal(workspace, {
-    occlude: (value) => media.occlude(value),
-    remainingOcclusion: () => view.diagnostics,
-    afterRender: tick,
-    captureFocus: () => {
-      const target = document.activeElement;
-      return () => {
-        if (target instanceof HTMLElement && target.isConnected) target.focus();
-      };
-    },
-  });
-
-  const nativeMenus = isTauri();
-
-  const navigation: CueNavigation = new CueNavigation(
-    workspace,
-    subtitles,
-    media,
-    timeline,
-    tableView,
-    gestures,
-    cueMenu,
-    {
-      readList: () =>
-        list ? { scrollTop: list.scrollTop, height: list.clientHeight } : null,
-      scrollList: (top) => {
-        if (!list) return 0;
-        list.scrollTop = top;
-        return list.scrollTop;
-      },
-      focusCue: (id) =>
-        list
-          ?.querySelector<HTMLButtonElement>(`[data-cue-id="${id}"]`)
-          ?.focus(),
-      focusText: () => textEditor?.focus(),
-      focusWaveform: () => waveHost?.querySelector('canvas')?.focus(),
-    },
-  );
-  const dialogs: WorkspaceDialogsState = new WorkspaceDialogsState(
-    workspace,
-    workspaceModal,
-    subtitles,
-    media,
-    quality,
-    cueMenu,
-    view,
-    preferences,
-    scenes,
-    timeline,
-    {
-      requestProblem: navigation.requestProblem,
-      selectCue: navigation.selectCue,
-      suspendFollowing: navigation.suspendFollowing,
-      hasTextEditor: () => !!textEditor,
-      selectText: (start, end) => {
-        textEditor?.focus();
-        textEditor?.setSelectionRange(start, end);
-      },
-    },
+    }),
   );
 
-  const draftDirty = $derived(subtitles.dirty);
+  gestures.connect(navigation, cueMenu);
+  navigation.connectMenu(cueMenu);
+  timeline.connectPreview(() => gestures.edit?.preview ?? null);
 
-  let video: HTMLDivElement;
-  const layout = new WorkspaceLayout(preferences, subtitles);
-  const cueEditing = createCueEditing(subtitles, media, timeline);
-  let list = $state<HTMLDivElement>();
-  const workspaceQuality = createWorkspaceQuality(
-    workspace,
-    subtitles,
-    media,
-    quality,
-    tableView,
-    preferences,
-    scenes,
-    view,
-  );
-  let confirmation: HTMLDialogElement;
-  const subtitleDecision = new WorkspaceDecision<'save' | 'discard' | 'cancel'>(
-    'cancel',
-    workspace,
-    decisionEffects(
+  // Feature workflows and projections.
+
+  const dialogs = disposeWithComponent(
+    new WorkspaceDialogsState(
+      workspace,
+      workspaceModal,
+      subtitles,
       media,
-      () => view.diagnostics,
-      () => confirmation.close(),
+      quality,
+      cueMenu,
+      view,
+      preferences,
+      scenes,
+      timeline,
+      {
+        requestProblem: navigation.requestProblem,
+        selectCue: navigation.selectCue,
+        suspendFollowing: navigation.suspendFollowing,
+        hasTextEditor: () => !!textEditor,
+        selectText: (start, end) => {
+          textEditor?.focus();
+          textEditor?.setSelectionRange(start, end);
+        },
+      },
     ),
   );
-  const legacyDecision = new LegacyImportDecision(
-    workspace,
+
+  const projectViewOwners = {
     media,
-    () => view.diagnostics,
-  );
-  const projectExitDecision = new WorkspaceDecision<ProjectExitChoice, string>(
-    'cancel',
-    workspace,
-    decisionEffects(media, () => view.diagnostics),
-  );
-  const projectReferenceDecision = new WorkspaceDecision<
-    'cancel' | 'choose' | 'reload',
-    ProjectReferenceIssue
-  >(
-    'cancel',
-    workspace,
-    decisionEffects(media, () => view.diagnostics),
-  );
-  const unsaved = new UnsavedChanges(
-    workspace,
-    subtitles,
-    subtitleDecision,
-    () => confirmation.showModal(),
-  );
-  const projects: ProjectWorkflow = new ProjectWorkflow(subtitles, media, {
-    ...projectView(media, preferences, scenes, timeline, navigation),
-    protect: unsaved.protect,
-    saveSubtitles: () => unsaved.save(false),
-    saveFailed: (failure) => projectExitDecision.request(String(failure)),
-    referenceIssue: (issue) => projectReferenceDecision.request(issue),
-    notify: (message) => {
-      workspace.notice = message;
-    },
-  });
-  const reference = new TranslationReference(
-    workspace,
-    subtitles,
-    translation,
-    unsaved,
     preferences,
-    () => projects.save(false),
+    scenes,
+    timeline,
+    navigation,
+  };
+
+  const projects = disposeWithComponent(
+    new ProjectWorkflow(subtitles, media, {
+      read: () => readProjectView(projectViewOwners),
+      beginRestore: () => beginProjectRestore(projectViewOwners),
+      mediaOpened: (path) => projectMediaOpened(projectViewOwners, path),
+      restoreOptions: (options) =>
+        restoreProjectOptions(projectViewOwners, options),
+      restoreScenes: (session, generation) =>
+        scenes.restore(session, generation),
+      protect: unsaved.protect,
+      saveSubtitles: () => unsaved.save(false),
+      saveFailed: (failure) => projectExitDecision.request(String(failure)),
+      referenceIssue: (issue) => projectReferenceDecision.request(issue),
+      notify: (message) => {
+        workspace.notice = message;
+      },
+    }),
   );
+
+  const reference = disposeWithComponent(
+    new TranslationReference(
+      workspace,
+      subtitles,
+      translation,
+      unsaved,
+      preferences,
+      () => projects.save(false),
+    ),
+  );
+
+  const recovery = disposeWithComponent(
+    new Recovery(workspace, subtitles, {
+      protect: () => unsaved.protect(() => projects.save(false)),
+      suspendFollowing: () => navigation.suspendFollowing(),
+    }),
+  );
+
+  const workspaceQuality = new WorkspaceQuality(
+    workspace,
+    subtitles,
+    media,
+    quality,
+    tableView,
+    preferences,
+    scenes,
+    view,
+  );
+
+  const layout = new WorkspaceLayout(preferences, subtitles);
+
+  // Action wiring and native platform lifetimes.
+
   const fileActions = {
     workspace,
     subtitles,
@@ -310,6 +352,7 @@
       if (list) list.scrollTop = 0;
     },
   };
+
   const mediaActions = {
     workspace,
     media,
@@ -319,6 +362,7 @@
     preferences,
     scenes,
   };
+
   const cueActions = {
     workspace,
     subtitles,
@@ -330,6 +374,7 @@
     revealSelection: navigation.revealSelection,
     focusText: navigation.focusText,
   };
+
   const viewActions = {
     workspace,
     subtitles,
@@ -341,6 +386,7 @@
     scenes,
     layout,
   };
+
   async function run(action: WorkspaceAction, event?: Event) {
     if (!workspace.canAct || cueMenu.context || timeline.interacting) return;
     switch (action) {
@@ -388,44 +434,6 @@
     }
   }
 
-  connectWorkspaceMenus(
-    workspace,
-    subtitles,
-    media,
-    view,
-    scenes,
-    timeline,
-    navigation,
-    cueEditing,
-  );
-  onMount(() =>
-    lifetime.mount(
-      {
-        workspace,
-        navigation,
-        dialogs,
-        workspaceModal,
-        projects,
-        translation,
-        subtitles,
-        quality,
-        media,
-        tableView,
-        gestures,
-        timeline,
-        recovery,
-        cueMenu,
-        preferences,
-        unsaved,
-        reference,
-        legacyDecision,
-        subtitleDecision,
-        projectExitDecision,
-        projectReferenceDecision,
-      },
-      { video: () => video, list: () => list },
-    ),
-  );
   const keys = {
     workspace,
     gestures,
@@ -451,6 +459,50 @@
     revealSelection: navigation.revealSelection,
     seek: (time: number) => seekMedia(mediaActions, time),
   };
+
+  const menus = disposeWithComponent(
+    new WorkspaceMenus(
+      workspace,
+      subtitles,
+      media,
+      view,
+      scenes,
+      timeline,
+      navigation,
+      cueEditing,
+    ),
+  );
+
+  const startup = disposeWithComponent(
+    new WorkspaceStartup(workspace, subtitles, preferences),
+  );
+  const videoLayout = disposeWithComponent(
+    new NativeVideoLayout(workspace, media),
+  );
+  workspace.connect({
+    activity: () =>
+      workspaceModal.opening ||
+      gestures.active ||
+      cueMenu.active ||
+      recovery.active,
+    confirming: () =>
+      // Legacy opening is task-gated; preserve its visible/closing confirmation gate.
+      legacyDecision.visible ||
+      legacyDecision.closing ||
+      subtitleDecision.active ||
+      projectExitDecision.active ||
+      projectReferenceDecision.active ||
+      workspaceModal.active,
+    run,
+  });
+  onMount(() => {
+    startup.start();
+    menus.startListening();
+    timeline.startPolling();
+    videoLayout.mount(video);
+    recovery.startPolling();
+    media.startPolling();
+  });
 </script>
 
 <svelte:window
@@ -763,7 +815,7 @@
             {
               workspace,
               subtitles,
-              alive: () => lifetime.alive,
+              alive: () => !workspace.disposed,
               editor: () => textEditor,
             },
             style,

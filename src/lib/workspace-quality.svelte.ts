@@ -7,30 +7,17 @@ import type { WorkspaceScenes } from './workspace-scenes.svelte';
 import type { QualitySession } from './quality-session.svelte';
 import type { CueTableView } from './cue-table-view.svelte';
 import { parseTime } from './timeline';
-export function createWorkspaceQuality(
-  workspace: Workspace,
-  subtitles: DocumentSession,
-  media: MediaSession,
-  quality: QualitySession,
-  tableView: CueTableView,
-  preferences: WorkspacePreferences,
-  scenes: WorkspaceScenes,
-  view: WorkspaceView,
-) {
-  const doc = $derived(subtitles.snapshot);
-  const selected = $derived(subtitles.selected);
-  const draftDirty = $derived(subtitles.dirty);
-  const status = $derived(media.status);
-  const cue = $derived(subtitles.cue);
-  const draftMetricInput = $derived.by(() => {
-    if (!draftDirty || !cue) return { value: null, error: '' };
+export class WorkspaceQuality {
+  draft = $derived.by(() => {
+    const cue = this.subtitles.cue;
+    if (!this.subtitles.dirty || !cue) return { value: null, error: '' };
     try {
       return {
         value: {
           cueId: cue.id,
-          startMs: parseTime(subtitles.start),
-          endMs: parseTime(subtitles.end),
-          text: subtitles.text,
+          startMs: parseTime(this.subtitles.start),
+          endMs: parseTime(this.subtitles.end),
+          text: this.subtitles.text,
         },
         error: '',
       };
@@ -38,28 +25,33 @@ export function createWorkspaceQuality(
       return { value: null, error: String(failure) };
     }
   });
-  $effect(() => {
-    quality.configure({
-      session: status.session,
-      enabled:
-        workspace.ready &&
-        doc.loaded &&
-        (view.problemsOpen || preferences.showQualityMetrics),
-      generation: doc.generation,
-      revision: doc.revision,
-      context: `${status.session}/${preferences.qualityContext}/${scenes.sceneState.qualityKey}`,
-      selected,
-      metricsOffset: tableView.firstRow,
-      metricsLimit: preferences.showQualityMetrics
-        ? tableView.visibleCues.length
-        : 0,
-      draft: preferences.showQualityMetrics ? draftMetricInput.value : null,
+  constructor(
+    private workspace: Workspace,
+    private subtitles: DocumentSession,
+    private media: MediaSession,
+    private quality: QualitySession,
+    private tableView: CueTableView,
+    private preferences: WorkspacePreferences,
+    private scenes: WorkspaceScenes,
+    private view: WorkspaceView,
+  ) {
+    $effect(() => {
+      this.quality.configure({
+        session: this.media.status.session,
+        enabled:
+          this.workspace.ready &&
+          this.subtitles.snapshot.loaded &&
+          (this.view.problemsOpen || this.preferences.showQualityMetrics),
+        generation: this.subtitles.snapshot.generation,
+        revision: this.subtitles.snapshot.revision,
+        context: `${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`,
+        selected: this.subtitles.selected,
+        metricsOffset: this.tableView.firstRow,
+        metricsLimit: this.preferences.showQualityMetrics
+          ? this.tableView.visibleCues.length
+          : 0,
+        draft: this.preferences.showQualityMetrics ? this.draft.value : null,
+      });
     });
-  });
-
-  return {
-    get draft() {
-      return draftMetricInput;
-    },
-  };
+  }
 }

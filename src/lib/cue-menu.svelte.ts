@@ -1,3 +1,4 @@
+import type { CueNavigation } from './cue-navigation.svelte';
 import { HideVideo, type HideVideoEffects } from './hide-video.svelte';
 import type { Workspace } from './workspace.svelte';
 import type { DocumentSession } from './document-session.svelte';
@@ -18,10 +19,6 @@ interface MenuContext {
 interface Effects extends HideVideoEffects {
   captureFocus: () => () => void;
   operationContext: () => Parameters<typeof planCueOperation>[1];
-  suspendFollowing: () => void;
-  revealSelection: () => Promise<void>;
-  focusText: () => Promise<void>;
-  focusWaveform: () => void;
 }
 
 export class CueMenu {
@@ -35,6 +32,7 @@ export class CueMenu {
     private media: MediaSession,
     private timeline: TimelineView,
     private gestures: TimingGesture,
+    private navigation: CueNavigation,
     private effects: Effects,
   ) {
     this.video = new HideVideo(effects);
@@ -119,7 +117,7 @@ export class CueMenu {
         throw new Error('The document or media changed; open the menu again.');
       await this.subtitles.apply();
       if (this.video.disposed) return;
-      this.effects.suspendFollowing();
+      this.navigation.suspendFollowing();
       if (action === 'create' && context.range) {
         const plan = planCueOperation('createCue', {
           ...this.effects.operationContext(),
@@ -128,9 +126,9 @@ export class CueMenu {
         });
         await this.subtitles.command(plan.action, { plan });
         if (this.video.disposed) return;
-        await this.effects.revealSelection();
+        await this.navigation.revealSelection();
         if (this.video.disposed) return;
-        await this.effects.focusText();
+        await this.navigation.focusText();
       } else if (context.cueId !== null) {
         if (
           !this.subtitles.snapshot.cues.some((cue) => cue.id === context.cueId)
@@ -144,12 +142,12 @@ export class CueMenu {
           });
           await this.subtitles.command(plan.action, { plan });
           if (this.video.disposed) return;
-          this.effects.focusWaveform();
+          this.navigation.focusWaveform();
         } else {
           this.subtitles.select(context.cueId);
-          await this.effects.revealSelection();
+          await this.navigation.revealSelection();
           if (this.video.disposed) return;
-          await this.effects.focusText();
+          await this.navigation.focusText();
         }
       }
     } catch (error) {
