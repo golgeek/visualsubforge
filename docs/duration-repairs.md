@@ -5,7 +5,7 @@ aid does not establish dialogue synchronization or platform release acceptance.
 
 ## Review workflow
 
-Choose **Repair duration / speed…** above the cue list. Apply, discard or keep an
+Choose **Fix reading speed…** above the cue list. Apply, discard or keep an
 unapplied draft before starting. Choose **Selected cue** or **Whole document** and
 create a preview. Only cues with accepted duration, CPS, RS or unavailable-speed
 findings are targets; compliant cues are not normalized toward an ideal rate.

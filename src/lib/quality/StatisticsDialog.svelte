@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { qualityText } from './quality-display';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { StatisticsSummary } from '../client';
@@ -40,8 +41,8 @@
           ['CPS', summary.cps],
           ['RS', summary.rs],
           ['Lines per cue', summary.lineCount],
-          ['Longest line per cue (UTF-16 units)', summary.longestLine],
-          ['Original-neighbor gap (ms)', summary.gapsMs],
+          ['Longest line per cue (characters)', summary.longestLine],
+          ['Gap to next cue (ms)', summary.gapsMs],
         ] as [string, StatisticsSummary['durationMs']][])
       : [],
   );
@@ -82,7 +83,7 @@
 >
   <header>
     <h2 id="statistics-title">Document statistics</h2>
-    <button onclick={onclose}>Close statistics</button>
+    <button onclick={onclose}>Close</button>
   </header>
   <p>
     Statistics describe accepted subtitles. Unapplied cue drafts stay unchanged.
@@ -263,11 +264,9 @@
     <details>
       <summary>Counting and coverage</summary>
       <p>
-        {summary.textInterpretation ?? summary.profile.textAlgorithm} · {summary
-          .profile.speedBasis}. Reading time uses full-document context before
-        filtering. Text counting preserves the checker's tag, UTF-16 and
-        line-break policy. Empty text still contributes to duration and line
-        summaries; the text “0” is not empty.
+        Reading time includes neighboring cues, even when filtered out. See
+        Settings → Subtitle quality → About this profile for counting details.
+        Empty text contributes to duration and line summaries.
       </p>
       <ul>
         {#each summary.profile.limitations as limitation, index (index)}<li>
@@ -300,12 +299,14 @@
               (r) => r.id === finding.rule,
             )?.label}</button
           ><span
-            >{finding.severity} · {number(finding.measured)} · {finding.expected}</span
+            >{finding.severity} · {number(finding.measured)} · {qualityText(
+              finding.expected,
+            )}</span
           >{#if finding.relatedCueId}<button
               disabled={session.pending}
               onclick={() => navigate(finding.relatedCueId!)}
               >Related cue (context)</button
-            >{/if}<small>{finding.explanation}</small>
+            >{/if}<small>{qualityText(finding.explanation)}</small>
         </div>{/each}
     </div>
     {#if view && summary.findingsCount > 100}<nav aria-label="Statistics pages">

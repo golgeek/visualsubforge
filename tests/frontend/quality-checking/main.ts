@@ -52,9 +52,11 @@ function passed(text: string) {
   output.append(row);
 }
 function button(text: string) {
-  const result = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const result = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!result) throw new Error(`Missing button: ${text}`);
   return result;
 }
@@ -238,10 +240,18 @@ async function run() {
       JSON.stringify(document) === original && edits === 0,
       'Checking changed subtitles',
     );
+    assert(
+      !host.textContent!.includes('UTF-16 units'),
+      'Counting units leaked into the main quality UI',
+    );
     passed(
       'Accepted metrics appear without media and checking leaves document/history unchanged',
     );
-    [...host.querySelectorAll('button')]
+    [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        'button:not(dialog:not([open]) button)',
+      ),
+    ]
       .find((b) => b.textContent?.trim().startsWith('Problems'))!
       .click();
     await until(
@@ -400,7 +410,7 @@ async function run() {
       'Invalid draft time was not labeled',
     );
     assert(edits === 1, 'Invalid draft changed accepted state');
-    button('Revert draft').click();
+    button('Revert').click();
     passed(
       'Invalid draft timings leave accepted metrics and editing state available',
     );
@@ -477,7 +487,7 @@ async function run() {
     );
     heldRead = null;
     release();
-    button('Revert draft').click();
+    button('Revert').click();
     passed(
       'Editing and visible cancellation stay responsive while a check response is held',
     );

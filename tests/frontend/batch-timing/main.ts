@@ -45,9 +45,11 @@ function passed(message: string) {
   output.append(row);
 }
 function button(text: string) {
-  const b = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const b = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!b) throw new Error(`Missing ${text}`);
   return b;
 }
@@ -103,10 +105,10 @@ async function preview() {
   const label = () =>
     host.querySelector('dialog[open]')?.textContent?.includes('Preview again')
       ? 'Preview again'
-      : 'Create batch preview';
+      : 'Preview changes';
   await until(() => !button(label()).disabled);
   button(label()).click();
-  await until(() => !button('Accept batch timings').disabled);
+  await until(() => !button('Apply changes').disabled);
 }
 
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
@@ -319,10 +321,7 @@ async function run() {
       'Failed draft application changed selection',
     );
     await open();
-    assert(
-      button('Create batch preview').disabled,
-      'Draft did not protect preview',
-    );
+    assert(button('Preview changes').disabled, 'Draft did not protect preview');
     button('Discard cue draft').click();
     failEdit = false;
     await preview();
@@ -337,7 +336,7 @@ async function run() {
     input('Batch offset milliseconds', '200');
     await tick();
     assert(
-      button('Accept batch timings').disabled,
+      button('Apply changes').disabled,
       'Changed offset retained acceptance',
     );
     await until(
@@ -348,7 +347,7 @@ async function run() {
     );
     await preview();
     failAccept = true;
-    button('Accept batch timings').click();
+    button('Apply changes').click();
     await until(
       () =>
         host
@@ -360,7 +359,7 @@ async function run() {
       'Rejected acceptance mutated state',
     );
     failAccept = false;
-    button('Accept batch timings').click();
+    button('Apply changes').click();
     await until(() => !host.querySelector('dialog[open]'));
     assert(
       doc.cues[0]!.startMs === 1200 && accepts === 1 && selected().length === 6,
@@ -389,7 +388,7 @@ async function run() {
     input('Batch operation', 'align');
     await tick();
     assert(
-      button('Accept batch timings').disabled,
+      button('Apply changes').disabled,
       'Changed operation retained acceptance',
     );
     await until(() => cancelled.includes(starts));
@@ -401,7 +400,7 @@ async function run() {
         request.scope.cueIds.length === 2,
       'Alignment lost captured playhead or disjoint selection',
     );
-    button('Close batch review').click();
+    button('Cancel').click();
     await until(() => !host.querySelector('dialog[open]'));
     passed(
       'Following rows and playhead alignment capture explicit scope and displayed target',
@@ -409,9 +408,9 @@ async function run() {
 
     await open();
     holdStart = true;
-    button('Create batch preview').click();
+    button('Preview changes').click();
     await until(() => releaseStart !== null);
-    button('Close batch review').click();
+    button('Cancel').click();
     await until(() => !host.querySelector('dialog[open]'));
     releaseStart!(starts);
     await until(() => cancelled.includes(starts));

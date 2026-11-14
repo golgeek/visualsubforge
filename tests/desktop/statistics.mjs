@@ -138,7 +138,7 @@ export async function statisticsWorkflow({
     return dialog;
   }
   async function close() {
-    await (await browser.$('button=Close statistics')).click();
+    await (await browser.$('button=Close')).click();
     await ready();
   }
   async function navigate(dialog, cue) {
@@ -383,7 +383,7 @@ async function statisticsPerformance({
     );
     assert.equal(result.interaction.phase, 'cancelled');
     assert.ok(result.interaction.typingMs < 1000);
-    await (await browser.$('button=Revert draft')).click();
+    await (await browser.$('button=Revert')).click();
     await ready();
     const began = Date.now();
     const dialog = await open();
@@ -426,7 +426,7 @@ async function statisticsPerformance({
       .$('[aria-label="Subtitle text"]')
       .then((e) => e.setValue('Invalidate statistics'));
     const invalidateStart = Date.now();
-    await (await browser.$('button=Apply edit')).click();
+    await (await browser.$('button=Apply')).click();
     await until('statistics edit invalidation', async () => {
       const v = await invoke('statistics_view', {
         id: old.id,

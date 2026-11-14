@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { qualityText } from './quality-display';
   import type { QualitySession } from './quality-session.svelte';
   import type { QualityRequest } from '../client';
   import {
@@ -88,8 +89,7 @@
   {#if wordError}<p role="alert">{wordError}</p>{/if}
   {#if view}
     <p class="policy">
-      {view.profile.name} · {view.profile.textAlgorithm} · {view.profile
-        .speedBasis}
+      {view.profile.name}
     </p>
     <p class="policy">{sceneCoverage(view.sceneCoverage)}</p>
     {#if view.languageCoverage?.enabled}
@@ -196,14 +196,16 @@
           <span
             >{finding.severity} · measured {finding.measured === null
               ? 'unavailable'
-              : Number(finding.measured.toFixed(3))} · {finding.expected}</span
+              : Number(finding.measured.toFixed(3))} · {qualityText(
+              finding.expected,
+            )}</span
           >
           {#if finding.relatedCueId}<button
               disabled={!usable}
               onclick={() => onnavigate(finding.relatedCueId!)}
               >Related cue</button
             >{/if}
-          <small>{finding.explanation}</small>
+          <small>{qualityText(finding.explanation)}</small>
           {#if finding.language}
             <span>“{finding.language.word}”</span>
             {#if finding.language.manualReason}<small

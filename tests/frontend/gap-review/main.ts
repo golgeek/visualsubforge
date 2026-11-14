@@ -44,9 +44,11 @@ function passed(message: string) {
   output.append(row);
 }
 function button(text: string) {
-  const b = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const b = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!b) throw new Error(`Missing ${text}`);
   return b;
 }
@@ -67,9 +69,9 @@ function type(text: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Enforce minimum gaps…').disabled);
-  button('Enforce minimum gaps…').focus();
-  button('Enforce minimum gaps…').click();
+  await until(() => !button('Fix gaps and overlaps…').disabled);
+  button('Fix gaps and overlaps…').focus();
+  button('Fix gaps and overlaps…').click();
 }
 function acknowledge() {
   const box = host.querySelector<HTMLInputElement>(
@@ -194,7 +196,7 @@ async function run() {
         !!host.querySelector('dialog[open] [aria-label="Unapplied cue draft"]'),
     );
     assert(
-      button('Create gap preview').disabled && starts === 0,
+      button('Preview changes').disabled && starts === 0,
       'Draft bypassed preview protection',
     );
     button('Cancel gap review').click();
@@ -206,9 +208,9 @@ async function run() {
         .value === 'Keep this draft' && edits === 0,
       'Cancel lost draft',
     );
-    await until(() => !button('Enforce minimum gaps…').disabled);
+    await until(() => !button('Fix gaps and overlaps…').disabled);
     assert(
-      document.activeElement === button('Enforce minimum gaps…'),
+      document.activeElement === button('Fix gaps and overlaps…'),
       'Closing timing review must restore keyboard focus to its enabled launcher',
     );
     passed(
@@ -225,14 +227,14 @@ async function run() {
     button('Discard cue draft').click();
     await tick();
     failApply = false;
-    button('Create gap preview').click();
+    button('Preview changes').click();
     await until(() => host.textContent!.includes('2 safe changes'));
     assert(
       JSON.stringify(doc) === JSON.stringify(original),
       'Preview changed document',
     );
     assert(
-      button('Accept gap changes').disabled,
+      button('Apply changes').disabled,
       'No-media acknowledgment not required',
     );
     passed(
@@ -241,7 +243,7 @@ async function run() {
     acknowledge();
     await tick();
     failAccept = true;
-    button('Accept gap changes').click();
+    button('Apply changes').click();
     await until(() =>
       host.textContent!.includes('Injected stale gap proposal'),
     );
@@ -250,7 +252,7 @@ async function run() {
       'Failed acceptance mutated document',
     );
     failAccept = false;
-    button('Accept gap changes').click();
+    button('Apply changes').click();
     await until(
       () =>
         accepts === 1 &&
@@ -292,10 +294,10 @@ async function run() {
     await until(
       () => !!host.querySelector('dialog[open][aria-labelledby="gap-title"]'),
     );
-    button('Create gap preview').click();
+    button('Preview changes').click();
     await until(() => host.querySelectorAll('dialog tbody tr').length === 100);
     assert(
-      button('Accept gap changes').disabled,
+      button('Apply changes').disabled,
       'All-skipped proposal was acceptable',
     );
     button('Next candidates').click();
@@ -310,10 +312,10 @@ async function run() {
     view = { ...view, phase: 'stale' };
     await until(() => host.textContent!.includes('quality profile changed'));
     assert(
-      button('Accept gap changes').disabled,
+      button('Apply changes').disabled,
       'Stale proposal remains acceptable',
     );
-    button('Close gap review').click();
+    button('Cancel').click();
     await until(
       () => !host.querySelector('dialog[open][aria-labelledby="gap-title"]'),
     );
@@ -329,9 +331,9 @@ async function run() {
       () => !!host.querySelector('dialog[open][aria-labelledby="gap-title"]'),
     );
     const prior = starts;
-    button('Create gap preview').click();
+    button('Preview changes').click();
     await until(() => starts > prior);
-    button('Close gap review').click();
+    button('Cancel').click();
     await until(
       () => !host.querySelector('dialog[open][aria-labelledby="gap-title"]'),
     );

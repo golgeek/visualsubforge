@@ -139,9 +139,11 @@ export async function qualityPerformance({
             request: { ...request, ...overrides },
           }),
         button: (label) =>
-          [...document.querySelectorAll('button')].find(
-            (b) => b.textContent.trim() === label,
-          ),
+          [
+            ...document.querySelectorAll(
+              'button:not(dialog:not([open]) button)',
+            ),
+          ].find((b) => b.textContent.trim() === label),
         wait: async (probe, label, timeout = 3000) => {
           const deadline = performance.now() + timeout;
           while (performance.now() < deadline) {
@@ -256,7 +258,7 @@ export async function qualityPerformance({
         elapsedMs: performance.now() - began,
         admissionPhase: first.phase,
         draft: editor.value,
-        applyEnabled: !b.button('Apply edit').disabled,
+        applyEnabled: !b.button('Apply').disabled,
       };
     });
     await save();
@@ -264,10 +266,10 @@ export async function qualityPerformance({
     assert.equal(result.typing.applyEnabled, true);
     assert.ok(result.typing.elapsedMs < interactionBudgetMs);
     assert.deepEqual(await status(), before);
-    await (await browser.$('button=Revert draft')).click();
+    await (await browser.$('button=Revert')).click();
     await until(
       'large draft reverted',
-      async () => !(await (await browser.$('button=Apply edit')).isEnabled()),
+      async () => !(await (await browser.$('button=Apply')).isEnabled()),
     );
     result.cancellation = await browser.execute(async () => {
       const b = window.__qualityBench;
@@ -308,7 +310,7 @@ export async function qualityPerformance({
       editor.dispatchEvent(new Event('input', { bubbles: true }));
       await b.frame();
       const began = performance.now();
-      b.button('Apply edit').click();
+      b.button('Apply').click();
       const rejection = await b.wait(async () => {
         try {
           await b.read({ run: false });
@@ -349,11 +351,11 @@ export async function qualityPerformance({
     assert.equal(restored.requiresSaveAs, before.requiresSaveAs);
     // Exercise the real modal with 9,999 candidates, never sending the full
     // before/after reports to the frontend and never accepting this trial.
-    await (await browser.$('button=Enforce minimum gaps…')).click();
+    await (await browser.$('button=Fix gaps and overlaps…')).click();
     const dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
     await until('large gap modal', () => dialog.isDisplayed());
     const previewBegan = performance.now();
-    await (await dialog.$('button=Create gap preview')).click();
+    await (await dialog.$('button=Preview changes')).click();
     await until('large gap review', async () =>
       (await dialog.getText()).includes('9999 safe changes'),
     );
@@ -363,14 +365,14 @@ export async function qualityPerformance({
     );
     assert.equal(result.gapRows, 100);
     await browser.saveScreenshot(join(evidence, 'quality-10000-gap.png'));
-    await (await dialog.$('button=Close gap review')).click();
+    await (await dialog.$('button=Cancel')).click();
     await until(
       'large gap modal closed',
       async () => !(await dialog.isExisting()),
     );
     assert.deepEqual(await status(), restored);
     await until('large workspace restored', () =>
-      browser.$('button=Enforce minimum gaps…').then((b) => b.isEnabled()),
+      browser.$('button=Fix gaps and overlaps…').then((b) => b.isEnabled()),
     );
     await (await browser.$('button=Check again')).click();
     await until('large findings restored', async () =>

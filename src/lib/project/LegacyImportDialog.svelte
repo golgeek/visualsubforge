@@ -126,7 +126,7 @@
   {#if report}
     <section aria-label="Legacy import review">
       <h3>Import review</h3>
-      <p class="path">{report.sourcePath} · {report.encoding}</p>
+      <p class="path">{report.sourcePath}</p>
       {#each [report.media, report.subtitles] as reference (reference.field)}
         <article>
           <h4>{reference.field}{reference.overridden ? ' · relocated' : ''}</h4>

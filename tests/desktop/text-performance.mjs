@@ -59,7 +59,7 @@ export async function textPerformance({
     );
     assert.equal(result.cancelAndInteraction.phase, 'cancelled');
     assert.ok(result.cancelAndInteraction.typingMs < result.budgetMs);
-    await (await browser.$('button=Revert draft')).click();
+    await (await browser.$('button=Revert')).click();
     await (await browser.$('button=Find / Replace…')).click();
     let dialog = await browser.$('dialog[aria-labelledby="text-title"]');
     await until('10k text dialog', () => dialog.isDisplayed());
@@ -162,7 +162,7 @@ export async function textPerformance({
     const oldText = await editor.getValue();
     await editor.setValue(`${oldText}!`);
     const invalidationStart = Date.now();
-    await (await browser.$('button=Apply edit')).click();
+    await (await browser.$('button=Apply')).click();
     await until('accepted edit invalidates text preview', async () =>
       browser.execute(async (id) => {
         const view = await window.__TAURI__.core.invoke('text_view', {

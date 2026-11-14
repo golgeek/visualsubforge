@@ -90,9 +90,9 @@ export async function translationWorkflow({
   const click = (label) =>
     until(`enabled ${label}`, () =>
       browser.execute((label) => {
-        const button = [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === label && !b.disabled,
-        );
+        const button = [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === label && !b.disabled);
         if (!button) return false;
         button.click();
         return true;
@@ -314,7 +314,7 @@ export async function translationWorkflow({
         ).includes(firstText),
       );
       assert.equal(await editorText(), translatedText);
-      await click('Apply edit');
+      await click('Apply');
       const edited = await documentIs(
         'translation edit accepted',
         (d) => d.cues[0].text === translatedText && d.canUndo,
@@ -397,7 +397,7 @@ export async function translationWorkflow({
           'Protect draft across reference preflight',
         );
         assert.equal((await media()).session, session);
-        await click('Revert draft');
+        await click('Revert');
         await menu('openProject');
         await until('explicit reference reload', () =>
           browser.$('button=Reload Changed Reference').isExisting(),
@@ -452,7 +452,7 @@ export async function translationWorkflow({
       );
       const recoveryText = `Recovered ${firstText}`;
       await input('Subtitle text', recoveryText);
-      await click('Apply edit');
+      await click('Apply');
       await documentIs(
         'recovery target edit',
         (d) => d.cues[0].text === recoveryText,
@@ -506,9 +506,9 @@ export async function translationWorkflow({
           );
           const button =
             row &&
-            [...row.querySelectorAll('button')].find(
-              (b) => b.textContent.trim() === 'Recover' && !b.disabled,
-            );
+            [
+              ...row.querySelectorAll('button:not(dialog:not([open]) button)'),
+            ].find((b) => b.textContent.trim() === 'Recover' && !b.disabled);
           if (!button) return false;
           button.click();
           return true;
@@ -613,7 +613,7 @@ export async function translationWorkflow({
     assert.deepEqual((await status()).cues, before.cues);
     assert.deepEqual((await status()).format, before.format);
     assert.equal((await status()).revision, before.revision);
-    await click('Revert draft');
+    await click('Revert');
     await menu('saveProject');
     await until(
       'mixed project saved',

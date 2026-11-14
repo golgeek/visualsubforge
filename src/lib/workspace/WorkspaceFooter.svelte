@@ -38,7 +38,7 @@
       )}</span
     >{/if}{#if timeline.range}<span
       >Range {timeline.range[0].toFixed(3)}–{timeline.range[1].toFixed(3)} s</span
-    >{/if}<span>Desktop PoC</span>
+    >{/if}
 </footer>
 
 <style>

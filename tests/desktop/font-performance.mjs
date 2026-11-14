@@ -73,9 +73,11 @@ export async function fontPerformance({
               }),
             frame: () => new Promise((r) => requestAnimationFrame(r)),
             button: (label) =>
-              [...document.querySelectorAll('button')].find(
-                (b) => b.textContent.trim() === label && !b.disabled,
-              ),
+              [
+                ...document.querySelectorAll(
+                  'button:not(dialog:not([open]) button)',
+                ),
+              ].find((b) => b.textContent.trim() === label && !b.disabled),
             wait: async (probe) => {
               const end = performance.now() + 12000;
               while (performance.now() < end) {
@@ -206,7 +208,7 @@ export async function fontPerformance({
           field.value = cue.text + ' stale';
           field.dispatchEvent(new Event('input', { bubbles: true }));
           await b.frame();
-          b.button('Apply edit').click();
+          b.button('Apply').click();
           await b.wait(
             async () =>
               (await b.state()).revision === doc.revision + 1 && b.ready(),

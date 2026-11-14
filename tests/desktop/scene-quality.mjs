@@ -83,7 +83,7 @@ export async function sceneQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('scene workspace ready', () =>
-      browser.$('button=Repair scene timing…').then((b) => b.isEnabled()),
+      browser.$('button=Snap to shot changes…').then((b) => b.isEnabled()),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -171,19 +171,19 @@ export async function sceneQuality({
   await (await browser.$('button=Cancel navigation')).click();
   assert.equal(await text.getValue(), 'Preserve scene navigation draft');
   assert.deepEqual(await status(), before);
-  await (await browser.$('button=Revert draft')).click();
+  await (await browser.$('button=Revert')).click();
   await (await browser.$('button=Close Problems')).click();
-  await (await browser.$('button=Repair scene timing…')).click();
+  await (await browser.$('button=Snap to shot changes…')).click();
   let dialog = await browser.$('dialog[aria-labelledby="scene-repair-title"]');
   await until('scene dialog', () => dialog.isDisplayed());
-  await (await dialog.$('button=Create scene preview')).click();
+  await (await dialog.$('button=Preview changes')).click();
   await until('scene preview rows', async () =>
     (await dialog.getText()).includes('2 safe changes'),
   );
   assert.match(await dialog.getText(), /timing review/i);
   assert.deepEqual(await status(), before);
   await browser.saveScreenshot(join(evidence, 'scene-preview.png'));
-  await (await dialog.$('button=Accept scene changes')).click();
+  await (await dialog.$('button=Apply changes')).click();
   await ready();
   const accepted = await status();
   assert.equal(accepted.revision, before.revision + 1);
@@ -349,15 +349,15 @@ async function scenePerformance({
     );
     assert.equal(result.interaction.phase, 'cancelled');
     assert.ok(result.interaction.typingMs < 1000);
-    await (await browser.$('button=Revert draft')).click();
+    await (await browser.$('button=Revert')).click();
     await ready();
-    await (await browser.$('button=Repair scene timing…')).click();
+    await (await browser.$('button=Snap to shot changes…')).click();
     const dialog = await browser.$(
       'dialog[aria-labelledby="scene-repair-title"]',
     );
     await until('10k scene dialog', () => dialog.isDisplayed());
     const began = Date.now();
-    await (await dialog.$('button=Create scene preview')).click();
+    await (await dialog.$('button=Preview changes')).click();
     await until(
       '10k completed scene preview',
       async () => (await dialog.getText()).includes('10000 safe changes'),
@@ -371,7 +371,7 @@ async function scenePerformance({
     );
     await browser.saveScreenshot(join(evidence, 'scene-10000-preview.png'));
     const acceptStart = Date.now();
-    await (await dialog.$('button=Accept scene changes')).click();
+    await (await dialog.$('button=Apply changes')).click();
     await ready();
     result.acceptanceMs = Date.now() - acceptStart;
     assert.ok(
@@ -398,7 +398,7 @@ async function scenePerformance({
       .$('[aria-label="Subtitle text"]')
       .then((e) => e.setValue('Invalidate scene proposal'));
     const invalidationStart = Date.now();
-    await (await browser.$('button=Apply edit')).click();
+    await (await browser.$('button=Apply')).click();
     await until('10k scene invalidation', async () => {
       const v = await invoke('scene_repair_view', {
         id: captured.id,

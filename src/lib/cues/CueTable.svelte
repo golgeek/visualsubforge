@@ -40,9 +40,6 @@
   const firstRow = $derived(tableView.firstRow);
   const visibleCues = $derived(tableView.visibleCues);
   const activeIds = $derived(tableView.activeIds);
-  const textInterpretation = $derived(
-    doc.format?.name === 'vtt' ? 'webvtt_utf16_v1' : 'vss_utf16_v1',
-  );
   const qualityRows = $derived(
     new Map(quality.view?.metrics.map((m) => [m.data.cueId, m]) ?? []),
   );
@@ -109,7 +106,7 @@
                   String(item.id),
                 )}<span
                   class="row-metrics"
-                  title={`Accepted text · ${textInterpretation} · unrounded values drive checks`}
+                  title="Reading speed · counting details in Settings → Subtitle quality"
                   >{metric
                     ? `${rate(metric.data.cps)} · ${rate(metric.data.rs)}`
                     : '—'}</span

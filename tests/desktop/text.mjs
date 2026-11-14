@@ -25,7 +25,7 @@ export async function textEditing({
     );
     const before = await status();
     await editor.setValue(text);
-    await (await browser.$('button=Apply edit')).click();
+    await (await browser.$('button=Apply')).click();
     await until(
       'text fixture accepted',
       async () => (await status()).revision === before.revision + 1,
@@ -206,7 +206,7 @@ export async function textEditing({
   );
   const formattedBefore = await status();
   assert.deepEqual(formattedBefore.cues, baseline.cues);
-  await (await browser.$('button=Apply edit')).click();
+  await (await browser.$('button=Apply')).click();
   await until(
     'formatted draft accepted',
     async () => (await status()).revision === formattedBefore.revision + 1,

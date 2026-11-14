@@ -162,9 +162,9 @@ async function install(browser) {
         !document.querySelector('dialog[open]'),
       dialog: () => document.querySelector('#plugin-title')?.closest('dialog'),
       button: (label) =>
-        [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === label && !b.disabled,
-        ),
+        [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === label && !b.disabled),
       wait: async (probe) => {
         const deadline = performance.now() + 9500;
         while (performance.now() < deadline) {
@@ -645,7 +645,7 @@ export async function pluginPerformance({
               `Stale control preparation: ${review.error}`,
             );
             b.input('Subtitle text', `Stale control ${before.cues[0].text}`);
-            await b.click('Apply edit');
+            await b.click('Apply');
             await b.wait(
               async () =>
                 (await b.state()).revision === before.revision + 1 && b.ready(),
@@ -730,7 +730,7 @@ export async function pluginPerformance({
               ),
             );
             const at = performance.now();
-            [...row.querySelectorAll('button')]
+            [...row.querySelectorAll('button:not(dialog:not([open]) button)')]
               .find((e) => e.textContent.trim() === 'Recover')
               .click();
             await b.wait(async () => {

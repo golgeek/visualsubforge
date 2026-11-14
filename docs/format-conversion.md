@@ -6,7 +6,7 @@ actual macOS chooser and desktop 10k acceptance. Ordinary Save keeps its
 same-format restriction. Windows/Linux feature execution and physical-device
 acceptance remain separate gates.
 
-Open **File → Convert Subtitles…** or use **Convert subtitles…** in the cue editor.
+Open **File → Export As…** or use **Export As…** in the cue editor.
 Apply or discard an unapplied cue draft, choose a different output format, then
 select **Review conversion**. Exact timing is the default. Read the loss and
 blocking findings before choosing a new output filename; blocked reviews cannot

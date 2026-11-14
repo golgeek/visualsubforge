@@ -44,9 +44,6 @@
   const selected = $derived(subtitles.selected);
   const draftDirty = $derived(subtitles.dirty);
   const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
-  const textInterpretation = $derived(
-    doc.format?.name === 'vtt' ? 'webvtt_utf16_v1' : 'vss_utf16_v1',
-  );
 
   function editorKeydown(e: KeyboardEvent) {
     if (
@@ -117,31 +114,34 @@
         readonly={busy}
         spellcheck="false"
       /></label
-    ><button
-      disabled={!cue ||
-        busy ||
-        !status.loaded ||
-        status.positionSeconds === null}
-      onclick={() => {
-        if (status.positionSeconds !== null)
-          subtitles.start = formatTime(
-            Math.round((status.positionSeconds * 1000) / timeStepMs) *
-              timeStepMs,
-          );
-      }}>Start here</button
-    ><button
-      disabled={!cue ||
-        busy ||
-        !status.loaded ||
-        status.positionSeconds === null}
-      onclick={() => {
-        if (status.positionSeconds !== null)
-          subtitles.end = formatTime(
-            Math.round((status.positionSeconds * 1000) / timeStepMs) *
-              timeStepMs,
-          );
-      }}>End here</button
     >
+    {#if status.loaded}
+      <button
+        disabled={!cue ||
+          busy ||
+          !status.loaded ||
+          status.positionSeconds === null}
+        onclick={() => {
+          if (status.positionSeconds !== null)
+            subtitles.start = formatTime(
+              Math.round((status.positionSeconds * 1000) / timeStepMs) *
+                timeStepMs,
+            );
+        }}>Start here</button
+      ><button
+        disabled={!cue ||
+          busy ||
+          !status.loaded ||
+          status.positionSeconds === null}
+        onclick={() => {
+          if (status.positionSeconds !== null)
+            subtitles.end = formatTime(
+              Math.round((status.positionSeconds * 1000) / timeStepMs) *
+                timeStepMs,
+            );
+        }}>End here</button
+      >
+    {/if}
     {#if doc.format && subtitles.styled}
       <label
         >Style <select
@@ -177,19 +177,14 @@
         >WebVTT · 1 ms · Preview may differ from browsers</small
       >
     {/if}
-    <button
-      type="button"
-      disabled={!doc.loaded ||
-        doc.format?.name === 'vtt' ||
-        busy ||
-        confirming ||
-        !ready}
-      title={doc.format?.name === 'vtt'
-        ? 'WebVTT conversion is not yet available; use Save As to preserve the source format.'
-        : undefined}
-      onclick={() => void workspace.run('convertSubtitles')}
-      >Convert subtitles…</button
-    >
+    {#if doc.loaded && doc.format?.name !== 'vtt'}
+      <button
+        type="button"
+        disabled={busy || confirming || !ready}
+        onclick={() => void workspace.run('convertSubtitles')}
+        >Export As…</button
+      >
+    {/if}
   </div>
   {#if showQualityMetrics && cue}<div
       class="quality-readout"
@@ -213,13 +208,6 @@
             >Draft metrics {quality.paused ? 'paused' : 'pending'}…</span
           >{/if}
       {/if}
-      <small
-        >{doc.format?.name === 'vtt' ? 'Caption text' : 'Source text'}: {textInterpretation}
-        · {quality.view?.profile.speedBasis ?? 'loading profile'}. {doc.format
-          ?.name === 'vtt'
-          ? 'Entities are decoded; voice labels and ruby annotations are excluded.'
-          : 'Counting excludes complete tags;'} Rendered wrapping is not measured.</small
-      >
       {#if quality.error || quality.view?.error}<span role="alert"
           >{quality.error || quality.view?.error}</span
         >{/if}
@@ -257,9 +245,9 @@
     >
     <button
       disabled={!cue || !draftDirty || busy}
-      onclick={(e) => void workspace.run('apply', e)}>Apply edit</button
+      onclick={(e) => void workspace.run('apply', e)}>Apply</button
     ><button disabled={!draftDirty || busy} onclick={() => subtitles.revert()}
-      >Revert draft</button
+      >Revert</button
     ><button
       disabled={!doc.canUndo || draftDirty || busy}
       onclick={(e) => void workspace.run('undo', e)}>Undo edit</button
@@ -268,10 +256,10 @@
       onclick={(e) => void workspace.run('redo', e)}>Redo edit</button
     ><span class="spacer"></span><span
       >{draftDirty
-        ? 'Draft · apply to record in history'
+        ? 'Unapplied edit'
         : doc.dirty
           ? 'Unsaved changes'
-          : 'Saved state'}</span
+          : 'Saved'}</span
     >
   </div>
 </section>
@@ -298,11 +286,6 @@
     flex-shrink: 0;
     overflow: auto;
     font-size: 11px;
-  }
-
-  .quality-readout small {
-    color: var(--text-muted);
-    font-size: 10px;
   }
 
   .quality-readout [role='alert'] {

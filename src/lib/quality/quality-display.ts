@@ -56,3 +56,9 @@ export function rateReason(value: QualityMetric['data']['cps']): string {
 export function rating(value: QualityMetric['data']['rating']): string {
   return value?.replaceAll('_', ' ') ?? 'unavailable';
 }
+
+// Reports retain their precise source-counting policy. Main UI wording uses
+// characters; Settings explains how the active profile counts them.
+export function qualityText(value: string): string {
+  return value.replaceAll('UTF-16 units', 'characters');
+}

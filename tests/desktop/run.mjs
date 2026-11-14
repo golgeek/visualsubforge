@@ -321,7 +321,7 @@ async function menu(action) {
 async function edit(text) {
   const input = await browser.$('[aria-label="Subtitle text"]');
   await input.setValue(text);
-  const apply = await browser.$('button=Apply edit');
+  const apply = await browser.$('button=Apply');
   await until('enabled Apply', () => apply.isEnabled());
   await apply.click();
   return documentIs(

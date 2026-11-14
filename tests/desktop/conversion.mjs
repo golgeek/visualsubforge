@@ -60,9 +60,9 @@ export async function conversionWorkflow({
   const ready = () =>
     until('conversion workspace ready', () =>
       browser.execute(() => {
-        const convert = [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === 'Convert subtitles…',
-        );
+        const convert = [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === 'Export As…');
         return (
           document.querySelector('main')?.getAttribute('aria-busy') ===
             'false' &&
@@ -74,9 +74,9 @@ export async function conversionWorkflow({
   const click = (label) =>
     until(`enabled ${label}`, () =>
       browser.execute((label) => {
-        const b = [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === label && !b.disabled,
-        );
+        const b = [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === label && !b.disabled);
         if (!b) return false;
         b.click();
         return true;
@@ -128,13 +128,13 @@ export async function conversionWorkflow({
     );
   }
   async function close() {
-    await click('Close conversion');
+    await click('Cancel');
     await ready();
   }
   async function apply(text) {
     const before = await status();
     await input('Subtitle text', text);
-    await click('Apply edit');
+    await click('Apply');
     const after = await documentIs(
       'conversion fixture edit',
       (d) => d.revision === before.revision + 1,
@@ -278,7 +278,11 @@ export async function conversionWorkflow({
         await ready();
         await until('frontend media ready for project saving', () =>
           browser.execute(() =>
-            [...document.querySelectorAll('button')].some(
+            [
+              ...document.querySelectorAll(
+                'button:not(dialog:not([open]) button)',
+              ),
+            ].some(
               (b) =>
                 ['Play', 'Pause'].includes(b.textContent.trim()) && !b.disabled,
             ),
@@ -341,7 +345,11 @@ export async function conversionWorkflow({
         await click('Choose new output file…');
         await until('cancelled picker retains review', () =>
           browser.execute(() =>
-            [...document.querySelectorAll('button')].some(
+            [
+              ...document.querySelectorAll(
+                'button:not(dialog:not([open]) button)',
+              ),
+            ].some(
               (b) =>
                 b.textContent.trim() === 'Choose new output file…' &&
                 !b.disabled,
@@ -358,7 +366,11 @@ export async function conversionWorkflow({
                 .closest('dialog');
               return (
                 !!d.querySelector('[role="alert"]')?.textContent &&
-                [...d.querySelectorAll('button')].some(
+                [
+                  ...d.querySelectorAll(
+                    'button:not(dialog:not([open]) button)',
+                  ),
+                ].some(
                   (b) =>
                     b.textContent.trim() === 'Choose new output file…' &&
                     !b.disabled,
@@ -532,7 +544,7 @@ export async function conversionWorkflow({
     );
     await close();
     await input('Cue end', '00:00:02,001');
-    await click('Apply edit');
+    await click('Apply');
     await documentIs(
       'equal rounding shifts prepared',
       (d) => d.cues[0].endMs === 2001,

@@ -148,9 +148,9 @@ async function install(browser) {
         document.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
         !document.querySelector('dialog[open]'),
       button: (label) =>
-        [...document.querySelectorAll('button')].find(
-          (e) => e.textContent.trim() === label && !e.disabled,
-        ),
+        [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((e) => e.textContent.trim() === label && !e.disabled),
       input: (label, text) => {
         const e = document.querySelector(`[aria-label="${label}"]`);
         if (!e) throw new Error(`Missing ${label}`);
@@ -457,7 +457,7 @@ export async function translationPerformance({
             await b.frame();
             const selectedReferenceMs = performance.now() - at;
             const editAt = performance.now();
-            await b.click('Apply edit');
+            await b.click('Apply');
             const accepted = await b.wait(async () => {
               const d = await b.state();
               return d.revision === before.revision + 1 && b.ready() && d;
@@ -603,7 +603,7 @@ export async function translationPerformance({
         if ((await b.finish(next.job.id)).job.phase !== 'ready')
           throw new Error('Reference preparation failed');
         b.input('Subtitle text', `Stale guard ${before.cues[0].text}`);
-        await b.click('Apply edit');
+        await b.click('Apply');
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),
@@ -640,7 +640,7 @@ export async function translationPerformance({
         b.input('Subtitle text', text);
         await b.frame();
         const at = performance.now();
-        await b.click('Apply edit');
+        await b.click('Apply');
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),
@@ -721,7 +721,7 @@ export async function translationPerformance({
           ),
         );
         const at = performance.now();
-        [...row.querySelectorAll('button')]
+        [...row.querySelectorAll('button:not(dialog:not([open]) button)')]
           .find((e) => e.textContent.trim() === 'Recover')
           .click();
         await b.wait(async () => {
@@ -839,7 +839,7 @@ export async function translationPerformance({
               draft
           )
             throw new Error('Detachment changed target or draft');
-          await b.click('Revert draft');
+          await b.click('Revert');
           await b.menu('saveAs');
           await b.wait(
             () =>

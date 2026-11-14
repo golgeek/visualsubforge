@@ -116,8 +116,8 @@ export async function batchTiming({
       document.querySelector('[aria-label="Batch operation"]'),
     );
     b.input('Batch operation', 'align');
-    await b.click('Create batch preview');
-    await b.wait(() => !b.button('Accept batch timings').disabled);
+    await b.click('Preview changes');
+    await b.wait(() => !b.button('Apply changes').disabled);
     const table = document.querySelector('dialog[open]');
     if (
       !table.textContent.includes(target) ||
@@ -126,7 +126,7 @@ export async function batchTiming({
       throw new Error('Incorrect native playhead/selection review');
   }, time(targetMs));
   await browser.saveScreenshot(join(evidence, 'batch-native-review.png'));
-  await browser.execute(() => window.__batchUI.click('Accept batch timings'));
+  await browser.execute(() => window.__batchUI.click('Apply changes'));
   const accepted = await until('batch alignment accepted', async () => {
     const d = await status();
     return d.revision === baseline.revision + 1 && d;

@@ -59,6 +59,7 @@ for (const name of [
   'conversion',
   'batch-timing',
   'theme',
+  'copy-noise',
 ]) {
   test(`workflow: ${name}`, async ({ page }, info) => {
     const result = await verifyChecks(page, () =>

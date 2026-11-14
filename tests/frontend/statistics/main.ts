@@ -46,9 +46,11 @@ function passed(m: string) {
   output.append(li);
 }
 function button(text: string) {
-  const b = [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === text,
-  );
+  const b = [
+    ...host.querySelectorAll<HTMLButtonElement>(
+      'button:not(dialog:not([open]) button)',
+    ),
+  ].find((b) => b.textContent?.trim() === text);
   if (!b) throw new Error(`Missing ${text}`);
   return b;
 }
@@ -83,7 +85,7 @@ async function report() {
   await until(() => !!host.querySelector('[aria-label="Metric summaries"]'));
 }
 async function close() {
-  button('Close statistics').click();
+  button('Close').click();
   await until(() => !host.querySelector('dialog[open]'));
   await until(() => !button('Statistics…').disabled);
   assert(
@@ -240,9 +242,11 @@ try {
   await navigate(2);
   await until(
     () =>
-      !![...host.querySelectorAll('button')].find(
-        (b) => b.textContent === 'Cancel navigation',
-      ),
+      !![
+        ...host.querySelectorAll<HTMLButtonElement>(
+          'button:not(dialog:not([open]) button)',
+        ),
+      ].find((b) => b.textContent === 'Cancel navigation'),
   );
   button('Cancel navigation').click();
   assert(
@@ -260,9 +264,11 @@ try {
   await navigate(2);
   await until(
     () =>
-      !![...host.querySelectorAll('button')].find(
-        (b) => b.textContent === 'Discard draft and navigate',
-      ),
+      !![
+        ...host.querySelectorAll<HTMLButtonElement>(
+          'button:not(dialog:not([open]) button)',
+        ),
+      ].find((b) => b.textContent === 'Discard draft and navigate'),
   );
   button('Discard draft and navigate').click();
   await until(
@@ -284,9 +290,11 @@ try {
   await navigate(1);
   await until(
     () =>
-      !![...host.querySelectorAll('button')].find(
-        (b) => b.textContent === 'Apply draft and navigate',
-      ),
+      !![
+        ...host.querySelectorAll<HTMLButtonElement>(
+          'button:not(dialog:not([open]) button)',
+        ),
+      ].find((b) => b.textContent === 'Apply draft and navigate'),
   );
   failApply = true;
   button('Apply draft and navigate').click();

@@ -52,9 +52,9 @@ async function install(browser) {
         document.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
         !document.querySelector('dialog[open]'),
       button: (label) =>
-        [...document.querySelectorAll('button')].find(
-          (b) => b.textContent.trim() === label && !b.disabled,
-        ),
+        [
+          ...document.querySelectorAll('button:not(dialog:not([open]) button)'),
+        ].find((b) => b.textContent.trim() === label && !b.disabled),
       input: (text) => {
         const field = document.querySelector('[aria-label="Subtitle text"]');
         field.value = text;
@@ -327,7 +327,7 @@ export async function legacyImportPerformance({
             b.input(text);
             await b.frame();
             let at = performance.now();
-            await b.click('Apply edit');
+            await b.click('Apply');
             const accepted = await b.wait(async () => {
               const d = await b.state();
               return d.revision === before.revision + 1 && b.ready() && d;
@@ -395,7 +395,7 @@ export async function legacyImportPerformance({
         b.input(text);
         await b.frame();
         const at = performance.now();
-        await b.click('Apply edit');
+        await b.click('Apply');
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),
@@ -441,7 +441,7 @@ export async function legacyImportPerformance({
           ),
         );
         const at = performance.now();
-        [...row.querySelectorAll('button')]
+        [...row.querySelectorAll('button:not(dialog:not([open]) button)')]
           .find((b) => b.textContent.trim() === 'Recover')
           .click();
         await b.wait(async () => {
