@@ -1,5 +1,6 @@
 //! User workspace placement only; never part of subtitle state or history.
 use serde::{Deserialize, Serialize};
+pub mod arrangement;
 pub mod columns;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -55,6 +56,8 @@ impl Default for PaneSizes {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LayoutPreferences {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom: Option<arrangement::Arrangement>,
     pub active: Preset,
     pub timing: PaneSizes,
     pub editor_above: PaneSizes,
@@ -65,6 +68,7 @@ pub struct LayoutPreferences {
 impl Default for LayoutPreferences {
     fn default() -> Self {
         Self {
+            custom: None,
             active: Preset::Timing,
             timing: Default::default(),
             editor_above: Default::default(),
@@ -86,6 +90,9 @@ impl Default for LayoutPreferences {
 }
 impl LayoutPreferences {
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(custom) = &self.custom {
+            custom.validate()?;
+        }
         for sizes in [
             &self.timing,
             &self.editor_above,

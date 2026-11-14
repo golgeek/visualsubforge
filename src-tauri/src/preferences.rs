@@ -32,7 +32,7 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            version: 4,
+            version: 5,
             layout: Default::default(),
             shortcuts: Default::default(),
             auto_scan_scenes: true,
@@ -46,7 +46,7 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
-        if self.version != 4 {
+        if self.version != 5 {
             return Err("Unsupported settings version".into());
         }
         self.layout.validate()?;
@@ -118,6 +118,10 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
             serde_json::to_value(shortcuts::Shortcuts::default()).map_err(|e| e.to_string())?,
         );
         object.insert("version".into(), 4.into());
+    }
+    // v4 has only preset layouts. Reading migrates in memory; no file rewrite.
+    if object.get("version").and_then(serde_json::Value::as_u64) == Some(4) {
+        object.insert("version".into(), 5.into());
     }
     if !object.contains_key("quality") {
         let timing: Timing = serde_json::from_value(
@@ -236,6 +240,27 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 mod tests {
     use super::*;
     #[test]
+    fn version_four_layout_migrates_without_rewriting_or_losing_preferences() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        old["version"] = 4.into();
+        let bytes = serde_json::to_vec(&old).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        let migrated = read(&path).unwrap();
+        assert_eq!(migrated.version, 5);
+        assert!(migrated.layout.custom.is_none());
+        assert_eq!(
+            serde_json::to_value(migrated.shortcuts).unwrap(),
+            old["shortcuts"]
+        );
+        assert_eq!(
+            serde_json::to_value(migrated.quality).unwrap(),
+            old["quality"]
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+    }
+    #[test]
     fn version_three_shortcuts_migrate_and_rebinding_survives_reload() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
@@ -245,7 +270,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 4);
+        assert_eq!(migrated.version, 5);
         assert_eq!(migrated.shortcuts, shortcuts::Shortcuts::default());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         update(&path, |value| {
@@ -289,7 +314,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 4);
+        assert_eq!(migrated.version, 5);
         assert_eq!(migrated.layout, LayoutPreferences::default());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         update(&path, |p| {
@@ -326,7 +351,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 4);
+        assert_eq!(migrated.version, 5);
         assert_eq!(migrated.layout.translation.wave_pct, 45.0);
         assert_eq!(
             migrated.layout.timing.columns,

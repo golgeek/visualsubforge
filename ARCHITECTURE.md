@@ -65,7 +65,7 @@ decision-owned payloads; ActionBrowser presents command discovery and searchable
 lays out regions.
 Action labels, aliases and shortcut descriptions live in
 `workspace/action-descriptions.json`, imported by the frontend and embedded by
-Rust's native menu builder. Version-4 preferences hold validated bindings by
+Rust's native menu builder. Version-5 preferences hold validated bindings by
 focus mode; bundled presets share one JSON source across Rust and TypeScript.
 The pure workspace router resolves those bindings while retaining composition,
 repeat, text-history and Windows fallback rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
@@ -499,8 +499,32 @@ policy. All production settings-file writes serialize read/modify/write under on
 writer mutex, preserving unrelated layout, profile and personal-word fields.
 Document preference/word operations acquire the document lock before this writer;
 layout writes acquire only the writer. Atomic publication permits concurrent reads
-of either complete version. Versions 1–3 migrate in memory to version 4; the historical
-settings filename remains valid. Projects do not yet store pane placement.
+of either complete version. Versions 1–4 migrate in memory to version 5; the historical
+settings filename remains valid. Custom arrangements use a bounded version-1
+row schema: seven distinct panel kinds, at most two per row, integer weights and
+split percentages. Pure frontend geometry refuses moves that exceed the current
+viewport and preserves panel minima through scrolling when a saved layout is
+restored in a smaller window.
+
+Arrange Panels pauses playback, then uses WorkspaceModal/HideVideo for its whole
+lifetime. Nested layout transitions retain modal occlusion and acknowledge native
+bounds before closing. CSS slots move existing mounted components; hiding Video
+retains its zero-size placeholder shadow to paint the window without an opaque
+body. Review and Statistics share their existing dock owner. Tool visibility
+reconciles custom slots; if a revealed tool cannot fit, it selects the corresponding
+standard preset. No floating surface or additional worker is created.
+
+WorkspaceLayout keeps user defaults separate from the optional project override.
+Project version 3 stores a validated layout snapshot through the existing atomic
+project writer. Without a layout, saves retain version 1 for media projects or
+version 2 for subtitle-only/translation projects, including quit/view saves;
+removing the layout returns to that compatible version. Versions 1/2 remain
+readable and are not rewritten on open.
+Restoring project options awaits guarded hide/render/bounds completion before
+publishing the frontend attachment. Old projects restore user defaults. Explicit
+Save project layout reuses the guarded view-save path without saving subtitle
+bytes; removing the override requires saving its null snapshot. The Arrange
+checkbox changes scope immediately, with pending durability stated in the UI.
 
 
 ## Cue columns and issue projections

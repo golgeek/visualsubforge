@@ -43,14 +43,17 @@ export async function nativeLayoutCases(passed: (message: string) => void) {
     host.remove();
   }
   const moving = document.createElement('div');
-  moving.style.cssText = 'position:fixed;left:0;top:0;width:100px;height:100px';
+  moving.style.cssText =
+    'position:fixed;left:20px;top:30px;width:100px;height:100px';
   document.body.append(moving);
   let release!: () => void;
   const widths: number[] = [];
+  const visibility: boolean[] = [];
   const draining = new NativeVideoLayout(messages, {
     status: { ...emptyStatus, available: true, loaded: true },
     layout: async (bounds) => {
       widths.push(bounds.width);
+      visibility.push(bounds.visible);
       if (widths.length === 1)
         await new Promise<void>((resolve) => {
           release = resolve;
@@ -78,6 +81,29 @@ export async function nativeLayoutCases(passed: (message: string) => void) {
     );
     passed(
       'Native layout flush drains old bounds and acknowledges current geometry before returning',
+    );
+    assert(visibility.at(-1) === true, 'Positive in-window bounds are visible');
+    moving.style.width = '0px';
+    await draining.flush();
+    assert(
+      visibility.at(-1) === false,
+      'Zero width hides a surface inside the viewport',
+    );
+    moving.style.width = '200px';
+    moving.style.height = '0px';
+    await draining.flush();
+    assert(
+      visibility.at(-1) === false,
+      'Zero height hides a surface inside the viewport',
+    );
+    moving.style.height = '100px';
+    await draining.flush();
+    assert(
+      visibility.at(-1) === true,
+      'Restored positive bounds reveal the surface',
+    );
+    passed(
+      'Native layout hides either zero dimension and reveals restored positive bounds',
     );
   } finally {
     draining.dispose();

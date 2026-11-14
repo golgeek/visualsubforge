@@ -1,3 +1,11 @@
+import {
+  arrangementGeometry,
+  refusal,
+  presetArrangement,
+  type Arrangement,
+  type Panel,
+  movePanel,
+} from './arrangement';
 import type { CueColumns } from '../cues/cue-columns';
 import { clamp } from '../timeline/timeline';
 import { paneLayout } from './pane-layout';
@@ -15,10 +23,15 @@ type Layout = Preferences['layout'];
 interface Effects extends HideVideoEffects {
   preset: (preset: LayoutPreset) => void;
   error: (error: unknown) => void;
+  visiblePanels?: () => { review: boolean; translation: boolean };
+  arranged?: (panels: Panel[]) => void;
 }
 /** Mounted regions stay with their owners. Only placement and user sizes change. */
 export class WorkspaceLayout {
   private current = $state<Layout>(defaultLayout());
+  private userLayout: Layout = defaultLayout();
+  private project = $state(false);
+  private transition: Promise<void> | null = null;
   private video: HideVideo;
   private alive = true;
   private initialized = false;
@@ -37,10 +50,133 @@ export class WorkspaceLayout {
     this.video = new HideVideo(effects);
   }
   workspaceHeight = $state(600);
+  workspaceWidth = $state(1084);
+  viewportHeight = $state(720);
   editorBarHeight = $state(28);
   editorFooterHeight = $state(28);
   qualityReadoutHeight = $state(44);
   transportHeight = $state(0);
+  get custom() {
+    return this.current.custom ?? null;
+  }
+  get remembered() {
+    return this.project;
+  }
+  get projectSnapshot(): Layout | null {
+    return this.project ? structuredClone($state.snapshot(this.current)) : null;
+  }
+  get arrangement(): Arrangement {
+    const visible = this.effects.visiblePanels?.() ?? {
+      review: false,
+      translation: false,
+    };
+    return (
+      this.custom ??
+      presetArrangement(
+        this.preset,
+        this.wavePct,
+        visible.review,
+        visible.translation,
+      )
+    );
+  }
+  get space() {
+    return {
+      width: Math.max(0, this.workspaceWidth - 16),
+      height: Math.max(
+        0,
+        Math.min(this.workspaceHeight, this.viewportHeight - 60) - 16,
+      ),
+      editor: this.panes.editorMinimum,
+      transport: this.panes.transportPixels,
+    };
+  }
+  get geometry() {
+    return arrangementGeometry(this.arrangement, this.space);
+  }
+  panelStyle(panel: Panel) {
+    if (!this.custom) return '';
+    const row = this.custom.rows.findIndex((row) => row.panels.includes(panel));
+    if (row < 0)
+      return panel === 'video'
+        ? 'position:absolute;width:0;height:0;pointer-events:none;'
+        : 'display:none;';
+    const value = this.custom.rows[row]!;
+    const column = value.panels.indexOf(panel);
+    const start = column === 0 ? 1 : value.split + 1;
+    const end =
+      value.panels.length === 1 || column === 1 ? 101 : value.split + 1;
+    return `grid-area:${row + 1}/${start}/${row + 2}/${end};${value.panels.length === 2 ? (column === 0 ? 'margin-right:3px;' : 'margin-left:3px;') : ''}`;
+  }
+  async arrange(value: Arrangement) {
+    const reason = refusal(value, this.space);
+    if (reason) throw new Error(reason);
+    await this.change(() => {
+      this.current.custom = structuredClone(value);
+      this.effects.arranged?.(value.rows.flatMap((row) => row.panels));
+    });
+  }
+  async rememberForProject(value: boolean) {
+    if (value === this.project) return;
+    await this.change(() => {
+      this.project = value;
+      if (!value) this.current = structuredClone(this.userLayout);
+      this.publishVisibility();
+    }, false);
+  }
+  async restoreProject(
+    value: Layout | null | undefined,
+    check: () => void = () => {},
+  ) {
+    await this.change(() => {
+      check();
+      this.project = !!value;
+      this.current = structuredClone(
+        value ? $state.snapshot(value) : this.userLayout,
+      );
+      this.publishVisibility();
+    }, false);
+  }
+  async synchronizeDocks(review: boolean, translation: boolean) {
+    if (!this.custom || this.active) return;
+    let next = structuredClone($state.snapshot(this.custom));
+    for (const [panel, visible] of [
+      ['review', review],
+      ['translation', translation],
+    ] as const) {
+      const exists = next.rows.some((row) => row.panels.includes(panel));
+      if (exists === visible) continue;
+      if (!visible) {
+        if (next.rows.flatMap((row) => row.panels).length === 1) {
+          await this.select('timing');
+          return;
+        }
+        next = movePanel(next, { panel, kind: 'hide' });
+      } else {
+        const cueRow = next.rows.find(
+          (row) => row.panels.length === 1 && row.panels[0] === 'cues',
+        );
+        if (cueRow) {
+          cueRow.panels.push(panel);
+          cueRow.split = 58;
+        } else next.rows.push({ panels: [panel], split: 50, weight: 20 });
+      }
+    }
+    if (JSON.stringify(next) === JSON.stringify($state.snapshot(this.custom)))
+      return;
+    if (refusal(next, this.space)) {
+      // Opening a tool must reveal its actual owner. A standard dock is the
+      // bounded fallback when a user's hidden panel cannot fit the viewport.
+      await this.select(
+        review ? 'review' : translation ? 'translation' : 'timing',
+      );
+    } else await this.arrange(next);
+  }
+  private publishVisibility() {
+    if (this.custom)
+      this.effects.arranged?.(this.custom.rows.flatMap((row) => row.panels));
+    else this.effects.preset(this.preset);
+  }
   get active() {
     return this.changing;
   }
@@ -76,78 +212,96 @@ export class WorkspaceLayout {
       return;
     void this.change(() => {
       this.current = structuredClone($state.snapshot(value));
-      this.effects.preset(this.preset);
-    }, false);
+      this.userLayout = structuredClone($state.snapshot(value));
+      this.publishVisibility();
+    }, false).catch(() => {});
   }
   async select(preset: LayoutPreset) {
     await this.change(() => {
+      this.current.custom = null;
       this.current.active = preset;
       this.effects.preset(preset);
-    });
+    }).catch(() => {});
   }
   async reset() {
     await this.change(() => {
+      this.current.custom = null;
+      this.effects.preset(this.preset);
       this.current[this.preset] = {
         ...structuredClone(this.description.defaults),
         columns: this.current[this.preset].columns,
       };
-    });
+    }).catch(() => {});
   }
   resizeWaveform(value: number) {
     void this.change(() => {
       this.current[this.preset].wavePct = clamp(value, 20, 80);
-    });
+    }).catch(() => {});
   }
   resizePreview(value: number) {
     void this.change(() => {
       this.current[this.preset].topPct = clamp(value, 10, 65);
-    });
+    }).catch(() => {});
   }
   resizeEditor(value: number) {
     void this.change(() => {
       this.current[this.preset].editorPct = clamp(100 - value, 10, 45);
-    });
+    }).catch(() => {});
   }
-  private async change(apply: () => void, persist = true) {
-    if (!this.alive) return;
-    // Rapid pointer movement coalesces to the latest size while native hiding
-    // is pending. No DOM position changes before that acknowledgment.
+  private change(apply: () => void, persist = true): Promise<void> {
+    if (!this.alive) return Promise.resolve();
     this.saveRequested ||= persist;
     this.next = apply;
-    if (this.changing) return;
+    if (this.transition) return this.transition;
     this.changing = true;
+    this.transition = this.drain().finally(() => {
+      this.changing = false;
+      this.transition = null;
+    });
+    return this.transition;
+  }
+  private async drain() {
     try {
-      await this.video.open(() => {});
-      while (this.alive && this.next) {
-        const next = this.next;
-        this.next = null;
-        next();
-        await this.effects.afterRender();
-      }
-      await this.video.close({ hide: () => {}, failed: this.effects.error });
+      // Coalesce geometry while hiding, but wait through restore too. Project
+      // restore callers await this same lifetime before publishing readiness.
+      do {
+        await this.video.open(() => {});
+        while (this.alive && this.next) {
+          const next = this.next;
+          this.next = null;
+          next();
+          await this.effects.afterRender();
+        }
+        let failure: unknown;
+        await this.video.close({
+          hide: () => {},
+          failed: (error) => {
+            failure = error;
+          },
+        });
+        if (failure !== undefined) throw failure;
+      } while (this.alive && this.next);
       if (this.alive && this.saveRequested) {
         this.saveRequested = false;
         this.scheduleSave();
       }
     } catch (error) {
       this.next = null;
+      this.saveRequested = false;
       if (this.alive) {
         this.effects.error(error);
         await this.video.close({ hide: () => {}, failed: this.effects.error });
       }
-    } finally {
-      this.changing = false;
-      // Input arriving during restore needs a fresh hide lifetime.
-      const next = this.next;
-      this.next = null;
-      if (this.alive && next) void this.change(next);
+      throw error;
     }
   }
   private scheduleSave() {
+    if (this.project) return;
+    this.userLayout = structuredClone($state.snapshot(this.current));
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = null;
-      this.pendingSave = structuredClone($state.snapshot(this.current));
+      this.pendingSave = structuredClone(this.userLayout);
       void this.flushSave();
     }, 250);
   }

@@ -68,6 +68,7 @@ pub(super) fn inspect(
             translation: None,
             position_seconds: f64::from(inspection.project.view.focused_ms.unwrap_or(0)) / 1000.,
             options: Options {
+                layout: None,
                 waveform_start: f64::from(inspection.project.view.start_ms) / 1000.,
                 waveform_span: f64::from(inspection.project.view.span_ms) / 1000.,
                 follow_playback: true,

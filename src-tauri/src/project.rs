@@ -71,6 +71,8 @@ pub fn identify(path: &Path) -> Result<MediaIdentity> {
 #[derive(Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Options {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<crate::preferences::layout::LayoutPreferences>,
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub waveform_start: f64,
@@ -103,13 +105,31 @@ pub struct Project {
     pub scenes: Option<crate::scenes::Saved>,
 }
 impl Project {
+    // Layout is the only v3 feature. Ordinary view saves (including quit) must
+    // retain the oldest format that represents the actual project contents.
+    fn version_for_save(&self) -> u32 {
+        if self.options.layout.is_some() {
+            3
+        } else if self.media_path.is_none() || self.translation.is_some() {
+            2
+        } else {
+            1
+        }
+    }
+
     fn validate(&self) -> Result<()> {
         self.options.timing.validate()?;
         if let Some(profile) = &self.options.quality {
             crate::quality_profile::Policy::new(profile.clone(), self.options.timing.clone())?;
         }
-        if !matches!(self.version, 1 | 2) {
+        if !matches!(self.version, 1..=3) {
             return Err("Unsupported VSF project version".into());
+        }
+        if let Some(layout) = &self.options.layout {
+            if self.version < 3 {
+                return Err("Project layouts require version 3".into());
+            }
+            layout.validate()?;
         }
         if self.media_path.is_some() != self.media_identity.is_some()
             || (self.version == 1 && (self.media_path.is_none() || self.translation.is_some()))
@@ -404,9 +424,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                     translation.protect(&destination)?;
                     translation.verify_project_reference()?;
                     project.translation = translation.project_description(base)?;
-                    if project.translation.is_some() {
-                        project.version = 2;
-                    }
+                    project.version = project.version_for_save();
                     app.state::<Projects>()
                         .save(&destination, request.token, &project)
                 })
@@ -468,6 +486,7 @@ mod tests {
             translation: None,
             position_seconds: 12.5,
             options: Options {
+                layout: None,
                 waveform_start: 10.,
                 waveform_span: 20.,
                 follow_playback: false,
@@ -478,6 +497,75 @@ mod tests {
             },
             scenes: None,
         }
+    }
+    #[test]
+    fn saving_and_removing_layout_preserve_compatible_project_versions() {
+        for has_media in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("compatible.vsfproject");
+            let mut project = fixture(dir.path());
+            if !has_media {
+                fs::write(
+                    dir.path().join("captions.srt"),
+                    b"1\n00:00:01,000 --> 00:00:02,000\nText\n",
+                )
+                .unwrap();
+                project.media_path = None;
+                project.media_identity = None;
+                project.position_seconds = 0.;
+                project.subtitle_path = Some("captions.srt".into());
+            }
+            let compatible = if has_media { 1 } else { 2 };
+            for (layout, expected) in [
+                (None, compatible),
+                (Some(Default::default()), 3),
+                (None, compatible),
+            ] {
+                project.options.layout = layout;
+                project.version = project.version_for_save();
+                write(&path, &project).unwrap();
+                let saved = read(&path).unwrap();
+                assert_eq!(saved.version, expected);
+                assert_eq!(saved.options.layout.is_some(), expected == 3);
+                // Ordinary view-only publication after reopening must not upgrade.
+                project = saved;
+                project.position_seconds += if has_media { 1. } else { 0. };
+                project.version = project.version_for_save();
+                write(&path, &project).unwrap();
+                assert_eq!(read(&path).unwrap().version, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn layout_requires_v3_and_old_projects_are_not_rewritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("layout.vsfproject");
+        let mut project = fixture(dir.path());
+        write(&path, &project).unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(read(&path).unwrap().options.layout.is_none());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        project.options.layout = Some(Default::default());
+        assert!(project.validate().unwrap_err().contains("version 3"));
+        project.version = 3;
+        write(&path, &project).unwrap();
+        assert_eq!(read(&path).unwrap().options.layout, project.options.layout);
+        project.options.layout.as_mut().unwrap().custom =
+            Some(crate::preferences::layout::arrangement::Arrangement {
+                version: 2,
+                rows: vec![],
+            });
+        assert!(write(&path, &project).is_err());
+        assert!(
+            read(&path)
+                .unwrap()
+                .options
+                .layout
+                .unwrap()
+                .custom
+                .is_none()
+        );
     }
     #[test]
     fn project_retains_ass_ssa_webvtt_identity_and_rejects_conflicts() {
@@ -553,7 +641,7 @@ mod tests {
         let mut project = fixture(dir.path());
         let path = dir.path().join("test.vsfproject");
         let write = |p: &Project| fs::write(&path, serde_json::to_vec(p).unwrap()).unwrap();
-        project.version = 3;
+        project.version = 4;
         write(&project);
         assert!(read(&path).err().unwrap().contains("version"));
         project.version = 1;

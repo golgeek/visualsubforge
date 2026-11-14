@@ -41,6 +41,7 @@ for (const name of [
   'cue-timing',
   'waveform-selection',
   'timeline-overview',
+  'arrange-panels',
   'workspace-lifecycle',
   'timing-modal',
   'feature-modal',

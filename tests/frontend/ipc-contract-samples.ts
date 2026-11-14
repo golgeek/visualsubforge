@@ -3013,6 +3013,7 @@ export const workspaceActions = [
   'playRange',
   'clearLoop',
   'resetLayout',
+  'arrangePanels',
   'diagnostics',
   'quit',
 ] satisfies WorkspaceAction[];
@@ -3853,5 +3854,5 @@ export const preferences = {
     snapDistancePx: 8,
     snapScenes: true,
   },
-  version: 4,
+  version: 5,
 } satisfies Preferences;

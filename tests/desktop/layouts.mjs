@@ -143,6 +143,78 @@ export async function workspaceLayouts({
         ...bounds,
       });
     }
+    await chooseCommand(browser, 'layoutTiming');
+    await chooseCommand(browser, 'arrangePanels');
+    await until('arrange dialog open', () =>
+      browser.execute(
+        () =>
+          !!document.querySelector('dialog[aria-label="Arrange panels"][open]'),
+      ),
+    );
+    await browser.execute(() =>
+      document
+        .querySelector('button[aria-label="Place Waveform at Video"]')
+        .click(),
+    );
+    await until('waveform/video swapped', () =>
+      browser.execute(() => {
+        const video = document
+          .querySelector('.video-space')
+          .getBoundingClientRect();
+        const wave = document
+          .querySelector('[aria-label="Waveform"]')
+          .getBoundingClientRect();
+        return (
+          video.width > 0 &&
+          video.x < wave.x &&
+          ![...document.querySelectorAll('button')].find(
+            (button) => button.textContent.trim() === 'Done',
+          ).disabled
+        );
+      }),
+    );
+    const arranged = await browser.execute(() => {
+      const bounds = (selector) => {
+        const r = document.querySelector(selector).getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      };
+      return {
+        video: bounds('.video-space'),
+        waveform: bounds('[aria-label="Waveform"]'),
+        modal: !!document.querySelector('dialog[open]'),
+      };
+    });
+    const arrangeScreenshot = `layout-arrange-${width}x${height}.png`;
+    await browser.saveScreenshot(join(evidence, arrangeScreenshot));
+    screenshots.push(arrangeScreenshot);
+    await browser.execute(() =>
+      [...document.querySelectorAll('button')]
+        .find((button) => button.textContent.trim() === 'Done')
+        .click(),
+    );
+    await until('arrange closed', () =>
+      browser.execute(
+        () =>
+          !document.querySelector('dialog[open]') &&
+          document.querySelector('main').getAttribute('aria-busy') === 'false',
+      ),
+    );
+    const restored = await browser.execute(() => {
+      const r = document.querySelector('.video-space').getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    assert.deepEqual(
+      restored,
+      arranged.video,
+      'Closing arrange preserves final placeholder bounds',
+    );
+    measurements.push({
+      preset: 'custom-swap',
+      requestedWindow: { width, height },
+      actualWindow,
+      arranged,
+      restored,
+    });
   }
   await chooseCommand(browser, 'layoutTiming');
   await browser.setWindowSize(1100, 720);

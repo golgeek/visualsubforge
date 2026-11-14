@@ -206,6 +206,15 @@
     "alternateShortcuts": [],
     "macShortcut": null
   },
+  "arrangePanels": {
+    "label": "Arrange Panels",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["custom layout", "move panels"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
   "resetLayout": {
     "label": "Reset Pane Sizes",
     "group": "View",

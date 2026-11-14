@@ -419,8 +419,9 @@ async function projectFixture(hold: string | null = null) {
         events.push('media projection');
         mediaPath = path;
       },
-      restoreOptions: () => {
-        events.push('options');
+      restoreOptions: async (_options, check) => {
+        await step('options');
+        check?.();
       },
       restoreScenes: () => {
         events.push('scene projection');
@@ -535,6 +536,28 @@ async function projectCases() {
       `disposing during project ${stage} suppresses subsequent work and attachment`,
     );
   }
+  const restoring = await projectFixture('options');
+  const restore = restoring.workflow.open().catch((error) => error);
+  await until(() => restoring.events.includes('options'));
+  assert(
+    restoring.workflow.path === null && !restoring.events.includes('notice'),
+    'Project readiness waits for layout restore',
+  );
+  await restoring.workflow.detach();
+  restoring.gate.resolve();
+  assert(
+    (await restore) instanceof Error,
+    'Replaced project cancels awaited layout restore',
+  );
+  assert(
+    restoring.workflow.path === null && !restoring.events.includes('notice'),
+    'Obsolete layout restore cannot publish attachment',
+  );
+  restoring.dispose();
+  passed(
+    'project readiness awaits guarded layout restoration and retires detached continuations',
+  );
+
   const saving = await projectFixture('save');
   await saving.workflow.open();
   const save = saving.workflow.save(false).catch(() => {});
