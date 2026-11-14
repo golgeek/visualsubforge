@@ -61,7 +61,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     unregisterCallback() {},
     async invoke(
       command: string,
-      args: { action?: MediaAction; handler?: number },
+      args: { action?: MediaAction; handler?: number; event?: string },
     ) {
       switch (command) {
         case 'quality_read':
@@ -69,6 +69,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           listener = args.handler!;
           return 1;
         case 'plugin:event|unlisten':

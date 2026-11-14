@@ -1404,6 +1404,7 @@ export type vsf_application_quality_statistics_Extreme = {
 };
 
 export type visualsubforge_desktop_FileChoice =
+  | 'workspace'
   | 'media'
   | 'subtitles'
   | 'font'

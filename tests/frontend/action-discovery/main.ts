@@ -75,6 +75,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction;
         handler?: number;
+        event?: string;
         preferences?: Preferences;
       },
     ) {
@@ -84,6 +85,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           listener = args.handler!;
           return 1;
         case 'plugin:event|unlisten':

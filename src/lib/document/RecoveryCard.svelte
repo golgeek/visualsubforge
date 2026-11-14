@@ -1,12 +1,23 @@
 <script lang="ts">
   import type { Recovery } from './recovery.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
-  let { recovery, workspace }: { recovery: Recovery; workspace: Workspace } =
-    $props();
+  let {
+    recovery,
+    workspace,
+    disabled,
+    onchoose = (id, copy) => recovery.choose(id, copy),
+  }: {
+    recovery: Recovery;
+    workspace: Workspace;
+    disabled?: boolean;
+    onchoose?: (id: string, copy: boolean) => Promise<void>;
+  } = $props();
+  const blocked = $derived(disabled ?? (workspace.busy || !workspace.ready));
 </script>
 
 {#if recovery.status.entries.length || recovery.status.error}
   <aside class="recovery" aria-label="Subtitle recovery">
+    <h2>Unsaved work recovered</h2>
     {#if recovery.status.error}<p role="alert">
         Recovery: {recovery.status.error}
       </p>{/if}
@@ -23,23 +34,22 @@
           {entry.error ?? ''}</span
         >
         <button
-          disabled={workspace.busy || !workspace.ready || !!entry.error}
-          onclick={() => void recovery.choose(entry.id, true)}>Recover</button
+          disabled={blocked || !!entry.error}
+          onclick={() => void onchoose(entry.id, true)}>Recover</button
         >
         {#if recovery.discardId === entry.id}
           <span>Discard this recovery snapshot?</span>
           <button
-            disabled={workspace.busy}
-            onclick={() => void recovery.choose(entry.id, false)}
+            disabled={blocked}
+            onclick={() => void onchoose(entry.id, false)}
             >Confirm discard</button
           >
-          <button
-            disabled={workspace.busy}
-            onclick={() => (recovery.discardId = null)}>Cancel</button
+          <button disabled={blocked} onclick={() => (recovery.discardId = null)}
+            >Cancel</button
           >
         {:else}
           <button
-            disabled={workspace.busy}
+            disabled={blocked}
             onclick={() => (recovery.discardId = entry.id)}>Discard…</button
           >
         {/if}
@@ -52,10 +62,12 @@
   .recovery {
     position: relative;
     z-index: 2;
-    max-height: 130px;
+    max-height: 360px;
     overflow: auto;
-    padding: 4px 12px;
-    background: var(--warn-soft);
+    padding: 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface-panel);
   }
   .recovery p {
     margin: 4px 0;

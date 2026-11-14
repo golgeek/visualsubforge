@@ -125,6 +125,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction | TranslationAction;
         handler?: number;
+        event?: string;
         generation?: number;
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
@@ -141,6 +142,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           document.body.dataset.workspaceListener = 'waiting';
           await registration;
           document.body.dataset.workspaceListener = 'registered';

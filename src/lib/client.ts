@@ -3,6 +3,7 @@ import { defaultLayout } from './layout/layout-presets';
 import { commands, events } from './generated/ipc';
 import type * as IPC from './generated/ipc';
 import { isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { defaultTiming } from './timing/magnetic-timing';
 import { builtinQualityProfiles } from './generated/quality-defaults';
 
@@ -722,4 +723,11 @@ export async function cueFixesCancel(id: number): Promise<void> {
 }
 export function cueFixesAccept(id: number): Promise<DocumentSnapshot> {
   return commands.cueFixesAccept(id);
+}
+
+/** Native drop paths are metadata only; opening still enters protected owners. */
+export function listenFileDrop(receive: (paths: string[]) => void) {
+  return listen<{ paths: string[] }>('tauri://drag-drop', (event) =>
+    receive(event.payload.paths),
+  );
 }

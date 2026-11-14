@@ -633,3 +633,19 @@ Dark/compact are migration defaults. System mode follows the operating system;
 explicit Light/Dark ignore its changes. Global control padding uses tokens and
 preserves independent per-preset cue-row density. Modal close drains current native
 bounds after rendering before restoring video. See the Settings guide for controls.
+
+## Start and file opening
+
+StartScreen hides empty workspace presentation without remounting its owners.
+WorkspaceOpen classifies one project or one media/subtitle pair, holds the
+workspace gate during pick/open, and cleans up late native drop registration.
+A cancelled subtitle protection stops a pair before media changes. Projects and
+legacy import retain their own guarded workflows; legacy drops only preselect the
+review input. Picker/drop paths share openSubtitlePath/openMediaPath. Failed media
+commands do not publish a chosen path or detach the current project.
+
+RecoveryCard retains the Recovery owner's polling, discard confirmation and
+unsaved-copy behavior. It appears on Start and in a HideVideo dialog reachable
+from the toolbar after loading work. Dialog actions close presentation before
+entering Recovery's ordinary protected operation. No accepted history moves into
+start or recovery components.

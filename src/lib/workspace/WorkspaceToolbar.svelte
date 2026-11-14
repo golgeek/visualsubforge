@@ -15,6 +15,8 @@
     oncommands,
     onshortcuts,
     onlayout,
+    onrecovery,
+    recoveryAvailable = false,
   }: {
     workspace: Workspace;
     media: MediaSession;
@@ -26,6 +28,8 @@
     oncommands: () => void;
     onshortcuts: () => void;
     onlayout: () => void;
+    onrecovery?: () => void;
+    recoveryAvailable?: boolean;
     sceneState: { pending: boolean; running: boolean };
   } = $props();
   const doc = $derived(subtitles.snapshot);
@@ -35,6 +39,10 @@
 
 <header class="toolbar">
   <strong>VisualSubForge</strong>
+  {#if recoveryAvailable}<button
+      disabled={!workspace.canAct}
+      onclick={onrecovery}>Recovery</button
+    >{/if}
   <button disabled={!workspace.canAct} onclick={onlayout}>Layout</button>
   <button disabled={!workspace.canAct} onclick={oncommands}>Commands</button>
   <button

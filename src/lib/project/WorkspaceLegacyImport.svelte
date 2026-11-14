@@ -16,6 +16,7 @@
 
 {#if legacyDecision.payload}
   <LegacyImportDialog
+    initialPath={legacyDecision.payload.path}
     canOpen={media.status.available}
     onclose={(path, open) => void legacyDecision.finish(projects, path, open)}
   />

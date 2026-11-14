@@ -9,7 +9,7 @@ import type { ProjectWorkflow } from './project-workflow.svelte';
 import type { LegacyImportChoice } from './LegacyImportDialog.svelte';
 export class LegacyImportDecision extends WorkspaceDecision<
   LegacyImportChoice | null,
-  true
+  { path: string | null }
 > {
   private returnFocus: HTMLElement | null = null;
   constructor(
@@ -19,12 +19,12 @@ export class LegacyImportDecision extends WorkspaceDecision<
   ) {
     super(null, controls, decisionEffects(media, occlusion));
   }
-  openImport() {
+  openImport(path: string | null = null) {
     this.returnFocus =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    return this.show(true);
+    return this.show({ path });
   }
   async finish(projects: ProjectWorkflow, outputPath?: string, open = false) {
     if (outputPath) this.controls.notice = `Project created at ${outputPath}`;

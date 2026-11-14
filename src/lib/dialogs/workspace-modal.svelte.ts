@@ -4,6 +4,7 @@ export type AuthoringModal = 'styles' | 'fonts' | 'conversion' | 'plugins';
 
 export type WorkspaceModalIdentity =
   | AuthoringModal
+  | 'recovery'
   | 'settings'
   | 'resync'
   | 'commands'

@@ -52,6 +52,7 @@ for (const name of [
   'quality-settings',
   'settings-live',
   'appearance',
+  'start-screen',
   'quality-checking',
   'gap-review',
   'live-review',

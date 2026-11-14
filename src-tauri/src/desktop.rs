@@ -296,6 +296,7 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
 #[derive(Debug, PartialEq, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum FileChoice {
+    Workspace,
     Media,
     Subtitles,
     Font,
@@ -391,6 +392,9 @@ pub async fn choose_file(
                 .set_title("Save VSF Project As")
                 .add_filter("VSF project", &["vsfproject"])
                 .blocking_save_file(),
+            FileChoice::Workspace => dialog
+                .set_title("Open video, subtitles or project")
+                .blocking_pick_file(),
             FileChoice::Media => dialog.set_title("Open Media").blocking_pick_file(),
             FileChoice::Font => dialog
                 .set_title("Choose Font Attachment")

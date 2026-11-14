@@ -35,7 +35,11 @@
   import WorkspaceDialogs from './lib/dialogs/WorkspaceDialogs.svelte';
   import { WorkspaceDialogsState } from './lib/dialogs/workspace-dialogs.svelte';
   import { Recovery } from './lib/document/recovery.svelte';
-  import RecoveryBanner from './lib/document/RecoveryBanner.svelte';
+  import RecoveryDialog from './lib/document/RecoveryDialog.svelte';
+  import StartScreen from './lib/start/StartScreen.svelte';
+  import { WorkspaceOpen } from './lib/start/workspace-open';
+  import { openSubtitlePath } from './lib/workspace/workspace-file-actions';
+  import { openMediaPath } from './lib/media/media-actions';
   import { CueMenu } from './lib/cues/cue-menu.svelte';
   import FontDiagnostics from './lib/authoring/FontDiagnostics.svelte';
   import PlaybackDiagnostics from './lib/media/PlaybackDiagnostics.svelte';
@@ -513,6 +517,24 @@
     scenes,
   };
 
+  const opener = disposeWithComponent(
+    new WorkspaceOpen(
+      workspace,
+      async (file) => {
+        gestures.cancelHeld();
+        if (file.kind === 'subtitles')
+          return openSubtitlePath(fileActions, file.path);
+        if (file.kind === 'media')
+          return openMediaPath(mediaActions, file.path);
+        if (file.kind === 'project') await projects.openPath(file.path);
+        else await legacyDecision.openImport(file.path);
+        return false; // Projects/imports are exclusive; never continue a file pair.
+      },
+      () => tooltips.hide(),
+    ),
+  );
+  const startVisible = $derived(!doc.loaded && !status.loaded);
+
   const cueActions = {
     workspace,
     subtitles,
@@ -688,6 +710,7 @@
   onMount(() => {
     startup.start();
     menus.startListening();
+    if (nativeMenus) void opener.startListening();
     timeline.startPolling();
     videoLayout.mount(video!);
     recovery.startPolling();
@@ -706,13 +729,15 @@
 />
 <main
   aria-busy={workspace.busy || !workspace.ready}
-  class:has-recovery={recovery.status.entries.length > 0 ||
-    !!recovery.status.error}
+  class:start-visible={startVisible}
   style:--workspace-height={`${layout.workspaceHeight}px`}
   style:--workspace-min-height={`${layout.panes.minimum + 16}px`}
   style:--table-min-height={`${layout.panes.tableMinimum}px`}
 >
   <WorkspaceToolbar
+    recoveryAvailable={!startVisible &&
+      (recovery.status.entries.length > 0 || !!recovery.status.error)}
+    onrecovery={() => void workspaceModal.open('recovery')}
     onlayout={() => void workspaceModal.open('layout')}
     oncommands={() => void commands.open('actionMenu')}
     onshortcuts={() => void commands.open('shortcuts')}
@@ -725,10 +750,20 @@
     bind:showScenes={scenes.showScenes}
     sceneState={scenes.sceneState}
   />
-  <RecoveryBanner {recovery} {workspace} />
+  {#if startVisible}
+    <StartScreen
+      {workspace}
+      {recovery}
+      onopen={() => opener.pick()}
+      onnew={() => workspace.run('createCue')}
+      onimport={() => workspace.run('importLegacyProject')}
+    />
+  {/if}
 
   <div
     class="workspace"
+    class:start-hidden={startVisible}
+    inert={startVisible}
     class:custom={!!layout.custom}
     style:--custom-rows={layout.geometry.rows
       .map((value) => `${value}px`)
@@ -1099,6 +1134,17 @@
     timingSettings={preferences.timingSettings}
   />
   <WorkspaceLegacyImport {legacyDecision} {media} {projects} />
+  {#if workspaceModal.identity === 'recovery'}
+    <RecoveryDialog
+      {recovery}
+      {workspace}
+      onclose={() => workspaceModal.close()}
+      onchoose={async (id, copy) => {
+        await workspaceModal.close();
+        await recovery.choose(id, copy);
+      }}
+    />
+  {/if}
   {#if cueMenu.context && cueMenu.items.length}
     {#key cueMenu.context}
       <CueContextMenu
@@ -1122,8 +1168,23 @@
     overflow: auto;
   }
 
-  main.has-recovery {
-    grid-template-rows: 40px auto minmax(var(--workspace-min-height), 1fr) 20px;
+  main.start-visible {
+    grid-template-rows: 40px minmax(0, 1fr) 20px;
+  }
+  .workspace.start-hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .workspace.start-hidden :global(.video-space) {
+    visibility: visible;
+    position: fixed;
+    width: 0;
+    height: 0;
   }
 
   .workspace {
@@ -1191,7 +1252,7 @@
      This changes presentation only; drafts and accepted state stay mounted. */
   @media (max-width: 799px), (max-height: 609px) {
     main,
-    main.has-recovery {
+    main.start-visible {
       height: auto;
       min-height: 100dvh;
       grid-template-rows: auto;

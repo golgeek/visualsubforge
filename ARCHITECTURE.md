@@ -57,12 +57,25 @@ callbacks and delegates its short action switch to subtitle/project-file, media,
 cue-editing and view/panel action functions. `Workspace` owns task activity and messages and
 derives shared gates from modal, decision and gesture activity.
 Cue-table, cue-editor, waveform and shell markup live in components receiving the
-relevant owners. WorkspaceToolbar, RecoveryBanner, WorkspaceFooter,
+relevant owners. WorkspaceToolbar, RecoveryCard, WorkspaceFooter,
 PlaybackDiagnostics and FontDiagnostics retain scoped styles; WorkspaceDialogs
 renders feature content from the modal identity. TransportBar, CueOperationsBar, SubtitleToolbar and VideoPreview own their region
 markup and scoped styles. WorkspaceDecisions and WorkspaceLegacyImport render
 decision-owned payloads; ActionBrowser presents command discovery and searchable keyboard help. App creates owners and
-lays out regions.
+lays out regions. With no accepted document or loaded media, StartScreen replaces
+workspace presentation while the region owners remain mounted and inert. The
+zero-size video placeholder retains the window backdrop. New subtitles uses the
+existing accepted Create operation (an untitled SRT with its first empty cue).
+RecoveryCard reuses Recovery; loaded work reaches it through a HideVideo modal.
+
+WorkspaceOpen owns picker/drop admission and a disposable native drop listener.
+Classification rejects ambiguous groups before mutation. A video/subtitle pair
+opens subtitles first so cancellation of unsaved-work protection stops the pair;
+these are sequential operations, not a cross-file transaction. Subtitle/media
+paths reuse the picker continuations, projects use guarded ProjectWorkflow.openPath,
+and legacy paths preselect the existing explicit import review. Late picker and
+listener replies cannot reopen work after disposal. client.ts owns the native
+subscription boundary.
 Action labels, aliases and shortcut descriptions live in
 `workspace/action-descriptions.json`, imported by the frontend and embedded by
 Rust's native menu builder. Version-6 preferences hold validated bindings by

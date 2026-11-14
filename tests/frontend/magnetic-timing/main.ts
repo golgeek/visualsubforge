@@ -69,6 +69,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: {
         action?: MediaAction | DocumentAction;
         handler?: number;
+        event?: string;
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
         preset?: unknown;
@@ -92,6 +93,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             ignored: { englishUs: [], french: [] },
           };
         case 'plugin:event|listen':
+          if (args.event !== 'workspace-action') return 2;
           eventHandler = args.handler!;
           return 1;
         case 'quality_settings':

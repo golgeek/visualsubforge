@@ -6,16 +6,22 @@
 </script>
 
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { LegacyImportSession } from './legacy-import-session.svelte';
   let {
     onclose,
     canOpen = true,
+    initialPath = null,
   }: {
     onclose: (outputPath?: string, open?: boolean) => void;
     canOpen?: boolean;
+    initialPath?: string | null;
   } = $props();
   const session = new LegacyImportSession();
+  untrack(() => {
+    if (initialPath)
+      session.request = { ...session.request, path: initialPath };
+  });
   const report = $derived(session.view?.report);
   let dialog: HTMLDialogElement;
   onMount(() => {

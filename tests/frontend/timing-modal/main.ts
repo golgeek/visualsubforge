@@ -140,6 +140,7 @@ async function fixture(variant: (typeof variants)[number], above = true) {
         args: {
           action?: DocumentAction | MediaAction;
           handler?: number;
+          event?: string;
           id?: number;
         },
       ) => {
@@ -149,6 +150,7 @@ async function fixture(variant: (typeof variants)[number], above = true) {
           case 'quality_cancel':
             return null;
           case 'plugin:event|listen':
+            if (args.event !== 'workspace-action') return 2;
             handler = args.handler!;
             return 1;
           case 'plugin:event|unlisten':
