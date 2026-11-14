@@ -10,10 +10,12 @@
   import CueMetrics from '../quality/CueMetrics.svelte';
   import { formatTime } from '../timeline/timeline';
   import { measurePaneControl } from '../layout/measure-pane-control';
-  import type { TextFormat, QualityRule } from '../client';
+  import { matchesShortcut } from '../workspace/action-registry';
+  import type { TextFormat, QualityRule, ShortcutPreferences } from '../client';
   import type { AuthoringModal } from '../dialogs/workspace-modal.svelte';
   let {
     editing,
+    shortcuts,
     fixes,
     subtitles,
     media,
@@ -29,6 +31,7 @@
     actions,
   }: {
     editing: CueEditing;
+    shortcuts?: ShortcutPreferences;
     fixes: CueFixes;
     subtitles: DocumentSession;
     media: MediaSession;
@@ -98,12 +101,16 @@
       return;
     }
     if (
-      (e.metaKey || e.ctrlKey) &&
-      e.key === 'Enter' &&
-      !e.altKey &&
-      !e.shiftKey &&
       !e.repeat &&
-      !e.isComposing
+      !e.isComposing &&
+      (shortcuts
+        ? shortcuts.bindings.some(
+            (binding) =>
+              binding.action === 'apply' &&
+              ['global', 'alternate', 'text'].includes(binding.mode) &&
+              matchesShortcut(binding.key, e),
+          )
+        : matchesShortcut('CmdOrCtrl+Return', e))
     ) {
       e.preventDefault();
       void workspace.run('apply', e);

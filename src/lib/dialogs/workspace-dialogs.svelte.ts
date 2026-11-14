@@ -45,12 +45,14 @@ export class WorkspaceDialogsState {
     this.alive = false;
   }
 
+  acceptSettings(value: Preferences) {
+    if (!this.alive || this.modal.identity !== 'settings') return;
+    this.preferences.accept(value);
+    this.workspace.notice = 'Settings saved';
+  }
   async closeSettings(value?: Preferences) {
     if (!this.alive || this.modal.identity !== 'settings') return;
-    if (value) {
-      this.preferences.accept(value);
-      this.workspace.notice = 'Settings saved';
-    }
+    if (value) this.acceptSettings(value);
     await this.modal.close();
   }
 

@@ -419,3 +419,30 @@ fn selected_issues_group_speed_sort_errors_and_page_without_problem_filters() {
     assert_eq!(cue_issues(&findings, "1", u32::MAX).offset, 200);
     assert!(cue_issues(&findings, "missing", 0).issues.is_empty());
 }
+
+#[test]
+fn rule_counts_deduplicate_cues_and_related_findings_on_the_worker() {
+    let docs = fixture();
+    let view = ready(&docs);
+    assert!(!view.rule_cues.is_empty());
+    for count in &view.rule_cues {
+        let mut request = request(&docs);
+        request.rule = Some(count.rule);
+        let filtered = docs.quality_read(request).unwrap();
+        assert_eq!(count.cues, filtered.filtered_cues);
+    }
+    let mut findings = view.findings.clone();
+    findings.extend(view.findings.iter().cloned());
+    let doubled = rule_cues(&findings, || Ok(())).unwrap();
+    assert_eq!(
+        doubled
+            .iter()
+            .map(|count| (count.rule, count.cues))
+            .collect::<Vec<_>>(),
+        view.rule_cues
+            .iter()
+            .map(|count| (count.rule, count.cues))
+            .collect::<Vec<_>>()
+    );
+    assert!(rule_cues(&findings, || Err("cancelled".into())).is_err());
+}

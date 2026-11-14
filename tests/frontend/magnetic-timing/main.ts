@@ -77,7 +77,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     ) {
       calls.push(command);
       if (command === 'preferences_get')
-        return structuredClone(defaultPreferences);
+        return structuredClone(savedSettings ?? defaultPreferences);
       switch (command) {
         case 'quality_read':
           return emptyQuality(args);
@@ -111,7 +111,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (failSettings) throw new Error('Cannot save settings');
           savedSettings = args.preferences!;
           settingsEpoch++;
-          return;
+          return settingsEpoch;
         case 'plugin:event|unlisten':
           return;
         case 'update_menu':
@@ -419,6 +419,8 @@ async function run() {
       !!host.querySelector('dialog[open] .settings'),
       'Native settings action opens modal timing configuration',
     );
+    button('Timing and snapping').click();
+    await tick();
     const gap = [
       ...host.querySelectorAll<HTMLInputElement>(
         '.settings input[type="number"]',
@@ -426,7 +428,7 @@ async function run() {
     ][0]!;
     gap.value = '333';
     gap.dispatchEvent(new Event('change', { bubbles: true }));
-    button('Cancel').click();
+    button('Close').click();
     await until(() => !host.querySelector('dialog[open]'));
     // Closing the HTML dialog precedes acknowledged native video/focus cleanup.
     await until(() => !menuState?.busy);
@@ -438,9 +440,12 @@ async function run() {
     await until(() => !!host.querySelector('dialog[open] .settings'));
     assert(
       host.querySelector<HTMLInputElement>('.settings input[type="number"]')!
-        .value === '80' && savedSettings === null,
-      'Cancel discards settings drafts without writing preferences',
+        .value === '333' && savedSettings !== null,
+      'Close flushes valid instant settings and reopening restores accepted policy',
     );
+    button('Timing and snapping').click();
+    await tick();
+    failSettings = true;
     const beforeImport = doc.revision;
     button('Import timing preset').click();
     await until(() => !!host.textContent?.includes('Imported Imported gap'));
@@ -456,15 +461,22 @@ async function run() {
     failOpen = true;
     button('Import timing preset').click();
     await until(() => !!host.textContent?.includes('Invalid timing preset'));
-    failSettings = true;
-    button('Apply settings').click();
+    await until(() => !button('Close').disabled);
+    button('Close').click();
     await until(() => !!host.textContent?.includes('Cannot save settings'));
     assert(
-      !!host.querySelector('dialog[open]') && savedSettings === null,
+      !!host.querySelector('dialog[open]') &&
+        (savedSettings as Preferences | null)?.timing.cueGapMs === 333,
       'Failed settings save keeps the draft open without accepting it',
     );
     failSettings = false;
-    button('Apply settings').click();
+    button('Check saved settings').click();
+    await until(() => !!host.textContent?.includes('Saved settings checked'));
+    button('Retry save').click();
+    await until(
+      () => (savedSettings as Preferences | null)?.timing.cueGapMs === 200,
+    );
+    button('Close').click();
     await until(() => !host.querySelector('dialog[open]'));
     await until(() => !menuState?.busy);
     menuAction('saveProject');

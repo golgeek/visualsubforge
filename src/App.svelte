@@ -149,6 +149,7 @@
         if (!workspace.disposed) workspace.error = String(error);
       },
       () => !workspace.confirming && !workspace.busy && !cueMenu.active,
+      () => preferences.preferences.shortcuts,
     ),
   );
   setContext(tooltipContext, tooltips);
@@ -578,6 +579,11 @@
       return view.problemsOpen;
     },
     windows: __WINDOWS__,
+    get shortcuts() {
+      return preferences.preferences.shortcuts;
+    },
+    runCommand: (id: Parameters<WorkspaceCommands['run']>[0]) =>
+      commands.run(id),
     openCommands: (mode: 'commands' | 'shortcuts') => commands.open(mode),
     openText: (mode: 'find' | 'replace') => dialogs.openText(mode),
     requestProblem: navigation.requestProblem,
@@ -768,7 +774,11 @@
             columns: () => void workspaceModal.open('columns'),
             openCueMenu: (x, y, id, inRange) => cueMenu.open(x, y, id, inRange),
             selectCue: navigation.selectCue,
-            cueSelectionKey: navigation.cueSelectionKey,
+            cueSelectionKey: (event, id) => {
+              workspaceKeydown(event, keys);
+              if (!event.defaultPrevented)
+                navigation.cueSelectionKey(event, id);
+            },
             focusText: navigation.focusText,
           }}
         >
@@ -848,6 +858,7 @@
         layout.resizeEditor(layout.preset === 'editorAbove' ? 100 - v : v)}
     />
     <CueEditor
+      shortcuts={preferences.preferences.shortcuts}
       editing={cueEditing}
       fixes={cueFixes}
       editorAbove={layout.preset === 'editorAbove'}
@@ -932,6 +943,7 @@
   {/if}
   {#if commandMode}
     <ActionBrowser
+      shortcuts={preferences.preferences.shortcuts}
       mode={commandMode}
       context={commands.context}
       cues={doc.cues}
@@ -956,6 +968,7 @@
     bind:confirmation
   />
   <WorkspaceDialogs
+    {quality}
     {dialogs}
     {subtitles}
     {media}

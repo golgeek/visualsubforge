@@ -1,6 +1,34 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { windowsShortcut } from './shortcuts.ts';
+import { routeWorkspaceKey } from '../workspace/workspace-keys.ts';
+function routed(
+  e: Omit<Parameters<typeof routeWorkspaceKey>[0], 'code'>,
+  editing: boolean,
+) {
+  return routeWorkspaceKey(
+    { ...e, code: e.key === ' ' ? 'Space' : e.key },
+    {
+      editing,
+      control: false,
+      menu: false,
+      confirming: false,
+      problems: false,
+      windows: true,
+      available: true,
+      canAct: true,
+      timing: false,
+      paused: true,
+    },
+  );
+}
+function windowsShortcut(e: Parameters<typeof routed>[0], editing: boolean) {
+  const result = routed(e, editing);
+  return result?.kind === 'action' ? result.action : null;
+}
+function editingShortcut(e: Parameters<typeof routed>[0], editing: boolean) {
+  const result = routed(e, editing);
+  return result?.kind === 'editing' ? result.action : null;
+}
 
 const key = {
   key: 'o',
@@ -85,7 +113,6 @@ test('Cue shortcuts are explicit modified commands, never ordinary text deletion
 });
 
 test('Editing transport shortcuts work in text, while ordinary typing and AltGr stay local', async () => {
-  const { editingShortcut } = await import('./shortcuts.ts');
   const alt = { ...key, ctrlKey: false, altKey: true };
   for (const editing of [false, true]) {
     assert.equal(editingShortcut({ ...alt, key: ' ' }, editing), 'play');

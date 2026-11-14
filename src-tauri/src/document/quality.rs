@@ -151,7 +151,7 @@ impl Documents {
         policy: Policy,
         personal: WordLists,
         persist: impl FnOnce() -> Result<()>,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         if store.quality.epoch != epoch {
             return Err(
@@ -168,7 +168,7 @@ impl Documents {
         store.quality.personal = personal;
         store.quality.lexicon = Arc::new(lexicon);
         store.invalidate_checks();
-        Ok(())
+        Ok(next)
     }
     #[cfg(test)]
     pub(crate) fn initialize_quality(&self, policy: Policy) -> Result<()> {
@@ -182,6 +182,7 @@ impl Documents {
         persist: impl FnOnce() -> Result<()>,
     ) -> Result<()> {
         self.apply_preferences(epoch, policy, WordLists::default(), persist)
+            .map(|_| ())
     }
     pub(crate) fn reset_quality(&self) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;

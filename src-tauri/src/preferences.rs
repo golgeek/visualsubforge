@@ -1,6 +1,7 @@
 //! Small versioned user preferences; blocking IO stays off the UI thread.
 //! Projects retain their own timing policy and never write these defaults.
 pub mod layout;
+pub mod shortcuts;
 use crate::timing_preset::Settings as Timing;
 use layout::LayoutPreferences;
 use media_analysis::scenes::Detail;
@@ -19,6 +20,7 @@ type Result<T> = std::result::Result<T, String>;
 pub struct Preferences {
     version: u32,
     layout: LayoutPreferences,
+    pub(crate) shortcuts: shortcuts::Shortcuts,
     auto_scan_scenes: bool,
     scene_detail: Detail,
     timing: Timing,
@@ -30,8 +32,9 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            version: 3,
+            version: 4,
             layout: Default::default(),
+            shortcuts: Default::default(),
             auto_scan_scenes: true,
             scene_detail: Detail::Standard,
             timing: Timing::default(),
@@ -43,10 +46,11 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
-        if self.version != 3 {
+        if self.version != 4 {
             return Err("Unsupported settings version".into());
         }
         self.layout.validate()?;
+        self.shortcuts.validate()?;
         self.personal_words.validate().map_err(|e| e.to_string())?;
         self.policy().map(|_| ())
     }
@@ -107,6 +111,13 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
             );
         }
         object.insert("version".into(), 3.into());
+    }
+    if object.get("version").and_then(serde_json::Value::as_u64) == Some(3) {
+        object.insert(
+            "shortcuts".into(),
+            serde_json::to_value(shortcuts::Shortcuts::default()).map_err(|e| e.to_string())?,
+        );
+        object.insert("version".into(), 4.into());
     }
     if !object.contains_key("quality") {
         let timing: Timing = serde_json::from_value(
@@ -169,6 +180,7 @@ pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
         let value = read(&settings_path(&app)?)?;
         app.state::<crate::document::Documents>()
             .initialize_preferences(value.policy()?, value.personal_words.clone())?;
+        crate::desktop::with_shortcuts(&app, &value.shortcuts, || Ok(()))?;
         Ok(value)
     })
     .await
@@ -180,24 +192,29 @@ pub async fn preferences_save(
     app: tauri::AppHandle,
     preferences: Preferences,
     epoch: crate::ipc_number::SafeU64,
-) -> Result<()> {
+) -> Result<crate::ipc_number::SafeU64> {
     tauri::async_runtime::spawn_blocking(move || {
+        preferences.validate()?;
         let path = settings_path(&app)?;
         let policy = preferences.policy()?;
-        app.state::<crate::document::Documents>().apply_preferences(
-            epoch.get(),
-            policy,
-            preferences.personal_words.clone(),
-            || {
-                update(&path, |current| {
-                    // The dialog captures policy/words under the document epoch,
-                    // while pane changes can be saved independently during its life.
-                    let layout = current.layout.clone();
-                    *current = preferences;
-                    current.layout = layout;
-                })
-            },
-        )
+        let shortcuts = preferences.shortcuts.clone();
+        let next = app
+            .state::<crate::document::Documents>()
+            .apply_preferences(
+                epoch.get(),
+                policy,
+                preferences.personal_words.clone(),
+                || {
+                    crate::desktop::with_shortcuts(&app, &shortcuts, || {
+                        update(&path, |current| {
+                            let layout = current.layout.clone();
+                            *current = preferences;
+                            current.layout = layout;
+                        })
+                    })
+                },
+            )?;
+        crate::ipc_number::SafeU64::try_from(next).map_err(str::to_owned)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -219,6 +236,50 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 mod tests {
     use super::*;
     #[test]
+    fn version_three_shortcuts_migrate_and_rebinding_survives_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        old["version"] = 3.into();
+        old.as_object_mut().unwrap().remove("shortcuts");
+        let bytes = serde_json::to_vec(&old).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        let migrated = read(&path).unwrap();
+        assert_eq!(migrated.version, 4);
+        assert_eq!(migrated.shortcuts, shortcuts::Shortcuts::default());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        update(&path, |value| {
+            value.shortcuts.preset = shortcuts::Preset::Custom;
+            value
+                .shortcuts
+                .bindings
+                .iter_mut()
+                .find(|binding| {
+                    binding.action == "splitCue" && binding.mode == shortcuts::Mode::Global
+                })
+                .unwrap()
+                .key = "CmdOrCtrl+Shift+L".into();
+        })
+        .unwrap();
+        let restored = read(&path).unwrap();
+        assert_eq!(
+            restored.shortcuts.native_key("splitCue"),
+            Some("CmdOrCtrl+Shift+L")
+        );
+        let saved = fs::read(&path).unwrap();
+        assert!(
+            update(&path, |value| value
+                .shortcuts
+                .bindings
+                .iter_mut()
+                .find(|binding| binding.action == "splitCue")
+                .unwrap()
+                .key = "CmdOrCtrl+S".into())
+            .is_err()
+        );
+        assert_eq!(fs::read(&path).unwrap(), saved);
+    }
+    #[test]
     fn version_one_layout_migrates_without_writing_and_invalid_sizes_preserve_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
@@ -228,7 +289,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 3);
+        assert_eq!(migrated.version, 4);
         assert_eq!(migrated.layout, LayoutPreferences::default());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         update(&path, |p| {
@@ -265,7 +326,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 3);
+        assert_eq!(migrated.version, 4);
         assert_eq!(migrated.layout.translation.wave_pct, 45.0);
         assert_eq!(
             migrated.layout.timing.columns,

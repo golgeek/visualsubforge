@@ -498,7 +498,7 @@ async function run() {
     assert(!host.querySelector('dialog[open]'), 'Cmd+H was intercepted');
     window.dispatchEvent(
       new KeyboardEvent('keydown', {
-        key: 'h',
+        key: 'f',
         metaKey: true,
         shiftKey: true,
         bubbles: true,

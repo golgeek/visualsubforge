@@ -1,7 +1,7 @@
 // Real Settings UI, generated IPC and isolated filesystem. This does not replace
 // the controlled-response browser tests or native media/GPU validation.
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rmdir } from 'node:fs/promises';
+import { mkdir, readFile, rmdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export async function qualitySettings({
@@ -14,11 +14,22 @@ export async function qualitySettings({
   evidence,
   record,
 }) {
+  async function click(label) {
+    await until(`enabled ${label}`, async () => {
+      const button = await browser.$('button=' + label);
+      return (await button.isExisting()) && (await button.isEnabled());
+    });
+    await (await browser.$('button=' + label)).click();
+  }
   const before = await status();
   const context = (await invoke('quality_settings')).current;
   await menu('settings');
-  const apply = await browser.$('button=Apply settings');
-  await until('loaded quality Settings', () => apply.isEnabled());
+  await click('Quality profile');
+  await until('loaded quality Settings', () =>
+    browser
+      .$('[aria-label="Quality profile"]')
+      .then((item) => item.isEnabled()),
+  );
   const select = await browser.$('[aria-label="Quality profile"]');
   async function chooseProfile(id) {
     // The pinned embedded driver implements option clicks as HTMLElement.click,
@@ -40,7 +51,11 @@ export async function qualitySettings({
     await (await browser.$('.coverage')).getText(),
     /Partial coverage/,
   );
-  assert.equal((await invoke('quality_settings')).current.epoch, context.epoch);
+  await until(
+    'instant profile acceptance',
+    async () =>
+      (await invoke('quality_settings')).current.epoch > context.epoch,
+  );
   assert.deepEqual(await status(), before);
   const importButton = await browser.$('button=Import quality profile');
   await importButton.click(); // cancelled file selection
@@ -52,7 +67,7 @@ export async function qualitySettings({
     /Invalid|invalid/.test(await error.getText().catch(() => '')),
   );
   assert.equal(await select.getValue(), 'sw3-uk-vo-subset');
-  await (await browser.$('button=Export quality profile')).click();
+  await click('Export quality profile');
   const path = join(root, 'exported.vsfpreset');
   const exported = await until(
     'exported complete quality profile',
@@ -74,7 +89,7 @@ export async function qualitySettings({
     async () => (await select.getValue()) === exported.id,
   );
   await browser.saveScreenshot(join(evidence, 'quality-settings.png'));
-  await (await browser.$('button=Customize a copy')).click();
+  await click('Customize a copy');
   const name = await browser.$(
     '//label[contains(., "Custom profile name")]/input',
   );
@@ -83,27 +98,66 @@ export async function qualitySettings({
     '//label[contains(., "Maximum duration")]/input',
   );
   await maximum.setValue('6000');
-  await (await browser.$('button=Import timing preset')).click();
+  await until(
+    'custom quality acceptance',
+    async () =>
+      (await invoke('quality_settings')).current.profile.rules.duration
+        .maximumMs === 6000,
+  );
+  await click('Timing and snapping');
+  await click('Import timing preset');
   const gap = await browser.$('//label[contains(., "Between cues")]/input');
   await until(
     'timing-only import',
     async () => (await gap.getValue()) === '167',
   );
   assert.equal(await maximum.getValue(), '6000');
+  await until(
+    'instant imported timing acceptance',
+    async () =>
+      (await invoke('quality_settings')).current.timing.cueGapMs === 167,
+  );
+  const confirmed = (await invoke('quality_settings')).current;
 
   // A real atomic replacement failure, inside this test's isolated app-data
   // directory. It must not accept the draft or discard the previous policy.
   const settings = join(root, 'settings-v1.json');
+  await rename(settings, settings + '.backup');
   await mkdir(settings);
-  await apply.click();
-  await until(
-    'failed Settings write',
-    async () => (await error.getText().catch(() => '')).length > 0,
+  await gap.setValue('168');
+  await click('Close');
+  await until('failed Settings write', () =>
+    browser.execute(() =>
+      [...document.querySelectorAll('button')].some(
+        (b) => b.textContent.trim() === 'Check saved settings',
+      ),
+    ),
   );
-  assert.deepEqual((await invoke('quality_settings')).current, context);
+  assert.deepEqual((await invoke('quality_settings')).current, confirmed);
   assert.deepEqual(await status(), before);
   await rmdir(settings);
-  await apply.click();
+  await rename(settings + '.backup', settings);
+  await click('Check saved settings');
+  await until('reconciled settings', async () =>
+    browser.execute(() =>
+      [...document.querySelectorAll('button')].some(
+        (b) => b.textContent.trim() === 'Retry save' && !b.disabled,
+      ),
+    ),
+  );
+  await click('Retry save');
+  await until(
+    'explicit settings retry accepted',
+    async () =>
+      (await invoke('quality_settings')).current.timing.cueGapMs === 168,
+  );
+  await click('Undo settings change');
+  await until(
+    'settings Undo accepted',
+    async () =>
+      (await invoke('quality_settings')).current.timing.cueGapMs === 167,
+  );
+  await click('Close');
   await until(
     'closed applied Settings',
     async () => !(await (await browser.$('dialog[open]')).isExisting()),
@@ -122,7 +176,7 @@ export async function qualitySettings({
 
   await menu('settings');
   await until('reopened Settings', async () =>
-    (await browser.$('button=Apply settings')).isEnabled(),
+    (await browser.$('button=Close')).isEnabled(),
   );
   const current = (await invoke('quality_settings')).current;
   // Advance the real accepted epoch while the real dialog retains its draft.
@@ -130,7 +184,11 @@ export async function qualitySettings({
     preferences: stored,
     epoch: current.epoch,
   });
-  await (await browser.$('button=Apply settings')).click();
+  await click('Timing and snapping');
+  await (
+    await browser.$('//label[contains(., "Between cues")]/input')
+  ).setValue('169');
+  await click('Close');
   await until('stale Settings rejection', async () =>
     /Workspace settings changed/.test(
       await (
@@ -141,9 +199,13 @@ export async function qualitySettings({
     ),
   );
   assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), stored);
-  await (await (await browser.$('dialog[open]')).$('button=Cancel')).click();
+  await (
+    await (
+      await browser.$('dialog[open]')
+    ).$('button=Close without saving draft')
+  ).click();
   await record({
-    step: 'real quality selection/customization/import/export, failed write, retry and stale Apply',
+    step: 'real quality selection/customization/import/export, failed write, retry and stale instant save',
     profileId: stored.quality.id,
     documentUnchanged: true,
   });

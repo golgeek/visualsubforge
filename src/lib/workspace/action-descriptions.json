@@ -1,6 +1,6 @@
 {
   "settings": {
-    "label": "Settings…",
+    "label": "Settings\u2026",
     "group": "Edit",
     "native": true,
     "shortcut": "CmdOrCtrl+,",
@@ -9,7 +9,7 @@
     "macShortcut": null
   },
   "openMedia": {
-    "label": "Open Media…",
+    "label": "Open Media\u2026",
     "group": "File",
     "native": true,
     "shortcut": "CmdOrCtrl+O",
@@ -18,7 +18,7 @@
     "macShortcut": null
   },
   "openSubtitles": {
-    "label": "Open Subtitles…",
+    "label": "Open Subtitles\u2026",
     "group": "File",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+O",
@@ -36,7 +36,7 @@
     "macShortcut": null
   },
   "saveAs": {
-    "label": "Save Subtitles As…",
+    "label": "Save Subtitles As\u2026",
     "group": "File",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+S",
@@ -126,7 +126,7 @@
     "macShortcut": null
   },
   "openProject": {
-    "label": "Open Project…",
+    "label": "Open Project\u2026",
     "group": "File",
     "native": true,
     "shortcut": "",
@@ -135,7 +135,7 @@
     "macShortcut": null
   },
   "importLegacyProject": {
-    "label": "Import VisualSubSync Project…",
+    "label": "Import VisualSubSync Project\u2026",
     "group": "File",
     "native": true,
     "shortcut": "",
@@ -153,7 +153,7 @@
     "macShortcut": null
   },
   "saveProjectAs": {
-    "label": "Save Project As…",
+    "label": "Save Project As\u2026",
     "group": "File",
     "native": true,
     "shortcut": "",
@@ -162,7 +162,7 @@
     "macShortcut": null
   },
   "convertSubtitles": {
-    "label": "Export As…",
+    "label": "Export As\u2026",
     "group": "File",
     "native": true,
     "shortcut": "",
@@ -261,7 +261,7 @@
     "macShortcut": null
   },
   "resync": {
-    "label": "Resynchronize Subtitles…",
+    "label": "Resynchronize Subtitles\u2026",
     "group": "Tools",
     "native": true,
     "shortcut": "",
@@ -270,7 +270,7 @@
     "macShortcut": null
   },
   "plugins": {
-    "label": "Subtitle Plugins…",
+    "label": "Subtitle Plugins\u2026",
     "group": "Tools",
     "native": true,
     "shortcut": "",
@@ -315,7 +315,7 @@
     "macShortcut": null
   },
   "timingSettings": {
-    "label": "Timing and Scene Settings…",
+    "label": "Timing and Scene Settings\u2026",
     "group": "Tools",
     "native": true,
     "shortcut": "",
@@ -333,7 +333,7 @@
     "macShortcut": null
   },
   "find": {
-    "label": "Find…",
+    "label": "Find\u2026",
     "group": "Edit",
     "native": false,
     "shortcut": "CmdOrCtrl+F",
@@ -342,16 +342,16 @@
     "macShortcut": null
   },
   "replace": {
-    "label": "Replace…",
+    "label": "Replace\u2026",
     "group": "Edit",
     "native": false,
-    "shortcut": "Ctrl+H",
+    "shortcut": "CmdOrCtrl+Shift+F",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": "Meta+Shift+H"
+    "macShortcut": null
   },
   "fixGaps": {
-    "label": "Fix gaps and overlaps…",
+    "label": "Fix gaps and overlaps\u2026",
     "group": "Review",
     "native": false,
     "shortcut": "",
@@ -360,7 +360,7 @@
     "macShortcut": null
   },
   "fixReadingSpeed": {
-    "label": "Fix reading speed…",
+    "label": "Fix reading speed\u2026",
     "group": "Review",
     "native": false,
     "shortcut": "",
@@ -369,7 +369,7 @@
     "macShortcut": null
   },
   "snapShots": {
-    "label": "Snap to shot changes…",
+    "label": "Snap to shot changes\u2026",
     "group": "Review",
     "native": false,
     "shortcut": "",
@@ -378,7 +378,7 @@
     "macShortcut": null
   },
   "shiftCues": {
-    "label": "Shift / align cues…",
+    "label": "Shift / align cues\u2026",
     "group": "Review",
     "native": false,
     "shortcut": "",
@@ -387,7 +387,7 @@
     "macShortcut": null
   },
   "statistics": {
-    "label": "Statistics…",
+    "label": "Statistics\u2026",
     "group": "Review",
     "native": false,
     "shortcut": "",
@@ -522,7 +522,7 @@
     "macShortcut": null
   },
   "styles": {
-    "label": "Styles…",
+    "label": "Styles\u2026",
     "group": "Edit",
     "native": false,
     "shortcut": "",
@@ -531,7 +531,7 @@
     "macShortcut": null
   },
   "fonts": {
-    "label": "Fonts…",
+    "label": "Fonts\u2026",
     "group": "Edit",
     "native": false,
     "shortcut": "",
@@ -612,11 +612,38 @@
     "macShortcut": null
   },
   "textTools": {
-    "label": "Find / Replace…",
+    "label": "Find / Replace\u2026",
     "group": "Edit",
     "native": false,
     "shortcut": "",
     "aliases": ["Text tools"],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "setStart": {
+    "label": "Set start at playhead",
+    "group": "Cue",
+    "native": false,
+    "shortcut": "CmdOrCtrl+Shift+[",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "setEnd": {
+    "label": "Set end at playhead",
+    "group": "Cue",
+    "native": false,
+    "shortcut": "CmdOrCtrl+Shift+]",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null
+  },
+  "replay": {
+    "label": "Replay last 2 seconds",
+    "group": "Playback",
+    "native": false,
+    "shortcut": "CmdOrCtrl+Shift+Space",
+    "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null
   }

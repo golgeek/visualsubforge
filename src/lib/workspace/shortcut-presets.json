@@ -1,0 +1,1208 @@
+{
+  "current": [
+    {
+      "action": "settings",
+      "mode": "global",
+      "key": "CmdOrCtrl+,"
+    },
+    {
+      "action": "openMedia",
+      "mode": "global",
+      "key": "CmdOrCtrl+O"
+    },
+    {
+      "action": "openSubtitles",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+O"
+    },
+    {
+      "action": "save",
+      "mode": "global",
+      "key": "CmdOrCtrl+S"
+    },
+    {
+      "action": "saveAs",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+S"
+    },
+    {
+      "action": "undo",
+      "mode": "global",
+      "key": "CmdOrCtrl+Z"
+    },
+    {
+      "action": "redo",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+Z"
+    },
+    {
+      "action": "apply",
+      "mode": "global",
+      "key": "CmdOrCtrl+Return"
+    },
+    {
+      "action": "createCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+N"
+    },
+    {
+      "action": "deleteCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+D"
+    },
+    {
+      "action": "splitCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+K"
+    },
+    {
+      "action": "mergePrevious",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+H"
+    },
+    {
+      "action": "mergeNext",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+J"
+    },
+    {
+      "action": "play",
+      "mode": "global",
+      "key": "CmdOrCtrl+Alt+Return"
+    },
+    {
+      "action": "openProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "importLegacyProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "saveProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "saveProjectAs",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "convertSubtitles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "closeMedia",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "closeSubtitles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "translationReference",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "showScenes",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "resetLayout",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "diagnostics",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "previousFrame",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "nextFrame",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "playRange",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "clearLoop",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "resync",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "plugins",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "scanScenes",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "cancelSceneScan",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "previousScene",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "nextScene",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "timingSettings",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "quit",
+      "mode": "global",
+      "key": "CmdOrCtrl+Q"
+    },
+    {
+      "action": "find",
+      "mode": "global",
+      "key": "CmdOrCtrl+F"
+    },
+    {
+      "action": "replace",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+F"
+    },
+    {
+      "action": "fixGaps",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fixReadingSpeed",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "snapShots",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "shiftCues",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "statistics",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "problems",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "focusText",
+      "mode": "workspace",
+      "key": "Enter"
+    },
+    {
+      "action": "focusWaveform",
+      "mode": "global",
+      "key": "Escape"
+    },
+    {
+      "action": "seekBack",
+      "mode": "global",
+      "key": "Alt+Left"
+    },
+    {
+      "action": "seekForward",
+      "mode": "global",
+      "key": "Alt+Right"
+    },
+    {
+      "action": "seekBackFar",
+      "mode": "global",
+      "key": "Alt+Shift+Left"
+    },
+    {
+      "action": "seekForwardFar",
+      "mode": "global",
+      "key": "Alt+Shift+Right"
+    },
+    {
+      "action": "previousCue",
+      "mode": "global",
+      "key": "Alt+Up"
+    },
+    {
+      "action": "nextCue",
+      "mode": "global",
+      "key": "Alt+Down"
+    },
+    {
+      "action": "previousProblem",
+      "mode": "global",
+      "key": "Shift+F4"
+    },
+    {
+      "action": "nextProblem",
+      "mode": "global",
+      "key": "F4"
+    },
+    {
+      "action": "commandPalette",
+      "mode": "global",
+      "key": "CmdOrCtrl+K"
+    },
+    {
+      "action": "shortcutSheet",
+      "mode": "global",
+      "key": "?"
+    },
+    {
+      "action": "revertDraft",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "styles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fonts",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "zoomIn",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "zoomOut",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fitWaveform",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutTiming",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutEditorAbove",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutReview",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutTranslation",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutBigPicture",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "textTools",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "setStart",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+["
+    },
+    {
+      "action": "setEnd",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+]"
+    },
+    {
+      "action": "replay",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+Space"
+    },
+    {
+      "action": "play",
+      "mode": "alternate",
+      "key": "Alt+Space"
+    },
+    {
+      "action": "play",
+      "mode": "workspace",
+      "key": "Space"
+    }
+  ],
+  "vsfDefault": [
+    {
+      "action": "settings",
+      "mode": "global",
+      "key": "CmdOrCtrl+,"
+    },
+    {
+      "action": "openMedia",
+      "mode": "global",
+      "key": "CmdOrCtrl+O"
+    },
+    {
+      "action": "openSubtitles",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+O"
+    },
+    {
+      "action": "save",
+      "mode": "global",
+      "key": "CmdOrCtrl+S"
+    },
+    {
+      "action": "saveAs",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+S"
+    },
+    {
+      "action": "undo",
+      "mode": "global",
+      "key": "CmdOrCtrl+Z"
+    },
+    {
+      "action": "redo",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+Z"
+    },
+    {
+      "action": "apply",
+      "mode": "global",
+      "key": "CmdOrCtrl+Return"
+    },
+    {
+      "action": "createCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+N"
+    },
+    {
+      "action": "deleteCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+D"
+    },
+    {
+      "action": "splitCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+K"
+    },
+    {
+      "action": "mergePrevious",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+H"
+    },
+    {
+      "action": "mergeNext",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+J"
+    },
+    {
+      "action": "play",
+      "mode": "global",
+      "key": "CmdOrCtrl+Alt+Return"
+    },
+    {
+      "action": "openProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "importLegacyProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "saveProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "saveProjectAs",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "convertSubtitles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "closeMedia",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "closeSubtitles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "translationReference",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "showScenes",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "resetLayout",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "diagnostics",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "previousFrame",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "nextFrame",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "playRange",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "clearLoop",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "resync",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "plugins",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "scanScenes",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "cancelSceneScan",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "previousScene",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "nextScene",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "timingSettings",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "quit",
+      "mode": "global",
+      "key": "CmdOrCtrl+Q"
+    },
+    {
+      "action": "find",
+      "mode": "global",
+      "key": "CmdOrCtrl+F"
+    },
+    {
+      "action": "replace",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+F"
+    },
+    {
+      "action": "fixGaps",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fixReadingSpeed",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "snapShots",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "shiftCues",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "statistics",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "problems",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "focusText",
+      "mode": "workspace",
+      "key": "Enter"
+    },
+    {
+      "action": "focusWaveform",
+      "mode": "global",
+      "key": "Escape"
+    },
+    {
+      "action": "seekBack",
+      "mode": "global",
+      "key": "Alt+Left"
+    },
+    {
+      "action": "seekForward",
+      "mode": "global",
+      "key": "Alt+Right"
+    },
+    {
+      "action": "seekBackFar",
+      "mode": "global",
+      "key": "Alt+Shift+Left"
+    },
+    {
+      "action": "seekForwardFar",
+      "mode": "global",
+      "key": "Alt+Shift+Right"
+    },
+    {
+      "action": "previousCue",
+      "mode": "global",
+      "key": "Alt+Up"
+    },
+    {
+      "action": "nextCue",
+      "mode": "global",
+      "key": "Alt+Down"
+    },
+    {
+      "action": "previousProblem",
+      "mode": "global",
+      "key": "Shift+F4"
+    },
+    {
+      "action": "nextProblem",
+      "mode": "global",
+      "key": "F4"
+    },
+    {
+      "action": "commandPalette",
+      "mode": "global",
+      "key": "CmdOrCtrl+K"
+    },
+    {
+      "action": "shortcutSheet",
+      "mode": "global",
+      "key": "?"
+    },
+    {
+      "action": "revertDraft",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "styles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fonts",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "zoomIn",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "zoomOut",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fitWaveform",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutTiming",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutEditorAbove",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutReview",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutTranslation",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutBigPicture",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "textTools",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "setStart",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+["
+    },
+    {
+      "action": "setEnd",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+]"
+    },
+    {
+      "action": "replay",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+Space"
+    },
+    {
+      "action": "play",
+      "mode": "alternate",
+      "key": "Alt+Space"
+    },
+    {
+      "action": "play",
+      "mode": "workspace",
+      "key": "Space"
+    },
+    {
+      "action": "createCue",
+      "mode": "workspace",
+      "key": "N"
+    },
+    {
+      "action": "splitCue",
+      "mode": "workspace",
+      "key": "S"
+    },
+    {
+      "action": "mergeNext",
+      "mode": "workspace",
+      "key": "M"
+    },
+    {
+      "action": "mergePrevious",
+      "mode": "workspace",
+      "key": "Shift+M"
+    },
+    {
+      "action": "deleteCue",
+      "mode": "workspace",
+      "key": "Backspace"
+    },
+    {
+      "action": "previousCue",
+      "mode": "workspace",
+      "key": "Up"
+    },
+    {
+      "action": "nextCue",
+      "mode": "workspace",
+      "key": "Down"
+    },
+    {
+      "action": "previousFrame",
+      "mode": "workspace",
+      "key": "Left"
+    },
+    {
+      "action": "nextFrame",
+      "mode": "workspace",
+      "key": "Right"
+    },
+    {
+      "action": "seekBack",
+      "mode": "workspace",
+      "key": "Shift+Left"
+    },
+    {
+      "action": "seekForward",
+      "mode": "workspace",
+      "key": "Shift+Right"
+    },
+    {
+      "action": "setStart",
+      "mode": "workspace",
+      "key": "["
+    },
+    {
+      "action": "setEnd",
+      "mode": "workspace",
+      "key": "]"
+    },
+    {
+      "action": "setStart",
+      "mode": "text",
+      "key": "Alt+["
+    },
+    {
+      "action": "setEnd",
+      "mode": "text",
+      "key": "Alt+]"
+    },
+    {
+      "action": "play",
+      "mode": "text",
+      "key": "Tab"
+    },
+    {
+      "action": "replay",
+      "mode": "text",
+      "key": "Shift+Tab"
+    },
+    {
+      "action": "replay",
+      "mode": "workspace",
+      "key": "Shift+Space"
+    }
+  ],
+  "visualSubSyncClassic": [
+    {
+      "action": "settings",
+      "mode": "global",
+      "key": "CmdOrCtrl+,"
+    },
+    {
+      "action": "openMedia",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "openSubtitles",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+O"
+    },
+    {
+      "action": "save",
+      "mode": "global",
+      "key": "CmdOrCtrl+S"
+    },
+    {
+      "action": "saveAs",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+S"
+    },
+    {
+      "action": "undo",
+      "mode": "global",
+      "key": "CmdOrCtrl+Z"
+    },
+    {
+      "action": "redo",
+      "mode": "global",
+      "key": "CmdOrCtrl+Y"
+    },
+    {
+      "action": "apply",
+      "mode": "global",
+      "key": "CmdOrCtrl+Return"
+    },
+    {
+      "action": "createCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+N"
+    },
+    {
+      "action": "deleteCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+D"
+    },
+    {
+      "action": "splitCue",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+K"
+    },
+    {
+      "action": "mergePrevious",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+H"
+    },
+    {
+      "action": "mergeNext",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+J"
+    },
+    {
+      "action": "play",
+      "mode": "global",
+      "key": "F1"
+    },
+    {
+      "action": "openProject",
+      "mode": "global",
+      "key": "CmdOrCtrl+O"
+    },
+    {
+      "action": "importLegacyProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "saveProject",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "saveProjectAs",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "convertSubtitles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "closeMedia",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "closeSubtitles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "translationReference",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "showScenes",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "resetLayout",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "diagnostics",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "previousFrame",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "nextFrame",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "playRange",
+      "mode": "global",
+      "key": "F2"
+    },
+    {
+      "action": "clearLoop",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "resync",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "plugins",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "scanScenes",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "cancelSceneScan",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "previousScene",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "nextScene",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "timingSettings",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "quit",
+      "mode": "global",
+      "key": "CmdOrCtrl+Q"
+    },
+    {
+      "action": "find",
+      "mode": "global",
+      "key": "CmdOrCtrl+F"
+    },
+    {
+      "action": "replace",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+F"
+    },
+    {
+      "action": "fixGaps",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fixReadingSpeed",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "snapShots",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "shiftCues",
+      "mode": "global",
+      "key": "CmdOrCtrl+D"
+    },
+    {
+      "action": "statistics",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "problems",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "focusText",
+      "mode": "workspace",
+      "key": "Enter"
+    },
+    {
+      "action": "focusWaveform",
+      "mode": "global",
+      "key": "Escape"
+    },
+    {
+      "action": "seekBack",
+      "mode": "global",
+      "key": "Alt+Left"
+    },
+    {
+      "action": "seekForward",
+      "mode": "global",
+      "key": "Alt+Right"
+    },
+    {
+      "action": "seekBackFar",
+      "mode": "global",
+      "key": "Alt+Shift+Left"
+    },
+    {
+      "action": "seekForwardFar",
+      "mode": "global",
+      "key": "Alt+Shift+Right"
+    },
+    {
+      "action": "previousCue",
+      "mode": "global",
+      "key": "Alt+Up"
+    },
+    {
+      "action": "nextCue",
+      "mode": "global",
+      "key": "Alt+Down"
+    },
+    {
+      "action": "previousProblem",
+      "mode": "global",
+      "key": "Shift+F4"
+    },
+    {
+      "action": "nextProblem",
+      "mode": "global",
+      "key": "F4"
+    },
+    {
+      "action": "commandPalette",
+      "mode": "global",
+      "key": "CmdOrCtrl+K"
+    },
+    {
+      "action": "shortcutSheet",
+      "mode": "global",
+      "key": "?"
+    },
+    {
+      "action": "revertDraft",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "styles",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fonts",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "zoomIn",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "zoomOut",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "fitWaveform",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutTiming",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutEditorAbove",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutReview",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutTranslation",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "layoutBigPicture",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "textTools",
+      "mode": "global",
+      "key": ""
+    },
+    {
+      "action": "setStart",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+["
+    },
+    {
+      "action": "setEnd",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+]"
+    },
+    {
+      "action": "replay",
+      "mode": "global",
+      "key": "CmdOrCtrl+Shift+Space"
+    },
+    {
+      "action": "play",
+      "mode": "alternate",
+      "key": "Alt+Space"
+    },
+    {
+      "action": "play",
+      "mode": "workspace",
+      "key": "Space"
+    }
+  ]
+}

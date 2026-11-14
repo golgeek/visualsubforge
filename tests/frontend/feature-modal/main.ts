@@ -54,7 +54,7 @@ function button(label: string, root: ParentNode = host) {
   return result!;
 }
 const variants = [
-  { name: 'settings', close: 'Cancel', action: 'settings' },
+  { name: 'settings', close: 'Close', action: 'settings' },
   { name: 'resync', close: 'Close', action: 'resync' },
   { name: 'statistics', close: 'Close', action: null },
   { name: 'text', close: 'Close text tools', action: null },

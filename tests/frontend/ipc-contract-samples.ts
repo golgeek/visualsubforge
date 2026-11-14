@@ -1801,6 +1801,40 @@ export const qualityView = {
   },
   profileHash:
     'b3142b9ca7fcc4bfe20675eb0fb344f252adec1847deae31349c8fde9a18d2ba',
+  ruleCues: [
+    {
+      cues: 1,
+      rule: 'duration_short',
+    },
+    {
+      cues: 1,
+      rule: 'cps_high',
+    },
+    {
+      cues: 1,
+      rule: 'rs_low',
+    },
+    {
+      cues: 1,
+      rule: 'rs_high',
+    },
+    {
+      cues: 1,
+      rule: 'speed_unavailable',
+    },
+    {
+      cues: 1,
+      rule: 'line_length',
+    },
+    {
+      cues: 2,
+      rule: 'overlap',
+    },
+    {
+      cues: 2,
+      rule: 'gap',
+    },
+  ],
   sceneCoverage: 'noMedia',
   selected: {
     data: {
@@ -3434,6 +3468,381 @@ export const preferences = {
     version: 2,
   },
   sceneDetail: 'standard',
+  shortcuts: {
+    bindings: [
+      {
+        action: 'settings',
+        key: 'CmdOrCtrl+,',
+        mode: 'global',
+      },
+      {
+        action: 'openMedia',
+        key: 'CmdOrCtrl+O',
+        mode: 'global',
+      },
+      {
+        action: 'openSubtitles',
+        key: 'CmdOrCtrl+Shift+O',
+        mode: 'global',
+      },
+      {
+        action: 'save',
+        key: 'CmdOrCtrl+S',
+        mode: 'global',
+      },
+      {
+        action: 'saveAs',
+        key: 'CmdOrCtrl+Shift+S',
+        mode: 'global',
+      },
+      {
+        action: 'undo',
+        key: 'CmdOrCtrl+Z',
+        mode: 'global',
+      },
+      {
+        action: 'redo',
+        key: 'CmdOrCtrl+Shift+Z',
+        mode: 'global',
+      },
+      {
+        action: 'apply',
+        key: 'CmdOrCtrl+Return',
+        mode: 'global',
+      },
+      {
+        action: 'createCue',
+        key: 'CmdOrCtrl+Shift+N',
+        mode: 'global',
+      },
+      {
+        action: 'deleteCue',
+        key: 'CmdOrCtrl+Shift+D',
+        mode: 'global',
+      },
+      {
+        action: 'splitCue',
+        key: 'CmdOrCtrl+Shift+K',
+        mode: 'global',
+      },
+      {
+        action: 'mergePrevious',
+        key: 'CmdOrCtrl+Shift+H',
+        mode: 'global',
+      },
+      {
+        action: 'mergeNext',
+        key: 'CmdOrCtrl+Shift+J',
+        mode: 'global',
+      },
+      {
+        action: 'play',
+        key: 'CmdOrCtrl+Alt+Return',
+        mode: 'global',
+      },
+      {
+        action: 'openProject',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'importLegacyProject',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'saveProject',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'saveProjectAs',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'convertSubtitles',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'closeMedia',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'closeSubtitles',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'translationReference',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'showScenes',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'resetLayout',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'diagnostics',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'previousFrame',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'nextFrame',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'playRange',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'clearLoop',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'resync',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'plugins',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'scanScenes',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'cancelSceneScan',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'previousScene',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'nextScene',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'timingSettings',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'quit',
+        key: 'CmdOrCtrl+Q',
+        mode: 'global',
+      },
+      {
+        action: 'find',
+        key: 'CmdOrCtrl+F',
+        mode: 'global',
+      },
+      {
+        action: 'replace',
+        key: 'CmdOrCtrl+Shift+F',
+        mode: 'global',
+      },
+      {
+        action: 'fixGaps',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'fixReadingSpeed',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'snapShots',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'shiftCues',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'statistics',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'problems',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'focusText',
+        key: 'Enter',
+        mode: 'workspace',
+      },
+      {
+        action: 'focusWaveform',
+        key: 'Escape',
+        mode: 'global',
+      },
+      {
+        action: 'seekBack',
+        key: 'Alt+Left',
+        mode: 'global',
+      },
+      {
+        action: 'seekForward',
+        key: 'Alt+Right',
+        mode: 'global',
+      },
+      {
+        action: 'seekBackFar',
+        key: 'Alt+Shift+Left',
+        mode: 'global',
+      },
+      {
+        action: 'seekForwardFar',
+        key: 'Alt+Shift+Right',
+        mode: 'global',
+      },
+      {
+        action: 'previousCue',
+        key: 'Alt+Up',
+        mode: 'global',
+      },
+      {
+        action: 'nextCue',
+        key: 'Alt+Down',
+        mode: 'global',
+      },
+      {
+        action: 'previousProblem',
+        key: 'Shift+F4',
+        mode: 'global',
+      },
+      {
+        action: 'nextProblem',
+        key: 'F4',
+        mode: 'global',
+      },
+      {
+        action: 'commandPalette',
+        key: 'CmdOrCtrl+K',
+        mode: 'global',
+      },
+      {
+        action: 'shortcutSheet',
+        key: '?',
+        mode: 'global',
+      },
+      {
+        action: 'revertDraft',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'styles',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'fonts',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'zoomIn',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'zoomOut',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'fitWaveform',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'layoutTiming',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'layoutEditorAbove',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'layoutReview',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'layoutTranslation',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'layoutBigPicture',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'textTools',
+        key: '',
+        mode: 'global',
+      },
+      {
+        action: 'setStart',
+        key: 'CmdOrCtrl+Shift+[',
+        mode: 'global',
+      },
+      {
+        action: 'setEnd',
+        key: 'CmdOrCtrl+Shift+]',
+        mode: 'global',
+      },
+      {
+        action: 'replay',
+        key: 'CmdOrCtrl+Shift+Space',
+        mode: 'global',
+      },
+      {
+        action: 'play',
+        key: 'Alt+Space',
+        mode: 'alternate',
+      },
+      {
+        action: 'play',
+        key: 'Space',
+        mode: 'workspace',
+      },
+    ],
+    preset: 'current',
+  },
   showQualityMetrics: false,
   timing: {
     cueGapMs: 80,
@@ -3444,5 +3853,5 @@ export const preferences = {
     snapDistancePx: 8,
     snapScenes: true,
   },
-  version: 3,
+  version: 4,
 } satisfies Preferences;

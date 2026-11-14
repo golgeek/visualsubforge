@@ -1,5 +1,5 @@
 import descriptions from './action-descriptions.json' with { type: 'json' };
-import type { WorkspaceAction } from '../client';
+import type { WorkspaceAction, ShortcutPreferences } from '../client';
 
 export type ActionId = keyof typeof descriptions;
 export type ActionGroup =
@@ -22,8 +22,30 @@ export const actions = Object.entries(descriptions).map(
     ...description,
   }),
 );
-export function actionDescription(id: ActionId): ActionDescription {
-  return descriptions[id];
+export function actionDescription(
+  id: ActionId,
+  shortcuts?: ShortcutPreferences,
+): ActionDescription {
+  if (!shortcuts) return descriptions[id];
+  const bindings = shortcuts.bindings.filter(
+    (binding) => binding.action === id && binding.key,
+  );
+  const primary =
+    bindings.find((binding) => binding.mode === 'global') ?? bindings[0];
+  return {
+    ...descriptions[id],
+    shortcut: primary?.key ?? '',
+    macShortcut: null,
+    alternateShortcuts: bindings
+      .filter((binding) => binding !== primary)
+      .map((binding) => binding.key),
+  };
+}
+export function actionsFor(shortcuts?: ShortcutPreferences) {
+  return actions.map((action) => ({
+    id: action.id,
+    ...actionDescription(action.id, shortcuts),
+  }));
 }
 export function isNativeAction(id: ActionId): id is WorkspaceAction {
   return descriptions[id].native;
@@ -65,6 +87,7 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
       return state.document || state.media ? null : 'Open subtitles or media';
     case 'closeMedia':
     case 'play':
+    case 'replay':
     case 'previousFrame':
     case 'nextFrame':
     case 'zoomIn':
@@ -115,6 +138,13 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
     case 'apply':
     case 'revertDraft':
       return state.draft ? null : 'No unapplied edit';
+    case 'setStart':
+    case 'setEnd':
+      return !state.cue
+        ? 'Select a cue'
+        : state.media
+          ? null
+          : 'Open media first';
     case 'focusText':
     case 'previousCue':
     case 'nextCue':
@@ -177,7 +207,7 @@ export function matchesShortcut(shortcut: string, event: ShortcutKey): boolean {
   return (
     (keyNames[key] ?? key).toLowerCase() === event.key.toLowerCase() &&
     (mod
-      ? event.ctrlKey || event.metaKey
+      ? event.ctrlKey !== event.metaKey
       : event.ctrlKey === parts.includes('Ctrl') &&
         event.metaKey === parts.includes('Meta')) &&
     event.altKey === parts.includes('Alt') &&

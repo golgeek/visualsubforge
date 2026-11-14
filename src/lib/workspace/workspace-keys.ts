@@ -1,10 +1,24 @@
-import { actionDescription, matchesShortcut } from './action-registry.ts';
 import {
-  editingShortcut,
-  windowsShortcut,
-  type EditingShortcut,
-} from '../timing/shortcuts.ts';
-import { clamp } from '../timeline/timeline.ts';
+  isNativeAction,
+  matchesShortcut,
+  type ActionId,
+} from './action-registry.ts';
+import { shortcutPreset } from './shortcut-settings.ts';
+export type EditingShortcut =
+  | 'setStart'
+  | 'setEnd'
+  | 'replay'
+  | 'play'
+  | 'seekBack'
+  | 'seekForward'
+  | 'seekBackFar'
+  | 'seekForwardFar'
+  | 'previousCue'
+  | 'nextCue'
+  | 'focusText'
+  | 'focusWaveform';
+import type { ShortcutPreferences } from '../client';
+import { clamp, formatTime } from '../timeline/timeline.ts';
 import type { WorkspaceAction } from '../client';
 import type { Workspace } from './workspace.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
@@ -28,6 +42,8 @@ type Key = Pick<
 >;
 interface KeyContext {
   editing: boolean;
+  cueText?: boolean;
+  workspaceFocus?: boolean;
   control: boolean;
   menu: boolean;
   confirming: boolean;
@@ -43,6 +59,7 @@ export type WorkspaceKeyRoute =
   | { kind: 'problem'; previous: boolean }
   | { kind: 'editing'; action: EditingShortcut }
   | { kind: 'action'; action: WorkspaceAction }
+  | { kind: 'command'; action: ActionId }
   | { kind: 'browser'; mode: 'commands' | 'shortcuts' }
   | { kind: 'held' }
   | { kind: 'consume' };
@@ -51,59 +68,79 @@ export type WorkspaceKeyRoute =
 export function routeWorkspaceKey(
   e: Key,
   context: KeyContext,
+  shortcuts: ShortcutPreferences = shortcutPreset('current'),
 ): WorkspaceKeyRoute | null {
   if (e.isComposing || e.defaultPrevented || context.menu || context.confirming)
     return null;
+  const mode =
+    (context.cueText ?? context.editing)
+      ? 'text'
+      : !context.editing && !context.control && (context.workspaceFocus ?? true)
+        ? 'workspace'
+        : 'control';
+  const binding = shortcuts.bindings.find(
+    (binding) =>
+      (binding.mode === 'global' ||
+        binding.mode === 'alternate' ||
+        binding.mode === mode) &&
+      matchesShortcut(binding.key, e),
+  );
+  if (!binding) return null;
+  const action = binding.action as ActionId;
   if (
-    !e.repeat &&
-    matchesShortcut(actionDescription('commandPalette').shortcut, e)
-  )
-    return { kind: 'browser', mode: 'commands' };
-  if (
-    !e.repeat &&
-    !context.editing &&
-    matchesShortcut(actionDescription('shortcutSheet').shortcut, e)
-  )
-    return { kind: 'browser', mode: 'shortcuts' };
-  if (
-    !e.repeat &&
-    (matchesShortcut(actionDescription('find').shortcut, e) ||
-      matchesShortcut(actionDescription('replace').shortcut, e) ||
-      matchesShortcut(actionDescription('replace').macShortcut!, e))
-  )
-    return {
-      kind: 'text',
-      mode: matchesShortcut(actionDescription('find').shortcut, e)
-        ? 'find'
-        : 'replace',
-    };
-  if (
-    context.problems &&
-    (matchesShortcut(actionDescription('previousProblem').shortcut, e) ||
-      matchesShortcut(actionDescription('nextProblem').shortcut, e))
-  )
-    return { kind: 'problem', previous: e.shiftKey };
-  const shortcut = editingShortcut(e, context.editing);
-  if (shortcut && !(shortcut === 'focusText' && context.control))
-    return { kind: 'editing', action: shortcut };
-  if (context.windows) {
-    const action = windowsShortcut(e, context.editing);
-    if (action)
-      return action === 'openMedia' && !context.available
-        ? { kind: 'consume' }
-        : { kind: 'action', action };
-  }
-  if (
-    matchesShortcut(actionDescription('play').alternateShortcuts[1]!, e) &&
-    !context.editing &&
-    !context.control
+    action === 'play' &&
+    binding.mode === 'workspace' &&
+    binding.key === 'Space'
   ) {
     if (e.repeat || !context.canAct) return { kind: 'consume' };
     return context.timing && !context.paused
       ? { kind: 'held' }
       : { kind: 'action', action: 'play' };
   }
-  return null;
+  if (e.repeat && action !== 'previousProblem' && action !== 'nextProblem')
+    return null;
+  if (action === 'commandPalette') return { kind: 'browser', mode: 'commands' };
+  if (action === 'shortcutSheet' && context.editing && binding.key === '?')
+    return null;
+  if (action === 'shortcutSheet') return { kind: 'browser', mode: 'shortcuts' };
+  if (action === 'find' || action === 'replace')
+    return { kind: 'text', mode: action };
+  if (action === 'previousProblem' || action === 'nextProblem')
+    return context.problems
+      ? { kind: 'problem', previous: action === 'previousProblem' }
+      : null;
+  if (
+    [
+      'focusText',
+      'focusWaveform',
+      'seekBack',
+      'seekForward',
+      'seekBackFar',
+      'seekForwardFar',
+      'previousCue',
+      'nextCue',
+      'setStart',
+      'setEnd',
+      'replay',
+    ].includes(action)
+  ) {
+    if (action === 'focusText' && context.control) return null;
+    return { kind: 'editing', action: action as EditingShortcut };
+  }
+  if (action === 'play' && binding.mode !== 'global')
+    return { kind: 'editing', action: 'play' };
+  if (isNativeAction(action)) {
+    if (context.editing && (action === 'undo' || action === 'redo'))
+      return null;
+    // Primary native accelerators dispatch from menus on macOS/Linux. WebView2
+    // needs the existing unconsumed-key fallback; scoped keys live in the DOM.
+    if (binding.mode === 'global' && (!context.windows || e.metaKey))
+      return null;
+    return action === 'openMedia' && !context.available
+      ? { kind: 'consume' }
+      : { kind: 'action', action };
+  }
+  return { kind: 'command', action };
 }
 
 interface KeyOwners {
@@ -118,6 +155,8 @@ interface KeyOwners {
   waveformGesture: boolean;
   problemsOpen: boolean;
   windows: boolean;
+  shortcuts: ShortcutPreferences;
+  runCommand: (id: ActionId) => Promise<void>;
   openCommands: (mode: 'commands' | 'shortcuts') => Promise<void>;
   openText: (mode: 'find' | 'replace') => Promise<void>;
   requestProblem: (id: string) => void;
@@ -129,23 +168,33 @@ interface KeyOwners {
 
 export function workspaceKeydown(e: KeyboardEvent, owners: KeyOwners) {
   const { workspace, gestures, media, quality } = owners;
-  const route = routeWorkspaceKey(e, {
-    editing:
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      (e.target instanceof HTMLElement && e.target.isContentEditable),
-    control:
-      e.target instanceof HTMLButtonElement ||
-      e.target instanceof HTMLSelectElement,
-    menu: owners.menu,
-    confirming: workspace.confirming,
-    problems: owners.problemsOpen,
-    windows: owners.windows,
-    available: media.status.available,
-    canAct: workspace.canAct,
-    timing: gestures.mode,
-    paused: media.status.paused,
-  });
+  const route = routeWorkspaceKey(
+    e,
+    {
+      cueText:
+        e.target instanceof HTMLTextAreaElement &&
+        !!e.target.closest('.editor'),
+      workspaceFocus:
+        e.target instanceof Element && !!e.target.closest('.cue-table, .wave'),
+      editing:
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable),
+      control:
+        (e.target instanceof HTMLButtonElement &&
+          !e.target.matches('.cue-row')) ||
+        e.target instanceof HTMLSelectElement,
+      menu: owners.menu,
+      confirming: workspace.confirming,
+      problems: owners.problemsOpen,
+      windows: owners.windows,
+      available: media.status.available,
+      canAct: workspace.canAct,
+      timing: gestures.mode,
+      paused: media.status.paused,
+    },
+    owners.shortcuts,
+  );
   if (!route) return;
   e.preventDefault();
   switch (route.kind) {
@@ -164,6 +213,9 @@ export function workspaceKeydown(e: KeyboardEvent, owners: KeyOwners) {
     }
     case 'editing':
       void editingKey(route.action, owners);
+      break;
+    case 'command':
+      void owners.runCommand(route.action);
       break;
     case 'action':
       void workspace.run(route.action);
@@ -188,6 +240,64 @@ export async function editingKey(action: EditingShortcut, owners: KeyOwners) {
   } = owners;
   if (!workspace.canAct || owners.menu || owners.waveformGesture) return;
   gestures.cancelHeld();
+  if (action === 'setStart' || action === 'setEnd') {
+    const { subtitles } = owners;
+    const selected = subtitles.selected;
+    const generation = subtitles.snapshot.generation;
+    const status = media.status;
+    if (
+      !status.loaded ||
+      media.pending ||
+      status.seeking ||
+      status.positionSeconds === null ||
+      !subtitles.cue
+    )
+      return;
+    const step = subtitles.snapshot.format?.timeStepMs ?? 1;
+    const position = Math.round((status.positionSeconds * 1000) / step) * step;
+    await workspace.task(async () => {
+      if (
+        !(await subtitles.apply()) ||
+        workspace.disposed ||
+        subtitles.selected !== selected ||
+        subtitles.snapshot.generation !== generation ||
+        media.status.session !== status.session
+      )
+        return;
+      const cue = subtitles.cue;
+      if (!cue) return;
+      if (
+        position < 0 ||
+        (action === 'setStart'
+          ? position >= cue.endMs
+          : position <= cue.startMs)
+      )
+        throw new Error(
+          'The start must be before the end. Move the playhead and try again.',
+        );
+      if (action === 'setStart') subtitles.start = formatTime(position);
+      else subtitles.end = formatTime(position);
+      await subtitles.apply(null);
+    });
+    return;
+  }
+  if (action === 'replay') {
+    const status = media.status;
+    if (!status.loaded || media.pending || status.positionSeconds === null)
+      return;
+    const seconds = Math.max(0, status.positionSeconds - 2);
+    await workspace.task(async () => {
+      if (
+        !(await media.command({ kind: 'seek', seconds })) ||
+        workspace.disposed ||
+        media.status.session !== status.session
+      )
+        return;
+      if (media.status.paused)
+        await media.command({ kind: 'pause', paused: false });
+    });
+    return;
+  }
   if (action === 'play') {
     await workspace.run('play');
     return;

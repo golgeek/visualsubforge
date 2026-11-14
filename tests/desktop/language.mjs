@@ -233,6 +233,7 @@ export async function languageTools({
         preferences.personalWords = { englishUs: [], french: [] };
         await invoke('preferences_save', { preferences, epoch: context.epoch });
         await menu('settings');
+        await click('Spelling and language');
         await click('Customize a copy');
         await input('Language dictionary', language);
         await browser.execute(() => {
@@ -251,7 +252,7 @@ export async function languageTools({
             ),
           ),
         );
-        await click('Apply settings');
+        await click('Close');
         await ready();
         const policy = (await invoke('quality_settings')).current.profile;
         assert.equal(policy.languageTools.dictionary, language);
@@ -378,6 +379,7 @@ export async function languageTools({
         );
         await ready();
         await menu('settings');
+        await click('Spelling and language');
         await until('personal words loaded', () =>
           browser.execute(
             () =>
@@ -390,7 +392,7 @@ export async function languageTools({
             : 'English (US) personal words',
           personalName,
         );
-        await click('Apply settings');
+        await click('Close');
         await ready();
         await spellingFilter();
         const recoveryEdit = await correct(typo, correctWord, 1);
@@ -473,6 +475,7 @@ export async function languageTools({
         // Problems and reviewed text UI, keeping every correction independent.
         await ready();
         await menu('settings');
+        await click('Spelling and language');
         await click('Customize a copy');
         await browser.execute(() => {
           for (const label of [
@@ -488,7 +491,7 @@ export async function languageTools({
             if (e.checked !== (label !== 'Check spelling')) e.click();
           }
         });
-        await click('Apply settings');
+        await click('Close');
         await ready();
         const visible = language === 'fr' ? '-bonjour...' : '—hello...';
         const editorialLine =

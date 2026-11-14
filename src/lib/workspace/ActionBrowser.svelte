@@ -1,15 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Kbd from '../ui/Kbd.svelte';
+  import { shortcutModes } from './shortcut-settings';
   import {
-    actions,
+    actionsFor,
     unavailable,
     type ActionId,
     type ActionContext,
   } from './action-registry';
-  import type { Cue } from '../client';
+  import type { Cue, ShortcutPreferences } from '../client';
   let {
     mode,
+    shortcuts,
     context,
     cues,
     onaction,
@@ -17,6 +19,7 @@
     onclose,
   }: {
     mode: 'commands' | 'shortcuts' | 'actionMenu';
+    shortcuts?: ShortcutPreferences;
     context: ActionContext;
     cues: Cue[];
     onaction: (id: ActionId) => Promise<void>;
@@ -30,7 +33,7 @@
   const mac = navigator.platform.startsWith('Mac');
   const search = $derived(query.trim().toLocaleLowerCase());
   const filtered = $derived(
-    actions.filter((action) =>
+    actionsFor(shortcuts).filter((action) =>
       [action.label, action.group, ...action.aliases].some((text) =>
         text.toLocaleLowerCase().includes(search),
       ),
@@ -144,15 +147,26 @@
           : action.shortcut}
         {#if mode === 'shortcuts'}
           <div class="shortcut-row" data-action={action.id}>
-            <span>{action.label}</span><span class="bindings"
-              ><Kbd
-                {shortcut}
-              />{#each action.alternateShortcuts as alternative (alternative)}<Kbd
-                  shortcut={alternative}
-                />{/each}{#if !shortcut && !action.alternateShortcuts.length}<small
-                  >Unassigned</small
-                >{/if}</span
-            >
+            <span>{action.label}</span><span class="bindings">
+              {#if shortcuts}
+                {#each shortcuts.bindings.filter((binding) => binding.action === action.id && binding.key) as binding (binding.mode)}
+                  <span
+                    ><small
+                      >{shortcutModes.find((mode) => mode.id === binding.mode)
+                        ?.label}</small
+                    ><Kbd shortcut={binding.key} /></span
+                  >
+                {:else}<small>Unassigned</small>{/each}
+              {:else}
+                <Kbd {shortcut} />
+                {#each action.alternateShortcuts as alternative (alternative)}<Kbd
+                    shortcut={alternative}
+                  />{/each}
+                {#if !shortcut && !action.alternateShortcuts.length}<small
+                    >Unassigned</small
+                  >{/if}
+              {/if}
+            </span>
           </div>
         {:else}
           <button
@@ -172,9 +186,10 @@
       </p>{/if}
   </div>
   {#if mode === 'shortcuts'}<p class="note">
-      Plain Space stays text in the editor. Hold Space during playback in Timing
-      mode to create a cue. Native menu shortcuts and text-input history retain
-      their platform behavior.
+      Plain keys in the list / waveform never replace ordinary text typing.
+      Check focus modes in Settings → Shortcuts. Plain Space stays text in the
+      editor. Hold Space during playback in Timing mode to create a cue. Native
+      menu shortcuts and text-input history retain their platform behavior.
     </p>{/if}
 </dialog>
 
@@ -238,6 +253,7 @@
   }
   .bindings {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
   .note {

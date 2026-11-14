@@ -102,7 +102,7 @@ test('unavailable actions explain the missing condition and become available', (
     null,
   );
 });
-test('bindings are unique per native or webview routing surface; the pre-existing Mac collision stays explicit', () => {
+test('default bindings resolve the previous Mac Merge/Replace collision', () => {
   for (const mac of [false, true]) {
     const bindings = new Map<string, string[]>();
     for (const action of actions) {
@@ -115,12 +115,7 @@ test('bindings are unique per native or webview routing surface; the pre-existin
       }
     }
     const collisions = [...bindings].filter(([, ids]) => ids.length > 1);
-    // Native Merge and the webview's Replace already share this Mac chord.
-    // 026c preserves defaults; 026h must resolve the cross-surface preset choice.
-    assert.deepEqual(
-      collisions,
-      mac ? [['⌘⇧H', ['mergePrevious', 'replace']]] : [],
-    );
+    assert.deepEqual(collisions, []);
   }
 });
 test('legacy tool aliases remain searchable and platform glyphs agree', () => {

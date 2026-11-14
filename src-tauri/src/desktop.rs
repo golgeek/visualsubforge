@@ -1,5 +1,7 @@
 //! Native menus/dialogs route to the same frontend operation dispatcher as buttons.
+mod shortcuts;
 use serde::{Deserialize, Serialize};
+pub(crate) use shortcuts::with_shortcuts;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     Manager,
@@ -64,6 +66,7 @@ pub struct ExitGate(pub AtomicBool);
 
 #[derive(Deserialize)]
 struct ActionDescription {
+    native: bool,
     label: String,
     shortcut: String,
 }
@@ -75,6 +78,7 @@ fn action_descriptions() -> tauri::Result<std::collections::BTreeMap<String, Act
 }
 
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
+    app.manage(shortcuts::Runtime::default());
     let descriptions = action_descriptions()?;
     let description = |id: &str| {
         descriptions.get(id).ok_or_else(|| {
