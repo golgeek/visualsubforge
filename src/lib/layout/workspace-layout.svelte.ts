@@ -37,9 +37,9 @@ export class WorkspaceLayout {
     this.video = new HideVideo(effects);
   }
   workspaceHeight = $state(600);
-  editorBarHeight = $state(0);
-  editorFooterHeight = $state(0);
-  qualityReadoutHeight = $state(0);
+  editorBarHeight = $state(28);
+  editorFooterHeight = $state(28);
+  qualityReadoutHeight = $state(44);
   transportHeight = $state(0);
   get active() {
     return this.changing;

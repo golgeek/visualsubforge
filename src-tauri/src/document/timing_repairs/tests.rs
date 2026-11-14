@@ -303,3 +303,90 @@ fn worker_failure_is_visible_and_a_new_preview_can_recover() {
     let next = start(&docs, &scenes);
     assert_eq!(ready(&docs, next).changed, 2);
 }
+
+fn ready_cue_fixes(docs: &Documents, id: u64) -> crate::cue_fixes::View {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let view = docs.cue_fixes_view(id).unwrap();
+        if view.phase == Phase::Reviewing {
+            return view;
+        }
+        assert_eq!(view.phase, Phase::Preparing, "{:?}", view.error);
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
+#[test]
+fn cue_fixes_use_one_history_entry_selected_scope_and_purpose_guard() {
+    let (_dir, docs, scenes) = fixture();
+    let before = docs.apply(Action::Status, 0, 0).unwrap();
+    let id = docs
+        .cue_fixes_start(
+            before.generation,
+            before.revision,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+        )
+        .unwrap();
+    let view = ready_cue_fixes(&docs, id);
+    assert_eq!(view.cue_id.as_deref(), Some("1"));
+    assert!(view.fixed > 0);
+    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.duration_repair_view(id, 0, 100).is_err());
+    let after = docs.cue_fixes_accept(id).unwrap();
+    assert_eq!(after.revision, before.revision + 1);
+    assert_ne!(after.cues[0].start_ms, before.cues[0].start_ms);
+    assert_eq!(
+        serde_json::to_value(&after.cues[1..]).unwrap(),
+        serde_json::to_value(&before.cues[1..]).unwrap()
+    );
+    assert!(docs.cue_fixes_accept(id).is_err());
+    let undone = docs
+        .apply(Action::Undo, after.generation, after.revision)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&undone.cues).unwrap(),
+        serde_json::to_value(&before.cues).unwrap()
+    );
+    assert!(!undone.can_undo);
+    let redone = docs
+        .apply(Action::Redo, undone.generation, undone.revision)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&redone.cues).unwrap(),
+        serde_json::to_value(&after.cues).unwrap()
+    );
+}
+#[test]
+fn changed_document_and_cancelled_cue_fix_cannot_commit() {
+    let (_dir, docs, scenes) = fixture();
+    let before = docs.apply(Action::Status, 0, 0).unwrap();
+    let start = || {
+        docs.cue_fixes_start(
+            before.generation,
+            before.revision,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+        )
+        .unwrap()
+    };
+    let id = start();
+    ready_cue_fixes(&docs, id);
+    docs.timing_repair_cancel(id, Purpose::CueFixes).unwrap();
+    assert!(docs.cue_fixes_accept(id).is_err());
+    let id = start();
+    ready_cue_fixes(&docs, id);
+    docs.apply(
+        Action::Edit {
+            cue_id: 1,
+            start_ms: 1000,
+            end_ms: 3000,
+            text: "Changed".into(),
+        },
+        before.generation,
+        before.revision,
+    )
+    .unwrap();
+    assert!(docs.cue_fixes_accept(id).is_err());
+    assert_eq!(docs.cue_fixes_view(id).unwrap().phase, Phase::Stale);
+}

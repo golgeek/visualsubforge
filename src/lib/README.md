@@ -116,8 +116,7 @@ history remains local for native menu/keyboard Undo/Redo; explicit history butto
 still use document history. Action modules retain scene-action exceptions to the
 task gate and read live state after asynchronous draft/file operations. WorkspaceView owns panel toggles and their rules, and WorkspaceLayout owns measured pane sizes
 and splitter constraints. UnsavedChanges and project-view retain the protected save/restore sequence;
-TranslationReference owns reference file operations next to TranslationSession. CueEditing and WorkspaceQuality derive
-projections from live owners; WorkspaceMenus owns menu projection and subscription.
+TranslationReference owns reference file operations next to TranslationSession. CueEditing owns commit triggers and focus identity; WorkspaceQuality derives quality inputs from live owners; WorkspaceMenus owns menu projection and subscription.
 WorkspaceStartup loads initial state; NativeVideoLayout tracks the video element.
 Its disposal disconnects the observer, removes window listeners and clears the
 100 ms timer; in-flight replies cannot publish after disposal.
@@ -147,14 +146,16 @@ reset clears analysis and range together; project restoration calls `restore()`
 to apply its saved viewport with the existing media bounds. Accepted
 snapshots use `$state.raw`: replace them rather than mutating cue objects. App's
 `$derived` aliases are read-only views. Draft fields remain locally editable;
-Apply sends a captured generation/revision to Rust, which owns validation and
-undo history. Stale-version and unknown-outcome cue-draft failures refresh accepted
-state once, retain the draft and report a message without resending. The normal
-single-window path serializes edits; there is no field merge or conflict lock.
-If the target disappeared or was replaced, selection clears while text remains
-available to copy. Selection and Revert keep their ordinary behavior. Failed refresh
-preserves the prior projection and draft. Newer input during a successful reply
-remains a draft and prevents save/navigation continuation. Timing gestures deliberately
+CueEditing schedules a 700 ms pause, ordinary blur or explicit flush, with IME,
+modal/decision admission and disposal guards. Rust coalesces only eligible
+same-focus text commits; the frontend owns no accepted history. Explicit cue
+commands drain a pending automatic commit before committing newer fields.
+Stale/unknown failures refresh once without replay, preserving the newest draft.
+A failed refresh blocks mutation; retry first reads authoritative state and asks
+for review. Known rejection retains an inline error. Escape waits for a dispatched
+commit, restores confirmed accepted fields and returns focus to the waveform;
+it cannot discard an unknown outcome. Modal/decision focus changes retain their
+existing draft protection and restart the pause delay on return. Timing gestures deliberately
 send the version captured when the gesture began. `TimingGesture.active` covers
 boundary previews and held-cue commits; Workspace includes it in `busy`. A held Space
 preview remains nonblocking, so playback following continues. Disposal suppresses
@@ -406,10 +407,10 @@ search text back to source offsets and preserves protected tag/escape tokens.
 publishing one history operation. Frontend code never reconstructs a batch from
 stripped text or sends proposed replacement cue arrays back to Rust.
 
-Formatting is a separate draft operation: App captures source text, cue identity,
-accepted snapshot and UTF-16 selection; `textFormat` validates and transforms it
-in shared Rust code. A reply only updates the still-matching draft. App restores
-the returned selection and leaves acceptance to the ordinary Apply action.
+Formatting flushes the current fields first, then captures source text, cue
+identity, accepted snapshot and UTF-16 selection. `textFormat` transforms it in
+shared Rust code; a reply must still match the captured inputs before a separate
+ungrouped commit. Returned selection offsets are restored after acceptance.
 See [the text tool contract](../../docs/text-editing.md) for supported syntax,
 conservative skips, limits and evidence.
 
@@ -537,3 +538,26 @@ Filtered Shift selection and Select All use visible order. Row clicks preserve
 following. Programmatic reveals acknowledge their clamped offset before scroll
 events; manual scrolling pauses following. Jump clears filters to reveal the active
 cue and resumes unless a protected draft/editor interaction prevents it.
+
+
+## Cue editor and safe fixes
+
+`TimecodeField` shares exact typing and nominal frame nudging. The native control
+worker supplies an optional container cadence; the pure nudge helper quantizes to
+format precision and clamps zero. Missing cadence disables nudges, not typing.
+`CueMetrics` renders Rust/profile-backed meters. The adjacent bounded source-line
+counts explicitly distinguish source lines from wrapped display lines.
+
+`CueIssueStrip` renders three chips and one fixed detail row. `QualitySession`
+requests independent selected-cue issue pages, including related findings; Rust
+merges speed findings and orders errors first. `CueIssuesDialog` uses
+WorkspaceModal/HideVideo and 200-issue pages. No frontend quality rule is evaluated.
+
+`CueFixes` debounces selected accepted context, serializes admission/polling,
+cancels obsolete or late admissions, and retires plans when a modal owns the
+workspace. It reuses Rust's bounded timing-proposal worker, not a new service.
+`DocumentSession.acceptCueFixes` alone adopts the atomic result and refreshes an
+unknown acceptance without replay. The application validates combined reflow,
+unambiguous language and timing changes against the whole document; only the
+selected cue changes, without splitting. See [cue editing](../../docs/cue-editor.md)
+for interaction semantics and conservative repair limits.

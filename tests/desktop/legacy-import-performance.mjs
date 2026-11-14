@@ -327,7 +327,7 @@ export async function legacyImportPerformance({
             b.input(text);
             await b.frame();
             let at = performance.now();
-            await b.click('Apply');
+            await window.__vsfEditorInput.commit();
             const accepted = await b.wait(async () => {
               const d = await b.state();
               return d.revision === before.revision + 1 && b.ready() && d;
@@ -395,7 +395,7 @@ export async function legacyImportPerformance({
         b.input(text);
         await b.frame();
         const at = performance.now();
-        await b.click('Apply');
+        await window.__vsfEditorInput.commit();
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),

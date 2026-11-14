@@ -41,6 +41,7 @@ fn request(docs: &Documents) -> Request {
         metrics_offset: 0,
         metrics_limit: 200,
         selected: Some(1.try_into().unwrap()),
+        selected_offset: 0,
         rule: None,
         severity: None,
         draft: None,
@@ -381,4 +382,40 @@ fn cancelled_check_requires_explicit_restart_and_line_projection_is_bounded() {
     assert!(metric.lines_truncated);
     assert_eq!(metric.data.line_characters.len(), 20);
     assert!(serde_json::to_vec(&metric).unwrap().len() < 1500);
+}
+
+#[test]
+fn selected_issues_group_speed_sort_errors_and_page_without_problem_filters() {
+    use vsf_application::quality::{Finding, Rule, Severity};
+    let finding = |rule, severity, cue: &str| Finding {
+        rule,
+        severity,
+        cue_id: cue.into(),
+        cue_index: 0,
+        related_cue_id: None,
+        measured: None,
+        expected: "expected".into(),
+        explanation: "detail".into(),
+        language: None,
+    };
+    let mut findings = vec![
+        finding(Rule::CpsHigh, Severity::Advisory, "1"),
+        finding(Rule::RsHigh, Severity::Violation, "1"),
+        finding(Rule::DurationLong, Severity::Violation, "2"),
+    ];
+    let mut related = finding(Rule::Overlap, Severity::Violation, "2");
+    related.related_cue_id = Some("1".into());
+    findings.push(related);
+    findings.extend((0..205).map(|_| finding(Rule::Spelling, Severity::Advisory, "1")));
+    let first = cue_issues(&findings, "1", 0);
+    assert_eq!(first.count, 207);
+    assert_eq!(first.issues.len(), 200);
+    assert_eq!(first.issues[0].rule, Rule::RsHigh);
+    assert_eq!(first.issues[0].findings.len(), 2);
+    assert_eq!(first.issues[1].rule, Rule::Overlap);
+    let last = cue_issues(&findings, "1", 200);
+    assert_eq!(last.offset, 200);
+    assert_eq!(last.issues.len(), 7);
+    assert_eq!(cue_issues(&findings, "1", u32::MAX).offset, 200);
+    assert!(cue_issues(&findings, "missing", 0).issues.is_empty());
 }

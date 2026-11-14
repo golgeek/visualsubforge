@@ -61,7 +61,7 @@ export async function runCueAction(
       case 'splitCue':
       case 'mergePrevious':
       case 'mergeNext': {
-        if (action === 'createCue') await subtitles.apply();
+        if (!(await subtitles.apply())) return;
         const plan = planCueOperation(action, owners.operationContext);
         suspendFollowing();
         await subtitles.command(plan.action, { plan });
@@ -76,10 +76,7 @@ export async function runCueAction(
         break;
       case 'undo':
       case 'redo':
-        if (subtitles.dirty)
-          throw new Error(
-            'Apply or revert the current draft before undoing an accepted edit.',
-          );
+        if (!(await subtitles.apply())) return;
         if (subtitles.snapshot.loaded) {
           suspendFollowing();
           await subtitles.command({ kind: action });
@@ -106,11 +103,21 @@ export async function formatCueText(
   const editor = textEditor;
   const before = subtitles.text;
   const beforeStyle = subtitles.style;
-  const snapshot = subtitles.snapshot;
+  const generation = subtitles.snapshot.generation;
   const id = subtitles.selected;
   const start = textEditor.selectionStart;
   const end = textEditor.selectionEnd;
   await workspace.task(async () => {
+    if (!(await subtitles.apply())) return;
+    if (
+      !owners.alive() ||
+      subtitles.snapshot.generation !== generation ||
+      subtitles.selected !== id ||
+      subtitles.text !== before ||
+      subtitles.style !== beforeStyle
+    )
+      return;
+    const snapshot = subtitles.snapshot;
     const result = await textFormat(before, start, end, style, {
       generation: snapshot.generation,
       revision: snapshot.revision,
@@ -126,10 +133,12 @@ export async function formatCueText(
     )
       return;
     subtitles.text = result.text;
+    // Formatting is an explicit command: seal the typing group and give the
+    // formatted result its own Rust history entry.
+    if (!(await subtitles.apply(null)) || !owners.alive()) return;
     await tick();
     editor.focus();
     editor.setSelectionRange(result.start, result.end);
-    workspace.notice =
-      'Formatting updated in the cue draft. Apply to accept it.';
+    workspace.notice = 'Formatting applied';
   });
 }

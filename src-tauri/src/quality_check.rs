@@ -38,6 +38,8 @@ pub(crate) struct Request {
     pub metrics_offset: u32,
     pub metrics_limit: u32,
     pub selected: Option<crate::ipc_number::SafeU64>,
+    #[serde(default)]
+    pub selected_offset: u32,
     pub rule: Option<Rule>,
     pub severity: Option<Severity>,
     pub draft: Option<DraftChange>,
@@ -78,6 +80,22 @@ impl From<&CueMetrics> for Metric {
         }
     }
 }
+/// Selected-cue projection is independent of the Problems filters. Speed rules
+/// share one issue, while each other finding retains its own identity/detail.
+#[derive(Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CueIssue {
+    pub rule: Rule,
+    pub findings: Vec<Finding>,
+}
+#[derive(Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CueIssues {
+    pub cue_id: String,
+    pub count: u32,
+    pub offset: u32,
+    pub issues: Vec<CueIssue>,
+}
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct View {
@@ -97,6 +115,7 @@ pub(crate) struct View {
     pub findings: Vec<Finding>,
     pub metrics: Vec<Metric>,
     pub selected: Option<Metric>,
+    pub selected_issues: Option<CueIssues>,
     pub previous_cue: Option<String>,
     pub next_cue: Option<String>,
     pub draft: Option<Metric>,

@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Actual WebView/IPC and independent CLI parity. Fixtures have known source
 // positions and cut times; only file choices and app-data paths are supplied.
@@ -384,7 +385,7 @@ async function statisticsPerformance({
     );
     assert.equal(result.interaction.phase, 'cancelled');
     assert.ok(result.interaction.typingMs < 1000);
-    await (await browser.$('button=Revert')).click();
+    await discardCue(browser);
     await ready();
     const began = Date.now();
     const dialog = await open();
@@ -427,7 +428,7 @@ async function statisticsPerformance({
       .$('[aria-label="Subtitle text"]')
       .then((e) => e.setValue('Invalidate statistics'));
     const invalidateStart = Date.now();
-    await (await browser.$('button=Apply')).click();
+    await commitCue(browser);
     await until('statistics edit invalidation', async () => {
       const v = await invoke('statistics_view', {
         id: old.id,

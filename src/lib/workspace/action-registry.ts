@@ -105,14 +105,10 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
         ? null
         : 'Needs a shot-change scan and a nearby cut';
     case 'undo':
-      return state.draft
-        ? 'Apply or revert the current edit'
-        : state.undo
-          ? null
-          : 'Nothing to undo';
+      return state.undo || state.draft ? null : 'Nothing to undo';
     case 'redo':
       return state.draft
-        ? 'Apply or revert the current edit'
+        ? 'New typing replaces redo history'
         : state.redo
           ? null
           : 'Nothing to redo';

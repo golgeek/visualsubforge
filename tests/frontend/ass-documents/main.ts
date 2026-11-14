@@ -224,6 +224,17 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     },
   },
 });
+async function discardUnsent() {
+  const editor = field('Subtitle text');
+  editor.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+  );
+  await until(
+    () =>
+      editor.value === doc.cues[0]!.text &&
+      (!doc.cues[0]!.style || field('Cue style').value === doc.cues[0]!.style),
+  );
+}
 let app = mount(App, { target: host });
 async function run() {
   try {
@@ -284,7 +295,7 @@ async function run() {
     convert.click();
     await until(() => !!host.querySelector('#conversion-dialog-title'));
     assert(
-      occluded && button('Apply').disabled,
+      occluded && button('Bold').disabled,
       'Conversion dialog did not occlude native video and protect workspace',
     );
     assert(
@@ -338,14 +349,13 @@ async function run() {
     input('Cue start', '00:00:01,010');
     await tick();
     assert(
-      doc.cues[0]!.style === 'Title' && !button('Apply').disabled,
+      doc.cues[0]!.style === 'Title' && host.textContent!.includes('Editing…'),
       'Style change bypassed the draft',
     );
-    button('Apply').click();
     await until(
       () =>
         edits.length === 1 &&
-        button('Apply').disabled &&
+        !host.textContent!.includes('Editing…') &&
         !button('Undo edit').disabled,
     );
     assert(
@@ -372,7 +382,6 @@ async function run() {
     input('Cue style', 'Title');
     input('Cue start', '00:00:01,001');
     await tick();
-    button('Apply').click();
     await until(() => host.textContent!.includes('10 ms increments'));
     assert(
       field('Cue style').value === 'Title' &&
@@ -387,14 +396,15 @@ async function run() {
         field('Cue style').value === 'Title',
       'Failed draft was discarded during navigation',
     );
-    button('Revert').click();
+    await discardUnsent();
     await tick();
     assert(
-      field('Cue style').value === 'Default' && button('Apply').disabled,
-      'Revert did not restore accepted style',
+      field('Cue style').value === 'Default' &&
+        !host.textContent!.includes('Editing…'),
+      'Escape did not restore accepted style',
     );
     passed(
-      'Rejected precision preserves the style/text draft and blocks navigation; Revert restores acceptance',
+      'Rejected precision preserves the style/text draft and blocks navigation; Escape restores acceptance',
     );
 
     input('Cue style', 'Title');
@@ -408,10 +418,11 @@ async function run() {
         !field('Cue style').hasAttribute('disabled'),
     );
     assert(
-      field('Cue style').value === 'Title' && !button('Apply').disabled,
+      field('Cue style').value === 'Title' &&
+        host.textContent!.includes('Editing…'),
       'Inspector lost an unapplied style',
     );
-    button('Revert').click();
+    await discardUnsent();
     await tick();
     passed(
       'Opening and closing the inspector preserves an unapplied style draft',
@@ -423,19 +434,24 @@ async function run() {
     editor.focus();
     editor.setSelectionRange(0, 6);
     button('Bold').click();
-    await until(() => editor.value.startsWith('{\\b0}Edited{\\b1}'));
+    await until(
+      () =>
+        editor.value.startsWith('{\\b0}Edited{\\b1}') &&
+        doc.cues[0]!.text === editor.value &&
+        !button('Bold').disabled,
+    );
     assert(
       editor.selectionStart === 5 &&
         editor.selectionEnd === 11 &&
-        doc.cues[0]!.style === 'Default' &&
-        edits.length === 1,
-      'Formatting committed a draft or lost the source selection',
+        doc.cues[0]!.style === 'Title' &&
+        doc.cues[0]!.text === editor.value &&
+        edits.length === 3,
+      'Formatting did not commit the style and formatted text or lost selection',
     );
-    await until(() => !button('Revert').disabled);
-    button('Revert').click();
+    await discardUnsent();
     await tick();
     passed(
-      'Formatting captures the draft style and version while preserving explicit Apply',
+      'Formatting flushes the style first and commits the formatted text separately',
     );
 
     let release!: (value: DocumentSnapshot) => void;
@@ -503,11 +519,10 @@ async function run() {
     input('Cue start', '00:00:01,002');
     input('Subtitle text', '<v Alice>Bonjour</v>\n{\\b1}literal\\N');
     await tick();
-    button('Apply').click();
     await until(
       () =>
         doc.revision === 1 &&
-        button('Apply').disabled &&
+        !host.textContent!.includes('Editing…') &&
         !button('Undo edit').disabled,
     );
     assert(
@@ -538,14 +553,16 @@ async function run() {
     button('Bold').click();
     await until(
       () =>
-        vttEditor.value.includes('<b>Bonjour</b>') && !button('Apply').disabled,
+        vttEditor.value.includes('<b>Bonjour</b>') &&
+        doc.cues[0]!.text === vttEditor.value,
     );
     assert(
-      doc.cues[0]!.text.includes('<v Alice>Bonjour</v>') &&
-        !button('Apply').disabled,
-      'WebVTT formatting committed before Apply',
+      doc.cues[0]!.text.includes('<v Alice><b>Bonjour</b></v>'),
+      'WebVTT formatting did not commit',
     );
-    passed('WebVTT formatting remains a versioned draft until explicit Apply');
+    passed('WebVTT formatting commits through the versioned document boundary');
+    input('Subtitle text', `${vttEditor.value} draft`);
+    await tick();
     const pluginButton = button('Commands');
     pluginButton.focus();
     await chooseCommand(host, 'plugins');
@@ -554,8 +571,10 @@ async function run() {
         !!host.querySelector('dialog[open][aria-labelledby="plugin-title"]'),
     );
     assert(
-      occluded && button('Run checker').disabled && !!button('Apply cue draft'),
-      'Plugin dialog bypassed draft/modal protection',
+      occluded &&
+        doc.cues[0]!.text === vttEditor.value &&
+        vttEditor.value.endsWith(' draft'),
+      'Blur did not commit before the protected plugin dialog',
     );
     button('Close plugins').click();
     await until(
@@ -565,17 +584,23 @@ async function run() {
     );
     assert(
       !occluded && vttEditor.value.includes('<b>Bonjour</b>'),
-      'Closing plugins lost draft or video/focus restoration',
+      'Closing plugins lost accepted text or video/focus restoration',
     );
+    input('Subtitle text', `${vttEditor.value} pending`);
+    await tick();
     callbacks.get(eventHandler)!({ payload: 'plugins' });
     await until(
       () =>
         !!host.querySelector('dialog[open][aria-labelledby="plugin-title"]'),
     );
+    assert(
+      !!button('Apply cue draft') && vttEditor.value.endsWith(' pending'),
+      'Native plugin entry lost the unsent draft',
+    );
     button('Close plugins').click();
     await until(() => !host.querySelector('dialog[open]') && !occluded);
     passed(
-      'Plugin toolbar and native-menu actions preserve cue drafts, occlude video and restore focus',
+      'Plugin toolbar flushes on blur; native entry protects unsent text and both restore video/focus',
     );
     heading.textContent = `PASS: all ${output.querySelectorAll('li').length} ASS/SSA/WebVTT editor checks`;
   } catch (error) {

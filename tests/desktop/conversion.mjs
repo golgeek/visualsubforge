@@ -1,3 +1,4 @@
+import { commitCue } from './editor-input.mjs';
 // Actual desktop/WebView, Rust and files. Only file selections and app-data paths
 // are supplied. Optional independent native captures inspect the video sibling.
 import assert from 'node:assert/strict';
@@ -134,7 +135,7 @@ export async function conversionWorkflow({
   async function apply(text) {
     const before = await status();
     await input('Subtitle text', text);
-    await click('Apply');
+    await commitCue(browser);
     const after = await documentIs(
       'conversion fixture edit',
       (d) => d.revision === before.revision + 1,
@@ -544,7 +545,7 @@ export async function conversionWorkflow({
     );
     await close();
     await input('Cue end', '00:00:02,001');
-    await click('Apply');
+    await commitCue(browser);
     await documentIs(
       'equal rounding shifts prepared',
       (d) => d.cues[0].endMs === 2001,

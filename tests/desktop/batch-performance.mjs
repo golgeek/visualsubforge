@@ -136,7 +136,7 @@ export async function batchPerformance({
     await b.invoke('batch_timing_cancel', { id });
     await b.wait(async () => (await view(id)).phase === 'cancelled');
     const cancellationMs = performance.now() - began;
-    b.button('Revert').click();
+    window.__vsfEditorInput.discard();
     await b.frame();
     const next = await start();
     const ready = await b.wait(async () => {
@@ -147,7 +147,7 @@ export async function batchPerformance({
     b.input('Subtitle text', `${original}!`);
     await b.frame();
     began = performance.now();
-    b.button('Apply').click();
+    window.__vsfEditorInput.commit();
     await b.wait(async () => (await view(next)).phase === 'stale' && b.ready());
     const invalidationMs = performance.now() - began;
     let rejected = false;

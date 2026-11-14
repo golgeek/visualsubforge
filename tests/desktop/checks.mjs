@@ -88,28 +88,25 @@ export async function qualityChecking({
   const editor = await browser.$('[aria-label="Subtitle text"]');
   const text = '{\\i1}Draft tags\\N';
   await editor.setValue(text);
-  const draft = await browser.$(
-    '[aria-label="Draft · not applied cue metrics"]',
-  );
+  const draft = await browser.$('[aria-label="Draft cue metrics"]');
   await until('labeled draft metrics', () => draft.isExisting());
   assert.match(await draft.getText(), /12 characters/);
   assert.deepEqual(await status(), before);
   const next = await browser.$('button=Next cue · F4');
   await until('problem navigation ready', () => next.isEnabled());
   await next.click();
-  await until('protected problem navigation', () =>
-    browser.$('button=Cancel navigation').then((b) => b.isExisting()),
-  );
-  await (await browser.$('button=Cancel navigation')).click();
-  assert.equal(await editor.getValue(), text);
-  assert.deepEqual(await status(), before);
-  await next.click();
-  await (await browser.$('button=Discard draft and navigate')).click();
   await until(
-    'related problem cue selected',
-    async () => (await editor.getValue()) === before.cues[1].text,
+    'problem navigation committed pending text',
+    async () => (await status()).revision === before.revision + 1,
   );
-  assert.deepEqual(await status(), before);
+  assert.equal((await status()).cues[0].text, text);
+  await (await browser.$('button=Undo edit')).click();
+  await until(
+    'quality edit restored',
+    async () => (await status()).revision === before.revision + 2,
+  );
+  assert.deepEqual((await status()).cues, before.cues);
+  assert.equal((await status()).dirty, before.dirty);
   await until(
     'settled selected metrics and findings',
     async () => (await next.isEnabled()) && (await accepted.isExisting()),
@@ -149,11 +146,11 @@ export async function qualityChecking({
     async () => (await editor.getValue()) === before.cues[0].text,
   );
   await record({
-    step: 'real quality metrics/Problems/draft protection and executable CLI parity',
+    step: 'real quality metrics/Problems/blur commit and executable CLI parity',
     findings: report.findingsCount,
     affectedCues: report.affectedCues,
     profileHash: report.profileHash,
-    documentUnchanged: true,
+    contentRestored: true,
     layout,
   });
 }

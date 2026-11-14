@@ -1,3 +1,4 @@
+import { commitCue, installEditorInput } from './editor-input.mjs';
 // Real webview + Tauri IPC + filesystem. Only file selection and app-data paths
 // are supplied by the optional desktop-e2e build; document commands are not mocked.
 import assert from 'node:assert/strict';
@@ -17,6 +18,7 @@ import { join, resolve, toNamespacedPath } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
+import { autoCommit } from './auto-commit.mjs';
 import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
 import { gapReview } from './gaps.mjs';
@@ -263,6 +265,7 @@ async function launch(choices) {
         !!document.querySelector('[aria-label="Subtitle text"]'),
     ),
   );
+  await installEditorInput(browser);
   await until('ready workspace', async () =>
     (await browser.$('main'))
       .getAttribute('aria-busy')
@@ -323,9 +326,7 @@ async function menu(action) {
 async function edit(text) {
   const input = await browser.$('[aria-label="Subtitle text"]');
   await input.setValue(text);
-  const apply = await browser.$('button=Apply');
-  await until('enabled Apply', () => apply.isEnabled());
-  await apply.click();
+  await commitCue(browser);
   return documentIs(
     'accepted edit',
     (doc) => doc.cues[0]?.text === text && doc.dirty,
@@ -398,6 +399,7 @@ try {
     root,
   });
   opened = await editReconciliation({ browser, invoke, status, until, record });
+  opened = await autoCommit({ browser, status, until, record });
   const changed = await edit('Edited 世界');
   assert.equal(changed.revision, opened.revision + 1);
   assert.deepEqual(

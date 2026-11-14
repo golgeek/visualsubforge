@@ -1,3 +1,4 @@
+import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
 // prepared project caches exercise restoration separately from the live rescan.
@@ -169,7 +170,7 @@ export async function sceneQuality({
   await (await browser.$('button=Cancel navigation')).click();
   assert.equal(await text.getValue(), 'Preserve scene navigation draft');
   assert.deepEqual(await status(), before);
-  await (await browser.$('button=Revert')).click();
+  await discardCue(browser);
   await (await browser.$('button=Close Problems')).click();
   await chooseCommand(browser, 'snapShots');
   let dialog = await browser.$('dialog[aria-labelledby="scene-repair-title"]');
@@ -347,7 +348,7 @@ async function scenePerformance({
     );
     assert.equal(result.interaction.phase, 'cancelled');
     assert.ok(result.interaction.typingMs < 1000);
-    await (await browser.$('button=Revert')).click();
+    await discardCue(browser);
     await ready();
     await chooseCommand(browser, 'snapShots');
     const dialog = await browser.$(
@@ -396,7 +397,7 @@ async function scenePerformance({
       .$('[aria-label="Subtitle text"]')
       .then((e) => e.setValue('Invalidate scene proposal'));
     const invalidationStart = Date.now();
-    await (await browser.$('button=Apply')).click();
+    await commitCue(browser);
     await until('10k scene invalidation', async () => {
       const v = await invoke('scene_repair_view', {
         id: captured.id,

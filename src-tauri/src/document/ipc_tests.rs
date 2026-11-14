@@ -253,3 +253,101 @@ fn typed_command_refusals_preserve_state_and_explicit_edit_commits_one_history_e
         serde_json::to_value(redone).unwrap()
     );
 }
+
+#[test]
+fn text_session_commits_keep_version_guards_and_saved_history_boundaries() {
+    let documents = Documents::default();
+    let created = documents
+        .apply_command(
+            Action::Create {
+                after_id: None,
+                start_ms: 1000,
+                end_ms: 2000,
+                text: "Original".into(),
+            },
+            0,
+            0,
+        )
+        .unwrap();
+    let id = created.cues[0].id;
+    let action = |text: &str| Action::Edit {
+        cue_id: id,
+        start_ms: 1000,
+        end_ms: 2000,
+        text: text.into(),
+    };
+    let first = documents
+        .apply_command_with_session(
+            action("First"),
+            created.generation,
+            created.revision,
+            Some("focus-a".into()),
+        )
+        .unwrap();
+    let second = documents
+        .apply_command_with_session(
+            action("Second"),
+            first.generation,
+            first.revision,
+            Some("focus-a".into()),
+        )
+        .unwrap();
+    assert!(matches!(
+        documents.apply_command_with_session(
+            action("Stale"),
+            first.generation,
+            first.revision,
+            Some("focus-a".into())
+        ),
+        Err(CommandError::StaleRevision { .. })
+    ));
+    assert!(
+        documents
+            .apply_command_with_session(
+                action("Invalid session"),
+                second.generation,
+                second.revision,
+                Some(" ".into())
+            )
+            .is_err()
+    );
+    let undone = documents
+        .apply_command(Action::Undo, second.generation, second.revision)
+        .unwrap();
+    assert_eq!(undone.cues[0].text, "Original");
+    assert_eq!(undone.revision, second.revision + 1);
+    let redone = documents
+        .apply_command(Action::Redo, undone.generation, undone.revision)
+        .unwrap();
+    assert_eq!(redone.cues[0].text, "Second");
+    let directory = tempfile::tempdir().unwrap();
+    let saved = documents
+        .apply_command(
+            Action::Save {
+                path: Some(
+                    directory
+                        .path()
+                        .join("saved.srt")
+                        .to_string_lossy()
+                        .into_owned(),
+                ),
+            },
+            redone.generation,
+            redone.revision,
+        )
+        .unwrap();
+    assert!(!saved.dirty);
+    let later = documents
+        .apply_command_with_session(
+            action("After save"),
+            saved.generation,
+            saved.revision,
+            Some("focus-a".into()),
+        )
+        .unwrap();
+    let restored = documents
+        .apply_command(Action::Undo, later.generation, later.revision)
+        .unwrap();
+    assert_eq!(restored.cues[0].text, "Second");
+    assert!(!restored.dirty);
+}

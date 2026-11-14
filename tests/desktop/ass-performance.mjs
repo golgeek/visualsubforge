@@ -130,10 +130,13 @@ export async function assPerformance({
             b.input(label, value);
             await b.frame();
             const draftMs = performance.now() - began;
-            if (b.button('Apply').disabled)
-              throw new Error('Apply remained disabled');
+            if (
+              document.querySelector(`[aria-label="${label}"]`).value !==
+              String(value)
+            )
+              throw new Error('Draft field did not update');
             const start = performance.now();
-            b.button('Apply').click();
+            window.__vsfEditorInput.commit();
             await b.wait(
               async () =>
                 (await b.state()).revision === revision + 1 && b.ready(),
@@ -221,7 +224,7 @@ export async function assPerformance({
             return v.phase === 'cancelled' && v;
           });
           const cancellationMs = performance.now() - cancelStart;
-          b.button('Revert').click();
+          window.__vsfEditorInput.discard();
           await b.frame();
           const next = await start();
           const prepared = await b.wait(async () => {
@@ -232,7 +235,7 @@ export async function assPerformance({
           b.input('Subtitle text', `${original}!`);
           await b.frame();
           const editStart = performance.now();
-          b.button('Apply').click();
+          window.__vsfEditorInput.commit();
           const stale = await b.wait(async () => {
             const v = await view(next);
             return v.phase === 'stale' && v.rows.length === 0 && b.ready() && v;

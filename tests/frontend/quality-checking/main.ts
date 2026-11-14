@@ -19,7 +19,10 @@ import { projection } from './projection';
 const host = window.document.querySelector('#test')!;
 const heading = window.document.querySelector('#result')!;
 const output = window.document.querySelector('#checks')!;
-let base: QualityView = structuredClone(qualityView);
+let base: QualityView = {
+  ...structuredClone(qualityView),
+  selectedIssues: null,
+};
 let document: DocumentSnapshot = {
   ...emptyDocument,
   loaded: true,
@@ -313,8 +316,7 @@ async function run() {
     );
     input('Subtitle text', 'Unapplied quality draft');
     await until(
-      () =>
-        !!host.querySelector('[aria-label="Draft · not applied cue metrics"]'),
+      () => !!host.querySelector('[aria-label="Draft cue metrics"]'),
       'Labeled draft metrics absent',
     );
     assert(
@@ -406,7 +408,13 @@ async function run() {
       'Invalid draft time was not labeled',
     );
     assert(edits === 1, 'Invalid draft changed accepted state');
-    button('Revert').click();
+    host
+      .querySelector('[aria-label="Subtitle text"]')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+    await tick();
+    await tick();
     passed(
       'Invalid draft timings leave accepted metrics and editing state available',
     );
@@ -483,7 +491,13 @@ async function run() {
     );
     heldRead = null;
     release();
-    button('Revert').click();
+    host
+      .querySelector('[aria-label="Subtitle text"]')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+    await tick();
+    await tick();
     passed(
       'Editing and visible cancellation stay responsive while a check response is held',
     );

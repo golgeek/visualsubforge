@@ -33,6 +33,7 @@ export class QualitySession {
   rule = $state<QualityRequest['rule']>(null);
   severity = $state<QualityRequest['severity']>(null);
   offset = $state(0);
+  selectedOffset = $state(0);
   issues = $state.raw<ReadonlyMap<string, IssueSeverity>>(new Map());
   metrics = $state.raw<ReadonlyMap<string, QualityView['metrics'][number]>>(
     new Map(),
@@ -62,6 +63,7 @@ export class QualitySession {
       this.rule,
       this.severity,
       this.offset,
+      this.selectedOffset,
     ]);
     if (signature === this.signature) return;
     const version = `${input.session}/${input.generation}/${input.revision}/${input.context}`;
@@ -73,6 +75,7 @@ export class QualitySession {
       this.epoch = null;
       this.offset = 0;
     }
+    if (input.selected !== this.input?.selected) this.selectedOffset = 0;
     this.signature = signature;
     this.input = input;
     ++this.sequence;
@@ -231,6 +234,7 @@ export class QualitySession {
       metricsOffset: input.metricsOffset,
       metricsLimit: Math.min(200, input.metricsLimit),
       selected: input.selected,
+      selectedOffset: this.selectedOffset,
       rule: this.rule,
       severity: this.severity,
       draft:

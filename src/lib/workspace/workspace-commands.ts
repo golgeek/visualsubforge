@@ -93,7 +93,6 @@ export class WorkspaceCommands {
   async run(id: ActionId) {
     const {
       workspace,
-      subtitles,
       timeline,
       view,
       quality,
@@ -160,7 +159,7 @@ export class WorkspaceCommands {
         await dialogs.openAuthoring(id);
         break;
       case 'revertDraft':
-        subtitles.revert();
+        await this.owners.cueEditing.escape();
         break;
       case 'commandPalette':
         await this.open('commands');

@@ -147,7 +147,7 @@ export async function webvttPerformance({
             await b.frame();
             const draftMs = performance.now() - start;
             start = performance.now();
-            await b.click('Apply');
+            await window.__vsfEditorInput.commit();
             const accepted = await b.wait(async () => {
               const d = await b.state();
               return d.revision === before.revision + 1 && b.ready() && d;
@@ -235,7 +235,7 @@ export async function webvttPerformance({
           await b.invoke('text_cancel', { id });
           await b.wait(async () => (await view(id)).phase === 'cancelled');
           const cancellationMs = performance.now() - began;
-          await b.click('Revert');
+          await window.__vsfEditorInput.discard();
           await b.frame();
           began = performance.now();
           const next = await start();
@@ -248,7 +248,7 @@ export async function webvttPerformance({
           b.input(`${before.cues[0].text} stale`);
           await b.frame();
           began = performance.now();
-          await b.click('Apply');
+          await window.__vsfEditorInput.commit();
           await b.wait(async () => {
             const v = await view(next);
             return v.phase === 'stale' && v.rows.length === 0 && b.ready();
@@ -317,7 +317,7 @@ export async function webvttPerformance({
         b.input(text);
         await b.frame();
         const start = performance.now();
-        await b.click('Apply');
+        await window.__vsfEditorInput.commit();
         await b.wait(
           async () =>
             (await b.state()).revision === before.revision + 1 && b.ready(),

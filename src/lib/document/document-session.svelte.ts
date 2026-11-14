@@ -6,6 +6,7 @@ import {
   gapAccept,
   sceneRepairAccept,
   durationRepairAccept,
+  cueFixesAccept,
   batchTimingAccept,
   textAccept,
   styleAccept,
@@ -40,6 +41,7 @@ const client = {
   gapAccept,
   sceneRepairAccept,
   durationRepairAccept,
+  cueFixesAccept,
   batchTimingAccept,
   textAccept,
   styleAccept,
@@ -54,6 +56,7 @@ type Client = Omit<
   | 'pluginAccept'
   | 'textAccept'
   | 'sceneRepairAccept'
+  | 'cueFixesAccept'
   | 'durationRepairAccept'
   | 'batchTimingAccept'
   | 'translationAction'
@@ -66,6 +69,7 @@ type Client = Omit<
       | 'pluginAccept'
       | 'textAccept'
       | 'sceneRepairAccept'
+      | 'cueFixesAccept'
       | 'durationRepairAccept'
       | 'batchTimingAccept'
       | 'translationAction'
@@ -79,6 +83,7 @@ type CommandOptions = {
   preferred?: number | null;
   preserveDraft?: boolean;
   submittedDraft?: CueDraft;
+  retainNewerDraft?: boolean;
 };
 
 // Rust owns the document and history. This owner replaces accepted projections;
@@ -92,7 +97,11 @@ export class DocumentSession {
   private multi = $state.raw<CueSelection>(selectAllCues([], null));
   private alive = true;
   private pending = false;
+  private pendingEdit = $state.raw<Promise<boolean> | null>(null);
+  private commitSession: () => string | null = () => null;
   private client: Client;
+  editError = $state('');
+  stateConfirmed = $state(true);
   text = $state('');
   start = $state('');
   end = $state('');
@@ -100,6 +109,15 @@ export class DocumentSession {
 
   constructor(api: Client = client) {
     this.client = api;
+  }
+  connectCommitSession(read: () => string | null) {
+    if (this.alive) this.commitSession = read;
+  }
+  get committing() {
+    return this.pendingEdit !== null;
+  }
+  async waitForCommit(): Promise<boolean> {
+    return this.pendingEdit ? await this.pendingEdit : this.alive;
   }
   get snapshot() {
     return this.accepted;
@@ -158,6 +176,7 @@ export class DocumentSession {
     return this.update(
       (before) => this.client.documentAction(action, options.version ?? before),
       options,
+      action.kind === 'status',
     );
   }
   async changeTranslation(
@@ -278,6 +297,32 @@ export class DocumentSession {
       (this.client.durationRepairAccept ?? durationRepairAccept)(id),
     );
   }
+  async acceptCueFixes(
+    id: number,
+    expected: DocumentSnapshot,
+  ): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty || !this.stateConfirmed)
+      throw new Error('Subtitles or the cue edit changed; check fixes again.');
+    const selected = this.selection;
+    let dispatched = false;
+    try {
+      return await this.update(() => {
+        dispatched = true;
+        return (this.client.cueFixesAccept ?? cueFixesAccept)(id);
+      });
+    } catch (failure) {
+      if (dispatched && this.alive && this.accepted === expected) {
+        this.stateConfirmed = false;
+        await this.refreshExclusively(expected, selected, false).catch(
+          () => {},
+        );
+        if (this.alive && !this.stateConfirmed)
+          this.editError =
+            'Could not confirm cue fixes. Retry edit to refresh before continuing.';
+      }
+      throw failure;
+    }
+  }
   acceptBatchTiming(id: number, expected: DocumentSnapshot): Promise<boolean> {
     if (this.accepted !== expected || this.dirty)
       return Promise.reject(
@@ -290,8 +335,11 @@ export class DocumentSession {
   private async update(
     request: (before: DocumentSnapshot) => Promise<DocumentSnapshot>,
     options: CommandOptions = {},
+    readOnly = false,
   ): Promise<boolean> {
     if (!this.alive) return false;
+    if (!this.stateConfirmed && !readOnly)
+      throw new Error('Retry edit to refresh subtitles before continuing.');
     // App disables editing while a command is pending. Enforce the same rule
     // here so a second caller cannot send a mutation with the same revision.
     if (this.pending)
@@ -312,6 +360,7 @@ export class DocumentSession {
         // A successful commit is authoritative, but cannot consume newer input
         // or authorize a Save/navigation continuation for that unapplied draft.
         Object.assign(this, currentDraft);
+        if (options.retainNewerDraft) return true;
         throw new Error(
           'The earlier edit was accepted; newer draft input remains unapplied.',
         );
@@ -342,6 +391,7 @@ export class DocumentSession {
         ? selectCues(next.cues, this.multi, this.selection, 'replace')
         : reconcileSelection(next.cues, this.multi, this.selection);
     this.accepted = next;
+    this.stateConfirmed = true;
     if (
       !options.preserveDraft ||
       next.generation !== before.generation ||
@@ -362,10 +412,11 @@ export class DocumentSession {
   private async submitEdit(
     edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }>,
     base: DocumentSnapshot,
+    textSession: string | null,
   ): Promise<DocumentSnapshot> {
     const selected = this.selection;
     try {
-      return await this.client.documentAction(edit, base);
+      return await this.client.documentAction(edit, base, textSession);
     } catch (failure) {
       if (!this.alive) throw failure;
       if (
@@ -375,53 +426,128 @@ export class DocumentSession {
         throw failure;
       const message =
         failure instanceof Error ? failure.message : String(failure);
+      this.stateConfirmed = false;
       // Stale refusal and unknown outcome both require authoritative state.
       // Never replay: a lost reply can follow a successful Rust commit.
-      let current: DocumentSnapshot;
       try {
-        current = await this.client.documentAction({ kind: 'status' }, base);
+        if (!(await this.refreshEditBase(base, selected))) throw failure;
       } catch {
+        if (!this.alive) throw failure;
         throw new Error(
           `${message} — Could not refresh subtitles; draft retained.`,
           { cause: failure },
         );
       }
-      if (!this.alive) throw failure;
-      const draft = this.captureDraft();
-      this.adopt(current, base);
-      if (
-        current.generation !== base.generation ||
-        !current.cues.some((cue) => cue.id === selected)
-      ) {
-        // Keep the text available to copy, without attaching it to a new target.
-        this.selection = null;
-        this.multi = selectCues(current.cues, this.multi, null, 'replace');
-      }
-      Object.assign(this, draft);
       throw new Error(
         `${message} — Current subtitles refreshed; draft retained. Review it before applying again.`,
         { cause: failure },
       );
     }
   }
-  async apply(): Promise<boolean> {
+  private async refreshEditBase(
+    base: DocumentSnapshot,
+    selected: number | null,
+    retainCleanDraft = true,
+  ) {
+    const current = await this.client.documentAction({ kind: 'status' }, base);
     if (!this.alive) return false;
-    const cue = this.cue;
-    if (!cue) return !this.dirty;
-    if (!this.dirty) return true;
-    const fields = {
-      cueId: cue.id,
-      startMs: parseTime(this.start),
-      endMs: parseTime(this.end),
-      text: this.text,
-    };
-    const edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }> = this
-      .styled
-      ? { kind: 'editStyled', ...fields, style: this.style }
-      : { kind: 'edit', ...fields };
-    return this.update((base) => this.submitEdit(edit, base), {
-      submittedDraft: this.captureDraft(),
-    });
+    const draft = this.captureDraft();
+    const keep = retainCleanDraft || this.dirty;
+    this.adopt(current, base);
+    if (
+      current.generation !== base.generation ||
+      !current.cues.some((c) => c.id === selected)
+    ) {
+      this.selection = null;
+      this.multi = selectCues(current.cues, this.multi, null, 'replace');
+    }
+    if (keep) Object.assign(this, draft);
+    return true;
+  }
+  private async refreshExclusively(
+    base: DocumentSnapshot,
+    selected: number | null,
+    retainCleanDraft = true,
+  ): Promise<boolean> {
+    if (!this.alive) return false;
+    if (this.pending)
+      throw new Error('Wait for the current subtitle operation.');
+    this.pending = true;
+    try {
+      return await this.refreshEditBase(base, selected, retainCleanDraft);
+    } finally {
+      this.pending = false;
+    }
+  }
+  private async refreshUnknownEdit(): Promise<boolean> {
+    try {
+      if (!(await this.refreshExclusively(this.accepted, this.selection)))
+        return false;
+      this.editError =
+        'Current subtitles refreshed. Review the retained edit, then retry.';
+    } catch (failure) {
+      if (!this.alive) return false;
+      this.editError = `Could not refresh subtitles; edit retained. ${String(failure)}`;
+    }
+    throw new Error(this.editError);
+  }
+  async apply(textSession = this.commitSession()): Promise<boolean> {
+    // Explicit continuations wait for an automatic commit, then submit any
+    // newer fields once. A rejection propagates; unknown outcomes are not replayed.
+    while (this.pendingEdit) {
+      if (!(await this.pendingEdit)) return false;
+    }
+    if (!this.stateConfirmed) {
+      const request = this.refreshUnknownEdit().finally(() => {
+        if (this.pendingEdit === request) this.pendingEdit = null;
+      });
+      this.pendingEdit = request;
+      return request;
+    }
+    return this.commitDraft(textSession, false);
+  }
+  async commitAutomatically(textSession: string | null): Promise<boolean> {
+    if (this.pendingEdit) return this.pendingEdit;
+    if (!this.stateConfirmed) return false;
+    return this.commitDraft(textSession, true);
+  }
+  private async commitDraft(
+    textSession: string | null,
+    retainNewerDraft: boolean,
+  ): Promise<boolean> {
+    try {
+      if (!this.alive) return false;
+      const cue = this.cue;
+      if (!cue) return !this.dirty;
+      if (!this.dirty) return true;
+      const fields = {
+        cueId: cue.id,
+        startMs: parseTime(this.start),
+        endMs: parseTime(this.end),
+        text: this.text,
+      };
+      const edit: Extract<DocumentAction, { kind: 'edit' | 'editStyled' }> =
+        this.styled
+          ? { kind: 'editStyled', ...fields, style: this.style }
+          : { kind: 'edit', ...fields };
+      this.editError = '';
+      const request = this.update(
+        (base) => this.submitEdit(edit, base, textSession),
+        {
+          submittedDraft: this.captureDraft(),
+          retainNewerDraft,
+        },
+      ).finally(() => {
+        if (this.pendingEdit === request) this.pendingEdit = null;
+      });
+      this.pendingEdit = request;
+      return await request;
+    } catch (failure) {
+      if (this.alive)
+        this.editError =
+          failure instanceof Error ? failure.message : String(failure);
+      throw failure;
+    }
   }
   async save(as: boolean): Promise<boolean> {
     if (!(await this.apply())) return false;

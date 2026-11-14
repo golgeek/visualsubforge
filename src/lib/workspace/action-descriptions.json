@@ -63,7 +63,7 @@
     "macShortcut": null
   },
   "apply": {
-    "label": "Apply Cue Edit",
+    "label": "Commit Cue Edit Now",
     "group": "Edit",
     "native": true,
     "shortcut": "CmdOrCtrl+Return",
@@ -513,7 +513,7 @@
     "macShortcut": null
   },
   "revertDraft": {
-    "label": "Revert edit",
+    "label": "Discard uncommitted edit",
     "group": "Cue",
     "native": false,
     "shortcut": "",

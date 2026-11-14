@@ -8,6 +8,7 @@ The editor provides:
 
 - UTF-8 SRT, ASS/SSA and WebVTT editing, cue operations, Undo/Redo, atomic saves
   and accepted-state recovery.
+- [Automatic cue editing](docs/cue-editor.md), fixed-height issues and conservative single-cue fixes.
 - Waveform navigation, timing gestures, scene detection and native subtitle preview.
 - Reviewed timing repairs, batch shifts/alignment, tag-aware text tools, quality
   checks, statistics and optional English/French language tools.

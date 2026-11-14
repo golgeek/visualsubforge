@@ -1830,6 +1830,76 @@ export const qualityView = {
     linesTruncated: false,
     longestLine: 41,
   },
+  selectedIssues: {
+    count: 3,
+    cueId: '1',
+    issues: [
+      {
+        findings: [
+          {
+            cueId: '1',
+            cueIndex: 0,
+            expected: 'At most 20 CPS',
+            explanation:
+              "Unrounded speed exceeds the profile's permitted range.",
+            language: null,
+            measured: 41.0,
+            relatedCueId: null,
+            rule: 'cps_high',
+            severity: 'violation',
+          },
+          {
+            cueId: '1',
+            cueIndex: 0,
+            expected: 'Below 35 RS',
+            explanation:
+              "Unrounded speed exceeds the profile's permitted range.",
+            language: null,
+            measured: 82.0,
+            relatedCueId: null,
+            rule: 'rs_high',
+            severity: 'violation',
+          },
+        ],
+        rule: 'rs_high',
+      },
+      {
+        findings: [
+          {
+            cueId: '1',
+            cueIndex: 0,
+            expected: 'At least 80 ms',
+            explanation:
+              'Gap to the next chronological cue is below the profile minimum.',
+            language: null,
+            measured: 50.0,
+            relatedCueId: '2',
+            rule: 'gap',
+            severity: 'violation',
+          },
+        ],
+        rule: 'gap',
+      },
+      {
+        findings: [
+          {
+            cueId: '1',
+            cueIndex: 0,
+            expected: 'Prefer at most 40 UTF-16 units',
+            explanation:
+              'The single line exceeds the preferred limit but remains within the strict limit.',
+            language: null,
+            measured: 41.0,
+            relatedCueId: null,
+            rule: 'line_length',
+            severity: 'advisory',
+          },
+        ],
+        rule: 'line_length',
+      },
+    ],
+    offset: 0,
+  },
 } satisfies QualityView;
 export const gapView = {
   afterFindings: 0,
@@ -2907,6 +2977,7 @@ export const mediaStatus = {
   error: null,
   hardwareDecoder: null,
   loaded: false,
+  nominalFrameRate: null,
   outputDrops: null,
   paused: false,
   positionSeconds: null,

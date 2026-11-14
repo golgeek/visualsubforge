@@ -1,5 +1,25 @@
 use crate::Error;
 use crate::{Cue, CueId, CueMetadata, Document, Milliseconds, Result};
+use std::time::{Duration, Instant};
+
+/// Maximum idle interval between accepted text commits in one focus session.
+pub const TEXT_COALESCE_WINDOW: Duration = Duration::from_secs(5);
+
+/// Opaque editing-session identity; it carries no frontend or transport policy.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextEditSession(pub String);
+
+/// The caller supplies a monotonic timestamp, never a wire/wall-clock value.
+pub struct TextCommit {
+    pub session: TextEditSession,
+    pub at: Instant,
+}
+
+struct TextGroup {
+    session: TextEditSession,
+    cue: CueId,
+    last: Instant,
+}
 
 /// New timing for an existing cue. Text and document order cannot be changed by
 /// a retiming operation. The application supplies one entry per accepted cue.
@@ -105,6 +125,7 @@ pub struct Editor<P = ()> {
     saved_state: u64,
     // Never rewound by Undo: discarded history must not alias a later cue.
     next_cue: Option<u64>,
+    text_group: Option<TextGroup>,
 }
 impl Editor {
     pub fn new(document: Document) -> Self {
@@ -130,6 +151,7 @@ impl<P: Clone + PartialEq> Editor<P> {
             next_state: 1,
             saved_state: 0,
             next_cue,
+            text_group: None,
         }
     }
     pub fn document(&self) -> &Document {
@@ -153,6 +175,7 @@ impl<P: Clone + PartialEq> Editor<P> {
     /// Called only after a successful save of this exact accepted revision.
     pub fn mark_saved(&mut self, revision: u64) -> Result<()> {
         self.expect_revision(revision)?;
+        self.text_group = None;
         self.saved_state = self.state;
         Ok(())
     }
@@ -187,7 +210,30 @@ impl<P: Clone + PartialEq> Editor<P> {
         edit: Edit,
         validate: impl FnOnce(&Document, &P) -> std::result::Result<(), String>,
     ) -> Result<EditOutcome> {
+        self.apply_edit_group(expected, edit, None, validate)
+    }
+
+    /// Request coalescing of a single text-only edit. Timing/metadata changes and
+    /// other edit kinds always remain separate, regardless of the supplied key.
+    pub fn apply_text_commit(
+        &mut self,
+        expected: u64,
+        edit: Edit,
+        commit: TextCommit,
+        validate: impl FnOnce(&Document, &P) -> std::result::Result<(), String>,
+    ) -> Result<EditOutcome> {
+        self.apply_edit_group(expected, edit, Some(commit), validate)
+    }
+
+    fn apply_edit_group(
+        &mut self,
+        expected: u64,
+        edit: Edit,
+        commit: Option<TextCommit>,
+        validate: impl FnOnce(&Document, &P) -> std::result::Result<(), String>,
+    ) -> Result<EditOutcome> {
         self.expect_revision(expected)?;
+        let text_edit = matches!(&edit, Edit::Text { .. } | Edit::StyledText { .. });
         let mut created = None;
         let (index, count, after) = match edit {
             Edit::UpdateBatch { cues } => {
@@ -406,6 +452,9 @@ impl<P: Clone + PartialEq> Editor<P> {
             }
         };
         if self.document.cues[index..index + count] == after {
+            if commit.is_none() {
+                self.text_group = None;
+            }
             return Ok(EditOutcome {
                 changed: false,
                 created: None,
@@ -421,14 +470,54 @@ impl<P: Clone + PartialEq> Editor<P> {
                 .splice(index..index + after.len(), before);
             return Err(Error::ValidationRejected { message: error });
         }
-        self.undo.push(Change {
-            index,
-            before,
-            after,
-            before_state: self.state,
-            after_state: self.next_state,
-            properties: None,
-        });
+        let incoming = commit
+            .filter(|_| {
+                text_edit
+                    && before.len() == 1
+                    && after.len() == 1
+                    && before[0].id == after[0].id
+                    && before[0].start == after[0].start
+                    && before[0].end == after[0].end
+                    && before[0].metadata == after[0].metadata
+            })
+            .map(|commit| TextGroup {
+                session: commit.session,
+                cue: after[0].id,
+                last: commit.at,
+            });
+        let merge =
+            incoming
+                .as_ref()
+                .zip(self.text_group.as_ref())
+                .is_some_and(|(next, previous)| {
+                    next.session == previous.session
+                        && next.cue == previous.cue
+                        && next
+                            .last
+                            .checked_duration_since(previous.last)
+                            .is_some_and(|gap| gap <= TEXT_COALESCE_WINDOW)
+                        && self
+                            .undo
+                            .last()
+                            .is_some_and(|last| last.after_state == self.state)
+                });
+        if merge {
+            // The original before span/state survives; the latest accepted
+            // after span/state becomes the redo target. Revision still advances.
+            let last = self.undo.last_mut().expect("validated adjacent text group");
+            last.after = after;
+            last.after_state = self.next_state;
+        } else {
+            self.undo.push(Change {
+                index,
+                before,
+                after,
+                before_state: self.state,
+                after_state: self.next_state,
+                properties: None,
+            });
+        }
+        self.text_group = incoming;
         self.state = self.next_state;
         self.next_state += 1;
         self.revision += 1;
@@ -467,10 +556,12 @@ impl<P: Clone + PartialEq> Editor<P> {
             return Err(Error::ChangedCueIdentities);
         }
         if self.document == document && self.properties == properties {
+            self.text_group = None;
             return Ok(false);
         }
         validate(&document, &properties)
             .map_err(|message| Error::ValidationRejected { message })?;
+        self.text_group = None;
         let first = self
             .document
             .cues
@@ -600,6 +691,7 @@ impl<P: Clone + PartialEq> Editor<P> {
     }
     pub fn undo(&mut self, expected: u64) -> Result<bool> {
         self.expect_revision(expected)?;
+        self.text_group = None;
         let Some(change) = self.undo.pop() else {
             return Ok(false);
         };
@@ -617,6 +709,7 @@ impl<P: Clone + PartialEq> Editor<P> {
     }
     pub fn redo(&mut self, expected: u64) -> Result<bool> {
         self.expect_revision(expected)?;
+        self.text_group = None;
         let Some(change) = self.redo.pop() else {
             return Ok(false);
         };
@@ -871,3 +964,6 @@ mod tests {
         assert!(e.mark_saved(1).is_err());
     }
 }
+
+#[cfg(test)]
+mod coalescing_tests;

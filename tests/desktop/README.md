@@ -289,3 +289,11 @@ scrolling 10,000 generated cues, plus the maximum mounted-row count and browser
 identity. Interpret mean/p95/max as an observation of that test environment, not
 a portable performance threshold or native-video/real-waveform benchmark. Column
 fit measures only mounted rows; both fixed row densities retain virtualization.
+
+
+Cue-editor fixtures use `editor-input.mjs` for generated Ctrl+Enter/Escape through
+the production component handlers. The removed Apply/Revert buttons are not
+emulated, and these helpers never invoke document mutations directly. Individual
+workflows still wait for accepted snapshots, exact fields or inline rejection.
+Pause/blur/IME triggering has separate browser coverage; generated keyboard events
+do not establish physical native-input acceptance.

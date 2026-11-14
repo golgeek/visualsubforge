@@ -169,6 +169,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                   ];
             return {
               ...structuredClone(qualitySample),
+              selectedIssues: null,
               key: {
                 loaded: true,
                 generation: doc.generation,
@@ -304,6 +305,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               ...doc,
               revision: doc.revision + 1,
               dirty: true,
+              canUndo: true,
               cues: doc.cues.map((c) =>
                 c.id === a.cueId ? { ...c, text: a.text } : c,
               ),
@@ -431,16 +433,21 @@ async function run() {
         cancelable: true,
       }),
     );
-    await until(() => editor.value.includes('<b>ÉTÉ</b>'));
+    await until(
+      () =>
+        editor.value.includes('<b>ÉTÉ</b>') &&
+        doc.cues[0]!.text === editor.value &&
+        !button('Undo edit').disabled,
+    );
     assert(
-      doc.cues[0]!.text === original.cues[0]!.text && edits === 0,
-      'Formatting committed a draft implicitly',
+      doc.cues[0]!.text === editor.value && edits === 1,
+      'Formatting failed to commit once',
     );
     passed(
-      'Formatting shortcut changes only the draft and restores the selected text',
+      'Formatting shortcut commits one edit and restores the selected text',
     );
-    button('Revert').click();
-    await tick();
+    button('Undo edit').click();
+    await until(() => editor.value === original.cues[0]!.text);
     await open();
     let release!: (id: number) => void;
     heldStart = new Promise((r) => {
@@ -510,7 +517,6 @@ async function run() {
     languageEnabled = true;
     input('Subtitle text', '😀 <i>helo helo</i>');
     await tick();
-    button('Apply').click();
     await until(
       () =>
         doc.cues[0]!.text === '😀 <i>helo helo</i>' &&

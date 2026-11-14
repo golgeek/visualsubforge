@@ -17,6 +17,7 @@ pub(crate) enum Purpose {
     Scene,
     Duration,
     Batch,
+    CueFixes,
 }
 
 pub(crate) use crate::gap_review::Phase;

@@ -272,6 +272,7 @@ fn preview_and_single_match_or_batch_acceptance_preserve_tags_history_and_save_p
             metrics_offset: 0,
             metrics_limit: 100,
             selected: None,
+            selected_offset: 0,
             rule: None,
             severity: None,
             draft: None,

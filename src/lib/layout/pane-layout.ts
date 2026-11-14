@@ -23,9 +23,8 @@ export function paneLayout(input: PaneLayoutInput) {
       input.editorFooterHeight +
       64 +
       12 +
-      (input.showQualityMetrics && input.hasCue
-        ? input.qualityReadoutHeight + 6
-        : 0),
+      // The issue strip stays visible when optional numeric metrics are off.
+      (input.qualityReadoutHeight > 0 ? input.qualityReadoutHeight + 6 : 0),
   );
   const tableMinimum = 160;
   const transportPixels = Math.max(38, input.transportHeight);

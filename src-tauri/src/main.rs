@@ -5,6 +5,7 @@ mod atomic_file;
 mod audio_smoke;
 mod batch_timing;
 mod conversion_review;
+mod cue_fixes;
 mod desktop;
 #[cfg(feature = "desktop-e2e")]
 mod desktop_test;
