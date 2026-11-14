@@ -35,6 +35,7 @@ let view: StatisticsView = structuredClone(sample);
 let starts = 0,
   edits = 0;
 let failApply = false;
+let failScope = false;
 let heldStart: Promise<number> | null = null;
 const cancelled: number[] = [];
 const selections: StatisticsSelection[] = [];
@@ -79,14 +80,18 @@ function select(label: string, value: string) {
 async function open() {
   await until(() => !button('Commands').disabled);
   await chooseCommand(host, 'statistics');
-  await until(() => !!host.querySelector('dialog[open]'));
+  await until(
+    () => !!host.querySelector('[aria-labelledby="statistics-title"]'),
+  );
 }
 async function report() {
   await until(() => !!host.querySelector('[aria-label="Metric summaries"]'));
 }
 async function close() {
   button('Close').click();
-  await until(() => !host.querySelector('dialog[open]'));
+  await until(
+    () => !host.querySelector('[aria-labelledby="statistics-title"]'),
+  );
   await until(() => !button('Commands').disabled);
   assert(
     document.activeElement === button('Commands'),
@@ -99,7 +104,9 @@ async function navigate(cue: number) {
   )!;
   assert(b, 'Missing extremum navigation');
   b.click();
-  await until(() => !host.querySelector('dialog[open]'));
+  await until(
+    () => !host.querySelector('[aria-labelledby="statistics-title"]'),
+  );
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
@@ -139,6 +146,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           view = {
             ...view,
             id: starts,
+            phase: view.phase === 'cancelled' ? 'ready' : view.phase,
             session: 0,
             key: {
               ...view.key,
@@ -146,7 +154,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               revision: doc.revision,
             },
           };
-          if (args.selection?.excluded.includes(99))
+          if (failScope || args.selection?.excluded.includes(99))
             throw new Error(
               'Excluded cue numbers must be within the selected scope',
             );
@@ -162,6 +170,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         case 'statistics_cancel':
           cancelled.push(args.id!);
+          if (view.id === args.id) view = { ...view, phase: 'cancelled' };
           return;
         case 'quality_read':
           return {
@@ -210,6 +219,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 let app = mount(App, { target: host });
 try {
   await until(() => !button('Commands').disabled);
+  failApply = true;
   input('Subtitle text', 'Keep my statistics draft');
   const before = JSON.stringify(doc);
   await open();
@@ -323,33 +333,28 @@ try {
   );
   await open();
   await report();
-  select('Statistics scope', 'range');
-  await tick();
-  input('First statistics cue', '1');
-  input('Last statistics cue', '3');
-  input('Excluded statistics cues', '2, 2');
+  select('Review scope', 'selected');
   await tick();
   assert(
     !host.querySelector('[aria-label="Metric summaries"]'),
     'Changed scope kept results usable',
   );
-  button('Calculate statistics').click();
   await report();
   assert(
     JSON.stringify(selections.at(-1)) ===
-      JSON.stringify({ range: { first: 1, last: 3 }, excluded: [2, 2] }),
-    'Range/exclusions not sent intact to Rust',
+      JSON.stringify({ range: null, excluded: [2, 3] }),
+    'List selection was not mapped to accepted document positions',
   );
-  input('Excluded statistics cues', 'bad');
-  await tick();
+  input('Filter cues by text or number', 'Other');
+  select('Review scope', 'filtered');
+  await report();
   assert(
-    button('Calculate statistics').disabled &&
-      !host.querySelector('[aria-label="Metric summaries"]'),
-    'Invalid form retains report',
+    JSON.stringify(selections.at(-1)) ===
+      JSON.stringify({ range: null, excluded: [1, 2] }),
+    'Filtered list scope not sent intact to Rust',
   );
-  input('Excluded statistics cues', '99');
-  await until(() => !button('Calculate statistics').disabled);
-  button('Calculate statistics').click();
+  failScope = true;
+  input('Filter cues by text or number', 'Explicitly');
   await until(
     () => host.textContent?.includes('within the selected scope') ?? false,
   );
@@ -357,9 +362,11 @@ try {
     !host.querySelector('[aria-label="Metric summaries"]'),
     'Failed scope retained report',
   );
+  failScope = false;
   await close();
+  input('Filter cues by text or number', '');
   passed(
-    'Scope changes retire results and invalid or failed exclusions cannot publish old data',
+    'List selection and filtering retire old statistics; failed scope calculations cannot publish stale metrics',
   );
   view = structuredClone(sample);
   view.findings = Array.from({ length: 205 }, (_, i) => ({
@@ -368,14 +375,6 @@ try {
     cueId: String(i + 1),
   }));
   view.summary!.findingsCount = 205;
-  // Earlier outlier navigation opens Problems. Its asynchronous findings use
-  // the same CSS class: make their presence deterministic and count only the
-  // dialog's own outliers below.
-  await until(
-    () =>
-      host.querySelectorAll('[aria-label="Subtitle Problems"] .finding')
-        .length === qualitySample.findings.length,
-  );
   await open();
   await report();
   const findings = () => [
@@ -434,14 +433,21 @@ try {
     !host.querySelector('[aria-label="Metric summaries"]'),
     'Stale report visible',
   );
+  view = structuredClone(sample);
+  button('Retry statistics').click();
+  await report();
   await close();
-  passed('Rust stale results hide metrics and outlier navigation');
+  passed(
+    'Rust stale results hide metrics and outlier navigation; explicit retry obtains a fresh report',
+  );
   view = structuredClone(sample);
   let release!: (id: number) => void;
   heldStart = new Promise((r) => {
     release = r;
   });
+  const beforeAdmission = starts;
   await open();
+  await until(() => starts > beforeAdmission);
   const pendingId = starts;
   await close();
   release(pendingId);

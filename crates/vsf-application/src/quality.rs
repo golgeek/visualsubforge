@@ -8,6 +8,7 @@ pub mod metrics;
 pub mod profile;
 pub mod scene;
 pub mod statistics;
+pub mod timing_selection;
 mod timing_validation;
 pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_with_scenes};
 pub use profile::Profile;

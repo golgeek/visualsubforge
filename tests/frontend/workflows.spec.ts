@@ -50,6 +50,7 @@ for (const name of [
   'quality-settings',
   'quality-checking',
   'gap-review',
+  'live-review',
   'scene-quality',
   'duration-quality',
   'statistics',

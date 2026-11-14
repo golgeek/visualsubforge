@@ -1,3 +1,4 @@
+import { untrack } from 'svelte';
 import {
   statisticsStart,
   statisticsView,
@@ -25,13 +26,84 @@ export class StatisticsSession {
     context: string;
     scope: string;
   } | null>(null);
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private liveKey = '';
+  private refresh = false;
+  private attempts = 0;
   constructor(
     private subtitles: DocumentSession,
     private mediaSession: () => number,
     private context: () => string,
     private input: () => { key: string; selection: StatisticsSelection | null },
     private api = client,
-  ) {}
+    private live?: () => boolean,
+  ) {
+    if (live)
+      $effect(() => {
+        const key = JSON.stringify([
+          subtitles.snapshot.generation,
+          subtitles.snapshot.revision,
+          mediaSession(),
+          context(),
+          input().key,
+          live(),
+        ]);
+        untrack(() => {
+          if (key === this.liveKey) return;
+          if (key !== this.liveKey) {
+            this.liveKey = key;
+            this.refresh = true;
+            this.attempts = 0;
+            this.error = '';
+          }
+          this.schedule(250);
+        });
+      });
+  }
+  private schedule(delay: number) {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.drive();
+    }, delay);
+  }
+  private async drive() {
+    if (!this.alive || !this.live) return;
+    if (this.pending || this.polling) {
+      this.schedule(100);
+      return;
+    }
+    const key = this.liveKey;
+    if (!this.live() || this.refresh) {
+      if (
+        this.id !== null &&
+        (!this.view ||
+          !['cancelled', 'stale', 'failed', 'closed'].includes(this.view.phase))
+      ) {
+        await this.cancel();
+        if (this.alive) this.schedule(250);
+        return;
+      }
+      if (!this.live()) return;
+      if (!this.input().selection) {
+        this.refresh = false;
+        return;
+      }
+      await this.start();
+      if (!this.alive) return;
+      if (key !== this.liveKey) {
+        this.schedule(250);
+        return;
+      }
+      if (this.id === null) {
+        if (++this.attempts < 3) this.schedule(250);
+        else this.refresh = false;
+        return;
+      }
+      this.refresh = false;
+    } else await this.poll();
+    if (this.alive && this.id !== null) this.schedule(400);
+  }
   get current() {
     const s = this.subtitles.snapshot;
     return (
@@ -174,6 +246,8 @@ export class StatisticsSession {
   dispose() {
     if (!this.alive) return;
     this.alive = false;
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
     ++this.epoch;
     if (this.id !== null)
       void this.api.statisticsCancel(this.id).catch(() => {});

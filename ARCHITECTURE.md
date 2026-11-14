@@ -203,12 +203,15 @@ policy. The shared lifecycle waits for native-video hiding before exposing conte
 Closing removes content, waits for rendering, restores the remaining diagnostics
 occlusion, then releases the workspace gate before restoring focus. A close during
 opening waits for that hide reply; disposal invalidates continuations and leaves
-native cleanup to media teardown. Workspace derives its authoring and timing gates from
+native cleanup to media teardown. Workspace derives its overlapping authoring gates from
 this owner and supplies DOM/media callbacks and feature eligibility. Dialogs/sessions
 still protect pending acceptance and own their drafts; project-save and unsaved-work
-continuations retain their separate owners. Feature visibility and timing variant derive from the same modal identity.
-Statistics rechecks its captured document/media/quality/scene version after close
-before protected navigation; text navigation rechecks document identity and drafts
+continuations retain their separate owners. Overlapping feature visibility derives from the modal identity.
+The docked Review panel keeps Issues, timing repairs, Shift and Statistics beside
+the cue list; it does not use HideVideo. WorkspaceView owns its tab/purpose and
+transient acceptance busy state. Acceptance gates competing workspace actions;
+read-only previews do not. Statistics verifies its captured document/media/quality/scene
+version before protected navigation; text navigation rechecks document identity and drafts
 before selecting a cue and restoring its UTF-16 selection. Settings persistence
 epochs and picker guards remain in the dialog. Legacy import and project decisions
 share WorkspaceDecision presentation; publication and save/exit continuations
@@ -243,13 +246,27 @@ when its ID eventually arrives. Disposal suppresses late UI updates and follow-u
 commands; it cannot undo a mutation already accepted by Rust. Acceptance flows
 that reconcile a lost reply fetch authoritative state before continuing.
 
-Gap, scene, duration and batch timing share `TimingRepairSession` for draft
-application, start/read/page/cancel/accept ordering and disposal. Feature wrappers
-retain their coverage eligibility; gap alone permits explicit no-media
-acknowledgment. Pages stay bounded to 100 rows, and completed proposals keep
-polling for Rust-owned policy/scene invalidation. Other sessions retain distinct
-lifetimes, including file publication and reference queries. Similar field names
-alone do not imply interchangeable cancellation.
+Gap, scene, duration and batch timing share `TimingRepairSession` for
+start/read/page/cancel/accept ordering and disposal. Live dock inputs debounce
+250 ms and compare semantic keys so unrelated playback updates cannot starve
+admission. Pure read-only admission retries stop after three attempts; mutations
+are never retried. The capture is reactive and accepted snapshots remain immutable.
+Coverage eligibility stays in feature wrappers. Gap alone permits no-media
+acceptance, with an explicit note beside Apply; missing attached-media scene
+coverage remains protected. Completed plans poll for Rust-owned invalidation.
+
+Rust's `quality::timing_selection` prepares the selected subset on the existing
+worker, checks repaired candidates against the whole document and captured
+profile/scene context, and refuses unsafe coupled subsets. Explicit shifts retain
+their documented overlap semantics. Acceptance revalidates the immutable capture
+and applies one history operation. Full plans stay in Rust: review pages contain
+100 rows; an independent projection requests at most 200 visible cue IDs for
+frontend dashed ghosts and list deltas. Those projections cannot mutate accepted
+state, and disappear on context changes, closure or disposal. Statistics retains
+its separate request/epoch owner, translating list IDs to its existing selection
+contract and recalculating read-only reports on changed inputs.
+Other sessions retain distinct lifetimes, including file publication and reference
+queries. Similar field names alone do not imply interchangeable cancellation.
 See the [frontend walkthrough](src/lib/README.md) for feature-specific behavior.
 
 `workspace-keys.ts` owns keyboard routing and editing shortcuts. Its pure routing

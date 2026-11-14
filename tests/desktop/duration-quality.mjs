@@ -1,3 +1,4 @@
+import { acceptReview, closeReview, setReviewScope } from './review.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
@@ -141,6 +142,7 @@ export async function durationQuality({
   assert.equal(checked.findingsCount, 9);
   let before = await status();
   const text = await browser.$('[aria-label="Subtitle text"]');
+  await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Preserve duration draft');
   await browser.execute(() => {
     [...document.querySelectorAll('button:not(dialog:not([open]) button)')]
@@ -149,9 +151,9 @@ export async function durationQuality({
   });
   await chooseCommand(browser, 'fixReadingSpeed');
   await until('duration draft guard', () =>
-    browser.$('button=Cancel duration review').then((b) => b.isExisting()),
+    browser.$('[aria-label="Review panel"]').then((b) => b.isExisting()),
   );
-  await (await browser.$('button=Cancel duration review')).click();
+  await closeReview(browser, until);
   await ready();
   assert.equal(
     await browser.execute(() => document.activeElement?.textContent?.trim()),
@@ -162,17 +164,15 @@ export async function durationQuality({
   assert.deepEqual(await status(), before);
   await discardCue(browser);
   await chooseCommand(browser, 'fixReadingSpeed');
-  let selectedDialog = await browser.$(
-    'dialog[aria-labelledby="duration-repair-title"]',
-  );
+  let selectedDialog = await browser.$('[aria-label="Review panel"]');
   await until('selected duration dialog', () => selectedDialog.isDisplayed());
-  await (await selectedDialog.$('button=Preview changes')).click();
+  await setReviewScope(browser, 'selected');
   await until('selected duration proposal', async () =>
-    (await selectedDialog.getText()).includes('1 safe changes'),
+    (await selectedDialog.getText()).includes('1 change'),
   );
-  assert.equal((await selectedDialog.$$('tbody tr')).length, 1);
+  assert.equal((await selectedDialog.$$('.change')).length, 1);
   assert.deepEqual(await status(), before);
-  await (await selectedDialog.$('button=Apply changes')).click();
+  await acceptReview(browser, status, until);
   await ready();
   assert.deepEqual(
     (await status()).cues.map((c) => c.endMs),
@@ -183,23 +183,24 @@ export async function durationQuality({
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
   await chooseCommand(browser, 'fixReadingSpeed');
-  let dialog = await browser.$(
-    'dialog[aria-labelledby="duration-repair-title"]',
-  );
+  let dialog = await browser.$('[aria-label="Review panel"]');
   await until('duration dialog', () => dialog.isDisplayed());
   await browser.execute(() => {
-    const scope = document.querySelector('[aria-label="Repair scope"]');
-    scope.value = 'document';
+    const scope = document.querySelector('[aria-label="Review scope"]');
+    scope.value = 'all';
     scope.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await (await dialog.$('button=Preview changes')).click();
+  // Options automatically prepare a current read-only proposal.
   await until('duration preview rows', async () =>
-    (await dialog.getText()).includes('2 safe changes'),
+    (await dialog.getText()).includes('2 changes'),
   );
-  assert.match(await dialog.getText(), /timing review/i);
+  assert.equal(
+    await (await dialog.$('[aria-label="Live timing review"]')).isExisting(),
+    true,
+  );
   assert.deepEqual(await status(), before);
   await browser.saveScreenshot(join(evidence, 'duration-preview.png'));
-  await (await dialog.$('button=Apply changes')).click();
+  await acceptReview(browser, status, until);
   await ready();
   const accepted = await status();
   assert.equal(accepted.revision, before.revision + 1);
@@ -379,31 +380,29 @@ async function durationPerformance({
     await discardCue(browser);
     await ready();
     await chooseCommand(browser, 'fixReadingSpeed');
-    const dialog = await browser.$(
-      'dialog[aria-labelledby="duration-repair-title"]',
-    );
+    const dialog = await browser.$('[aria-label="Review panel"]');
     await until('10k duration dialog', () => dialog.isDisplayed());
     await browser.execute(() => {
-      const scope = document.querySelector('[aria-label="Repair scope"]');
-      scope.value = 'document';
+      const scope = document.querySelector('[aria-label="Review scope"]');
+      scope.value = 'all';
       scope.dispatchEvent(new Event('change', { bubbles: true }));
     });
     const began = Date.now();
-    await (await dialog.$('button=Preview changes')).click();
+    // Options automatically prepare a current read-only proposal.
     await until(
       '10k completed scene preview',
-      async () => (await dialog.getText()).includes('10000 safe changes'),
+      async () => (await dialog.getText()).includes('10000 changes'),
       20000,
     );
     result.previewMs = Date.now() - began;
-    assert.equal((await dialog.$$('tbody tr')).length, 100);
-    await (await dialog.$('button=Next candidates')).click();
+    assert.equal((await dialog.$$('.change')).length, 100);
+    await (await dialog.$('button=Next')).click();
     await until('10k second scene page', async () =>
-      (await dialog.getText()).includes('101–200 of 10000'),
+      (await dialog.getText()).includes('101–200 / 10000'),
     );
     await browser.saveScreenshot(join(evidence, 'duration-10000-preview.png'));
     const acceptStart = Date.now();
-    await (await dialog.$('button=Apply changes')).click();
+    await acceptReview(browser, status, until);
     await ready();
     result.acceptanceMs = Date.now() - acceptStart;
     assert.ok(

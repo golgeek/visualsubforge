@@ -42,6 +42,55 @@ pub(super) fn ready(docs: &Documents, id: u64) -> GapView {
 fn value(docs: &Documents) -> serde_json::Value {
     serde_json::to_value(docs.apply(Action::Status, 0, 0).unwrap()).unwrap()
 }
+#[test]
+fn selected_gap_rows_keep_bounded_ghosts_and_one_atomic_history_entry() {
+    let (_dir, docs) = fixture();
+    let original = docs.apply(Action::Status, 0, 0).unwrap();
+    let id = docs
+        .gap_start_selected(
+            original.generation,
+            original.revision,
+            Scenes::default().capture_quality(0, false).unwrap(),
+            Some(timing_selection::Selection {
+                scope: None,
+                excluded: vec![CueId(original.cues[1].id)],
+            }),
+        )
+        .unwrap();
+    let view = ready(&docs, id);
+    assert!(view.selection_error.is_none(), "{:?}", view.selection_error);
+    assert_eq!(view.changed, 1);
+    assert!(view.rows[0].selected);
+    assert!(!view.rows[1].selected);
+    let visible = HashSet::from([CueId(original.cues[1].id)]);
+    let projected = docs.gap_view_for_cues(id, 0, 200, Some(&visible)).unwrap();
+    assert_eq!(projected.rows.len(), 1);
+    assert_eq!(projected.rows[0].cue_index, 1);
+    assert!(!projected.rows[0].selected);
+    assert!(docs.gap_accept(id, false).is_err());
+    let accepted = docs.gap_accept(id, true).unwrap();
+    assert_ne!(accepted.cues[0].end_ms, original.cues[0].end_ms);
+    assert_eq!(
+        serde_json::to_value(&accepted.cues[1..]).unwrap(),
+        serde_json::to_value(&original.cues[1..]).unwrap()
+    );
+    assert!(docs.gap_accept(id, true).is_err());
+    let undone = docs
+        .apply(Action::Undo, accepted.generation, accepted.revision)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&undone.cues).unwrap(),
+        serde_json::to_value(&original.cues).unwrap()
+    );
+    assert!(!undone.can_undo);
+    let redone = docs
+        .apply(Action::Redo, undone.generation, undone.revision)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&redone.cues).unwrap(),
+        serde_json::to_value(&accepted.cues).unwrap()
+    );
+}
 fn checked(docs: &Documents) -> crate::quality_check::View {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {

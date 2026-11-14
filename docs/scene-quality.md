@@ -28,10 +28,11 @@ can miss cuts. A completed empty scan is different from unavailable data.
 
 ## Review and acceptance
 
-**Snap to shot changes…** creates an immutable preview. Starts move inward to the
+**Snap to shot changes…** opens the dock and automatically creates an immutable
+preview for the whole file, list selection or filter. Starts move inward to the
 right edge of their exclusion window; ends move inward to the left edge. No cue
 is extended or shifted. Text, tags, IDs and document order are preserved. The
-dialog shows both endpoints, duration, CPS/RS, total before/after findings and
+dock shows both endpoints, duration, CPS/RS, total before/after findings and
 specific skip reasons in pages of 100 rows (IPC maximum 200).
 
 Nested/equal-start overlap groups, nonpositive intervals, enabled duration-limit
@@ -44,6 +45,7 @@ windows retain exactly the representable safe points. Event metadata is preserve
 and nonempty event effects require manual review. See the current
 [ASS/SSA integration and acceptance scope](ass-ssa-documents.md).
 
+Individual changes can be unchecked; each new subset is revalidated before Apply.
 The entire proposed document is checked for new or worsened duration, speed,
 overlap, gap and scene findings, including effects on unchanged overlapping cues.
 Unsafe overlap groups are withheld and the retained document is checked again.

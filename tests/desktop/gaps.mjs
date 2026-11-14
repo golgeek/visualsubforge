@@ -1,3 +1,4 @@
+import { discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
@@ -5,48 +6,93 @@ import { join } from 'node:path';
 export async function gapReview({ browser, status, until, evidence, record }) {
   const before = await status();
   const text = await browser.$('[aria-label="Subtitle text"]');
+  // Keep an invalid timing draft so phase-f auto-commit cannot accept it while
+  // the read-only dock remains visible. The editor retains its normal policy.
+  await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Unapplied gap review draft');
   await chooseCommand(browser, 'fixGaps', { keyboard: true });
-  let dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
-  await until('gap review modal', () => dialog.isDisplayed());
+  let dock = await browser.$('[aria-label="Review panel"]');
+  await until('gap review dock', () => dock.isDisplayed());
   assert.equal(
-    await (await dialog.$('button=Preview changes')).isEnabled(),
+    await (await dock.$('.timing-review .apply')).isEnabled(),
     false,
   );
-  await (await dialog.$('button=Cancel gap review')).click();
-  await until(
-    'gap modal cancellation',
-    async () => !(await dialog.isExisting()),
-  );
+  await (await dock.$('button=Close')).click();
+  await until('gap dock cancellation', async () => !(await dock.isExisting()));
   assert.equal(await text.getValue(), 'Unapplied gap review draft');
   assert.deepEqual(await status(), before);
-  await until('gap close restored workspace interaction', () =>
-    browser.$('button=Commands').then((button) => button.isEnabled()),
-  );
   await chooseCommand(browser, 'fixGaps', { keyboard: true });
-  // The first modal was unmounted; the embedded driver retains its element ID.
-  dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
-  await until('reopened gap review', () => dialog.isDisplayed());
-  await (await dialog.$('button=Discard cue draft')).click();
-  await (await dialog.$('button=Preview changes')).click();
-  await until('completed gap proposal', async () =>
-    (await dialog.getText()).includes('1 safe changes'),
+  dock = await browser.$('[aria-label="Review panel"]');
+  await until('reopened gap review', () => dock.isDisplayed());
+  await discardCue(browser);
+  const accept = await dock.$('.timing-review .apply');
+  await until(
+    'completed gap proposal',
+    async () =>
+      (await accept.getText()) === 'Apply 1 change' &&
+      (await accept.isEnabled()),
   );
   assert.deepEqual(await status(), before);
-  const accept = await dialog.$('button=Apply changes');
-  assert.equal(await accept.isEnabled(), false);
-  await (await dialog.$('input[type="checkbox"]')).click();
-  await until('explicit partial-plan acknowledgment', () => accept.isEnabled());
+  assert.match(
+    await dock.getText(),
+    /No video, so shot changes weren’t checked/,
+  );
+  const checkbox = await dock.$('input[aria-label="Include cue 1"]');
+  await checkbox.click();
+  await until(
+    'unchecked real gap candidate',
+    async () =>
+      (await accept.getText()) === 'Apply 0 changes' &&
+      !(await accept.isEnabled()),
+  );
+  await (await dock.$('input[aria-label="Include cue 1"]')).click();
+  await until(
+    'checked real gap candidate',
+    async () =>
+      (await accept.getText()) === 'Apply 1 change' &&
+      (await accept.isEnabled()),
+  );
+  await browser.execute(() =>
+    document
+      .querySelector('[aria-label="Include cue 1"]')
+      .closest('.change')
+      .scrollIntoView({ block: 'nearest' }),
+  );
+  const geometry = await browser.execute(() => {
+    const bounds = (selector) => {
+      const r = document.querySelector(selector).getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    };
+    return {
+      dock: bounds('[aria-label="Review panel"]'),
+      video: bounds('[aria-label="Native video surface"]'),
+      ghosts: document.querySelectorAll('.ghosts .ghost').length,
+      deltas: document.querySelectorAll('.timing-delta').length,
+      modal: !!document.querySelector('dialog[open]'),
+    };
+  });
+  assert.equal(geometry.modal, false);
+  assert(
+    geometry.dock.top >= geometry.video.bottom ||
+      geometry.dock.right <= geometry.video.left ||
+      geometry.dock.left >= geometry.video.right,
+    'Review dock overlaps native video bounds',
+  );
+  assert.equal(geometry.ghosts, 1);
+  assert.equal(geometry.deltas, 1);
   await browser.saveScreenshot(join(evidence, 'gap-preview.png'));
   await accept.click();
   await until(
     'gap proposal accepted',
-    async () => !(await dialog.isExisting()),
+    async () => (await status()).revision === before.revision + 1,
   );
-  // Unmount precedes the asynchronous native occlusion/focus restoration.
-  // The workspace's modal guard stays active until that transition completes.
-  await until('accepted gap dialog restored workspace interaction', () =>
-    browser.$('button=Commands').then((button) => button.isEnabled()),
+  await until('accepted gap workspace admission', () =>
+    dock.$('button=Close').then((button) => button.isEnabled()),
+  );
+  await (await dock.$('button=Close')).click();
+  await until(
+    'accepted gap dock closed',
+    async () => !(await dock.isExisting()),
   );
   const changed = await status();
   assert.equal(changed.revision, before.revision + 1);
@@ -82,7 +128,8 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   const restored = await status();
   assert.deepEqual(restored.cues, before.cues);
   await record({
-    step: 'real gap preview, explicit no-media acknowledgment, atomic acceptance and Undo/Redo',
+    step: 'real live gap dock, no-media note, checked subset, bounded ghosts/deltas, atomic acceptance and Undo/Redo',
+    geometry,
     changed: 1,
     originalRevision: before.revision,
     acceptedRevision: changed.revision,

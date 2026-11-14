@@ -5,12 +5,15 @@ read-only; full ASS/SSA documents/styles and platform release gates stay separat
 
 ## Review
 
-Choose **Statistics…** above the cue list. The report describes accepted subtitles;
-unapplied drafts stay unchanged and do not participate. Choose the whole document
-or an inclusive range of one-based document cue positions, optionally excluding
-comma-separated positions inside that scope. These are not SRT sequence labels.
-Duplicate exclusions coalesce. Invalid/out-of-range choices fail explicitly.
-Empty documents and all-excluded scopes have usable empty reports.
+Choose **Statistics…** from Commands to open the dock beside the cue list.
+Reports describe accepted subtitles. Drafts do not participate; the editor's
+ordinary pause/blur commit policy remains active while the dock is visible.
+Choose Whole file, List selection or Filtered list; changed inputs recalculate
+automatically and immediately retire old results. The frontend maps stable list
+IDs to original document positions in the existing statistics selection contract.
+Manual range/exclusion input remains available to the CLI. Rust still rejects
+invalid positions and coalesces duplicate exclusions. Empty documents and
+all-excluded scopes have usable empty reports.
 
 Counts separate total, in-scope, outside-scope, explicitly excluded, included and
 empty-text cues. Each duration, CPS, RS, line-count, longest-line and signed-gap
@@ -93,7 +96,7 @@ text and shared timing review; it does not interrupt their existing jobs.
 
 `StatisticsSession` owns only transient scope/capture/paging, one in-flight read
 and late-reply disposal. Scope/workspace changes retire old results. Draft changes
-do not invalidate accepted statistics. Opening the dialog starts calculation;
+do not invalidate accepted statistics. Opening the dock starts calculation;
 closing cancels its job, including a late admission. `App` retains modal/video
 occlusion and passes navigation into the existing protected editor flow. There is
 no statistics acceptance, save command or second document owner.

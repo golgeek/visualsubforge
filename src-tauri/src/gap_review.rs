@@ -29,6 +29,7 @@ pub(crate) enum Phase {
 pub(crate) struct Row {
     pub cue_id: String,
     pub cue_index: u32,
+    pub selected: bool,
     pub next_cue_index: u32,
     pub new_end_ms: Option<SafeU64>,
     pub skipped: Option<Skip>,
@@ -48,6 +49,7 @@ pub(crate) struct GapView {
     pub profile: Profile,
     pub profile_hash: String,
     pub error: Option<String>,
+    pub selection_error: Option<String>,
     pub coverage: Option<SceneCoverage>,
     pub total: u32,
     pub changed: u32,
@@ -64,8 +66,10 @@ pub(crate) async fn gap_start(
     session: SafeU64,
     generation: SafeU64,
     revision: SafeU64,
+    selection: Option<crate::review_selection::Selection>,
 ) -> Result<SafeU64, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let selection = selection.map(|s| s.domain()).transpose()?;
         app.state::<crate::media::Media>()
             .with_context(session.get(), |path| {
                 let scenes = app
@@ -73,7 +77,7 @@ pub(crate) async fn gap_start(
                     .capture_quality(session.get(), path.is_some())?;
                 Ok(app
                     .state::<Documents>()
-                    .gap_start(generation.get(), revision.get(), scenes)?
+                    .gap_start_selected(generation.get(), revision.get(), scenes, selection)?
                     .try_into()?)
             })
     })
@@ -111,10 +115,12 @@ pub(crate) async fn gap_view(
     id: SafeU64,
     offset: u32,
     limit: u32,
+    preview_ids: Option<Vec<SafeU64>>,
 ) -> Result<GapView, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let preview_ids = crate::review_selection::preview_ids(preview_ids)?;
         with_current(&app, id.get(), |documents| {
-            documents.gap_view(id.get(), offset, limit)
+            documents.gap_view_for_cues(id.get(), offset, limit, preview_ids.as_ref())
         })
     })
     .await

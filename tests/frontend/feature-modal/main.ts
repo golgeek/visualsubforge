@@ -195,7 +195,9 @@ async function fixture(variant: (typeof variants)[number], above = true) {
   const launcher = button('Commands');
   const dialog = () =>
     host.querySelector<HTMLDialogElement>(
-      'dialog[open]:not([aria-labelledby="action-browser-title"])',
+      variant.name === 'statistics'
+        ? '[aria-label="Review panel"]'
+        : 'dialog[open]:not([aria-labelledby="action-browser-title"])',
     );
   const action = (value: WorkspaceAction) =>
     callbacks.get(handler)!({ payload: value });
@@ -231,7 +233,7 @@ async function fixture(variant: (typeof variants)[number], above = true) {
       await until(() => !!dialog());
     },
     close: async () => {
-      button(variant.close, host.querySelector('dialog[open]')!).click();
+      button(variant.close, dialog()!).click();
       await until(() => !dialog() && !launcher.disabled);
     },
     dispose: () => unmount(app),
@@ -240,6 +242,44 @@ async function fixture(variant: (typeof variants)[number], above = true) {
 async function run() {
   for (const variant of variants) {
     const f = await fixture(variant);
+    if (variant.name === 'statistics') {
+      try {
+        await f.open();
+        assert(
+          !f.occluded() && !f.calls.some((call) => call.startsWith('occlude:')),
+          'Statistics dock hid native video',
+        );
+        const dock = f.dialog()!.getBoundingClientRect();
+        const video = host
+          .querySelector('[aria-label="Native video surface"]')!
+          .getBoundingClientRect();
+        assert(
+          dock.top >= video.bottom ||
+            dock.right <= video.left ||
+            dock.left >= video.right,
+          'Statistics overlaps video',
+        );
+        await f.close();
+        assert(
+          document.activeElement === f.launcher,
+          'Statistics close lost focus',
+        );
+        await f.open();
+        await f.dispose();
+        const count = f.calls.length;
+        await settle();
+        assert(
+          !f.dialog() && f.calls.length === count,
+          'Disposed statistics revived presentation',
+        );
+        passed(
+          'statistics: dock preserves video, restores focus and suppresses presentation after disposal',
+        );
+      } finally {
+        if (host.children.length) await f.dispose();
+      }
+      continue;
+    }
     try {
       const hide = f.holdHide();
       f.begin();

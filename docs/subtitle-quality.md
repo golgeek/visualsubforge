@@ -137,20 +137,23 @@ limitations remain visible even when there are no findings.
 
 ## Previewing minimum-gap changes
 
-Choose **Fix gaps and overlaps…** above the cue list, resolve any unapplied cue
-draft, then **Preview changes**. Review old/new endpoints, before/after reading
-metrics, skipped reasons and total finding counts. The table pages 100 candidates
-at a time; **Apply changes** commits all safe changes in the proposal,
-including other pages, together. Cancel and Close leave accepted subtitles alone.
-Without media, acceptance requires the explicit scene-check acknowledgment.
+Choose **Fix gaps and overlaps…** from Commands to open Review → Fix timing.
+The live preview waits for drafts to commit or be discarded. Scope follows the
+whole file, list selection or filter. Review endpoints, reading metrics, skip
+reasons and finding counts in bounded 100-row pages. Untick changes to withhold
+them; Rust validates the complete subset before enabling **Apply N changes**.
+Acceptance includes all checked pages in one history entry. Closing retires the
+read-only proposal. With no media, a note explicitly states that shot changes
+weren’t checked; Apply confirms the displayed limited coverage without a separate
+checkbox. Missing attached-media scene coverage cannot be acknowledged away.
 Saving remains a separate action. Existing recovery/resync Save As protections
 survive acceptance, failed saves and Undo.
 
 Document edits, history changes, a changed profile, media replacement or scene
 rescan retire the captured proposal. Accept rechecks these identities in Rust;
-a late reply or an old dialog cannot apply it. One explicit proposal worker runs
+a late reply or an old dock session cannot apply it. One explicit proposal worker runs
 beside the automatic checker, with no queue and a ten-second deadline. Closing
-the dialog cancels it; application shutdown joins both workers outside the
+the dock cancels it; application shutdown joins both workers outside the
 document lock. Full proposals/reports stay in Rust; review IPC caps at 200 rows.
 Text review and shared scene/duration review each have another independently
 bounded owner. Explicit [statistics](statistics.md) uses another bounded owner,
@@ -165,7 +168,8 @@ Reject candidates that violate the enabled minimum duration, worsen a speed
 violation, or enter a configured scene endpoint exclusion zone. Scene constraints
 require current completed data when media is attached; unavailable/partial data
 is reported, never assumed clear. Without media, scene constraints are explicitly
-not checked and require a visible acknowledgment before accepting a partial plan.
+not checked; the visible no-media note accompanies explicit acceptance of the
+partial plan.
 
 Equal starts and nested intervals make their connected overlapping group
 ambiguous. Candidate endpoints exactly on a scene exclusion boundary are allowed;

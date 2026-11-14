@@ -1,16 +1,11 @@
 <script lang="ts">
   import ResyncDialog from '../timing/ResyncDialog.svelte';
-  import StatisticsDialog from '../quality/StatisticsDialog.svelte';
   import FontDialog from '../authoring/FontDialog.svelte';
   import PluginDialog from '../authoring/PluginDialog.svelte';
   import ConversionDialog from '../authoring/ConversionDialog.svelte';
   import StyleInspector from '../authoring/StyleInspector.svelte';
-  import BatchTimingDialog from '../timing/BatchTimingDialog.svelte';
   import TextDialog from '../authoring/TextDialog.svelte';
   import SettingsDialog from '../settings/SettingsDialog.svelte';
-  import GapDialog from '../timing/GapDialog.svelte';
-  import SceneRepairDialog from '../timing/SceneRepairDialog.svelte';
-  import DurationRepairDialog from '../timing/DurationRepairDialog.svelte';
   import type { WorkspaceDialogsState } from './workspace-dialogs.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
@@ -38,13 +33,6 @@
   const workspaceModal = $derived(dialogs.modal);
   const doc = $derived(subtitles.snapshot);
   const status = $derived(media.status);
-  const TimingDialog = $derived(
-    workspaceModal.timingKind === 'duration'
-      ? DurationRepairDialog
-      : workspaceModal.timingKind === 'scene'
-        ? SceneRepairDialog
-        : GapDialog,
-  );
 </script>
 
 {#if workspaceModal.identity === 'resync'}
@@ -54,15 +42,6 @@
     target={mediaPath}
     onclose={() => void dialogs.closeResync()}
     onaccepted={() => void dialogs.closeResync(true)}
-  />
-{/if}
-{#if workspaceModal.identity === 'statistics'}
-  <StatisticsDialog
-    {subtitles}
-    mediaSession={() => status.session}
-    context={() => `${qualityContext}/${sceneState.qualityKey}`}
-    onclose={() => void dialogs.closeStatistics()}
-    onnavigate={(id) => void dialogs.closeStatistics(id)}
   />
 {/if}
 {#if workspaceModal.identity === 'fonts' && doc.format && subtitles.styled}
@@ -95,23 +74,6 @@
     onclose={() => void dialogs.closeAuthoring()}
     onaccepted={() => void dialogs.closeAuthoring(true)}
   />
-{/if}
-{#if workspaceModal.timingKind !== null}
-  {#if workspaceModal.timingKind === 'batch'}
-    <BatchTimingDialog
-      {subtitles}
-      media={() => status}
-      onclose={() => void dialogs.closeTimingReview()}
-      onaccepted={() => void dialogs.closeTimingReview(true)}
-    />
-  {:else}
-    <TimingDialog
-      {subtitles}
-      mediaSession={() => status.session}
-      onclose={() => void dialogs.closeTimingReview()}
-      onaccepted={() => void dialogs.closeTimingReview(true)}
-    />
-  {/if}
 {/if}
 {#if workspaceModal.identity === 'text'}
   <TextDialog

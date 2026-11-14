@@ -189,9 +189,8 @@ export async function qualityPerformance({
       historyBottom: document
         .querySelector('.editorfooter')
         .getBoundingClientRect().bottom,
-      shortcutsTop: document
-        .querySelector('.shortcut-help')
-        .getBoundingClientRect().top,
+      footerTop: document.querySelector('main > footer').getBoundingClientRect()
+        .top,
     }));
     await save();
     assert.ok(
@@ -199,8 +198,8 @@ export async function qualityPerformance({
       'The editor clips its history buttons',
     );
     assert.ok(
-      result.dom.editorBottom <= result.dom.shortcutsTop,
-      'Recovery and metrics make the workspace overlap the shortcut panel',
+      result.dom.editorBottom <= result.dom.footerTop,
+      'Recovery and metrics make the workspace overlap the workspace footer',
     );
     assert.ok(result.dom.cueRows > 0 && result.dom.cueRows <= 200);
     assert.equal(result.dom.findings, 100);
@@ -349,23 +348,23 @@ export async function qualityPerformance({
     assert.deepEqual(restored.cues, before.cues);
     assert.equal(restored.dirty, before.dirty);
     assert.equal(restored.requiresSaveAs, before.requiresSaveAs);
-    // Exercise the real modal with 9,999 candidates, never sending the full
+    // Exercise the real dock with 9,999 candidates, never sending the full
     // before/after reports to the frontend and never accepting this trial.
     await chooseCommand(browser, 'fixGaps');
-    const dialog = await browser.$('dialog[aria-labelledby="gap-title"]');
+    const dialog = await browser.$('[aria-label="Review panel"]');
     await until('large gap modal', () => dialog.isDisplayed());
     const previewBegan = performance.now();
-    await (await dialog.$('button=Preview changes')).click();
+
     await until('large gap review', async () =>
-      (await dialog.getText()).includes('9999 safe changes'),
+      (await dialog.getText()).includes('9999 changes'),
     );
     result.gapPreviewMs = performance.now() - previewBegan;
     result.gapRows = await browser.execute(
-      () => document.querySelectorAll('dialog tbody tr').length,
+      () => document.querySelectorAll('.timing-review .change').length,
     );
     assert.equal(result.gapRows, 100);
     await browser.saveScreenshot(join(evidence, 'quality-10000-gap.png'));
-    await (await dialog.$('button=Cancel')).click();
+    await (await dialog.$('button=Close')).click();
     await until(
       'large gap modal closed',
       async () => !(await dialog.isExisting()),
@@ -373,6 +372,10 @@ export async function qualityPerformance({
     assert.deepEqual(await status(), restored);
     await until('large workspace restored', () =>
       browser.$('button=Commands').then((b) => b.isEnabled()),
+    );
+    await chooseCommand(browser, 'problems');
+    await until('large Issues tab visible', () =>
+      browser.$('button=Check again').then((button) => button.isExisting()),
     );
     await (await browser.$('button=Check again')).click();
     await until('large findings restored', async () =>

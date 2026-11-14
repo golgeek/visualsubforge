@@ -252,9 +252,7 @@ async function fixture(variant: (typeof variants)[number], above = true) {
     );
   };
   const dialog = () =>
-    host.querySelector<HTMLDialogElement>(
-      'dialog[open]:not([aria-labelledby="action-browser-title"])',
-    );
+    host.querySelector<HTMLDialogElement>('[aria-label="Review panel"]');
   const action = (value: WorkspaceAction) =>
     callbacks.get(handler)!({ payload: value });
   return {
@@ -275,7 +273,7 @@ async function fixture(variant: (typeof variants)[number], above = true) {
       await until(() => !!dialog());
     },
     close: async () => {
-      button(variant.close).click();
+      button('Close').click();
       await until(() => !dialog() && !launcher.disabled);
     },
     dispose: () => unmount(app),
@@ -309,182 +307,104 @@ async function blocked(f: Awaited<ReturnType<typeof fixture>>) {
 }
 async function run() {
   for (const variant of variants) {
+    for (const dispose of [false, true]) {
+      const f = await fixture(variant);
+      let disposed = false;
+      try {
+        await f.open();
+        await until(
+          () =>
+            !!host.querySelector<HTMLButtonElement>('.timing-review .apply') &&
+            !host.querySelector<HTMLButtonElement>('.timing-review .apply')!
+              .disabled,
+        );
+        assert(
+          !f.occluded() && !f.calls.some((call) => call.startsWith('occlude:')),
+          `${variant.name}: dock added an occlusion handshake`,
+        );
+        const dock = f.dialog()!.getBoundingClientRect();
+        const video = host
+          .querySelector('[aria-label="Native video surface"]')!
+          .getBoundingClientRect();
+        assert(
+          dock.top >= video.bottom ||
+            dock.right <= video.left ||
+            dock.left >= video.right,
+          'Dock overlaps native video',
+        );
+        const reply = f.holdMutation();
+        host.querySelector<HTMLButtonElement>('.timing-review .apply')!.click();
+        await until(() => f.calls.includes('accept'));
+        assert(
+          button('Close').disabled,
+          'Acceptance allowed close before acknowledgment',
+        );
+        assert(
+          [
+            ...host.querySelectorAll<HTMLButtonElement>(
+              '[aria-label="Review tools"] button',
+            ),
+          ].every((button) => button.disabled),
+          'Acceptance allowed tab disposal',
+        );
+        await blocked(f);
+        if (dispose) {
+          await f.dispose();
+          disposed = true;
+        }
+        const count = f.calls.length;
+        reply.resolve();
+        await settle();
+        if (dispose)
+          assert(
+            f.calls.length === count &&
+              !host.textContent?.includes('timings accepted'),
+            'Disposed acceptance sent follow-up or notice',
+          );
+        else {
+          await until(() => !button('Close').disabled);
+          await f.close();
+          assert(
+            document.activeElement === f.launcher,
+            'Dock close lost launcher focus',
+          );
+        }
+      } finally {
+        if (!disposed) await f.dispose();
+      }
+    }
+    passed(
+      `${variant.name}: dock never overlaps or hides video; acceptance blocks workspace actions and tab/close disposal, with late presentation suppressed after teardown`,
+    );
     const f = await fixture(variant);
     try {
-      const hide = f.holdHide();
-      f.launcher.focus();
-      f.begin();
-      await until(() => f.calls.includes('occlude:true'));
-      assert(!f.dialog(), `${variant.name}: content mounted before hide`);
-      await blocked(f);
-      hide.resolve();
-      await until(() => !!f.dialog());
-      assert(f.occluded(), 'Visible dialog without occlusion');
-      const restore = f.holdRestore();
-      const closingDialog = f.dialog()!;
-      button(variant.close).click();
-      closingDialog.dispatchEvent(new Event('cancel', { cancelable: true }));
-      await until(() => f.calls.includes('occlude:false'));
-      assert(!f.dialog(), 'Restore before content removal');
-      await blocked(f);
-      restore.resolve();
-      await until(() => !f.launcher.disabled);
-      assert(
-        document.activeElement === f.launcher,
-        `${variant.name}: focus not restored`,
-      );
-      assert(
-        f.calls.join(',') === 'occlude:true,occlude:false',
-        'Duplicate transition commands',
-      );
-      f.action('diagnostics');
-      await until(() => f.calls.length === 3);
+      const late = f.holdStart();
       await f.open();
+      await until(() => f.calls.includes('start'));
       await f.close();
-      assert(
-        f.occluded() && f.calls.at(-1) === 'occlude:true',
-        'Diagnostics lost occlusion',
-      );
-      assert(
-        document.activeElement === f.launcher,
-        'Diagnostics close lost focus',
-      );
-      passed(
-        `${variant.name}: delayed hide/restore excludes competing actions, restores launcher focus once and retains diagnostics`,
-      );
+      late.resolve();
+      await until(() => f.cancels.includes(999));
+      assert(!f.dialog(), 'Late admission revived dock');
     } finally {
       await f.dispose();
     }
-
-    for (const phase of ['hide', 'restore'] as const) {
-      const f = await fixture(variant);
-      const reply = phase === 'hide' ? f.holdHide() : f.holdRestore();
-      if (phase === 'hide') {
-        f.launcher.focus();
-        f.begin();
-      } else {
-        await f.open();
-        button(variant.close).click();
-      }
-      await until(() => f.calls.includes(`occlude:${phase === 'hide'}`));
-      await f.dispose();
-      const count = f.calls.length;
-      reply.resolve();
-      await settle();
-      assert(
-        f.calls.length === count && !f.dialog(),
-        'Disposed transition continued',
-      );
-    }
     passed(
-      `${variant.name}: disposal during hide and restore cannot revive presentation or send another command`,
-    );
-
-    for (const operation of ['draft', 'accept'] as const) {
-      for (const dispose of [false, true]) {
-        const f = await fixture(variant);
-        let disposed = false;
-        try {
-          if (operation === 'draft') {
-            const editor = host.querySelector<HTMLTextAreaElement>(
-              '[aria-label="Subtitle text"]',
-            )!;
-            editor.value = 'Unapplied draft';
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
-            await settle();
-          }
-          await f.open();
-          if (operation === 'accept') {
-            button(variant.preview).click();
-            await until(() => !button(variant.accept).disabled);
-          }
-          const reply = f.holdMutation();
-          button(
-            operation === 'draft' ? 'Apply cue draft' : variant.accept,
-          ).click();
-          await until(() =>
-            f.calls.includes(
-              operation === 'draft' ? 'document:edit' : 'accept',
-            ),
-          );
-          f.dialog()!.dispatchEvent(new Event('cancel', { cancelable: true }));
-          button(variant.close).click();
-          await settle();
-          assert(
-            f.dialog() && f.occluded(),
-            'Mutation acknowledgment allowed close',
-          );
-          if (dispose) {
-            await f.dispose();
-            disposed = true;
-          }
-          const count = f.calls.length;
-          reply.resolve();
-          await settle();
-          if (dispose)
-            assert(
-              f.calls.length === count &&
-                !host.textContent?.includes('timings accepted'),
-              'Disposed mutation sent follow-up or notice',
-            );
-          else if (operation === 'accept') {
-            await until(() => !f.dialog() && !f.launcher.disabled);
-            assert(
-              document.activeElement === f.launcher,
-              'Acceptance lost focus',
-            );
-          } else await f.close();
-        } finally {
-          if (!disposed) await f.dispose();
-        }
-      }
-    }
-    passed(
-      `${variant.name}: draft/accept acknowledgments block Escape/Close and disposal suppresses late presentation`,
+      `${variant.name}: closing a read-only admission cancels the eventual job and restores workspace focus`,
     );
   }
-  for (const phase of ['hide', 'restore'] as const) {
-    const f = await fixture(variants[0]);
-    try {
-      const reply = phase === 'hide' ? f.holdHide() : f.holdRestore();
-      if (phase === 'hide') {
-        f.launcher.focus();
-        f.begin();
-      } else {
-        await f.open();
-        button(variants[0].close).click();
-      }
-      await until(() => f.calls.includes(`occlude:${phase === 'hide'}`));
-      reply.reject(new Error(`Injected ${phase} failure`));
-      await until(
-        () =>
-          !f.launcher.disabled &&
-          host.textContent!.includes(`Injected ${phase} failure`),
-      );
-      assert(!f.dialog(), 'Failed transition retained content');
-      if (phase === 'restore')
-        assert(
-          document.activeElement === f.launcher,
-          'Restore failure lost focus recovery',
-        );
-    } finally {
-      await f.dispose();
-    }
-  }
-  passed('Hide/restore failures report errors and recover workspace gates');
   {
     const f = await fixture(variants[0]);
-    await f.open();
-    const late = f.holdStart();
-    button(variants[0].preview).click();
-    await until(() => f.calls.includes('start'));
-    await f.close();
-    late.resolve();
-    await until(() => f.cancels.includes(999));
-    assert(!f.dialog(), 'Late admission revived dialog');
-    await f.dispose();
+    try {
+      f.action('diagnostics');
+      await until(() => f.occluded());
+      await f.open();
+      await f.close();
+      assert(f.occluded(), 'Closing dock exposed video under diagnostics');
+    } finally {
+      await f.dispose();
+    }
     passed(
-      'Closing during admission cancels the eventual job without reviving timing review',
+      'Independent diagnostics retains HideVideo while the dock opens and closes',
     );
   }
   {
@@ -493,37 +413,35 @@ async function run() {
       await f.open();
       await f.close();
       assert(
-        !f.calls.length && document.activeElement === f.launcher,
+        !f.calls.some((call) => call.startsWith('occlude:')) &&
+          document.activeElement === f.launcher,
         'Below-WebView path lost focus or sent occlusion',
       );
     } finally {
       await f.dispose();
     }
     passed(
-      'Below-WebView capability needs no occlusion IPC and still restores focus',
+      'Below-WebView capability requires no occlusion and retains focus restoration',
     );
   }
   {
     const f = await fixture(variants[0]);
     try {
       await f.open();
-      const reply = f.holdRestore();
-      button(variants[0].close).click();
-      await until(() => f.calls.includes('occlude:false'));
       f.launcher.remove();
       let focused = false;
       f.launcher.focus = () => {
         focused = true;
       };
-      reply.resolve();
-      await until(() => !f.launcher.disabled);
-      assert(!focused, 'Close attempted to focus a detached launcher');
+      button('Close').click();
+      await until(() => !f.dialog());
+      assert(!focused, 'Close focused a detached launcher');
     } finally {
       await f.dispose();
     }
-    passed('A launcher removed during restoration is not focused');
+    passed('Closing a dock never focuses a detached launcher');
   }
-  heading.textContent = `PASS: all ${output.children.length} timing modal checks`;
+  heading.textContent = `PASS: all ${output.children.length} timing dock checks`;
 }
 void run().catch((error) => {
   heading.textContent = `FAIL: ${String(error)}`;

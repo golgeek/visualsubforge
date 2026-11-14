@@ -1,4 +1,6 @@
 <script lang="ts">
+  import TimingGhosts from '../timing/TimingGhosts.svelte';
+  import type { TimingGhost } from '../timing/review-preview';
   import Tooltip from '../ui/Tooltip.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
@@ -12,6 +14,7 @@
   import type { TimingSettings } from '../timing/magnetic-timing';
   import type { Preferences } from '../client';
   let {
+    ghosts = [],
     timeline,
     gestures,
     subtitles,
@@ -30,6 +33,7 @@
     ongesture,
     actions,
   }: {
+    ghosts?: TimingGhost[];
     timeline: TimelineView;
     gestures: TimingGesture;
     subtitles: DocumentSession;
@@ -174,6 +178,7 @@
         timeline.span = next.span;
       }}
     />
+    <TimingGhosts {ghosts} {start} {span} />
     {#if timingCue && status.loaded}
       <CueTiming
         cue={timingCue}

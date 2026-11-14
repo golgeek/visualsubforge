@@ -5,15 +5,15 @@ aid does not establish dialogue synchronization or platform release acceptance.
 
 ## Review workflow
 
-Choose **Fix reading speed…** above the cue list. Apply, discard or keep an
-unapplied draft before starting. Choose **Selected cue** or **Whole document** and
-create a preview. Only cues with accepted duration, CPS, RS or unavailable-speed
+Choose **Fix reading speed…** from Commands to open Review → Fix timing.
+The live preview waits for cue drafts to commit or be discarded. Choose Whole
+file, List selection or Filtered list. Only cues with accepted duration, CPS, RS or unavailable-speed
 findings are targets; compliant cues are not normalized toward an ideal rate.
 
 Review both endpoints, duration, CPS/RS, whole-document finding totals and explicit
 skip reasons. Starts stay fixed; ends may extend or shorten. A scope or selected
-cue change invalidates the captured preview. Acceptance includes all safe rows
-across all pages, uses one Rust history operation and reruns checking. Saving is
+cue change invalidates the captured preview. Acceptance includes the checked safe subset
+across all pages, revalidated against the whole document, uses one Rust history operation and reruns checking. Saving is
 separate. Undo/Redo, source-conflict checks and recovery/resync Save As protections
 remain active. A preview, failed acceptance or an all-skipped plan changes nothing.
 
@@ -90,8 +90,8 @@ owners remain at most four independently bounded CPU workers.
 
 The typed client exposes duration start/view/cancel/accept. `TimingRepairSession`
 shares bounded polling, scope/snapshot guards and late-admission disposal for
-scene/duration dialogs. `DocumentSession` alone reconciles accepted replies with
-ordinary edits. Shared dialog code displays Rust results; it computes no repair
+scene/duration dock tools. `DocumentSession` alone reconciles accepted replies with
+ordinary edits. Shared dock code displays Rust results; it computes no repair
 arithmetic. Review IPC caps at 200 rows and the UI renders 100 per page. Existing
 100,000-cue/cut/finding and 16 MiB source-text ceilings remain; these are not latency
 claims for every maximum-size input.

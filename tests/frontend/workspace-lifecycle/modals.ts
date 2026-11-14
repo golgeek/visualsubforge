@@ -63,10 +63,10 @@ export async function modalCases(passed: (message: string) => void) {
     'fonts',
     'conversion',
     'plugins',
-    ...(['gap', 'scene', 'duration', 'batch'] as const).map((variant) => ({
-      kind: 'timing' as const,
-      variant,
-    })),
+    'settings',
+    'resync',
+    'text',
+    'cueIssues',
   ];
   for (const kind of identities) {
     const f = fixture();
@@ -103,7 +103,7 @@ export async function modalCases(passed: (message: string) => void) {
     f.modal.dispose();
   }
   passed(
-    'Authoring and timing identities hide before mounting and restore video before enabling/focusing the workspace',
+    'Overlapping authoring and review identities hide before mounting and restore video before enabling/focusing the workspace',
   );
   {
     const f = fixture();
@@ -130,7 +130,7 @@ export async function modalCases(passed: (message: string) => void) {
   );
   for (const active of [true, false]) {
     const f = fixture();
-    await f.modal.open({ kind: 'timing', variant: 'gap' });
+    await f.modal.open('text');
     const reply = f.holdRender(active);
     const close = f.modal.close();
     for (

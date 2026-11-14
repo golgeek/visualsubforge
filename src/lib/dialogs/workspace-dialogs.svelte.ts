@@ -1,27 +1,17 @@
 import { tick } from 'svelte';
 import type { Preferences, TextOperation, DocumentSnapshot } from '../client';
-import type { WorkspaceView } from '../workspace/workspace-view.svelte';
+import type {
+  WorkspaceView,
+  TimingKind,
+} from '../workspace/workspace-view.svelte';
 import type { WorkspacePreferences } from '../settings/workspace-preferences.svelte';
-import type { WorkspaceScenes } from '../timeline/workspace-scenes.svelte';
 import type { TimelineView } from '../timeline/timeline-view.svelte';
 import type { SelectionMode } from '../cues/cue-selection';
 import type { Workspace } from '../workspace/workspace.svelte';
-import type {
-  WorkspaceModal,
-  AuthoringModal,
-  TimingKind,
-} from './workspace-modal.svelte';
+import type { WorkspaceModal, AuthoringModal } from './workspace-modal.svelte';
 import type { DocumentSession } from '../document/document-session.svelte';
-import type { MediaSession } from '../media/media-session.svelte';
 import type { QualitySession } from '../quality/quality-session.svelte';
 import type { CueMenu } from '../cues/cue-menu.svelte';
-const timingLabels: Record<TimingKind, string> = {
-  gap: 'Gap',
-  scene: 'Scene',
-  duration: 'Duration and speed',
-  batch: 'Batch',
-};
-
 interface Effects {
   requestProblem: (id: string) => void;
   selectCue: (
@@ -44,12 +34,10 @@ export class WorkspaceDialogsState {
     private workspace: Workspace,
     readonly modal: WorkspaceModal,
     private subtitles: DocumentSession,
-    private media: MediaSession,
     private quality: QualitySession,
     private cueMenu: CueMenu,
     private view: WorkspaceView,
     private preferences: WorkspacePreferences,
-    private scenes: WorkspaceScenes,
     private timeline: TimelineView,
     private effects: Effects,
   ) {}
@@ -83,7 +71,7 @@ export class WorkspaceDialogsState {
     )
       return;
     this.workspace.error = '';
-    await this.modal.open('statistics');
+    this.view.openReview('statistics');
   }
 
   async openAuthoring(kind: AuthoringModal) {
@@ -118,20 +106,6 @@ export class WorkspaceDialogsState {
     }
     await this.modal.close();
   }
-  async closeStatistics(id?: string) {
-    if (!this.alive || this.modal.identity !== 'statistics') return;
-    const version = `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}/${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`;
-    await this.modal.close();
-    if (
-      this.alive &&
-      id &&
-      version ===
-        `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}/${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`
-    ) {
-      this.view.revealProblems();
-      this.effects.requestProblem(id);
-    }
-  }
   async openTimingReview(kind: TimingKind) {
     if (
       !this.workspace.canAct ||
@@ -142,7 +116,10 @@ export class WorkspaceDialogsState {
       return;
     this.workspace.error = '';
     this.effects.suspendFollowing();
-    await this.modal.open({ kind: 'timing', variant: kind });
+    this.view.openReview(
+      kind === 'batch' ? 'shift' : 'timing',
+      kind === 'batch' ? undefined : kind,
+    );
   }
   async openText(mode?: 'find' | 'replace' | TextOperation) {
     if (
@@ -218,13 +195,5 @@ export class WorkspaceDialogsState {
     ) {
       this.effects.selectText(start, end);
     }
-  }
-  async closeTimingReview(accepted = false) {
-    if (!this.alive || this.modal.timingKind === null) return;
-    if (accepted) {
-      this.workspace.notice = `${timingLabels[this.modal.timingKind]} timings accepted. Undo restores the whole change.`;
-      this.quality.restart();
-    }
-    await this.modal.close();
   }
 }

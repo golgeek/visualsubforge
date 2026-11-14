@@ -59,6 +59,7 @@ mod quality_check;
 mod quality_profile;
 mod recovery_store;
 mod resync;
+mod review_selection;
 mod save_lease;
 mod scenes;
 #[cfg(test)]

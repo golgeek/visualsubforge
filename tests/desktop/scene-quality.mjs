@@ -1,3 +1,4 @@
+import { acceptReview } from './review.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real media-enabled WebView/IPC workflow. Synthetic media has known cut times;
@@ -162,6 +163,7 @@ export async function sceneQuality({
       1,
   );
   const text = await browser.$('[aria-label="Subtitle text"]');
+  await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Preserve scene navigation draft');
   await (await browser.$('button=Cue 2 · End near scene cut')).click();
   await until('protected scene navigation', () =>
@@ -173,16 +175,19 @@ export async function sceneQuality({
   await discardCue(browser);
   await (await browser.$('button=Close Problems')).click();
   await chooseCommand(browser, 'snapShots');
-  let dialog = await browser.$('dialog[aria-labelledby="scene-repair-title"]');
+  let dialog = await browser.$('[aria-label="Review panel"]');
   await until('scene dialog', () => dialog.isDisplayed());
-  await (await dialog.$('button=Preview changes')).click();
+  // Options automatically prepare a current read-only proposal.
   await until('scene preview rows', async () =>
-    (await dialog.getText()).includes('2 safe changes'),
+    (await dialog.getText()).includes('2 changes'),
   );
-  assert.match(await dialog.getText(), /timing review/i);
+  assert.equal(
+    await (await dialog.$('[aria-label="Live timing review"]')).isExisting(),
+    true,
+  );
   assert.deepEqual(await status(), before);
   await browser.saveScreenshot(join(evidence, 'scene-preview.png'));
-  await (await dialog.$('button=Apply changes')).click();
+  await acceptReview(browser, status, until);
   await ready();
   const accepted = await status();
   assert.equal(accepted.revision, before.revision + 1);
@@ -351,26 +356,24 @@ async function scenePerformance({
     await discardCue(browser);
     await ready();
     await chooseCommand(browser, 'snapShots');
-    const dialog = await browser.$(
-      'dialog[aria-labelledby="scene-repair-title"]',
-    );
+    const dialog = await browser.$('[aria-label="Review panel"]');
     await until('10k scene dialog', () => dialog.isDisplayed());
     const began = Date.now();
-    await (await dialog.$('button=Preview changes')).click();
+    // Options automatically prepare a current read-only proposal.
     await until(
       '10k completed scene preview',
-      async () => (await dialog.getText()).includes('10000 safe changes'),
+      async () => (await dialog.getText()).includes('10000 changes'),
       20000,
     );
     result.previewMs = Date.now() - began;
-    assert.equal((await dialog.$$('tbody tr')).length, 100);
-    await (await dialog.$('button=Next candidates')).click();
+    assert.equal((await dialog.$$('.change')).length, 100);
+    await (await dialog.$('button=Next')).click();
     await until('10k second scene page', async () =>
-      (await dialog.getText()).includes('101–200 of 10000'),
+      (await dialog.getText()).includes('101–200 / 10000'),
     );
     await browser.saveScreenshot(join(evidence, 'scene-10000-preview.png'));
     const acceptStart = Date.now();
-    await (await dialog.$('button=Apply changes')).click();
+    await acceptReview(browser, status, until);
     await ready();
     result.acceptanceMs = Date.now() - acceptStart;
     assert.ok(

@@ -8,6 +8,7 @@ import {
   type DocumentSnapshot,
   type DocumentAction,
   type DurationRepairView,
+  type ReviewSelection,
 } from '../../../src/lib/client';
 import { durationRepairView as sample } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
@@ -36,7 +37,7 @@ let failApply = false,
   failAccept = false;
 let heldStart: Promise<number> | null = null;
 const cancelled: number[] = [];
-const scopes: (string | null)[] = [];
+const scopes: (ReviewSelection | null)[] = [];
 function assert(value: unknown, message: string) {
   if (!value) throw new Error(message);
 }
@@ -91,6 +92,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         id?: number;
         offset?: number;
         limit?: number;
+        selection?: ReviewSelection;
+        previewIds?: number[];
         selectedCueId?: string | null;
       },
     ) => {
@@ -108,10 +111,19 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(emptyStatus);
         case 'duration_repair_start':
           starts++;
-          scopes.push(args.selectedCueId ?? null);
+          scopes.push(args.selection ?? null);
           view = {
             ...view,
             id: starts,
+            phase: 'reviewing',
+            rows: view.rows.map((row) => ({
+              ...row,
+              selected:
+                row.newEndMs !== null &&
+                (!args.selection?.scope ||
+                  args.selection.scope.includes(Number(row.cueId))) &&
+                !args.selection?.excluded.includes(Number(row.cueId)),
+            })),
             selectedCueId: args.selectedCueId ?? null,
             key: {
               ...view.key,
@@ -121,24 +133,31 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
           return heldStart ?? starts;
         case 'duration_repair_view': {
-          const rows =
-            view.selectedCueId === null
-              ? view.rows
-              : view.rows.filter((r) => r.cueId === view.selectedCueId);
+          const ids = scopes.at(-1)?.scope;
+          const rows = ids
+            ? view.rows.filter((row) => ids.includes(Number(row.cueId)))
+            : view.rows;
           return {
             ...structuredClone(view),
             total: rows.length,
-            changed: rows.filter((r) => r.newEndMs !== null).length,
+            changed: rows.filter((r) => r.selected).length,
             skipped: rows.filter((r) => r.newEndMs === null).length,
             offset: args.offset ?? 0,
-            rows: rows.slice(
-              args.offset ?? 0,
-              (args.offset ?? 0) + (args.limit ?? 100),
-            ),
+            rows: rows
+              .filter(
+                (row) =>
+                  !args.previewIds ||
+                  args.previewIds.includes(Number(row.cueId)),
+              )
+              .slice(
+                args.offset ?? 0,
+                (args.offset ?? 0) + (args.limit ?? 100),
+              ),
           };
         }
         case 'duration_repair_cancel':
           cancelled.push(args.id!);
+          if (view.id === args.id) view = { ...view, phase: 'cancelled' };
           return;
         case 'duration_repair_accept': {
           if (failAccept) throw new Error('Injected stale duration proposal');
@@ -152,10 +171,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             cues: doc.cues.map((c) => ({
               ...c,
               endMs:
-                (view.selectedCueId === null ||
-                view.selectedCueId === String(c.id)
-                  ? view.rows.find((r) => r.cueId === String(c.id))?.newEndMs
-                  : null) ?? c.endMs,
+                view.rows.find(
+                  (row) => row.selected && row.cueId === String(c.id),
+                )?.newEndMs ?? c.endMs,
             })),
           };
           return structuredClone(doc);
@@ -191,100 +209,96 @@ const app = mount(App, { target: host });
 async function run() {
   try {
     await until(() => host.querySelectorAll('.cue-row').length === 3);
+    failApply = true;
     type('Keep this draft');
     await tick();
     await open();
-    await until(
-      () =>
-        !!host.querySelector('dialog[open] [aria-label="Unapplied cue draft"]'),
-    );
+    await until(() => !!host.querySelector('[aria-label="Review panel"]'));
+    await until(() => host.textContent!.includes('Injected draft failure'));
     assert(
-      button('Preview changes').disabled && starts === 0,
-      'Draft bypassed preview protection',
+      starts === 0 && edits === 0,
+      'Failed draft commit bypassed preview protection',
     );
-    button('Cancel duration review').click();
-    await until(
-      () =>
-        !host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
-    );
+    button('Close').click();
+    await until(() => !host.querySelector('[aria-label="Review panel"]'));
+    const editor = host.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Subtitle text"]',
+    )!;
     assert(
-      host.querySelector<HTMLTextAreaElement>('[aria-label="Subtitle text"]')!
-        .value === 'Keep this draft' && edits === 0,
-      'Cancel lost draft',
+      editor.value === 'Keep this draft' && edits === 0,
+      'Closing review lost failed draft',
     );
     passed(
-      'Opening or cancelling duration review preserves an unapplied draft and accepted state',
+      'Opening and closing the dock preserves a rejected draft and cannot admit a timing preview over it',
     );
-    await open();
-    await until(
-      () =>
-        !!host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
+    editor.focus();
+    editor.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
     );
-    failApply = true;
-    button('Apply cue draft').click();
-    await until(() => host.textContent!.includes('Injected draft failure'));
-    assert(starts === 0 && edits === 0, 'Failed Apply started proposal');
-    button('Discard cue draft').click();
-    await tick();
+    await until(() => editor.value === original.cues[0]!.text);
     failApply = false;
-    button('Preview changes').click();
-    await until(() => host.textContent!.includes('1 safe changes'));
-    assert(
-      scopes.at(-1) === '1' &&
-        host.querySelectorAll('dialog tbody tr').length === 1,
-      'Selected scope was not captured',
+    await open();
+    await until(() =>
+      [...host.querySelectorAll<HTMLButtonElement>('button')].some(
+        (b) => b.textContent?.trim() === 'Apply 2 changes' && !b.disabled,
+      ),
     );
     assert(
       JSON.stringify(doc) === JSON.stringify(original),
       'Preview changed document',
     );
     assert(
-      !button('Apply changes').disabled,
-      'Completed scene plan not acceptable',
+      !host.querySelector('dialog[open]'),
+      'Duration review still occludes video',
     );
+    await until(() => host.querySelectorAll('.ghosts .ghost').length === 2);
     passed(
-      'Failed draft Apply preserves state; Discard permits a read-only completed-scene preview',
+      'Duration preview projects changed ends without changing accepted subtitles',
     );
     const scope = host.querySelector<HTMLSelectElement>(
-      '[aria-label="Repair scope"]',
+      '[aria-label="Review scope"]',
     )!;
-    scope.value = 'document';
+    scope.value = 'selected';
     scope.dispatchEvent(new Event('change', { bubbles: true }));
     await tick();
     assert(
-      button('Apply changes').disabled,
-      'Changed scope kept an acceptable preview',
+      button('Apply 2 changes').disabled,
+      'Changed scope retained acceptable proposal',
     );
-    button('Preview again').click();
-    await until(() => host.textContent!.includes('2 safe changes'));
+    await until(() => host.querySelectorAll('.change').length === 1);
     assert(
-      scopes.at(-1) === null &&
-        host.querySelectorAll('dialog tbody tr').length === 3,
-      'Whole-document preview still selected',
+      scopes.at(-1)?.scope?.join(',') === '1',
+      'Selected IDs not captured',
+    );
+    assert(!button('Apply 1 change').disabled, 'Selected proposal unavailable');
+    scope.value = 'all';
+    scope.dispatchEvent(new Event('change', { bubbles: true }));
+    await until(() => host.querySelectorAll('.change').length === 3);
+    assert(
+      scopes.at(-1)?.scope === null && !button('Apply 2 changes').disabled,
+      'Whole-document scope not restored',
     );
     passed(
-      'Changing scope disables the captured plan; a fresh whole-document preview includes every target',
+      'List selection scopes the captured proposal; changing scope disables acceptance until the whole-document preview is current',
     );
     for (const coverage of ['noMedia', 'unavailable', 'partial'] as const) {
       view = { ...view, coverage };
-      await until(() => button('Apply changes').disabled);
+      await until(() => button('Apply 2 changes').disabled);
       assert(
-        !host.querySelector('dialog input[type="checkbox"]'),
+        ![...host.querySelectorAll('label')].some((label) =>
+          label.textContent?.includes('without checking shot'),
+        ),
         'Missing scenes could be acknowledged away',
       );
       view = { ...view, coverage: 'checked' };
-      await until(() => !button('Apply changes').disabled);
+      await until(() => !button('Apply 2 changes').disabled);
     }
     view = { ...view, coverage: 'reduced' };
     await until(() =>
       host.textContent!.includes('Reduced detection can miss cuts'),
     );
     assert(
-      !button('Apply changes').disabled,
+      !button('Apply 2 changes').disabled,
       'Completed Reduced scan unnecessarily disabled',
     );
     passed(
@@ -293,14 +307,14 @@ async function run() {
     view = { ...view, coverage: 'notRequired' };
     await until(() => host.textContent!.includes('Scene checks are disabled'));
     assert(
-      !button('Apply changes').disabled,
+      !button('Apply 2 changes').disabled,
       'Explicit zero-buffer plan requires media',
     );
     passed(
       'Explicitly disabled scene buffers allow a duration preview without scene input',
     );
     failAccept = true;
-    button('Apply changes').click();
+    button('Apply 2 changes').click();
     await until(() =>
       host.textContent!.includes('Injected stale duration proposal'),
     );
@@ -309,14 +323,15 @@ async function run() {
       'Failed acceptance mutated document',
     );
     failAccept = false;
-    button('Apply changes').click();
-    await until(
-      () =>
-        accepts === 1 &&
-        !host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
+    button('Retry preview').click();
+    await until(() =>
+      [...host.querySelectorAll<HTMLButtonElement>('button')].some(
+        (b) => b.textContent?.trim() === 'Apply 2 changes' && !b.disabled,
+      ),
     );
+    button('Apply 2 changes').click();
+    await until(() => accepts === 1);
+    await until(() => !button('Close').disabled);
     assert(
       doc.revision === original.revision + 1 &&
         doc.cues[0]!.startMs === 1000 &&
@@ -324,9 +339,8 @@ async function run() {
         doc.cues[1]!.endMs === 6870,
       'Accepted timing mismatch',
     );
-    document
-      .querySelector<HTMLTextAreaElement>('[aria-label="Subtitle text"]')!
-      .focus();
+    button('Close').click();
+    editor.focus();
     button('Undo edit').click();
     await until(() => doc.cues[0]!.endMs === 1400);
     assert(
@@ -345,76 +359,50 @@ async function run() {
         ...sample.rows[0]!,
         cueId: String(i + 1),
         cueIndex: i,
+        newStartMs: null,
         newEndMs: null,
+        selected: false,
         skipped: 'conflictingBounds',
         explanation: 'Would violate minimum duration',
       })),
     };
     await open();
-    await until(
-      () =>
-        !!host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
-    );
-    const pagesScope = host.querySelector<HTMLSelectElement>(
-      '[aria-label="Repair scope"]',
-    )!;
-    pagesScope.value = 'document';
-    pagesScope.dispatchEvent(new Event('change', { bubbles: true }));
-    await tick();
-    button('Preview changes').click();
-    await until(() => host.querySelectorAll('dialog tbody tr').length === 100);
+    await until(() => host.querySelectorAll('.change').length === 100);
     assert(
-      button('Apply changes').disabled,
+      button('Apply 0 changes').disabled,
       'All-skipped proposal was acceptable',
     );
-    button('Next candidates').click();
-    await until(() => host.textContent!.includes('101–200 of 205'));
+    button('Next').click();
+    await until(() => host.textContent!.includes('101–200 / 205'));
     assert(
-      host.querySelectorAll('dialog tbody tr').length === 100,
+      host.querySelectorAll('.change').length === 100,
       'Unbounded proposal rows',
     );
     passed(
       'Skipped reasons and 100-row proposal paging stay reviewable without enabling an empty acceptance',
     );
     view = { ...view, phase: 'stale' };
-    await until(() => host.textContent!.includes('quality profile changed'));
+    await until(() =>
+      host
+        .querySelector('[aria-label="Live timing review"]')!
+        .textContent!.includes('stale'),
+    );
     assert(
-      button('Apply changes').disabled,
+      button('Apply 0 changes').disabled,
       'Stale proposal remains acceptable',
     );
-    button('Cancel').click();
-    await until(
-      () =>
-        !host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
-    );
+    button('Close').click();
+    await until(() => !host.querySelector('[aria-label="Review panel"]'));
     passed(
       'Background stale context detection retires an already displayed preview',
     );
     let release!: (id: number) => void;
-    heldStart = new Promise((resolve) => {
-      release = resolve;
-    });
-    await open();
-    await until(
-      () =>
-        !!host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
-    );
+    heldStart = new Promise((resolve) => (release = resolve));
     const prior = starts;
-    button('Preview changes').click();
+    await open();
     await until(() => starts > prior);
-    button('Cancel').click();
-    await until(
-      () =>
-        !host.querySelector(
-          'dialog[open][aria-labelledby="duration-repair-title"]',
-        ),
-    );
+    button('Close').click();
+    await until(() => !host.querySelector('[aria-label="Review panel"]'));
     release(999);
     heldStart = null;
     await until(() => cancelled.includes(999));
@@ -424,8 +412,8 @@ async function run() {
     await unmount(app);
     await lifecycle(sample, original, passed);
     heading.textContent = `PASS: all ${output.children.length} duration review checks`;
-  } catch (e) {
-    heading.textContent = `FAIL: ${String(e)}`;
+  } catch (error) {
+    heading.textContent = `FAIL: ${String(error)}`;
     await unmount(app);
   }
 }

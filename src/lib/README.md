@@ -332,16 +332,27 @@ not depend on Specta, Tauri or native playback.
 
 ## Minimum-gap review
 
-`GapDialog` resolves drafts before `GapSession.start()` captures the current
-DocumentSession projection and media session. `GapSession` adapts the gap client
-and explicit no-media acknowledgment to `TimingRepairSession`, shared with scene,
-duration and batch review. The generated client admits one Rust proposal worker,
-then polls pages. The frontend never computes repair endpoints or treats draft
-text as accepted. Page/start epochs reject stale
-responses; late admissions are cancelled after disposal. A completed proposal is
-still polled for backend profile/scene invalidation. Acceptance blocks dialog
-closure, delegates through `DocumentSession.acceptGap()` and replaces the accepted
-projection only after Rust succeeds; App then restarts quality checking.
+`workspace/ReviewDock` places Issues, Fix timing, Shift and Statistics beside the
+cue table without overlapping native video. Its scope follows accepted list IDs
+or the active filter. `timing/ReviewTiming` presents gap, scene, duration and batch
+sessions; it owns only option/exclusion controls and bounded projection callbacks.
+`GapSession` retains coverage policy and delegates to `TimingRepairSession`.
+Live inputs debounce 250 ms; semantic input/viewport keys avoid starvation from
+unrelated background updates. Stale plans retire before new admission. Read-only
+admission failures stop after three attempts, with explicit Retry; acceptance is
+never retried. Closing during admission cancels a late returned job identity.
+
+Rust prepares selected repairs through `quality::timing_selection`, re-evaluates
+the whole candidate and reports unsafe coupled subsets without accepting them.
+The frontend never recomputes repair endpoints. Pages contain at most 100 rows;
+ghost/list projections request at most 200 visible IDs, independently of paging.
+`review-preview.ts` formats supplied endpoints only. The UI labels the projection
+limit; Apply includes the entire checked subset as one history operation.
+Acceptance contributes `WorkspaceView.reviewBusy` to workspace admission until
+DocumentSession reconciles its reply. Other controls and tab closure are disabled
+during that acknowledgment. The explicit no-media note replaces the gap checkbox;
+attached-media scene requirements remain enforced. Successful acceptance restarts
+quality checking and leaves the dock available for the next proposal.
 
 The backend holds media selection → scene state → document during acceptance.
 It checks the captured scene generation/readiness, media session and document
@@ -351,15 +362,12 @@ an immutable clone outside those locks; shutdown cancels and joins outside them.
 
 ## Scene and duration timing review
 
-`SceneRepairDialog`/`DurationRepairDialog` are thin purpose wrappers around
-`TimingRepairDialog`. Their session wrappers share `TimingRepairSession` with
-gap/batch review for draft handling, paging, disposal and late-admission
-cancellation. They display immutable Rust proposals; no timing arithmetic is
-repeated in the frontend.
-Duration review captures a stable selected cue ID or whole-document scope;
-changing scope immediately disables acceptance. `DocumentSession` serializes
-both acceptance methods with other document actions. Completed previews continue
-polling so profile/scene changes disable acceptance promptly.
+Scene and duration wrappers retain their coverage eligibility while sharing the
+live session owner. Changing scope, exclusions or context immediately invalidates
+acceptance. App routes timing tools only through ReviewDock; the obsolete modal components
+and identities are removed.
+DocumentSession serializes acceptance with other document actions. Completed
+previews continue polling for backend profile/scene invalidation.
 
 Shared Rust scene proposals trim inward; duration proposals keep starts fixed
 and choose the nearest safe end. Both preserve text/tags and verify the complete
@@ -373,13 +381,14 @@ See the [scene contract](../../docs/scene-quality.md) and
 
 ## Document statistics
 
-`StatisticsDialog` starts a read-only report without resolving or modifying a cue
+`StatisticsPanel` starts a read-only report without resolving or modifying a cue
 draft. `StatisticsSession` captures the accepted revision, media/context and scope;
 one in-flight poll projects the summary and 100-row outlier pages. Draft typing
 leaves the report valid, while document/profile/media/scenes or scope changes
 hide old results. Reactive capture and request epochs reject late responses;
-closing also cancels a late worker admission. App restores native occlusion/focus
-before routing a cue link through existing Problems Apply/Discard/Cancel navigation.
+closing also cancels a late worker admission. Current cue links route through
+existing Problems Apply/Discard/Cancel navigation. The dock stays outside native
+video bounds and restores its launcher focus on close.
 
 The typed client calls three thin worker-dispatched commands. Rust's dedicated
 statistics owner clones accepted inputs under media → scenes → document ordering,
@@ -423,7 +432,7 @@ sets along with its primary cue after protected selection and accepted commands.
 `CueNavigation` owns keyboard focus and virtual scrolling; focus-only Ctrl/Cmd navigation
 does not change membership. Existing single-cue controls still edit the primary.
 
-`BatchTimingDialog` shares `TimingRepairSession` with scene/duration review and
+`ReviewTiming` uses the batch adapter of `TimingRepairSession` and
 captures an explicit request. Semantic comparison handles derived-object
 recomputation without accepting changed inputs. The paused playhead is captured,
 not followed during review. Rust computes exact endpoints; `acceptBatchTiming`
