@@ -112,9 +112,10 @@ test('projects waits for delayed workspace listener registration', async ({
       'waiting',
     );
     // Document/menu readiness can precede listener registration. Hold the
-    // modeled IPC response until the workspace is usable, without a sleep.
+    // modeled IPC response until Start is usable, without a sleep.
+    // The empty workspace stays mounted but inert; New subtitles owns Create.
     await expect(
-      page.getByRole('button', { name: 'Create cue', exact: true }),
+      page.getByRole('button', { name: 'New subtitles', exact: true }),
     ).toBeEnabled();
     await page.evaluate(() =>
       window.dispatchEvent(new Event('vsf-test-release-listener')),
