@@ -382,6 +382,33 @@
         </div>
         <section hidden={!shown('appearance')}>
           <h3>Appearance</h3>
+          <label
+            >Theme
+            <select
+              aria-label="Theme"
+              bind:value={draft.appearance.theme}
+              {disabled}
+            >
+              <option value="system">System</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+          <label
+            >Control density
+            <select
+              aria-label="Control density"
+              bind:value={draft.appearance.density}
+              {disabled}
+            >
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+          <p>
+            System follows your operating system’s appearance. Control density
+            does not change cue-row density.
+          </p>
           <p>
             Use Layout to choose Timing, Editor above list, Review, Translation
             or Big picture. Each preset remembers its pane sizes and cue

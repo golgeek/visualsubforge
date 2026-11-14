@@ -65,7 +65,7 @@ decision-owned payloads; ActionBrowser presents command discovery and searchable
 lays out regions.
 Action labels, aliases and shortcut descriptions live in
 `workspace/action-descriptions.json`, imported by the frontend and embedded by
-Rust's native menu builder. Version-5 preferences hold validated bindings by
+Rust's native menu builder. Version-6 preferences hold validated bindings by
 focus mode; bundled presets share one JSON source across Rust and TypeScript.
 The pure workspace router resolves those bindings while retaining composition,
 repeat, text-history and Windows fallback rules. `WorkspaceCommands` derives discovery eligibility and delegates commands
@@ -86,7 +86,12 @@ Appearance comes from `src/lib/ui/`: `tokens.css` defines the dark and light
 palettes, type and shape, and `base.css` styles native elements. Components use
 tokens in their scoped styles instead of color literals. The waveform canvas reads
 tokens through `canvas-palette.ts` and redraws when the theme or loaded fonts
-change. The page body stays transparent so the native video surface can show
+change. `Appearance` projects confirmed theme/density preferences onto root attributes,
+with one system color-scheme listener per mounted workspace and disposal cleanup.
+Settings retains draft/save/Undo ownership; failed saves do not change effective
+appearance. Global control padding tokens do not change per-preset cue-row density.
+Modal close acknowledges native bounds after any density-driven geometry changes.
+The page body stays transparent so the native video surface can show
 through; the visible window color is painted by the video placeholder.
 CueNavigation coordinates selection, following, reveal and focus through narrow
 DOM callbacks. WorkspaceStartup loads initial state, WorkspaceMenus owns the native
@@ -501,7 +506,7 @@ policy. All production settings-file writes serialize read/modify/write under on
 writer mutex, preserving unrelated layout, profile and personal-word fields.
 Document preference/word operations acquire the document lock before this writer;
 layout writes acquire only the writer. Atomic publication permits concurrent reads
-of either complete version. Versions 1–4 migrate in memory to version 5; the historical
+of either complete version. Versions 1–5 migrate in memory to version 6; the historical
 settings filename remains valid. Custom arrangements use a bounded version-1
 row schema: seven distinct panel kinds, at most two per row, integer weights and
 split percentages. Pure frontend geometry refuses moves that exceed the current

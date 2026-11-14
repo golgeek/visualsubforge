@@ -68,7 +68,7 @@ button {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
-  padding: 5px 9px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -124,7 +124,7 @@ textarea {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-field);
-  padding: 4px 6px;
+  padding: var(--field-pad-y) var(--field-pad-x);
 }
 
 input:hover:not(:disabled),

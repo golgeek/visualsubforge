@@ -1,5 +1,6 @@
 //! Small versioned user preferences; blocking IO stays off the UI thread.
 //! Projects retain their own timing policy and never write these defaults.
+pub mod appearance;
 pub mod layout;
 pub mod shortcuts;
 use crate::timing_preset::Settings as Timing;
@@ -20,6 +21,7 @@ type Result<T> = std::result::Result<T, String>;
 pub struct Preferences {
     version: u32,
     layout: LayoutPreferences,
+    pub(crate) appearance: appearance::Appearance,
     pub(crate) shortcuts: shortcuts::Shortcuts,
     auto_scan_scenes: bool,
     scene_detail: Detail,
@@ -32,7 +34,8 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            version: 5,
+            version: 6,
+            appearance: Default::default(),
             layout: Default::default(),
             shortcuts: Default::default(),
             auto_scan_scenes: true,
@@ -46,7 +49,7 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
-        if self.version != 5 {
+        if self.version != 6 {
             return Err("Unsupported settings version".into());
         }
         self.layout.validate()?;
@@ -122,6 +125,13 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
     // v4 has only preset layouts. Reading migrates in memory; no file rewrite.
     if object.get("version").and_then(serde_json::Value::as_u64) == Some(4) {
         object.insert("version".into(), 5.into());
+    }
+    if object.get("version").and_then(serde_json::Value::as_u64) == Some(5) {
+        object.insert("version".into(), 6.into());
+        object.insert(
+            "appearance".into(),
+            serde_json::to_value(appearance::Appearance::default()).map_err(|e| e.to_string())?,
+        );
     }
     if !object.contains_key("quality") {
         let timing: Timing = serde_json::from_value(
@@ -240,6 +250,49 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 mod tests {
     use super::*;
     #[test]
+    fn appearance_migrates_without_writes_and_roundtrips_independently_of_layout() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        old["version"] = 5.into();
+        old.as_object_mut().unwrap().remove("appearance");
+        let bytes = serde_json::to_vec(&old).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        assert_eq!(
+            read(&path).unwrap().appearance,
+            appearance::Appearance::default()
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        for theme in [
+            appearance::Theme::System,
+            appearance::Theme::Light,
+            appearance::Theme::Dark,
+        ] {
+            update(&path, |p| {
+                p.appearance.theme = theme;
+                p.appearance.density = appearance::Density::Comfortable;
+                p.appearance.custom_title_bar = true;
+            })
+            .unwrap();
+            update(&path, |p| p.layout.timing.wave_pct = 52.).unwrap();
+            let restored = read(&path).unwrap();
+            assert_eq!(restored.appearance.theme, theme);
+            assert_eq!(
+                restored.appearance.density,
+                appearance::Density::Comfortable
+            );
+            assert!(restored.appearance.custom_title_bar);
+            assert_eq!(
+                restored.layout.timing.columns.density,
+                layout::columns::Density::Compact
+            );
+        }
+        let mut invalid = serde_json::to_value(read(&path).unwrap()).unwrap();
+        invalid["appearance"]["theme"] = "unknown".into();
+        fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+        assert!(read(&path).is_err());
+    }
+    #[test]
     fn version_four_layout_migrates_without_rewriting_or_losing_preferences() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
@@ -248,7 +301,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 5);
+        assert_eq!(migrated.version, 6);
         assert!(migrated.layout.custom.is_none());
         assert_eq!(
             serde_json::to_value(migrated.shortcuts).unwrap(),
@@ -270,7 +323,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 5);
+        assert_eq!(migrated.version, 6);
         assert_eq!(migrated.shortcuts, shortcuts::Shortcuts::default());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         update(&path, |value| {
@@ -314,7 +367,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 5);
+        assert_eq!(migrated.version, 6);
         assert_eq!(migrated.layout, LayoutPreferences::default());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         update(&path, |p| {
@@ -351,7 +404,7 @@ mod tests {
         let bytes = serde_json::to_vec(&old).unwrap();
         fs::write(&path, &bytes).unwrap();
         let migrated = read(&path).unwrap();
-        assert_eq!(migrated.version, 5);
+        assert_eq!(migrated.version, 6);
         assert_eq!(migrated.layout.translation.wave_pct, 45.0);
         assert_eq!(
             migrated.layout.timing.columns,

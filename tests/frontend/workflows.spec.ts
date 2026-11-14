@@ -51,6 +51,7 @@ for (const name of [
   'resync',
   'quality-settings',
   'settings-live',
+  'appearance',
   'quality-checking',
   'gap-review',
   'live-review',

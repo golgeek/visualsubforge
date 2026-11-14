@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Appearance } from './lib/ui/appearance';
   import { CueFixes } from './lib/quality/cue-fixes.svelte';
   import CueIssuesDialog from './lib/quality/CueIssuesDialog.svelte';
   import ColumnChooser from './lib/cues/ColumnChooser.svelte';
@@ -112,6 +113,8 @@
   const view = new WorkspaceView();
 
   const preferences = new WorkspacePreferences();
+  const appearance = disposeWithComponent(new Appearance());
+  $effect(() => appearance.apply(preferences.preferences.appearance));
 
   const scenes = new WorkspaceScenes();
 
@@ -168,7 +171,10 @@
       occlude: occludeOverlay,
       remainingOcclusion: () =>
         view.diagnostics || tooltips.active || layout.active,
-      afterRender: tick,
+      afterRender: async () => {
+        await tick();
+        await videoLayout.flush();
+      },
       captureFocus,
     }),
   );

@@ -963,6 +963,12 @@ export type vsf_application_quality_statistics_Aggregate = {
   mean: number | null;
 };
 
+export type visualsubforge_preferences_appearance_Appearance = {
+  theme: visualsubforge_preferences_appearance_Theme;
+  density: visualsubforge_preferences_appearance_Density;
+  customTitleBar: boolean;
+};
+
 export type visualsubforge_preferences_layout_arrangement_Arrangement = {
   version: number;
   rows: visualsubforge_preferences_layout_arrangement_Row[];
@@ -1273,6 +1279,9 @@ export type visualsubforge_document_CueView_Serialize = {
   endMs: number;
   text: string;
 };
+
+export type visualsubforge_preferences_appearance_Density =
+  'comfortable' | 'compact';
 
 export type visualsubforge_preferences_layout_columns_Density =
   'comfortable' | 'compact';
@@ -1951,6 +1960,7 @@ export type visualsubforge_preferences_Preferences =
 export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
+  appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
@@ -1963,6 +1973,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
 export type visualsubforge_preferences_Preferences_Serialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Serialize;
+  appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
@@ -2815,6 +2826,9 @@ export type visualsubforge_text_review_TextView = {
   rows: visualsubforge_text_review_Row[];
   suggestions: string[];
 };
+
+export type visualsubforge_preferences_appearance_Theme =
+  'system' | 'dark' | 'light';
 
 export type vsf_application_quality_profile_Timing = {
   cueGapMs: number;

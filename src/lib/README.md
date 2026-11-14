@@ -622,3 +622,14 @@ serializes bounded full-file scene reads and ignores retired epochs. Visible sce
 polling remains in SceneControls; scans and completed cuts remain Rust-owned.
 The video scrubber sits outside the native video rectangle, with normal bounds
 tracking and no decoded frames in IPC. Review ghosts retain their existing owner.
+
+## Appearance preferences
+
+`ui/appearance.ts` owns one system color-scheme listener and root theme/density
+attributes. App supplies confirmed Preferences through a scoped effect; the owner
+suppresses unchanged attribute writes and retires its listener on disposal.
+SettingsSession retains instant-save, Undo and unknown-outcome reconciliation.
+Dark/compact are migration defaults. System mode follows the operating system;
+explicit Light/Dark ignore its changes. Global control padding uses tokens and
+preserves independent per-preset cue-row density. Modal close drains current native
+bounds after rendering before restoring video. See the Settings guide for controls.
