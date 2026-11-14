@@ -6,7 +6,8 @@ if [[ ! "$jobs" =~ ^[1-9][0-9]*$ || "$jobs" -gt 64 ]]; then
   echo 'FFmpeg jobs must be 1–64' >&2
   exit 1
 fi
-output=$(cygpath -u "$1")
+# Make supplies a relative cache path; keep it valid after entering build/.
+output=$(cygpath -au "$1")
 recipe_root=$(cd "$(dirname "$0")/.." && pwd)
 test ! -e "$output"
 mkdir -p "$output/source" "$output/build" "$output/sdk"
