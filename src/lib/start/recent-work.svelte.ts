@@ -57,8 +57,11 @@ export class RecentWork {
         (path) => !input.resources.includes(path),
       );
       const reopened = input.request.session !== previous.request.session;
-      const projectSaved = input.request.projectToken !== null && input.request.projectToken !== previous.request.projectToken;
-      if (opened || reopened || projectSaved || input.saved !== previous.saved) this.captureAllowed = true;
+      const projectSaved =
+        input.request.projectToken !== null &&
+        input.request.projectToken !== previous.request.projectToken;
+      if (opened || reopened || projectSaved || input.saved !== previous.saved)
+        this.captureAllowed = true;
       // Closing wins over snapshot/token changes caused by that same close.
       // Suppression survives later checker completion for the remaining file.
       if (closed && !opened) this.captureAllowed = false;
