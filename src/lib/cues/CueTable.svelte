@@ -190,6 +190,10 @@
       >Columns ▾</button
     >
     <input
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
       class="list-filter"
       aria-label="Filter cues by text or number"
       placeholder="Text or #"

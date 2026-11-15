@@ -125,6 +125,10 @@
     <button disabled={pending} onclick={() => void run(onclose)}>Close</button>
   </header>
   <input
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
     bind:this={input}
     bind:value={query}
     aria-label={mode === 'shortcuts'

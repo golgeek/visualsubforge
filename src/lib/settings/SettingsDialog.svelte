@@ -227,6 +227,10 @@
     <div class="body">
       <nav aria-label="Settings pages">
         <input
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
           type="search"
           aria-label="Search settings"
           placeholder="Search settings"

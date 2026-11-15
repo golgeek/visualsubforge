@@ -145,6 +145,10 @@
     {#if searchable}
       <label
         >Find text <input
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
           aria-label="Find text"
           bind:value={session.query}
           disabled={session.pending || session.accepting}
