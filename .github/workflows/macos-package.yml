@@ -44,55 +44,39 @@ jobs:
           python-version: '3.14.7'
       - name: Install application and native build prerequisites
         run: |
-          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/app-target" >> "$GITHUB_ENV"
           sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           xcodebuild -version
           xcrun --sdk macosx --show-sdk-version
           rustup show
-          npm ci
           brew install mpv pkg-config xxhash
-          python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
           if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
       - name: Check packaging controls before the native build
         run: python -m unittest discover -s tests/release -p 'test_*.py'
-      - name: Restore the pinned ANGLE SDK
+      - name: Select Make toolchains and cache paths
+        run: |
+          make paths JOBS=3 PYTHON=python
+          python scripts/native-build-paths.py github target/native/macos/build-paths.json
+      - name: Restore the ANGLE SDK selected by Make
         id: angle-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
-            ${{ runner.temp }}/angle/sdk
-            ${{ runner.temp }}/angle/build-receipt.json
-          key: angle-${{ matrix.os }}-${{ matrix.arch }}-xcode16.2-macos14-${{ hashFiles('tests/native/angle/manifest.json', 'scripts/build-angle-macos.py', 'scripts/gclient_sources.py', 'scripts/source_archive.py') }}
-      - name: Build pinned ANGLE with Metal
-        if: steps.angle-cache.outputs.cache-hit != 'true'
-        run: python scripts/build-angle-macos.py --output "$RUNNER_TEMP/angle" --minimum-macos 14.0 --jobs 3
-      # Keep the completed SDK even if a later app/package validation fails.
-      - name: Cache the completed ANGLE SDK
-        if: steps.angle-cache.outputs.cache-hit != 'true'
+            ${{ env.VSF_ANGLE_BUILD }}/sdk
+            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/.complete
+          key: make-angle-${{ matrix.os }}-${{ matrix.arch }}-${{ env.VSF_ANGLE_KEY }}
+      - name: Build native SDKs, GUI and CLI through Make
+        run: make app JOBS=3 PYTHON=python
+      # Preserve a completed SDK even if later compilation/packaging fails.
+      - name: Save the completed ANGLE SDK
+        if: ${{ !cancelled() && steps.angle-cache.outputs.cache-hit != 'true' && hashFiles(format('{0}/.complete', env.VSF_ANGLE_BUILD)) != '' }}
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
-            ${{ runner.temp }}/angle/sdk
-            ${{ runner.temp }}/angle/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/sdk
+            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/.complete
           key: ${{ steps.angle-cache.outputs.cache-primary-key }}
-      - name: Build pinned libplacebo with its recorded header sources
-        run: |
-          PKG_CONFIG_PATH="$(brew --prefix xxhash)/lib/pkgconfig"
-          export PKG_CONFIG_PATH
-          python scripts/build-placebo.py --output "$RUNNER_TEMP/placebo" --jobs 3
-      - name: Build and test the pinned mpv audio candidate
-        env:
-          PKG_CONFIG_PATH: ${{ runner.temp }}/placebo/sdk/lib/pkgconfig
-        run: |
-          git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
-          python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/mpv" --variant candidates --jobs 3
-      - name: Build release GUI and CLI without desktop test instrumentation
-        env:
-          VSF_ANGLE_SDK: ${{ runner.temp }}/angle/sdk
-          PKG_CONFIG_PATH: ${{ runner.temp }}/mpv/build/meson-uninstalled:${{ runner.temp }}/placebo/sdk/lib/pkgconfig
-        run: |
-          npm run tauri -- build --bundles app --features macos-angle,bundled-tools -- --locked
-          cargo build --locked --release -p vsf-cli --features bundled-tools
       - name: Capture matching Rust/frontend sources and notices
         run: python scripts/application-sources.py --target ${{ matrix.arch }}-apple-darwin --features visualsubforge/macos-angle,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
       - name: Assemble and audit the private dependency bundle
@@ -103,12 +87,12 @@ jobs:
             --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
             --vsf "$CARGO_TARGET_DIR/release/vsf" \
             --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
-            --library-dir "$RUNNER_TEMP/mpv/build" --library-dir "$RUNNER_TEMP/angle/sdk/out/Metal" \
-            --library-dir "$RUNNER_TEMP/placebo/sdk/lib" --placebo-build "$RUNNER_TEMP/placebo" \
+            --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_ANGLE_BUILD/sdk/out/Metal" \
+            --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" --placebo-build "$VSF_PLACEBO_BUILD" \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --native-sources "$RUNNER_TEMP/native-sources" --homebrew-cellar "$(brew --cellar)" \
-            --mpv-build "$RUNNER_TEMP/mpv" --angle-sdk "$RUNNER_TEMP/angle/sdk" \
-            --angle-receipt "$RUNNER_TEMP/angle/build-receipt.json" \
+            --mpv-build "$VSF_MPV_BUILD" --angle-sdk "$VSF_ANGLE_BUILD/sdk" \
+            --angle-receipt "$VSF_ANGLE_BUILD/build-receipt.json" \
             --output "$RUNNER_TEMP/package/VisualSubForge.app"
       - name: Exercise relocated packaged tools and failed-install behavior
         run: |
@@ -142,12 +126,14 @@ jobs:
         with:
           name: macos-package-evidence-${{ matrix.arch }}
           path: |
-            ${{ runner.temp }}/angle/build-receipt.json
-            ${{ runner.temp }}/angle/sdk/dependency-revisions.txt
-            ${{ runner.temp }}/mpv/build-receipt.json
-            ${{ runner.temp }}/mpv/commands.log
-            ${{ runner.temp }}/placebo/build-receipt.json
-            ${{ runner.temp }}/placebo/commands.log
+            target/native/macos/cache-inputs.json
+            target/native/macos/build-paths.json
+            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
+            ${{ env.VSF_ANGLE_BUILD }}/sdk/dependency-revisions.txt
+            ${{ env.VSF_MPV_BUILD }}/build-receipt.json
+            ${{ env.VSF_MPV_BUILD }}/commands.log
+            ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
+            ${{ env.VSF_PLACEBO_BUILD }}/commands.log
             ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
           retention-days: 14
   sign:

@@ -195,7 +195,12 @@ function select(label: string, value: string) {
   control.value = value;
   control.dispatchEvent(new Event('change', { bubbles: true }));
 }
-async function place(panel: string, target: string, kind = 'swap') {
+async function place(
+  panel: string,
+  target: string,
+  kind = 'swap',
+  expectRefusal = false,
+) {
   select('Panel', panel);
   select('Drop action', kind);
   await tick();
@@ -204,6 +209,11 @@ async function place(panel: string, target: string, kind = 'swap') {
     .click();
   await tick();
   await until(() => !button('Done')!.disabled);
+  const error = host.querySelector('[role="alert"]')?.textContent;
+  assert(
+    expectRefusal ? !!error : !error,
+    `Panel move ${panel} → ${target}: ${error ?? 'no refusal'}`,
+  );
 }
 async function run() {
   await pauseChecks(passed);
@@ -259,7 +269,7 @@ async function run() {
       'real pointer drag uses the same protected slot move as keyboard controls',
     );
     const before = JSON.stringify(stored.custom);
-    await place('transport', 'Cue editor', 'beside');
+    await place('transport', 'Cue editor', 'beside', true);
     assert(
       host.querySelector('[role="alert"]')?.textContent?.includes('width'),
       'Invalid minimum width has an actionable reason',
@@ -342,19 +352,31 @@ async function run() {
     const remember = host.querySelector<HTMLInputElement>(
       'dialog input[type="checkbox"]',
     )!;
-    remember.checked = true;
-    remember.dispatchEvent(new Event('change', { bubbles: true }));
-    await tick();
-    await until(() => !button('Done')!.disabled);
+    // Use checkbox activation and await the owner's rendered scope. Setting the
+    // DOM property and firing change can run before the project control is ready.
+    await until(() => !remember.disabled);
+    remember.click();
+    await until(
+      () =>
+        !remember.disabled &&
+        host.textContent!.includes(
+          'Project layout changes stay in this workspace',
+        ),
+    );
     const userWrites = saves;
     await place('waveform', 'Video');
+    await until(
+      () =>
+        !!host.querySelector('.workspace.custom') &&
+        host.querySelector('.schematic .tiles button')?.textContent === 'Video',
+    );
     snapshot.dirty = true;
     documentActions.length = 0;
     button('Save project layout')!.click();
     await until(() => projectSaves.length === 2 && !button('Done')!.disabled);
     assert(
       projectSaves[1]!.options.layout?.custom?.rows[0]?.panels[0] === 'video',
-      'Project save contains arrangement',
+      `Project save contains arrangement: ${JSON.stringify(projectSaves[1]!.options.layout)}`,
     );
     assert(
       !documentActions.some((kind) => kind === 'save' || kind === 'saveAs') &&
@@ -368,9 +390,8 @@ async function run() {
     passed(
       'Remember and explicit project save persist only the project snapshot, preserving dirty subtitle bytes',
     );
-    remember.checked = false;
-    remember.dispatchEvent(new Event('change', { bubbles: true }));
-    await tick();
+    await until(() => !remember.disabled && remember.checked);
+    remember.click();
     await until(
       () =>
         !button('Done')!.disabled && !host.querySelector('.workspace.custom'),
