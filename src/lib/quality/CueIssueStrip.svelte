@@ -39,6 +39,13 @@
     projection?.offset === 0 ? projection.issues.slice(0, 3) : [],
   );
   const current = $derived(issues[selected]);
+  const explanations = $derived(
+    projection?.issues
+      .flatMap((issue) =>
+        issue.findings.map((finding) => qualityText(finding.explanation)),
+      )
+      .join(' · ') ?? '',
+  );
   function label(rule: string) {
     return rule === 'rs_high'
       ? 'Too fast'
@@ -105,16 +112,11 @@
         >Review manually</span
       >{/if}
   </div>
-  <div
-    class="detail"
-    title={current?.findings
-      .map((f) => qualityText(f.explanation))
-      .join(' · ') ?? ''}
-  >
-    <span
-      >{current?.findings.map((f) => qualityText(f.explanation)).join(' · ') ??
-        '\u00a0'}</span
-    >
+  <div class="detail" title={explanations}>
+    <span>{explanations || '\u00a0'}</span>
+    {#if projection?.count}<button {disabled} onclick={onmore}
+        >All explanations…</button
+      >{/if}
     {#if current}<button {disabled} onclick={() => onreview(current!.rule)}
         >{current.rule === 'scene_start' || current.rule === 'scene_end'
           ? 'Snap to cut…'

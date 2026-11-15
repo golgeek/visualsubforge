@@ -353,3 +353,23 @@ fn cancellation_and_limits_fail_without_partial_success() {
         Err(Error::Limit(_))
     ));
 }
+
+#[test]
+fn speed_explanations_identify_metrics_and_keep_line_length() {
+    let mut profile = policy();
+    profile.rules.speed.maximum_cps = Some(10);
+    profile.rules.speed.maximum_rs_exclusive = Some(10);
+    let report = check(vec![cue(1, 0, 1000, &"x".repeat(100))], &profile);
+    for (rule, text) in [
+        (Rule::CpsHigh, "characters per second"),
+        (Rule::RsHigh, "500 ms allowance"),
+        (Rule::LineLength, "longest stripped line"),
+    ] {
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.rule == rule && f.explanation.contains(text))
+        );
+    }
+}

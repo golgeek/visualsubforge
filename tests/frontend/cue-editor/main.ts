@@ -99,7 +99,7 @@ function issueProjection(
   const rules = [
     'rs_high',
     'line_length',
-    'duration_short',
+    'cps_high',
     'gap',
     'scene_end',
   ] as const;
@@ -364,6 +364,14 @@ async function run() {
         () =>
           host.querySelectorAll('.issue-strip [aria-pressed]').length ===
           Math.min(id === 1 ? 1 : id === 2 ? 3 : 5, 3),
+      );
+      assert(
+        issueProjection(id).issues.every((issue) =>
+          host
+            .querySelector('.issue-strip .detail')!
+            .textContent!.includes(issue.findings[0]!.explanation),
+        ),
+        'Every selected cue explanation includes speed and line length findings',
       );
       heights.push(
         host.querySelector('.issue-strip')!.getBoundingClientRect().height,
