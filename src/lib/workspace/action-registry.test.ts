@@ -141,3 +141,8 @@ test('Edit discovery uses the registry order with Undo and Redo first', () => {
     ['undo', 'redo'],
   );
 });
+
+test('macOS shortcut labels order modifiers before Command', () => {
+  assert.equal(shortcutLabel('CmdOrCtrl+Alt+Shift+J', true), '⌥⇧⌘J');
+  assert.equal(shortcutLabel('Meta+Shift+Ctrl+Alt+J', true), '⌃⌥⇧⌘J');
+});

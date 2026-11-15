@@ -171,7 +171,7 @@ async function run() {
     await until(() => !!host.textContent?.includes('Full scan'));
     assert(
       host.querySelector('#cuts')?.textContent === '[1,2]',
-      'Rescan keeps completed visual cuts visible',
+      'Rescan keeps completed scene changes visible',
     );
     button('Cancel scan').click();
     await until(
@@ -203,7 +203,7 @@ async function run() {
     await until(() => host.querySelector('#cuts')?.textContent === '[3]');
     assert(
       host.querySelector('#cuts')?.textContent === '[3]',
-      'Completed rescan replaces visual cuts',
+      'Completed rescan replaces scene changes',
     );
     mode = 'keyframes';
     cuts = [1, 2];
@@ -218,7 +218,7 @@ async function run() {
     cuts = [4];
     button('Restore scenes').click();
     await until(() => host.querySelector('#cuts')?.textContent === '[4]');
-    assert(true, 'Restored generation supplies cached visual cuts');
+    assert(true, 'Restored generation supplies cached scene changes');
     const detailSelect = host.querySelector<HTMLSelectElement>(
       '[aria-label="Scene scan detail"]',
     )!;

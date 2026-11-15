@@ -282,7 +282,7 @@ export async function qualityPerformance({
       await b.frame();
       const visibleMs = performance.now() - began;
       const paused = document.querySelector(
-        '[aria-label="Subtitle Problems"] header [role="status"]',
+        '[aria-label="Subtitle issues"] header [role="status"]',
       ).textContent;
       const view = await b.wait(async () => {
         const v = await b.read({ run: false });

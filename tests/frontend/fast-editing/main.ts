@@ -432,7 +432,7 @@ async function run() {
       '[aria-label="Timeline minimap"]',
     )!;
     const follow = [...host.querySelectorAll('label')]
-      .find((l) => l.textContent?.trim() === 'Follow playback')!
+      .find((l) => l.textContent?.trim() === 'Follow playhead')!
       .querySelector('input')!;
     media.positionSeconds = 18;
     await until(() => Number(pan.getAttribute('aria-valuenow')) === 10);

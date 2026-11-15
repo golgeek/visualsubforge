@@ -66,7 +66,7 @@
           range={null}
           editingCueId={index === 1 ? 140 : null}
           externalGuide={index === 1
-            ? { milliseconds: 38110, label: '130 ms after shot change' }
+            ? { milliseconds: 38110, label: '130 ms after scene change' }
             : null}
           onseek={noop}
           onrange={noop}

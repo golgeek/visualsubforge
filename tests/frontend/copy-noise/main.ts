@@ -134,9 +134,9 @@ async function run() {
     );
     const menu = await openCommands(host);
     for (const label of [
-      'Fix gaps and overlaps…',
-      'Fix reading speed…',
-      'Snap to shot changes…',
+      'Fix Gaps And Overlaps…',
+      'Fix Reading Speed…',
+      'Snap to scene changes…',
     ]) {
       assert(
         [...menu.querySelectorAll('button')].some((button) =>

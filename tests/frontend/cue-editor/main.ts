@@ -387,7 +387,7 @@ async function run() {
     button('+2').click();
     await until(() => {
       const findings = host.querySelectorAll(
-        '[aria-label="Subtitle Problems"] .finding',
+        '[aria-label="Subtitle issues"] .finding',
       );
       return (
         [...findings].filter((finding) =>
@@ -396,7 +396,7 @@ async function run() {
       );
     });
     const listedIssues = [
-      ...host.querySelectorAll('[aria-label="Subtitle Problems"] .finding'),
+      ...host.querySelectorAll('[aria-label="Subtitle issues"] .finding'),
     ]
       .filter((finding) =>
         finding.querySelector('button')?.textContent?.startsWith('Cue 3 ·'),

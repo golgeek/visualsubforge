@@ -54,7 +54,7 @@ export async function actionDiscovery({
   }
   await browser.execute((selector) => {
     const field = document.querySelector(`${selector} input`);
-    field.value = 'Edit selected cue';
+    field.value = 'Edit Selected Cue';
     field.dispatchEvent(new Event('input', { bubbles: true }));
   }, selector);
   await until('focus command is available', () =>

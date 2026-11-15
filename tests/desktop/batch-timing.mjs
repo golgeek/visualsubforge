@@ -62,7 +62,7 @@ export async function batchTiming({
         (b) => b.textContent.trim() === text,
       );
     const click = async (text) => {
-      if (text === 'Shift / align cues…') {
+      if (text === 'Shift / Align Cues…') {
         document.querySelector('canvas[aria-label^="Audio waveform"]').focus();
         document.activeElement.dispatchEvent(
           new KeyboardEvent('keydown', {
@@ -134,7 +134,7 @@ export async function batchTiming({
   );
   await browser.execute(async (target) => {
     const b = window.__batchUI;
-    await b.click('Shift / align cues…');
+    await b.click('Shift / Align Cues…');
     await b.wait(() =>
       document.querySelector('[aria-label="Batch operation"]'),
     );

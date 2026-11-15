@@ -461,7 +461,7 @@ async function run() {
       await until(
         () =>
           host.querySelector('footer [role="status"]')?.textContent ===
-          '2 visual cuts',
+          '2 scene changes',
       );
     }
     // Status notices can be replaced by background analysis. Attachment plus

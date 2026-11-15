@@ -141,7 +141,7 @@
         type="checkbox"
         bind:checked={follow}
         onchange={() => timeline.resumeFollowing()}
-      /> Follow playback</label
+      /> Follow playhead</label
     >
     {#if follow && timeline.suspended}<button
         onclick={() => timeline.resumeFollowing()}

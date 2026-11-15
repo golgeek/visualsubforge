@@ -105,7 +105,7 @@
       (view?.running
         ? `${phaseLabel}${view.phase === 'candidates' ? '…' : ` ${percent}%`} · ${view.total} cuts`
         : view?.mode === 'visual'
-          ? `${view.total} visual cuts${view.partial ? ' · partial' : ''}${view.truncated ? ' · zoom for all' : ''}`
+          ? `${view.total} scene changes${view.partial ? ' · partial' : ''}${view.truncated ? ' · zoom for all' : ''}`
           : ''),
   );
   $effect(() => {

@@ -236,8 +236,13 @@ export function shortcutLabel(shortcut: string, mac: boolean): string {
         Up: '↑',
         Down: '↓',
       };
-  return shortcut
-    .split('+')
+  const parts = shortcut.split('+');
+  const key = parts.pop()!;
+  if (mac) {
+    const order = ['Ctrl', 'Alt', 'Shift', 'CmdOrCtrl', 'Meta'];
+    parts.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }
+  return [...parts, key]
     .map((part) => glyphs[part] ?? part)
     .join(mac ? '' : '+');
 }

@@ -35,7 +35,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   assert.deepEqual(await status(), before);
   assert.match(
     await dock.getText(),
-    /No video, so shot changes weren’t checked/,
+    /No video, so scene changes weren’t checked/,
   );
   const checkbox = await dock.$('input[aria-label="Include cue 1"]');
   await checkbox.click();

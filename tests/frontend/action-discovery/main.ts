@@ -229,7 +229,7 @@ async function run() {
       browser()!.textContent!.includes('#1 · A subtitle'),
       'Cue text is searchable',
     );
-    await search('Edit selected cue');
+    await search('Edit Selected Cue');
     browser()!
       .querySelector<HTMLButtonElement>('[data-action="focusText"]')!
       .click();
@@ -246,10 +246,10 @@ async function run() {
     key(commands, '?', { shiftKey: true });
     await until(() => !!browser());
     assert(
-      browser()!.textContent!.includes('Keyboard shortcuts'),
+      browser()!.textContent!.includes('Keyboard Shortcuts'),
       'Question mark opens the sheet outside text',
     );
-    await search('Split at Playhead');
+    await search('Split At Playhead');
     const label = actionDescription('splitCue');
     const chord = shortcutLabel(
       label.shortcut,
@@ -263,7 +263,7 @@ async function run() {
     await close();
     key(commands, 'k', { ctrlKey: true });
     await until(() => !!browser());
-    await search('Split at Playhead');
+    await search('Split At Playhead');
     assert(
       browser()!.textContent!.includes(label.label) &&
         browser()!.textContent!.includes(chord),

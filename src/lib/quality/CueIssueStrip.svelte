@@ -54,7 +54,7 @@
         : rule === 'line_length'
           ? 'Line too long'
           : rule === 'scene_start' || rule === 'scene_end'
-            ? 'Near shot change'
+            ? 'Near scene change'
             : (qualityRules.find((item) => item.id === rule)?.label ?? rule);
   }
 </script>
@@ -119,7 +119,7 @@
       >{/if}
     {#if current}<button {disabled} onclick={() => onreview(current!.rule)}
         >{current.rule === 'scene_start' || current.rule === 'scene_end'
-          ? 'Snap to cut…'
+          ? 'Snap to scene change…'
           : 'Review fix…'}</button
       >{/if}
   </div>

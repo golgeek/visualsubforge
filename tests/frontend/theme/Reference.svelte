@@ -59,7 +59,7 @@ for the selected cue</textarea
     <h2>Status and selection</h2>
     <p class="status">
       <span style:color="var(--ok)">Saved</span>
-      <span style:color="var(--warn)">Near shot change</span>
+      <span style:color="var(--warn)">Near scene change</span>
       <span style:color="var(--err)">Reading speed too high</span>
       <span style:color="var(--accent-text)">Accent text</span>
       <span style:color="var(--text-muted)">Muted</span>

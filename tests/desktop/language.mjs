@@ -87,7 +87,7 @@ export async function languageTools({
   const settings = join(root, 'settings-v1.json');
   async function spellingFilter() {
     await ready();
-    if (!(await browser.$('[aria-label="Subtitle Problems"]').isExisting()))
+    if (!(await browser.$('[aria-label="Subtitle issues"]').isExisting()))
       await chooseCommand(browser, 'problems');
     await until('Problems filter', () =>
       browser.execute(
@@ -100,7 +100,7 @@ export async function languageTools({
     await until(`settled spelling findings: ${expected}`, () =>
       browser.execute((n) => {
         const panel = document.querySelector(
-          '[aria-label="Subtitle Problems"]',
+          '[aria-label="Subtitle issues"]',
         );
         return (
           panel &&
@@ -362,7 +362,7 @@ export async function languageTools({
           browser.execute(
             () =>
               !!document.querySelector(
-                '[aria-label="Subtitle Problems"] [role="alert"]',
+                '[aria-label="Subtitle issues"] [role="alert"]',
               ),
           ),
         );

@@ -298,7 +298,7 @@
     {#if view && 'coverage' in view && view.coverage === 'noMedia'}<p
         class="coverage"
       >
-        No video, so shot changes weren’t checked.
+        No video, so scene changes weren’t checked.
       </p>{/if}
     <button
       class="apply"

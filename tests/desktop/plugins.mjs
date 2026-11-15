@@ -265,7 +265,7 @@ export async function pluginWorkflow({
               m.paused &&
               !m.seeking &&
               m.positionSeconds !== null &&
-              (await footer()).includes('0 visual cuts')
+              (await footer()).includes('0 scene changes')
             );
           });
         } else {

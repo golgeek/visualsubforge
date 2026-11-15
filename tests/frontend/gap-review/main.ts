@@ -245,7 +245,7 @@ async function run() {
       'Preview changed document',
     );
     assert(
-      host.textContent!.includes('No video, so shot changes weren’t checked.'),
+      host.textContent!.includes('No video, so scene changes weren’t checked.'),
       'Missing no-media note',
     );
     assert(

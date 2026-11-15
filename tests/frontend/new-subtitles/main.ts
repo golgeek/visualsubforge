@@ -258,7 +258,7 @@ async function run() {
       'canvas[aria-label^="Audio waveform:"]',
     )!;
     const checkbox = [...host.querySelectorAll('label')]
-      .find((l) => l.textContent?.trim() === 'Follow playback')!
+      .find((l) => l.textContent?.trim() === 'Follow playhead')!
       .querySelector('input')!;
     const pan = host.querySelector<HTMLCanvasElement>(
       '[aria-label="Timeline minimap"]',
@@ -275,7 +275,7 @@ async function run() {
       () => checkbox.checked && Number(pan.getAttribute('aria-valuenow')) > 5,
     );
     assert(transport.length === 0, 'Navigation moved media');
-    passed('horizontal wheel pans independently and preserves Follow playback');
+    passed('horizontal wheel pans independently and preserves Follow playhead');
     button('Jump to waveform playhead').click();
     await until(
       () => checkbox.checked && Number(pan.getAttribute('aria-valuenow')) === 0,

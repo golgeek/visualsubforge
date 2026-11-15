@@ -100,7 +100,7 @@
     "order": 21
   },
   "splitCue": {
-    "label": "Split at Playhead",
+    "label": "Split At Playhead",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+K",
@@ -110,7 +110,7 @@
     "order": 18
   },
   "mergePrevious": {
-    "label": "Merge with Previous",
+    "label": "Merge With Previous",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+H",
@@ -120,7 +120,7 @@
     "order": 20
   },
   "mergeNext": {
-    "label": "Merge with Next",
+    "label": "Merge With Next",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+J",
@@ -150,7 +150,7 @@
     "order": 2
   },
   "importLegacyProject": {
-    "label": "Import VisualSubSync Project\u2026",
+    "label": "Import Visualsubsync Project\u2026",
     "group": "File",
     "native": true,
     "shortcut": "",
@@ -360,7 +360,7 @@
     "order": 37
   },
   "timingSettings": {
-    "label": "Timing and Scene Settings\u2026",
+    "label": "Timing And Scene Settings\u2026",
     "group": "Edit",
     "native": true,
     "shortcut": "",
@@ -400,7 +400,7 @@
     "order": 14
   },
   "fixGaps": {
-    "label": "Fix gaps and overlaps\u2026",
+    "label": "Fix Gaps And Overlaps\u2026",
     "group": "Review",
     "native": true,
     "shortcut": "",
@@ -410,7 +410,7 @@
     "order": 41
   },
   "fixReadingSpeed": {
-    "label": "Fix reading speed\u2026",
+    "label": "Fix Reading Speed\u2026",
     "group": "Review",
     "native": true,
     "shortcut": "",
@@ -420,7 +420,7 @@
     "order": 42
   },
   "snapShots": {
-    "label": "Snap to shot changes\u2026",
+    "label": "Snap To Scene Changes\u2026",
     "group": "Review",
     "native": true,
     "shortcut": "",
@@ -430,7 +430,7 @@
     "order": 43
   },
   "shiftCues": {
-    "label": "Shift / align cues\u2026",
+    "label": "Shift / Align Cues\u2026",
     "group": "Cue",
     "native": true,
     "shortcut": "",
@@ -460,7 +460,7 @@
     "order": 38
   },
   "focusText": {
-    "label": "Edit selected cue",
+    "label": "Edit Selected Cue",
     "group": "Cue",
     "native": false,
     "shortcut": "Enter",
@@ -470,7 +470,7 @@
     "order": 100
   },
   "focusWaveform": {
-    "label": "Focus waveform",
+    "label": "Focus Waveform",
     "group": "View",
     "native": false,
     "shortcut": "Escape",
@@ -480,7 +480,7 @@
     "order": 100
   },
   "seekBack": {
-    "label": "Seek back 1 second",
+    "label": "Seek Back 1 Second",
     "group": "Playback",
     "native": true,
     "shortcut": "Alt+Left",
@@ -490,7 +490,7 @@
     "order": 34
   },
   "seekForward": {
-    "label": "Seek forward 1 second",
+    "label": "Seek Forward 1 Second",
     "group": "Playback",
     "native": true,
     "shortcut": "Alt+Right",
@@ -500,7 +500,7 @@
     "order": 35
   },
   "seekBackFar": {
-    "label": "Seek back 5 seconds",
+    "label": "Seek Back 5 Seconds",
     "group": "Playback",
     "native": false,
     "shortcut": "Alt+Shift+Left",
@@ -510,7 +510,7 @@
     "order": 100
   },
   "seekForwardFar": {
-    "label": "Seek forward 5 seconds",
+    "label": "Seek Forward 5 Seconds",
     "group": "Playback",
     "native": false,
     "shortcut": "Alt+Shift+Right",
@@ -520,7 +520,7 @@
     "order": 100
   },
   "previousCue": {
-    "label": "Edit previous cue",
+    "label": "Edit Previous Cue",
     "group": "Cue",
     "native": false,
     "shortcut": "Alt+Up",
@@ -530,7 +530,7 @@
     "order": 100
   },
   "nextCue": {
-    "label": "Edit next cue",
+    "label": "Edit Next Cue",
     "group": "Cue",
     "native": false,
     "shortcut": "Alt+Down",
@@ -540,7 +540,7 @@
     "order": 100
   },
   "previousProblem": {
-    "label": "Previous problem",
+    "label": "Previous Issue",
     "group": "Review",
     "native": true,
     "shortcut": "Shift+F4",
@@ -550,7 +550,7 @@
     "order": 40
   },
   "nextProblem": {
-    "label": "Next problem",
+    "label": "Next Issue",
     "group": "Review",
     "native": true,
     "shortcut": "F4",
@@ -560,7 +560,7 @@
     "order": 39
   },
   "commandPalette": {
-    "label": "Command palette",
+    "label": "Command Palette",
     "group": "Edit",
     "native": true,
     "shortcut": "CmdOrCtrl+K",
@@ -570,7 +570,7 @@
     "order": 15
   },
   "shortcutSheet": {
-    "label": "Keyboard shortcuts",
+    "label": "Keyboard Shortcuts",
     "group": "Help",
     "native": true,
     "shortcut": "?",
@@ -580,7 +580,7 @@
     "order": 57
   },
   "revertDraft": {
-    "label": "Discard uncommitted edit",
+    "label": "Discard Uncommitted Edit",
     "group": "Cue",
     "native": false,
     "shortcut": "",
@@ -610,7 +610,7 @@
     "order": 26
   },
   "zoomIn": {
-    "label": "Zoom in",
+    "label": "Zoom In",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -620,7 +620,7 @@
     "order": 52
   },
   "zoomOut": {
-    "label": "Zoom out",
+    "label": "Zoom Out",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -630,7 +630,7 @@
     "order": 53
   },
   "fitWaveform": {
-    "label": "Fit waveform",
+    "label": "Fit Waveform",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -640,7 +640,7 @@
     "order": 54
   },
   "layoutTiming": {
-    "label": "Timing layout",
+    "label": "Timing",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -650,7 +650,7 @@
     "order": 100
   },
   "layoutEditorAbove": {
-    "label": "Editor above list layout",
+    "label": "Editor Above List",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -660,7 +660,7 @@
     "order": 100
   },
   "layoutReview": {
-    "label": "Review layout",
+    "label": "Review",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -670,7 +670,7 @@
     "order": 100
   },
   "layoutTranslation": {
-    "label": "Translation layout",
+    "label": "Translation",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -680,7 +680,7 @@
     "order": 100
   },
   "layoutBigPicture": {
-    "label": "Big picture layout",
+    "label": "Big Picture",
     "group": "View",
     "native": true,
     "shortcut": "",
@@ -690,7 +690,7 @@
     "order": 100
   },
   "textTools": {
-    "label": "Find / Replace\u2026",
+    "label": "Text Tools\u2026",
     "group": "Edit",
     "native": true,
     "shortcut": "",
@@ -700,7 +700,7 @@
     "order": 27
   },
   "setStart": {
-    "label": "Set start at playhead",
+    "label": "Set Start At Playhead",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+[",
@@ -710,7 +710,7 @@
     "order": 22
   },
   "setEnd": {
-    "label": "Set end at playhead",
+    "label": "Set End At Playhead",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+]",
@@ -720,7 +720,7 @@
     "order": 23
   },
   "replay": {
-    "label": "Replay last 2 seconds",
+    "label": "Replay Last 2 Seconds",
     "group": "Playback",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+Space",

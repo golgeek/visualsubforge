@@ -62,7 +62,7 @@ function button(label: string) {
 const variants = [
   {
     name: 'gap',
-    launcher: 'Fix gaps and overlaps…',
+    launcher: 'Fix Gaps And Overlaps…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -71,7 +71,7 @@ const variants = [
   },
   {
     name: 'scene',
-    launcher: 'Snap to shot changes…',
+    launcher: 'Snap to scene changes…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -80,7 +80,7 @@ const variants = [
   },
   {
     name: 'duration',
-    launcher: 'Fix reading speed…',
+    launcher: 'Fix Reading Speed…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -89,7 +89,7 @@ const variants = [
   },
   {
     name: 'batch',
-    launcher: 'Shift / align cues…',
+    launcher: 'Shift / Align Cues…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',

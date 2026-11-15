@@ -258,7 +258,7 @@ async function run() {
     );
     await chooseCommand(host, 'problems');
     await until(
-      () => !!host.querySelector('[aria-label="Subtitle Problems"] .finding'),
+      () => !!host.querySelector('[aria-label="Subtitle issues"] .finding'),
       'Problems did not appear',
     );
     assert(

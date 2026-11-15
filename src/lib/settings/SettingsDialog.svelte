@@ -90,7 +90,7 @@
     },
     {
       id: 'video',
-      label: 'Video and shot changes',
+      label: 'Video and scene changes',
       keywords: 'scan scene detail reduced standard media',
     },
     {
@@ -337,7 +337,7 @@
             >{/each}
         </section>
         <section hidden={!shown('video')}>
-          <h3>Video and shot changes</h3>
+          <h3>Video and scene changes</h3>
           <fieldset {disabled}>
             <label
               ><input type="checkbox" bind:checked={draft.autoScanScenes} /> Scan

@@ -61,9 +61,9 @@
   }
 </script>
 
-<section class="problems" aria-label="Subtitle Problems">
+<section class="problems" aria-label="Subtitle issues">
   <header>
-    <strong>Problems</strong>
+    <strong>Issues</strong>
     <span role="status"
       >{session.paused
         ? 'Checking paused'
@@ -82,7 +82,7 @@
       onclick={() => session.pause()}
       disabled={session.paused || disabled}>Pause checking</button
     >
-    <button onclick={onclose}>Close Problems</button>
+    <button onclick={onclose}>Close issues</button>
   </header>
   {#if session.error || view?.error}<p role="alert">
       {session.error || view?.error}

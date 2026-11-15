@@ -207,7 +207,7 @@ export async function languagePerformance({
         );
         const checked = await browser.execute(async () => {
           const b = window.__languageBench;
-          if (!document.querySelector('[aria-label="Subtitle Problems"]')) {
+          if (!document.querySelector('[aria-label="Subtitle issues"]')) {
             const launcher = document.querySelector(
               'canvas[aria-label^="Audio waveform"]',
             );
@@ -337,7 +337,7 @@ export async function languagePerformance({
           await b.wait(
             () =>
               document.querySelector(
-                '[aria-label="Subtitle Problems"] .findings[aria-busy="false"] .finding button:not(:disabled)',
+                '[aria-label="Subtitle issues"] .findings[aria-busy="false"] .finding button:not(:disabled)',
               ) && document.querySelector('[aria-label="Problem rule"]'),
           );
           const select = document.querySelector('[aria-label="Problem rule"]');
