@@ -576,6 +576,7 @@
   });
 
   const cueActions = {
+    timeline,
     workspace,
     subtitles,
     gestures,

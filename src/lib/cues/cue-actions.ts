@@ -1,5 +1,6 @@
 import { tick } from 'svelte';
 import { textFormat, type TextFormat } from '../client';
+import type { TimelineView } from '../timeline/timeline-view.svelte';
 import type { Workspace } from '../workspace/workspace.svelte';
 import type { DocumentSession } from '../document/document-session.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
@@ -19,6 +20,7 @@ interface Owners {
   workspace: Workspace;
   subtitles: DocumentSession;
   gestures: TimingGesture;
+  timeline: Pick<TimelineView, 'selectRange'>;
   operationContext: Parameters<typeof planCueOperation>[1];
   suspendFollowing: () => void;
   revealSelection: () => Promise<void>;
@@ -80,6 +82,11 @@ export async function runCueAction(
         if (subtitles.snapshot.loaded) {
           suspendFollowing();
           await subtitles.command({ kind: action });
+          // History is authoritative in Rust. Rebuild the visible selection from
+          // the returned snapshot, never from the gesture's former preview.
+          const cue = subtitles.cue;
+          if (cue)
+            owners.timeline.selectRange([cue.startMs / 1000, cue.endMs / 1000]);
           await revealSelection();
         }
         break;
