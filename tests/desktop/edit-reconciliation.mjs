@@ -62,7 +62,7 @@ export async function editReconciliation({
   assert.equal(await (await browser.$('#cue-commit-error')).isExisting(), true);
   await discardCue(browser);
   assert.equal(await editor.getValue(), cue.text);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'only injected edit in history',
     async () => (await status()).revision === concurrent.revision + 1,

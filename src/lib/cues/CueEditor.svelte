@@ -348,10 +348,12 @@
     >
     <button
       disabled={(!doc.canUndo && !draftDirty) || busy}
-      onclick={(e) => void workspace.run('undo', e)}>Undo edit</button
+      onclick={(e) => void workspace.run('undo', e)}
+      title="Undo the last document change">Undo</button
     ><button
       disabled={!doc.canRedo || draftDirty || busy}
-      onclick={(e) => void workspace.run('redo', e)}>Redo edit</button
+      onclick={(e) => void workspace.run('redo', e)}
+      title="Redo the last undone document change">Redo</button
     ><span class="spacer"></span><span
       >{draftDirty
         ? subtitles.committing

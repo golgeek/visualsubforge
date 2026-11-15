@@ -266,13 +266,13 @@ export async function languageTools({
           baseline.cues[0],
         );
         await ready();
-        await click('Undo edit');
+        await click('Undo');
         await documentIs(
           'native language Undo',
           (d) => d.revision === edited.revision + 1 && d.cues[0].text === line,
         );
         await ready();
-        await click('Redo edit');
+        await click('Redo');
         await documentIs(
           'native language Redo',
           (d) =>
@@ -545,28 +545,28 @@ export async function languageTools({
             ),
           );
           await ready();
-          await click('Undo edit');
+          await click('Undo');
           await documentIs(
             'editorial correction Undo',
             (d) => d.revision === before.revision + 2,
           );
           assert.deepEqual((await status()).cues, before.cues);
           await ready();
-          await click('Redo edit');
+          await click('Redo');
           await documentIs(
             'editorial correction Redo',
             (d) => d.revision === before.revision + 3,
           );
           assert.deepEqual((await status()).cues, accepted.cues);
           await ready();
-          await click('Undo edit');
+          await click('Undo');
           await documentIs(
             'editorial correction restored',
             (d) => d.revision === before.revision + 4,
           );
           await ready();
         }
-        await click('Undo edit');
+        await click('Undo');
         await documentIs('saved language fixture restored', (d) => !d.dirty);
         assert.deepEqual((await status()).cues, savedState.cues);
         report.cases.push({

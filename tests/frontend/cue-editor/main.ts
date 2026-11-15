@@ -433,7 +433,7 @@ async function run() {
       snapshot.revision === before.revision + 1,
       'Fix dispatched multiple accepted edits',
     );
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => editor().value === before.cues[2]!.text);
     assert(
       JSON.stringify(snapshot.cues) === JSON.stringify(before.cues),

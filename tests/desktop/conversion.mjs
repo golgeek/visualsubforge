@@ -310,7 +310,7 @@ export async function conversionWorkflow({
         const text = opened.cues[0].text + ' accepted';
         await apply(text);
         await apply(text + ' redo marker');
-        await history('Undo edit');
+        await history('Undo');
         const before = await status();
         assert.ok(before.dirty && before.canUndo && before.canRedo);
         await open(target);
@@ -404,9 +404,9 @@ export async function conversionWorkflow({
         assert.deepEqual(await readFile(project), projectBytes);
         assert.equal(await readFile(source, 'utf8'), original);
         await close();
-        await history('Redo edit');
+        await history('Redo');
         assert.equal((await status()).cues[0].text, text + ' redo marker');
-        await history('Undo edit');
+        await history('Undo');
         assert.equal((await status()).cues[0].text, text);
         let crashRecovery = false;
         if (sourceFormat === 'ass' && target === 'ssa') {
@@ -476,7 +476,7 @@ export async function conversionWorkflow({
           await ready();
           crashRecovery = true;
         } else {
-          const restored = await history('Undo edit');
+          const restored = await history('Undo');
           assert.equal(restored.dirty, false);
           assert.deepEqual(restored.cues, opened.cues);
         }
@@ -557,7 +557,7 @@ export async function conversionWorkflow({
     await publish(output);
     assert.deepEqual(await status(), accepted);
     await close();
-    await history('Undo edit');
+    await history('Undo');
     await menu('openSubtitles');
     const rounded = await documentIs('rounded output', (d) =>
       samePath(d.path, output),

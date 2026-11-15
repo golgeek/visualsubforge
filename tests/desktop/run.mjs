@@ -409,13 +409,13 @@ try {
     opened.cues.map((cue) => cue.id),
   );
   assert.equal(await readFile(source, 'utf8'), original);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   const undone = await documentIs(
     'one Undo',
     (doc) => doc.cues[0]?.text === '<i>世界</i>',
   );
   assert.deepEqual(undone.cues, opened.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await documentIs('one Redo', (doc) => doc.cues[0]?.text === 'Edited 世界');
   await record({
     step: 'real IPC edit and one Undo/Redo',
@@ -424,7 +424,7 @@ try {
 
   await menu('saveAs'); // cancelled file selection
   await until('cancelled Save As returns to editor', async () =>
-    (await browser.$('button=Undo edit')).isEnabled(),
+    (await browser.$('button=Undo')).isEnabled(),
   );
   assert.equal((await status()).dirty, true);
   await menu('saveAs'); // missing parent

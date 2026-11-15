@@ -156,13 +156,13 @@ export async function webvttPerformance({
             const acceptMs = performance.now() - start;
             if (accepted.cues[0].text !== text)
               throw new Error('WebVTT edit was not accepted');
-            const undoMs = await b.history('Undo edit', accepted.revision);
+            const undoMs = await b.history('Undo', accepted.revision);
             if (
               JSON.stringify((await b.state()).cues) !==
               JSON.stringify(before.cues)
             )
               throw new Error('WebVTT Undo lost cue state');
-            const redoMs = await b.history('Redo edit', accepted.revision + 1);
+            const redoMs = await b.history('Redo', accepted.revision + 1);
             if (
               JSON.stringify((await b.state()).cues) !==
               JSON.stringify(accepted.cues)
@@ -177,7 +177,7 @@ export async function webvttPerformance({
             await b.frame();
             const saveMs = performance.now() - start;
             const restoreMs = await b.history(
-              'Undo edit',
+              'Undo',
               accepted.revision + 2,
             );
             return { draftMs, acceptMs, undoMs, redoMs, saveMs, restoreMs };
@@ -195,7 +195,7 @@ export async function webvttPerformance({
       }
       await browser.execute(async () => {
         const b = window.__webvttBench;
-        await b.history('Redo edit', (await b.state()).revision);
+        await b.history('Redo', (await b.state()).revision);
       });
       const saved = await status();
       assert.equal(saved.dirty, false);
@@ -262,7 +262,7 @@ export async function webvttPerformance({
           }
           if (!rejected || (await b.state()).revision !== before.revision + 1)
             throw new Error('Stale WebVTT proposal was not rejected');
-          await b.history('Undo edit', before.revision + 1);
+          await b.history('Undo', before.revision + 1);
           if (
             JSON.stringify((await b.state()).cues) !==
             JSON.stringify(before.cues)

@@ -181,7 +181,7 @@ export async function durationQuality({
     (await status()).cues.map((c) => c.endMs),
     [3130, 13000, 14400],
   );
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
@@ -227,10 +227,10 @@ export async function durationQuality({
     }),
   );
   assert.deepEqual(await status(), accepted);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await ready();
   assert.deepEqual((await status()).cues, accepted.cues);
   await menu('saveAs');
@@ -427,7 +427,7 @@ async function durationPerformance({
         (c, i) => c.endMs === c.startMs + (i % 2 ? 1116 : 880),
       ),
     );
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.deepEqual((await status()).cues, baseline.cues);
     const captured = await proposal();
@@ -448,7 +448,7 @@ async function durationPerformance({
     result.invalidationMs = Date.now() - invalidationStart;
     assert.ok(result.invalidationMs < 1000);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.equal((await status()).revision, before.revision + 2);
     assert.deepEqual((await status()).cues, baseline.cues);

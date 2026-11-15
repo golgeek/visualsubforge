@@ -301,7 +301,7 @@ async function run() {
     );
     button('Close').click();
     editor.focus();
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => doc.cues[0]!.startMs === 1000);
     assert(
       JSON.stringify(doc.cues) === JSON.stringify(original.cues),

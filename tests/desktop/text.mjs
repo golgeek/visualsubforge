@@ -40,7 +40,7 @@ export async function textEditing({
   async function undo() {
     await ready();
     const before = await status();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await until(
       'text Undo acknowledged',
       async () => (await status()).revision === before.revision + 1,
@@ -157,7 +157,7 @@ export async function textEditing({
   assert.deepEqual(await status(), replaced);
   await undo();
   assert.deepEqual((await status()).cues, baseline.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await until(
     'text Redo acknowledged',
     async () => (await status()).revision === replaced.revision + 2,

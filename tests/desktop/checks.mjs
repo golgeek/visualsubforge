@@ -100,7 +100,7 @@ export async function qualityChecking({
     async () => (await status()).revision === before.revision + 1,
   );
   assert.equal((await status()).cues[0].text, text);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'quality edit restored',
     async () => (await status()).revision === before.revision + 2,

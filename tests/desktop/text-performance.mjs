@@ -117,7 +117,7 @@ export async function textPerformance({
       result.acceptanceMs < result.budgetMs,
       `Batch acceptance ${result.acceptanceMs} ms`,
     );
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await until(
       '10k batch Undo',
       async () => (await status()).revision === baseline.revision + 2,
@@ -181,7 +181,7 @@ export async function textPerformance({
     result.invalidationMs = Date.now() - invalidationStart;
     assert.ok(result.invalidationMs < result.budgetMs);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await until(
       '10k text fixture restored',
       async () => (await status()).revision === restored.revision + 2,

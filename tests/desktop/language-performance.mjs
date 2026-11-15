@@ -382,7 +382,7 @@ export async function languagePerformance({
           )
             throw new Error('Wrong selected correction');
           const undoStart = performance.now();
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === pre.revision + 2 && b.ready(),
@@ -423,7 +423,7 @@ export async function languagePerformance({
             return v.phase === 'stale' && !v.rows.length && b.ready();
           });
           const elapsed = performance.now() - start;
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === b.doc.revision + 2 && b.ready(),

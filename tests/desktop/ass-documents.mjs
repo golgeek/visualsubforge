@@ -161,7 +161,7 @@ export async function assDocuments({
     }
   };
   async function undoTo(expected) {
-    await click('Undo edit');
+    await click('Undo');
     await documentIs(
       'complete styled Undo',
       (d) => JSON.stringify(d.cues) === JSON.stringify(expected.cues),
@@ -253,7 +253,7 @@ export async function assDocuments({
       assert.equal(await readFile(sourcePath, 'utf8'), original);
       await ready();
       await undoTo(opened);
-      await click('Redo edit');
+      await click('Redo');
       await documentIs(
         'combined styled Redo',
         (d) => JSON.stringify(d.cues) === JSON.stringify(changed.cues),
@@ -491,7 +491,7 @@ export async function assDocuments({
     );
     await ready();
     await undoTo(before);
-    await click('Redo edit');
+    await click('Redo');
     await documentIs('fansub Redo', (d) => d.cues[0].text === edited);
     await ready();
     await menu('saveAs');

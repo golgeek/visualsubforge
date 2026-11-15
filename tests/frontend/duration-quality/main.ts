@@ -347,7 +347,7 @@ async function run() {
     );
     button('Close').click();
     editor.focus();
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => doc.cues[0]!.endMs === 1400);
     assert(
       JSON.stringify(doc.cues) === JSON.stringify(original.cues),

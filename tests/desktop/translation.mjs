@@ -321,7 +321,7 @@ export async function translationWorkflow({
         (d) => d.cues[0].text === translatedText && d.canUndo,
       );
       await ready();
-      await click('Undo edit');
+      await click('Undo');
       await documentIs(
         'translation Undo',
         (d) => d.revision === edited.revision + 1,
@@ -329,7 +329,7 @@ export async function translationWorkflow({
       await ready();
       assert.deepEqual((await status()).cues, copied.cues);
       assert.equal((await status()).translation.reference.offsetMs, -1500);
-      await click('Redo edit');
+      await click('Redo');
       await documentIs(
         'translation Redo',
         (d) => d.cues[0].text === translatedText,

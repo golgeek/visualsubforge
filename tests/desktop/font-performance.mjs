@@ -158,7 +158,7 @@ export async function fontPerformance({
             if (JSON.stringify(after.cues) !== JSON.stringify(before.cues))
               throw new Error('Font change mutated cues');
             const undoAt = performance.now();
-            b.button('Undo edit').click();
+            b.button('Undo').click();
             await b.wait(
               async () =>
                 (await b.state()).revision === before.revision + 2 && b.ready(),
@@ -224,7 +224,7 @@ export async function fontPerformance({
           if (!refused) throw new Error('Stale font accepted');
           await b.frame();
           const staleMs = performance.now() - at;
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === doc.revision + 2 && b.ready(),

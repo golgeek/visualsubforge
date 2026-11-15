@@ -173,13 +173,13 @@ export async function batchTiming({
       m.previewDocumentGeneration === accepted.generation
     );
   });
-  await browser.execute(() => window.__batchUI.click('Undo edit'));
+  await browser.execute(() => window.__batchUI.click('Undo'));
   await until(
     'batch undo',
     async () => (await status()).revision === accepted.revision + 1,
   );
   assert.deepEqual((await status()).cues, baseline.cues);
-  await browser.execute(() => window.__batchUI.click('Redo edit'));
+  await browser.execute(() => window.__batchUI.click('Redo'));
   await until(
     'batch redo',
     async () => (await status()).revision === accepted.revision + 2,

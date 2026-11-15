@@ -168,14 +168,14 @@ export async function styledResync({
         m.previewDocumentRevision === accepted.revision
       );
     });
-    await click('Undo edit');
+    await click('Undo');
     await until(
       'native resync Undo',
       async () => (await status()).revision === accepted.revision + 1,
     );
     assert.deepEqual((await status()).cues, before.cues);
     assert.equal((await status()).requiresSaveAs, true);
-    await click('Redo edit');
+    await click('Redo');
     await until(
       'native resync Redo',
       async () => (await status()).revision === accepted.revision + 2,

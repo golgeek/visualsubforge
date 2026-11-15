@@ -123,7 +123,7 @@ export async function webvttWorkflow({
     browser.$('footer [role="status"]').then((e) => e.getText());
   const undo = async (expected) => {
     const revision = (await status()).revision;
-    await click('Undo edit');
+    await click('Undo');
     await documentIs('WebVTT Undo', (d) => d.revision === revision + 1);
     assert.deepEqual((await status()).cues, expected.cues);
     await ready();
@@ -330,7 +330,7 @@ export async function webvttWorkflow({
     );
     await ready();
     await undo(textFormatted);
-    await click('Redo edit');
+    await click('Redo');
     await documentIs('WebVTT Redo', (d) => d.cues[0].startMs === 1002);
     assert.deepEqual((await status()).cues, formatted.cues);
     await ready();
@@ -359,7 +359,7 @@ export async function webvttWorkflow({
     assert.equal(changed.revision, formatted.revision + 3);
     await ready();
     await undo(formatted);
-    await click('Redo edit');
+    await click('Redo');
     await documentIs('WebVTT replacement Redo', (d) =>
       d.cues[0].text.includes('<b>Hiver</b>'),
     );

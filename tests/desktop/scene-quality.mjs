@@ -214,10 +214,10 @@ export async function sceneQuality({
     }),
   );
   assert.deepEqual(await status(), accepted);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await ready();
   assert.deepEqual((await status()).cues, accepted.cues);
   await menu('saveAs');
@@ -394,7 +394,7 @@ async function scenePerformance({
       changed.cues.map((c) => [c.id, c.text, c.endMs]),
       baseline.cues.map((c) => [c.id, c.text, c.endMs]),
     );
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.deepEqual((await status()).cues, baseline.cues);
     const captured = await proposal();
@@ -415,7 +415,7 @@ async function scenePerformance({
     result.invalidationMs = Date.now() - invalidationStart;
     assert.ok(result.invalidationMs < 1000);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.equal((await status()).revision, before.revision + 2);
     assert.deepEqual((await status()).cues, baseline.cues);

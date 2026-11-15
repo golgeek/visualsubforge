@@ -336,13 +336,13 @@ export async function legacyImportPerformance({
             const editMs = performance.now() - at;
             if (accepted.cues[0].text !== text)
               throw new Error('Imported edit failed');
-            const undoMs = await b.history('Undo edit', accepted.revision);
+            const undoMs = await b.history('Undo', accepted.revision);
             if (
               JSON.stringify((await b.state()).cues) !==
               JSON.stringify(before.cues)
             )
               throw new Error('Imported Undo lost cues');
-            const redoMs = await b.history('Redo edit', accepted.revision + 1);
+            const redoMs = await b.history('Redo', accepted.revision + 1);
             if (
               JSON.stringify((await b.state()).cues) !==
               JSON.stringify(accepted.cues)

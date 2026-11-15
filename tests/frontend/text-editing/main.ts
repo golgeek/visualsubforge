@@ -423,7 +423,7 @@ async function run() {
     await until(
       () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => doc.revision === original.revision + 2);
     assert(
       JSON.stringify(doc.cues) === JSON.stringify(original.cues),
@@ -447,7 +447,7 @@ async function run() {
       () =>
         editor.value.includes('<b>ÉTÉ</b>') &&
         doc.cues[0]!.text === editor.value &&
-        !button('Undo edit').disabled,
+        !button('Undo').disabled,
     );
     assert(
       doc.cues[0]!.text === editor.value && edits === 1,
@@ -456,7 +456,7 @@ async function run() {
     passed(
       'Formatting shortcut commits one edit and restores the selected text',
     );
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => editor.value === original.cues[0]!.text);
     await open();
     let release!: (id: number) => void;
@@ -574,7 +574,7 @@ async function run() {
         accepts === startingAccepts + 1,
       'Reviewed correction was not reconciled',
     );
-    button('Undo edit').click();
+    button('Undo').click();
     await until(
       () =>
         doc.cues[0]!.text === '😀 <i>helo helo</i>' &&

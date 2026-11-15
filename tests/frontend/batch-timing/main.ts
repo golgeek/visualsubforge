@@ -395,12 +395,12 @@ async function run() {
       doc.cues[0]!.startMs === 1200 && accepts === 1 && selected().length === 6,
       'Batch not reconciled with selection',
     );
-    await until(() => !button('Undo edit').disabled);
-    button('Undo edit').click();
+    await until(() => !button('Undo').disabled);
+    button('Undo').click();
     await until(() => doc.cues[0]!.startMs === 1000);
     assert(selected().length === 6, 'Undo discarded selection');
-    await until(() => !button('Redo edit').disabled);
-    button('Redo edit').click();
+    await until(() => !button('Redo').disabled);
+    button('Redo').click();
     await until(() => doc.cues[0]!.startMs === 1200);
     passed(
       'Draft/error guards, immutable review, one-step history and selection reconciliation',

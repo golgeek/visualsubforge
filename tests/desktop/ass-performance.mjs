@@ -146,7 +146,7 @@ export async function assPerformance({
             if ((await b.state()).cues[0][field] !== expected)
               throw new Error(`The ${field} edit was not accepted`);
             const undoStart = performance.now();
-            b.button('Undo edit').click();
+            b.button('Undo').click();
             await b.wait(
               async () =>
                 (await b.state()).revision === revision + 2 && b.ready(),
@@ -247,7 +247,7 @@ export async function assPerformance({
             accepted.cues.at(-1).text !== `${original}!`
           )
             throw new Error('Invalidating edit was not accepted');
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === doc.revision + 2 && b.ready(),

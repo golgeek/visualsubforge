@@ -340,7 +340,7 @@ export async function qualityPerformance({
     const edited = await status();
     assert.equal(edited.revision, before.revision + 1);
     assert.equal(edited.cues[0].text, 'Accepted large-document edit');
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     const restored = await until('large edit Undo', async () => {
       const doc = await status();
       return doc.revision === before.revision + 2 && doc;

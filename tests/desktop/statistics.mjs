@@ -232,7 +232,7 @@ export async function statisticsWorkflow({
   );
   await ready();
   assert.equal((await status()).cues[1].text, 'Explicit statistics navigation');
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
@@ -452,7 +452,7 @@ async function statisticsPerformance({
     result.invalidationMs = Date.now() - invalidateStart;
     assert.ok(result.invalidationMs < 1000);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.deepEqual((await status()).cues, baseline.cues);
     const nav = await open();

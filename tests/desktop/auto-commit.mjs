@@ -30,19 +30,19 @@ export async function autoCommit({ browser, status, until, record }) {
     async () => (await status()).cues[0].text === 'Second paused text',
   );
   assert.equal((await status()).revision, original.revision + 2);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'same-focus text coalesces into one Undo',
     async () => (await status()).cues[0].text === cue.text,
   );
   assert.deepEqual((await status()).cues, original.cues);
   assert.equal((await status()).dirty, original.dirty);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await until(
     'coalesced Redo restores latest text',
     async () => (await status()).cues[0].text === 'Second paused text',
   );
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'auto-commit trial restores original document',
     async () => (await status()).cues[0].text === cue.text,

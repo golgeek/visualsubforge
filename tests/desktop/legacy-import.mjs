@@ -395,14 +395,14 @@ export async function legacyImportWorkflow({
         assert.deepEqual(await status(), before);
         assert.equal(await editorText(), 'Unapplied active draft');
         await discardCue(browser);
-        await click('Undo edit');
+        await click('Undo');
         await documentIs(
           'active Undo after import',
           (d) => d.revision === accepted.revision + 1,
         );
         assert.deepEqual((await status()).cues, activeOpened.cues);
         await ready();
-        await click('Redo edit');
+        await click('Redo');
         await documentIs(
           'active Redo after import',
           (d) => d.cues[0].text === 'Active accepted 世界',
@@ -440,14 +440,14 @@ export async function legacyImportWorkflow({
         (d) => d.dirty && d.cues[0].text === edited,
       );
       await ready();
-      await click('Undo edit');
+      await click('Undo');
       await documentIs(
         'imported Undo',
         (d) => d.revision === changed.revision + 1,
       );
       assert.deepEqual((await status()).cues, restored.cues);
       await ready();
-      await click('Redo edit');
+      await click('Redo');
       await documentIs('imported Redo', (d) => d.cues[0].text === edited);
       await ready();
       await menu('saveAs');
