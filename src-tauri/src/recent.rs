@@ -153,6 +153,17 @@ fn update(path: &Path, change: impl FnOnce(&mut Vec<Entry>)) -> Result<Vec<Entry
 }
 fn remember(path: &Path, mut entry: Entry) -> Result<Vec<Entry>> {
     update(path, |entries| {
+        // Reopening a video alone revisits its most recent subtitle pairing.
+        // Preserve that historical pair rather than inventing another session.
+        if entry.kind == Kind::Media
+            && let Some(pair) = entries.iter().find(|old| {
+                old.kind == Kind::Subtitles && old.media_path.as_ref() == Some(&entry.path)
+            })
+        {
+            let used_at_ms = entry.used_at_ms;
+            entry = pair.clone();
+            entry.used_at_ms = used_at_ms;
+        }
         if entry.summary.is_none()
             && let Some(old) = entries.iter().find(|old| {
                 old.kind == entry.kind
@@ -375,7 +386,7 @@ mod tests {
             remember(
                 &path,
                 if media_first {
-                    media
+                    media.clone()
                 } else {
                     subtitles.clone()
                 },
@@ -383,7 +394,13 @@ mod tests {
             .unwrap();
             subtitles.media_path = Some(video);
             let list = remember(&path, subtitles.clone()).unwrap();
-            assert_eq!(list, vec![subtitles]);
+            assert_eq!(list, vec![subtitles.clone()]);
+            let reopened = Entry {
+                used_at_ms: 9.try_into().unwrap(),
+                ..media
+            };
+            subtitles.used_at_ms = reopened.used_at_ms;
+            assert_eq!(remember(&path, reopened).unwrap(), vec![subtitles]);
         }
     }
     #[test]

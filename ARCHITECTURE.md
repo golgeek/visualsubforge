@@ -85,7 +85,9 @@ writer mutex serializes only metadata IO; the list is capped at 12 entries and
 128 KiB. New dirty, recovered, resynced or unmatched checks supply no counts. A missing
 summary retains historical counts only when the saved subtitle bytes still match
 their recorded hash. Capture identity tracks open/save/completed clean checks,
-not each dirty edit.
+not each dirty edit. Close-only transitions suppress capture, including late checker
+completion; opening or saving permits it again. Reopening media alone revisits
+its most recent recorded subtitle pairing instead of adding a media-only entry.
 Recorded source/profile hashes, completion coverage and check time describe the
 saved content at capture, not a fresh check of today's disk bytes. Reading the
 list never opens old documents or starts checking. Frontend capture is debounced

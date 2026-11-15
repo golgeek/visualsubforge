@@ -541,6 +541,7 @@
   const startVisible = $derived(!doc.loaded && !status.loaded);
   const recent = disposeWithComponent(new RecentWork());
   let recentSavedIdentity = '';
+  let recentSavedRevision = '';
   $effect(() => {
     if (!workspace.ready || workspace.busy || workspace.confirming) return;
     const request = {
@@ -552,6 +553,12 @@
     const hasPath = projects.path || doc.path || (status.loaded && media.path);
     const report = quality.view;
     if (!doc.dirty)
+      recentSavedRevision = JSON.stringify([
+        doc.generation,
+        doc.revision,
+        doc.path,
+      ]);
+    if (!doc.dirty)
       recentSavedIdentity = JSON.stringify([
         doc.generation,
         doc.revision,
@@ -562,6 +569,12 @@
       hasPath
         ? {
             request,
+            resources: [
+              projects.path,
+              doc.path,
+              status.loaded ? media.path : null,
+            ].filter((path): path is string => !!path),
+            saved: recentSavedRevision,
             identity: JSON.stringify([
               request.session,
               request.generation,
