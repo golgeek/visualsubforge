@@ -826,7 +826,11 @@
     inert={startVisible}
     class:custom={!!layout.custom}
     style:--custom-rows={layout.geometry.rows
-      .map((value) => `${value}px`)
+      .flatMap((value, index) =>
+        index < layout.geometry.gaps.length
+          ? [`${value}px`, `${layout.geometry.gaps[index]}px`]
+          : [`${value}px`],
+      )
       .join(' ')}
     style:min-width={layout.custom
       ? `${layout.geometry.width + 16}px`
@@ -1368,7 +1372,7 @@
     grid-template-columns: repeat(100, minmax(0, 1fr));
     grid-template-rows: var(--custom-rows);
     grid-template-areas: none;
-    row-gap: 6px;
+    row-gap: 0;
     position: relative;
   }
   .custom .top,

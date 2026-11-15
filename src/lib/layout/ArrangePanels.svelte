@@ -164,8 +164,9 @@
         <label
           >Height weight <input
             type="number"
-            min="1"
+            min="0"
             max="100"
+            step="any"
             value={row.weight}
             disabled={pending}
             onchange={(event) => {

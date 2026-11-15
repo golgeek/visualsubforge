@@ -17,7 +17,7 @@ pub enum Panel {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Row {
     pub panels: Vec<Panel>,
-    pub weight: u8,
+    pub weight: f64,
     pub split: u8,
 }
 
@@ -36,7 +36,8 @@ impl Arrangement {
         let mut seen = Vec::new();
         for row in &self.rows {
             if !(1..=2).contains(&row.panels.len())
-                || !(1..=100).contains(&row.weight)
+                || !row.weight.is_finite()
+                || !(0.0..=100.0).contains(&row.weight)
                 || !(20..=80).contains(&row.split)
             {
                 return Err("Invalid panel row or proportions".into());
@@ -61,7 +62,7 @@ mod tests {
             version: 1,
             rows: vec![Row {
                 panels: vec![Panel::Waveform, Panel::Video],
-                weight: 13,
+                weight: 13.25,
                 split: 65,
             }],
         };
@@ -87,7 +88,7 @@ mod tests {
             Arrangement {
                 rows: vec![Row {
                     panels: vec![Panel::Cues],
-                    weight: 0,
+                    weight: -1.0,
                     split: 50,
                 }],
                 ..value.clone()
@@ -95,7 +96,7 @@ mod tests {
             Arrangement {
                 rows: vec![Row {
                     panels: vec![Panel::Cues],
-                    weight: 10,
+                    weight: 10.0,
                     split: 81,
                 }],
                 ..value.clone()

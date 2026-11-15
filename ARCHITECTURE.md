@@ -574,8 +574,10 @@ Document preference/word operations acquire the document lock before this writer
 layout writes acquire only the writer. Atomic publication permits concurrent reads
 of either complete version. Versions 1–5 migrate in memory to version 6; the historical
 settings filename remains valid. Custom arrangements use a bounded version-1
-row schema: seven distinct panel kinds, at most two per row, integer weights and
-split percentages. Pure frontend geometry refuses moves that exceed the current
+row schema: seven distinct panel kinds, at most two per row, finite weights
+from zero to 100 and integer split percentages. Preset-to-custom conversion
+derives weights from current pane heights above their minima, retaining preset
+gutters and fractional precision so swapping panels does not resize rows. Pure frontend geometry refuses moves that exceed the current
 viewport and preserves panel minima through scrolling when a saved layout is
 restored in a smaller window.
 

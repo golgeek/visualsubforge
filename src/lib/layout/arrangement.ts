@@ -90,8 +90,16 @@ export function arrangementGeometry(value: Arrangement, space: Space) {
     return { width, height: Math.max(...needs.map((n) => n.height)) };
   });
   const width = Math.max(...rows.map((row) => row.width));
+  // Presets have splitters after preview and between cues/editor, but no gap
+  // after transport. Keep those same gutters when converting to custom slots.
+  const gaps = value.rows
+    .slice(0, -1)
+    .map((row) =>
+      row.panels.length === 1 && row.panels[0] === 'transport' ? 0 : 6,
+    );
   const height =
-    rows.reduce((sum, row) => sum + row.height, 0) + (rows.length - 1) * 6;
+    rows.reduce((sum, row) => sum + row.height, 0) +
+    gaps.reduce((sum, gap) => sum + gap, 0);
   const extra = Math.max(0, space.height - height);
   const weights = value.rows.map((row) =>
     row.panels.length === 1 && row.panels[0] === 'transport' ? 0 : row.weight,
@@ -100,6 +108,7 @@ export function arrangementGeometry(value: Arrangement, space: Space) {
   return {
     width,
     height,
+    gaps,
     rows: rows.map(
       (row, index) =>
         row.height + (total ? (extra * weights[index]!) / total : 0),

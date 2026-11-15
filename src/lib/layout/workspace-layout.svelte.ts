@@ -92,7 +92,7 @@ export class WorkspaceLayout {
     );
     const largest = Math.max(1, ...extras);
     value.rows.forEach((row, index) => {
-      row.weight = Math.max(1, Math.round((extras[index]! / largest) * 100));
+      row.weight = (extras[index]! / largest) * 100;
     });
     return value;
   }
@@ -122,7 +122,7 @@ export class WorkspaceLayout {
     const start = column === 0 ? 1 : value.split + 1;
     const end =
       value.panels.length === 1 || column === 1 ? 101 : value.split + 1;
-    return `grid-area:${row + 1}/${start}/${row + 2}/${end};${value.panels.length === 2 ? (column === 0 ? 'margin-right:3px;' : 'margin-left:3px;') : ''}`;
+    return `grid-area:${row * 2 + 1}/${start}/${row * 2 + 2}/${end};${value.panels.length === 2 ? (column === 0 ? 'margin-right:3px;' : 'margin-left:3px;') : ''}`;
   }
   async arrange(value: Arrangement) {
     const reason = refusal(value, this.space);

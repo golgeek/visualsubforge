@@ -39,7 +39,7 @@ export async function ownerChecks(passed: (message: string) => void) {
     owner.resizePreview(40);
     while (owner.active) await new Promise((resolve) => setTimeout(resolve, 0));
     await owner.select('timing');
-    const inherited = owner.panes.topPixels;
+    const inherited = owner.panes.rows.map((row) => row.pixels);
     await owner.arrange(
       movePanel(owner.arrangement, {
         panel: 'video',
@@ -48,8 +48,10 @@ export async function ownerChecks(passed: (message: string) => void) {
       }),
     );
     assert(
-      Math.abs(owner.geometry.rows[0]! - inherited) < 6,
-      'Swapping an inherited preview preserves its height within gutter/weight rounding',
+      owner.geometry.rows.every(
+        (height, index) => Math.abs(height - inherited[index]!) < 0.001,
+      ),
+      'Swapping an inherited preview preserves every row height',
     );
     await pause();
     writes.length = 0;
