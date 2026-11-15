@@ -244,13 +244,13 @@
             Loading current workspace settings…
           </p>{/if}
         <section hidden={!shown('editing')}>
+          <h3>Editing</h3>
           <label
             ><input
               type="checkbox"
               bind:checked={draft.zoomWaveformToCue}
             />Zoom waveform to the selected cue</label
           >
-          <h3>Editing</h3>
           <label
             ><input
               type="checkbox"
