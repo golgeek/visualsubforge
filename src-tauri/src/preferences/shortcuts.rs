@@ -276,3 +276,29 @@ mod tests {
         assert!(value.validate().is_err());
     }
 }
+
+#[cfg(test)]
+mod zoom_upgrade_tests {
+    use super::*;
+    #[test]
+    fn bundled_zoom_defaults_upgrade_without_replacing_custom_choices() {
+        let mut old = Shortcuts::default();
+        old.bindings
+            .retain(|b| !(b.action == "zoomIn" && b.mode == Mode::Alternate));
+        for b in &mut old.bindings {
+            if ["zoomIn", "zoomOut", "fitWaveform"].contains(&b.action.as_str()) {
+                b.key.clear();
+            }
+        }
+        let mut custom = old.clone();
+        custom.preset = Preset::Custom;
+        let before = custom.clone();
+        custom.upgrade_zoom_defaults();
+        assert_eq!(custom, before);
+        old.upgrade_zoom_defaults();
+        assert_eq!(old.native_key("zoomIn"), Some("CmdOrCtrl+="));
+        assert_eq!(old.native_key("zoomOut"), Some("CmdOrCtrl+-"));
+        assert_eq!(old.native_key("fitWaveform"), Some("CmdOrCtrl+0"));
+        old.validate().unwrap();
+    }
+}

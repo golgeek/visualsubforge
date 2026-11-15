@@ -86,6 +86,7 @@ test('zoom shortcuts are conflict-free and accept the plus key', () => {
     for (const [character, action, shift] of [
       ['=', 'zoomIn', false],
       ['+', 'zoomIn', true],
+      ['+', 'zoomIn', false],
       ['-', 'zoomOut', false],
       ['0', 'fitWaveform', false],
     ] as const) {

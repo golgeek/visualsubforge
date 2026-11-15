@@ -207,7 +207,9 @@ export function matchesShortcut(shortcut: string, event: ShortcutKey): boolean {
       : event.ctrlKey === parts.includes('Ctrl') &&
         event.metaKey === parts.includes('Meta')) &&
     event.altKey === parts.includes('Alt') &&
-    (key === '?' || event.shiftKey === parts.includes('Shift'))
+    (key === '?' ||
+      (key === '=' && parts.includes('Shift') && event.key === '+') ||
+      event.shiftKey === parts.includes('Shift'))
   );
 }
 export function shortcutLabel(shortcut: string, mac: boolean): string {
