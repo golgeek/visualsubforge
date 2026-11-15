@@ -77,8 +77,16 @@ export async function textEditing({
         `button=${mode === 'find' ? 'Find matches' : 'Preview text changes'}`,
       )
     ).click();
-    await until('review rows ready', async () =>
-      (await dialog.getText()).includes('review rows'),
+    const expected =
+      mode === 'find'
+        ? '3 matches · 0 changed cues · 2 review rows'
+        : mode === 'replace'
+          ? '3 matches · 2 changed cues · 2 review rows'
+          : mode === 'joinLines'
+            ? '0 matches · 1 changed cue · 1 review row'
+            : '0 matches · 1 changed cue · 2 review rows';
+    await until('exact text review summary', async () =>
+      (await dialog.$('p[role="status"]').getText()).replace(/\s+/g, ' ').trim() === expected,
     );
   }
   async function accept(label) {
