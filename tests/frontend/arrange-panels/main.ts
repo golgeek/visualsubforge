@@ -308,12 +308,30 @@ async function run() {
     passed(
       'hide and restore keep the video placeholder and background owner alive',
     );
+    const preciseWeights = stored.custom!.rows.map((row) => row.weight);
+    const displayedWeights = [
+      ...host.querySelectorAll<HTMLInputElement>(
+        'dialog[aria-label="Arrange panels"] input[max="100"]',
+      ),
+    ];
+    assert(
+      displayedWeights.every(
+        (input, index) =>
+          input.valueAsNumber === Math.round(preciseWeights[index]! * 10) / 10,
+      ),
+      'Height fields round only their displayed values',
+    );
     button('Done')!.click();
     await until(
       () =>
         !host.querySelector('dialog[open]') && !occluded && boundsBeforeRestore,
     );
     await until(() => !!stored.custom?.rows[0]?.panels.includes('video'));
+    assert(
+      JSON.stringify(stored.custom!.rows.map((row) => row.weight)) ===
+        JSON.stringify(preciseWeights),
+      'Closing untouched height fields preserves precise weights',
+    );
     const saved = JSON.stringify(stored.custom);
     media.loaded = false;
     await unmount(app);

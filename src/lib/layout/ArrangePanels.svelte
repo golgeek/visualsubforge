@@ -166,8 +166,8 @@
             type="number"
             min="0"
             max="100"
-            step="any"
-            value={row.weight}
+            step="0.1"
+            value={Math.round(row.weight * 10) / 10}
             disabled={pending}
             onchange={(event) => {
               if (event.currentTarget.validity.valid)
