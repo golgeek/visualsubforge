@@ -288,17 +288,17 @@
     {
       "action": "zoomIn",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+="
     },
     {
       "action": "zoomOut",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+-"
     },
     {
       "action": "fitWaveform",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+0"
     },
     {
       "action": "layoutTiming",
@@ -369,6 +369,11 @@
       "action": "translationReference",
       "mode": "global",
       "key": "CmdOrCtrl+3"
+    },
+    {
+      "action": "zoomIn",
+      "mode": "alternate",
+      "key": "CmdOrCtrl+Shift+="
     }
   ],
   "vsfDefault": [
@@ -660,17 +665,17 @@
     {
       "action": "zoomIn",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+="
     },
     {
       "action": "zoomOut",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+-"
     },
     {
       "action": "fitWaveform",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+0"
     },
     {
       "action": "layoutTiming",
@@ -831,6 +836,11 @@
       "action": "translationReference",
       "mode": "global",
       "key": "CmdOrCtrl+3"
+    },
+    {
+      "action": "zoomIn",
+      "mode": "alternate",
+      "key": "CmdOrCtrl+Shift+="
     }
   ],
   "visualSubSyncClassic": [
@@ -1122,17 +1132,17 @@
     {
       "action": "zoomIn",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+="
     },
     {
       "action": "zoomOut",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+-"
     },
     {
       "action": "fitWaveform",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+0"
     },
     {
       "action": "layoutTiming",
@@ -1203,6 +1213,11 @@
       "action": "translationReference",
       "mode": "global",
       "key": "CmdOrCtrl+3"
+    },
+    {
+      "action": "zoomIn",
+      "mode": "alternate",
+      "key": "CmdOrCtrl+Shift+="
     }
   ]
 }

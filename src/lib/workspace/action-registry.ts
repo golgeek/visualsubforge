@@ -200,7 +200,8 @@ export function matchesShortcut(shortcut: string, event: ShortcutKey): boolean {
   const key = parts.pop()!;
   const mod = parts.includes('CmdOrCtrl');
   return (
-    (keyNames[key] ?? key).toLowerCase() === event.key.toLowerCase() &&
+    ((keyNames[key] ?? key).toLowerCase() === event.key.toLowerCase() ||
+      (key === '=' && parts.includes('Shift') && event.key === '+')) &&
     (mod
       ? event.ctrlKey !== event.metaKey
       : event.ctrlKey === parts.includes('Ctrl') &&

@@ -156,8 +156,9 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
     object
         .entry("showQualityMetrics")
         .or_insert(serde_json::Value::Bool(false));
-    let value: Preferences =
+    let mut value: Preferences =
         serde_json::from_value(json).map_err(|e| format!("Invalid settings: {e}"))?;
+    value.shortcuts.upgrade_zoom_defaults();
     value.validate()?;
     Ok(value)
 }

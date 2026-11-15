@@ -54,6 +54,42 @@ impl Default for Shortcuts {
     }
 }
 impl Shortcuts {
+    // Older bundled presets had empty zoom slots. Never overwrite a custom
+    // binding or introduce a conflict while upgrading the bundled defaults.
+    pub fn upgrade_zoom_defaults(&mut self) {
+        if self.preset == Preset::Custom {
+            return;
+        }
+        let mut next = self.clone();
+        for (action, key) in [
+            ("zoomIn", "CmdOrCtrl+="),
+            ("zoomOut", "CmdOrCtrl+-"),
+            ("fitWaveform", "CmdOrCtrl+0"),
+        ] {
+            if let Some(binding) = next
+                .bindings
+                .iter_mut()
+                .find(|b| b.action == action && b.mode == Mode::Global && b.key.is_empty())
+            {
+                binding.key = key.into();
+            }
+        }
+        if !next
+            .bindings
+            .iter()
+            .any(|b| b.action == "zoomIn" && b.mode == Mode::Alternate)
+        {
+            next.bindings.push(Binding {
+                action: "zoomIn".into(),
+                mode: Mode::Alternate,
+                key: "CmdOrCtrl+Shift+=".into(),
+            });
+        }
+        if next.validate().is_ok() {
+            *self = next;
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         let actions: BTreeMap<String, serde_json::Value> = serde_json::from_str(include_str!(
             "../../../src/lib/workspace/action-descriptions.json"

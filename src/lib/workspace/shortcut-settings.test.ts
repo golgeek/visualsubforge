@@ -79,3 +79,25 @@ test('recorded keys are canonical and editing a preset does not mutate its sourc
   settings.bindings[0]!.key = '';
   assert.notEqual(shortcutPreset('current').bindings[0]!.key, '');
 });
+
+test('zoom shortcuts are conflict-free and accept the plus key', () => {
+  const settings = shortcutPreset('current');
+  for (const modifier of ['metaKey', 'ctrlKey']) {
+    for (const [character, action, shift] of [
+      ['=', 'zoomIn', false],
+      ['+', 'zoomIn', true],
+      ['-', 'zoomOut', false],
+      ['0', 'fitWaveform', false],
+    ] as const) {
+      assert.equal(
+        bindingAction(
+          settings,
+          { ...key(character, shift), [modifier]: true },
+          'workspace',
+        ),
+        action,
+      );
+    }
+  }
+  assert.equal(shortcutError(settings), null);
+});
