@@ -74,7 +74,7 @@
             : view?.phase === 'failed'
               ? 'Check failed'
               : view?.profileHash
-                ? `${countLabel(view.findingsCount, 'issue')} · ${view.affectedCues} affected cues`
+                ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
                 : 'Open subtitles to check'}</span
     >
     <button onclick={() => session.restart()} {disabled}>Check again</button>
@@ -163,7 +163,7 @@
       >Next cue · F4</button
     >
     {#if view?.profileHash}<span
-        >{view.filteredCount} matching findings · {countLabel(
+        >{countLabel(view.filteredCount, 'matching issue')} · {countLabel(
           view.filteredCues,
           'cue',
         )}</span

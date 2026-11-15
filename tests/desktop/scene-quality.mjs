@@ -151,8 +151,7 @@ export async function sceneQuality({
   await until(
     'scene Problems rows',
     async () =>
-      (await browser.$$('[aria-label="Subtitle issues"] .finding')).length >
-      0,
+      (await browser.$$('[aria-label="Subtitle issues"] .finding')).length > 0,
   );
   await browser.execute(() => {
     const s = document.querySelector('[aria-label="Problem rule"]');

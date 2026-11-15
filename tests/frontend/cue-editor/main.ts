@@ -378,6 +378,10 @@ async function run() {
       );
     }
     assert(
+      host.querySelector('.toolbar')!.textContent!.includes('9 issues'),
+      'Toolbar counts all findings, not the three affected cues',
+    );
+    assert(
       heights.every((height) => height === heights[0]),
       'Issue count changed strip height',
     );

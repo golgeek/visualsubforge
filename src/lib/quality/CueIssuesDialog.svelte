@@ -31,7 +31,7 @@
 >
   <h2>Cue issues</h2>
   {#if projection}
-    <p>{countLabel(projection.count, 'issue')} · accepted subtitle</p>
+    <p>{countLabel(projection.count, 'issue group')} · accepted subtitle</p>
     <ol start={projection.offset + 1}>
       {#each projection.issues as issue, index (index)}
         <li>

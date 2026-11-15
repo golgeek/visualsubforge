@@ -221,7 +221,10 @@
         'match',
         'matches',
       )}
-      · {view.changed} changed cues · {view.total} review rows
+      · {countLabel(view.changed, 'changed cue')} · {countLabel(
+        view.total,
+        'review row',
+      )}
     {:else if view?.phase === 'reviewing'}Search inputs changed. Preview again.
     {:else}Search or create a preview to begin.{/if}
   </p>
@@ -246,7 +249,7 @@
       </section>
     {/if}
     <p>
-      {view.profileName} · Quality findings: {view.beforeFindings} before → {view.afterFindings}
+      {view.profileName} · Quality issues: {view.beforeFindings} before → {view.afterFindings}
       after (whole preview).
     </p>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to independently scrolling results.) -->

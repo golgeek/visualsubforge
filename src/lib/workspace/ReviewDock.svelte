@@ -138,7 +138,7 @@
           bind:value={view.timingKind}
           ><option value="gap">Gaps and overlaps</option><option
             value="duration">Reading speed</option
-          ><option value="scene">Shot changes</option></select
+          ><option value="scene">Scene changes</option></select
         ></label
       >{/if}
   </div>

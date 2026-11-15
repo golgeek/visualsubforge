@@ -136,7 +136,7 @@ async function run() {
     for (const label of [
       'Fix Gaps And Overlaps…',
       'Fix Reading Speed…',
-      'Snap to scene changes…',
+      'Snap To Scene Changes…',
     ]) {
       assert(
         [...menu.querySelectorAll('button')].some((button) =>

@@ -176,10 +176,7 @@ export async function webvttPerformance({
             });
             await b.frame();
             const saveMs = performance.now() - start;
-            const restoreMs = await b.history(
-              'Undo',
-              accepted.revision + 2,
-            );
+            const restoreMs = await b.history('Undo', accepted.revision + 2);
             return { draftMs, acceptMs, undoMs, redoMs, saveMs, restoreMs };
           },
           text,

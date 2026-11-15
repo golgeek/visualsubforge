@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { SceneOverview } from './scene-overview.svelte';
   import { onMount, untrack } from 'svelte';
   import {
@@ -103,9 +104,9 @@
     error ||
       view?.error ||
       (view?.running
-        ? `${phaseLabel}${view.phase === 'candidates' ? '…' : ` ${percent}%`} · ${view.total} cuts`
+        ? `${phaseLabel}${view.phase === 'candidates' ? '…' : ` ${percent}%`} · ${countLabel(view.total, 'scene change')}`
         : view?.mode === 'visual'
-          ? `${view.total} scene changes${view.partial ? ' · partial' : ''}${view.truncated ? ' · zoom for all' : ''}`
+          ? `${countLabel(view.total, 'scene change')}${view.partial ? ' · partial' : ''}${view.truncated ? ' · zoom for all' : ''}`
           : ''),
   );
   $effect(() => {

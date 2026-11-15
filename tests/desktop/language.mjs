@@ -99,9 +99,7 @@ export async function languageTools({
   async function findings(expected) {
     await until(`settled spelling findings: ${expected}`, () =>
       browser.execute((n) => {
-        const panel = document.querySelector(
-          '[aria-label="Subtitle issues"]',
-        );
+        const panel = document.querySelector('[aria-label="Subtitle issues"]');
         return (
           panel &&
           panel.querySelector('[aria-busy]')?.getAttribute('aria-busy') ===

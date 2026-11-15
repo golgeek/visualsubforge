@@ -78,7 +78,7 @@
       <button
         {disabled}
         onclick={onmore}
-        aria-label={`Show all ${projection.count} cue issues`}
+        aria-label={`Show all ${projection.count} cue issue groups`}
         >+{projection.count - 3}</button
       >
     {:else if !issues.length}

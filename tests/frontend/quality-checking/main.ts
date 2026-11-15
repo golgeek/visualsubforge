@@ -262,7 +262,7 @@ async function run() {
       'Problems did not appear',
     );
     assert(
-      host.textContent!.includes(`${base.findingsCount} findings`),
+      host.textContent!.includes(`${base.findingsCount} issues`),
       'Finding count missing',
     );
     passed(
@@ -275,7 +275,7 @@ async function run() {
     );
     assert(
       host.querySelectorAll('.finding').length === 1 &&
-        host.textContent!.includes('1 matching findings · 2 cues'),
+        host.textContent!.includes('1 matching issue · 2 cues'),
       'Gap pair did not count both distinct cues',
     );
     button('Next cue · F4').click();

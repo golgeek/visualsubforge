@@ -495,10 +495,7 @@ export async function translationPerformance({
             );
             await b.frame();
             const projectSaveMs = performance.now() - projectAt;
-            const restoreMs = await b.history(
-              'Undo',
-              accepted.revision + 2,
-            );
+            const restoreMs = await b.history('Undo', accepted.revision + 2);
             return {
               offsetMs,
               selectedReferenceMs,

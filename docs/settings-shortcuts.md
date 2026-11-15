@@ -1,7 +1,7 @@
 # Settings and shortcuts
 
 Settings has a searchable sidebar: Editing, Timing and snapping, Quality profile,
-Spelling and language, Video and shot changes, Shortcuts, Appearance and Advanced.
+Spelling and language, Video and scene changes, Shortcuts, Appearance and Advanced.
 Counting units and speed calculation live in Advanced. Built-in profiles are
 read-only; Quality, Language and Advanced offer **Customize a copy**. Custom
 profiles remain editable after reopening Settings and retain their identity.
@@ -13,6 +13,11 @@ of a view clamped to 8–120 seconds and the media duration. Zoom keeps the expl
 Follow Playhead preference; panning suspends it until playback starts or Jump is
 chosen. While following is off or suspended, wheel zoom stays anchored at the
 pointer in the current view. Temporary suspension is never saved as following off.
+
+View → Zoom In, Zoom Out and Fit Waveform use Cmd/Ctrl+=, Cmd/Ctrl+− and
+Cmd/Ctrl+0. Cmd/Ctrl+Shift+= (the + key) also zooms in. These control the
+waveform, not WebView scale. Older bundled presets receive unassigned zoom
+bindings when conflict-free; custom bindings are preserved.
 
 Valid changes save after a short pause without closing Settings. The footer shows
 confirmation and **Undo settings change**, which restores the previous confirmed
@@ -88,7 +93,10 @@ Cue and Review group their editing and checking operations. Review → Issues
 (Cmd/Ctrl+1), Statistics (Cmd/Ctrl+2), and View → Translation Reference
 (Cmd/Ctrl+3) open docks in the current layout. Closing Translation restores the
 Review tab it temporarily replaced. Issue overflow, the title-bar issue count,
-and F4 also reveal Issues without selecting a different preset.
+and F4 also reveal Issues without selecting a different preset. The toolbar and
+Recent work count individual findings as issues; affected-cue counts are labelled
+separately. The selected-cue strip groups speed findings into chips but exposes
+all metric explanations, including line length, through All explanations.
 
 View → Layout contains all five presets, Arrange Panels and Reset Pane Sizes.
 Unresized presets inherit the current preview height; explicitly resized presets
