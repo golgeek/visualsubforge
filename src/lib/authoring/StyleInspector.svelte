@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import { StyleSession } from './style-session.svelte';
@@ -158,13 +159,13 @@
     <section aria-label="Style change review">
       <h3>{summary.created ? 'Create' : 'Update'} {summary.name}</h3>
       <p>
-        {summary.affectedCues} cues have known direct references. {summary.changedCues}
+        {countLabel(summary.affectedCues, 'cue')} have known direct references. {summary.changedCues}
         cue references and {summary.changedComments} Comment events change. Inline
         tags and fallback behavior can affect other rendered results.
       </p>
       {#if summary.referenceReviewCues}<p>
-          {summary.referenceReviewCues} cues contain ambiguous style resets. They
-          remain unchanged; inspect their preview.
+          {countLabel(summary.referenceReviewCues, 'cue')} contain ambiguous style
+          resets. They remain unchanged; inspect their preview.
         </p>{/if}
       <table aria-label="Proposed style changes">
         <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead

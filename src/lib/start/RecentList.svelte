@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import type { RecentWork } from './recent-work.svelte';
   import type { RecentEntry } from '../client';
   let {
@@ -45,7 +46,10 @@
           <small>Last used {new Date(entry.usedAtMs).toLocaleString()}</small>
           {#if entry.summary}
             <span
-              >{entry.summary.cues} cues · {entry.summary.issues} issues</span
+              >{countLabel(entry.summary.cues, 'cue')} · {countLabel(
+                entry.summary.issues,
+                'issue',
+              )}</span
             >
             <small
               title={`Source SHA-256: ${entry.summary.sourceSha256}\nProfile: ${entry.summary.profileHash}`}

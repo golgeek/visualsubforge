@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { qualityText } from './quality-display';
   import type { QualitySession } from './quality-session.svelte';
   import type { QualityRequest } from '../client';
@@ -73,7 +74,7 @@
             : view?.phase === 'failed'
               ? 'Check failed'
               : view?.profileHash
-                ? `${view.findingsCount} findings · ${view.affectedCues} affected cues`
+                ? `${countLabel(view.findingsCount, 'issue')} · ${view.affectedCues} affected cues`
                 : 'Open subtitles to check'}</span
     >
     <button onclick={() => session.restart()} {disabled}>Check again</button>
@@ -96,9 +97,11 @@
       <p class="policy">
         {view.profile.languageTools?.dictionary === 'fr'
           ? 'French Classique 7.7'
-          : 'English US SCOWL 2020.12.07'} · {view.languageCoverage
-          .checkedWords} words checked · {view.languageCoverage.skippedWords} words
-        and {view.languageCoverage.skippedCues} cues skipped{view
+          : 'English US SCOWL 2020.12.07'} · {countLabel(
+          view.languageCoverage.checkedWords,
+          'word',
+        )} checked · {countLabel(view.languageCoverage.skippedWords, 'word')}
+        and {countLabel(view.languageCoverage.skippedCues, 'cue')} skipped{view
           .languageCoverage.personalized
           ? ' · includes personal/session words'
           : ''}.
@@ -160,7 +163,10 @@
       >Next cue · F4</button
     >
     {#if view?.profileHash}<span
-        >{view.filteredCount} matching findings · {view.filteredCues} cues</span
+        >{view.filteredCount} matching findings · {countLabel(
+          view.filteredCues,
+          'cue',
+        )}</span
       >{/if}
   </div>
   {#if pending}<div

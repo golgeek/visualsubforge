@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import type { CueEditing } from './cue-editing.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
@@ -319,7 +320,7 @@
             >L{index + 1}: {count}</span
           >{/each}
         {#if lineMetric.linesTruncated}<span
-            >… {lineMetric.lineCount} lines</span
+            >… {countLabel(lineMetric.lineCount, 'line')}</span
           >{/if}
       </aside>{/if}
   </div>

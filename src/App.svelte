@@ -788,7 +788,7 @@
 >
   <WorkspaceToolbar
     issueCount={!quality.stale && quality.view?.phase === 'ready'
-      ? quality.view.affectedCues
+      ? quality.view.findingsCount
       : null}
     onissues={() => view.openReview('issues')}
     recoveryAvailable={!startVisible &&

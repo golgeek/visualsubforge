@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { qualityText } from './quality-display';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -104,7 +105,7 @@
               : view && !session.current
                 ? 'Scope or workspace changed; calculate again.'
                 : summary
-                  ? `${summary.includedCues} included cues · ${summary.findingsCount} findings`
+                  ? `${summary.includedCues} included cues · ${countLabel(summary.findingsCount, 'issue')}`
                   : 'No current report.'}
   </p>
   {#if summary}
@@ -177,8 +178,8 @@
     {/each}
     <h3>Reading-speed distribution</h3>
     <p>
-      Denominator: {summary.rs.count} cues with finite RS. Unavailable rates are excluded
-      from percentages.
+      Denominator: {countLabel(summary.rs.count, 'cue')} with finite RS. Unavailable
+      rates are excluded from percentages.
     </p>
     <div class="table-scroll">
       <table aria-label="Reading-speed distribution">
@@ -223,7 +224,10 @@
     </details>
     <h3>Quality outliers</h3>
     <p>
-      {summary.findingsCount} findings · {summary.violations} violations · {summary.advisories}
+      {countLabel(summary.findingsCount, 'issue')} · {countLabel(
+        summary.violations,
+        'violation',
+      )} · {summary.advisories}
       advisories · {summary.affectedCues} included affected cues. Findings are selected
       by their primary cue; related cues may be outside scope.
     </p>

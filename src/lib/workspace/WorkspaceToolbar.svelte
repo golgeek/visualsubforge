@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import type { WindowChrome } from './window-chrome.svelte';
   import type { ActionGroup } from './action-registry';
   const groups: ActionGroup[] = [
@@ -71,7 +72,7 @@
       onclick={onrecovery}>Recovery</button
     >{/if}
   {#if doc.loaded}<button disabled={!workspace.canAct} onclick={onissues}
-      >{issueCount ?? '—'} issues</button
+      >{countLabel(issueCount ?? '—', 'issue')}</button
     >{/if}
   {#if !nativeMenus}
     <button
