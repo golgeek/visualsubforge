@@ -1233,7 +1233,8 @@ export const statisticsView = {
       cueId: '1',
       cueIndex: 0,
       expected: 'At least 5 RS',
-      explanation: 'Unrounded speed is below the inclusive minimum.',
+      explanation:
+        'Unrounded RS (reading speed after the 500 ms allowance) is below the inclusive minimum.',
       language: null,
       measured: 1.5,
       relatedCueId: null,
@@ -1564,7 +1565,8 @@ export const qualityView = {
       cueId: '1',
       cueIndex: 0,
       expected: 'At most 20 CPS',
-      explanation: "Unrounded speed exceeds the profile's permitted range.",
+      explanation:
+        "Unrounded CPS (characters per second) exceeds the profile's permitted range.",
       language: null,
       measured: 41.0,
       relatedCueId: null,
@@ -1575,7 +1577,8 @@ export const qualityView = {
       cueId: '1',
       cueIndex: 0,
       expected: 'Below 35 RS',
-      explanation: "Unrounded speed exceeds the profile's permitted range.",
+      explanation:
+        "Unrounded RS (reading speed after the 500 ms allowance) exceeds the profile's permitted range.",
       language: null,
       measured: 82.0,
       relatedCueId: null,
@@ -1645,7 +1648,8 @@ export const qualityView = {
       cueId: '3',
       cueIndex: 2,
       expected: 'At least 5 RS',
-      explanation: 'Unrounded speed is below the inclusive minimum.',
+      explanation:
+        'Unrounded RS (reading speed after the 500 ms allowance) is below the inclusive minimum.',
       language: null,
       measured: 4.166666666666667,
       relatedCueId: null,
@@ -1875,7 +1879,7 @@ export const qualityView = {
             cueIndex: 0,
             expected: 'At most 20 CPS',
             explanation:
-              "Unrounded speed exceeds the profile's permitted range.",
+              "Unrounded CPS (characters per second) exceeds the profile's permitted range.",
             language: null,
             measured: 41.0,
             relatedCueId: null,
@@ -1887,7 +1891,7 @@ export const qualityView = {
             cueIndex: 0,
             expected: 'Below 35 RS',
             explanation:
-              "Unrounded speed exceeds the profile's permitted range.",
+              "Unrounded RS (reading speed after the 500 ms allowance) exceeds the profile's permitted range.",
             language: null,
             measured: 82.0,
             relatedCueId: null,
@@ -3798,17 +3802,17 @@ export const preferences = {
       },
       {
         action: 'zoomIn',
-        key: '',
+        key: 'CmdOrCtrl+=',
         mode: 'global',
       },
       {
         action: 'zoomOut',
-        key: '',
+        key: 'CmdOrCtrl+-',
         mode: 'global',
       },
       {
         action: 'fitWaveform',
-        key: '',
+        key: 'CmdOrCtrl+0',
         mode: 'global',
       },
       {
@@ -3880,6 +3884,11 @@ export const preferences = {
         action: 'translationReference',
         key: 'CmdOrCtrl+3',
         mode: 'global',
+      },
+      {
+        action: 'zoomIn',
+        key: 'CmdOrCtrl+Shift+=',
+        mode: 'alternate',
       },
     ],
     preset: 'current',

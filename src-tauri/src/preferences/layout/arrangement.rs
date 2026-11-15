@@ -17,6 +17,8 @@ pub enum Panel {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Row {
     pub panels: Vec<Panel>,
+    #[serde(with = "crate::ipc_number::finite")]
+    #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub weight: f64,
     pub split: u8,
 }

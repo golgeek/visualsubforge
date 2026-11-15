@@ -980,10 +980,21 @@ export type visualsubforge_preferences_appearance_Appearance = {
   customTitleBar: boolean;
 };
 
-export type visualsubforge_preferences_layout_arrangement_Arrangement = {
-  version: number;
-  rows: visualsubforge_preferences_layout_arrangement_Row[];
-};
+export type visualsubforge_preferences_layout_arrangement_Arrangement =
+  | visualsubforge_preferences_layout_arrangement_Arrangement_Serialize
+  | visualsubforge_preferences_layout_arrangement_Arrangement_Deserialize;
+
+export type visualsubforge_preferences_layout_arrangement_Arrangement_Deserialize =
+  {
+    version: number;
+    rows: visualsubforge_preferences_layout_arrangement_Row_Deserialize[];
+  };
+
+export type visualsubforge_preferences_layout_arrangement_Arrangement_Serialize =
+  {
+    version: number;
+    rows: visualsubforge_preferences_layout_arrangement_Row_Serialize[];
+  };
 
 export type visualsubforge_project_store_Attachment =
   | visualsubforge_project_store_Attachment_Serialize
@@ -1633,7 +1644,7 @@ export type visualsubforge_preferences_layout_LayoutPreferences =
   | visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
 
 export type visualsubforge_preferences_layout_LayoutPreferences_Deserialize = {
-  custom?: visualsubforge_preferences_layout_arrangement_Arrangement | null;
+  custom?: visualsubforge_preferences_layout_arrangement_Arrangement_Deserialize | null;
   active: visualsubforge_preferences_layout_Preset;
   timing: visualsubforge_preferences_layout_PaneSizes_Deserialize;
   editorAbove: visualsubforge_preferences_layout_PaneSizes_Deserialize;
@@ -1643,7 +1654,7 @@ export type visualsubforge_preferences_layout_LayoutPreferences_Deserialize = {
 };
 
 export type visualsubforge_preferences_layout_LayoutPreferences_Serialize = {
-  custom?: visualsubforge_preferences_layout_arrangement_Arrangement | null;
+  custom?: visualsubforge_preferences_layout_arrangement_Arrangement_Serialize | null;
   active: visualsubforge_preferences_layout_Preset;
   timing: visualsubforge_preferences_layout_PaneSizes_Serialize;
   editorAbove: visualsubforge_preferences_layout_PaneSizes_Serialize;
@@ -2243,11 +2254,9 @@ export type visualsubforge_plugin_review_Row = {
   warning: string | null;
 };
 
-export type visualsubforge_preferences_layout_arrangement_Row = {
-  panels: visualsubforge_preferences_layout_arrangement_Panel[];
-  weight: number;
-  split: number;
-};
+export type visualsubforge_preferences_layout_arrangement_Row =
+  | visualsubforge_preferences_layout_arrangement_Row_Serialize
+  | visualsubforge_preferences_layout_arrangement_Row_Deserialize;
 
 export type visualsubforge_text_review_Row = {
   cueId: number;
@@ -2269,6 +2278,18 @@ export type visualsubforge_timing_review_Row = {
   explanation: string | null;
   before: visualsubforge_quality_check_Metric;
   after: visualsubforge_quality_check_Metric;
+};
+
+export type visualsubforge_preferences_layout_arrangement_Row_Deserialize = {
+  panels: visualsubforge_preferences_layout_arrangement_Panel[];
+  weight: number;
+  split: number;
+};
+
+export type visualsubforge_preferences_layout_arrangement_Row_Serialize = {
+  panels: visualsubforge_preferences_layout_arrangement_Panel[];
+  weight: number;
+  split: number;
 };
 
 export type vsf_application_quality_check_Rule =

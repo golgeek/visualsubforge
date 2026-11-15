@@ -99,7 +99,7 @@ export function arrangementGeometry(value: Arrangement, space: Space) {
     );
   const height =
     rows.reduce((sum, row) => sum + row.height, 0) +
-    gaps.reduce((sum, gap) => sum + gap, 0);
+    gaps.reduce<number>((sum, gap) => sum + gap, 0);
   const extra = Math.max(0, space.height - height);
   const weights = value.rows.map((row) =>
     row.panels.length === 1 && row.panels[0] === 'transport' ? 0 : row.weight,
