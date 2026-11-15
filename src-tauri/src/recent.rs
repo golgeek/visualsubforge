@@ -176,7 +176,15 @@ fn remember(path: &Path, mut entry: Entry) -> Result<Vec<Entry>> {
                 }
             }
         }
-        entries.retain(|old| old.kind != entry.kind || old.path != entry.path);
+        entries.retain(|old| {
+            let same_entry = old.kind == entry.kind && old.path == entry.path;
+            // Completing a media/subtitle pair upgrades its media-only entry.
+            // Other subtitles attached to the same video remain independent work.
+            let completed_pair = entry.kind == Kind::Subtitles
+                && old.kind == Kind::Media
+                && entry.media_path.as_ref() == Some(&old.path);
+            !same_entry && !completed_pair
+        });
         entries.insert(0, entry);
         entries.truncate(MAX_ENTRIES);
     })
@@ -347,6 +355,36 @@ mod tests {
         assert!(remember(&path, dirty.clone()).unwrap()[0].summary.is_none());
         fs::remove_file(&checked.path).unwrap();
         assert!(remember(&path, dirty).unwrap()[0].summary.is_none());
+    }
+    #[test]
+    fn opening_media_and_subtitles_coalesces_in_either_order() {
+        for media_first in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("recent.json");
+            let video = dir.path().join("demo.mp4").to_string_lossy().into_owned();
+            let mut subtitles = entry(dir.path(), 1);
+            subtitles.subtitle_path = Some(subtitles.path.clone());
+            let media = Entry {
+                kind: Kind::Media,
+                path: video.clone(),
+                media_path: None,
+                subtitle_path: None,
+                used_at_ms: 1.try_into().unwrap(),
+                summary: None,
+            };
+            remember(
+                &path,
+                if media_first {
+                    media
+                } else {
+                    subtitles.clone()
+                },
+            )
+            .unwrap();
+            subtitles.media_path = Some(video);
+            let list = remember(&path, subtitles.clone()).unwrap();
+            assert_eq!(list, vec![subtitles]);
+        }
     }
     #[test]
     fn rejected_metadata_and_unknown_versions_preserve_stored_bytes() {
