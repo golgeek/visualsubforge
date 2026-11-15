@@ -154,7 +154,7 @@ export async function sceneQuality({
       (await browser.$$('[aria-label="Subtitle issues"] .finding')).length > 0,
   );
   await browser.execute(() => {
-    const s = document.querySelector('[aria-label="Problem rule"]');
+    const s = document.querySelector('[aria-label="Issue rule"]');
     s.value = 'scene_end';
     s.dispatchEvent(new Event('change', { bubbles: true }));
   });

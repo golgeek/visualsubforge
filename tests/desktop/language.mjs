@@ -91,10 +91,10 @@ export async function languageTools({
       await chooseCommand(browser, 'problems');
     await until('Problems filter', () =>
       browser.execute(
-        () => !!document.querySelector('[aria-label="Problem rule"]'),
+        () => !!document.querySelector('[aria-label="Issue rule"]'),
       ),
     );
-    await input('Problem rule', 'spelling');
+    await input('Issue rule', 'spelling');
   }
   async function findings(expected) {
     await until(`settled spelling findings: ${expected}`, () =>
@@ -517,7 +517,7 @@ export async function languageTools({
             language === 'fr' ? '— ' : '- ',
           ],
         ]) {
-          await input('Problem rule', rule);
+          await input('Issue rule', rule);
           await findings(1);
           const before = await status();
           await click('Review correction');

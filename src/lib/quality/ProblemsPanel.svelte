@@ -12,6 +12,7 @@
   import { qualityRules, sceneCoverage } from './quality-display';
   let {
     session,
+    documentLoaded = true,
     disabled,
     pending,
     onnavigate,
@@ -20,6 +21,7 @@
     onlanguage,
   }: {
     session: QualitySession;
+    documentLoaded?: boolean;
     disabled: boolean;
     pending: boolean;
     onnavigate: (id: string) => void;
@@ -65,17 +67,19 @@
   <header>
     <strong>Issues</strong>
     <span role="status"
-      >{session.paused
-        ? 'Checking paused'
-        : view?.phase === 'checking' || view?.phase === 'cancelling'
-          ? 'Checking…'
-          : session.stale
-            ? 'Updating…'
-            : view?.phase === 'failed'
-              ? 'Check failed'
-              : view?.profileHash
-                ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
-                : 'Open subtitles to check'}</span
+      >{!documentLoaded
+        ? 'Open subtitles to check for issues'
+        : session.paused
+          ? 'Checking paused'
+          : view?.phase === 'checking' || view?.phase === 'cancelling'
+            ? 'Checking…'
+            : session.stale
+              ? 'Updating…'
+              : view?.phase === 'failed'
+                ? 'Check failed'
+                : view?.profileHash
+                  ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
+                  : 'Open subtitles to check'}</span
     >
     <button onclick={() => session.restart()} {disabled}>Check again</button>
     <button
@@ -124,7 +128,7 @@
   <div class="filters">
     <label
       >Rule <select
-        aria-label="Problem rule"
+        aria-label="Issue rule"
         value={session.rule ?? ''}
         onchange={(e) => {
           session.rule = (e.currentTarget.value ||
@@ -140,7 +144,7 @@
     >
     <label
       >Severity <select
-        aria-label="Problem severity"
+        aria-label="Issue severity"
         value={session.severity ?? ''}
         onchange={(e) => {
           session.severity = (e.currentTarget.value ||

@@ -1032,6 +1032,7 @@
               {#snippet issues()}
                 <ProblemsPanel
                   session={quality}
+                  documentLoaded={doc.loaded}
                   disabled={workspace.busy || workspace.confirming}
                   pending={navigation.pendingProblem !== null}
                   onnavigate={navigation.requestProblem}

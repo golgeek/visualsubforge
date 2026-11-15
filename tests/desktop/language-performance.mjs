@@ -338,9 +338,9 @@ export async function languagePerformance({
             () =>
               document.querySelector(
                 '[aria-label="Subtitle issues"] .findings[aria-busy="false"] .finding button:not(:disabled)',
-              ) && document.querySelector('[aria-label="Problem rule"]'),
+              ) && document.querySelector('[aria-label="Issue rule"]'),
           );
-          const select = document.querySelector('[aria-label="Problem rule"]');
+          const select = document.querySelector('[aria-label="Issue rule"]');
           select.value = 'spelling';
           select.dispatchEvent(new Event('change', { bubbles: true }));
           await b.frame();
