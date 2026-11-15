@@ -7,7 +7,7 @@ recipe match (apart from the bottle metadata Homebrew omits from installed copie
 import http.client
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
@@ -74,7 +74,17 @@ def matching_recipe(formula, directory):
     """Search only public Homebrew core history; never use a moving patch URL."""
     name = formula.stem
     original = formula.read_text()
-    relative = f'Formula/{name[0]}/{name}.rb'
+    # Use Homebrew's current repository layout only to locate history. The
+    # installed recipe below still has to match that historical commit exactly.
+    info = json.loads(subprocess.check_output(['brew', 'info', '--json=v2', name], text=True))
+    records = info['formulae']
+    if len(records) != 1 or records[0]['name'] != name or records[0]['tap'] != 'homebrew/core':
+        raise ValueError(f'Unexpected Homebrew core formula metadata: {name}')
+    relative = records[0]['ruby_source_path']
+    path = PurePosixPath(relative)
+    if (not path.parts or path.is_absolute() or '..' in path.parts
+            or path.parts[0] != 'Formula' or path.name != f'{name}.rb'):
+        raise ValueError(f'Unsafe Homebrew formula source path: {relative}')
     candidates = []
     for page in [1, 2]:
         api = 'repos/Homebrew/homebrew-core/commits?' + urllib.parse.urlencode({

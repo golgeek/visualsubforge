@@ -52,7 +52,12 @@ Run all commands from the repository root. Rust 1.98.1 (including rustfmt and Cl
 
 ### Install and launch
 
-With [nvm](https://github.com/nvm-sh/nvm) loaded in your macOS/Linux shell:
+For the app with media on macOS, Windows x64 or Ubuntu 24.04 amd64, follow
+[the native build guide](docs/build.md): `make build`, optionally `make install`.
+`make debug` produces a debugging app with the same native media support.
+
+For the **media-free test/development shell**, with
+[nvm](https://github.com/nvm-sh/nvm) loaded in your macOS/Linux shell:
 
 ```sh
 nvm install
@@ -68,7 +73,8 @@ npm run tauri -- dev -- --locked
 
 For native Windows ARM64 development, use the ARM64 Node distribution and Rust's `aarch64-pc-windows-msvc` host. Include **MSVC Build Tools for ARM64/ARM64EC** and a Windows SDK in the C++ build-tools installation; the default x64 compiler selection alone does not establish an ARM64 development environment. Verify `rustc -vV`, `node --version`, and `npm --version` before running the same locked checks below. The [status table](docs/status.md) distinguishes supplied-VM evidence from platform support.
 
-Tauri starts Vite at `http://localhost:1420` and opens the desktop window. Port conflicts fail explicitly. Stop with Ctrl-C. `npm run dev` runs only the browser UI and is not evidence of desktop compatibility. No legacy checkout, FFmpeg, or libmpv installation is needed.
+Tauri starts Vite at `http://localhost:1420` and opens the desktop window. Port conflicts fail explicitly. Stop with Ctrl-C. `npm run dev` runs only the browser UI and is not evidence of desktop compatibility. This test-only shell needs no legacy checkout, FFmpeg or libmpv, but cannot open
+projects containing media. Use the Make targets above for ordinary app testing.
 
 ### Checks
 
