@@ -113,18 +113,18 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
       return !state.media
         ? 'Open media first'
         : state.scenesPending || state.scenesRunning
-          ? 'A shot-change scan is already running'
+          ? 'A scene-change scan is already running'
           : null;
     case 'cancelSceneScan':
       return state.scenesRunning && !state.scenesPending
         ? null
-        : 'No shot-change scan is running';
+        : 'No scene-change scan is running';
     case 'previousScene':
     case 'nextScene':
       return state.media &&
         (id === 'previousScene' ? state.previousScene : state.nextScene)
         ? null
-        : 'Needs a shot-change scan and a nearby cut';
+        : 'Needs a scene-change scan and a nearby scene change';
     case 'undo':
       return state.undo || state.draft ? null : 'Nothing to undo';
     case 'redo':

@@ -62,7 +62,7 @@ function button(label: string) {
 const variants = [
   {
     name: 'gap',
-    launcher: 'Fix Gaps And Overlaps…',
+    launcher: 'Fix Gaps and Overlaps…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',

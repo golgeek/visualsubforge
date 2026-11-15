@@ -194,6 +194,16 @@ async function run() {
       'Timing and snapping',
     'Settings search navigates to matching sidebar pages',
   );
+  for (const keyword of ['shot', 'cut']) {
+    search.value = keyword;
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    check(
+      host.querySelector('[aria-current="page"]')?.textContent ===
+        'Video and scene changes',
+      `${keyword} finds scene-change settings`,
+    );
+  }
   search.value = '';
   search.dispatchEvent(new Event('input', { bubbles: true }));
   await tick();
@@ -420,7 +430,7 @@ async function run() {
     'Shortcut preset applies and persists through the same confirmed settings owner',
   );
   const split = host.querySelector<HTMLInputElement>(
-    '[aria-label="Split At Playhead — Everywhere"]',
+    '[aria-label="Split at Playhead — Everywhere"]',
   )!;
   const beforeConflict = saves;
   split.value = 'F1';
@@ -432,7 +442,7 @@ async function run() {
     'Overlapping shortcut conflict keeps the draft unsaved',
   );
   const record = host.querySelector<HTMLButtonElement>(
-    '[aria-label="Record Split At Playhead — Everywhere"]',
+    '[aria-label="Record Split at Playhead — Everywhere"]',
   )!;
   record.click();
   split.dispatchEvent(

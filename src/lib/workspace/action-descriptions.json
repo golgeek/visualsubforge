@@ -100,7 +100,7 @@
     "order": 21
   },
   "splitCue": {
-    "label": "Split At Playhead",
+    "label": "Split at Playhead",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+K",
@@ -110,7 +110,7 @@
     "order": 18
   },
   "mergePrevious": {
-    "label": "Merge With Previous",
+    "label": "Merge with Previous",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+H",
@@ -120,7 +120,7 @@
     "order": 20
   },
   "mergeNext": {
-    "label": "Merge With Next",
+    "label": "Merge with Next",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+J",
@@ -224,7 +224,7 @@
     "group": "View",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 50
@@ -324,7 +324,7 @@
     "group": "Review",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 46
@@ -344,7 +344,7 @@
     "group": "Playback",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 36
@@ -354,13 +354,13 @@
     "group": "Playback",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 37
   },
   "timingSettings": {
-    "label": "Timing And Scene Settings\u2026",
+    "label": "Timing and Scene Settings\u2026",
     "group": "Edit",
     "native": true,
     "shortcut": "",
@@ -400,7 +400,7 @@
     "order": 14
   },
   "fixGaps": {
-    "label": "Fix Gaps And Overlaps\u2026",
+    "label": "Fix Gaps and Overlaps\u2026",
     "group": "Review",
     "native": true,
     "shortcut": "",
@@ -420,11 +420,11 @@
     "order": 42
   },
   "snapShots": {
-    "label": "Snap To Scene Changes\u2026",
+    "label": "Snap to Scene Changes\u2026",
     "group": "Review",
     "native": true,
     "shortcut": "",
-    "aliases": ["Repair scene timing"],
+    "aliases": ["Repair scene timing", "shot", "cut"],
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 43
@@ -700,7 +700,7 @@
     "order": 27
   },
   "setStart": {
-    "label": "Set Start At Playhead",
+    "label": "Set Start at Playhead",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+[",
@@ -710,7 +710,7 @@
     "order": 22
   },
   "setEnd": {
-    "label": "Set End At Playhead",
+    "label": "Set End at Playhead",
     "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+]",

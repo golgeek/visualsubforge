@@ -249,7 +249,7 @@ async function run() {
       browser()!.textContent!.includes('Keyboard Shortcuts'),
       'Question mark opens the sheet outside text',
     );
-    await search('Split At Playhead');
+    await search('Split at Playhead');
     const label = actionDescription('splitCue');
     const chord = shortcutLabel(
       label.shortcut,
@@ -263,7 +263,7 @@ async function run() {
     await close();
     key(commands, 'k', { ctrlKey: true });
     await until(() => !!browser());
-    await search('Split At Playhead');
+    await search('Split at Playhead');
     assert(
       browser()!.textContent!.includes(label.label) &&
         browser()!.textContent!.includes(chord),

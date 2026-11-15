@@ -85,8 +85,12 @@ export async function textEditing({
           : mode === 'joinLines'
             ? '0 matches · 1 changed cue · 1 review row'
             : '0 matches · 1 changed cue · 2 review rows';
-    await until('exact text review summary', async () =>
-      (await dialog.$('p[role="status"]').getText()).replace(/\s+/g, ' ').trim() === expected,
+    await until(
+      'exact text review summary',
+      async () =>
+        (await dialog.$('p[role="status"]').getText())
+          .replace(/\s+/g, ' ')
+          .trim() === expected,
     );
   }
   async function accept(label) {

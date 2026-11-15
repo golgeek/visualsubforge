@@ -91,7 +91,7 @@
     {
       id: 'video',
       label: 'Video and scene changes',
-      keywords: 'scan scene detail reduced standard media',
+      keywords: 'scan scene shot cut detail reduced standard media',
     },
     {
       id: 'shortcuts',
