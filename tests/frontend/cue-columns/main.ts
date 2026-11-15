@@ -215,7 +215,7 @@ async function run() {
       () =>
         !!listener && !!button('Columns ▾') && !button('Columns ▾')!.disabled,
     );
-    await until(() => !!button('Issues 3'));
+    await until(() => !!button('3 cues with issues'));
     delayHide = true;
     button('Columns ▾')!.click();
     await until(() => !!holdHide);
@@ -310,8 +310,8 @@ async function run() {
     );
     setQuery('');
     await tick();
-    await until(() => !!button('Issues 3'));
-    button('Issues 3')!.click();
+    await until(() => !!button('3 cues with issues'));
+    button('3 cues with issues')!.click();
     await until(() => host.querySelectorAll('.cue-row').length === 3);
     assert(
       [...host.querySelectorAll('[data-cell="number"]')]
@@ -319,7 +319,7 @@ async function run() {
         .join(',') === '2,3,9000',
       'Issue filter lost related or distant cues',
     );
-    button('Issues 3')!.click();
+    button('3 cues with issues')!.click();
     await tick();
     host.querySelector<HTMLButtonElement>('.cue-row')!.click();
     await until(() => !button('Columns ▾')!.disabled);
