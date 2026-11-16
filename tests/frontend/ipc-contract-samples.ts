@@ -2995,6 +2995,7 @@ export const workspaceActions = [
   'densityComfortable',
   'densityCompact',
   'diagnostics',
+  'extractSubtitles',
   'find',
   'fitWaveform',
   'fixGaps',

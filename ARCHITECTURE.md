@@ -700,3 +700,17 @@ validates UTF-8 and format policy, prepares source provenance and suggested name
 and publishes CLI output through the existing atomic no-clobber file boundary.
 `vsf extract` calls these synchronous operations without a GUI or native player.
 See the [extraction contract](docs/subtitle-extraction.md).
+
+The desktop `Extraction` service owns one lazy analysis worker and one replaceable
+pending request. It captures a document checkpoint before starting extraction;
+workers own only paths, cancellation tokens and immutable prepared results.
+Acceptance locks the job then the document, validates the complete checkpoint,
+and replaces the accepted editor once. Cancellation discards prepared content and
+terminates/reaps child work; shutdown joins off the UI thread. The frontend
+`ExtractionSession` owns chooser selection, polling identity and elapsed time,
+using WorkspaceModal/HideVideo and the existing unsaved-work decision before work.
+Results go through DocumentSession reconciliation. Media opens only after accepted
+extraction. An unavailable native player still permits headless document extraction.
+Recovery version 6 adds optional extraction provenance while reading versions 1–5;
+records without provenance retain their earlier version. Saving to a real path
+hides the extracted name. No document bytes cross the extraction IPC boundary.

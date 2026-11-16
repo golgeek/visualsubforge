@@ -36,6 +36,7 @@ for (const name of [
   'recovery',
   'fast-editing',
   'new-subtitles',
+  'extraction',
   'magnetic-timing',
   'scenes',
   'cue-timing',

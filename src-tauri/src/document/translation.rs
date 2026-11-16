@@ -527,6 +527,7 @@ impl Documents {
             let origin = reference.origin.clone();
             let saved_bytes = reference.reference.original_bytes().to_vec();
             store.loaded = Some(Loaded {
+                extracted_from: None,
                 editor: Editor::with_properties(target.document, target.source),
                 path: None,
                 saved_bytes,

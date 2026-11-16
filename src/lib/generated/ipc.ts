@@ -10,6 +10,13 @@ export const commands = {
       action,
       session,
     }),
+  extractionAction: (
+    action: visualsubforge_extraction_ExtractionAction_Deserialize,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_extraction_ExtractionReply_Serialize>(
+      'extraction_action',
+      { action },
+    ),
   documentAction: (
     action: visualsubforge_document_Action_Deserialize,
     generation: number,
@@ -1427,6 +1434,114 @@ export type visualsubforge_recovery_store_Entry_Serialize = {
   error: string | null;
 };
 
+export type visualsubforge_extraction_ExtractionAction =
+  | visualsubforge_extraction_ExtractionAction_Serialize
+  | visualsubforge_extraction_ExtractionAction_Deserialize;
+
+export type visualsubforge_extraction_ExtractionAction_Deserialize =
+  | ({ kind: 'list'; path: string } & {
+      discard?: never;
+      generation?: never;
+      id?: never;
+      index?: never;
+      revision?: never;
+    })
+  | ({
+      kind: 'start';
+      path: string;
+      index: number;
+      generation: number;
+      revision: number;
+      discard: boolean;
+    } & { id?: never })
+  | ({ kind: 'view'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'cancel'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'accept'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    });
+
+export type visualsubforge_extraction_ExtractionAction_Serialize =
+  | ({ kind: 'list'; path: string } & {
+      discard?: never;
+      generation?: never;
+      id?: never;
+      index?: never;
+      revision?: never;
+    })
+  | ({
+      kind: 'start';
+      path: string;
+      index: number;
+      generation: number;
+      revision: number;
+      discard: boolean;
+    } & { id?: never })
+  | ({ kind: 'view'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'cancel'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'accept'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    });
+
+export type visualsubforge_extraction_ExtractionReply =
+  | visualsubforge_extraction_ExtractionReply_Serialize
+  | visualsubforge_extraction_ExtractionReply_Deserialize;
+
+export type visualsubforge_extraction_ExtractionReply_Deserialize = {
+  id: number;
+  status: string;
+  listing: media_analysis_subtitle_tracks_Listing | null;
+  error: string | null;
+  snapshot: visualsubforge_document_Snapshot_Deserialize | null;
+  provenance: vsf_application_subtitle_extraction_Provenance | null;
+  cueCount: number;
+  fontCount: number;
+  repairedCues: number[];
+};
+
+export type visualsubforge_extraction_ExtractionReply_Serialize = {
+  id: number;
+  status: string;
+  listing: media_analysis_subtitle_tracks_Listing | null;
+  error: string | null;
+  snapshot: visualsubforge_document_Snapshot_Serialize | null;
+  provenance: vsf_application_subtitle_extraction_Provenance | null;
+  cueCount: number;
+  fontCount: number;
+  repairedCues: number[];
+};
+
 export type vsf_application_quality_statistics_Extreme = {
   value: number | null;
   cueId: string;
@@ -1725,6 +1840,11 @@ export type vsf_application_quality_profile_LineRule = {
   maximumLines: number;
   singleLinePreferred: number;
   maximumCharacters: number;
+};
+
+export type media_analysis_subtitle_tracks_Listing = {
+  tracks: media_analysis_subtitle_tracks_Track[];
+  font_count: number;
 };
 
 export type visualsubforge_text_review_Match = {
@@ -2112,6 +2232,15 @@ export type visualsubforge_project_Project_Serialize = {
   positionSeconds: number;
   options: visualsubforge_project_Options_Serialize;
   scenes: visualsubforge_scenes_Saved_Serialize | null;
+};
+
+export type vsf_application_subtitle_extraction_Provenance = {
+  media_path: string;
+  stream_index: number;
+  codec: string;
+  language: string | null;
+  title: string | null;
+  suggested_name: string;
 };
 
 export type vsf_application_quality_statistics_Range = {
@@ -2556,6 +2685,7 @@ export type visualsubforge_document_Snapshot =
 
 export type visualsubforge_document_Snapshot_Deserialize = {
   translation: visualsubforge_document_translation_Summary | null;
+  extractedFrom: vsf_application_subtitle_extraction_Provenance | null;
   format: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -2570,6 +2700,7 @@ export type visualsubforge_document_Snapshot_Deserialize = {
 
 export type visualsubforge_document_Snapshot_Serialize = {
   translation?: visualsubforge_document_translation_Summary | null;
+  extractedFrom?: vsf_application_subtitle_extraction_Provenance | null;
   format?: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -2883,6 +3014,17 @@ export type vsf_application_quality_profile_Timing = {
   sceneAfterMs: number;
 };
 
+export type media_analysis_subtitle_tracks_Track = {
+  index: number;
+  codec: string;
+  language: string | null;
+  title: string | null;
+  default: boolean;
+  forced: boolean;
+  hearing_impaired: boolean;
+  unavailable: string | null;
+};
+
 export type vsf_application_quality_metrics_Unavailable =
   'empty_text' | 'invalid_duration' | 'reading_allowance';
 
@@ -3103,6 +3245,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'apply'
   | 'openMedia'
   | 'openSubtitles'
+  | 'extractSubtitles'
   | 'save'
   | 'saveAs'
   | 'convertSubtitles'

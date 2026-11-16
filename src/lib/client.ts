@@ -760,3 +760,10 @@ export const minimizeWindow = () => getCurrentWindow().minimize();
 export const toggleWindowMaximized = () => getCurrentWindow().toggleMaximize();
 
 export { isTauri };
+
+export type ExtractionAction = Parameters<typeof commands.extractionAction>[0];
+export type ExtractionReply = Awaited<
+  ReturnType<typeof commands.extractionAction>
+>;
+export const extractionAction = (action: ExtractionAction) =>
+  commands.extractionAction(action);

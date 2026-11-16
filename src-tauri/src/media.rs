@@ -438,6 +438,12 @@ impl Media {
                                     "hwdec",
                                     if *hardware { "auto-copy" } else { "no" },
                                 ])?;
+                                // Accepted documents alone own subtitle presentation, including
+                                // the first frame when there is no document. Keep attachments
+                                // available to libass while disabling automatic track selection.
+                                next.command(&["set", "sid", "no"])?;
+                                next.command(&["set", "secondary-sid", "no"])?;
+                                next.command(&["set", "sub-auto", "no"])?;
                                 next.command(&["loadfile", path, "replace"])?;
                                 if request.session != newest.load(Ordering::Relaxed) {
                                     return Err("Superseded media session".into());

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { ExtractionSession } from './lib/extraction/extraction-session.svelte';
+  import ExtractionDialog from './lib/extraction/ExtractionDialog.svelte';
   import { WindowChrome } from './lib/workspace/window-chrome.svelte';
   import type { ActionGroup } from './lib/workspace/action-registry';
   let commandGroup = $state<ActionGroup | null>(null);
@@ -522,6 +525,26 @@
     scenes,
   };
 
+  const extraction = disposeWithComponent(
+    new ExtractionSession(
+      workspace,
+      subtitles,
+      workspaceModal,
+      () => unsaved.protect(() => projects.save(false)),
+      async (path) => {
+        if (media.path !== path && media.status.available)
+          await openMediaPath(mediaActions, path);
+      },
+    ),
+  );
+  $effect(() => {
+    const path = media.path;
+    const loaded = subtitles.snapshot.loaded;
+    untrack(() => {
+      void extraction.observe(path, loaded);
+    });
+  });
+
   const opener = disposeWithComponent(
     new WorkspaceOpen(
       workspace,
@@ -622,6 +645,8 @@
     if (tooltipActive) await tooltipClosed;
     if (!workspace.canAct || cueMenu.context || timeline.interacting) return;
     switch (action) {
+      case 'extractSubtitles':
+        return workspace.task(() => extraction.open()).then(() => {});
       case 'closeSubtitles':
       case 'importLegacyProject':
       case 'openProject':
@@ -1186,7 +1211,14 @@
       onclose={() => workspaceModal.close()}
     />
   {/if}
-  <WorkspaceFooter {workspace} {media} {gestures} {timeline} />
+  <WorkspaceFooter
+    {workspace}
+    {media}
+    {gestures}
+    {timeline}
+    {extraction}
+    showExtraction={!subtitles.snapshot.loaded}
+  />
   <PlaybackDiagnostics
     {workspace}
     {media}
@@ -1236,6 +1268,10 @@
     {/key}
   {/if}
 </main>
+
+{#if workspaceModal.identity === 'extraction'}<ExtractionDialog
+    session={extraction}
+  />{/if}
 
 <style>
   main {

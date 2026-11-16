@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, rename, readFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { release } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -46,6 +47,8 @@ async function rss(pid) {
 
 export async function qualityPerformance({
   browser,
+  extraction = false,
+  cli,
   menu,
   invoke,
   status,
@@ -59,14 +62,44 @@ export async function qualityPerformance({
   const text =
     '<i>This is a representative subtitle line.</i>\nAnother line with punctuation and Unicode: 日本語 😀.';
   const source = join(root, 'quality-10000.srt');
-  const bytes = Array.from(
+  let bytes = Array.from(
     { length: 10_000 },
     (_, i) =>
       `${i + 1}\n${time(i * 4100)} --> ${time(i * 4100 + 4000)}\n${text}\n\n`,
   ).join('');
   await writeFile(source, bytes, { flag: 'wx' });
+  if (extraction) {
+    // Same established 10k budget workload, round-tripped through a real MKV
+    // subtitle track and the production CLI before the desktop opens it.
+    const authored = join(root, 'authored.srt');
+    const video = join(root, 'extracted.mkv');
+    await rename(source, authored);
+    const run = promisify(execFile);
+    await run(
+      'ffmpeg',
+      [
+        '-v',
+        'error',
+        '-nostdin',
+        '-i',
+        authored,
+        '-map',
+        '0:s:0',
+        '-c:s',
+        'copy',
+        video,
+      ],
+      { timeout: 60_000 },
+    );
+    await run(cli, ['extract', video, '--track', '0', '-o', source], {
+      timeout: 60_000,
+    });
+    bytes = await readFile(source, 'utf8');
+  }
+
   const result = {
     schema: 1,
+    extractedTrack: extraction,
     date: new Date().toISOString(),
     platform: process.platform,
     architecture: process.arch,

@@ -7,6 +7,7 @@ export type WorkspaceModalIdentity =
   | 'recovery'
   | 'settings'
   | 'resync'
+  | 'extraction'
   | 'commands'
   | 'shortcuts'
   | 'actionMenu'

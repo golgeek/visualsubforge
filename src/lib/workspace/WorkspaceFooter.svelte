@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ExtractionSession } from '../extraction/extraction-session.svelte';
   import type { Workspace } from './workspace.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
   import type { TimingGesture } from '../timing/timing-gesture.svelte';
@@ -9,16 +10,35 @@
     media,
     gestures,
     timeline,
+    extraction,
+    showExtraction = false,
   }: {
     workspace: Workspace;
     media: MediaSession;
     gestures: TimingGesture;
     timeline: TimelineView;
+    extraction?: ExtractionSession;
+    showExtraction?: boolean;
   } = $props();
   const status = $derived(media.status);
 </script>
 
 <footer>
+  {#if showExtraction && extraction?.notice}
+    <span role="status"
+      >This video contains {extraction.notice.count} subtitle tracks.</span
+    >
+    <button
+      class="notice-action"
+      onclick={() => void extraction?.open(extraction.notice?.path)}
+      >Extract…</button
+    >
+    <button
+      class="notice-action"
+      aria-label="Dismiss subtitle extraction notice"
+      onclick={() => extraction?.dismiss()}>Dismiss</button
+    >
+  {/if}
   <span
     class="message"
     role="status"
@@ -52,6 +72,10 @@
     z-index: 2;
     color: var(--text-muted);
     font-size: 11px;
+  }
+  .notice-action {
+    padding: 0 4px;
+    font-size: inherit;
   }
   .message {
     flex: 1;

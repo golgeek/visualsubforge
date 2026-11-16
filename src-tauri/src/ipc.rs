@@ -9,6 +9,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::new()
         .commands(tauri_specta::collect_commands![
             media::media_action,
+            crate::extraction::extraction_action,
             document::document_action,
             document::translation::translation_action,
             document::recovery_status,

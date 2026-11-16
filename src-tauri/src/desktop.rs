@@ -72,6 +72,7 @@ pub enum WorkspaceAction {
     Apply,
     OpenMedia,
     OpenSubtitles,
+    ExtractSubtitles,
     Save,
     SaveAs,
     ConvertSubtitles,
@@ -447,6 +448,7 @@ pub async fn finish_exit(
             discard,
         )?;
         app.state::<crate::resync::Resync>().shutdown();
+        app.state::<crate::extraction::Extraction>().shutdown();
         app.state::<crate::project::Projects>().imports.shutdown()?;
         app.state::<crate::document::Documents>()
             .shutdown_quality()?;

@@ -52,6 +52,7 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
         subtitle_formats::parse(super::ass_tests::ASS, Some(subtitle_formats::Format::Ass))
             .unwrap();
     store.loaded = Some(Loaded {
+        extracted_from: None,
         editor: Editor::with_properties(parsed.document, parsed.source),
         path: None,
         saved_bytes: super::ass_tests::ASS.as_bytes().to_vec(),

@@ -40,3 +40,20 @@ cargo test --locked -p vsf-application --test subtitle_extraction -- --ignored
 
 Native playback, embedded-font appearance and physical timing alignment require
 separate desktop observation; headless tests do not establish those properties.
+
+## Desktop workflow
+
+Choose **File → Open Subtitles from Video…**, or search the command palette for
+extract, embedded, mkv or track. The chooser lists every subtitle stream and
+preselects a usable default. Save/Discard/Cancel protection runs before extraction.
+The elapsed-time busy indicator remains cancellable. Acceptance opens an untitled,
+dirty document requiring Save As, then opens the source video if playback is
+available. Existing media is unchanged on extraction failure or cancellation.
+The result notice reports cue count, conversion, repaired durations and fonts.
+A dismissible one-line media notice is offered only without an open document,
+at most once per video path in the workspace session.
+
+Unsaved extracted documents retain provenance in accepted-state recovery.
+Saving hides provenance in the working title; it does not write anything into the
+video. Embedded default subtitles are disabled before media load so only accepted
+editor subtitles appear in the preview.

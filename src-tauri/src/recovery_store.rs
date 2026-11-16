@@ -16,6 +16,8 @@ const MAX_RECORD: u64 = 300 * 1024 * 1024;
 #[serde(deny_unknown_fields)]
 pub(crate) struct Record {
     version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extracted_from: Option<vsf_application::subtitle_extraction::Provenance>,
     pub source_path: Option<String>,
     pub saved_srt: String,
     pub accepted_srt: String,
@@ -73,6 +75,7 @@ impl Record {
             revision,
             resynced: false,
             translation: None,
+            extracted_from: None,
             captured_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
@@ -95,6 +98,15 @@ impl Record {
         }
         self.translation = translation;
     }
+    pub(crate) fn set_extracted_from(
+        &mut self,
+        provenance: Option<vsf_application::subtitle_extraction::Provenance>,
+    ) {
+        if provenance.is_some() {
+            self.version = 6;
+        }
+        self.extracted_from = provenance;
+    }
     // Return the validated accepted document so recovery can adopt it directly.
     // Re-parsing after this boundary repeats the most expensive part of recovery.
     fn validate(
@@ -103,7 +115,7 @@ impl Record {
         subtitle_formats::Parsed,
         crate::document::translation::Context,
     )> {
-        if !matches!(self.version, 1..=5)
+        if !matches!(self.version, 1..=6)
             || (self.version < 3 && self.resynced)
             || (self.version < 4 && self.format.is_some())
             || (self.version < 5 && self.translation.is_some())
@@ -111,11 +123,19 @@ impl Record {
                 && self
                     .format
                     .as_deref()
-                    .or((self.version == 5).then_some("srt"))
+                    .or((self.version >= 5).then_some("srt"))
                     .and_then(subtitle_formats::Format::from_extension)
                     .is_none())
         {
             return Err("Unsupported recovery format; record retained".into());
+        }
+        if let Some(origin) = &self.extracted_from
+            && (self.version < 6
+                || !origin.media_path.is_absolute()
+                || origin.suggested_name.contains(['/', '\\', '\0'])
+                || origin.suggested_name.len() > 1024)
+        {
+            return Err("Invalid extraction provenance in recovery".into());
         }
         match &self.source_path {
             Some(path) if !Path::new(path).is_absolute() => {

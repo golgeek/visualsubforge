@@ -147,6 +147,7 @@ npm run test:desktop -- --ass-performance
 
 | Flag | Workload and scope |
 | --- | --- |
+| `--extraction-performance` | The same 10k SRT quality/interaction budget, after FFmpeg muxing and production CLI extraction. Requires FFmpeg on PATH and the sibling CLI. |
 | `--performance` | Generated 10k SRT: quality checks, report/DOM bounds, typing, pause, cancellation, revision guards, gap review and text proposals with full-batch acceptance and Undo. |
 | `--ass-performance` | Exact ASS/SSA 10k inputs: open, text/time/style edits, Undo, navigation, typing, cancellation, source preservation and bounded pages. Uses the default test build without media. |
 | `--style-performance` | Exact ASS/SSA 10k form/accept/Undo, cancellation and stale guards. |

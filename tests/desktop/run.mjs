@@ -59,6 +59,7 @@ const { values } = parseArgs({
     binary: { type: 'string' },
     cli: { type: 'string' },
     performance: { type: 'boolean', default: false },
+    'extraction-performance': { type: 'boolean', default: false },
     scenes: { type: 'boolean', default: false },
     duration: { type: 'boolean', default: false },
     statistics: { type: 'boolean', default: false },
@@ -168,7 +169,7 @@ const runDeadline =
     ? 900_000
     : values.scenes || values.duration || values.statistics
       ? 480_000
-      : values.performance
+      : values.performance || values['extraction-performance']
         ? 300_000
         : 180_000);
 
@@ -501,7 +502,7 @@ try {
   await launch([
     { kind: 'saveSubtitles', path: copy },
     { kind: 'saveSubtitles', path: recoveredCopy },
-    ...(values.performance
+    ...(values.performance || values['extraction-performance']
       ? [{ kind: 'subtitles', path: join(root, 'quality-10000.srt') }]
       : []),
     ...(values.scenes
@@ -567,8 +568,10 @@ try {
   await record({
     step: 'real recovery UI, external conflict and separate Save As',
   });
-  if (values.performance) {
+  if (values.performance || values['extraction-performance']) {
     await qualityPerformance({
+      extraction: values['extraction-performance'],
+      cli,
       browser,
       menu,
       invoke,
