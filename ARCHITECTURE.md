@@ -748,3 +748,14 @@ both epochs. Recovery v7 captures both references and options, using a 400 MiB
 record bound. Context mutations do not enter subtitle Undo; Save As and conversion
 protect both reference slots. `ReviewSession` owns only paging, selection and
 request lifetime; mutations reconcile through DocumentSession's serialized path.
+
+
+Review projections and navigation reuse the worker's immutable result with the
+same generation/revision/epoch guard. The frontend owns active filter, selected
+content key, ghost visibility and request sequencing. Revert builds one domain
+`ReplaceCues` edit: validates IDs and the complete candidate before publishing,
+allocates missing IDs monotonically, and trims unchanged edges for ordinary
+history. Source metadata comes from the immutable reference, not frontend text.
+Report generation captures under the document lock, formats/writes a temporary
+outside it, and rechecks identity before atomic new-file promotion. Native video
+frames never pass through this path.

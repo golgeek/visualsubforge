@@ -118,3 +118,30 @@ work is discarded: choose the expected file or end the review. Recovery version 
 retains original bytes as well, independently of translation; the JSON envelope
 is 400 MiB for four bounded 16 MiB strings at worst-case JSON expansion plus
 metadata. Ordinary subtitle files contain neither relationship.
+
+## Reviewing in context
+
+Changes offers text, timing, additions, removals, split/merge and style filters.
+Counts describe the current comparison; there is no stored reviewed state.
+F6 / Shift+F6 navigate changes in the active filter. Selecting a row selects its
+revised cue(s), frames the time range and shows the original text/timing line.
+Removed rows navigate by their original time. Without media, numeric timing
+and all document operations remain available; frame tolerance and waveform
+originals require media. Opening media does not restart comparison.
+
+Cue markers and the editor diff use bounded current-revision projections. Original
+waveform blocks are read-only, visually distinct, and controlled by Show Original
+Timing. Revert replaces the affected group with the original text, times and
+metadata; Revert Changes applies the active filter as one ordinary Undo step.
+Existing IDs are reused where possible, new cues use the document's monotonic ID
+allocator, and validation precedes publication. Identical duplicate content keys
+use a source-position hint within the guarded capture for precise single revert.
+End Review keeps edits and history. Saving subtitles offers project saving once
+per review because subtitle files cannot retain the original relationship.
+
+The HTML report includes signed timing, character-count and reading-rate deltas.
+Duplicate content keys have deterministic occurrence suffixes in HTML element
+IDs. Reports publish to new paths without replacing existing files. Very long
+word diffs fall back to complete removed/added blocks, without losing text.
+
+In All and Timing, a collapsed shift block occupies one page row and one navigation stop. Expand it to navigate its cues individually. Selecting the block frames its complete span. Revert Block restores its cues in one Undo step. Text and Timing filters include only matching one-to-one changes (both include text-and-timing); their batch actions restore those entire changes. Markers, editor diffs and ghosts always refer to individual changes.

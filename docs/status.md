@@ -20,7 +20,7 @@ source-line counts, meters and combined safe fixes remain bounded projections.
 The interaction defaults still require owner trial. Nominal frame nudges do not
 establish variable-rate frame-boundary accuracy.
 
-The docked Review panel combines Issues, timing repairs, Shift and Statistics.
+The docked Review panel combines Issues, timing repairs, Shift, Statistics and Changes.
 Review menu actions and issue entry points reveal it in the current layout;
 Translation restores a displaced Review dock when closed. Layout presets inherit
 the current preview height until explicitly resized. Targeted macOS native debug
@@ -89,4 +89,6 @@ Embedded text track extraction, desktop adoption/recovery and reviewed font embe
 The [version comparison engine and CLI](version-comparison.md) provide immutable
 comparison and HTML reports. Desktop review entry points, paged comparisons,
 independent original protection, project persistence and recovery are implemented.
-In-context revert/navigation/markers and native acceptance remain pending.
+In-context markers, Original diffs, media-optional navigation, original timing
+ghosts, one-step undoable revert and filtered batch revert are implemented.
+Comments and exchange packages are not included.

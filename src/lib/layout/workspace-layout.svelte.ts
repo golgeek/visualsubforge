@@ -153,7 +153,11 @@ export class WorkspaceLayout {
       this.publishVisibility();
     }, false);
   }
-  async synchronizeDocks(review: boolean, translation: boolean) {
+  async synchronizeDocks(
+    review: boolean,
+    translation: boolean,
+    preservePreset = false,
+  ) {
     if (!this.custom || this.active) return;
     let next = structuredClone($state.snapshot(this.custom));
     for (const [panel, visible] of [
@@ -180,7 +184,13 @@ export class WorkspaceLayout {
     }
     if (JSON.stringify(next) === JSON.stringify($state.snapshot(this.custom)))
       return;
-    if (refusal(next, this.space)) {
+    if (refusal(next, this.space) && preservePreset) {
+      // A review entry must preserve the chosen preset even when a custom grid
+      // cannot fit another dock. Restore that preset's standard arrangement.
+      await this.change(() => {
+        this.current.custom = null;
+      });
+    } else if (refusal(next, this.space)) {
       // Opening a tool must reveal its actual owner. A standard dock is the
       // bounded fallback when a user's hidden panel cannot fit the viewport.
       await this.select(

@@ -1,6 +1,7 @@
 //! Independent review slot. Workers retain immutable captures, never Store.
 use super::translation::context::ReferenceFile;
 use super::*;
+mod operations;
 use crate::ipc_number::SafeU64;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -67,6 +68,37 @@ pub struct ReviewSummary {
 )]
 pub enum ReviewAction {
     Status,
+    RevertBlock {
+        key: ReviewKey,
+        first: u32,
+    },
+    Revert {
+        key: ReviewKey,
+        change_key: Option<String>,
+        source_index: Option<u32>,
+        filter: Option<engine::Kind>,
+    },
+    Export {
+        key: ReviewKey,
+        path: String,
+        include_unchanged: bool,
+        date: String,
+    },
+    Projection {
+        key: ReviewKey,
+        ids: Vec<SafeU64>,
+        start_ms: SafeU64,
+        end_ms: SafeU64,
+    },
+    Navigate {
+        #[serde(default)]
+        expanded: Vec<u32>,
+        key: ReviewKey,
+        from: Option<String>,
+        cue_id: Option<SafeU64>,
+        forward: bool,
+        filter: Option<engine::Kind>,
+    },
     Inspect {
         original: String,
         revised: String,
@@ -88,6 +120,8 @@ pub enum ReviewAction {
         options: engine::Options,
     },
     Query {
+        #[serde(default)]
+        expanded: Vec<u32>,
         key: ReviewKey,
         offset: u32,
         limit: u32,
@@ -97,6 +131,9 @@ pub enum ReviewAction {
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewReply {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    blocks: Vec<BlockRow>,
+    matched: u32,
     key: ReviewKey,
     context: Option<ReviewSummary>,
     document: Option<Snapshot>,
@@ -104,8 +141,18 @@ pub struct ReviewReply {
     statistics: Option<engine::Statistics>,
     rows: Vec<engine::Change>,
     total: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    position: Option<u32>,
     error: Option<String>,
     newer_original: Option<bool>,
+}
+#[derive(Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct BlockRow {
+    row: u32,
+    block: engine::ShiftBlock,
+    first_cue: SafeU64,
+    last_cue: SafeU64,
 }
 struct Job {
     key: ReviewKey,
@@ -197,9 +244,21 @@ impl Store {
         limit: u32,
         filter: Option<engine::Kind>,
     ) -> Result<ReviewReply> {
+        self.review_page(document, offset, limit, filter, &[])
+    }
+    fn review_page(
+        &mut self,
+        document: Option<Snapshot>,
+        offset: u32,
+        limit: u32,
+        filter: Option<engine::Kind>,
+        expanded: &[u32],
+    ) -> Result<ReviewReply> {
         let key = self.review_key()?;
         let context = self.review_summary();
         let mut reply = ReviewReply {
+            blocks: Vec::new(),
+            matched: 0,
             key,
             context,
             document,
@@ -207,6 +266,7 @@ impl Store {
             statistics: None,
             rows: Vec::new(),
             total: 0,
+            position: None,
             error: None,
             newer_original: None,
         };
@@ -221,18 +281,28 @@ impl Store {
                 reply.error = job.error.clone();
                 if let Some(result) = &job.result {
                     reply.statistics = Some(result.statistics.clone());
-                    let matches = |c: &&engine::Change| {
-                        c.kind != engine::Kind::Unchanged && filter.is_none_or(|f| c.kind == f)
-                    };
-                    reply.total = result.changes.iter().filter(matches).count() as u32;
-                    reply.rows = result
+                    let stops = operations::stops(result, filter, expanded);
+                    reply.matched = result
                         .changes
                         .iter()
-                        .filter(matches)
-                        .skip(offset as usize)
-                        .take(limit as usize)
-                        .cloned()
-                        .collect();
+                        .filter(|c| operations::matches(c, filter))
+                        .count() as u32;
+                    reply.total = stops.len() as u32;
+                    for stop in stops.iter().skip(offset as usize).take(limit as usize) {
+                        if let Some(block) = stop.block {
+                            reply.blocks.push(BlockRow {
+                                row: reply.rows.len() as u32,
+                                block: block.clone(),
+                                first_cue: result.changes[block.first as usize].revised[0]
+                                    .cue_id
+                                    .try_into()?,
+                                last_cue: result.changes[block.end as usize - 1].revised[0]
+                                    .cue_id
+                                    .try_into()?,
+                            });
+                        }
+                        reply.rows.push(result.changes[stop.first].clone());
+                    }
                     for cue in reply
                         .rows
                         .iter()
@@ -250,6 +320,15 @@ impl Store {
 }
 impl Documents {
     pub(crate) fn review_action(&self, action: ReviewAction) -> Result<ReviewReply> {
+        if let ReviewAction::Export {
+            key,
+            path,
+            include_unchanged,
+            date,
+        } = &action
+        {
+            return self.export_review(*key, Path::new(path), *include_unchanged, date);
+        }
         if let ReviewAction::Inspect { original, revised } = &action {
             let original = ReferenceFile::load(Path::new(original), || Ok(()))?;
             let revised = ReferenceFile::load(Path::new(revised), || Ok(()))?;
@@ -362,10 +441,50 @@ impl Documents {
         let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
         let mut document = None;
         let (mut offset, mut limit, mut filter) = (0, 100, None);
+        let mut expanded = Vec::new();
         match action {
             ReviewAction::Attach { .. } | ReviewAction::Inspect { .. } => unreachable!(),
             ReviewAction::Status => {}
             ReviewAction::Start { .. } => unreachable!(),
+            ReviewAction::Export { .. } => unreachable!(),
+            ReviewAction::RevertBlock { key, first } => {
+                store.revert_review(key, None, None, None, Some(first))?;
+                document = Some(store.snapshot());
+                store.invalidate_checks();
+            }
+            ReviewAction::Revert {
+                key,
+                change_key,
+                source_index,
+                filter,
+            } => {
+                store.revert_review(key, change_key.as_deref(), source_index, filter, None)?;
+                document = Some(store.snapshot());
+                store.invalidate_checks();
+            }
+            ReviewAction::Projection {
+                key,
+                ids,
+                start_ms,
+                end_ms,
+            } => return store.review_projection(key, &ids, start_ms.get(), end_ms.get()),
+            ReviewAction::Navigate {
+                expanded,
+                key,
+                from,
+                cue_id,
+                forward,
+                filter,
+            } => {
+                return store.navigate_review(
+                    key,
+                    from.as_deref(),
+                    cue_id.map(|id| id.get()),
+                    forward,
+                    filter,
+                    &expanded,
+                );
+            }
             ReviewAction::Detach { key } => {
                 store.check_review_key(key)?;
                 let c = &mut store.loaded_mut()?.review;
@@ -383,12 +502,14 @@ impl Documents {
                 document = Some(store.snapshot());
             }
             ReviewAction::Query {
+                expanded: requested,
                 key,
                 offset: o,
                 limit: l,
                 filter: f,
             } => {
                 store.check_review_key(key)?;
+                expanded = requested;
                 if !(1..=200).contains(&l) {
                     return Err("Comparison pages require 1–200 rows".into());
                 }
@@ -452,7 +573,7 @@ impl Documents {
                 }
             }
         }
-        store.review_reply(document, offset, limit, filter)
+        store.review_page(document, offset, limit, filter, &expanded)
     }
     pub(crate) fn shutdown_review(&self) -> Result<()> {
         let job = {

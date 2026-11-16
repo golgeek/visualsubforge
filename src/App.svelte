@@ -105,6 +105,7 @@
   import { ReviewSession } from './lib/review/review-session.svelte';
   import ChangesPanel from './lib/review/ChangesPanel.svelte';
   import SwapDialog from './lib/review/SwapDialog.svelte';
+  import SaveReviewDialog from './lib/review/SaveReviewDialog.svelte';
 
   // DOM ports. Owners receive only the reads, scrolling and focus operations they need.
 
@@ -250,6 +251,16 @@
   const reviewDecision = disposeWithComponent(
     new WorkspaceDecision<'swap' | 'keep' | 'cancel', string>(
       'cancel',
+      workspace,
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
+    ),
+  );
+  const reviewProjectDecision = disposeWithComponent(
+    new WorkspaceDecision<'save' | 'later', boolean>(
+      'later',
       workspace,
       decisionEffects(
         media,
@@ -454,6 +465,78 @@
       [...tableView.visibleCues, ...timeline.waveCues].map((cue) => cue.id),
     ),
   ];
+  review.projectAttached = () => !!projects.path;
+  review.decideProject = () => reviewProjectDecision.request(true);
+  review.projectionInput = () => ({
+    ids: [
+      ...new Set([
+        ...(subtitles.selected ? [subtitles.selected] : []),
+        ...reviewPreviewIds(),
+      ]),
+    ].slice(0, 200),
+    startMs: timeline.start * 1000,
+    endMs: (timeline.start + timeline.span) * 1000,
+  });
+  review.navigateTo = async (change, block) => {
+    const expected = subtitles.snapshot;
+    const first = change.revised[0];
+    if (first) {
+      await navigation.selectCue(first.cue_id, 'replace', expected);
+      if (subtitles.snapshot !== expected) return;
+      if (block) {
+        const ordered = [...expected.cues].sort(
+          (a, b) => a.startMs - b.startMs || a.endMs - b.endMs,
+        );
+        const start = ordered.findIndex((c) => c.id === block.firstCue);
+        const end = ordered.findIndex((c) => c.id === block.lastCue);
+        subtitles.selectAll(ordered.slice(start, end + 1));
+        const { start_ms: startMs, end_ms: endMs } = block.block;
+        timeline.selectRange([startMs / 1000, endMs / 1000]);
+        timeline.frameCue({
+          id: first.cue_id,
+          startMs,
+          endMs,
+          text: first.text,
+        });
+        return;
+      }
+      for (const cue of change.revised.slice(1))
+        subtitles.select(cue.cue_id, 'toggle');
+      const startMs = Math.min(...change.revised.map((c) => c.start_ms));
+      const endMs = Math.max(...change.revised.map((c) => c.end_ms));
+      timeline.selectRange([startMs / 1000, endMs / 1000]);
+      timeline.frameCue({ id: first.cue_id, startMs, endMs, text: first.text });
+    } else {
+      if (!(await subtitles.apply()) || subtitles.snapshot !== expected) return;
+      const original = change.original[0];
+      if (original)
+        timeline.frameCue({
+          id: 0,
+          startMs: original.start_ms,
+          endMs: original.end_ms,
+          text: original.text,
+        });
+    }
+  };
+  $effect(() => {
+    const input = JSON.stringify(review.projectionInput());
+    const ready = review.page?.statistics;
+    if (ready && input) void review.projectVisible();
+  });
+  const originalGhosts = $derived(
+    review.showOriginal && status.loaded
+      ? review.projection.flatMap((change) =>
+          change.original.map((cue) => ({
+            id: -(cue.source_index + 1),
+            startMs: cue.start_ms,
+            endMs: cue.end_ms,
+            oldStartMs: cue.start_ms,
+            oldEndMs: cue.end_ms,
+          })),
+        )
+      : [],
+  );
+
   const cueFixes = disposeWithComponent(
     new CueFixes(() => {
       const issues = quality.view?.selectedIssues;
@@ -519,7 +602,11 @@
   $effect(() => {
     if (workspace.ready && !layout.active && layout.custom) {
       void layout
-        .synchronizeDocks(view.problemsOpen, view.translationOpen)
+        .synchronizeDocks(
+          view.problemsOpen,
+          view.translationOpen,
+          view.reviewTab === 'changes',
+        )
         .catch(() => {});
     }
   });
@@ -534,7 +621,11 @@
     tableView,
     legacyDecision,
     protect: () => unsaved.protect(() => projects.save(false)),
-    save: unsaved.save,
+    save: async (as: boolean) => {
+      const saved = await unsaved.save(as);
+      if (saved) await review.afterSave();
+      return saved;
+    },
     resetScroll: () => {
       if (list) list.scrollTop = 0;
     },
@@ -682,6 +773,15 @@
       case 'saveProject':
       case 'saveProjectAs':
         return runFileAction(action, fileActions);
+      case 'previousChange':
+        return review.navigate(false);
+      case 'nextChange':
+        return review.navigate(true);
+      case 'showOriginalTiming':
+        review.showOriginal = !review.showOriginal;
+        return;
+      case 'exportComparisonReport':
+        return review.exportReport();
       case 'startReview':
       case 'compareOriginal':
       case 'compareFiles':
@@ -757,6 +857,7 @@
   };
 
   const commands: WorkspaceCommands = new WorkspaceCommands({
+    review,
     preferences,
     layout,
     workspace,
@@ -824,6 +925,7 @@
       projectExitDecision.active ||
       projectReferenceDecision.active ||
       reviewDecision.active ||
+      reviewProjectDecision.active ||
       workspaceModal.active,
     run,
   });
@@ -856,6 +958,7 @@
   style:--table-min-height={`${layout.panes.tableMinimum}px`}
 >
   <WorkspaceToolbar
+    onchanges={() => view.openReview('changes')}
     issueCount={!quality.stale && quality.view?.phase === 'ready'
       ? quality.view.findingsCount
       : null}
@@ -924,7 +1027,7 @@
           !layout.custom.rows.some((row) => row.panels.includes('waveform'))}
       >
         <WaveformPanel
-          ghosts={reviewGhosts}
+          ghosts={[...reviewGhosts, ...originalGhosts]}
           issues={quality.issues}
           qualityTiming={quality.view?.profile.timing ??
             preferences.timingSettings}
@@ -1018,6 +1121,7 @@
       >
         <div class="slot slot-cues" style={layout.panelStyle('cues')}>
           <CueTable
+            reviewChanges={review.projection}
             ghosts={reviewGhosts}
             {subtitles}
             {quality}
@@ -1100,7 +1204,10 @@
                     })}
                 />
               {/snippet}
-              {#snippet changes()}<ChangesPanel {review} />{/snippet}
+              {#snippet changes()}<ChangesPanel
+                  {review}
+                  frameRate={status.loaded ? status.nominalFrameRate : null}
+                />{/snippet}
             </ReviewDock>
           </div>{/if}
         {#if view.translationOpen}<div
@@ -1136,6 +1243,8 @@
         !layout.custom.rows.some((row) => row.panels.includes('editor'))}
     >
       <CueEditor
+        reviewChange={review.selectedChange}
+        onrevert={(key) => void review.revert(key)}
         shortcuts={preferences.preferences.shortcuts}
         editing={cueEditing}
         fixes={cueFixes}
@@ -1308,6 +1417,10 @@
 {#if reviewDecision.visible && reviewDecision.payload}<SwapDialog
     path={reviewDecision.payload}
     onchoose={(choice) => void reviewDecision.answer(choice)}
+  />{/if}
+
+{#if reviewProjectDecision.visible}<SaveReviewDialog
+    onchoose={(choice) => void reviewProjectDecision.answer(choice)}
   />{/if}
 
 <style>

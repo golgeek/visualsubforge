@@ -36,6 +36,7 @@ test('workflow: recovery in a narrow window', async ({ page }) => {
 });
 
 for (const name of [
+  'version-comparison',
   'projects',
   'legacy-import',
   'recovery',

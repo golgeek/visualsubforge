@@ -1108,6 +1108,13 @@ export type visualsubforge_preferences_shortcuts_Binding = {
   key: string;
 };
 
+export type visualsubforge_document_review_BlockRow = {
+  row: number;
+  block: vsf_application_comparison_ShiftBlock;
+  firstCue: number;
+  lastCue: number;
+};
+
 export type visualsubforge_batch_timing_Change =
   | { kind: 'shift'; earlier: boolean; amountMs: number }
   | { kind: 'align'; playheadMs: number };
@@ -1602,6 +1609,7 @@ export type visualsubforge_desktop_FileChoice =
   | 'saveSubtitles'
   | 'reviewOriginal'
   | 'reviewRevised'
+  | 'comparisonReport'
   | 'exportSrt'
   | 'exportAss'
   | 'exportSsa'
@@ -2448,6 +2456,41 @@ export type visualsubforge_recent_Request = {
 
 export type visualsubforge_document_review_ReviewAction =
   | { kind: 'status' }
+  | {
+      kind: 'revertBlock';
+      key: visualsubforge_document_review_ReviewKey;
+      first: number;
+    }
+  | {
+      kind: 'revert';
+      key: visualsubforge_document_review_ReviewKey;
+      changeKey: string | null;
+      sourceIndex: number | null;
+      filter: vsf_application_comparison_Kind | null;
+    }
+  | {
+      kind: 'export';
+      key: visualsubforge_document_review_ReviewKey;
+      path: string;
+      includeUnchanged: boolean;
+      date: string;
+    }
+  | {
+      kind: 'projection';
+      key: visualsubforge_document_review_ReviewKey;
+      ids: number[];
+      startMs: number;
+      endMs: number;
+    }
+  | {
+      kind: 'navigate';
+      expanded?: number[];
+      key: visualsubforge_document_review_ReviewKey;
+      from: string | null;
+      cueId: number | null;
+      forward: boolean;
+      filter: vsf_application_comparison_Kind | null;
+    }
   | { kind: 'inspect'; original: string; revised: string }
   | {
       kind: 'attach';
@@ -2468,6 +2511,7 @@ export type visualsubforge_document_review_ReviewAction =
     }
   | {
       kind: 'query';
+      expanded?: number[];
       key: visualsubforge_document_review_ReviewKey;
       offset: number;
       limit: number;
@@ -2490,6 +2534,8 @@ export type visualsubforge_document_review_ReviewReply =
   | visualsubforge_document_review_ReviewReply_Deserialize;
 
 export type visualsubforge_document_review_ReviewReply_Deserialize = {
+  blocks: visualsubforge_document_review_BlockRow[];
+  matched: number;
   key: visualsubforge_document_review_ReviewKey;
   context: visualsubforge_document_review_ReviewSummary | null;
   document: visualsubforge_document_Snapshot_Deserialize | null;
@@ -2497,11 +2543,14 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
   statistics: vsf_application_comparison_Statistics | null;
   rows: vsf_application_comparison_Change[];
   total: number;
+  position: number | null;
   error: string | null;
   newerOriginal: boolean | null;
 };
 
 export type visualsubforge_document_review_ReviewReply_Serialize = {
+  blocks?: visualsubforge_document_review_BlockRow[];
+  matched: number;
   key: visualsubforge_document_review_ReviewKey;
   context: visualsubforge_document_review_ReviewSummary | null;
   document: visualsubforge_document_Snapshot_Serialize | null;
@@ -2509,6 +2558,7 @@ export type visualsubforge_document_review_ReviewReply_Serialize = {
   statistics: vsf_application_comparison_Statistics | null;
   rows: vsf_application_comparison_Change[];
   total: number;
+  position?: number | null;
   error: string | null;
   newerOriginal: boolean | null;
 };
@@ -2819,6 +2869,17 @@ export type visualsubforge_quality_profile_SettingsData_Serialize = {
 };
 
 export type vsf_application_quality_check_Severity = 'violation' | 'advisory';
+
+/**  Half-open range in Comparison.changes, including unchanged rows in the indexing. */
+export type vsf_application_comparison_ShiftBlock = {
+  first: number;
+  end: number;
+  delta_ms: number;
+  start_ms: number;
+  end_ms: number;
+  revised_start_ms: number;
+  revised_end_ms: number;
+};
 
 export type visualsubforge_preferences_shortcuts_Shortcuts = {
   preset: visualsubforge_preferences_shortcuts_Preset;
@@ -3430,6 +3491,10 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'compareOriginal'
   | 'compareFiles'
   | 'endReview'
+  | 'previousChange'
+  | 'nextChange'
+  | 'showOriginalTiming'
+  | 'exportComparisonReport'
   | 'showScenes'
   | 'scanScenes'
   | 'cancelSceneScan'

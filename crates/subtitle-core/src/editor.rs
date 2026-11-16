@@ -46,8 +46,21 @@ pub struct CueUpdate {
     pub text: String,
 }
 
+/// A structural batch keeps existing identities explicitly; new cues receive
+/// fresh IDs from Editor. Applications cannot revive a discarded history ID.
+pub struct CueReplacement {
+    pub id: Option<CueId>,
+    pub start: Milliseconds,
+    pub end: Milliseconds,
+    pub text: String,
+    pub metadata: Option<CueMetadata>,
+}
+
 /// Domain edits use validated times and identities, independently of any IPC or format.
 pub enum Edit {
+    ReplaceCues {
+        cues: Vec<CueReplacement>,
+    },
     UpdateBatch {
         cues: Vec<CueUpdate>,
     },
@@ -236,6 +249,50 @@ impl<P: Clone + PartialEq> Editor<P> {
         let text_edit = matches!(&edit, Edit::Text { .. } | Edit::StyledText { .. });
         let mut created = None;
         let (index, count, after) = match edit {
+            Edit::ReplaceCues { cues } => {
+                let mut next = self.next_cue;
+                let mut after = Vec::with_capacity(cues.len());
+                let mut identities = std::collections::HashSet::new();
+                for replacement in cues {
+                    let id = match replacement.id {
+                        Some(id) => {
+                            self.index(id)?;
+                            id
+                        }
+                        None => {
+                            let id = CueId(next.ok_or(Error::InvalidCueBatch)?);
+                            next = id.0.checked_add(1);
+                            created = Some(id);
+                            id
+                        }
+                    };
+                    if !identities.insert(id) {
+                        return Err(Error::InvalidCueBatch);
+                    }
+                    let mut cue =
+                        Cue::new(id, replacement.start, replacement.end, replacement.text)?;
+                    cue.metadata = replacement.metadata;
+                    after.push(cue);
+                }
+                let before = &self.document.cues;
+                let prefix = before
+                    .iter()
+                    .zip(&after)
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                let suffix = before[prefix..]
+                    .iter()
+                    .rev()
+                    .zip(after[prefix..].iter().rev())
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                let stop = after.len() - suffix;
+                (
+                    prefix,
+                    before.len() - prefix - suffix,
+                    after[prefix..stop].to_vec(),
+                )
+            }
             Edit::UpdateBatch { cues } => {
                 if cues.len() != self.document.cues.len() {
                     return Err(Error::InvalidCueBatch);

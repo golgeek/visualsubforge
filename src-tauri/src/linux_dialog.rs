@@ -133,7 +133,9 @@ async fn request_file(
         FileChoice::QualityPreset | FileChoice::SaveQualityPreset
     );
     let filter = || {
-        if plugin {
+        if matches!(kind, FileChoice::ComparisonReport) {
+            FileFilter::new("HTML report").glob("*.html")
+        } else if plugin {
             FileFilter::new("Plugin manifest").glob("*.json")
         } else if font {
             FileFilter::new("Single fonts").glob("*.ttf").glob("*.otf")
@@ -171,7 +173,8 @@ async fn request_file(
         if conversion { "Converted" } else { "Untitled" }
     );
     let response = match kind {
-        FileChoice::SaveSubtitles
+        FileChoice::ComparisonReport
+        | FileChoice::SaveSubtitles
         | FileChoice::ExportSrt
         | FileChoice::ExportAss
         | FileChoice::ExportSsa
@@ -180,7 +183,9 @@ async fn request_file(
         | FileChoice::SaveQualityPreset => {
             SelectedFiles::save_file()
                 .identifier(identifier)
-                .title(if conversion {
+                .title(if matches!(kind, FileChoice::ComparisonReport) {
+                    "Export Comparison Report"
+                } else if conversion {
                     "Export Converted Subtitles to a New File"
                 } else if quality {
                     "Export Quality Profile"
@@ -225,7 +230,11 @@ async fn request_file(
             );
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
-                .title(if plugin {
+                .title(if matches!(kind, FileChoice::ReviewOriginal) {
+                    "Choose Original Subtitles"
+                } else if matches!(kind, FileChoice::ReviewRevised) {
+                    "Choose Revised Subtitles"
+                } else if plugin {
                     "Choose Subtitle Plugin Manifest"
                 } else if font {
                     "Choose Font Attachment"
