@@ -282,7 +282,7 @@ The canonical desktop run requests 1100×720 and 1440×900 windows, switches all
 five workspace presets, and records ten screenshots plus requested/actual sizes.
 Some hosted displays clamp window height. The receipt lists unavailable sizes;
 a clamped run does not establish acceptance at the requested larger size. Timing
-requires eight rows in the smaller tested client area and fourteen when the host
+requires four rows in the smaller tested client area and eight when the host
 supplies the requested 900-pixel window. Exact-size browser cases cover the smaller
 and larger client budgets independently. Every preset checks two editor text
 lines and video-placeholder separation. Playback-free runs verify DOM bounds;

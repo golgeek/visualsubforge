@@ -81,10 +81,14 @@
                   ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
                   : 'Open subtitles to check'}</span
     >
-    <button onclick={() => session.restart()} {disabled}>Check again</button>
+    <button
+      onclick={() => session.restart()}
+      disabled={disabled || !documentLoaded}>Check again</button
+    >
     <button
       onclick={() => session.pause()}
-      disabled={session.paused || disabled}>Pause checking</button
+      disabled={session.paused || disabled || !documentLoaded}
+      >Pause checking</button
     >
     <button onclick={onclose}>Close issues</button>
   </header>
@@ -293,7 +297,7 @@
     color: var(--text);
   }
   header span {
-    flex: 1;
+    flex: 1 1 auto;
   }
   .policy {
     margin: 6px 0;

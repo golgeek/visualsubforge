@@ -50,7 +50,7 @@ export function presetArrangement(
     rows: [
       {
         panels: ['waveform', 'video'],
-        weight: preset === 'bigPicture' ? 40 : 13,
+        weight: preset === 'bigPicture' ? 50 : 35,
         split: Math.round(wave),
       },
       { panels: ['transport'], weight: 1, split: 50 },

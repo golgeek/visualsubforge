@@ -401,7 +401,35 @@ async function run() {
     passed(
       'reset preserves the active preset and the editor arrow uses protected slot switching',
     );
-    heading.textContent = `PASS: all ${capacity ? 7 : 6} layout preset checks`;
+    await unmount(app);
+    snapshot.loaded = false;
+    snapshot.cues = [];
+    Object.assign(media, { loaded: true, path: '/synthetic.mp4' });
+    stored = structuredClone(defaultPreferences.layout);
+    stored.active = 'review';
+    app = mount(App, { target: host });
+    await until(() => !!host.querySelector('.problems'));
+    const status = host.querySelector<HTMLElement>(
+      '.problems [role="status"]',
+    )!;
+    assert(
+      status.textContent?.trim() === 'Open subtitles to check for issues',
+      'Media-only Issues explains the missing subtitles',
+    );
+    assert(
+      button('Check again')!.disabled && button('Pause checking')!.disabled,
+      'Media-only checking buttons are disabled',
+    );
+    const range = document.createRange();
+    range.selectNodeContents(status);
+    assert(
+      range.getClientRects().length === 1,
+      'Empty status stays on one line',
+    );
+    passed(
+      'Media-only Issues has a single-line status and disabled checking controls',
+    );
+    heading.textContent = `PASS: all ${capacity ? 8 : 7} layout preset checks`;
   } finally {
     await unmount(app);
   }

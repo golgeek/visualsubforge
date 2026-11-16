@@ -159,6 +159,7 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
     let mut value: Preferences =
         serde_json::from_value(json).map_err(|e| format!("Invalid settings: {e}"))?;
     value.shortcuts.upgrade_zoom_defaults();
+    value.layout.upgrade_preview_defaults();
     value.validate()?;
     Ok(value)
 }
@@ -256,6 +257,37 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn old_preview_defaults_upgrade_without_writing_or_changing_custom_heights() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        for preset in [
+            "timing",
+            "editorAbove",
+            "review",
+            "translation",
+            "bigPicture",
+        ] {
+            old["layout"][preset]["topPct"] = 13.0.into();
+        }
+        old["layout"]["review"]["topPct"] = 36.46.into();
+        old["layout"]["review"]["topResized"] = true.into();
+        old["layout"]["translation"]["topPct"] = 28.25.into();
+        old["layout"]["editorAbove"]["topResized"] = true.into();
+        let bytes = serde_json::to_vec(&old).unwrap();
+        std::fs::write(&path, &bytes).unwrap();
+        let upgraded = read(&path).unwrap();
+        assert_eq!(upgraded.layout.timing.top_pct, 35.0);
+        assert_eq!(upgraded.layout.big_picture.top_pct, 35.0);
+        assert_eq!(upgraded.layout.editor_above.top_pct, 13.0);
+        assert_eq!(upgraded.layout.review.top_pct, 36.46);
+        assert_eq!(upgraded.layout.translation.top_pct, 28.25);
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        update(&path, |_| {}).unwrap();
+        assert_eq!(read(&path).unwrap().layout, upgraded.layout);
+    }
+
     #[test]
     fn appearance_migrates_without_writes_and_roundtrips_independently_of_layout() {
         let dir = tempfile::tempdir().unwrap();
