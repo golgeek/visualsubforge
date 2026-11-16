@@ -78,6 +78,12 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
   if (state.busy) return 'Finish the current operation';
   if (id in state.operations) return state.operations[id] ?? null;
   switch (id) {
+    case 'startReview':
+    case 'compareOriginal':
+    case 'endReview':
+      return state.document ? null : 'Open subtitles first';
+    case 'compareFiles':
+      return null;
     case 'openMedia':
       return state.available ? null : 'Video playback is unavailable';
     case 'saveProject':

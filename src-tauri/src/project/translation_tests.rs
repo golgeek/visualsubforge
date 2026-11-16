@@ -129,7 +129,7 @@ fn subtitle_only_translation_projects_roundtrip_all_formats_and_keep_target_hist
         let info = summary.reference.unwrap();
         assert_eq!(info.format, extension);
         assert_eq!(info.offset_ms, -1500);
-        docs.with_project_subtitle(Some(&target), |_, format, context| {
+        docs.with_project_subtitle(Some(&target), |_, format, context, _| {
             assert_eq!(format.unwrap().extension(), extension);
             let description = context.project_description(&root)?.unwrap();
             assert_eq!(
@@ -183,7 +183,7 @@ fn missing_changed_and_relocated_references_require_explicit_choices_before_atta
         replacement.to_string_lossy()
     );
     // Original copy provenance remains protected even after deletion/relocation.
-    docs.with_project_subtitle(Some(&target), |_, _, context| {
+    docs.with_project_subtitle(Some(&target), |_, _, context, _| {
         assert!(context.protect(&reference).is_err());
         Ok(())
     })
@@ -251,7 +251,7 @@ fn staged_reference_is_captured_once_and_attach_checks_media_target_revision_and
     );
     fs::write(&reference, SRT.replace("Été", "Changed after preflight")).unwrap();
     attach(&projects, &docs, opened.token).unwrap();
-    docs.with_project_subtitle(Some(&target), |_, _, context| {
+    docs.with_project_subtitle(Some(&target), |_, _, context, _| {
         assert_eq!(
             context
                 .reference
@@ -283,11 +283,11 @@ fn failed_project_publication_keeps_context_dirty_and_success_cleans_only_contex
     let before = open_target(&docs, &target);
     attach(&projects, &docs, opened.token).unwrap();
     let failed: Result<()> =
-        docs.with_project_subtitle(Some(&target), |_, _, _| Err("write failed".into()));
+        docs.with_project_subtitle(Some(&target), |_, _, _, _| Err("write failed".into()));
     assert!(failed.is_err());
     assert!(snapshot(&docs).translation.unwrap().dirty);
     let output = root.join("saved.vsfproject");
-    docs.with_project_subtitle(Some(&target), |_, _, context| {
+    docs.with_project_subtitle(Some(&target), |_, _, context, _| {
         context.verify_project_reference()?;
         let mut saved = project.clone();
         saved.translation = context.project_description(&root)?;
@@ -367,4 +367,45 @@ fn translation_layout_add_remove_saves_v3_only_while_needed() {
             assert_eq!(project.options.layout.is_some(), expected == 3);
         }
     }
+}
+
+#[test]
+fn review_project_roundtrip_options_independent_translation_and_missing_original() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    let (mut project, target, original) = fixture(&root, "srt", SRT);
+    project.version = 4;
+    project.review = Some(
+        serde_json::from_value(json!({
+            "reference": project.translation,
+            "options": {"tolerance_ms": 42, "ignore_tags": true,
+                "ignore_line_breaks": true, "ignore_whitespace": false}
+        }))
+        .unwrap(),
+    );
+    let path = root.join("review.vsfproject");
+    write(&path, &project).unwrap();
+    let projects = Projects::default();
+    let opened = projects.open(&path).unwrap();
+    let docs = Documents::default();
+    open_target(&docs, &target);
+    attach(&projects, &docs, opened.token).unwrap();
+    docs.with_project_subtitle(Some(&target), |_, _, translation, review| {
+        assert!(translation.project_description(&root)?.is_some());
+        assert_eq!(
+            serde_json::to_value(review.project_description(&root)?).unwrap(),
+            serde_json::to_value(&project.review).unwrap()
+        );
+        Ok(())
+    })
+    .unwrap();
+    // Resolve translation independently, so the review issue is independently visible.
+    project.translation = None;
+    write(&path, &project).unwrap();
+    fs::write(&original, SRT.replace("Été", "Changed")).unwrap();
+    let changed = projects.open(&path).unwrap();
+    assert!(!serde_json::to_value(changed).unwrap()["reviewIssue"].is_null());
+    fs::remove_file(&original).unwrap();
+    let missing = projects.open(&path).unwrap();
+    assert!(!serde_json::to_value(missing).unwrap()["reviewIssue"].is_null());
 }

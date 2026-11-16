@@ -1,6 +1,8 @@
 import {
   DocumentFailure,
   extractionAction,
+  reviewAction,
+  type ReviewAction,
   chooseFile,
   documentAction,
   resyncAccept,
@@ -179,6 +181,34 @@ export class DocumentSession {
       options,
       action.kind === 'status',
     );
+  }
+  async changeReview(
+    action: ReviewAction,
+    expected: DocumentSnapshot,
+  ): Promise<boolean> {
+    if (this.accepted !== expected)
+      throw new Error('The review changed; refresh first.');
+    try {
+      return await this.update(
+        async (before) => {
+          const reply = await reviewAction(action);
+          if (reply.document) return reply.document;
+          if (
+            reply.key.generation !== before.generation ||
+            reply.key.revision !== before.revision
+          )
+            throw new Error('Document changed during review operation');
+          return { ...before, review: reply.context };
+        },
+        { preserveDraft: true },
+      );
+    } catch (error) {
+      if (this.alive && this.accepted === expected)
+        await this.command({ kind: 'status' }, { preserveDraft: true }).catch(
+          () => {},
+        );
+      throw error;
+    }
   }
   async changeTranslation(
     action: Extract<

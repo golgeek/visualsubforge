@@ -32,6 +32,7 @@ impl Documents {
             .serialize(&prepared.parsed.document)?
             .into_bytes();
         store.loaded = Some(Loaded {
+            review: Default::default(),
             editor: Editor::with_properties(prepared.parsed.document, prepared.parsed.source),
             path: None,
             saved_bytes,

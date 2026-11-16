@@ -87,4 +87,6 @@ webview and modeled occlusion checks.
 Embedded text track extraction, desktop adoption/recovery and reviewed font embedding: [contract](subtitle-extraction.md).
 
 The [version comparison engine and CLI](version-comparison.md) provide immutable
-comparison and HTML reports. Desktop review integration remains pending.
+comparison and HTML reports. Desktop review entry points, paged comparisons,
+independent original protection, project persistence and recovery are implemented.
+In-context revert/navigation/markers and native acceptance remain pending.

@@ -1,7 +1,8 @@
 # Version comparison
 
 The headless comparison engine compares immutable original and revised subtitle
-captures without changing either file. Desktop review integration is pending.
+captures without changing either file. Desktop review attaches an independent
+original to the ordinary editable document.
 
 ```sh
 vsf compare original.srt revised.srt --json --html comparison.html
@@ -89,3 +90,31 @@ Unlike Comparo², VSF groups uniform retimes into collapsible blocks. The JSON `
 Compared with Comparo², VSF detects splits/merges, defines its own percentages,
 accepts no `.scenechange` input, and has no groups or comment filters. Source code
 and wording from that service are not reused.
+
+## Desktop review context
+
+Review → Start Review writes a separate `<stem>.reviewed.<ext>` file from saved
+content and opens Changes without changing the layout preset. Normal Save then
+writes that copy. Save/Discard/Cancel protects unsaved work first. Compare with
+Original attaches a file to the ordinary working document; Compare Files asks for
+original then revised and works from an empty workspace. If the original has a
+newer modification time, Swap/Keep/Cancel makes the direction explicit.
+
+The immutable original is separate from the translation reference; both may be
+attached at once. Attach, options and End Review change context rather than
+subtitle history. Original and copied-source paths are protected from Save As and
+conversion output, including deleted paths. No Mark Reviewed state is stored.
+The Changes tab pages at most 200 groups (100 by default).
+
+Comparison captures run on one worker with no queue, a cooperative ten-second
+deadline and generation/revision/review-epoch checks. The frontend debounces
+accepted changes for 250 ms and polls only its current request. Media is not part
+of comparison identity. Closing/opening media does not invalidate comparison.
+
+Project version 4 adds a `review` struct containing independent reference identity,
+provenance and comparison options. Older projects retain the minimum version
+needed for their contents. Missing/changed originals are resolved before current
+work is discarded: choose the expected file or end the review. Recovery version 7
+retains original bytes as well, independently of translation; the JSON envelope
+is 400 MiB for four bounded 16 MiB strings at worst-case JSON expansion plus
+metadata. Ordinary subtitle files contain neither relationship.

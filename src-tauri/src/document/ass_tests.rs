@@ -416,7 +416,7 @@ fn unchanged_style_retains_field_whitespace_and_pathless_projects_have_no_format
         apply(&mut store, edit("Title", 1000, "Changed")).unwrap();
         assert!(bytes(&store).contains("Dialogue:  Title  ,"));
     }
-    docs.with_project_subtitle(Some(&path.canonicalize().unwrap()), |_, format, _| {
+    docs.with_project_subtitle(Some(&path.canonicalize().unwrap()), |_, format, _, _| {
         assert_eq!(format, Some(subtitle_formats::Format::Ass));
         Ok(())
     })
@@ -435,7 +435,7 @@ fn unchanged_style_retains_field_whitespace_and_pathless_projects_have_no_format
         )
         .unwrap();
     }
-    docs.with_project_subtitle(None, |_, format, _| {
+    docs.with_project_subtitle(None, |_, format, _, _| {
         assert!(format.is_none());
         Ok(())
     })

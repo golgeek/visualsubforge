@@ -808,5 +808,45 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 1
+  },
+  "startReview": {
+    "label": "Start Review\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 580
+  },
+  "compareOriginal": {
+    "label": "Compare with Original\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 581
+  },
+  "compareFiles": {
+    "label": "Compare Files\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 582
+  },
+  "endReview": {
+    "label": "End Review",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 583
   }
 }

@@ -102,6 +102,10 @@
   import { NativeVideoLayout } from './lib/media/native-video-layout';
   import { WorkspaceStartup } from './lib/workspace/workspace-startup';
 
+  import { ReviewSession } from './lib/review/review-session.svelte';
+  import ChangesPanel from './lib/review/ChangesPanel.svelte';
+  import SwapDialog from './lib/review/SwapDialog.svelte';
+
   // DOM ports. Owners receive only the reads, scrolling and focus operations they need.
 
   let textEditor = $state<HTMLTextAreaElement>();
@@ -242,6 +246,27 @@
   );
 
   // Timeline and cue interactions, then their mutual connections.
+
+  const reviewDecision = disposeWithComponent(
+    new WorkspaceDecision<'swap' | 'keep' | 'cancel', string>(
+      'cancel',
+      workspace,
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
+    ),
+  );
+  const review = disposeWithComponent(
+    new ReviewSession(
+      subtitles,
+      workspace,
+      view,
+      unsaved,
+      () => projects.save(false),
+      (path) => reviewDecision.request(path),
+    ),
+  );
 
   const tableView = disposeWithComponent(
     new CueTableView({
@@ -657,6 +682,11 @@
       case 'saveProject':
       case 'saveProjectAs':
         return runFileAction(action, fileActions);
+      case 'startReview':
+      case 'compareOriginal':
+      case 'compareFiles':
+      case 'endReview':
+        return review.run(action);
       case 'clearLoop':
       case 'closeMedia':
       case 'nextFrame':
@@ -793,6 +823,7 @@
       subtitleDecision.active ||
       projectExitDecision.active ||
       projectReferenceDecision.active ||
+      reviewDecision.active ||
       workspaceModal.active,
     run,
   });
@@ -1069,6 +1100,7 @@
                     })}
                 />
               {/snippet}
+              {#snippet changes()}<ChangesPanel {review} />{/snippet}
             </ReviewDock>
           </div>{/if}
         {#if view.translationOpen}<div
@@ -1272,6 +1304,10 @@
 
 {#if workspaceModal.identity === 'extraction'}<ExtractionDialog
     session={extraction}
+  />{/if}
+{#if reviewDecision.visible && reviewDecision.payload}<SwapDialog
+    path={reviewDecision.payload}
+    onchoose={(choice) => void reviewDecision.answer(choice)}
   />{/if}
 
 <style>

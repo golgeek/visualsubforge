@@ -103,30 +103,40 @@ export class ProjectWorkflow {
     this.check(operation);
     // Validate references before the user discards or saves the active draft.
     let reference: ProjectReferenceOverride | null = null;
+    let review: { path: string | null; end: boolean } | null = null;
     const prepare = async () => {
       while (true) {
-        const project = await this.client.openProject(path, reference);
+        const project = await this.client.openProject(path, reference, review);
         this.check(operation);
-        if (!project.referenceIssue) {
+        const issue = project.reviewIssue
+          ? { ...project.reviewIssue, reviewOriginal: true }
+          : project.referenceIssue;
+        if (!issue) {
           if (project.mediaPath && !this.media.status.available)
             throw new Error(
               'This project includes media and requires a build with native playback enabled',
             );
           return project;
         }
-        if (!this.workspace.referenceIssue)
-          throw new Error(project.referenceIssue.message);
-        const choice = await this.workspace.referenceIssue(
-          project.referenceIssue,
-        );
+        if (!this.workspace.referenceIssue) throw new Error(issue.message);
+        const choice = await this.workspace.referenceIssue(issue);
         this.check(operation);
         if (choice === 'cancel') return null;
-        if (choice === 'reload' && project.referenceIssue.canReload)
+        if (project.reviewIssue) {
+          if (choice === 'reload') review = { path: null, end: true };
+          else {
+            const path = await this.client.chooseFile('subtitles', issue.path);
+            this.check(operation);
+            if (path) review = { path, end: false };
+          }
+          continue;
+        }
+        if (choice === 'reload' && issue.canReload)
           reference = { path: reference?.path ?? null, reload: true };
         else {
           const selected = await this.client.chooseFile(
             'subtitles',
-            project.referenceIssue.path,
+            issue.path,
           );
           this.check(operation);
           if (selected) reference = { path: selected, reload: false };
@@ -286,7 +296,9 @@ export class ProjectWorkflow {
   async quit() {
     const operation = ++this.operation;
     this.check(operation);
-    const contextWasDirty = this.document.snapshot.translation?.dirty === true;
+    const contextWasDirty =
+      this.document.snapshot.translation?.dirty === true ||
+      this.document.snapshot.review?.dirty === true;
     const proceed = await this.workspace.protect(() =>
       this.saveAt(operation, false, true),
     );

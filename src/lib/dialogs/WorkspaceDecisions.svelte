@@ -22,6 +22,9 @@
     type ProjectExitChoice,
   } from '../project/ProjectSaveFailureDialog.svelte';
   import ProjectReferenceDialog from '../project/ProjectReferenceDialog.svelte';
+  const projectDirty = $derived(
+    subtitles.snapshot.translation?.dirty || subtitles.snapshot.review?.dirty,
+  );
   const doc = $derived(subtitles.snapshot);
 </script>
 
@@ -31,26 +34,26 @@
     e.preventDefault();
     subtitleDecision.answer('cancel');
   }}
-  aria-label={doc.translation?.dirty
+  aria-label={projectDirty
     ? 'Unsaved project changes'
     : 'Unsaved subtitle changes'}
 >
   <h2>
-    {doc.translation?.dirty
-      ? 'Save project changes?'
-      : 'Save subtitle changes?'}
+    {projectDirty ? 'Save project changes?' : 'Save subtitle changes?'}
   </h2>
   <p>
-    {doc.translation?.dirty
-      ? 'Save your subtitle changes and the translation reference and offset in a project.'
-      : 'Your current document or cue draft has changes.'}
+    {doc.review?.dirty
+      ? 'Save the review original and comparison options in a project.'
+      : projectDirty
+        ? 'Save your subtitle changes and the translation reference and offset in a project.'
+        : 'Your current document or cue draft has changes.'}
   </p>
   <div class="dialog-actions">
     <button onclick={() => subtitleDecision.answer('cancel')}>Cancel</button
     ><button onclick={() => subtitleDecision.answer('discard')}
       >Discard changes</button
     ><button onclick={() => subtitleDecision.answer('save')}
-      >{doc.translation?.dirty ? 'Save project' : 'Save changes'}</button
+      >{projectDirty ? 'Save project' : 'Save changes'}</button
     >
   </div>
 </dialog>

@@ -98,6 +98,8 @@ pub struct Project {
     pub media_identity: Option<MediaIdentity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub translation: Option<ProjectContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<crate::document::review::ReviewProjectContext>,
     #[serde(with = "crate::ipc_number::finite")]
     #[specta(type = crate::ipc_number::finite::FiniteF64)]
     pub position_seconds: f64,
@@ -108,7 +110,9 @@ impl Project {
     // Layout is the only v3 feature. Ordinary view saves (including quit) must
     // retain the oldest format that represents the actual project contents.
     fn version_for_save(&self) -> u32 {
-        if self.options.layout.is_some() {
+        if self.review.is_some() {
+            4
+        } else if self.options.layout.is_some() {
             3
         } else if self.media_path.is_none() || self.translation.is_some() {
             2
@@ -122,7 +126,7 @@ impl Project {
         if let Some(profile) = &self.options.quality {
             crate::quality_profile::Policy::new(profile.clone(), self.options.timing.clone())?;
         }
-        if !matches!(self.version, 1..=3) {
+        if !matches!(self.version, 1..=4) {
             return Err("Unsupported VSF project version".into());
         }
         if let Some(layout) = &self.options.layout {
@@ -141,6 +145,12 @@ impl Project {
             return Err(
                 "Project media/identity or subtitle-only references are inconsistent".into(),
             );
+        }
+        if let Some(review) = &self.review {
+            if self.version < 4 || self.subtitle_path.is_none() {
+                return Err("Review projects require version 4 and saved subtitles".into());
+            }
+            review.validate()?;
         }
         if let Some(translation) = &self.translation {
             if self.subtitle_path.is_none() {
@@ -215,9 +225,16 @@ fn read_bytes(path: &Path) -> Result<Vec<u8>> {
 struct Resolved {
     project: Project,
     translation: TranslationContext,
+    review: crate::document::review::Context,
     reference_issue: Option<ReferenceIssue>,
+    review_issue: Option<ReferenceIssue>,
 }
-fn resolve(path: &Path, bytes: &[u8], overrides: &ReferenceOverride) -> Result<Resolved> {
+fn resolve(
+    path: &Path,
+    bytes: &[u8],
+    overrides: &ReferenceOverride,
+    review_override: &crate::document::review::ProjectOverride,
+) -> Result<Resolved> {
     let mut project: Project =
         serde_json::from_slice(bytes).map_err(|e| format!("Invalid project: {e}"))?;
     project.validate()?;
@@ -261,6 +278,34 @@ fn resolve(path: &Path, bytes: &[u8], overrides: &ReferenceOverride) -> Result<R
         },
         None => (TranslationContext::default(), None),
     };
+    let (review, review_issue) = if review_override.end {
+        let mut context = crate::document::review::Context::default();
+        context.reference.dirty = true;
+        (context, None)
+    } else {
+        match &project.review {
+            Some(description) => {
+                let overrides = serde_json::from_value(
+                    serde_json::json!({"path":review_override.path,"reload":false}),
+                )
+                .map_err(|e| e.to_string())?;
+                match description.load(base, &overrides) {
+                    Ok(context) => (context, None),
+                    Err(mut issue) => {
+                        if issue.can_reload {
+                            issue.message="The review original changed. Choose the expected original file or end the review.".into();
+                        }
+                        issue.can_reload = true;
+                        (crate::document::review::Context::default(), Some(issue))
+                    }
+                }
+            }
+            None => (crate::document::review::Context::default(), None),
+        }
+    };
+    if let Some(target) = &project.subtitle_path {
+        review.reference.protect(Path::new(target))?;
+    }
     if reference_issue.is_none()
         && let Some(target) = &project.subtitle_path
     {
@@ -269,12 +314,19 @@ fn resolve(path: &Path, bytes: &[u8], overrides: &ReferenceOverride) -> Result<R
     Ok(Resolved {
         project,
         translation,
+        review,
         reference_issue,
+        review_issue,
     })
 }
 #[cfg(test)]
 fn read(path: &Path) -> Result<Project> {
-    let resolved = resolve(path, &read_bytes(path)?, &ReferenceOverride::default())?;
+    let resolved = resolve(
+        path,
+        &read_bytes(path)?,
+        &ReferenceOverride::default(),
+        &crate::document::review::ProjectOverride::default(),
+    )?;
     if let Some(issue) = resolved.reference_issue {
         return Err(issue.message);
     }
@@ -286,10 +338,14 @@ pub async fn project_open(
     app: tauri::AppHandle,
     path: String,
     reference: Option<ReferenceOverride>,
+    review: Option<crate::document::review::ProjectOverride>,
 ) -> Result<Opened> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Projects>()
-            .open_with(Path::new(&path), &reference.unwrap_or_default())
+        app.state::<Projects>().open_review_with(
+            Path::new(&path),
+            &reference.unwrap_or_default(),
+            &review.unwrap_or_default(),
+        )
     })
     .await
     .map_err(|e| e.to_string())?
@@ -303,6 +359,7 @@ pub async fn project_attach(
     generation: crate::ipc_number::SafeU64,
     revision: crate::ipc_number::SafeU64,
     reference_epoch: crate::ipc_number::SafeU64,
+    review_epoch: crate::ipc_number::SafeU64,
 ) -> Result<Attachment> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<crate::media::Media>()
@@ -312,13 +369,13 @@ pub async fn project_attach(
                     .transpose()
                     .map_err(|e| e.to_string())?;
                 app.state::<crate::document::Documents>()
-                    .attach_quality_project(
+                    .attach_quality_project_context(
                         &app.state::<Projects>(),
                         token.get(),
                         generation.get(),
                         revision.get(),
                         path.as_deref(),
-                        reference_epoch.get(),
+                        (reference_epoch.get(), review_epoch.get()),
                     )
             })
     })
@@ -396,6 +453,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         subtitle_format: None,
         media_identity: identity,
         translation: None,
+        review: None,
         position_seconds: request.position_seconds,
         options: request.options,
         scenes,
@@ -415,19 +473,25 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                 return Err("Project references differ from the selected media".into());
             }
             app.state::<crate::document::Documents>()
-                .with_project_subtitle(subtitle.as_deref(), |context, format, translation| {
-                    // Only Rust's accepted effective rules may be persisted.
-                    // Ignore optional frontend profile and stale timing fields.
-                    project.options.quality = Some(context.profile.clone());
-                    project.options.timing = context.timing.clone();
-                    project.subtitle_format = format.map(|format| format.extension().into());
-                    translation.protect(&destination)?;
-                    translation.verify_project_reference()?;
-                    project.translation = translation.project_description(base)?;
-                    project.version = project.version_for_save();
-                    app.state::<Projects>()
-                        .save(&destination, request.token, &project)
-                })
+                .with_project_subtitle(
+                    subtitle.as_deref(),
+                    |context, format, translation, review| {
+                        // Only Rust's accepted effective rules may be persisted.
+                        // Ignore optional frontend profile and stale timing fields.
+                        project.options.quality = Some(context.profile.clone());
+                        project.options.timing = context.timing.clone();
+                        project.subtitle_format = format.map(|format| format.extension().into());
+                        translation.protect(&destination)?;
+                        translation.verify_project_reference()?;
+                        project.translation = translation.project_description(base)?;
+                        review.reference.protect(&destination)?;
+                        review.reference.verify_project_reference()?;
+                        project.review = review.project_description(base)?;
+                        project.version = project.version_for_save();
+                        app.state::<Projects>()
+                            .save(&destination, request.token, &project)
+                    },
+                )
         })
 }
 fn destination(path: &Path) -> Result<PathBuf> {
@@ -455,6 +519,9 @@ fn serialize(path: &Path, project: &Project) -> Result<Vec<u8>> {
         if reference == path {
             return Err("Project destination must differ from media and subtitle files".into());
         }
+    }
+    if let Some(review) = &project.review {
+        review.protect(base, path)?;
     }
     if let Some(translation) = &project.translation {
         translation.protect(base, path)?;
@@ -484,6 +551,7 @@ mod tests {
             subtitle_format: None,
             media_identity: Some(identify(&media).unwrap()),
             translation: None,
+            review: None,
             position_seconds: 12.5,
             options: Options {
                 layout: None,
@@ -641,7 +709,7 @@ mod tests {
         let mut project = fixture(dir.path());
         let path = dir.path().join("test.vsfproject");
         let write = |p: &Project| fs::write(&path, serde_json::to_vec(p).unwrap()).unwrap();
-        project.version = 4;
+        project.version = 5;
         write(&project);
         assert!(read(&path).err().unwrap().contains("version"));
         project.version = 1;

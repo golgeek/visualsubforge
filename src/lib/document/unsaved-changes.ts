@@ -20,13 +20,15 @@ export class UnsavedChanges {
     if (
       !this.subtitles.snapshot.dirty &&
       !this.subtitles.dirty &&
-      !this.subtitles.snapshot.translation?.dirty
+      !this.subtitles.snapshot.translation?.dirty &&
+      !this.subtitles.snapshot.review?.dirty
     )
       return true;
     const choice = await this.decision.ask(this.show);
     if (!this.alive || choice === 'cancel') return false;
     if (choice === 'save')
-      return this.subtitles.snapshot.translation?.dirty
+      return this.subtitles.snapshot.translation?.dirty ||
+        this.subtitles.snapshot.review?.dirty
         ? saveContext()
         : this.save(false);
     return true;

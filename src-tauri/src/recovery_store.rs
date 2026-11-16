@@ -9,8 +9,8 @@ use std::{
 };
 
 type Result<T> = std::result::Result<T, String>;
-// Three independently bounded 16 MiB strings can each expand sixfold as JSON.
-const MAX_RECORD: u64 = 300 * 1024 * 1024;
+// Four independently bounded 16 MiB strings can each expand sixfold as JSON.
+const MAX_RECORD: u64 = 400 * 1024 * 1024;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -34,6 +34,8 @@ pub(crate) struct Record {
     format: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     translation: Option<crate::document::translation::Stored>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    review: Option<crate::document::review::Stored>,
 }
 impl Record {
     #[cfg(test)]
@@ -76,6 +78,7 @@ impl Record {
             resynced: false,
             translation: None,
             extracted_from: None,
+            review: None,
             captured_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
@@ -94,7 +97,7 @@ impl Record {
         translation: Option<crate::document::translation::Stored>,
     ) {
         if translation.is_some() {
-            self.version = 5;
+            self.version = self.version.max(5);
         }
         self.translation = translation;
     }
@@ -103,9 +106,16 @@ impl Record {
         provenance: Option<vsf_application::subtitle_extraction::Provenance>,
     ) {
         if provenance.is_some() {
-            self.version = 6;
+            self.version = self.version.max(6);
         }
         self.extracted_from = provenance;
+    }
+
+    pub(crate) fn set_review(&mut self, review: Option<crate::document::review::Stored>) {
+        if review.is_some() {
+            self.version = self.version.max(7);
+        }
+        self.review = review;
     }
     // Return the validated accepted document so recovery can adopt it directly.
     // Re-parsing after this boundary repeats the most expensive part of recovery.
@@ -114,11 +124,13 @@ impl Record {
     ) -> Result<(
         subtitle_formats::Parsed,
         crate::document::translation::Context,
+        crate::document::review::Context,
     )> {
-        if !matches!(self.version, 1..=6)
+        if !matches!(self.version, 1..=7)
             || (self.version < 3 && self.resynced)
             || (self.version < 4 && self.format.is_some())
             || (self.version < 5 && self.translation.is_some())
+            || (self.version < 7 && self.review.is_some())
             || (self.version >= 4
                 && self
                     .format
@@ -160,7 +172,15 @@ impl Record {
             .map(|t| t.restore())
             .transpose()?
             .unwrap_or_default();
-        Ok((parsed, translation))
+        Ok((
+            parsed,
+            translation,
+            self.review
+                .as_ref()
+                .map(|r| r.restore())
+                .transpose()?
+                .unwrap_or_default(),
+        ))
     }
 }
 
@@ -275,6 +295,7 @@ pub(crate) struct Recovered {
     pub record: Record,
     pub parsed: subtitle_formats::Parsed,
     pub translation: crate::document::translation::Context,
+    pub review: crate::document::review::Context,
 }
 
 fn read(path: &Path) -> Result<Recovered> {
@@ -296,11 +317,12 @@ fn read(path: &Path) -> Result<Recovered> {
     }
     let record: Record =
         serde_json::from_slice(&bytes).map_err(|e| format!("Cannot read recovery record: {e}"))?;
-    let (parsed, translation) = record.validate()?;
+    let (parsed, translation, review) = record.validate()?;
     Ok(Recovered {
         record,
         parsed,
         translation,
+        review,
     })
 }
 #[derive(Serialize, specta::Type)]
@@ -424,6 +446,27 @@ mod tests {
             9,
         )
         .unwrap()
+    }
+    #[test]
+    fn recovery_with_review_and_extraction_requires_version_seven() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut record = record(&dir.path().join("saved.srt"));
+        record.set_review(Some(serde_json::from_value(serde_json::json!({"reference":null,"options":vsf_application::comparison::Options::default()})).unwrap()));
+        record.set_extracted_from(Some(vsf_application::subtitle_extraction::Provenance {
+            media_path: dir.path().join("video.mkv"),
+            stream_index: 1,
+            codec: "subrip".into(),
+            language: None,
+            title: None,
+            suggested_name: "video.srt".into(),
+        }));
+        let bytes = serde_json::to_vec(&record).unwrap();
+        let mut restored: Record = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(restored.version, 7);
+        assert!(restored.review.is_some() && restored.extracted_from.is_some());
+        restored.validate().unwrap();
+        restored.version = 6;
+        assert!(restored.validate().is_err());
     }
     #[test]
     fn pathless_version_two_and_legacy_version_one_records_are_validated() {

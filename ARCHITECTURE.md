@@ -732,3 +732,19 @@ The CLI reads through the bounded subtitle reader and atomically publishes new
 HTML reports. Content snapshots, a callable group scorer and content-derived keys
 support future review anchors; report extensions accept trusted encoded sections.
 See [comparison policy and limits](docs/version-comparison.md).
+
+The loaded document now has a separate `review` context alongside translation.
+It reuses immutable Reference and path/provenance validation through a distinct
+translation-context value, with its own options and epoch. One comparison worker
+owns captures only; Store validates generation/revision/epoch before exposing
+results. Pages are bounded and frontend requests debounce and discard stale
+replies. Shutdown cancels and joins outside Store. Start Review preserves the
+translation slot and any existing comparison base while publishing a new copy.
+
+Project v4 captures the review struct and validates expected original identity
+before replacement, with explicit relocation/end handling. Publication captures
+both contexts under the existing document-to-project lock order; attachment checks
+both epochs. Recovery v7 captures both references and options, using a 400 MiB
+record bound. Context mutations do not enter subtitle Undo; Save As and conversion
+protect both reference slots. `ReviewSession` owns only paging, selection and
+request lifetime; mutations reconcile through DocumentSession's serialized path.

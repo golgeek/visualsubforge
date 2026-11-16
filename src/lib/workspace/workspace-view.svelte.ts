@@ -6,10 +6,12 @@ export class WorkspaceView {
   problemsOpen = $state(false);
   diagnostics = $state(false);
   reviewBusy = $state(false);
-  reviewTab = $state<'issues' | 'timing' | 'shift' | 'statistics'>('issues');
+  reviewTab = $state<'issues' | 'timing' | 'shift' | 'statistics' | 'changes'>(
+    'issues',
+  );
   timingKind = $state<'gap' | 'duration' | 'scene'>('gap');
   openReview(
-    tab: 'issues' | 'timing' | 'shift' | 'statistics',
+    tab: 'issues' | 'timing' | 'shift' | 'statistics' | 'changes',
     kind?: 'gap' | 'duration' | 'scene',
   ) {
     if (this.reviewBusy) return;

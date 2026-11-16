@@ -669,7 +669,7 @@ fn context_only_change_invalidates_prepared_recovery_and_failed_save_preserves_i
     assert!(
         docs.with_project_subtitle(
             snap.path.as_deref().map(Path::new),
-            |_, _, context| -> Result<()> {
+            |_, _, context, _| -> Result<()> {
                 assert!(context.project_description(root.path())?.is_some());
                 Err("injected project write failure".into())
             }

@@ -63,6 +63,7 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
         recovered: true,
         resynced: false,
         translation: translation::Context::default(),
+        review: review::Context::default(),
     });
     vec![
         ("documentActions", "DocumentAction[]", actions),

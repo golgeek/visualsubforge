@@ -9,7 +9,7 @@ use std::{
 };
 use vsf_application::translation as engine;
 
-mod context;
+pub(super) mod context;
 mod project;
 use context::ReferenceFile;
 pub(crate) use context::{Context, Stored};
@@ -533,6 +533,7 @@ impl Documents {
                 saved_bytes,
                 recovered: false,
                 resynced: false,
+                review: super::review::Context::default(),
                 translation: Context {
                     reference: Some(reference),
                     copied_from: Some(origin),

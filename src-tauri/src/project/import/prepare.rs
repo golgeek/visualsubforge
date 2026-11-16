@@ -66,6 +66,7 @@ pub(super) fn inspect(
             subtitle_format: inspection.subtitle_format.map(|f| f.extension().into()),
             media_identity: Some(identity),
             translation: None,
+            review: None,
             position_seconds: f64::from(inspection.project.view.focused_ms.unwrap_or(0)) / 1000.,
             options: Options {
                 layout: None,

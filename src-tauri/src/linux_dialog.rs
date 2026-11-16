@@ -212,12 +212,17 @@ async fn request_file(
         | FileChoice::Media
         | FileChoice::Font
         | FileChoice::Plugin
+        | FileChoice::ReviewOriginal
+        | FileChoice::ReviewRevised
         | FileChoice::Subtitles
         | FileChoice::Project
         | FileChoice::LegacyProject
         | FileChoice::QualityPreset
         | FileChoice::TimingPreset => {
-            let subtitles = matches!(kind, FileChoice::Subtitles);
+            let subtitles = matches!(
+                kind,
+                FileChoice::Subtitles | FileChoice::ReviewOriginal | FileChoice::ReviewRevised
+            );
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
                 .title(if plugin {

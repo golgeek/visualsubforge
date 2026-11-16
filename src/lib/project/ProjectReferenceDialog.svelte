@@ -25,7 +25,11 @@
   }}
 >
   <h2 id="project-reference-title">
-    {issue.canReload ? 'Reference file changed' : 'Reference file unavailable'}
+    {issue.reviewOriginal
+      ? 'Review original unavailable or changed'
+      : issue.canReload
+        ? 'Reference file changed'
+        : 'Reference file unavailable'}
   </h2>
   <p>{issue.path}</p>
   <p class="error">{issue.message}</p>
@@ -36,7 +40,9 @@
     >
     <button onclick={() => onchoose('choose')}>Choose Reference…</button>
     {#if issue.canReload}<button onclick={() => onchoose('reload')}
-        >Reload Changed Reference</button
+        >{issue.reviewOriginal
+          ? 'End Review'
+          : 'Reload Changed Reference'}</button
       >{/if}
   </div>
 </dialog>
