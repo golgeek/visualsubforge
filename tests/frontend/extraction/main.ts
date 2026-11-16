@@ -214,6 +214,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 let starts = 0,
   hold = false;
 const listing = {
+  fonts: [],
   font_count: 1,
   tracks: [
     {

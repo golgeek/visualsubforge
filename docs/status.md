@@ -84,4 +84,4 @@ retain version 1/2, and removing the layout returns to the compatible version.
 The custom-layout native GPU/input trials remain separate from playback-free
 webview and modeled occlusion checks.
 
-Embedded text track listing and CLI extraction: [contract](subtitle-extraction.md).
+Embedded text track extraction, desktop adoption/recovery and reviewed font embedding: [contract](subtitle-extraction.md).

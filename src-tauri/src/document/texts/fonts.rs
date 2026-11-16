@@ -7,6 +7,7 @@ use vsf_application::authoring::{attachments as fonts, fonts::MAX_FONT_BYTES};
 
 pub(super) enum PreparedFont {
     Inventory(fonts::AttachmentInventory),
+    VideoFonts(Vec<media_analysis::subtitle_tracks::FontAttachment>),
     Edit(Box<fonts::Proposal>),
 }
 impl Documents {
@@ -16,7 +17,10 @@ impl Documents {
         revision: u64,
         operation: FontOperation,
     ) -> Result<u64> {
-        if let FontOperation::Add { path } | FontOperation::Replace { path, .. } = &operation
+        if let FontOperation::Add { path }
+        | FontOperation::Replace { path, .. }
+        | FontOperation::VideoFonts { path }
+        | FontOperation::EmbedVideoFont { path, .. } = &operation
             && (path.is_empty() || path.len() > 32_768)
         {
             return Err("Choose a font file with a supported path length".into());
@@ -56,6 +60,18 @@ impl Documents {
                         .map(PreparedFont::Inventory)
                         .map(Prepared::Font);
                 }
+                let token = media_analysis::Cancellation::from_flag(cancel.clone());
+                if let FontOperation::VideoFonts { path } = &request {
+                    let listing = media_analysis::subtitle_tracks::list(
+                        &media_analysis::Tools::discover().map_err(|e| e.to_string())?,
+                        Path::new(path),
+                        &token,
+                        Duration::from_secs(10),
+                    )
+                    .map_err(|e| e.to_string())?;
+                    checkpoint()?;
+                    return Ok(Prepared::Font(PreparedFont::VideoFonts(listing.fonts)));
+                }
                 let data;
                 let edit = match &request {
                     FontOperation::Add { path } | FontOperation::Replace { path, .. } => {
@@ -69,6 +85,31 @@ impl Documents {
                             name: &data.0,
                             bytes: &data.1,
                         }
+                    }
+                    FontOperation::EmbedVideoFont { path, index } => {
+                        let bytes = media_analysis::subtitle_tracks::extract_font(
+                            &media_analysis::Tools::discover().map_err(|e| e.to_string())?,
+                            Path::new(path),
+                            *index,
+                            &token,
+                            Duration::from_secs(10),
+                        )
+                        .map_err(|e| e.to_string())?;
+                        checkpoint()?;
+                        let extension = if bytes.starts_with(b"OTTO") {
+                            "otf"
+                        } else {
+                            "ttf"
+                        };
+                        data = (format!("video-font-{index}.{extension}"), bytes);
+                        fonts::FontEdit::Put {
+                            replace: None,
+                            name: &data.0,
+                            bytes: &data.1,
+                        }
+                    }
+                    FontOperation::VideoFonts { .. } => {
+                        return Err("Font listing was already handled".into());
                     }
                     FontOperation::Remove { id } => fonts::FontEdit::Remove { id: *id },
                     FontOperation::Inspect => {
@@ -115,6 +156,10 @@ impl Documents {
             phase: phase(job, closed),
             operation,
             inventory,
+            video_fonts: match &job.proposal {
+                Some(Prepared::Font(PreparedFont::VideoFonts(fonts))) => Some(fonts.clone()),
+                _ => None,
+            },
             summary: proposal.map(|p| p.summary.clone()),
             changed: proposal.is_some_and(|p| p.changed),
             error: job.error.clone(),

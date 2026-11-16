@@ -333,7 +333,10 @@ export const commands = {
   ) =>
     __TAURI_INVOKE<number>('font_start', { generation, revision, operation }),
   fontView: (id: number) =>
-    __TAURI_INVOKE<visualsubforge_font_review_FontReview>('font_view', { id }),
+    __TAURI_INVOKE<visualsubforge_font_review_FontReview_Serialize>(
+      'font_view',
+      { id },
+    ),
   fontCancel: (id: number) => __TAURI_INVOKE<null>('font_cancel', { id }),
   fontAccept: (id: number) =>
     __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('font_accept', {
@@ -1585,6 +1588,12 @@ export type vsf_application_quality_check_Finding = {
   language: vsf_application_language_analysis_Detail | null;
 };
 
+export type media_analysis_subtitle_tracks_FontAttachment = {
+  index: number;
+  filename: string | null;
+  mimetype: string | null;
+};
+
 export type vsf_application_authoring_fonts_sfnt_FontInfo = {
   kind: vsf_application_authoring_fonts_sfnt_FontKind;
   tables: number;
@@ -1597,16 +1606,35 @@ export type vsf_application_authoring_fonts_sfnt_FontKind =
 
 export type visualsubforge_font_review_FontOperation =
   | { kind: 'inspect' }
+  | { kind: 'videoFonts'; path: string }
+  | { kind: 'embedVideoFont'; path: string; index: number }
   | { kind: 'add'; path: string }
   | { kind: 'replace'; id: number; path: string }
   | { kind: 'remove'; id: number };
 
-export type visualsubforge_font_review_FontReview = {
+export type visualsubforge_font_review_FontReview =
+  | visualsubforge_font_review_FontReview_Serialize
+  | visualsubforge_font_review_FontReview_Deserialize;
+
+export type visualsubforge_font_review_FontReview_Deserialize = {
   id: number;
   key: visualsubforge_quality_check_Key;
   phase: visualsubforge_text_review_Phase;
   operation: visualsubforge_font_review_FontOperation;
   inventory: vsf_application_authoring_attachments_AttachmentInventory | null;
+  videoFonts: media_analysis_subtitle_tracks_FontAttachment[] | null;
+  summary: vsf_application_authoring_attachments_AttachmentSummary | null;
+  changed: boolean;
+  error: string | null;
+};
+
+export type visualsubforge_font_review_FontReview_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  operation: visualsubforge_font_review_FontOperation;
+  inventory: vsf_application_authoring_attachments_AttachmentInventory | null;
+  videoFonts?: media_analysis_subtitle_tracks_FontAttachment[] | null;
   summary: vsf_application_authoring_attachments_AttachmentSummary | null;
   changed: boolean;
   error: string | null;
@@ -1845,6 +1873,7 @@ export type vsf_application_quality_profile_LineRule = {
 export type media_analysis_subtitle_tracks_Listing = {
   tracks: media_analysis_subtitle_tracks_Track[];
   font_count: number;
+  fonts: media_analysis_subtitle_tracks_FontAttachment[];
 };
 
 export type visualsubforge_text_review_Match = {

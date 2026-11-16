@@ -17,6 +17,8 @@ export class FontSession {
   inventory = $state.raw<FontInventory | null>(null);
   view = $state.raw<FontReview | null>(null);
   selected = $state<number | null>(null);
+  videoPath = $state('');
+  videoSelected = $state<number | null>(null);
   pending = $state(false);
   accepting = $state(false);
   applyingDraft = $state(false);
@@ -131,6 +133,37 @@ export class FontSession {
       if (this.active(epoch)) this.pending = this.picking = false;
     }
   }
+  async pickVideo() {
+    if (!this.canPut) return;
+    const epoch = ++this.epoch;
+    const document = this.subtitles.snapshot;
+    this.pending = this.picking = true;
+    this.error = '';
+    try {
+      const path = await this.api.chooseFile('media');
+      if (!this.active(epoch) || !path) return;
+      if (document !== this.subtitles.snapshot || this.subtitles.dirty)
+        throw new Error(
+          'Subtitles changed while choosing a video; inspect attachments again.',
+        );
+      this.pending = false;
+      this.videoPath = path;
+      this.videoSelected = null;
+      await this.launch({ kind: 'videoFonts', path });
+    } catch (error) {
+      if (this.active(epoch)) this.error = String(error);
+    } finally {
+      if (this.alive) this.pending = this.picking = false;
+    }
+  }
+  async embedVideoFont() {
+    if (!this.canPut || this.videoSelected === null) return;
+    await this.launch({
+      kind: 'embedVideoFont',
+      path: this.videoPath,
+      index: this.videoSelected,
+    });
+  }
   async remove() {
     if (this.canChange && this.editable && this.selected !== null)
       await this.launch({ kind: 'remove', id: this.selected });
@@ -177,6 +210,8 @@ export class FontSession {
       return;
     }
     this.view = view;
+    if (view.videoFonts && this.videoSelected === null)
+      this.videoSelected = view.videoFonts[0]?.index ?? null;
     if (view.error) this.error = view.error;
     if (view.phase === 'reviewing' && view.inventory) {
       this.inventory = view.inventory;

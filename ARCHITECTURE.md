@@ -714,3 +714,12 @@ extraction. An unavailable native player still permits headless document extract
 Recovery version 6 adds optional extraction provenance while reading versions 1–5;
 records without provenance retain their earlier version. Saving to a real path
 hides the extracted name. No document bytes cross the extraction IPC boundary.
+
+
+Font attachment listing and bounded byte extraction reuse `subtitle_tracks`.
+The existing document text/style/font worker runs these operations with its
+shared cancellation flag and ten-second review deadline. Immutable extracted
+bytes pass through the existing font validator and proposal before acceptance;
+the document owner commits one font per Undo step under the captured document
+key. Metadata filenames never become filesystem paths. Bounded stdout avoids
+an intermediate temporary file and its cleanup/filename ownership concerns.

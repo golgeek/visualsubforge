@@ -37,6 +37,14 @@ impl Track {
 pub struct Listing {
     pub tracks: Vec<Track>,
     pub font_count: u32,
+    pub fonts: Vec<FontAttachment>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct FontAttachment {
+    pub index: u32,
+    pub filename: Option<String>,
+    pub mimetype: Option<String>,
 }
 #[derive(Deserialize)]
 struct Probe {
@@ -58,6 +66,7 @@ struct Tags {
     language: Option<String>,
     title: Option<String>,
     mimetype: Option<String>,
+    filename: Option<String>,
 }
 #[derive(Default, Deserialize)]
 struct Disposition {
@@ -74,6 +83,7 @@ fn parse_listing(bytes: &[u8]) -> Result<Listing> {
     let mut listing = Listing {
         tracks: Vec::new(),
         font_count: 0,
+        fonts: Vec::new(),
     };
     for stream in probe.streams {
         if stream.codec_type.as_deref() == Some("attachment")
@@ -90,6 +100,11 @@ fn parse_listing(bytes: &[u8]) -> Result<Listing> {
             })
         {
             listing.font_count += 1;
+            listing.fonts.push(FontAttachment {
+                index: stream.index,
+                filename: stream.tags.filename.clone(),
+                mimetype: stream.tags.mimetype.clone(),
+            });
         }
         if stream.codec_type.as_deref() != Some("subtitle") {
             continue;
@@ -194,6 +209,46 @@ pub fn extract(
         track,
         font_count: listing.font_count,
     })
+}
+
+/// Dump attachment bytes into the owned bounded pipe, never a metadata filename.
+/// Attachments are header data; zero video frames avoid scanning the movie.
+pub fn extract_font(
+    tools: &Tools,
+    path: &Path,
+    index: u32,
+    cancel: &Cancellation,
+    timeout: Duration,
+) -> Result<Vec<u8>> {
+    let start = Instant::now();
+    let path = path.canonicalize()?;
+    if !list(tools, &path, cancel, timeout)?
+        .fonts
+        .iter()
+        .any(|font| font.index == index)
+    {
+        return Err(Error::Message(
+            "Selected stream is not a supported font attachment".into(),
+        ));
+    }
+    let mut command = Command::new(&tools.ffmpeg);
+    command
+        .args([
+            "-v",
+            "error",
+            "-nostdin",
+            &format!("-dump_attachment:{index}"),
+            "pipe:1",
+            "-i",
+        ])
+        .arg(path)
+        .args(["-map", "0:v:0?", "-frames:v", "0", "-f", "null", "-"]);
+    process::run(
+        command,
+        cancel,
+        timeout.checked_sub(start.elapsed()).ok_or(Error::Timeout)?,
+        |reader| process::limited(reader, 4 * 1024 * 1024),
+    )
 }
 
 #[cfg(test)]

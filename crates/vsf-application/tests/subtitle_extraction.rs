@@ -59,3 +59,22 @@ fn generated_tracks_preserve_project_timing_and_ass_order() {
             .unwrap();
     assert_eq!(many.parsed.document.cues().len(), 10_000);
 }
+
+#[test]
+#[ignore = "requires generated offset MKV and FFmpeg"]
+fn embedded_font_bytes_match_original_and_validate() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+    let tools = Tools::discover().unwrap();
+    let cancel = Cancellation::default();
+    let path = root.join("generated/subtitle-extraction/offset.mkv");
+    let bytes =
+        subtitle_tracks::extract_font(&tools, &path, 5, &cancel, Duration::from_secs(10)).unwrap();
+    assert_eq!(
+        bytes,
+        std::fs::read(root.join("subtitles/fixture-font.ttf")).unwrap()
+    );
+    assert!(vsf_application::authoring::fonts::inspect(&bytes, || Ok(())).is_ok());
+    assert!(
+        subtitle_tracks::extract_font(&tools, &path, 2, &cancel, Duration::from_secs(10)).is_err()
+    );
+}

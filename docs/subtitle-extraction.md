@@ -20,7 +20,7 @@ Text must be UTF-8 (optional BOM), and extracted output is capped at 16 MiB.
 The default deadline is thirty minutes. Cancellation terminates and reaps the
 owned child, and incomplete results never become documents or output files.
 
-An equal SRT/WebVTT endpoint is repaired to the next strictly later cue start,
+An equal SRT/ASS/WebVTT endpoint is repaired to the next strictly later cue start,
 capped at five seconds; the last such cue gets five seconds. Repairs are reported
 by one-based cue number. Only actual timing headers are repaired; timestamp-like
 cue text and metadata stay unchanged. Reversed ranges remain errors. Overlaps and source order
@@ -57,3 +57,31 @@ Unsaved extracted documents retain provenance in accepted-state recovery.
 Saving hides provenance in the working title; it does not write anything into the
 video. Embedded default subtitles are disabled before media load so only accepted
 editor subtitles appear in the preview.
+
+## Fonts from video
+
+In an ASS/SSA document, **Manage fonts… → Embed Fonts from Video…** lists
+font attachments from a selected video. Choose one font, preview its validated
+metadata, then accept it as one Undo step. Repeat for additional fonts. The
+existing 4 MiB single-font, 8 MiB aggregate and 32-font limits apply. Unsupported
+or malformed fonts are rejected by the same TTF/OTF checks as file imports.
+Attachment filenames are display labels only: bytes are read through a bounded
+pipe and assigned a generated `video-font-<stream>.ttf`/`.otf` name. Preview fonts
+loaded by the media player do not automatically become document attachments.
+
+Additional generated edge, CLI, lifecycle and performance checks:
+
+```sh
+python3 scripts/subtitle-edge-fixtures.py
+cargo test --locked -p media-analysis --test subtitle_extraction_lifecycle
+cargo test --locked -p vsf-cli --test extraction -- --ignored
+cargo test --release --locked -p vsf-application --test subtitle_extraction_edges -- --ignored --nocapture
+cargo test --locked -p visualsubforge video_font_uses_validated_review_and_exact_undo -- --ignored
+npm run test:browser -- --grep 'extraction|font-authoring'
+npm run build:desktop-test
+npm run test:desktop -- --extraction-performance
+```
+
+The generated corpus uses original test patterns and an original fixture font.
+Zlib-compressed Matroska subtitle verification additionally requires a generator
+such as mkvmerge; it is not implied by the ordinary uncompressed corpus.

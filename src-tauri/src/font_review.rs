@@ -13,6 +13,8 @@ use vsf_application::authoring::attachments::{AttachmentInventory, AttachmentSum
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum FontOperation {
     Inspect,
+    VideoFonts { path: String },
+    EmbedVideoFont { path: String, index: u32 },
     Add { path: String },
     Replace { id: u32, path: String },
     Remove { id: u32 },
@@ -25,6 +27,8 @@ pub(crate) struct FontReview {
     pub phase: Phase,
     pub operation: FontOperation,
     pub inventory: Option<AttachmentInventory>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_fonts: Option<Vec<media_analysis::subtitle_tracks::FontAttachment>>,
     pub summary: Option<AttachmentSummary>,
     pub changed: bool,
     pub error: Option<String>,
