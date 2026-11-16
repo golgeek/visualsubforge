@@ -4,6 +4,7 @@
 pub mod atomic_file;
 pub mod authoring;
 pub mod batch_timing;
+pub mod comparison;
 pub mod conversion;
 pub mod document_save;
 pub mod file_lease;

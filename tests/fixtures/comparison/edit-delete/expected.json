@@ -1,0 +1,134 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 2,
+    "changes": 2,
+    "added_cues": 0,
+    "text_cues": 2,
+    "timing_cues": 1,
+    "style_cues": 0,
+    "changed_cues": 2,
+    "text_percent": 100.0,
+    "timing_percent": 50.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "6c91df733c2dfe72fbb2ef0dc5f55c7a5f1d2e626e08bb2288b9aa555a7b5be0",
+      "kind": "text",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 3000,
+          "text": "We need to leave before the storm arrives.",
+          "reading": "We need to leave before the storm arrives.",
+          "style": null,
+          "actor": null,
+          "characters": 42,
+          "cps": {
+            "status": "finite",
+            "value": 21.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 28.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 3000,
+          "text": "We must leave before the storm arrives.",
+          "reading": "We must leave before the storm arrives.",
+          "style": null,
+          "actor": null,
+          "characters": 39,
+          "cps": {
+            "status": "finite",
+            "value": 19.5
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 26.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "We "
+        },
+        {
+          "kind": "removed",
+          "text": "need"
+        },
+        {
+          "kind": "added",
+          "text": "must"
+        },
+        {
+          "kind": "equal",
+          "text": " "
+        },
+        {
+          "kind": "removed",
+          "text": "to "
+        },
+        {
+          "kind": "equal",
+          "text": "leave before the storm arrives."
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "a8b2c6fb962bda9cc5b6baa1932eab326018c51bdd6aaaa17437b8d5507f2c61",
+      "kind": "removed",
+      "original": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 3100,
+          "end_ms": 3400,
+          "text": "Yes.",
+          "reading": "Yes.",
+          "style": null,
+          "actor": null,
+          "characters": 4,
+          "cps": {
+            "status": "finite",
+            "value": 13.333333333333334
+          },
+          "reading_speed": {
+            "status": "unavailable",
+            "reason": "reading_allowance"
+          }
+        }
+      ],
+      "revised": [],
+      "words": [
+        {
+          "kind": "removed",
+          "text": "Yes."
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

@@ -1,0 +1,474 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 8,
+    "changes": 4,
+    "added_cues": 0,
+    "text_cues": 0,
+    "timing_cues": 4,
+    "style_cues": 0,
+    "changed_cues": 4,
+    "text_percent": 0.0,
+    "timing_percent": 50.0,
+    "total_percent": 50.0
+  },
+  "changes": [
+    {
+      "key": "4c3dc9709aa39485982ba9594d91406f17f0e51436ec69a6ac5fc35acc16c354",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 0,
+          "end_ms": 1500,
+          "text": "Line 0",
+          "reading": "Line 0",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 0,
+          "end_ms": 1500,
+          "text": "Line 0",
+          "reading": "Line 0",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 0"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "bb754c0f4cb9b56f20dd329963d7e3815f2df502c4d584afd8cac4bca41f3689",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 2000,
+          "end_ms": 3500,
+          "text": "Line 1",
+          "reading": "Line 1",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 2000,
+          "end_ms": 3500,
+          "text": "Line 1",
+          "reading": "Line 1",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 1"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "a596441a3cf26c7b5f7ca7c7195e59a63c5ae7a153a2fc83fe492d2c7ae5b8bb",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 2,
+          "cue_id": 3,
+          "start_ms": 4000,
+          "end_ms": 5500,
+          "text": "Line 2",
+          "reading": "Line 2",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 2,
+          "cue_id": 3,
+          "start_ms": 4000,
+          "end_ms": 5500,
+          "text": "Line 2",
+          "reading": "Line 2",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 2"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "3345495e1f4f1f2c2b6389e507339c54452956f886349c61d84718de6da0d41f",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 3,
+          "cue_id": 4,
+          "start_ms": 6000,
+          "end_ms": 7500,
+          "text": "Line 3",
+          "reading": "Line 3",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 3,
+          "cue_id": 4,
+          "start_ms": 6000,
+          "end_ms": 7500,
+          "text": "Line 3",
+          "reading": "Line 3",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 3"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "065d62ae6ff8e9deb12b5cf3ecb0f857b03bab1c220602816d883d6a094610c3",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 4,
+          "cue_id": 5,
+          "start_ms": 8000,
+          "end_ms": 9500,
+          "text": "Line 4",
+          "reading": "Line 4",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 4,
+          "cue_id": 5,
+          "start_ms": 38000,
+          "end_ms": 39500,
+          "text": "Line 4",
+          "reading": "Line 4",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 4"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "04bd1f775a8f16a529c011fee7570feb3146ee8a9ffd9c357f61111ffcaff99c",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 5,
+          "cue_id": 6,
+          "start_ms": 10000,
+          "end_ms": 11500,
+          "text": "Line 5",
+          "reading": "Line 5",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 5,
+          "cue_id": 6,
+          "start_ms": 40000,
+          "end_ms": 41500,
+          "text": "Line 5",
+          "reading": "Line 5",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 5"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "b5caf3e2e829833f5839523230ffe7e2c8e964c8aabebd6f8ab4b322e6014381",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 6,
+          "cue_id": 7,
+          "start_ms": 12000,
+          "end_ms": 13500,
+          "text": "Line 6",
+          "reading": "Line 6",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 6,
+          "cue_id": 7,
+          "start_ms": 42000,
+          "end_ms": 43500,
+          "text": "Line 6",
+          "reading": "Line 6",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 6"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "e77bef91039abff401cbfd6437015747ee2678b936f41fb162afbd897de12f41",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 7,
+          "cue_id": 8,
+          "start_ms": 14000,
+          "end_ms": 15500,
+          "text": "Line 7",
+          "reading": "Line 7",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 7,
+          "cue_id": 8,
+          "start_ms": 44000,
+          "end_ms": 45500,
+          "text": "Line 7",
+          "reading": "Line 7",
+          "style": null,
+          "actor": null,
+          "characters": 6,
+          "cps": {
+            "status": "finite",
+            "value": 4.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Line 7"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": [
+    {
+      "first": 4,
+      "end": 8,
+      "delta_ms": 30000,
+      "start_ms": 8000,
+      "end_ms": 45500,
+      "revised_start_ms": 38000,
+      "revised_end_ms": 45500
+    }
+  ]
+}

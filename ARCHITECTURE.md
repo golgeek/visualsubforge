@@ -723,3 +723,12 @@ bytes pass through the existing font validator and proposal before acceptance;
 the document owner commits one font per Undo step under the captured document
 key. Metadata filenames never become filesystem paths. Bounded stdout avoids
 an intermediate temporary file and its cleanup/filename ownership concerns.
+
+## Version comparison engine
+
+`vsf-application::comparison` takes immutable cue captures, formats, options and
+cooperative checkpoints. It owns no filesystem, media, UI or accepted editor.
+The CLI reads through the bounded subtitle reader and atomically publishes new
+HTML reports. Content snapshots, a callable group scorer and content-derived keys
+support future review anchors; report extensions accept trusted encoded sections.
+See [comparison policy and limits](docs/version-comparison.md).

@@ -11,3 +11,6 @@ Cargo.lock
 *.md
 docs/
 tests/fixtures/generated/
+
+# Exact report-writer snapshot.
+tests/fixtures/comparison/*/expected.html

@@ -1,0 +1,141 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 1,
+    "changes": 1,
+    "added_cues": 0,
+    "text_cues": 1,
+    "timing_cues": 1,
+    "style_cues": 0,
+    "changed_cues": 1,
+    "text_percent": 100.0,
+    "timing_percent": 100.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "195205aa7e4398ac228b55a59046b4b6d87f67e2942962be6079b2f4ee6fdc94",
+      "kind": "split",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 2000,
+          "text": "one",
+          "reading": "one",
+          "style": null,
+          "actor": null,
+          "characters": 3,
+          "cps": {
+            "status": "finite",
+            "value": 3.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        },
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 2000,
+          "end_ms": 3000,
+          "text": "two",
+          "reading": "two",
+          "style": null,
+          "actor": null,
+          "characters": 3,
+          "cps": {
+            "status": "finite",
+            "value": 3.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 6.0
+          }
+        },
+        {
+          "source_index": 2,
+          "cue_id": 3,
+          "start_ms": 3000,
+          "end_ms": 4000,
+          "text": "three",
+          "reading": "three",
+          "style": null,
+          "actor": null,
+          "characters": 5,
+          "cps": {
+            "status": "finite",
+            "value": 5.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 10.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "one"
+        },
+        {
+          "kind": "removed",
+          "text": " "
+        },
+        {
+          "kind": "added",
+          "text": "\n"
+        },
+        {
+          "kind": "equal",
+          "text": "two"
+        },
+        {
+          "kind": "removed",
+          "text": " "
+        },
+        {
+          "kind": "added",
+          "text": "\n"
+        },
+        {
+          "kind": "equal",
+          "text": "three"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

@@ -15,6 +15,8 @@ The editor provides:
 - ASS/SSA style and font authoring, reviewed separate-file SRT/ASS/SSA conversion,
   and experimental visual resynchronization through the desktop or CLI.
 - [Embedded subtitle extraction](docs/subtitle-extraction.md) with a desktop track chooser, recovery, CLI and reviewed font embedding.
+
+- Headless [version comparison](docs/version-comparison.md) with escaped HTML reports.
 - Projects, portable settings/profiles, reviewed VisualSubSync project import,
   manual translation references and a bounded JavaScript checker/fix plugin subset.
 

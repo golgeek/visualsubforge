@@ -85,3 +85,6 @@ The custom-layout native GPU/input trials remain separate from playback-free
 webview and modeled occlusion checks.
 
 Embedded text track extraction, desktop adoption/recovery and reviewed font embedding: [contract](subtitle-extraction.md).
+
+The [version comparison engine and CLI](version-comparison.md) provide immutable
+comparison and HTML reports. Desktop review integration remains pending.

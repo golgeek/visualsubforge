@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 1,
+    "changes": 1,
+    "added_cues": 0,
+    "text_cues": 1,
+    "timing_cues": 0,
+    "style_cues": 0,
+    "changed_cues": 1,
+    "text_percent": 100.0,
+    "timing_percent": 0.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "4b714090c230b9aa864b9245ff9743d7ff8618af189193b3ad4c5b4d651e6e12",
+      "kind": "text",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one\ntwo three",
+          "reading": "one\ntwo three",
+          "style": null,
+          "actor": null,
+          "characters": 14,
+          "cps": {
+            "status": "finite",
+            "value": 4.666666666666667
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.6
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "one"
+        },
+        {
+          "kind": "removed",
+          "text": " "
+        },
+        {
+          "kind": "added",
+          "text": "\n"
+        },
+        {
+          "kind": "equal",
+          "text": "two three"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": false,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

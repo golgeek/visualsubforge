@@ -1,0 +1,318 @@
+[
+  {
+    "name": "identical",
+    "extension": "srt",
+    "kinds": ["unchanged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "text",
+    "extension": "srt",
+    "kinds": ["text"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "under-tolerance",
+    "extension": "srt",
+    "kinds": ["unchanged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "over-tolerance",
+    "extension": "srt",
+    "kinds": ["timing"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "text-timing",
+    "extension": "srt",
+    "kinds": ["text_and_timing"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "insert",
+    "extension": "srt",
+    "kinds": ["unchanged", "added"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "delete",
+    "extension": "srt",
+    "kinds": ["unchanged", "removed"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "split-2",
+    "extension": "srt",
+    "kinds": ["split"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "merge-2",
+    "extension": "srt",
+    "kinds": ["merged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "split-3",
+    "extension": "srt",
+    "kinds": ["split"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "merge-3",
+    "extension": "srt",
+    "kinds": ["merged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "reordered-overlap",
+    "extension": "srt",
+    "kinds": ["unchanged", "unchanged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "reflow",
+    "extension": "srt",
+    "kinds": ["text"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "ignore-reflow",
+    "extension": "srt",
+    "kinds": ["unchanged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": true,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "tags",
+    "extension": "srt",
+    "kinds": ["text"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "ignore-tags",
+    "extension": "srt",
+    "kinds": ["unchanged"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": true,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "different",
+    "extension": "srt",
+    "kinds": ["removed", "added"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "empty",
+    "extension": "srt",
+    "kinds": ["added"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "hostile",
+    "extension": "srt",
+    "kinds": ["added"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "style",
+    "extension": "ass",
+    "kinds": ["style"],
+    "options": {
+      "tolerance_ms": 10,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "actor",
+    "extension": "ass",
+    "kinds": ["style"],
+    "options": {
+      "tolerance_ms": 10,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "shift-insert",
+    "extension": "srt",
+    "kinds": ["timing", "added", "timing"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "edit-delete",
+    "extension": "srt",
+    "kinds": ["text", "removed"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "edit-insert",
+    "extension": "srt",
+    "kinds": ["text", "added"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "block",
+    "extension": "srt",
+    "kinds": ["timing", "timing", "timing", "timing", "timing"],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "ad-break",
+    "extension": "srt",
+    "kinds": [
+      "unchanged",
+      "unchanged",
+      "unchanged",
+      "unchanged",
+      "timing",
+      "timing",
+      "timing",
+      "timing"
+    ],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  },
+  {
+    "name": "chorus",
+    "extension": "srt",
+    "kinds": [
+      "timing",
+      "timing",
+      "removed",
+      "timing",
+      "timing",
+      "timing",
+      "timing",
+      "timing",
+      "timing"
+    ],
+    "options": {
+      "tolerance_ms": 1,
+      "ignore_tags": false,
+      "ignore_line_breaks": false,
+      "ignore_whitespace": true
+    }
+  }
+]

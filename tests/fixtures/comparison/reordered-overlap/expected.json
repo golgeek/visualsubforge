@@ -1,0 +1,134 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 2,
+    "changes": 0,
+    "added_cues": 0,
+    "text_cues": 0,
+    "timing_cues": 0,
+    "style_cues": 0,
+    "changed_cues": 0,
+    "text_percent": 0.0,
+    "timing_percent": 0.0,
+    "total_percent": 0.0
+  },
+  "changes": [
+    {
+      "key": "14d5e126033f935a58e48727d99cc03e314d6137aae097f26daa772f8cb5c7a0",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "A",
+          "reading": "A",
+          "style": null,
+          "actor": null,
+          "characters": 1,
+          "cps": {
+            "status": "finite",
+            "value": 0.3333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 0.4
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "A",
+          "reading": "A",
+          "style": null,
+          "actor": null,
+          "characters": 1,
+          "cps": {
+            "status": "finite",
+            "value": 0.3333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 0.4
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "A"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "359e7e1d9c3bb94ae79634033a4b13709d2a2502a714675c6a3888cd1b9bf5f2",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 1500,
+          "end_ms": 3500,
+          "text": "B",
+          "reading": "B",
+          "style": null,
+          "actor": null,
+          "characters": 1,
+          "cps": {
+            "status": "finite",
+            "value": 0.5
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 0.6666666666666666
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1500,
+          "end_ms": 3500,
+          "text": "B",
+          "reading": "B",
+          "style": null,
+          "actor": null,
+          "characters": 1,
+          "cps": {
+            "status": "finite",
+            "value": 0.5
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 0.6666666666666666
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "B"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

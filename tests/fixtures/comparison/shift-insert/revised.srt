@@ -1,0 +1,11 @@
+1
+00:00:01,300 --> 00:00:03,300
+We need to leave before the storm arrives.
+
+2
+00:00:03,400 --> 00:00:03,900
+(Door slams)
+
+3
+00:00:04,300 --> 00:00:05,300
+Get the horses ready.
