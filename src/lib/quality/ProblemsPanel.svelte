@@ -297,7 +297,7 @@
     color: var(--text);
   }
   header span {
-    flex: 1 0 auto;
+    flex: 1 1 auto;
   }
   .policy {
     margin: 6px 0;

@@ -515,8 +515,11 @@ async function run() {
     passed('Checking can be paused and restarted without disabling the editor');
     await unmount(app);
     const emptyQuality = new QualitySession();
+    const narrowContainer = window.document.createElement('div');
+    narrowContainer.style.width = '180px';
+    host.append(narrowContainer);
     const emptyPanel = mount(ProblemsPanel, {
-      target: host,
+      target: narrowContainer,
       props: {
         session: emptyQuality,
         documentLoaded: false,
@@ -538,7 +541,23 @@ async function run() {
       button('Check again').disabled && button('Pause checking').disabled,
       'Checking controls are disabled without subtitles',
     );
+    const panel = narrowContainer.querySelector<HTMLElement>('.problems')!;
+    const status = panel.querySelector<HTMLElement>('[role="status"]')!;
+    const range = window.document.createRange();
+    range.selectNodeContents(status);
+    const lines = [...range.getClientRects()];
+    assert(lines.length > 1, 'Narrow Issues status wraps onto multiple lines');
+    assert(
+      status.getBoundingClientRect().right <=
+        panel.getBoundingClientRect().right &&
+        lines.every(
+          (line) => line.right <= panel.getBoundingClientRect().right,
+        ),
+      'Wrapped Issues status stays within the panel',
+    );
+    passed('Narrow Issues status wraps without overflowing the panel');
     await unmount(emptyPanel);
+    narrowContainer.remove();
     emptyQuality.dispose();
     passed('Issues without subtitles shows a plain empty state');
     await lifecycle(structuredClone(qualityView), passed);
