@@ -84,7 +84,10 @@ export async function durationQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('duration workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -145,9 +148,7 @@ export async function durationQuality({
   await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Preserve duration draft');
   await browser.execute(() => {
-    [...document.querySelectorAll('button:not(dialog:not([open]) button)')]
-      .find((button) => button.textContent.trim() === 'Commands')
-      .focus();
+    document.querySelector('canvas[aria-label^="Audio waveform"]').focus();
   });
   await chooseCommand(browser, 'fixReadingSpeed');
   await until('duration draft guard', () =>
@@ -156,8 +157,10 @@ export async function durationQuality({
   await closeReview(browser, until);
   await ready();
   assert.equal(
-    await browser.execute(() => document.activeElement?.textContent?.trim()),
-    'Commands',
+    await browser.execute(() =>
+      document.activeElement?.matches('canvas[aria-label^="Audio waveform"]'),
+    ),
+    true,
     'Closing native timing review restores its enabled launcher focus',
   );
   assert.equal(await text.getValue(), 'Preserve duration draft');
@@ -178,7 +181,7 @@ export async function durationQuality({
     (await status()).cues.map((c) => c.endMs),
     [3130, 13000, 14400],
   );
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
@@ -224,10 +227,10 @@ export async function durationQuality({
     }),
   );
   assert.deepEqual(await status(), accepted);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await ready();
   assert.deepEqual((await status()).cues, accepted.cues);
   await menu('saveAs');
@@ -424,7 +427,7 @@ async function durationPerformance({
         (c, i) => c.endMs === c.startMs + (i % 2 ? 1116 : 880),
       ),
     );
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.deepEqual((await status()).cues, baseline.cues);
     const captured = await proposal();
@@ -445,7 +448,7 @@ async function durationPerformance({
     result.invalidationMs = Date.now() - invalidationStart;
     assert.ok(result.invalidationMs < 1000);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.equal((await status()).revision, before.revision + 2);
     assert.deepEqual((await status()).cues, baseline.cues);

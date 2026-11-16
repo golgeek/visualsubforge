@@ -106,11 +106,6 @@
       "key": ""
     },
     {
-      "action": "translationReference",
-      "mode": "global",
-      "key": ""
-    },
-    {
       "action": "showScenes",
       "mode": "global",
       "key": ""
@@ -216,16 +211,6 @@
       "key": ""
     },
     {
-      "action": "statistics",
-      "mode": "global",
-      "key": ""
-    },
-    {
-      "action": "problems",
-      "mode": "global",
-      "key": ""
-    },
-    {
       "action": "focusText",
       "mode": "workspace",
       "key": "Enter"
@@ -303,17 +288,17 @@
     {
       "action": "zoomIn",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+="
     },
     {
       "action": "zoomOut",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+-"
     },
     {
       "action": "fitWaveform",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+0"
     },
     {
       "action": "layoutTiming",
@@ -369,6 +354,26 @@
       "action": "play",
       "mode": "workspace",
       "key": "Space"
+    },
+    {
+      "action": "problems",
+      "mode": "global",
+      "key": "CmdOrCtrl+1"
+    },
+    {
+      "action": "statistics",
+      "mode": "global",
+      "key": "CmdOrCtrl+2"
+    },
+    {
+      "action": "translationReference",
+      "mode": "global",
+      "key": "CmdOrCtrl+3"
+    },
+    {
+      "action": "zoomIn",
+      "mode": "alternate",
+      "key": "CmdOrCtrl+Shift+="
     }
   ],
   "vsfDefault": [
@@ -478,11 +483,6 @@
       "key": ""
     },
     {
-      "action": "translationReference",
-      "mode": "global",
-      "key": ""
-    },
-    {
       "action": "showScenes",
       "mode": "global",
       "key": ""
@@ -588,16 +588,6 @@
       "key": ""
     },
     {
-      "action": "statistics",
-      "mode": "global",
-      "key": ""
-    },
-    {
-      "action": "problems",
-      "mode": "global",
-      "key": ""
-    },
-    {
       "action": "focusText",
       "mode": "workspace",
       "key": "Enter"
@@ -675,17 +665,17 @@
     {
       "action": "zoomIn",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+="
     },
     {
       "action": "zoomOut",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+-"
     },
     {
       "action": "fitWaveform",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+0"
     },
     {
       "action": "layoutTiming",
@@ -831,6 +821,26 @@
       "action": "replay",
       "mode": "workspace",
       "key": "Shift+Space"
+    },
+    {
+      "action": "problems",
+      "mode": "global",
+      "key": "CmdOrCtrl+1"
+    },
+    {
+      "action": "statistics",
+      "mode": "global",
+      "key": "CmdOrCtrl+2"
+    },
+    {
+      "action": "translationReference",
+      "mode": "global",
+      "key": "CmdOrCtrl+3"
+    },
+    {
+      "action": "zoomIn",
+      "mode": "alternate",
+      "key": "CmdOrCtrl+Shift+="
     }
   ],
   "visualSubSyncClassic": [
@@ -940,11 +950,6 @@
       "key": ""
     },
     {
-      "action": "translationReference",
-      "mode": "global",
-      "key": ""
-    },
-    {
       "action": "showScenes",
       "mode": "global",
       "key": ""
@@ -1050,16 +1055,6 @@
       "key": "CmdOrCtrl+D"
     },
     {
-      "action": "statistics",
-      "mode": "global",
-      "key": ""
-    },
-    {
-      "action": "problems",
-      "mode": "global",
-      "key": ""
-    },
-    {
       "action": "focusText",
       "mode": "workspace",
       "key": "Enter"
@@ -1137,17 +1132,17 @@
     {
       "action": "zoomIn",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+="
     },
     {
       "action": "zoomOut",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+-"
     },
     {
       "action": "fitWaveform",
       "mode": "global",
-      "key": ""
+      "key": "CmdOrCtrl+0"
     },
     {
       "action": "layoutTiming",
@@ -1203,6 +1198,26 @@
       "action": "play",
       "mode": "workspace",
       "key": "Space"
+    },
+    {
+      "action": "problems",
+      "mode": "global",
+      "key": "CmdOrCtrl+1"
+    },
+    {
+      "action": "statistics",
+      "mode": "global",
+      "key": "CmdOrCtrl+2"
+    },
+    {
+      "action": "translationReference",
+      "mode": "global",
+      "key": "CmdOrCtrl+3"
+    },
+    {
+      "action": "zoomIn",
+      "mode": "alternate",
+      "key": "CmdOrCtrl+Shift+="
     }
   ]
 }

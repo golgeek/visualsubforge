@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import type { WindowChrome } from './window-chrome.svelte';
   import type { ActionGroup } from './action-registry';
   const groups: ActionGroup[] = [
@@ -7,7 +8,6 @@
     'Cue',
     'View',
     'Playback',
-    'Tools',
     'Review',
     'Help',
   ];
@@ -26,11 +26,10 @@
     diagnostics,
     showScenes = $bindable(),
     sceneState,
-    oncommands,
-    onshortcuts,
-    onlayout,
     onrecovery,
     recoveryAvailable = false,
+    issueCount = null,
+    onissues,
   }: {
     workspace: Workspace;
     chrome?: WindowChrome;
@@ -41,11 +40,10 @@
     nativeMenus: boolean;
     diagnostics: boolean;
     showScenes: boolean;
-    oncommands: () => void;
-    onshortcuts: () => void;
-    onlayout: () => void;
     onrecovery?: () => void;
     recoveryAvailable?: boolean;
+    issueCount?: number | null;
+    onissues?: () => void;
     sceneState: { pending: boolean; running: boolean };
   } = $props();
   const doc = $derived(subtitles.snapshot);
@@ -73,13 +71,9 @@
       disabled={!workspace.canAct}
       onclick={onrecovery}>Recovery</button
     >{/if}
-  <button disabled={!workspace.canAct} onclick={onlayout}>Layout</button>
-  <button disabled={!workspace.canAct} onclick={oncommands}>Commands</button>
-  <button
-    disabled={!workspace.canAct}
-    onclick={onshortcuts}
-    aria-label="Keyboard shortcuts">?</button
-  >
+  {#if doc.loaded}<button disabled={!workspace.canAct} onclick={onissues}
+      >{countLabel(issueCount ?? '—', 'issue')}</button
+    >{/if}
   {#if !nativeMenus}
     <button
       disabled={workspace.busy || !workspace.ready}

@@ -32,8 +32,7 @@ SRT/WebVTT, 10 ms for ASS/SSA). Nudges are disabled when cadence is unavailable.
 This is not a variable-frame-rate boundary guarantee; review timing against video.
 
 The selected cue's issue strip stays the same height for one or many issues.
-Errors come first, CPS/reading-speed findings share a chip, and +N opens the full
-paged list after native video is hidden. Meters and per-source-line character
+Errors come first, CPS/reading-speed findings share a chip, and +N opens the Issues dock in the current layout. Meters and per-source-line character
 counts come from Rust; wrapped display lines do not change source-line counts.
 Enable Cue metrics to show the meters and source-line counts. Draft and accepted
 metrics are labelled separately.
@@ -52,3 +51,10 @@ Preparation shares the existing timing-review worker, has no pending queue and a
 ten-second deadline. Changing document/profile/media/scenes/selection or entering
 another modal retires the plan. Native video, variable-rate timing and physical
 platform input require separate desktop validation; browser fixtures model IPC.
+
+Waveform cue edges within six pixels can start a timing drag even when the cue
+is not selected, after more than three pixels of pointer movement. A plain click
+keeps cue selection and seek behavior. Pending fields commit before selecting that cue; the captured
+pointer is checked again before starting. Edges use the existing snap, preview,
+Escape-cancel and single-Undo timing operation. A drag outside the edge tolerance
+continues to select a range.

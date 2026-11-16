@@ -69,6 +69,51 @@ export async function layoutCases(passed: (message: string) => void) {
   } finally {
     owner.dispose();
   }
+  const heights = new WorkspaceLayout(
+    new WorkspacePreferences(),
+    { cue: undefined },
+    {
+      occlude: async () => {},
+      remainingOcclusion: () => false,
+      afterRender: async () => {},
+      preset: () => {},
+      error: (error) => {
+        throw error;
+      },
+    },
+    async () => {},
+  );
+  try {
+    heights.resizePreview(30);
+    await until(() => !heights.active);
+    await heights.select('review');
+    assert(
+      heights.topPct === 30,
+      'An untouched preset inherits the current preview height',
+    );
+    heights.resizePreview(40);
+    await until(() => !heights.active);
+    await heights.select('timing');
+    assert(
+      heights.topPct === 30,
+      'An explicitly resized preset restores its own height',
+    );
+    await heights.select('translation');
+    assert(
+      heights.topPct === 30,
+      'Panel presets inherit the current preview height',
+    );
+    await heights.select('review');
+    assert(
+      heights.topPct === 40,
+      'A second explicitly resized preset retains its height',
+    );
+    passed(
+      'Preset changes inherit preview height and preserve explicit per-preset resizing',
+    );
+  } finally {
+    heights.dispose();
+  }
   for (const remaining of [false, true]) {
     const calls: boolean[] = [];
     const recoveryErrors: unknown[] = [];

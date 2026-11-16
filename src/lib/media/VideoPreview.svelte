@@ -51,7 +51,7 @@
   </div>
   {#if timeline}<div class="scrubber">
       <button
-        aria-label="Previous shot change"
+        aria-label="Seek to previous scene change"
         disabled={disabled || !previousCut}
         onclick={() => oncut(true)}>◂</button
       >
@@ -71,7 +71,7 @@
         }}
       />
       <button
-        aria-label="Next shot change"
+        aria-label="Seek to next scene change"
         disabled={disabled || !nextCut}
         onclick={() => oncut(false)}>▸</button
       >

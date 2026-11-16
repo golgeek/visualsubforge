@@ -28,8 +28,15 @@ export async function batchPerformance({
     );
     await b.frame();
     times.selectAllMs = performance.now() - started;
-    b.button('Commands').focus();
-    b.button('Commands').click();
+    document.querySelector('canvas[aria-label^="Audio waveform"]').focus();
+    document.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'k',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
     await b.wait(() =>
       document.querySelector('[data-action="shiftCues"]:not(:disabled)'),
     );
@@ -86,19 +93,19 @@ export async function batchPerformance({
     )
       throw new Error('Acceptance lost selection');
     started = performance.now();
-    b.button('Undo edit').click();
+    b.button('Undo').click();
     await b.wait(
       async () =>
         (await b.state()).revision === before.revision + 2 && b.ready(),
     );
     await b.frame();
     times.undoMs = performance.now() - started;
-    b.button('Redo edit').click();
+    b.button('Redo').click();
     await b.wait(
       async () =>
         (await b.state()).revision === before.revision + 3 && b.ready(),
     );
-    b.button('Undo edit').click();
+    b.button('Undo').click();
     await b.wait(
       async () =>
         (await b.state()).revision === before.revision + 4 && b.ready(),
@@ -161,7 +168,7 @@ export async function batchPerformance({
       rejected = true;
     }
     if (!rejected) throw new Error('Stale batch accepted');
-    b.button('Undo edit').click();
+    b.button('Undo').click();
     await b.wait(
       async () => (await b.state()).revision === doc.revision + 2 && b.ready(),
     );

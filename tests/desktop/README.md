@@ -67,6 +67,11 @@ receipts to the PR or link its CI artifacts, with their retention limits; do not
 use a local output path as public proof that a check passed.
 
 Generated DOM events exercise components and IPC, not physical input delivery.
+The arrangement lane requests WebDriver pointer actions and records whether a
+`pointerdown` was delivered. The pinned embedded driver can dispatch only
+`MouseEvent`s; in that case the receipt marks the pointer trial unavailable and
+checks the accessible click route. Browser pointer tests and a separate native
+mouse trial are required for drag acceptance.
 The default suite does not cover native menu clicks, OS file dialogs, media
 playback, GPU/audio output or installation. WebView screenshots can omit the
 native video sibling. Compilation, a zero-test harness, a preview acknowledgment

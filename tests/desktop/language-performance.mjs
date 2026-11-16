@@ -207,12 +207,19 @@ export async function languagePerformance({
         );
         const checked = await browser.execute(async () => {
           const b = window.__languageBench;
-          if (!document.querySelector('[aria-label="Subtitle Problems"]')) {
-            const launcher = [...document.querySelectorAll('button')].find(
-              (button) => button.textContent.trim() === 'Commands',
+          if (!document.querySelector('[aria-label="Subtitle issues"]')) {
+            const launcher = document.querySelector(
+              'canvas[aria-label^="Audio waveform"]',
             );
             launcher.focus();
-            launcher.click();
+            launcher.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key: 'k',
+                ctrlKey: true,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
             await b.wait(() =>
               document.querySelector('[data-action="problems"]:not(:disabled)'),
             );
@@ -330,10 +337,10 @@ export async function languagePerformance({
           await b.wait(
             () =>
               document.querySelector(
-                '[aria-label="Subtitle Problems"] .findings[aria-busy="false"] .finding button:not(:disabled)',
-              ) && document.querySelector('[aria-label="Problem rule"]'),
+                '[aria-label="Subtitle issues"] .findings[aria-busy="false"] .finding button:not(:disabled)',
+              ) && document.querySelector('[aria-label="Issue rule"]'),
           );
-          const select = document.querySelector('[aria-label="Problem rule"]');
+          const select = document.querySelector('[aria-label="Issue rule"]');
           select.value = 'spelling';
           select.dispatchEvent(new Event('change', { bubbles: true }));
           await b.frame();
@@ -375,7 +382,7 @@ export async function languagePerformance({
           )
             throw new Error('Wrong selected correction');
           const undoStart = performance.now();
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === pre.revision + 2 && b.ready(),
@@ -416,7 +423,7 @@ export async function languagePerformance({
             return v.phase === 'stale' && !v.rows.length && b.ready();
           });
           const elapsed = performance.now() - start;
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === b.doc.revision + 2 && b.ready(),

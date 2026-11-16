@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import type { QualityMetric, QualityProfile } from '../client';
   import Meter from '../ui/Meter.svelte';
   import { rate, rateReason, rating } from './quality-display';
@@ -50,7 +51,10 @@
     />
   </div>
   <span
-    >{value.data.characters} characters · {value.lineCount} lines · longest {value.longestLine}</span
+    >{countLabel(value.data.characters, 'character')} · {countLabel(
+      value.lineCount,
+      'line',
+    )} · longest {value.longestLine}</span
   >
 </div>
 

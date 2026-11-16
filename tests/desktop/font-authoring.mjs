@@ -256,13 +256,13 @@ export async function fontAuthoring({
       const accepted = await accept();
       assert.deepEqual(accepted.cues, opened.cues);
       const initial = await preview(`font-${extension}-ttf`);
-      await click('Undo edit');
+      await click('Undo');
       await documentIs(
         'font add undone',
         (d) => d.revision === accepted.revision + 1 && !d.dirty,
       );
       await ready();
-      await click('Redo edit');
+      await click('Redo');
       await documentIs(
         'font add redone',
         (d) => d.revision === accepted.revision + 2 && d.dirty,
@@ -289,7 +289,7 @@ export async function fontAuthoring({
       await accept();
       const removed = await preview(`font-${extension}-removed`);
       assert.equal(removed.session, initial.session);
-      await click('Undo edit');
+      await click('Undo');
       await documentIs('font removal undone', (d) => d.dirty);
       await ready();
       await preview(`font-${extension}-undo`);

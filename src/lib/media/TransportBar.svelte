@@ -139,7 +139,9 @@
         setTimingMode(gestures, navigation, e.currentTarget.checked)}
     />Timing<span class="sr-only"> · Tap-to-time · hold Space</span></label
   >
-  <label><input type="checkbox" bind:checked={scenes.showScenes} />Shots</label>
+  <label
+    ><input type="checkbox" bind:checked={scenes.showScenes} />Scene changes</label
+  >
   <label
     ><input
       type="checkbox"

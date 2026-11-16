@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { TranslationSession } from './translation-session.svelte';
@@ -96,8 +97,10 @@
     </p>
   {:else}
     <p class="source" title={reference.path}>
-      {reference.path} · {reference.format.toUpperCase()} · {reference.cues.toLocaleString()}
-      cues
+      {reference.path} · {reference.format.toUpperCase()} · {countLabel(
+        reference.cues,
+        'cue',
+      )}
     </p>
     <p class="hint">
       Save a project to keep this reference and offset{doc.translation?.dirty
@@ -156,7 +159,10 @@
       <p role="status">
         {session.page.total === 0
           ? 'No matching reference cues.'
-          : `${session.page.total.toLocaleString()} ${browse ? 'reference cues' : 'matching cues'}`}
+          : countLabel(
+              session.page.total,
+              browse ? 'reference cue' : 'matching cue',
+            )}
       </p>
       <div class="reference-rows" aria-label="Reference cues">
         {#each session.page.rows as row (row.index)}

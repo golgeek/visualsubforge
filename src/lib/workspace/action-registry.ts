@@ -16,12 +16,9 @@ export interface ActionDescription {
 // A Rust event added without a description fails TypeScript checking.
 const nativeCoverage: Record<WorkspaceAction, ActionDescription> = descriptions;
 void nativeCoverage;
-export const actions = Object.entries(descriptions).map(
-  ([id, description]) => ({
-    id: id as ActionId,
-    ...description,
-  }),
-);
+export const actions = Object.entries(descriptions)
+  .map(([id, description]) => ({ id: id as ActionId, ...description }))
+  .sort((left, right) => left.order - right.order);
 export function actionDescription(
   id: ActionId,
   shortcuts?: ShortcutPreferences,
@@ -52,6 +49,7 @@ export function isNativeAction(id: ActionId): id is WorkspaceAction {
 }
 
 export interface ActionContext {
+  checks?: Partial<Record<ActionId, boolean>>;
   ready: boolean;
   busy: boolean;
   document: boolean;
@@ -115,18 +113,18 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
       return !state.media
         ? 'Open media first'
         : state.scenesPending || state.scenesRunning
-          ? 'A shot-change scan is already running'
+          ? 'A scene-change scan is already running'
           : null;
     case 'cancelSceneScan':
       return state.scenesRunning && !state.scenesPending
         ? null
-        : 'No shot-change scan is running';
+        : 'No scene-change scan is running';
     case 'previousScene':
     case 'nextScene':
       return state.media &&
         (id === 'previousScene' ? state.previousScene : state.nextScene)
         ? null
-        : 'Needs a shot-change scan and a nearby cut';
+        : 'Needs a scene-change scan and a nearby scene change';
     case 'undo':
       return state.undo || state.draft ? null : 'Nothing to undo';
     case 'redo':
@@ -169,10 +167,7 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
       return state.cues ? null : 'Open subtitles with cues';
     case 'previousProblem':
     case 'nextProblem':
-      return state.problems &&
-        (id === 'previousProblem' ? state.previousProblem : state.nextProblem)
-        ? null
-        : 'Open Problems and select a finding';
+      return state.document ? null : 'Open subtitles first';
     case 'save':
     case 'saveAs':
     case 'closeSubtitles':
@@ -205,13 +200,16 @@ export function matchesShortcut(shortcut: string, event: ShortcutKey): boolean {
   const key = parts.pop()!;
   const mod = parts.includes('CmdOrCtrl');
   return (
-    (keyNames[key] ?? key).toLowerCase() === event.key.toLowerCase() &&
+    ((keyNames[key] ?? key).toLowerCase() === event.key.toLowerCase() ||
+      (key === '=' && parts.includes('Shift') && event.key === '+')) &&
     (mod
       ? event.ctrlKey !== event.metaKey
       : event.ctrlKey === parts.includes('Ctrl') &&
         event.metaKey === parts.includes('Meta')) &&
     event.altKey === parts.includes('Alt') &&
-    (key === '?' || event.shiftKey === parts.includes('Shift'))
+    (key === '?' ||
+      (key === '=' && parts.includes('Shift') && event.key === '+') ||
+      event.shiftKey === parts.includes('Shift'))
   );
 }
 export function shortcutLabel(shortcut: string, mac: boolean): string {
@@ -241,8 +239,13 @@ export function shortcutLabel(shortcut: string, mac: boolean): string {
         Up: '↑',
         Down: '↓',
       };
-  return shortcut
-    .split('+')
+  const parts = shortcut.split('+');
+  const key = parts.pop()!;
+  if (mac) {
+    const order = ['Ctrl', 'Alt', 'Shift', 'CmdOrCtrl', 'Meta'];
+    parts.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }
+  return [...parts, key]
     .map((part) => glyphs[part] ?? part)
     .join(mac ? '' : '+');
 }

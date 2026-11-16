@@ -130,7 +130,7 @@ export function snapGuide(
   const delta = result.milliseconds - result.reference.milliseconds;
   const target =
     result.reference.cueId === null
-      ? 'shot change'
+      ? 'scene change'
       : cueNumbers.has(result.reference.cueId)
         ? `#${cueNumbers.get(result.reference.cueId)}`
         : 'cue';
@@ -138,7 +138,7 @@ export function snapGuide(
     milliseconds: result.milliseconds,
     label:
       delta === 0
-        ? target === 'shot change'
+        ? target === 'scene change'
           ? 'Shot change'
           : target
         : `${Math.abs(delta)} ms ${delta > 0 ? 'after' : 'before'} ${target}`,

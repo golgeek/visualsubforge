@@ -54,6 +54,42 @@ impl Default for Shortcuts {
     }
 }
 impl Shortcuts {
+    // Older bundled presets had empty zoom slots. Never overwrite a custom
+    // binding or introduce a conflict while upgrading the bundled defaults.
+    pub fn upgrade_zoom_defaults(&mut self) {
+        if self.preset == Preset::Custom {
+            return;
+        }
+        let mut next = self.clone();
+        for (action, key) in [
+            ("zoomIn", "CmdOrCtrl+="),
+            ("zoomOut", "CmdOrCtrl+-"),
+            ("fitWaveform", "CmdOrCtrl+0"),
+        ] {
+            if let Some(binding) = next
+                .bindings
+                .iter_mut()
+                .find(|b| b.action == action && b.mode == Mode::Global && b.key.is_empty())
+            {
+                binding.key = key.into();
+            }
+        }
+        if !next
+            .bindings
+            .iter()
+            .any(|b| b.action == "zoomIn" && b.mode == Mode::Alternate)
+        {
+            next.bindings.push(Binding {
+                action: "zoomIn".into(),
+                mode: Mode::Alternate,
+                key: "CmdOrCtrl+Shift+=".into(),
+            });
+        }
+        if next.validate().is_ok() {
+            *self = next;
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         let actions: BTreeMap<String, serde_json::Value> = serde_json::from_str(include_str!(
             "../../../src/lib/workspace/action-descriptions.json"
@@ -238,5 +274,31 @@ mod tests {
         let mut value = Shortcuts::default();
         value.bindings[0].action = "notAnAction".into();
         assert!(value.validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod zoom_upgrade_tests {
+    use super::*;
+    #[test]
+    fn bundled_zoom_defaults_upgrade_without_replacing_custom_choices() {
+        let mut old = Shortcuts::default();
+        old.bindings
+            .retain(|b| !(b.action == "zoomIn" && b.mode == Mode::Alternate));
+        for b in &mut old.bindings {
+            if ["zoomIn", "zoomOut", "fitWaveform"].contains(&b.action.as_str()) {
+                b.key.clear();
+            }
+        }
+        let mut custom = old.clone();
+        custom.preset = Preset::Custom;
+        let before = custom.clone();
+        custom.upgrade_zoom_defaults();
+        assert_eq!(custom, before);
+        old.upgrade_zoom_defaults();
+        assert_eq!(old.native_key("zoomIn"), Some("CmdOrCtrl+="));
+        assert_eq!(old.native_key("zoomOut"), Some("CmdOrCtrl+-"));
+        assert_eq!(old.native_key("fitWaveform"), Some("CmdOrCtrl+0"));
+        old.validate().unwrap();
     }
 }

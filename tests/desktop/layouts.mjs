@@ -12,6 +12,7 @@ export async function workspaceLayouts({
   const screenshots = [];
   const measurements = [];
   const unavailableSizes = [];
+  const pointerTrials = [];
   const media = await invoke('media_action', {
     action: { kind: 'status' },
     session: 0,
@@ -151,11 +152,43 @@ export async function workspaceLayouts({
           !!document.querySelector('dialog[aria-label="Arrange panels"][open]'),
       ),
     );
-    await browser.execute(() =>
-      document
-        .querySelector('button[aria-label="Place Waveform at Video"]')
-        .click(),
+    await browser.execute(() => {
+      const dialog = document.querySelector(
+        'dialog[aria-label="Arrange panels"]',
+      );
+      dialog.dataset.pointerObserved = 'false';
+      dialog.addEventListener(
+        'pointerdown',
+        () => {
+          dialog.dataset.pointerObserved = 'true';
+        },
+        { once: true, capture: true },
+      );
+    });
+    const source = await browser.$('[data-panel="waveform"]');
+    const target = await browser.$('[data-panel="video"]');
+    await browser
+      .action('pointer')
+      .move({ origin: source })
+      .down()
+      .pause(100)
+      .move({ origin: target, duration: 500 })
+      .up()
+      .perform();
+    const delivered = await browser.execute(
+      () =>
+        document.querySelector('dialog[aria-label="Arrange panels"]').dataset
+          .pointerObserved === 'true',
     );
+    pointerTrials.push({ requestedWindow: { width, height }, delivered });
+    if (!delivered) {
+      console.warn(
+        'Pointer trial unavailable: embedded WebDriver dispatched no pointerdown. Checking the accessible click route; native drag needs separate evidence.',
+      );
+      await browser.execute(() => {
+        document.querySelector('[data-panel="video"]').click();
+      });
+    }
     await until('waveform/video swapped', () =>
       browser.execute(() => {
         const video = document
@@ -221,6 +254,7 @@ export async function workspaceLayouts({
   await record({
     step: 'five workspace presets at requested desktop sizes',
     unavailableSizes,
+    pointerTrials,
     screenshots,
     measurements,
     nativePlaybackAvailable: media.available,

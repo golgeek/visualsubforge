@@ -35,7 +35,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   assert.deepEqual(await status(), before);
   assert.match(
     await dock.getText(),
-    /No video, so shot changes weren’t checked/,
+    /No video, so scene changes weren’t checked/,
   );
   const checkbox = await dock.$('input[aria-label="Include cue 1"]');
   await checkbox.click();
@@ -105,7 +105,7 @@ export async function gapReview({ browser, status, until, evidence, record }) {
     assert.equal(changed.cues[i].startMs, before.cues[i].startMs);
     assert.equal(changed.cues[i].id, before.cues[i].id);
   }
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'one gap Undo',
     async () => (await status()).revision === before.revision + 2,
@@ -114,13 +114,13 @@ export async function gapReview({ browser, status, until, evidence, record }) {
   assert.deepEqual(undone.cues, before.cues);
   assert.equal(undone.dirty, before.dirty);
   assert.equal(undone.canUndo, before.canUndo);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await until(
     'one gap Redo',
     async () => (await status()).revision === before.revision + 3,
   );
   assert.deepEqual((await status()).cues, changed.cues);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'gap fixture restored',
     async () => (await status()).revision === before.revision + 4,

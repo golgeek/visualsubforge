@@ -1,7 +1,10 @@
 import { WorkspaceLayout } from '../../../src/lib/layout/workspace-layout.svelte';
 import { WorkspacePreferences } from '../../../src/lib/settings/workspace-preferences.svelte';
 import { defaultLayout } from '../../../src/lib/layout/layout-presets';
-import { presetArrangement } from '../../../src/lib/layout/arrangement';
+import {
+  presetArrangement,
+  movePanel,
+} from '../../../src/lib/layout/arrangement';
 import type { Preferences } from '../../../src/lib/client';
 
 export async function ownerChecks(passed: (message: string) => void) {
@@ -31,6 +34,27 @@ export async function ownerChecks(passed: (message: string) => void) {
     },
   );
   try {
+    owner.workspaceHeight = 940;
+    owner.viewportHeight = 1000;
+    owner.resizePreview(40);
+    while (owner.active) await new Promise((resolve) => setTimeout(resolve, 0));
+    await owner.select('timing');
+    const inherited = owner.panes.rows.map((row) => row.pixels);
+    await owner.arrange(
+      movePanel(owner.arrangement, {
+        panel: 'video',
+        target: 'waveform',
+        kind: 'swap',
+      }),
+    );
+    assert(
+      owner.geometry.rows.every(
+        (height, index) => Math.abs(height - inherited[index]!) < 0.001,
+      ),
+      'Swapping an inherited preview preserves every row height',
+    );
+    await pause();
+    writes.length = 0;
     await owner.select('review');
     await pause();
     assert(writes.length === 1, 'User layout persisted');

@@ -282,7 +282,7 @@ export async function qualityPerformance({
       await b.frame();
       const visibleMs = performance.now() - began;
       const paused = document.querySelector(
-        '[aria-label="Subtitle Problems"] header [role="status"]',
+        '[aria-label="Subtitle issues"] header [role="status"]',
       ).textContent;
       const view = await b.wait(async () => {
         const v = await b.read({ run: false });
@@ -340,7 +340,7 @@ export async function qualityPerformance({
     const edited = await status();
     assert.equal(edited.revision, before.revision + 1);
     assert.equal(edited.cues[0].text, 'Accepted large-document edit');
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     const restored = await until('large edit Undo', async () => {
       const doc = await status();
       return doc.revision === before.revision + 2 && doc;
@@ -371,7 +371,10 @@ export async function qualityPerformance({
     );
     assert.deepEqual(await status(), restored);
     await until('large workspace restored', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
     await chooseCommand(browser, 'problems');
     await until('large Issues tab visible', () =>

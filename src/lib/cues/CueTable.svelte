@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { timingDelta, type TimingGhost } from '../timing/review-preview';
   import { onMount, type Snippet } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -190,6 +191,10 @@
       >Columns ▾</button
     >
     <input
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
       class="list-filter"
       aria-label="Filter cues by text or number"
       placeholder="Text or #"
@@ -198,7 +203,10 @@
     <Chip
       active={tableView.issuesOnly}
       onclick={() => (tableView.issuesOnly = !tableView.issuesOnly)}
-      >Issues {quality.issueIndexComplete ? quality.issues.size : '…'}</Chip
+      >{countLabel(
+        quality.issueIndexComplete ? quality.issues.size : '…',
+        'cue',
+      )} with issues</Chip
     >
     <span class="cue-count"
       >{tableView.rows.length} / {doc.cues.length} · {subtitles.selectedIds

@@ -535,11 +535,11 @@ export async function pluginPerformance({
           assert.deepEqual(accepted.cues, expectedCues);
           assert.deepEqual(accepted.format, baseline.format);
           times.undoMs = await browser.execute(() =>
-            window.__pluginBench.history('Undo edit'),
+            window.__pluginBench.history('Undo'),
           );
           assert.deepEqual((await status()).cues, baseline.cues);
           times.redoMs = await browser.execute(() =>
-            window.__pluginBench.history('Redo edit'),
+            window.__pluginBench.history('Redo'),
           );
           assert.deepEqual((await status()).cues, expectedCues);
           if (cycle === 0) {
@@ -570,13 +570,13 @@ export async function pluginPerformance({
           assert.equal(await readFile(output, 'utf8'), expected);
           assert.deepEqual(await readFile(source), bytes);
           times.restoreMs = await browser.execute(() =>
-            window.__pluginBench.history('Undo edit'),
+            window.__pluginBench.history('Undo'),
           );
           assert.deepEqual((await status()).cues, baseline.cues);
           await save();
           checkTimes(times);
         }
-        await browser.execute(() => window.__pluginBench.history('Redo edit'));
+        await browser.execute(() => window.__pluginBench.history('Redo'));
         const saved = await status();
         result.timings.reopenMs = await browser.execute(async (output) => {
           const b = window.__pluginBench,
@@ -664,7 +664,7 @@ export async function pluginPerformance({
                 JSON.stringify(await b.state()) === JSON.stringify(changed),
               'Stale acceptance changed state',
             );
-            await b.history('Undo edit');
+            await b.history('Undo');
             b.assert(
               JSON.stringify((await b.state()).cues) ===
                 JSON.stringify(before.cues),

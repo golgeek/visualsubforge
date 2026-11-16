@@ -190,7 +190,7 @@
         {#if !report.canPublish && session.view?.phase === 'reviewing' && !session.running}<p
             role="alert"
           >
-            Resolve the file problems above, then review import again.
+            Resolve the file issues above, then review import again.
           </p>{/if}
         <p>Choose a new .vsfproject filename. Existing files are protected.</p>
         <button

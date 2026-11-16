@@ -14,6 +14,7 @@ export interface LayoutDescription {
   defaults: PaneSizes;
 }
 const timing = {
+  topResized: false,
   topPct: 13,
   editorPct: 16,
   wavePct: 65,
@@ -52,6 +53,7 @@ export const layoutPresets: Record<LayoutPreset, LayoutDescription> = {
     rows: ['preview', 'transport', 'cues', 'editor'],
     dock: null,
     defaults: {
+      topResized: false,
       topPct: 40,
       editorPct: 16,
       wavePct: 35,

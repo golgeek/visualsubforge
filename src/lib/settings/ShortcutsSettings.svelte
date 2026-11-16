@@ -82,6 +82,10 @@
       </select></label
     >
     <input
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
       aria-label="Search shortcuts"
       type="search"
       placeholder="Search shortcuts"

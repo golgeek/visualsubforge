@@ -106,9 +106,7 @@ export function routeWorkspaceKey(
   if (action === 'find' || action === 'replace')
     return { kind: 'text', mode: action };
   if (action === 'previousProblem' || action === 'nextProblem')
-    return context.problems
-      ? { kind: 'problem', previous: action === 'previousProblem' }
-      : null;
+    return { kind: 'command', action };
   if (
     [
       'focusText',

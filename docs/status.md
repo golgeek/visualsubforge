@@ -11,6 +11,8 @@ Cue-list columns, widths and 24/32 px density save per layout preset. Issues and
 Text stay visible; text/file-number and Issues filters preserve original cue
 indices. Metrics come from Rust's checker, and ASS/SSA also expose Style/Actor.
 Manual list scrolling pauses following; row clicks retain it and Jump resumes.
+Waveform zoom retains following, panning suspends it temporarily, and cue selection
+centers the range with optional zoom. Unselected cue edges share timing gestures.
 
 [Cue editing](cue-editor.md) commits on pause/ordinary blur with Rust-owned text
 history grouping. Escape retains confirmed-state semantics; fixed-height issues,
@@ -19,10 +21,16 @@ The interaction defaults still require owner trial. Nominal frame nudges do not
 establish variable-rate frame-boundary accuracy.
 
 The docked Review panel combines Issues, timing repairs, Shift and Statistics.
+Review menu actions and issue entry points reveal it in the current layout;
+Translation restores a displaced Review dock when closed. Layout presets inherit
+the current preview height until explicitly resized. Targeted macOS native debug
+checks covered video alignment and Arrange pointer swaps before the latest navigation/menu review changes; current native menus
+and navigation still need an on-screen trial. Windows and Linux native
+geometry/input still require platform trials.
 Live proposals stay read-only until Apply; Rust validates checked subsets and
 commits one Undo step. Visible ghost/list projections are bounded to 200 cue IDs;
-complete plans remain in Rust. Native video and physical-input acceptance still
-require the platform-specific checks listed in each PR.
+complete plans remain in Rust. This targeted check does not establish playback,
+audio, installation or display-scale acceptance.
 
 ## Feature and platform matrix
 

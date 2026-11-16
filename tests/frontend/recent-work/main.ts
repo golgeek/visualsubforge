@@ -113,9 +113,17 @@ async function run() {
     passed(
       'Reload retains real historical counts, source identity, partial coverage and unknown counts',
     );
-    recent.configure({ identity: 'old', request });
+    recent.configure({
+      identity: 'old',
+      resources: ['/work/episode.srt'],
+      request,
+    });
     await until(() => captures.length === 1);
-    recent.configure({ identity: 'new', request: { ...request, revision: 4 } });
+    recent.configure({
+      identity: 'new',
+      resources: ['/work/episode.srt'],
+      request: { ...request, revision: 4 },
+    });
     captures[0]!.reply.resolve([{ ...entry, path: '/work/stale.srt' }]);
     await until(() => captures.length === 2);
     assert(
@@ -128,11 +136,19 @@ async function run() {
     passed(
       'One capture runs at a time and obsolete replies cannot replace the list',
     );
-    recent.configure({ identity: 'failure', request });
+    recent.configure({
+      identity: 'failure',
+      resources: ['/work/episode.srt'],
+      request,
+    });
     await until(() => captures.length === 3);
     captures[2]!.reply.reject(new Error('Metadata write rejected'));
     await until(() => recent.error.includes('Metadata write rejected'));
-    recent.configure({ identity: 'failure', request });
+    recent.configure({
+      identity: 'failure',
+      resources: ['/work/episode.srt'],
+      request,
+    });
     await new Promise((resolve) => setTimeout(resolve, 600));
     assert(
       captures.length === 3 && recent.entries[0]!.path === '/work/current.srt',
@@ -141,7 +157,11 @@ async function run() {
     passed(
       'Failed capture preserves the list and is never automatically replayed',
     );
-    recent.configure({ identity: 'remove', request });
+    recent.configure({
+      identity: 'remove',
+      resources: ['/work/episode.srt'],
+      request,
+    });
     await until(() => captures.length === 4);
     const removing = recent.forget(entry);
     assert(
@@ -165,7 +185,11 @@ async function run() {
     lists[2]!.resolve([entry]);
     await late;
     await recent.load();
-    recent.configure({ identity: 'disposed', request });
+    recent.configure({
+      identity: 'disposed',
+      resources: ['/work/episode.srt'],
+      request,
+    });
     assert(
       recent.entries.length === 0 && lists.length === 3,
       'Disposed list ignores late read and new work',
@@ -226,9 +250,17 @@ async function run() {
     },
     forgetRecent: async () => [],
   });
-  disposed.configure({ identity: 'first', request });
+  disposed.configure({
+    identity: 'first',
+    resources: ['/work/episode.srt'],
+    request,
+  });
   await until(() => calls === 1);
-  disposed.configure({ identity: 'next', request });
+  disposed.configure({
+    identity: 'next',
+    resources: ['/work/episode.srt'],
+    request,
+  });
   disposed.dispose();
   pending.resolve([entry]);
   await new Promise((resolve) => setTimeout(resolve, 600));
@@ -239,8 +271,66 @@ async function run() {
   passed(
     'Disposal during capture retires the queued context and its eventual reply',
   );
+  for (const mediaFirst of [true, false]) {
+    let captures = 0;
+    const owner = new RecentWork({
+      listRecent: async () => [],
+      captureRecent: async () => {
+        captures++;
+        return [entry];
+      },
+      forgetRecent: async () => [],
+    });
+    const first = mediaFirst ? '/work/demo.mp4' : '/work/demo.srt';
+    const second = mediaFirst ? '/work/demo.srt' : '/work/demo.mp4';
+    owner.configure({
+      identity: 'open-first',
+      resources: [first],
+      saved: '1',
+      request,
+    });
+    await until(() => captures === 1);
+    owner.configure({
+      identity: 'paired',
+      resources: [first, second],
+      saved: '1',
+      request,
+    });
+    await until(() => captures === 2);
+    owner.configure({
+      identity: 'close-second',
+      resources: [first],
+      saved: '2',
+      request,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    owner.configure({
+      identity: 'late-check',
+      resources: [first],
+      saved: '2',
+      request,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    owner.configure(null);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert(
+      captures === 2 && owner.entries[0] === entry,
+      'Closing either part must not capture or reorder work',
+    );
+    owner.configure({
+      identity: 'reopen-media',
+      resources: ['/work/demo.mp4'],
+      saved: '2',
+      request,
+    });
+    await until(() => captures === 3);
+    owner.dispose();
+  }
+  passed(
+    'Both open/close orders capture only opens, ignore late checks after close and allow later reopening',
+  );
   document.querySelector('#result')!.textContent =
-    'PASS: all 8 recent-work checks';
+    'PASS: all 9 recent-work checks';
 }
 run().catch((error) => {
   document.querySelector('#result')!.textContent = 'FAIL: ' + String(error);

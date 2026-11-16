@@ -172,8 +172,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 
 async function choose(label: string) {
-  await until(() => !!button('Layout') && !button('Layout')!.disabled);
-  button('Layout')!.click();
+  await until(
+    () =>
+      !!host.querySelector('main') &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
+  callbacks.get(listener)!({ payload: 'layoutOptions' });
   await until(
     () => !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
   );
@@ -184,7 +188,7 @@ async function choose(label: string) {
   await until(
     () =>
       !host.querySelector('dialog[open]') &&
-      !button('Layout')!.disabled &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
       !occluded,
   );
 }
@@ -192,7 +196,10 @@ async function run() {
   let app = mount(App, { target: host });
   try {
     await until(
-      () => !!listener && !!button('Layout') && !button('Layout')!.disabled,
+      () =>
+        !!listener &&
+        !!host.querySelector('main') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     for (const key of [
       'timing',
@@ -279,7 +286,7 @@ async function run() {
     );
     for (const failure of ['hide', 'restore'] as const) {
       await choose('Timing');
-      button('Layout')!.click();
+      callbacks.get(listener)!({ payload: 'layoutOptions' });
       await until(
         () =>
           !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
@@ -294,7 +301,7 @@ async function run() {
         () =>
           !!host.textContent?.includes(`Injected layout ${failure} failure`) &&
           !host.querySelector('dialog[open]') &&
-          !button('Layout')!.disabled &&
+          host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
           !occluded,
       );
       assert(
@@ -344,7 +351,7 @@ async function run() {
     await until(
       () =>
         video!.getBoundingClientRect().width > width &&
-        !button('Layout')!.disabled,
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     await until(() => stored.timing.wavePct === 63 && saves > 0);
     await choose('Big picture');
@@ -361,7 +368,10 @@ async function run() {
     await unmount(app);
     app = mount(App, { target: host });
     await until(
-      () => !!button('Layout') && !button('Layout')!.disabled && !occluded,
+      () =>
+        !!host.querySelector('main') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+        !occluded,
     );
     const reloaded = host
       .querySelector('.video-space')!
@@ -372,7 +382,9 @@ async function run() {
     );
     callbacks.get(listener)!({ payload: 'resetLayout' });
     await until(
-      () => stored.timing.wavePct === 65 && !button('Layout')!.disabled,
+      () =>
+        stored.timing.wavePct === 65 &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     assert(stored.active === 'timing', 'Reset keeps the active preset');
     host
@@ -383,7 +395,8 @@ async function run() {
     await until(
       () =>
         host.querySelector('.workspace')?.getAttribute('data-preset') ===
-          'editorAbove' && !button('Layout')!.disabled,
+          'editorAbove' &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     passed(
       'reset preserves the active preset and the editor arrow uses protected slot switching',

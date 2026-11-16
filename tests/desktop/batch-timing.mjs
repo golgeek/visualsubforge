@@ -62,9 +62,16 @@ export async function batchTiming({
         (b) => b.textContent.trim() === text,
       );
     const click = async (text) => {
-      if (text === 'Shift / align cues…') {
-        button('Commands').focus();
-        button('Commands').click();
+      if (text === 'Shift / Align Cues…') {
+        document.querySelector('canvas[aria-label^="Audio waveform"]').focus();
+        document.activeElement.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'k',
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
         await wait(() =>
           document.querySelector('[data-action="shiftCues"]:not(:disabled)'),
         );
@@ -127,7 +134,7 @@ export async function batchTiming({
   );
   await browser.execute(async (target) => {
     const b = window.__batchUI;
-    await b.click('Shift / align cues…');
+    await b.click('Shift / Align Cues…');
     await b.wait(() =>
       document.querySelector('[aria-label="Batch operation"]'),
     );
@@ -166,13 +173,13 @@ export async function batchTiming({
       m.previewDocumentGeneration === accepted.generation
     );
   });
-  await browser.execute(() => window.__batchUI.click('Undo edit'));
+  await browser.execute(() => window.__batchUI.click('Undo'));
   await until(
     'batch undo',
     async () => (await status()).revision === accepted.revision + 1,
   );
   assert.deepEqual((await status()).cues, baseline.cues);
-  await browser.execute(() => window.__batchUI.click('Redo edit'));
+  await browser.execute(() => window.__batchUI.click('Redo'));
   await until(
     'batch redo',
     async () => (await status()).revision === accepted.revision + 2,

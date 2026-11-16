@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import { ConversionSession } from './conversion-session.svelte';
@@ -143,7 +144,8 @@
         {report.source.toUpperCase()} → {report.options.target.toUpperCase()}
       </h3>
       <p>
-        {report.cues} cues. {#if report.outputBytes !== null}Output: {report.outputBytes.toLocaleString()}
+        {countLabel(report.cues, 'cue')}. {#if report.outputBytes !== null}Output:
+          {report.outputBytes.toLocaleString()}
           bytes.{/if}
       </p>
       {#if blocked}<p role="alert">

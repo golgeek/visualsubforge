@@ -71,7 +71,9 @@ function type(text: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   await chooseCommand(host, 'snapShots');
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
@@ -299,7 +301,7 @@ async function run() {
     );
     button('Close').click();
     editor.focus();
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => doc.cues[0]!.startMs === 1000);
     assert(
       JSON.stringify(doc.cues) === JSON.stringify(original.cues),

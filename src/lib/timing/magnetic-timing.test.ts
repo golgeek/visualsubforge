@@ -142,7 +142,7 @@ test('snap labels use original cue numbers and describe the actual legal buffer 
       snapBoundary(1880, 'end', 1000, null, [], [2], settings, 30, 10000),
       new Map(),
     ),
-    { milliseconds: 1870, label: '130 ms before shot change' },
+    { milliseconds: 1870, label: '130 ms before scene change' },
   );
   assert.equal(
     snapGuide(

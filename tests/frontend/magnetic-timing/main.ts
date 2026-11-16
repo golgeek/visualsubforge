@@ -78,7 +78,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     ) {
       calls.push(command);
       if (command === 'preferences_get')
-        return structuredClone(savedSettings ?? defaultPreferences);
+        return structuredClone(
+          savedSettings ?? { ...defaultPreferences, zoomWaveformToCue: false },
+        );
       switch (command) {
         case 'recent_list':
         case 'recent_capture':
@@ -268,7 +270,10 @@ function pointer(
       isPrimary: true,
       button: 0,
       clientX: x,
-      clientY: element.getBoundingClientRect().top + 40,
+      // Range selection uses the waveform above the cue-edge hit lane.
+      clientY:
+        element.getBoundingClientRect().top +
+        (element instanceof HTMLCanvasElement ? 10 : 40),
       altKey,
       bubbles: true,
       cancelable: true,
@@ -313,12 +318,26 @@ async function drag(
         cancelable: true,
       }),
     );
-  await until(() => !(!menuState || menuState.busy || !menuState.available));
+  await until(
+    () =>
+      !(
+        !menuState ||
+        !menuState!.enabled.includes('settings') ||
+        !menuState.enabled.includes('openMedia')
+      ),
+  );
 }
 async function run() {
   const app = mount(App, { target: host });
   try {
-    await until(() => !(!menuState || menuState.busy || !menuState.available));
+    await until(
+      () =>
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('openMedia')
+        ),
+    );
     menuAction('openProject');
     await until(() => !!host.textContent?.includes('Project restored'));
     await until(() => calls.includes('scenes_view'));
@@ -337,7 +356,11 @@ async function run() {
     await until(
       () =>
         loops.length > 0 &&
-        !(!menuState || menuState.busy || !menuState.available),
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('openMedia')
+        ),
     );
     await drag('start', 2090);
     assert(
@@ -377,7 +400,14 @@ async function run() {
         bubbles: true,
       }),
     );
-    await until(() => !(!menuState || menuState.busy || !menuState.available));
+    await until(
+      () =>
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('openMedia')
+        ),
+    );
     assert(
       doc.cues[1]!.endMs === 4379,
       'Alt-arrow remains an exact one-millisecond nudge',
@@ -423,7 +453,9 @@ async function run() {
       'Alt-drag bypass also applies to new range selection',
     );
     // Import/export are pure settings changes, not document transactions.
-    const settingsReturn = button('Commands');
+    const settingsReturn = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform"]',
+    )!;
     settingsReturn.focus();
     callbacks.get(eventHandler)!({ payload: 'settings' });
     await until(() => !!host.querySelector('dialog[open] .settings'));
@@ -443,7 +475,7 @@ async function run() {
     button('Close').click();
     await until(() => !host.querySelector('dialog[open]'));
     // Closing the HTML dialog precedes acknowledged native video/focus cleanup.
-    await until(() => !menuState?.busy);
+    await until(() => !!menuState?.enabled.includes('settings'));
     assert(
       document.activeElement === settingsReturn,
       'Settings launcher focus restored',
@@ -490,12 +522,16 @@ async function run() {
     );
     button('Close').click();
     await until(() => !host.querySelector('dialog[open]'));
-    await until(() => !menuState?.busy);
+    await until(() => !!menuState?.enabled.includes('settings'));
     menuAction('saveProject');
     await until(
       () =>
         saves.length === 1 &&
-        !(!menuState || menuState.busy || !menuState.available),
+        !(
+          !menuState ||
+          !menuState!.enabled.includes('settings') ||
+          !menuState.enabled.includes('openMedia')
+        ),
     );
     assert(
       (saves[0]!.options as { timing: { cueGapMs: number } }).timing

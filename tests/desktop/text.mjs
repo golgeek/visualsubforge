@@ -15,7 +15,10 @@ export async function textEditing({
   const editor = await browser.$('[aria-label="Subtitle text"]');
   const ready = () =>
     until('text workspace enabled', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   async function editCue(index, text) {
     await ready();
@@ -37,7 +40,7 @@ export async function textEditing({
   async function undo() {
     await ready();
     const before = await status();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await until(
       'text Undo acknowledged',
       async () => (await status()).revision === before.revision + 1,
@@ -74,8 +77,20 @@ export async function textEditing({
         `button=${mode === 'find' ? 'Find matches' : 'Preview text changes'}`,
       )
     ).click();
-    await until('review rows ready', async () =>
-      (await dialog.getText()).includes('review rows'),
+    const expected =
+      mode === 'find'
+        ? '3 matches · 0 changed cues · 2 review rows'
+        : mode === 'replace'
+          ? '3 matches · 2 changed cues · 2 review rows'
+          : mode === 'joinLines'
+            ? '0 matches · 1 changed cue · 1 review row'
+            : '0 matches · 1 changed cue · 2 review rows';
+    await until(
+      'exact text review summary',
+      async () =>
+        (await dialog.$('p[role="status"]').getText())
+          .replace(/\s+/g, ' ')
+          .trim() === expected,
     );
   }
   async function accept(label) {
@@ -154,7 +169,7 @@ export async function textEditing({
   assert.deepEqual(await status(), replaced);
   await undo();
   assert.deepEqual((await status()).cues, baseline.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await until(
     'text Redo acknowledged',
     async () => (await status()).revision === replaced.revision + 2,

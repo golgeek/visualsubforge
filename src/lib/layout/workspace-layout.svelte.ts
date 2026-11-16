@@ -1,5 +1,6 @@
 import {
   arrangementGeometry,
+  minimum,
   refusal,
   presetArrangement,
   type Arrangement,
@@ -70,15 +71,30 @@ export class WorkspaceLayout {
       review: false,
       translation: false,
     };
-    return (
-      this.custom ??
-      presetArrangement(
-        this.preset,
-        this.wavePct,
-        visible.review,
-        visible.translation,
-      )
+    if (this.custom) return this.custom;
+    const value = presetArrangement(
+      this.preset,
+      this.wavePct,
+      visible.review,
+      visible.translation,
     );
+    // Weights distribute space above panel minima, not total row heights.
+    // Capture the actual preset geometry, including inherited preview sizes.
+    const heights = this.panes.rows.map((row) => row.pixels);
+    const extras = value.rows.map((row, index) =>
+      Math.max(
+        0,
+        heights[index]! -
+          Math.max(
+            ...row.panels.map((panel) => minimum(panel, this.space).height),
+          ),
+      ),
+    );
+    const largest = Math.max(1, ...extras);
+    value.rows.forEach((row, index) => {
+      row.weight = (extras[index]! / largest) * 100;
+    });
+    return value;
   }
   get space() {
     return {
@@ -106,7 +122,7 @@ export class WorkspaceLayout {
     const start = column === 0 ? 1 : value.split + 1;
     const end =
       value.panels.length === 1 || column === 1 ? 101 : value.split + 1;
-    return `grid-area:${row + 1}/${start}/${row + 2}/${end};${value.panels.length === 2 ? (column === 0 ? 'margin-right:3px;' : 'margin-left:3px;') : ''}`;
+    return `grid-area:${row * 2 + 1}/${start}/${row * 2 + 2}/${end};${value.panels.length === 2 ? (column === 0 ? 'margin-right:3px;' : 'margin-left:3px;') : ''}`;
   }
   async arrange(value: Arrangement) {
     const reason = refusal(value, this.space);
@@ -219,6 +235,8 @@ export class WorkspaceLayout {
   async select(preset: LayoutPreset) {
     await this.change(() => {
       this.current.custom = null;
+      if (!this.current[preset].topResized)
+        this.current[preset].topPct = this.topPct;
       this.current.active = preset;
       this.effects.preset(preset);
     }).catch(() => {});
@@ -241,6 +259,7 @@ export class WorkspaceLayout {
   resizePreview(value: number) {
     void this.change(() => {
       this.current[this.preset].topPct = clamp(value, 10, 65);
+      this.current[this.preset].topResized = true;
     }).catch(() => {});
   }
   resizeEditor(value: number) {

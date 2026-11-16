@@ -265,7 +265,7 @@ export async function pluginWorkflow({
               m.paused &&
               !m.seeking &&
               m.positionSeconds !== null &&
-              (await footer()).includes('0 visual cuts')
+              (await footer()).includes('0 scene changes')
             );
           });
         } else {
@@ -375,13 +375,13 @@ export async function pluginWorkflow({
         );
         const native = withNativePreview ? await nativePreview() : null;
         await capture(`plugin-${label}-accepted`);
-        await click('Undo edit');
+        await click('Undo');
         await documentIs(
           'one plugin Undo',
           (d) => JSON.stringify(d.cues) === JSON.stringify(initial.cues),
         );
         await ready();
-        await click('Redo edit');
+        await click('Redo');
         await documentIs(
           'one plugin Redo',
           (d) => JSON.stringify(d.cues) === JSON.stringify(accepted.cues),

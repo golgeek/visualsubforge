@@ -365,7 +365,14 @@ fn check_cue(row: &CueMetrics, text: &TextMetrics, profile: &Profile, out: &mut 
                     low,
                     Some(value),
                     format!("At least {min} {unit}"),
-                    "Unrounded speed is below the inclusive minimum.",
+                    &format!(
+                        "Unrounded {unit} ({}) is below the inclusive minimum.",
+                        if unit == "CPS" {
+                            "characters per second"
+                        } else {
+                            "reading speed after the 500 ms allowance"
+                        }
+                    ),
                 ));
             }
             if let Some(max) = max {
@@ -379,7 +386,14 @@ fn check_cue(row: &CueMetrics, text: &TextMetrics, profile: &Profile, out: &mut 
                             "{} {max} {unit}",
                             if exclusive { "Below" } else { "At most" }
                         ),
-                        "Unrounded speed exceeds the profile's permitted range.",
+                        &format!(
+                            "Unrounded {unit} ({}) exceeds the profile's permitted range.",
+                            if unit == "CPS" {
+                                "characters per second"
+                            } else {
+                                "reading speed after the 500 ms allowance"
+                            }
+                        ),
                     ));
                 }
             }

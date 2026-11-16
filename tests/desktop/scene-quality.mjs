@@ -86,7 +86,10 @@ export async function sceneQuality({
   const source = await prepare(root, context);
   const ready = () =>
     until('scene workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   const media = () =>
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
@@ -143,29 +146,28 @@ export async function sceneQuality({
   assert.equal(checked.findingsCount, 4);
   const before = await status();
   // Actual Problems filtering and draft-protected navigation.
-  if (!(await browser.$('[aria-label="Subtitle Problems"]').isExisting()))
+  if (!(await browser.$('[aria-label="Subtitle issues"]').isExisting()))
     await chooseCommand(browser, 'problems');
   await until(
     'scene Problems rows',
     async () =>
-      (await browser.$$('[aria-label="Subtitle Problems"] .finding')).length >
-      0,
+      (await browser.$$('[aria-label="Subtitle issues"] .finding')).length > 0,
   );
   await browser.execute(() => {
-    const s = document.querySelector('[aria-label="Problem rule"]');
+    const s = document.querySelector('[aria-label="Issue rule"]');
     s.value = 'scene_end';
     s.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await until(
     'scene end filter',
     async () =>
-      (await browser.$$('[aria-label="Subtitle Problems"] .finding')).length ===
+      (await browser.$$('[aria-label="Subtitle issues"] .finding')).length ===
       1,
   );
   const text = await browser.$('[aria-label="Subtitle text"]');
   await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Preserve scene navigation draft');
-  await (await browser.$('button=Cue 2 · End near scene cut')).click();
+  await (await browser.$('button=Cue 2 · End near scene change')).click();
   await until('protected scene navigation', () =>
     browser.$('button=Cancel navigation').then((b) => b.isExisting()),
   );
@@ -173,7 +175,7 @@ export async function sceneQuality({
   assert.equal(await text.getValue(), 'Preserve scene navigation draft');
   assert.deepEqual(await status(), before);
   await discardCue(browser);
-  await (await browser.$('button=Close Problems')).click();
+  await (await browser.$('button=Close issues')).click();
   await chooseCommand(browser, 'snapShots');
   let dialog = await browser.$('[aria-label="Review panel"]');
   await until('scene dialog', () => dialog.isDisplayed());
@@ -211,10 +213,10 @@ export async function sceneQuality({
     }),
   );
   assert.deepEqual(await status(), accepted);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
-  await (await browser.$('button=Redo edit')).click();
+  await (await browser.$('button=Redo')).click();
   await ready();
   assert.deepEqual((await status()).cues, accepted.cues);
   await menu('saveAs');
@@ -391,7 +393,7 @@ async function scenePerformance({
       changed.cues.map((c) => [c.id, c.text, c.endMs]),
       baseline.cues.map((c) => [c.id, c.text, c.endMs]),
     );
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.deepEqual((await status()).cues, baseline.cues);
     const captured = await proposal();
@@ -412,7 +414,7 @@ async function scenePerformance({
     result.invalidationMs = Date.now() - invalidationStart;
     assert.ok(result.invalidationMs < 1000);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.equal((await status()).revision, before.revision + 2);
     assert.deepEqual((await status()).cues, baseline.cues);

@@ -75,7 +75,7 @@
       /> Scene buffers</label
     >
     <label
-      >Before cut (ms) <input
+      >Before scene change (ms) <input
         type="number"
         min="0"
         max="10000"
@@ -85,7 +85,7 @@
       /></label
     >
     <label
-      >After cut (ms) <input
+      >After scene change (ms) <input
         type="number"
         min="0"
         max="10000"

@@ -131,3 +131,34 @@ test('legacy tool aliases remain searchable and platform glyphs agree', () => {
     'Ctrl+S',
   );
 });
+
+test('Edit discovery uses the registry order with Undo and Redo first', () => {
+  assert.deepEqual(
+    actions
+      .filter((action) => action.group === 'Edit')
+      .slice(0, 2)
+      .map((action) => action.id),
+    ['undo', 'redo'],
+  );
+});
+
+test('macOS shortcut labels order modifiers before Command', () => {
+  assert.equal(shortcutLabel('CmdOrCtrl+Alt+Shift+J', true), '⌥⇧⌘J');
+  assert.equal(shortcutLabel('Meta+Shift+Ctrl+Alt+J', true), '⌃⌥⇧⌘J');
+});
+
+test('menu title case preserves short words and scene-change search aliases', () => {
+  assert.equal(actionDescription('fixGaps').label, 'Fix Gaps and Overlaps…');
+  assert.equal(actionDescription('snapShots').label, 'Snap to Scene Changes…');
+  assert.equal(actionDescription('splitCue').label, 'Split at Playhead');
+  for (const id of [
+    'previousScene',
+    'nextScene',
+    'snapShots',
+    'scanScenes',
+    'showScenes',
+  ] as const) {
+    assert.ok(actionDescription(id).aliases.includes('shot'));
+    assert.ok(actionDescription(id).aliases.includes('cut'));
+  }
+});

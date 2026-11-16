@@ -112,6 +112,9 @@ button[data-variant='danger'] {
   font-weight: 600;
 }
 
+input:disabled,
+select:disabled,
+textarea:disabled,
 button:disabled,
 button[aria-disabled='true'] {
   opacity: 0.42;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaStatus } from '../client';
@@ -225,7 +226,8 @@
       </p>{/if}
     {#if view.phase === 'reviewing' && session.current}
       <p>
-        {view.scopeCount} cues in scope; {view.selectionCount} selected. Scene coverage:
+        {countLabel(view.scopeCount, 'cue')} in scope; {view.selectionCount} selected.
+        Scene coverage:
         {view.sceneCoverage}. Cursor: {view.cursorMs === null
           ? 'unavailable'
           : formatTime(view.cursorMs)}.

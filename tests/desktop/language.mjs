@@ -87,21 +87,19 @@ export async function languageTools({
   const settings = join(root, 'settings-v1.json');
   async function spellingFilter() {
     await ready();
-    if (!(await browser.$('[aria-label="Subtitle Problems"]').isExisting()))
+    if (!(await browser.$('[aria-label="Subtitle issues"]').isExisting()))
       await chooseCommand(browser, 'problems');
     await until('Problems filter', () =>
       browser.execute(
-        () => !!document.querySelector('[aria-label="Problem rule"]'),
+        () => !!document.querySelector('[aria-label="Issue rule"]'),
       ),
     );
-    await input('Problem rule', 'spelling');
+    await input('Issue rule', 'spelling');
   }
   async function findings(expected) {
     await until(`settled spelling findings: ${expected}`, () =>
       browser.execute((n) => {
-        const panel = document.querySelector(
-          '[aria-label="Subtitle Problems"]',
-        );
+        const panel = document.querySelector('[aria-label="Subtitle issues"]');
         return (
           panel &&
           panel.querySelector('[aria-busy]')?.getAttribute('aria-busy') ===
@@ -266,13 +264,13 @@ export async function languageTools({
           baseline.cues[0],
         );
         await ready();
-        await click('Undo edit');
+        await click('Undo');
         await documentIs(
           'native language Undo',
           (d) => d.revision === edited.revision + 1 && d.cues[0].text === line,
         );
         await ready();
-        await click('Redo edit');
+        await click('Redo');
         await documentIs(
           'native language Redo',
           (d) =>
@@ -362,7 +360,7 @@ export async function languageTools({
           browser.execute(
             () =>
               !!document.querySelector(
-                '[aria-label="Subtitle Problems"] [role="alert"]',
+                '[aria-label="Subtitle issues"] [role="alert"]',
               ),
           ),
         );
@@ -519,7 +517,7 @@ export async function languageTools({
             language === 'fr' ? '— ' : '- ',
           ],
         ]) {
-          await input('Problem rule', rule);
+          await input('Issue rule', rule);
           await findings(1);
           const before = await status();
           await click('Review correction');
@@ -545,28 +543,28 @@ export async function languageTools({
             ),
           );
           await ready();
-          await click('Undo edit');
+          await click('Undo');
           await documentIs(
             'editorial correction Undo',
             (d) => d.revision === before.revision + 2,
           );
           assert.deepEqual((await status()).cues, before.cues);
           await ready();
-          await click('Redo edit');
+          await click('Redo');
           await documentIs(
             'editorial correction Redo',
             (d) => d.revision === before.revision + 3,
           );
           assert.deepEqual((await status()).cues, accepted.cues);
           await ready();
-          await click('Undo edit');
+          await click('Undo');
           await documentIs(
             'editorial correction restored',
             (d) => d.revision === before.revision + 4,
           );
           await ready();
         }
-        await click('Undo edit');
+        await click('Undo');
         await documentIs('saved language fixture restored', (d) => !d.dirty);
         assert.deepEqual((await status()).cues, savedState.cues);
         report.cases.push({

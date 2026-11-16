@@ -43,6 +43,9 @@
       >
       <span>Or click to choose a file</span>
     </button>
+    <p>
+      {navigator.platform.startsWith('Mac') ? '⌘K' : 'Ctrl+K'} finds any command
+    </p>
     <div class="actions">
       <button
         data-variant="primary"

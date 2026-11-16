@@ -99,7 +99,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         text?: string;
         start?: number;
         end?: number;
-        state?: { convert: boolean };
+        state?: { enabled: string[] };
       },
     ) => {
       switch (command) {
@@ -114,7 +114,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'plugin:event|unlisten':
           return;
         case 'update_menu':
-          menuConversion = args.state!.convert;
+          menuConversion = args.state!.enabled.includes('convertSubtitles');
           return;
         case 'preferences_get':
           return structuredClone(defaultPreferences);
@@ -362,7 +362,7 @@ async function run() {
       () =>
         edits.length === 1 &&
         !host.textContent!.includes('Editing…') &&
-        !button('Undo edit').disabled,
+        !button('Undo').disabled,
     );
     assert(
       edits[0]!.kind === 'editStyled' &&
@@ -373,15 +373,15 @@ async function run() {
     passed(
       'Style, text and timing commit in one request and accepted ASS escapes replace the draft',
     );
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => field('Cue style').value === 'Title');
     assert(
       field('Subtitle text').value === 'Red title' &&
         field('Cue start').value === '00:00:01,000',
       'Undo did not restore full cue',
     );
-    await until(() => !button('Redo edit').disabled);
-    button('Redo edit').click();
+    await until(() => !button('Redo').disabled);
+    button('Redo').click();
     await until(() => field('Cue style').value === 'Default');
     passed('One Undo/Redo restores style together with text and timing');
 
@@ -529,7 +529,7 @@ async function run() {
       () =>
         doc.revision === 1 &&
         !host.textContent!.includes('Editing…') &&
-        !button('Undo edit').disabled,
+        !button('Undo').disabled,
     );
     assert(
       edits.at(-1)?.kind === 'edit' &&
@@ -540,14 +540,14 @@ async function run() {
     passed(
       'WebVTT commits an ordinary edit with exact milliseconds, LF and literal ASS-looking text',
     );
-    button('Undo edit').click();
+    button('Undo').click();
     await until(() => field('Subtitle text').value === vtt.cues[0]!.text);
     assert(
       field('Cue start').value === '00:00:01,001',
       'WebVTT Undo lost millisecond precision',
     );
-    await until(() => !button('Redo edit').disabled);
-    button('Redo edit').click();
+    await until(() => !button('Redo').disabled);
+    button('Redo').click();
     await until(
       () =>
         field('Cue start').value === '00:00:01,002' && !button('Bold').disabled,
@@ -569,7 +569,9 @@ async function run() {
     passed('WebVTT formatting commits through the versioned document boundary');
     input('Subtitle text', `${vttEditor.value} draft`);
     await tick();
-    const pluginButton = button('Commands');
+    const pluginButton = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform"]',
+    )!;
     pluginButton.focus();
     await chooseCommand(host, 'plugins');
     await until(

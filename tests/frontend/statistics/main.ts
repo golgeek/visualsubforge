@@ -78,7 +78,9 @@ function select(label: string, value: string) {
   e.dispatchEvent(new Event('change', { bubbles: true }));
 }
 async function open() {
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   await chooseCommand(host, 'statistics');
   await until(
     () => !!host.querySelector('[aria-labelledby="statistics-title"]'),
@@ -92,9 +94,14 @@ async function close() {
   await until(
     () => !host.querySelector('[aria-labelledby="statistics-title"]'),
   );
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   assert(
-    document.activeElement === button('Commands'),
+    document.activeElement ===
+      host.querySelector<HTMLCanvasElement>(
+        'canvas[aria-label^="Audio waveform"]',
+      )!,
     'Statistics launcher focus restored',
   );
 }
@@ -222,7 +229,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 let app = mount(App, { target: host });
 try {
-  await until(() => !button('Commands').disabled);
+  await until(
+    () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
   failApply = true;
   input('Subtitle text', 'Keep my statistics draft');
   const before = JSON.stringify(doc);

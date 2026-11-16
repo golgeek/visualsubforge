@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { qualityText } from './quality-display';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -104,7 +105,7 @@
               : view && !session.current
                 ? 'Scope or workspace changed; calculate again.'
                 : summary
-                  ? `${summary.includedCues} included cues · ${summary.findingsCount} findings`
+                  ? `${countLabel(summary.includedCues, 'included cue')} · ${countLabel(summary.findingsCount, 'issue')}`
                   : 'No current report.'}
   </p>
   {#if summary}
@@ -114,10 +115,14 @@
     </p>
     <p class="notice">{sceneCoverage(summary.sceneCoverage)}</p>
     {#if summary.languageCoverage.enabled}<p class="notice">
-        Whole-document language coverage: {summary.languageCoverage
-          .checkedWords} checked words; {summary.languageCoverage.skippedWords} skipped
-        words and {summary.languageCoverage.skippedCues} skipped cues{summary
-          .languageCoverage.personalized
+        Whole-document language coverage: {countLabel(
+          summary.languageCoverage.checkedWords,
+          'checked word',
+        )}; {countLabel(summary.languageCoverage.skippedWords, 'skipped word')} and
+        {countLabel(
+          summary.languageCoverage.skippedCues,
+          'skipped cue',
+        )}{summary.languageCoverage.personalized
           ? '; personal/session words included'
           : ''}.
       </p>{/if}
@@ -177,8 +182,8 @@
     {/each}
     <h3>Reading-speed distribution</h3>
     <p>
-      Denominator: {summary.rs.count} cues with finite RS. Unavailable rates are excluded
-      from percentages.
+      Denominator: {countLabel(summary.rs.count, 'cue')} with finite RS. Unavailable
+      rates are excluded from percentages.
     </p>
     <div class="table-scroll">
       <table aria-label="Reading-speed distribution">
@@ -198,8 +203,8 @@
     <p>
       Original consecutive pairs: {summary.gapsMs.count} included, {summary.excludedNeighborPairs}
       excluded. {summary.negativeGaps} negative gaps · {summary.touchingGaps} touching
-      · {summary.positiveGaps} positive gaps. Both cues must be included; exclusions
-      never create new neighbors.
+      · {countLabel(summary.positiveGaps, 'positive gap')}. Both cues must be
+      included; exclusions never create new neighbors.
     </p>
     <p>
       All included intervals: <strong
@@ -223,9 +228,15 @@
     </details>
     <h3>Quality outliers</h3>
     <p>
-      {summary.findingsCount} findings · {summary.violations} violations · {summary.advisories}
-      advisories · {summary.affectedCues} included affected cues. Findings are selected
-      by their primary cue; related cues may be outside scope.
+      {countLabel(summary.findingsCount, 'issue')} · {countLabel(
+        summary.violations,
+        'violation',
+      )} · {countLabel(summary.advisories, 'advisory', 'advisories')} · {countLabel(
+        summary.affectedCues,
+        'included cue with issues',
+        'included cues with issues',
+      )}. Issues are selected by their primary cue; related cues may be outside
+      scope.
     </p>
     <div class="rule-counts">
       {#each summary.rules as rule (rule.rule)}<span

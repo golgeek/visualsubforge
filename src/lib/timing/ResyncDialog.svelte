@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { MediaStatus } from '../client';
@@ -62,8 +63,10 @@
     </dd>
     <dt>Source-timed subtitles</dt>
     <dd>
-      {subtitles.snapshot.path ?? 'Untitled subtitles'} · {subtitles.snapshot
-        .cues.length} cues{#if subtitles.snapshot.dirty}
+      {subtitles.snapshot.path ?? 'Untitled subtitles'} · {countLabel(
+        subtitles.snapshot.cues.length,
+        'cue',
+      )}{#if subtitles.snapshot.dirty}
         · unsaved changes{/if}
     </dd>
     <dt>Target video</dt>
@@ -114,7 +117,7 @@
     {:else if view?.phase === 'cancelled'}Analysis cancelled. Your subtitles are
       unchanged.
     {:else if view?.phase === 'reviewing'}{view.totalCues - view.unresolvedCues} of
-      {view.totalCues} cues mapped · {view.totalSections} matched section{view.totalSections ===
+      {countLabel(view.totalCues, 'cue')} mapped · {view.totalSections} matched section{view.totalSections ===
       1
         ? ''
         : 's'}
@@ -132,8 +135,8 @@
     </p>
     {#if !view.complete}
       <p class="error">
-        {view.unresolvedCues} cues could not be mapped safely. This proposal cannot
-        be accepted; no timings have changed.
+        {countLabel(view.unresolvedCues, 'cue')} could not be mapped safely. This
+        proposal cannot be accepted; no timings have changed.
       </p>
     {/if}
     <section aria-label="Matched sections">

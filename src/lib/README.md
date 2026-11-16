@@ -485,12 +485,14 @@ Record exact run results and evidence in the PR description, not this ownership 
 aliases and shortcuts. Rust embeds it for native menu labels/accelerators;
 `action-registry.ts` supplies typed discovery and availability reasons.
 `workspace-keys.ts` retains pure routing and existing
-focus/AltGr/composition rules while reading confirmed preference bindings. Native menus keep
-their platform placement and existing `WorkspaceMenus` eligibility projection.
+focus/AltGr/composition rules while reading confirmed preference bindings. Native menus use registry groups/order and the same eligibility and check-state
+projection as discovery. Layout, Theme and Density submenus participate in
+recursive accelerator publication.
 
 `WorkspaceCommands` coordinates existing owners after closing discovery, checks
 current eligibility again and rejects cue jumps if the document changed during
-close. It owns no draft, transaction, timer or subscription. `ActionBrowser`
+close. It owns no accepted subtitle state. Theme/density actions use and dispose a
+temporary SettingsSession for the existing versioned-save protocol. `ActionBrowser`
 keeps only query/focus/pending interaction state; palette, Commands menu and
 shortcut sheet use the existing `WorkspaceModal` lifetime. Escape restores focus
 and remaining native-video occlusion before another command can start.
@@ -654,7 +656,9 @@ start or recovery components.
 RecentWork owns only the start-screen historical list, its debounced single-flight
 capture and stale/disposal guards. Rust supplies at most 12 persisted entries and
 real checker counts with source/profile identity and the original check time.
-Unknown counts stay unknown; partial coverage is explicit. Capture never opens a
+Unknown counts stay unknown; partial coverage is explicit. A capture without
+counts preserves an earlier summary only when its saved-source hash still matches.
+Dirty revisions do not schedule captures; open/save/completed clean checks do. Capture never opens a
 file or admits a checker. Removal waits for capture and only edits list metadata;
 errors preserve the projection without automatic mutation replay. Recent entries
 route through WorkspaceOpen and retain protected, sequential pair opening.

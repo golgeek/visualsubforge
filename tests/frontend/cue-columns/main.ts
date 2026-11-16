@@ -167,8 +167,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 });
 
 async function choose(label: string) {
-  await until(() => !!button('Layout') && !button('Layout')!.disabled);
-  button('Layout')!.click();
+  await until(
+    () =>
+      !!host.querySelector('main') &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+  );
+  callbacks.get(listener)!({ payload: 'layoutOptions' });
   await until(
     () => !!host.querySelector('dialog[aria-label="Workspace layout"][open]'),
   );
@@ -176,7 +180,7 @@ async function choose(label: string) {
   await until(
     () =>
       !host.querySelector('dialog[open]') &&
-      !button('Layout')!.disabled &&
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
       !occluded,
   );
 }
@@ -211,7 +215,7 @@ async function run() {
       () =>
         !!listener && !!button('Columns ▾') && !button('Columns ▾')!.disabled,
     );
-    await until(() => !!button('Issues 3'));
+    await until(() => !!button('3 cues with issues'));
     delayHide = true;
     button('Columns ▾')!.click();
     await until(() => !!holdHide);
@@ -285,7 +289,11 @@ async function run() {
     );
     assert(saves > 0, 'No persistence happened');
     callbacks.get(listener)!({ payload: 'resetLayout' });
-    await until(() => !button('Layout')!.disabled && !occluded);
+    await until(
+      () =>
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+        !occluded,
+    );
     assert(
       columns()[1] === 'duration',
       'Reset Pane Sizes reset column choices',
@@ -302,8 +310,8 @@ async function run() {
     );
     setQuery('');
     await tick();
-    await until(() => !!button('Issues 3'));
-    button('Issues 3')!.click();
+    await until(() => !!button('3 cues with issues'));
+    button('3 cues with issues')!.click();
     await until(() => host.querySelectorAll('.cue-row').length === 3);
     assert(
       [...host.querySelectorAll('[data-cell="number"]')]
@@ -311,7 +319,7 @@ async function run() {
         .join(',') === '2,3,9000',
       'Issue filter lost related or distant cues',
     );
-    button('Issues 3')!.click();
+    button('3 cues with issues')!.click();
     await tick();
     host.querySelector<HTMLButtonElement>('.cue-row')!.click();
     await until(() => !button('Columns ▾')!.disabled);

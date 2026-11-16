@@ -616,6 +616,7 @@ export const defaultPreferences: Preferences = {
   timing: defaultTiming,
   quality: builtinQualityProfiles[0]!,
   showQualityMetrics: false,
+  zoomWaveformToCue: true,
   personalWords: { englishUs: [], french: [] },
 };
 export async function saveLayout(layout: Preferences['layout']): Promise<void> {

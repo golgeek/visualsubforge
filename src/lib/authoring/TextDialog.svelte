@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount, untrack } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import { TextSession } from './text-session.svelte';
@@ -145,6 +146,10 @@
     {#if searchable}
       <label
         >Find text <input
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
           aria-label="Find text"
           bind:value={session.query}
           disabled={session.pending || session.accepting}
@@ -211,8 +216,15 @@
     {:else if view?.phase === 'cancelled'}Text preview cancelled.
     {:else if view?.phase === 'stale'}Subtitles or the quality profile changed.
       Preview again.
-    {:else if view?.phase === 'reviewing' && session.current}{view.matches} matches
-      · {view.changed} changed cues · {view.total} review rows
+    {:else if view?.phase === 'reviewing' && session.current}{countLabel(
+        view.matches,
+        'match',
+        'matches',
+      )}
+      · {countLabel(view.changed, 'changed cue')} · {countLabel(
+        view.total,
+        'review row',
+      )}
     {:else if view?.phase === 'reviewing'}Search inputs changed. Preview again.
     {:else}Search or create a preview to begin.{/if}
   </p>
@@ -237,7 +249,7 @@
       </section>
     {/if}
     <p>
-      {view.profileName} · Quality findings: {view.beforeFindings} before → {view.afterFindings}
+      {view.profileName} · Quality issues: {view.beforeFindings} before → {view.afterFindings}
       after (whole preview).
     </p>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to independently scrolling results.) -->

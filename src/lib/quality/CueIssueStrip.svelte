@@ -39,6 +39,13 @@
     projection?.offset === 0 ? projection.issues.slice(0, 3) : [],
   );
   const current = $derived(issues[selected]);
+  const explanations = $derived(
+    projection?.issues
+      .flatMap((issue) =>
+        issue.findings.map((finding) => qualityText(finding.explanation)),
+      )
+      .join(' · ') ?? '',
+  );
   function label(rule: string) {
     return rule === 'rs_high'
       ? 'Too fast'
@@ -47,7 +54,7 @@
         : rule === 'line_length'
           ? 'Line too long'
           : rule === 'scene_start' || rule === 'scene_end'
-            ? 'Near shot change'
+            ? 'Near scene change'
             : (qualityRules.find((item) => item.id === rule)?.label ?? rule);
   }
 </script>
@@ -71,7 +78,7 @@
       <button
         {disabled}
         onclick={onmore}
-        aria-label={`Show all ${projection.count} cue issues`}
+        aria-label={`Show all ${projection.count} cue issue groups`}
         >+{projection.count - 3}</button
       >
     {:else if !issues.length}
@@ -105,19 +112,14 @@
         >Review manually</span
       >{/if}
   </div>
-  <div
-    class="detail"
-    title={current?.findings
-      .map((f) => qualityText(f.explanation))
-      .join(' · ') ?? ''}
-  >
-    <span
-      >{current?.findings.map((f) => qualityText(f.explanation)).join(' · ') ??
-        '\u00a0'}</span
-    >
+  <div class="detail" title={explanations}>
+    <span>{explanations || '\u00a0'}</span>
+    {#if projection?.count}<button {disabled} onclick={onmore}
+        >All explanations…</button
+      >{/if}
     {#if current}<button {disabled} onclick={() => onreview(current!.rule)}
         >{current.rule === 'scene_start' || current.rule === 'scene_end'
-          ? 'Snap to cut…'
+          ? 'Snap to scene change…'
           : 'Review fix…'}</button
       >{/if}
   </div>

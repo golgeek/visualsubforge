@@ -83,7 +83,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) {
       if (command === 'preferences_get')
-        return structuredClone(defaultPreferences);
+        return structuredClone({
+          ...defaultPreferences,
+          zoomWaveformToCue: false,
+        });
       switch (command) {
         case 'recent_list':
         case 'recent_capture':
@@ -180,7 +183,9 @@ function key(
 async function run() {
   const app = mount(App, { target: host });
   try {
-    await until(() => !(!menuState || menuState.busy));
+    await until(
+      () => !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     const canvas = host.querySelector<HTMLCanvasElement>(
       'canvas[aria-label^="Audio waveform:"]',
     )!;
@@ -211,10 +216,18 @@ async function run() {
       'Create applies previous text draft before creating and focusing the next cue',
     );
     key(editor, ' ', { altKey: true });
-    await until(() => media.paused && !(!menuState || menuState.busy));
+    await until(
+      () =>
+        media.paused &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     assert(document.activeElement === editor, 'Transport stole text focus');
     key(editor, ' ', { altKey: true });
-    await until(() => !media.paused && !(!menuState || menuState.busy));
+    await until(
+      () =>
+        !media.paused &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     passed('Modified Space controls playback while text remains focused');
     key(editor, 'Escape');
     await until(() => document.activeElement === canvas);
@@ -301,7 +314,9 @@ async function run() {
       .find((b) => b.textContent?.trim() === 'Delete cue')!
       .click();
     await until(
-      () => snapshot.cues.length === 3 && !(!menuState || menuState.busy),
+      () =>
+        snapshot.cues.length === 3 &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
       !snapshot.cues.some((c) => c.id === 1) &&
@@ -337,7 +352,11 @@ async function run() {
     const count = snapshot.cues.length;
     key(canvas, ' ');
     key(canvas, ' ', {}, 'keyup');
-    await until(() => media.paused && !(!menuState || menuState.busy));
+    await until(
+      () =>
+        media.paused &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     assert(
       snapshot.cues.length === count && document.activeElement === canvas,
       'Tap created cue or lost timing focus',
@@ -346,7 +365,11 @@ async function run() {
       'Short Space pauses between source-clock samples without creating a cue',
     );
     key(canvas, ' ');
-    await until(() => !media.paused && !(!menuState || menuState.busy));
+    await until(
+      () =>
+        !media.paused &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     key(canvas, ' ', { repeat: true });
     key(canvas, ' ', {}, 'keyup');
     await settle();
@@ -365,7 +388,7 @@ async function run() {
       await until(
         () =>
           snapshot.cues.some((c) => c.endMs === end * 1000) &&
-          !(!menuState || menuState.busy),
+          !(!menuState || !menuState!.enabled.includes('settings')),
       );
       assert(
         document.activeElement === canvas && mode.checked && !media.paused,
@@ -409,7 +432,7 @@ async function run() {
       '[aria-label="Timeline minimap"]',
     )!;
     const follow = [...host.querySelectorAll('label')]
-      .find((l) => l.textContent?.trim() === 'Follow playback')!
+      .find((l) => l.textContent?.trim() === 'Follow playhead')!
       .querySelector('input')!;
     media.positionSeconds = 18;
     await until(() => Number(pan.getAttribute('aria-valuenow')) === 10);
@@ -423,7 +446,7 @@ async function run() {
     await until(
       () =>
         snapshot.cues.some((c) => c.startMs === 18000 && c.endMs === 21000) &&
-        !(!menuState || menuState.busy),
+        !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
       follow.checked && document.activeElement === canvas && !media.paused,
@@ -463,7 +486,9 @@ async function run() {
     const seekCount = transport.filter((k) => k === 'seek').length;
     cueClick('pointerdown');
     cueClick('pointerup');
-    await until(() => !(!menuState || menuState.busy));
+    await until(
+      () => !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     assert(
       host
         .querySelector('.cue-row.selected')
@@ -493,7 +518,11 @@ async function run() {
       'Second click seeks inside selected cue without replacing its range',
     );
     button('Loop range').click();
-    await until(() => loops.length > 0 && !(!menuState || menuState.busy));
+    await until(
+      () =>
+        loops.length > 0 &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     const edge = host.querySelector<HTMLButtonElement>(
       '[aria-label^="Cue end boundary"]',
     )!;
@@ -506,7 +535,9 @@ async function run() {
     );
     key(edge, 'Escape');
     await until(
-      () => loops.at(-1)?.[1] === 21 && !(!menuState || menuState.busy),
+      () =>
+        loops.at(-1)?.[1] === 21 &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
       snapshot.revision === editRevision &&
@@ -522,7 +553,7 @@ async function run() {
     await until(
       () =>
         snapshot.revision === editRevision + 1 &&
-        !(!menuState || menuState.busy),
+        !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
       host.textContent?.includes('Range 18.000–21.100 s') === true,
@@ -532,14 +563,16 @@ async function run() {
       'Boundary release commits one edit and keeps the live loop at accepted bounds',
     );
     button('Clear loop').click();
-    await until(() => !(!menuState || menuState.busy));
+    await until(
+      () => !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     const loopsBefore = loops.length;
     key(edge, 'ArrowRight');
     key(edge, 'ArrowRight', {}, 'keyup');
     await until(
       () =>
         snapshot.revision === editRevision + 2 &&
-        !(!menuState || menuState.busy),
+        !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
       loops.length === loopsBefore,
@@ -549,13 +582,17 @@ async function run() {
       'Clear loop prevents subsequent timing previews from reenabling playback loops',
     );
     key(canvas, ' ', { altKey: true });
-    await until(() => media.paused && !(!menuState || menuState.busy));
+    await until(
+      () =>
+        media.paused &&
+        !(!menuState || !menuState!.enabled.includes('settings')),
+    );
     const firstRow = host.querySelector<HTMLButtonElement>('.cue-row')!;
     firstRow.click();
     await until(
       () =>
         transport.filter((k) => k === 'seek').length === seekCount + 4 &&
-        !(!menuState || menuState.busy),
+        !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
       media.positionSeconds === (snapshot.cues[0]?.startMs ?? -1) / 1000 &&

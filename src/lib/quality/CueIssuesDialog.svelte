@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { onMount } from 'svelte';
   import type { QualitySession } from './quality-session.svelte';
   import { qualityRules, qualityText } from './quality-display';
@@ -30,7 +31,7 @@
 >
   <h2>Cue issues</h2>
   {#if projection}
-    <p>{projection.count} issues · accepted subtitle</p>
+    <p>{countLabel(projection.count, 'issue group')} · accepted subtitle</p>
     <ol start={projection.offset + 1}>
       {#each projection.issues as issue, index (index)}
         <li>

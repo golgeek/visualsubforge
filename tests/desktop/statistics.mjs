@@ -112,7 +112,10 @@ export async function statisticsWorkflow({
     invoke('media_action', { action: { kind: 'status' }, session: 0 });
   const ready = () =>
     until('statistics workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   async function report(selection = { range: null, excluded: [] }) {
     const doc = await status(),
@@ -229,7 +232,7 @@ export async function statisticsWorkflow({
   );
   await ready();
   assert.equal((await status()).cues[1].text, 'Explicit statistics navigation');
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await ready();
   assert.deepEqual((await status()).cues, before.cues);
   before = await status();
@@ -449,7 +452,7 @@ async function statisticsPerformance({
     result.invalidationMs = Date.now() - invalidateStart;
     assert.ok(result.invalidationMs < 1000);
     await ready();
-    await (await browser.$('button=Undo edit')).click();
+    await (await browser.$('button=Undo')).click();
     await ready();
     assert.deepEqual((await status()).cues, baseline.cues);
     const nav = await open();

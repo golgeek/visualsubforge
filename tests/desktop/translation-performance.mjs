@@ -467,13 +467,13 @@ export async function translationPerformance({
             const editMs = performance.now() - editAt;
             if (accepted.cues[0].text !== text)
               throw new Error('Target edit missing');
-            const undoMs = await b.history('Undo edit', accepted.revision);
+            const undoMs = await b.history('Undo', accepted.revision);
             if (
               JSON.stringify((await b.state()).cues) !==
               JSON.stringify(before.cues)
             )
               throw new Error('Translation Undo lost cues');
-            const redoMs = await b.history('Redo edit', accepted.revision + 1);
+            const redoMs = await b.history('Redo', accepted.revision + 1);
             if (
               JSON.stringify((await b.state()).cues) !==
               JSON.stringify(accepted.cues)
@@ -495,10 +495,7 @@ export async function translationPerformance({
             );
             await b.frame();
             const projectSaveMs = performance.now() - projectAt;
-            const restoreMs = await b.history(
-              'Undo edit',
-              accepted.revision + 2,
-            );
+            const restoreMs = await b.history('Undo', accepted.revision + 2);
             return {
               offsetMs,
               selectedReferenceMs,
@@ -529,7 +526,7 @@ export async function translationPerformance({
       }
       await browser.execute(async () => {
         const b = window.__translationBench;
-        await b.history('Redo edit', (await b.state()).revision);
+        await b.history('Redo', (await b.state()).revision);
       });
       const saved = await status();
       result.timings.projectReopenMs = await browser.execute(async (target) => {
@@ -621,7 +618,7 @@ export async function translationPerformance({
         }
         const staleRejectionMs = performance.now() - staleAt;
         if (!refused) throw new Error('Stale reference load adopted');
-        await b.history('Undo edit', before.revision + 1);
+        await b.history('Undo', before.revision + 1);
         if (
           JSON.stringify((await b.state()).cues) !== JSON.stringify(before.cues)
         )

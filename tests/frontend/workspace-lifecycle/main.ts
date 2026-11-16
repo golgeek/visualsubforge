@@ -1,3 +1,4 @@
+import { runCueAction } from '../../../src/lib/cues/cue-actions';
 import { layoutCases } from './layout';
 import { nativeLayoutCases } from './native-layout';
 import { stateOwnerCases } from './state-owners.svelte';
@@ -126,6 +127,41 @@ async function documentCases() {
   });
   await model.command({ kind: 'status' });
   model.select(2);
+  let selectedRange: [number, number] | null = null;
+  const historyOwners = {
+    subtitles: model,
+    workspace: {
+      notice: '',
+      task: async (operation: () => Promise<void>) => operation(),
+    },
+    gestures: { cancelHeld: () => {} },
+    timeline: {
+      selectRange: (range: [number, number]) => {
+        selectedRange = range;
+      },
+    },
+    suspendFollowing: () => {},
+    revealSelection: async () => {},
+    focusText: async () => {},
+  } as unknown as Parameters<typeof runCueAction>[1];
+  for (const [action, start] of [
+    ['undo', 2000],
+    ['redo', 1803],
+  ] as const) {
+    next = {
+      ...next,
+      revision: next.revision + 1,
+      cues: next.cues.map((cue) =>
+        cue.id === 2 ? { ...cue, startMs: start } : cue,
+      ),
+    };
+    await runCueAction(action, historyOwners, new Event('click'));
+    assert(
+      JSON.stringify(selectedRange) === JSON.stringify([start / 1000, 2.9]),
+      `${action} reconciles the timeline range from the accepted selected cue`,
+    );
+  }
+  passed('Undo and Redo rebuild the selected range from accepted snapshots');
   model.text = 'unapplied';
   assert(
     model.snapshot === next &&

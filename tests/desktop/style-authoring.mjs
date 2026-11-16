@@ -202,7 +202,7 @@ export async function styleAuthoring({
         const created = await accept();
         assert.ok(created.format.styles.some((s) => s.name === name));
         assert.deepEqual(created.cues, opened.cues);
-        await click('Undo edit');
+        await click('Undo');
         await documentIs(
           'created style undone',
           (d) => !d.format.styles.some((s) => s.name === name),
@@ -245,7 +245,7 @@ export async function styleAuthoring({
       assert.equal(changed.cues[0].text, '{\\rHeading}Red title');
       assert.equal(style(changed, 'Heading', 'Fontsize'), '42');
       const native = await preview(`${extension}-style-accepted`);
-      await click('Undo edit');
+      await click('Undo');
       const undone = await documentIs(
         'atomic style Undo',
         (d) => d.cues[0].style === 'Title',
@@ -253,7 +253,7 @@ export async function styleAuthoring({
       await ready();
       assert.deepEqual(undone.cues, opened.cues);
       assert.deepEqual(undone.format, opened.format);
-      await click('Redo edit');
+      await click('Redo');
       await documentIs(
         'atomic style Redo',
         (d) => d.cues[0].style === 'Heading',

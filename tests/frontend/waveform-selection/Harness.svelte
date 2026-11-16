@@ -22,6 +22,14 @@
   let selected = $state<number | null>(null);
   let selections: number[] = [];
   let activeGesture = false;
+  let testEdges = $state(false);
+  const edges: {
+    id: number;
+    boundary?: string;
+    ms?: number;
+    commit?: boolean;
+  }[] = [];
+
   function assert(condition: boolean, message: string) {
     if (!condition) throw new Error(message);
   }
@@ -383,6 +391,63 @@
           `PASS: ${theme} solid cuts, gap lane, named snap guide and Alt bypass`,
         );
       }
+      await reset();
+      testEdges = true;
+      cues = [{ id: 5, startMs: 2000, endMs: 4000, text: 'Unselected' }];
+      await paint();
+      await pointer('pointerdown', 123);
+      await pointer('pointermove', 126);
+      assert(!edges.length, 'Three pixels of movement remain a click');
+      await pointer('pointerup', 126);
+      assert(
+        selections.at(-1) === 5 && !edges.length,
+        'Clicking near an unselected edge selects normally without timing edits',
+      );
+      selected = 5;
+      range = [2, 4];
+      await tick();
+      await pointer('pointerdown', 120);
+      await pointer('pointerup', 120);
+      assert(
+        seeks.at(-1) === 2 && !edges.length,
+        'Clicking a selected start edge seeks without timing edits',
+      );
+      await pointer('pointerdown', 240);
+      await pointer('pointerup', 240);
+      assert(
+        seeks.at(-1) === 4 && !edges.length,
+        'Clicking a cue end boundary seeks without timing edits',
+      );
+      results.push(
+        'PASS: cue-edge clicks and three-pixel movement preserve ordinary selection and seeking',
+      );
+      await pointer('pointerdown', 123);
+      await paint();
+      await pointer('pointermove', 183);
+      await pointer('pointerup', 183);
+      assert(
+        edges[0]?.id === 5 &&
+          edges.at(-1)?.commit === true &&
+          edges.at(-2)?.ms === 3000 &&
+          !ranges.length,
+        'Nearby edge starts boundary gesture and commits once',
+      );
+      await pointer('pointerdown', 130);
+      await pointer('pointermove', 190);
+      await pointer('pointerup', 190);
+      assert(
+        ranges.length === 1,
+        'Near miss outside six pixels remains range selection',
+      );
+      await pointer('pointerdown', 120);
+      await pointer('pointermove', 130);
+      await paint();
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await tick();
+      assert(edges.at(-1)?.commit === false, 'Escape cancels an edge gesture');
+      results.push(
+        'PASS: unselected edges, six-pixel near misses and Escape use boundary callbacks',
+      );
       complete = true;
     } catch (error) {
       results.push(`FAIL: ${String(error)}`);
@@ -412,6 +477,17 @@
       position={null}
       {cues}
       {selected}
+      onedge={testEdges
+        ? {
+            begin: async (id, current) => {
+              if (!current()) return false;
+              edges.push({ id });
+              return true;
+            },
+            preview: (boundary, ms) => edges.push({ id: 5, boundary, ms }),
+            finish: (commit) => edges.push({ id: 5, commit }),
+          }
+        : undefined}
       onselect={(id) => selections.push(id)}
       ongesture={(active) => (activeGesture = active)}
       {range}

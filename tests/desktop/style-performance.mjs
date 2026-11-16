@@ -136,7 +136,7 @@ export async function stylePerformance({
           if (changed.cues.filter((c) => c.style === 'Heading').length !== 2500)
             throw new Error('Incomplete atomic rename');
           const undoAt = performance.now();
-          b.button('Undo edit').click();
+          b.button('Undo').click();
           await b.wait(
             async () =>
               (await b.state()).revision === before.revision + 2 && b.ready(),

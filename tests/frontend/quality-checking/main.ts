@@ -1,6 +1,8 @@
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
+import ProblemsPanel from '../../../src/lib/quality/ProblemsPanel.svelte';
+import { QualitySession } from '../../../src/lib/quality/quality-session.svelte';
 import {
   defaultPreferences,
   emptyDocument,
@@ -258,24 +260,24 @@ async function run() {
     );
     await chooseCommand(host, 'problems');
     await until(
-      () => !!host.querySelector('[aria-label="Subtitle Problems"] .finding'),
+      () => !!host.querySelector('[aria-label="Subtitle issues"] .finding'),
       'Problems did not appear',
     );
     assert(
-      host.textContent!.includes(`${base.findingsCount} findings`),
+      host.textContent!.includes(`${base.findingsCount} issues`),
       'Finding count missing',
     );
     passed(
       'Problems shows measured/expected values and separate finding/affected-cue counts',
     );
-    filter('Problem rule', 'gap');
+    filter('Issue rule', 'gap');
     await until(
       () => lastRequest?.rule === 'gap' && !button('Next cue · F4').disabled,
       'Gap filter did not settle',
     );
     assert(
       host.querySelectorAll('.finding').length === 1 &&
-        host.textContent!.includes('1 matching findings · 2 cues'),
+        host.textContent!.includes('1 matching issue · 2 cues'),
       'Gap pair did not count both distinct cues',
     );
     button('Next cue · F4').click();
@@ -422,7 +424,7 @@ async function run() {
     passed(
       'Invalid draft timings leave accepted metrics and editing state available',
     );
-    filter('Problem rule', '');
+    filter('Issue rule', '');
     base = {
       ...base,
       profile: {
@@ -437,13 +439,13 @@ async function run() {
       () => host.textContent!.includes('Partial coverage'),
       'Partial coverage label missing',
     );
-    filter('Problem severity', 'advisory');
+    filter('Issue severity', 'advisory');
     await until(
       () => lastRequest?.severity === 'advisory',
       'Severity filter not sent',
     );
     passed('Severity filters and partial-coverage status remain visible');
-    filter('Problem severity', '');
+    filter('Issue severity', '');
     base = {
       ...base,
       findings: Array.from({ length: 205 }, (_, i) => ({
@@ -512,6 +514,29 @@ async function run() {
     );
     passed('Checking can be paused and restarted without disabling the editor');
     await unmount(app);
+    const emptyQuality = new QualitySession();
+    const emptyPanel = mount(ProblemsPanel, {
+      target: host,
+      props: {
+        session: emptyQuality,
+        documentLoaded: false,
+        disabled: false,
+        pending: false,
+        onnavigate: () => {},
+        onresolve: () => {},
+        onclose: () => {},
+        onlanguage: () => {},
+      },
+    });
+    await tick();
+    assert(
+      host.textContent!.includes('Open subtitles to check for issues') &&
+        !host.textContent!.includes('Updating…'),
+      'Unloaded documents show an empty state, not an endless update',
+    );
+    await unmount(emptyPanel);
+    emptyQuality.dispose();
+    passed('Issues without subtitles shows a plain empty state');
     await lifecycle(structuredClone(qualityView), passed);
     await projection(structuredClone(qualityView), passed);
     heading.textContent = `PASS: all ${output.children.length} quality checking checks`;

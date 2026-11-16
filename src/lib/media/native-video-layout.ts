@@ -21,8 +21,9 @@ export class NativeVideoLayout {
         kind: 'layout' as const,
         x: rect.x,
         y: rect.y,
-        width: rect.width,
-        height: rect.height,
+        // Native surfaces require positive dimensions even while hidden.
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
         visible:
           this.media.status.loaded &&
           rect.width > 0 &&

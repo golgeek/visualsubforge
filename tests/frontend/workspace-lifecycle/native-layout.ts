@@ -52,6 +52,10 @@ export async function nativeLayoutCases(passed: (message: string) => void) {
   const draining = new NativeVideoLayout(messages, {
     status: { ...emptyStatus, available: true, loaded: true },
     layout: async (bounds) => {
+      assert(
+        bounds.width > 0 && bounds.height > 0,
+        'Native bounds stay positive even when hidden',
+      );
       widths.push(bounds.width);
       visibility.push(bounds.visible);
       if (widths.length === 1)

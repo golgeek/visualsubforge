@@ -3,13 +3,19 @@ import type { ActionId } from '../../src/lib/workspace/action-registry';
 
 /** Exercise the visible Commands menu; feature assertions stay in their harness. */
 export async function openCommands(host: Element) {
-  const launcher = [...host.querySelectorAll<HTMLButtonElement>('button')].find(
-    (button) => button.textContent?.trim() === 'Commands',
-  );
-  if (!launcher || launcher.disabled)
-    throw new Error('Commands launcher unavailable');
+  const launcher =
+    host.querySelector<HTMLElement>('canvas[aria-label^="Audio waveform"]') ??
+    host.querySelector<HTMLElement>('[data-window-drag]');
+  if (!launcher) throw new Error('Workspace focus target unavailable');
   launcher.focus();
-  launcher.click();
+  launcher.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
   const end = performance.now() + 5000;
   while (!host.querySelector('dialog[open] [data-action]')) {
     if (performance.now() > end) throw new Error('Commands menu did not open');

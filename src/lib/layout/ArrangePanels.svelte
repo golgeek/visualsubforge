@@ -25,6 +25,52 @@
   let pending = $state(false);
   let error = $state('');
   let notice = $state('');
+  let drag: {
+    id: number;
+    panel: Panel;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null = null;
+  let destination = $state<Panel | null>(null);
+  let suppressClick = false;
+  function beginDrag(event: PointerEvent, panel: Panel) {
+    if (pending || event.button !== 0) return;
+    drag = {
+      id: event.pointerId,
+      panel,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+    };
+    suppressClick = false;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+  function moveDrag(event: PointerEvent) {
+    if (!drag || drag.id !== event.pointerId) return;
+    drag.moved ||=
+      Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 4;
+    if (!drag.moved) return;
+    selected = drag.panel;
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-panel]');
+    destination = (target?.dataset.panel as Panel) ?? null;
+  }
+  function endDrag(event: PointerEvent, cancel = false) {
+    if (!drag || drag.id !== event.pointerId) return;
+    moveDrag(event);
+    const current = drag;
+    const target = destination;
+    drag = null;
+    destination = null;
+    suppressClick = current.moved;
+    setTimeout(() => {
+      suppressClick = false;
+    }, 0);
+    if (!cancel && current.moved && target && target !== current.panel)
+      void move({ panel: current.panel, target, kind });
+  }
   const shown = $derived(layout.arrangement.rows.flatMap((row) => row.panels));
   onMount(() => dialog.showModal());
   async function run(action: () => Promise<unknown>) {
@@ -98,39 +144,30 @@
         <div class="tiles">
           {#each row.panels as panel (panel)}
             <button
-              draggable={!pending}
+              data-panel={panel}
+              class:destination={destination === panel}
               disabled={pending}
               aria-label={`Place ${panelNames[selected]} at ${panelNames[panel]}`}
-              ondragstart={(event) => {
-                selected = panel;
-                event.dataTransfer?.setData('text/plain', panel);
-              }}
-              ondragover={(event) => event.preventDefault()}
-              ondrop={(event) => {
-                event.preventDefault();
-                if (
-                  panels.includes(
-                    event.dataTransfer?.getData('text/plain') as Panel,
-                  )
-                )
-                  void move({
-                    panel: event.dataTransfer!.getData('text/plain') as Panel,
-                    target: panel,
-                    kind,
-                  });
-              }}
-              onclick={() =>
-                void move({ panel: selected, target: panel, kind })}
-              >{panelNames[panel]}</button
+              onpointerdown={(event) => beginDrag(event, panel)}
+              onpointermove={moveDrag}
+              onpointerup={(event) => endDrag(event)}
+              onpointercancel={(event) => endDrag(event, true)}
+              onlostpointercapture={(event) => endDrag(event, true)}
+              onclick={() => {
+                if (!suppressClick)
+                  void move({ panel: selected, target: panel, kind });
+                suppressClick = false;
+              }}>{panelNames[panel]}</button
             >
           {/each}
         </div>
         <label
           >Height weight <input
             type="number"
-            min="1"
+            min="0"
             max="100"
-            value={row.weight}
+            step="0.1"
+            value={Math.round(row.weight * 10) / 10}
             disabled={pending}
             onchange={(event) => {
               if (event.currentTarget.validity.valid)
@@ -157,12 +194,12 @@
   <div class="hidden">
     <strong>Hidden panels</strong
     >{#each panels.filter((panel) => !shown.includes(panel)) as panel (panel)}<button
-        draggable={!pending}
         disabled={pending}
-        ondragstart={(event) => {
-          selected = panel;
-          event.dataTransfer?.setData('text/plain', panel);
-        }}
+        onpointerdown={(event) => beginDrag(event, panel)}
+        onpointermove={moveDrag}
+        onpointerup={(event) => endDrag(event)}
+        onpointercancel={(event) => endDrag(event, true)}
+        onlostpointercapture={(event) => endDrag(event, true)}
         onclick={() => (selected = panel)}>{panelNames[panel]}</button
       >{/each}
   </div>
@@ -267,6 +304,13 @@
     display: flex;
     flex: 1;
     gap: 6px;
+  }
+  .tiles button,
+  .hidden button {
+    touch-action: none;
+  }
+  .tiles button.destination {
+    outline: 3px solid var(--accent);
   }
   .tiles button {
     flex: 1;

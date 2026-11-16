@@ -13,6 +13,7 @@ import {
   type MediaAction,
   type DocumentAction,
   type Preferences,
+  type updateMenu,
 } from '../../../src/lib/client';
 
 // Production workspace, modeled IPC. Visibility follows accepted media status;
@@ -36,6 +37,7 @@ let occluded = false;
 let preferences = structuredClone(defaultPreferences);
 let settingsEpoch = 1;
 let creations = 0;
+let menuState: Parameters<typeof updateMenu>[0] = { enabled: [], checked: [] };
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }
@@ -79,6 +81,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         handler?: number;
         event?: string;
         preferences?: Preferences;
+        state?: Parameters<typeof updateMenu>[0];
       },
     ) {
       switch (command) {
@@ -95,7 +98,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           listener = args.handler!;
           return 1;
         case 'plugin:event|unlisten':
+          return;
         case 'update_menu':
+          menuState = args.state!;
           return;
         case 'preferences_get':
           return structuredClone(preferences);
@@ -224,7 +229,7 @@ async function run() {
       browser()!.textContent!.includes('#1 · A subtitle'),
       'Cue text is searchable',
     );
-    await search('Edit selected cue');
+    await search('Edit Selected Cue');
     browser()!
       .querySelector<HTMLButtonElement>('[data-action="focusText"]')!
       .click();
@@ -234,12 +239,14 @@ async function run() {
     passed(
       'Palette jumps by cue number, searches text and executes an existing focus action',
     );
-    const commands = button('Commands')!;
+    const commands = host.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label^="Audio waveform"]',
+    )!;
     commands.focus();
     key(commands, '?', { shiftKey: true });
     await until(() => !!browser());
     assert(
-      browser()!.textContent!.includes('Keyboard shortcuts'),
+      browser()!.textContent!.includes('Keyboard Shortcuts'),
       'Question mark opens the sheet outside text',
     );
     await search('Split at Playhead');
@@ -254,7 +261,7 @@ async function run() {
       'Sheet uses shared label and shortcut',
     );
     await close();
-    commands.click();
+    key(commands, 'k', { ctrlKey: true });
     await until(() => !!browser());
     await search('Split at Playhead');
     assert(
@@ -279,6 +286,35 @@ async function run() {
     await until(() => !host.querySelector('[role="tooltip"]') && !occluded);
     passed(
       'Searchable shortcut sheet, command menu and delayed tooltip share metadata and safe video restoration',
+    );
+    for (const id of [
+      'commandPalette',
+      'shortcutSheet',
+      'layoutTiming',
+      'layoutReview',
+      'problems',
+      'statistics',
+      'translationReference',
+    ])
+      assert(menuState.enabled.includes(id), `Native menu exposes ${id}`);
+    callbacks.get(listener)!({ payload: 'translationReference' });
+    await until(() => menuState.checked.includes('translationReference'));
+    callbacks.get(listener)!({ payload: 'translationReference' });
+    await until(() => !menuState.checked.includes('translationReference'));
+    callbacks.get(listener)!({ payload: 'layoutReview' });
+    await until(
+      () =>
+        menuState.checked.includes('layoutReview') &&
+        menuState.checked.includes('problems'),
+    );
+    callbacks.get(listener)!({ payload: 'layoutTiming' });
+    await until(
+      () =>
+        menuState.checked.includes('layoutTiming') &&
+        !menuState.checked.includes('layoutReview'),
+    );
+    passed(
+      'Native menu projection exposes discovery and panel actions and tracks translation and preset checks',
     );
     callbacks.get(listener)!({ payload: 'settings' });
     await until(() => !!host.querySelector('[aria-label="Shortcut preset"]'));

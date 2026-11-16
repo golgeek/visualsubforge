@@ -62,7 +62,7 @@ function button(label: string) {
 const variants = [
   {
     name: 'gap',
-    launcher: 'Fix gaps and overlaps…',
+    launcher: 'Fix Gaps and Overlaps…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -71,7 +71,7 @@ const variants = [
   },
   {
     name: 'scene',
-    launcher: 'Snap to shot changes…',
+    launcher: 'Snap to scene changes…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -80,7 +80,7 @@ const variants = [
   },
   {
     name: 'duration',
-    launcher: 'Fix reading speed…',
+    launcher: 'Fix Reading Speed…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -89,7 +89,7 @@ const variants = [
   },
   {
     name: 'batch',
-    launcher: 'Shift / align cues…',
+    launcher: 'Shift / Align Cues…',
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
@@ -234,15 +234,13 @@ async function fixture(variant: (typeof variants)[number], above = true) {
   await until(
     () =>
       !!callbacks.get(handler) &&
-      [
-        ...host.querySelectorAll<HTMLButtonElement>(
-          'button:not(dialog:not([open]) button)',
-        ),
-      ].some((b) => b.textContent?.trim() === 'Commands' && !b.disabled),
+      host.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
   // Media polling has started synchronously on mount; allow its projection to render.
   await settle();
-  const launcher = button('Commands');
+  const launcher = host.querySelector<HTMLCanvasElement>(
+    'canvas[aria-label^="Audio waveform"]',
+  )!;
   const begin = () => {
     discovering = true;
     void chooseCommand(
@@ -280,7 +278,11 @@ async function fixture(variant: (typeof variants)[number], above = true) {
     },
     close: async () => {
       button('Close').click();
-      await until(() => !dialog() && !launcher.disabled);
+      await until(
+        () =>
+          !dialog() &&
+          !(host.querySelector('main')?.getAttribute('aria-busy') !== 'false'),
+      );
     },
     dispose: () => unmount(app),
   };
@@ -304,10 +306,20 @@ async function blocked(f: Awaited<ReturnType<typeof fixture>>) {
       cancelable: true,
     }),
   );
-  button('Commands').click();
+  host
+    .querySelector<HTMLCanvasElement>('canvas[aria-label^="Audio waveform"]')!
+    .dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'k',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   await settle();
   assert(
-    f.calls.length === before && f.launcher.disabled,
+    f.calls.length === before &&
+      host.querySelector('main')?.getAttribute('aria-busy') !== 'false',
     'Transition admitted another workspace action',
   );
 }
@@ -372,7 +384,7 @@ async function run() {
           await f.close();
           assert(
             document.activeElement === f.launcher,
-            'Dock close lost launcher focus',
+            `Dock close lost launcher focus: ${document.activeElement?.outerHTML.slice(0, 300)}`,
           );
         }
       } finally {

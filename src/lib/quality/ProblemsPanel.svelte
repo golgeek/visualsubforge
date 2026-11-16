@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { countLabel } from '../ui/count-label';
   import { qualityText } from './quality-display';
   import type { QualitySession } from './quality-session.svelte';
   import type { QualityRequest } from '../client';
@@ -11,6 +12,7 @@
   import { qualityRules, sceneCoverage } from './quality-display';
   let {
     session,
+    documentLoaded = true,
     disabled,
     pending,
     onnavigate,
@@ -19,6 +21,7 @@
     onlanguage,
   }: {
     session: QualitySession;
+    documentLoaded?: boolean;
     disabled: boolean;
     pending: boolean;
     onnavigate: (id: string) => void;
@@ -60,28 +63,30 @@
   }
 </script>
 
-<section class="problems" aria-label="Subtitle Problems">
+<section class="problems" aria-label="Subtitle issues">
   <header>
-    <strong>Problems</strong>
+    <strong>Issues</strong>
     <span role="status"
-      >{session.paused
-        ? 'Checking paused'
-        : view?.phase === 'checking' || view?.phase === 'cancelling'
-          ? 'Checking…'
-          : session.stale
-            ? 'Updating…'
-            : view?.phase === 'failed'
-              ? 'Check failed'
-              : view?.profileHash
-                ? `${view.findingsCount} findings · ${view.affectedCues} affected cues`
-                : 'Open subtitles to check'}</span
+      >{!documentLoaded
+        ? 'Open subtitles to check for issues'
+        : session.paused
+          ? 'Checking paused'
+          : view?.phase === 'checking' || view?.phase === 'cancelling'
+            ? 'Checking…'
+            : session.stale
+              ? 'Updating…'
+              : view?.phase === 'failed'
+                ? 'Check failed'
+                : view?.profileHash
+                  ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
+                  : 'Open subtitles to check'}</span
     >
     <button onclick={() => session.restart()} {disabled}>Check again</button>
     <button
       onclick={() => session.pause()}
       disabled={session.paused || disabled}>Pause checking</button
     >
-    <button onclick={onclose}>Close Problems</button>
+    <button onclick={onclose}>Close issues</button>
   </header>
   {#if session.error || view?.error}<p role="alert">
       {session.error || view?.error}
@@ -96,9 +101,11 @@
       <p class="policy">
         {view.profile.languageTools?.dictionary === 'fr'
           ? 'French Classique 7.7'
-          : 'English US SCOWL 2020.12.07'} · {view.languageCoverage
-          .checkedWords} words checked · {view.languageCoverage.skippedWords} words
-        and {view.languageCoverage.skippedCues} cues skipped{view
+          : 'English US SCOWL 2020.12.07'} · {countLabel(
+          view.languageCoverage.checkedWords,
+          'word',
+        )} checked · {countLabel(view.languageCoverage.skippedWords, 'word')}
+        and {countLabel(view.languageCoverage.skippedCues, 'cue')} skipped{view
           .languageCoverage.personalized
           ? ' · includes personal/session words'
           : ''}.
@@ -121,7 +128,7 @@
   <div class="filters">
     <label
       >Rule <select
-        aria-label="Problem rule"
+        aria-label="Issue rule"
         value={session.rule ?? ''}
         onchange={(e) => {
           session.rule = (e.currentTarget.value ||
@@ -137,7 +144,7 @@
     >
     <label
       >Severity <select
-        aria-label="Problem severity"
+        aria-label="Issue severity"
         value={session.severity ?? ''}
         onchange={(e) => {
           session.severity = (e.currentTarget.value ||
@@ -160,7 +167,10 @@
       >Next cue · F4</button
     >
     {#if view?.profileHash}<span
-        >{view.filteredCount} matching findings · {view.filteredCues} cues</span
+        >{countLabel(view.filteredCount, 'matching issue')} · {countLabel(
+          view.filteredCues,
+          'cue',
+        )}</span
       >{/if}
   </div>
   {#if pending}<div

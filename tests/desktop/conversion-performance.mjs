@@ -281,7 +281,7 @@ export async function conversionPerformance({
             if (!refused) throw new Error('Stale conversion published');
             await b.frame();
             const staleMs = performance.now() - changing;
-            b.button('Undo edit').click();
+            b.button('Undo').click();
             await b.wait(
               async () =>
                 (await b.state()).revision === doc.revision + 2 && b.ready(),

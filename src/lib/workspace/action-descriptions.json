@@ -6,7 +6,8 @@
     "shortcut": "CmdOrCtrl+,",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 59
   },
   "openMedia": {
     "label": "Open Media\u2026",
@@ -15,7 +16,8 @@
     "shortcut": "CmdOrCtrl+O",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 1
   },
   "openSubtitles": {
     "label": "Open Subtitles\u2026",
@@ -24,7 +26,8 @@
     "shortcut": "CmdOrCtrl+Shift+O",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 0
   },
   "save": {
     "label": "Save Subtitles",
@@ -33,7 +36,8 @@
     "shortcut": "CmdOrCtrl+S",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 4
   },
   "saveAs": {
     "label": "Save Subtitles As\u2026",
@@ -42,7 +46,8 @@
     "shortcut": "CmdOrCtrl+Shift+S",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 5
   },
   "undo": {
     "label": "Undo",
@@ -51,7 +56,8 @@
     "shortcut": "CmdOrCtrl+Z",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 11
   },
   "redo": {
     "label": "Redo",
@@ -60,7 +66,8 @@
     "shortcut": "CmdOrCtrl+Shift+Z",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 12
   },
   "apply": {
     "label": "Commit Cue Edit Now",
@@ -69,52 +76,58 @@
     "shortcut": "CmdOrCtrl+Return",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 16
   },
   "createCue": {
     "label": "Create Cue",
-    "group": "Edit",
+    "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+N",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 17
   },
   "deleteCue": {
     "label": "Delete Cue",
-    "group": "Edit",
+    "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+D",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 21
   },
   "splitCue": {
     "label": "Split at Playhead",
-    "group": "Edit",
+    "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+K",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 18
   },
   "mergePrevious": {
     "label": "Merge with Previous",
-    "group": "Edit",
+    "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+H",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 20
   },
   "mergeNext": {
     "label": "Merge with Next",
-    "group": "Edit",
+    "group": "Cue",
     "native": true,
     "shortcut": "CmdOrCtrl+Shift+J",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 19
   },
   "play": {
     "label": "Play / Pause",
@@ -123,7 +136,8 @@
     "shortcut": "CmdOrCtrl+Alt+Return",
     "aliases": [],
     "alternateShortcuts": ["Alt+Space", "Space"],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 28
   },
   "openProject": {
     "label": "Open Project\u2026",
@@ -132,7 +146,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 2
   },
   "importLegacyProject": {
     "label": "Import VisualSubSync Project\u2026",
@@ -141,7 +156,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 3
   },
   "saveProject": {
     "label": "Save Project",
@@ -150,7 +166,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 7
   },
   "saveProjectAs": {
     "label": "Save Project As\u2026",
@@ -159,7 +176,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 8
   },
   "convertSubtitles": {
     "label": "Export As\u2026",
@@ -168,7 +186,8 @@
     "shortcut": "",
     "aliases": ["Convert subtitles"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 6
   },
   "closeMedia": {
     "label": "Close Media",
@@ -177,7 +196,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 9
   },
   "closeSubtitles": {
     "label": "Close Subtitles",
@@ -186,25 +206,28 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 10
   },
   "translationReference": {
     "label": "Translation Reference",
     "group": "View",
     "native": true,
-    "shortcut": "",
+    "shortcut": "CmdOrCtrl+3",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 49
   },
   "showScenes": {
     "label": "Show Scene Changes",
     "group": "View",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 50
   },
   "arrangePanels": {
     "label": "Arrange Panels",
@@ -213,7 +236,8 @@
     "shortcut": "",
     "aliases": ["custom layout", "move panels"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 55
   },
   "resetLayout": {
     "label": "Reset Pane Sizes",
@@ -222,16 +246,18 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 56
   },
   "diagnostics": {
     "label": "Playback Diagnostics",
-    "group": "View",
+    "group": "Help",
     "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 58
   },
   "previousFrame": {
     "label": "Previous Frame",
@@ -240,7 +266,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 32
   },
   "nextFrame": {
     "label": "Next Frame",
@@ -249,7 +276,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 33
   },
   "playRange": {
     "label": "Loop Selected Range",
@@ -258,7 +286,8 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 30
   },
   "clearLoop": {
     "label": "Clear Loop",
@@ -267,70 +296,78 @@
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 31
   },
   "resync": {
     "label": "Resynchronize Subtitles\u2026",
-    "group": "Tools",
+    "group": "Review",
     "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 45
   },
   "plugins": {
     "label": "Subtitle Plugins\u2026",
-    "group": "Tools",
+    "group": "Review",
     "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 48
   },
   "scanScenes": {
     "label": "Scan Scene Changes",
-    "group": "Tools",
+    "group": "Review",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 46
   },
   "cancelSceneScan": {
     "label": "Cancel Scene Scan",
-    "group": "Tools",
+    "group": "Review",
     "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 47
   },
   "previousScene": {
     "label": "Previous Scene Change",
-    "group": "Tools",
+    "group": "Playback",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 36
   },
   "nextScene": {
     "label": "Next Scene Change",
-    "group": "Tools",
+    "group": "Playback",
     "native": true,
     "shortcut": "",
-    "aliases": [],
+    "aliases": ["shot", "cut"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 37
   },
   "timingSettings": {
     "label": "Timing and Scene Settings\u2026",
-    "group": "Tools",
+    "group": "Edit",
     "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 60
   },
   "quit": {
     "label": "Quit",
@@ -339,321 +376,427 @@
     "shortcut": "CmdOrCtrl+Q",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "find": {
     "label": "Find\u2026",
     "group": "Edit",
-    "native": false,
+    "native": true,
     "shortcut": "CmdOrCtrl+F",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 13
   },
   "replace": {
     "label": "Replace\u2026",
     "group": "Edit",
-    "native": false,
+    "native": true,
     "shortcut": "CmdOrCtrl+Shift+F",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 14
   },
   "fixGaps": {
-    "label": "Fix gaps and overlaps\u2026",
+    "label": "Fix Gaps and Overlaps\u2026",
     "group": "Review",
-    "native": false,
+    "native": true,
     "shortcut": "",
     "aliases": ["Enforce minimum gaps"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 41
   },
   "fixReadingSpeed": {
-    "label": "Fix reading speed\u2026",
+    "label": "Fix Reading Speed\u2026",
     "group": "Review",
-    "native": false,
+    "native": true,
     "shortcut": "",
     "aliases": ["Repair duration / speed"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 42
   },
   "snapShots": {
-    "label": "Snap to shot changes\u2026",
+    "label": "Snap to Scene Changes\u2026",
     "group": "Review",
-    "native": false,
+    "native": true,
     "shortcut": "",
-    "aliases": ["Repair scene timing"],
+    "aliases": ["Repair scene timing", "shot", "cut"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 43
   },
   "shiftCues": {
-    "label": "Shift / align cues\u2026",
-    "group": "Review",
-    "native": false,
+    "label": "Shift / Align Cues\u2026",
+    "group": "Cue",
+    "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 24
   },
   "statistics": {
     "label": "Statistics\u2026",
     "group": "Review",
-    "native": false,
-    "shortcut": "",
+    "native": true,
+    "shortcut": "CmdOrCtrl+2",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 44
   },
   "problems": {
-    "label": "Problems",
+    "label": "Issues",
     "group": "Review",
-    "native": false,
-    "shortcut": "",
+    "native": true,
+    "shortcut": "CmdOrCtrl+1",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 38
   },
   "focusText": {
-    "label": "Edit selected cue",
+    "label": "Edit Selected Cue",
     "group": "Cue",
     "native": false,
     "shortcut": "Enter",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "focusWaveform": {
-    "label": "Focus waveform",
+    "label": "Focus Waveform",
     "group": "View",
     "native": false,
     "shortcut": "Escape",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "seekBack": {
-    "label": "Seek back 1 second",
+    "label": "Seek Back 1 Second",
     "group": "Playback",
-    "native": false,
+    "native": true,
     "shortcut": "Alt+Left",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 34
   },
   "seekForward": {
-    "label": "Seek forward 1 second",
+    "label": "Seek Forward 1 Second",
     "group": "Playback",
-    "native": false,
+    "native": true,
     "shortcut": "Alt+Right",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 35
   },
   "seekBackFar": {
-    "label": "Seek back 5 seconds",
+    "label": "Seek Back 5 Seconds",
     "group": "Playback",
     "native": false,
     "shortcut": "Alt+Shift+Left",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "seekForwardFar": {
-    "label": "Seek forward 5 seconds",
+    "label": "Seek Forward 5 Seconds",
     "group": "Playback",
     "native": false,
     "shortcut": "Alt+Shift+Right",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "previousCue": {
-    "label": "Edit previous cue",
+    "label": "Edit Previous Cue",
     "group": "Cue",
     "native": false,
     "shortcut": "Alt+Up",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "nextCue": {
-    "label": "Edit next cue",
+    "label": "Edit Next Cue",
     "group": "Cue",
     "native": false,
     "shortcut": "Alt+Down",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "previousProblem": {
-    "label": "Previous problem",
+    "label": "Previous Issue",
     "group": "Review",
-    "native": false,
+    "native": true,
     "shortcut": "Shift+F4",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 40
   },
   "nextProblem": {
-    "label": "Next problem",
+    "label": "Next Issue",
     "group": "Review",
-    "native": false,
+    "native": true,
     "shortcut": "F4",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 39
   },
   "commandPalette": {
-    "label": "Command palette",
-    "group": "Help",
-    "native": false,
+    "label": "Command Palette",
+    "group": "Edit",
+    "native": true,
     "shortcut": "CmdOrCtrl+K",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 15
   },
   "shortcutSheet": {
-    "label": "Keyboard shortcuts",
+    "label": "Keyboard Shortcuts",
     "group": "Help",
-    "native": false,
+    "native": true,
     "shortcut": "?",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 57
   },
   "revertDraft": {
-    "label": "Discard uncommitted edit",
+    "label": "Discard Uncommitted Edit",
     "group": "Cue",
     "native": false,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "styles": {
     "label": "Styles\u2026",
     "group": "Edit",
-    "native": false,
+    "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 25
   },
   "fonts": {
     "label": "Fonts\u2026",
     "group": "Edit",
-    "native": false,
+    "native": true,
     "shortcut": "",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 26
   },
   "zoomIn": {
-    "label": "Zoom in",
+    "label": "Zoom In",
     "group": "View",
-    "native": false,
-    "shortcut": "",
+    "native": true,
+    "shortcut": "CmdOrCtrl+=",
     "aliases": [],
-    "alternateShortcuts": [],
-    "macShortcut": null
+    "alternateShortcuts": ["CmdOrCtrl+Shift+="],
+    "macShortcut": null,
+    "order": 52
   },
   "zoomOut": {
-    "label": "Zoom out",
+    "label": "Zoom Out",
     "group": "View",
-    "native": false,
-    "shortcut": "",
+    "native": true,
+    "shortcut": "CmdOrCtrl+-",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 53
   },
   "fitWaveform": {
-    "label": "Fit waveform",
+    "label": "Fit Waveform",
     "group": "View",
-    "native": false,
-    "shortcut": "",
+    "native": true,
+    "shortcut": "CmdOrCtrl+0",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 54
   },
   "layoutTiming": {
-    "label": "Timing layout",
-    "group": "Layout",
-    "native": false,
+    "label": "Timing",
+    "group": "View",
+    "native": true,
     "shortcut": "",
     "aliases": ["Timing preset"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "layoutEditorAbove": {
-    "label": "Editor above list layout",
-    "group": "Layout",
-    "native": false,
+    "label": "Editor Above List",
+    "group": "View",
+    "native": true,
     "shortcut": "",
     "aliases": ["Editor above list preset"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "layoutReview": {
-    "label": "Review layout",
-    "group": "Layout",
-    "native": false,
+    "label": "Review",
+    "group": "View",
+    "native": true,
     "shortcut": "",
     "aliases": ["Review preset"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "layoutTranslation": {
-    "label": "Translation layout",
-    "group": "Layout",
-    "native": false,
+    "label": "Translation",
+    "group": "View",
+    "native": true,
     "shortcut": "",
     "aliases": ["Translation preset"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "layoutBigPicture": {
-    "label": "Big picture layout",
-    "group": "Layout",
-    "native": false,
+    "label": "Big Picture",
+    "group": "View",
+    "native": true,
     "shortcut": "",
     "aliases": ["Big picture preset"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 100
   },
   "textTools": {
-    "label": "Find / Replace\u2026",
+    "label": "Text Tools\u2026",
     "group": "Edit",
-    "native": false,
+    "native": true,
     "shortcut": "",
     "aliases": ["Text tools"],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 27
   },
   "setStart": {
-    "label": "Set start at playhead",
+    "label": "Set Start at Playhead",
     "group": "Cue",
-    "native": false,
+    "native": true,
     "shortcut": "CmdOrCtrl+Shift+[",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 22
   },
   "setEnd": {
-    "label": "Set end at playhead",
+    "label": "Set End at Playhead",
     "group": "Cue",
-    "native": false,
+    "native": true,
     "shortcut": "CmdOrCtrl+Shift+]",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 23
   },
   "replay": {
-    "label": "Replay last 2 seconds",
+    "label": "Replay Last 2 Seconds",
     "group": "Playback",
-    "native": false,
+    "native": true,
     "shortcut": "CmdOrCtrl+Shift+Space",
     "aliases": [],
     "alternateShortcuts": [],
-    "macShortcut": null
+    "macShortcut": null,
+    "order": 29
+  },
+  "followPlayhead": {
+    "label": "Follow Playhead",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["follow playback waveform"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 51
+  },
+  "layoutOptions": {
+    "label": "Choose Layout\u2026",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["workspace layout picker"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 100
+  },
+  "themeSystem": {
+    "label": "System",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["theme system"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 100
+  },
+  "themeDark": {
+    "label": "Dark",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["theme dark"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 100
+  },
+  "themeLight": {
+    "label": "Light",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["theme light"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 100
+  },
+  "densityCompact": {
+    "label": "Compact",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["density compact"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 100
+  },
+  "densityComfortable": {
+    "label": "Comfortable",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["density comfortable"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 100
   }
 }

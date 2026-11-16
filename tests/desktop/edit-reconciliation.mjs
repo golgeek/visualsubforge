@@ -13,7 +13,10 @@ export async function editReconciliation({
   const editor = await browser.$('[aria-label="Subtitle text"]');
   const ready = () =>
     until('reconciliation workspace ready', () =>
-      browser.$('button=Commands').then((b) => b.isEnabled()),
+      browser
+        .$('main')
+        .getAttribute('aria-busy')
+        .then((busy) => busy === 'false'),
     );
   await ready();
   await (await browser.$$('.cue-row'))[0].click();
@@ -59,7 +62,7 @@ export async function editReconciliation({
   assert.equal(await (await browser.$('#cue-commit-error')).isExisting(), true);
   await discardCue(browser);
   assert.equal(await editor.getValue(), cue.text);
-  await (await browser.$('button=Undo edit')).click();
+  await (await browser.$('button=Undo')).click();
   await until(
     'only injected edit in history',
     async () => (await status()).revision === concurrent.revision + 1,

@@ -151,9 +151,51 @@ fn update(path: &Path, change: impl FnOnce(&mut Vec<Entry>)) -> Result<Vec<Entry
     crate::atomic_file::write(path, &bytes)?;
     Ok(entries)
 }
-fn remember(path: &Path, entry: Entry) -> Result<Vec<Entry>> {
+fn remember(path: &Path, mut entry: Entry) -> Result<Vec<Entry>> {
     update(path, |entries| {
-        entries.retain(|old| old.kind != entry.kind || old.path != entry.path);
+        // Reopening a video alone revisits its most recent subtitle pairing.
+        // Preserve that historical pair rather than inventing another session.
+        if entry.kind == Kind::Media
+            && let Some(pair) = entries.iter().find(|old| {
+                old.kind == Kind::Subtitles && old.media_path.as_ref() == Some(&entry.path)
+            })
+        {
+            let used_at_ms = entry.used_at_ms;
+            entry = pair.clone();
+            entry.used_at_ms = used_at_ms;
+        }
+        if entry.summary.is_none()
+            && let Some(old) = entries.iter().find(|old| {
+                old.kind == entry.kind
+                    && old.path == entry.path
+                    && old.subtitle_path == entry.subtitle_path
+            })
+            && let (Some(summary), Some(source)) = (&old.summary, &entry.subtitle_path)
+        {
+            // Historical counts remain valid only for exactly these saved bytes.
+            // Bound the read just like accepted subtitle input.
+            if let Ok(file) = fs::File::open(source) {
+                let mut bytes = Vec::new();
+                if file
+                    .take(64 * 1024 * 1024 + 1)
+                    .read_to_end(&mut bytes)
+                    .is_ok()
+                    && bytes.len() <= 64 * 1024 * 1024
+                    && format!("{:x}", Sha256::digest(&bytes)) == summary.source_sha256
+                {
+                    entry.summary = Some(summary.clone());
+                }
+            }
+        }
+        entries.retain(|old| {
+            let same_entry = old.kind == entry.kind && old.path == entry.path;
+            // Completing a media/subtitle pair upgrades its media-only entry.
+            // Other subtitles attached to the same video remain independent work.
+            let completed_pair = entry.kind == Kind::Subtitles
+                && old.kind == Kind::Media
+                && entry.media_path.as_ref() == Some(&old.path);
+            !same_entry && !completed_pair
+        });
         entries.insert(0, entry);
         entries.truncate(MAX_ENTRIES);
     })
@@ -296,6 +338,70 @@ mod tests {
         .unwrap();
         assert_eq!(read(&path).unwrap().len(), 11);
         assert_eq!(fs::read(&checked.path).unwrap(), b"original subtitle bytes");
+    }
+    #[test]
+    fn missing_summary_preserves_only_identical_saved_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("recent.json");
+        let mut checked = entry(dir.path(), 1);
+        checked.subtitle_path = Some(checked.path.clone());
+        fs::write(&checked.path, b"saved").unwrap();
+        checked.summary = Some(Summary {
+            cues: 2,
+            issues: 1,
+            complete: true,
+            profile_name: "Test".into(),
+            profile_hash: "a".repeat(64),
+            source_sha256: format!("{:x}", Sha256::digest(b"saved")),
+            checked_at_ms: 1.try_into().unwrap(),
+        });
+        remember(&path, checked.clone()).unwrap();
+        let mut dirty = checked.clone();
+        dirty.summary = None;
+        assert_eq!(
+            remember(&path, dirty.clone()).unwrap()[0].summary,
+            checked.summary
+        );
+        fs::write(&checked.path, b"different").unwrap();
+        assert!(remember(&path, dirty.clone()).unwrap()[0].summary.is_none());
+        fs::remove_file(&checked.path).unwrap();
+        assert!(remember(&path, dirty).unwrap()[0].summary.is_none());
+    }
+    #[test]
+    fn opening_media_and_subtitles_coalesces_in_either_order() {
+        for media_first in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("recent.json");
+            let video = dir.path().join("demo.mp4").to_string_lossy().into_owned();
+            let mut subtitles = entry(dir.path(), 1);
+            subtitles.subtitle_path = Some(subtitles.path.clone());
+            let media = Entry {
+                kind: Kind::Media,
+                path: video.clone(),
+                media_path: None,
+                subtitle_path: None,
+                used_at_ms: 1.try_into().unwrap(),
+                summary: None,
+            };
+            remember(
+                &path,
+                if media_first {
+                    media.clone()
+                } else {
+                    subtitles.clone()
+                },
+            )
+            .unwrap();
+            subtitles.media_path = Some(video);
+            let list = remember(&path, subtitles.clone()).unwrap();
+            assert_eq!(list, vec![subtitles.clone()]);
+            let reopened = Entry {
+                used_at_ms: 9.try_into().unwrap(),
+                ..media
+            };
+            subtitles.used_at_ms = reopened.used_at_ms;
+            assert_eq!(remember(&path, reopened).unwrap(), vec![subtitles]);
+        }
     }
     #[test]
     fn rejected_metadata_and_unknown_versions_preserve_stored_bytes() {
