@@ -534,6 +534,10 @@ async function run() {
         !host.textContent!.includes('Updating…'),
       'Unloaded documents show an empty state, not an endless update',
     );
+    assert(
+      button('Check again').disabled && button('Pause checking').disabled,
+      'Checking controls are disabled without subtitles',
+    );
     await unmount(emptyPanel);
     emptyQuality.dispose();
     passed('Issues without subtitles shows a plain empty state');
