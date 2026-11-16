@@ -3,6 +3,7 @@
 pub mod alignment;
 mod process;
 pub mod scenes;
+pub mod subtitle_tracks;
 pub mod tools;
 
 use serde::{Deserialize, Serialize};

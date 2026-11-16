@@ -2,6 +2,7 @@
 //! validation and file publication; this process never loads desktop settings.
 mod args;
 mod check;
+mod extract;
 mod plugins;
 mod stats;
 use args::{Cli, Command, Resync};
@@ -48,6 +49,7 @@ fn main() -> ExitCode {
     // Returning from main drops all owned state. Do not exit from a signal
     // handler: the current synchronous call must reap children/clean temporaries.
     let result = match cli.command {
+        Command::Extract(args) => extract::run(args, &cancel),
         Command::Plugin(args) => plugins::run(args.command, &plugin_cancel)
             .map_err(|e| (plugins::error_code(&e), e.to_string())),
         Command::Resync(args) => run(args, &cancel).map_err(|error| {

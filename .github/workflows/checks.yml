@@ -32,6 +32,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
       - run: python3 scripts/media-fixtures.py
+      - run: cargo test --locked -p vsf-application --test subtitle_extraction -- --ignored
+      - run: cargo test --release --locked -p vsf-application --test subtitle_extraction_edges -- --ignored --nocapture
+      - run: cargo test --locked -p vsf-cli --test extraction -- --ignored
       - run: python3 scripts/scene-fixtures.py
       - run: python3 scripts/resync-fixtures.py --extended --robustness
       - run: cargo test --locked -p media-analysis -p vsf-application

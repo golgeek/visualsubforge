@@ -83,3 +83,5 @@ Review includes Statistics. Only project layouts require version 3; ordinary sav
 retain version 1/2, and removing the layout returns to the compatible version.
 The custom-layout native GPU/input trials remain separate from playback-free
 webview and modeled occlusion checks.
+
+Embedded text track listing and CLI extraction: [contract](subtitle-extraction.md).

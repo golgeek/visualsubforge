@@ -14,6 +14,7 @@ The editor provides:
   checks, statistics and optional English/French language tools.
 - ASS/SSA style and font authoring, reviewed separate-file SRT/ASS/SSA conversion,
   and experimental visual resynchronization through the desktop or CLI.
+- [Embedded subtitle extraction](docs/subtitle-extraction.md) through the headless CLI.
 - Projects, portable settings/profiles, reviewed VisualSubSync project import,
   manual translation references and a bounded JavaScript checker/fix plugin subset.
 

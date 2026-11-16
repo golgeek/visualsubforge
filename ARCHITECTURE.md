@@ -690,3 +690,13 @@ draft commit and generation/session/pointer checks. Wheel zoom uses the pointer
 anchor while following is disabled or suspended; otherwise it uses the playhead.
 WorkspaceView remembers the Review dock displaced by Translation and restores it
 on close; accepted subtitle state remains entirely in Rust.
+
+## Embedded subtitle extraction
+
+`media-analysis::subtitle_tracks` lists streams and runs bounded FFmpeg extraction
+through the shared subprocess supervisor and tool discovery. It knows codec names
+and bytes, without depending on subtitle state. `vsf-application::subtitle_extraction`
+validates UTF-8 and format policy, prepares source provenance and suggested names,
+and publishes CLI output through the existing atomic no-clobber file boundary.
+`vsf extract` calls these synchronous operations without a GUI or native player.
+See the [extraction contract](docs/subtitle-extraction.md).
