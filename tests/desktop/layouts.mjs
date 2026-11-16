@@ -33,7 +33,7 @@ export async function workspaceLayouts({
     // Verify the size the host actually supplied. A small hosted display can
     // clamp macOS windows; the receipt must not claim a 900 px desktop trial.
     // Full-size acceptance also runs locally and in exact-size browser cases.
-    const requiredRows = !clamped && height === 900 ? 14 : 8;
+    const requiredRows = !clamped && height === 900 ? 8 : 4;
     for (const [id, action] of [
       ['timing', 'layoutTiming'],
       ['editorAbove', 'layoutEditorAbove'],

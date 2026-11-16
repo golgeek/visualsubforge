@@ -3163,7 +3163,7 @@ export const preferences = {
         ],
       },
       editorPct: 16.0,
-      topPct: 40.0,
+      topPct: 50.0,
       wavePct: 35.0,
     },
     editorAbove: {
@@ -3238,7 +3238,7 @@ export const preferences = {
         ],
       },
       editorPct: 16.0,
-      topPct: 13.0,
+      topPct: 35.0,
       wavePct: 65.0,
     },
     review: {
@@ -3313,7 +3313,7 @@ export const preferences = {
         ],
       },
       editorPct: 16.0,
-      topPct: 13.0,
+      topPct: 35.0,
       wavePct: 65.0,
     },
     timing: {
@@ -3388,7 +3388,7 @@ export const preferences = {
         ],
       },
       editorPct: 16.0,
-      topPct: 13.0,
+      topPct: 35.0,
       wavePct: 65.0,
     },
     translation: {
@@ -3463,7 +3463,7 @@ export const preferences = {
         ],
       },
       editorPct: 16.0,
-      topPct: 13.0,
+      topPct: 35.0,
       wavePct: 65.0,
     },
   },

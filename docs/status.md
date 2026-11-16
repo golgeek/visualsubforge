@@ -69,7 +69,10 @@ The [feature roadmap](feature-roadmap.md) describes product scope. Public setup,
 contracts and test instructions work without local task histories or research.
 
 Workspace layout provides five user presets, per-preset pane sizes and active-preset
-reset. User preferences migrate from versions 1–4 to 5 without rewriting on read.
+reset. Shared presets start with a 35% preview row; Big Picture starts at 50%.
+Untouched legacy 13% heights upgrade on read; resized and inherited nondefault
+heights are preserved. User preferences migrate from versions 1–5 to 6 without
+rewriting on read.
 Desktop screenshots and modeled native hide/bounds ordering are separate from
 native playback/composition acceptance.
 

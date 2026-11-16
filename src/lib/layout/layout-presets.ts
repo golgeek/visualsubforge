@@ -15,7 +15,7 @@ export interface LayoutDescription {
 }
 const timing = {
   topResized: false,
-  topPct: 13,
+  topPct: 35,
   editorPct: 16,
   wavePct: 65,
   columns: defaultColumns(),
@@ -54,7 +54,7 @@ export const layoutPresets: Record<LayoutPreset, LayoutDescription> = {
     dock: null,
     defaults: {
       topResized: false,
-      topPct: 40,
+      topPct: 50,
       editorPct: 16,
       wavePct: 35,
       columns: defaultColumns(),

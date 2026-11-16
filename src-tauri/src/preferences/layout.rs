@@ -52,7 +52,7 @@ impl Default for PaneSizes {
         Self {
             top_resized: false,
             columns: Default::default(),
-            top_pct: 13.0,
+            top_pct: 35.0,
             editor_pct: 16.0,
             wave_pct: 65.0,
         }
@@ -87,7 +87,7 @@ impl Default for LayoutPreferences {
                 ..Default::default()
             },
             big_picture: PaneSizes {
-                top_pct: 40.0,
+                top_pct: 50.0,
                 wave_pct: 35.0,
                 ..Default::default()
             },
@@ -95,6 +95,22 @@ impl Default for LayoutPreferences {
     }
 }
 impl LayoutPreferences {
+    // Reading upgrades only the exact old, untouched default. Inherited nondefault and
+    // deliberately resized heights retain their existing presentation.
+    pub fn upgrade_preview_defaults(&mut self) {
+        for sizes in [
+            &mut self.timing,
+            &mut self.editor_above,
+            &mut self.review,
+            &mut self.translation,
+            &mut self.big_picture,
+        ] {
+            if !sizes.top_resized && sizes.top_pct == 13.0 {
+                sizes.top_pct = 35.0;
+            }
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if let Some(custom) = &self.custom {
             custom.validate()?;
