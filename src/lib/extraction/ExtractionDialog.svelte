@@ -26,7 +26,10 @@
   <p>{session.path.split(/[\\/]/).pop()}</p>
   {#if session.error}<p role="alert">{session.error}</p>{/if}
   {#if session.busy}<p role="status">
-      Reading subtitle tracks… {session.elapsed}s
+      {session.extracting === null
+        ? 'Reading subtitle tracks…'
+        : `Extracting track ${session.extracting}…`}
+      {session.elapsed}s
     </p>{/if}
   {#if session.view?.listing}
     {#if !session.view.listing.tracks.length}<p>
@@ -44,7 +47,7 @@
         <span
           >Track {track.index}: {languageName(track.language)}{track.language
             ? ` (${track.language})`
-            : ''} — {track.title ?? ''}
+            : ''}{track.title ? ` — ${track.title}` : ''}
           {labels[track.codec] ?? track.codec}
           {#if track.default}<small>Default</small>{/if}
           {#if track.forced}<small>Forced</small>{/if}

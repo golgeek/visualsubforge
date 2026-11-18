@@ -133,14 +133,14 @@ export class FontSession {
       if (this.active(epoch)) this.pending = this.picking = false;
     }
   }
-  async pickVideo() {
+  async pickVideo(defaultPath?: string) {
     if (!this.canPut) return;
     const epoch = ++this.epoch;
     const document = this.subtitles.snapshot;
     this.pending = this.picking = true;
     this.error = '';
     try {
-      const path = await this.api.chooseFile('media');
+      const path = defaultPath || (await this.api.chooseFile('videoFonts'));
       if (!this.active(epoch) || !path) return;
       if (document !== this.subtitles.snapshot || this.subtitles.dirty)
         throw new Error(

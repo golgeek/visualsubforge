@@ -1217,6 +1217,7 @@
     {gestures}
     {timeline}
     {extraction}
+    documentGeneration={subtitles.snapshot.generation}
     showExtraction={!subtitles.snapshot.loaded}
   />
   <PlaybackDiagnostics

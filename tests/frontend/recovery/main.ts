@@ -29,7 +29,9 @@ const stale: RecoveryStatus = {
   entries: [
     {
       id: 'session-old',
-      sourcePath: '/disposable/old.srt',
+      suggestedName: 'old.srt',
+      videoFilename: 'original.mkv',
+      sourcePath: null,
       capturedMs: null,
       revision: 2,
       error: null,
@@ -42,6 +44,8 @@ const fresh: RecoveryStatus = {
     {
       ...stale.entries[0]!,
       id: 'session-new',
+      suggestedName: null,
+      videoFilename: null,
       sourcePath: '/disposable/new.srt',
     },
   ],
@@ -128,6 +132,22 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
     );
     button('Discard…').click();
     await settle();
+    assert(hasEntry('old.srt from original.mkv'), 'Extraction origin missing');
+    const card = host.querySelector<HTMLElement>('.recovery')!;
+    const label = card.querySelector<HTMLElement>('.label')!;
+    const confirm = button('Confirm discard').getBoundingClientRect();
+    assert(
+      card.scrollHeight <= card.clientHeight + 1 &&
+        confirm.bottom <= card.getBoundingClientRect().bottom &&
+        confirm.bottom <= window.innerHeight,
+      'Confirmation requires scrolling',
+    );
+    assert(
+      label.clientWidth >= 100 &&
+        label.offsetHeight <=
+          2 * parseFloat(getComputedStyle(label).fontSize) * 1.5,
+      'Recovery label collapsed',
+    );
     button('Confirm discard').click();
     // Keep real production polling intervals: the second read must begin
     // while the asynchronous mutation is pending, not before its invalidation.

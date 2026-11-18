@@ -64,7 +64,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: { operation?: FontOperation; kind?: string },
     ) => {
       if (command === 'choose_file') {
-        assert(args.kind === 'font' || args.kind === 'media', 'Wrong chooser');
+        assert(
+          args.kind === 'font' || args.kind === 'videoFonts',
+          'Wrong chooser',
+        );
         return pickerCancel ? null : '/fixture/New.otf';
       }
       if (command === 'font_start') {
@@ -143,6 +146,7 @@ async function show() {
     target: host,
     props: {
       subtitles,
+      mediaPath: '/fixture/current.mkv',
       onclose: () => {},
       onaccepted: () => {
         accepted++;
@@ -305,6 +309,17 @@ async function run() {
     assert(
       !doc.dirty && host.textContent!.includes('../fixture.ttf'),
       'Video listing changed document or lost label',
+    );
+    assert(
+      operation.kind === 'videoFonts' &&
+        operation.path === '/fixture/current.mkv',
+      'Expected current media without a picker',
+    );
+    button('Choose another video…').click();
+    await until(
+      () =>
+        operation.kind === 'videoFonts' &&
+        operation.path === '/fixture/New.otf',
     );
     button('Preview font embedding').click();
     await until(

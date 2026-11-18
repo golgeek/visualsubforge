@@ -4,14 +4,19 @@
   import { FontSession } from './font-session.svelte';
   let {
     subtitles,
+    mediaPath = '',
     onclose,
     onaccepted,
   }: {
     subtitles: DocumentSession;
+    mediaPath?: string;
     onclose: () => void;
     onaccepted: () => void;
   } = $props();
   const session = untrack(() => new FontSession(subtitles));
+  const defaultVideo = $derived(
+    subtitles.snapshot.extractedFrom?.media_path || mediaPath,
+  );
   const summary = $derived(session.view?.summary);
   let dialog: HTMLDialogElement;
   onMount(() => {
@@ -76,9 +81,16 @@
       onclick={() => void session.cancel()}>Cancel font review</button
     >
   </div>
-  <button disabled={!session.canPut} onclick={() => void session.pickVideo()}
+  <button
+    disabled={!session.canPut}
+    onclick={() => void session.pickVideo(defaultVideo)}
     >Embed Fonts from Video…</button
   >
+  {#if defaultVideo}
+    <button disabled={!session.canPut} onclick={() => void session.pickVideo()}
+      >Choose another video…</button
+    >
+  {/if}
   {#if session.view?.videoFonts}
     {#if session.view.videoFonts.length}
       <label

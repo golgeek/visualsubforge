@@ -302,6 +302,8 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
 #[serde(rename_all = "camelCase")]
 pub enum FileChoice {
     Workspace,
+    ExtractSubtitles,
+    VideoFonts,
     Media,
     Subtitles,
     Font,
@@ -399,6 +401,12 @@ pub async fn choose_file(
                 .blocking_save_file(),
             FileChoice::Workspace => dialog
                 .set_title("Open video, subtitles or project")
+                .blocking_pick_file(),
+            FileChoice::ExtractSubtitles => dialog
+                .set_title("Open Subtitles from Video")
+                .blocking_pick_file(),
+            FileChoice::VideoFonts => dialog
+                .set_title("Embed Fonts from Video")
                 .blocking_pick_file(),
             FileChoice::Media => dialog.set_title("Open Media").blocking_pick_file(),
             FileChoice::Font => dialog

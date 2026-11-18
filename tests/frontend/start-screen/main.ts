@@ -24,6 +24,8 @@ const recovery: RecoveryStatus = {
   entries: [
     {
       id: 'recover-1',
+      suggestedName: null,
+      videoFilename: null,
       sourcePath: '/original.srt',
       capturedMs: null,
       revision: 1,

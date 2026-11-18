@@ -307,6 +307,8 @@ fn read(path: &Path) -> Result<Recovered> {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Entry {
     pub id: String,
+    pub suggested_name: Option<String>,
+    pub video_filename: Option<String>,
     pub source_path: Option<String>,
     #[serde(with = "crate::ipc_number::optional")]
     #[specta(type = Option<crate::ipc_number::SafeU64>)]
@@ -357,6 +359,8 @@ pub(crate) fn list(root: &Path) -> Result<Vec<Entry>> {
         })();
         let mut item = Entry {
             id,
+            suggested_name: None,
+            video_filename: None,
             source_path: None,
             captured_ms: None,
             revision: None,
@@ -365,6 +369,13 @@ pub(crate) fn list(root: &Path) -> Result<Vec<Entry>> {
         match inspected {
             Ok(Some(record)) => {
                 item.source_path = record.source_path;
+                if let Some(origin) = record.extracted_from {
+                    item.suggested_name = Some(origin.suggested_name);
+                    item.video_filename = origin
+                        .media_path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned());
+                }
                 // These fields are informational; recovery creates fresh editor
                 // history. Unrepresentable old metadata must not hide an otherwise
                 // recoverable SRT or make the entire listing fail serialization.

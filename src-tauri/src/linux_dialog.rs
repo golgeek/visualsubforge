@@ -207,6 +207,8 @@ async fn request_file(
                 .await
         }
         FileChoice::Workspace
+        | FileChoice::ExtractSubtitles
+        | FileChoice::VideoFonts
         | FileChoice::Media
         | FileChoice::Font
         | FileChoice::Plugin
@@ -235,7 +237,11 @@ async fn request_file(
                 } else if subtitles {
                     "Open Subtitles"
                 } else {
-                    "Open Media"
+                    match kind {
+                        FileChoice::ExtractSubtitles => "Open Subtitles from Video",
+                        FileChoice::VideoFonts => "Embed Fonts from Video",
+                        _ => "Open Media",
+                    }
                 })
                 .modal(true)
                 .multiple(false)

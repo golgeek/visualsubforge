@@ -108,7 +108,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'scenes_start':
           return 1;
         case 'scenes_view':
-          return { generation: 1, status: 'idle', cuts: [], complete: false };
+          return {
+            generation: 1,
+            mode: 'visual',
+            running: false,
+            total: 0,
+            cuts: [],
+            partial: false,
+          };
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
@@ -127,10 +134,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             transport.push(args.action!.kind);
           return structuredClone(media);
         case 'choose_file':
-          if (args.kind === 'media') return '/synthetic/video.mkv';
+          if (args.kind === 'extractSubtitles') return '/synthetic/video.mkv';
           assert(args.kind === 'saveSubtitles', 'Unexpected picker');
           assert(
-            args.current === 'video.fr.srt',
+            args.current === '/synthetic/video.fr.srt',
             'Suggested extraction name missing',
           );
           pickers++;
@@ -248,14 +255,14 @@ let reply: ExtractionReply = {
   provenance: {
     media_path: '/synthetic/video.mkv',
     stream_index: 2,
-    codec: 'subrip',
+    codec: 'mov_text',
     language: 'fra',
     title: 'French',
     suggested_name: 'video.fr.srt',
   },
   cueCount: 1,
   fontCount: 1,
-  repairedCues: [],
+  repairedCues: [1],
 };
 async function run() {
   const app = mount(App, { target: host });
@@ -286,6 +293,26 @@ async function run() {
     );
     passed(
       'accepted extraction is dirty and requires Save As with provenance notice',
+    );
+    await until(
+      () =>
+        transport.includes('open') &&
+        !!host
+          .querySelector('footer .message')
+          ?.textContent?.includes('0 scene changes'),
+    );
+    const footer = host.querySelector('footer')!.textContent!;
+    for (const detail of [
+      'Converted from MP4 text',
+      '1 font attachment',
+      'Repaired missing durations for cues 1',
+    ])
+      assert(
+        footer.includes(detail),
+        'Missing result after scene scan: ' + detail,
+      );
+    passed(
+      'media switched and scene scan finished with all extraction details visible',
     );
     menuAction('save');
     await until(() => pickers === 1);
@@ -349,7 +376,7 @@ async function run() {
       async () => {},
     );
     await session.observe('/synthetic/notice.mkv', false);
-    assert(session.notice?.count === 2, 'Usable media notice missing');
+    assert(session.notice?.count === 1, 'Usable media notice missing');
     session.dismiss();
     await session.observe('/synthetic/notice.mkv', false);
     assert(session.notice === null, 'Dismissed notice repeated');

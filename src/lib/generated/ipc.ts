@@ -1423,6 +1423,8 @@ export type visualsubforge_recovery_store_Entry =
 
 export type visualsubforge_recovery_store_Entry_Deserialize = {
   id: string;
+  suggestedName: string | null;
+  videoFilename: string | null;
   sourcePath: string | null;
   capturedMs: number | null;
   revision: number | null;
@@ -1431,6 +1433,8 @@ export type visualsubforge_recovery_store_Entry_Deserialize = {
 
 export type visualsubforge_recovery_store_Entry_Serialize = {
   id: string;
+  suggestedName: string | null;
+  videoFilename: string | null;
   sourcePath: string | null;
   capturedMs: number | null;
   revision: number | null;
@@ -1554,6 +1558,8 @@ export type vsf_application_quality_statistics_Extreme = {
 
 export type visualsubforge_desktop_FileChoice =
   | 'workspace'
+  | 'extractSubtitles'
+  | 'videoFonts'
   | 'media'
   | 'subtitles'
   | 'font'

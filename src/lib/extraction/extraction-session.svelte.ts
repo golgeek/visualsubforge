@@ -10,6 +10,8 @@ export class ExtractionSession {
   view = $state.raw<ExtractionReply | null>(null);
   selected = $state<number | null>(null);
   busy = $state(false);
+  extracting = $state<number | null>(null);
+  result = $state.raw<{ generation: number; message: string } | null>(null);
   error = $state('');
   elapsed = $state(0);
   notice = $state.raw<{ path: string; count: number } | null>(null);
@@ -27,7 +29,7 @@ export class ExtractionSession {
     private openMedia: (path: string) => Promise<unknown>,
   ) {}
   async open(path?: string) {
-    const chosen = path ?? (await chooseFile('media', null));
+    const chosen = path ?? (await chooseFile('extractSubtitles', null));
     if (!chosen || !this.alive) return;
     this.path = chosen;
     this.notice = null;
@@ -62,6 +64,8 @@ export class ExtractionSession {
     this.busy = true;
     this.error = '';
     this.view = null;
+    this.elapsed = 0;
+    this.extracting = null;
     try {
       const reply = await this.job({ kind: 'list', path }, epoch);
       if (!reply) return;
@@ -93,6 +97,7 @@ export class ExtractionSession {
     this.busy = true;
     this.error = '';
     this.elapsed = 0;
+    this.extracting = index;
     try {
       const reply = await this.job(
         {
@@ -107,17 +112,20 @@ export class ExtractionSession {
       );
       if (!reply || !this.alive || epoch !== this.epoch) return;
       if (!(await this.subtitles.acceptExtraction(reply.id, expected))) return;
-      this.workspace.notice =
-        `Extracted ${reply.cueCount} cue${reply.cueCount === 1 ? '' : 's'} from track ${index} (${languageName(reply.provenance?.language)}).` +
-        (reply.provenance?.codec === 'mov_text'
-          ? ' Converted from MP4 text; styling may differ.'
-          : '') +
-        (reply.fontCount
-          ? ` This video has ${reply.fontCount} font attachment${reply.fontCount === 1 ? '' : 's'}.`
-          : '') +
-        (reply.repairedCues.length
-          ? ` Repaired missing durations for cues ${reply.repairedCues.join(', ')}.`
-          : '');
+      this.result = {
+        generation: this.subtitles.snapshot.generation,
+        message:
+          `Extracted ${reply.cueCount} cue${reply.cueCount === 1 ? '' : 's'} from track ${index} (${languageName(reply.provenance?.language)}).` +
+          (reply.provenance?.codec === 'mov_text'
+            ? ' Converted from MP4 text; styling may differ.'
+            : '') +
+          (reply.fontCount
+            ? ` This video has ${reply.fontCount} font attachment${reply.fontCount === 1 ? '' : 's'}.`
+            : '') +
+          (reply.repairedCues.length
+            ? ` Repaired missing durations for cues ${reply.repairedCues.join(', ')}.`
+            : ''),
+      };
       await this.modal.close();
       if (this.alive) await this.openMedia(path);
     } catch (error) {
@@ -131,6 +139,7 @@ export class ExtractionSession {
     }
   }
   async cancel() {
+    this.extracting = null;
     ++this.epoch;
     const id = this.id;
     this.id = null;
@@ -155,8 +164,9 @@ export class ExtractionSession {
     try {
       const reply = await this.job({ kind: 'list', path }, epoch);
       if (!reply || this.subtitles.snapshot.loaded) return;
-      if (reply.listing?.tracks.some((t) => !t.unavailable))
-        this.notice = { path, count: reply.listing.tracks.length };
+      const count =
+        reply.listing?.tracks.filter((t) => !t.unavailable).length ?? 0;
+      if (count) this.notice = { path, count };
     } catch {
       /* Optional notice must never interrupt media opening. */
     }

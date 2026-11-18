@@ -22,7 +22,7 @@ owned child, and incomplete results never become documents or output files.
 
 An equal SRT/ASS/WebVTT endpoint is repaired to the next strictly later cue start,
 capped at five seconds; the last such cue gets five seconds. Repairs are reported
-by one-based cue number. Only actual timing headers are repaired; timestamp-like
+by one-based cue number. WebVTT accepts both MM:SS.mmm and HH:MM:SS.mmm. Only actual timing headers are repaired; timestamp-like
 cue text and metadata stay unchanged. Reversed ranges remain errors. Overlaps and source order
 are retained. Empty tracks produce valid empty documents.
 
@@ -49,19 +49,22 @@ preselects a usable default. Save/Discard/Cancel protection runs before extracti
 The elapsed-time busy indicator remains cancellable. Acceptance opens an untitled,
 dirty document requiring Save As, then opens the source video if playback is
 available. Existing media is unchanged on extraction failure or cancellation.
-The result notice reports cue count, conversion, repaired durations and fonts.
-A dismissible one-line media notice is offered only without an open document,
+A dismissible result notice reports cue count, conversion, repaired durations and fonts.
+It stays with the document while the source video opens and scene detection runs.
+A dismissible one-line media notice is offered only without an open document, counts extractable text tracks,
 at most once per video path in the workspace session.
 
-Unsaved extracted documents retain provenance in accepted-state recovery.
-Saving hides provenance in the working title; it does not write anything into the
+The recovery list identifies an unsaved extraction by its suggested subtitle name
+and source video filename.
+Save As starts in the source video's folder. Saving hides provenance in the working title; it does not write anything into the
 video. Embedded default subtitles are disabled before media load so only accepted
 editor subtitles appear in the preview.
 
 ## Fonts from video
 
 In an ASS/SSA document, **Manage fonts… → Embed Fonts from Video…** lists
-font attachments from a selected video. Choose one font, preview its validated
+font attachments from the extraction source, or from the current video. Use
+**Choose another video…** to select a different source. Choose one font, preview its validated
 metadata, then accept it as one Undo step. Repeat for additional fonts. The
 existing 4 MiB single-font, 8 MiB aggregate and 32-font limits apply. Unsupported
 or malformed fonts are rejected by the same TTF/OTF checks as file imports.

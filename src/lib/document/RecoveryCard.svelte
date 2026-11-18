@@ -26,10 +26,17 @@
         originals stay unchanged.
       </p>{/if}
     {#each recovery.status.entries as entry (entry.id)}
+      {@const label =
+        entry.sourcePath?.split(/[\\/]/).pop() ??
+        (entry.suggestedName
+          ? entry.suggestedName +
+            (entry.videoFilename ? ' from ' + entry.videoFilename : '')
+          : entry.error
+            ? entry.id
+            : 'Untitled subtitles')}
       <div class="recovery-row">
-        <span title={entry.sourcePath ?? entry.id}
-          >{entry.sourcePath?.split(/[\\/]/).pop() ??
-            (entry.error ? entry.id : 'Untitled subtitles')}
+        <span class="label" title={label}
+          >{label}
           {entry.capturedMs ? new Date(entry.capturedMs).toLocaleString() : ''}
           {entry.error ?? ''}</span
         >
@@ -38,15 +45,18 @@
           onclick={() => void onchoose(entry.id, true)}>Recover</button
         >
         {#if recovery.discardId === entry.id}
-          <span>Discard this recovery snapshot?</span>
-          <button
-            disabled={blocked}
-            onclick={() => void onchoose(entry.id, false)}
-            >Confirm discard</button
-          >
-          <button disabled={blocked} onclick={() => (recovery.discardId = null)}
-            >Cancel</button
-          >
+          <div class="confirmation">
+            <span>Discard this recovery snapshot?</span>
+            <button
+              disabled={blocked}
+              onclick={() => void onchoose(entry.id, false)}
+              >Confirm discard</button
+            >
+            <button
+              disabled={blocked}
+              onclick={() => (recovery.discardId = null)}>Cancel</button
+            >
+          </div>
         {:else}
           <button
             disabled={blocked}
@@ -77,14 +87,20 @@
     align-items: center;
     gap: 8px;
     padding: 3px 0;
+    flex-wrap: wrap;
   }
-  .recovery-row > span:first-child {
+  .label {
     flex: 1;
-    overflow-wrap: anywhere;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  @media (max-width: 799px), (max-height: 609px) {
-    .recovery-row {
-      flex-wrap: wrap;
-    }
+  .confirmation {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
 </style>
