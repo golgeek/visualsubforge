@@ -74,6 +74,7 @@ jobs:
         uses: ./.github/actions/install-apt
         with:
           packages: libgtk-3-dev libepoxy-dev libmpv-dev pkg-config
+          cache-also: g++ patchelf
       - name: Compile the Linux adapter and Rust FFI
         if: runner.os == 'Linux'
         run: |
