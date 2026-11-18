@@ -1296,11 +1296,15 @@
     visibility: hidden;
     pointer-events: none;
   }
+  /* The zero-size surface paints the window backdrop while Start is open. */
   .workspace.start-hidden :global(.video-space) {
     visibility: visible;
     position: fixed;
     width: 0;
     height: 0;
+  }
+  .workspace.start-hidden :global(.video-space > *) {
+    visibility: hidden;
   }
 
   .workspace {
