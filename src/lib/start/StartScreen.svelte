@@ -131,7 +131,7 @@
       order: -1;
     }
     .start-screen {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       align-content: start;
       gap: 24px;
     }

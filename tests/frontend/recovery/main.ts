@@ -25,12 +25,16 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
+const videoStem =
+  'Synthetic.Festival.Documentary.S01E02.Extended.Edition.1080p';
+const videoFilename = videoStem + '.mkv';
+const suggestedName = videoStem + '.fr.forced.srt';
 const stale: RecoveryStatus = {
   entries: [
     {
       id: 'session-old',
-      suggestedName: 'old.srt',
-      videoFilename: 'original.mkv',
+      suggestedName,
+      videoFilename,
       sourcePath: null,
       capturedMs: 1700000000000,
       revision: 2,
@@ -127,14 +131,39 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
   const app = mount(App, { target: host });
   try {
     await until(
-      () => hasEntry('old.srt') && !button('Recover').disabled,
+      () => hasEntry(suggestedName) && !button('Recover').disabled,
       'Initial recovery list did not become ready',
     );
     button('Discard…').click();
     await settle();
-    assert(hasEntry('old.srt from original.mkv'), 'Extraction origin missing');
+    assert(
+      hasEntry(`${suggestedName} from ${videoFilename}`),
+      'Extraction origin missing',
+    );
     const card = host.querySelector<HTMLElement>('.recovery')!;
     const label = card.querySelector<HTMLElement>('.label')!;
+    const start = host.querySelector<HTMLElement>('.start-screen')!;
+    assert(
+      start.scrollWidth <= start.clientWidth,
+      'Start screen overflows horizontally',
+    );
+    assert(
+      label.scrollWidth > label.clientWidth &&
+        getComputedStyle(label).textOverflow === 'ellipsis',
+      'Long recovery name is not ellipsized',
+    );
+    for (const name of ['Recover', 'Confirm discard', 'Cancel']) {
+      const rect = button(name).getBoundingClientRect();
+      assert(
+        rect.width > 0 &&
+          rect.height > 0 &&
+          rect.left >= 0 &&
+          rect.right <= window.innerWidth &&
+          rect.top >= 0 &&
+          rect.bottom <= window.innerHeight,
+        name + ' is outside the viewport',
+      );
+    }
     const date = card.querySelector('time')!;
     assert(
       date.textContent === new Date(1700000000000).toLocaleString() &&
@@ -162,26 +191,32 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
     if (mode === 'failed discard') {
       discard.reject(new Error('Disposable discard failure'));
       await settle();
-      assert(hasEntry('old.srt'), 'Failed discard removed the recovery entry');
+      assert(
+        hasEntry(suggestedName),
+        'Failed discard removed the recovery entry',
+      );
       assert(
         !!host.textContent?.includes('Disposable discard failure'),
         'Failed discard error was hidden',
       );
       poll.resolve(structuredClone(stale));
       await settle();
-      assert(hasEntry('old.srt'), 'Pending read lost the retained entry');
+      assert(hasEntry(suggestedName), 'Pending read lost the retained entry');
       passed('failed discard retains its entry and reports the error');
     } else {
       discard.resolve();
       await settle();
       assert(
-        !hasEntry('old.srt'),
+        !hasEntry(suggestedName),
         'Successful discard did not remove the entry',
       );
       if (mode === 'stale list') poll.resolve(structuredClone(stale));
       else poll.reject(new Error('Obsolete recovery-list failure'));
       await settle();
-      assert(!hasEntry('old.srt'), 'Late poll resurrected the discarded entry');
+      assert(
+        !hasEntry(suggestedName),
+        'Late poll resurrected the discarded entry',
+      );
       assert(
         !host.textContent?.includes('Obsolete recovery-list failure'),
         'Late poll surfaced an obsolete error after discard',
