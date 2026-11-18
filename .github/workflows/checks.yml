@@ -171,6 +171,10 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror -DMPV_STATIC $(pkg-config --cflags mpv) tests/native/mpv-client-test.cpp -o /tmp/vsf-mpv-client-test
           /tmp/vsf-mpv-client-test
   desktop:
+    # Keep source locations for CI backtraces across the debug builds.
+    env:
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
     strategy:
       fail-fast: false
       matrix:
