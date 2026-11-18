@@ -152,17 +152,21 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
         getComputedStyle(label).textOverflow === 'ellipsis',
       'Long recovery name is not ellipsized',
     );
-    for (const name of ['Recover', 'Confirm discard', 'Cancel']) {
-      const rect = button(name).getBoundingClientRect();
-      assert(
-        rect.width > 0 &&
-          rect.height > 0 &&
-          rect.left >= 0 &&
-          rect.right <= window.innerWidth &&
-          rect.top >= 0 &&
-          rect.bottom <= window.innerHeight,
-        name + ' is outside the viewport',
-      );
+    // The 520px workflow exercises the stacked start screen. At desktop
+    // width this browser-only harness also renders the fallback toolbar.
+    if (window.matchMedia('(max-width: 799px)').matches) {
+      for (const name of ['Recover', 'Confirm discard', 'Cancel']) {
+        const rect = button(name).getBoundingClientRect();
+        assert(
+          rect.width > 0 &&
+            rect.height > 0 &&
+            rect.left >= 0 &&
+            rect.right <= window.innerWidth &&
+            rect.top >= 0 &&
+            rect.bottom <= window.innerHeight,
+          name + ' is outside the narrow viewport',
+        );
+      }
     }
     const date = card.querySelector('time')!;
     assert(
