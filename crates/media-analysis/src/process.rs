@@ -116,12 +116,20 @@ fn run_pipe<T: Send>(
     })
 }
 
-pub(crate) fn limited(mut reader: impl Read, limit: u64) -> Result<Vec<u8>> {
+pub(crate) fn limited(reader: impl Read, limit: u64) -> Result<Vec<u8>> {
+    limited_with_message(reader, limit, "Probe output exceeds limit")
+}
+
+pub(crate) fn limited_with_message(
+    mut reader: impl Read,
+    limit: u64,
+    message: &str,
+) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     (&mut reader).take(limit + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > limit {
         // Returning closes the pipe; the supervisor will reap or time out the child.
-        return Err(Error::Message("Probe output exceeds limit".into()));
+        return Err(Error::Message(message.into()));
     }
     Ok(bytes)
 }

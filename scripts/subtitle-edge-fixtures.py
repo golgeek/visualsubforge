@@ -33,7 +33,8 @@ def elements(data, start, end):
         at = finish
 
 
-for mode in ['no-duration', 'empty', 'invalid-utf8']:
+for mode, target, expected in [('no-duration', 3, 2), ('ass-no-duration', 4, 2),
+                               ('vtt-no-duration', 5, 1), ('empty', 3, 2), ('invalid-utf8', 3, 2)]:
     data = bytearray(original)
     changed = 0
     for tag, _, segment, end in elements(original, 0, len(original)):
@@ -51,12 +52,12 @@ for mode in ['no-duration', 'empty', 'invalid-utf8']:
                     continue
                 block, finish = blocks[0]
                 track, width = vint(original, block)
-                if track != 3:  # stream 2, SRT
+                if track != target:
                     continue
                 if mode == 'empty':
                     data[group_start] = 0xEC  # Void has same one-byte ID
                     changed += 1
-                elif mode == 'no-duration':
+                elif mode.endswith('no-duration'):
                     for tag, at, _, _ in children:
                         if tag == 0x9B:
                             data[at] = 0xEC
@@ -64,8 +65,8 @@ for mode in ['no-duration', 'empty', 'invalid-utf8']:
                 else:
                     data[block + width + 3] = 255  # first text byte after timestamp/flags
                     changed += 1
-    if changed != 2:
-        raise ValueError(f'{mode}: expected two synthetic SRT blocks, got {changed}')
+    if changed != expected:
+        raise ValueError(f'{mode}: expected {expected} synthetic blocks, got {changed}')
     (root / f'{mode}.mkv').write_bytes(data)
     print(f'{mode}: changed {changed} subtitle records')
 

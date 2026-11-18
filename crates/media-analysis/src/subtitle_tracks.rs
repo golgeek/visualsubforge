@@ -87,17 +87,21 @@ fn parse_listing(bytes: &[u8]) -> Result<Listing> {
     };
     for stream in probe.streams {
         if stream.codec_type.as_deref() == Some("attachment")
-            && stream.tags.mimetype.as_deref().is_some_and(|m| {
-                matches!(
-                    m,
-                    "application/x-truetype-font"
-                        | "application/vnd.ms-opentype"
-                        | "font/ttf"
-                        | "font/otf"
-                        | "application/x-font-ttf"
-                        | "application/x-font-opentype"
-                )
-            })
+            && (matches!(stream.codec_name.as_deref(), Some("ttf" | "otf"))
+                || stream.tags.mimetype.as_deref().is_some_and(|m| {
+                    matches!(
+                        m,
+                        "application/x-truetype-font"
+                            | "application/vnd.ms-opentype"
+                            | "font/sfnt"
+                            | "application/font-sfnt"
+                            | "application/x-font-otf"
+                            | "font/ttf"
+                            | "font/otf"
+                            | "application/x-font-ttf"
+                            | "application/x-font-opentype"
+                    )
+                }))
         {
             listing.font_count += 1;
             listing.fonts.push(FontAttachment {
@@ -202,7 +206,13 @@ pub fn extract(
         timeout
             .checked_sub(started.elapsed())
             .ok_or(Error::Timeout)?,
-        |r| process::limited(r, MAX_SUBTITLE_BYTES),
+        |r| {
+            process::limited_with_message(
+                r,
+                MAX_SUBTITLE_BYTES,
+                &format!("Track {index} is larger than the 16 MiB subtitle limit"),
+            )
+        },
     )?;
     Ok(Extracted {
         bytes,
@@ -254,6 +264,25 @@ pub fn extract_font(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lists_sfnt_mime_and_font_codecs_only_on_attachments() {
+        let listing = parse_listing(
+            br#"{"streams":[
+            {"index":0,"codec_type":"attachment","tags":{"mimetype":"font/sfnt"}},
+            {"index":1,"codec_type":"attachment","tags":{"mimetype":"application/font-sfnt"}},
+            {"index":2,"codec_type":"attachment","tags":{"mimetype":"application/x-font-otf"}},
+            {"index":3,"codec_type":"attachment","codec_name":"ttf"},
+            {"index":4,"codec_type":"attachment","codec_name":"otf"},
+            {"index":5,"codec_type":"attachment","codec_name":"unknown"},
+            {"index":6,"codec_type":"data","codec_name":"ttf"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(listing.font_count, 5);
+        assert_eq!(
+            listing.fonts.iter().map(|f| f.index).collect::<Vec<_>>(),
+            [0, 1, 2, 3, 4]
+        );
+    }
     #[test]
     fn captured_ffprobe_picture_declaration_is_visible_but_unavailable() {
         let listing = parse_listing(include_bytes!(

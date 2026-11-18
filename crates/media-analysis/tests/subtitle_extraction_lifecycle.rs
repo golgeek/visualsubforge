@@ -61,3 +61,37 @@ fn cancellation_and_timeout_reap_the_extraction_child_without_a_result() {
         );
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn oversized_decoder_output_names_the_track_and_limit() {
+    use media_analysis::{Cancellation, Tools, subtitle_tracks};
+    use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
+    let dir = tempfile::tempdir().unwrap();
+    let script = |name, body| {
+        let path = dir.path().join(name);
+        fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    };
+    let tools = Tools {
+        ffprobe: script(
+            "probe",
+            r#"echo '{"streams":[{"index":3,"codec_type":"subtitle","codec_name":"subrip"}]}'"#,
+        ),
+        ffmpeg: script("decoder", "exec dd if=/dev/zero bs=1048576 count=17"),
+    };
+    let err = subtitle_tracks::extract(
+        &tools,
+        &tools.ffprobe,
+        3,
+        &Cancellation::default(),
+        Duration::from_secs(10),
+    )
+    .err()
+    .unwrap();
+    assert_eq!(
+        err.to_string(),
+        "Track 3 is larger than the 16 MiB subtitle limit"
+    );
+}

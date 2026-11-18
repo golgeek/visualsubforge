@@ -162,6 +162,8 @@ pub fn publish(prepared: &Prepared, output: &Path, cancel: &Cancellation) -> Res
 fn repair_missing_duration(text: &str, extension: &str) -> Result<(String, Vec<u32>), String> {
     let pattern = regex::Regex::new(if extension == "ass" {
         r"(?m)^Dialogue: *[^,]*,(\d{1,4}:\d{2}:\d{2}\.\d{2}),(\d{1,4}:\d{2}:\d{2}\.\d{2}),"
+    } else if extension == "vtt" {
+        r"(?m)^((?:\d{2,}:)?\d{2}:\d{2}\.\d{3}) --> ((?:\d{2,}:)?\d{2}:\d{2}\.\d{3})"
     } else {
         r"(?m)^(\d{2,4}:\d{2}:\d{2}[,.]\d{3}) --> (\d{2,4}:\d{2}:\d{2}[,.]\d{3})"
     })
@@ -212,6 +214,8 @@ fn repair_missing_duration(text: &str, extension: &str) -> Result<(String, Vec<u
         let parse = |s: &str| {
             if extension == "ass" {
                 subtitle_formats::ass::parse_time(s).map(|t| t.get())
+            } else if extension == "vtt" {
+                subtitle_formats::webvtt::parse_time(s).map(|t| t.get())
             } else {
                 subtitle_formats::srt::parse_time(&s.replace('.', ","))
                     .map(|t| t.get())
@@ -238,14 +242,13 @@ fn repair_missing_duration(text: &str, extension: &str) -> Result<(String, Vec<u
             .unwrap_or(start.saturating_add(5000));
         let end = subtitle_core::Milliseconds::new(next.min(start.saturating_add(5000)))
             .map_err(|e| e.to_string())?;
-        let mut replacement = if extension == "ass" {
+        let replacement = if extension == "ass" {
             subtitle_formats::ass::format_time(end)?
+        } else if extension == "vtt" {
+            subtitle_formats::webvtt::format_time(end)
         } else {
             subtitle_formats::srt::format_time(end)
         };
-        if extension == "vtt" {
-            replacement = replacement.replace(',', ".");
-        }
         output.replace_range(range.clone(), &replacement);
         repairs.push(index as u32 + 1);
     }

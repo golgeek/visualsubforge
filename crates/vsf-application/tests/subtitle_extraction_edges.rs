@@ -18,6 +18,30 @@ fn generated_edge_tracks_are_not_dropped_or_guessed() {
     assert_eq!(repaired.repaired_cues, vec![1, 2]);
     assert_eq!(repaired.parsed.document.cues()[0].end().get(), 3000);
     assert_eq!(repaired.parsed.document.cues()[1].end().get(), 8000);
+    for (name, index, ends, repairs) in [
+        ("vtt-no-duration.mkv", 4, vec![6000], vec![1]),
+        ("ass-no-duration.mkv", 3, vec![8000, 3000], vec![1, 2]),
+    ] {
+        let result = subtitle_extraction::extract(
+            &tools,
+            &root.join(name),
+            index,
+            &token,
+            Duration::from_secs(30),
+        )
+        .unwrap();
+        assert_eq!(result.repaired_cues, repairs);
+        assert_eq!(
+            result
+                .parsed
+                .document
+                .cues()
+                .iter()
+                .map(|cue| cue.end().get())
+                .collect::<Vec<_>>(),
+            ends
+        );
+    }
     assert!(
         extract("empty.mkv")
             .unwrap()
