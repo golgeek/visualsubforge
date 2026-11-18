@@ -223,16 +223,17 @@ fn repair_missing_duration(text: &str, extension: &str) -> Result<(String, Vec<u
             }
         };
         times.push((
+            capture.get(1).unwrap().range(),
             capture.get(2).unwrap().range(),
             parse(&capture[1])?,
             parse(&capture[2])?,
         ));
     }
-    let mut starts: Vec<_> = times.iter().map(|(_, start, _)| *start).collect();
+    let mut starts: Vec<_> = times.iter().map(|(_, _, start, _)| *start).collect();
     starts.sort_unstable();
     let mut output = text.to_owned();
     let mut repairs = Vec::new();
-    for (index, (range, start, end)) in times.iter().enumerate().rev() {
+    for (index, (start_range, range, start, end)) in times.iter().enumerate().rev() {
         if start != end {
             continue;
         }
@@ -242,14 +243,26 @@ fn repair_missing_duration(text: &str, extension: &str) -> Result<(String, Vec<u
             .unwrap_or(start.saturating_add(5000));
         let end = subtitle_core::Milliseconds::new(next.min(start.saturating_add(5000)))
             .map_err(|e| e.to_string())?;
-        let replacement = if extension == "ass" {
-            subtitle_formats::ass::format_time(end)?
-        } else if extension == "vtt" {
-            subtitle_formats::webvtt::format_time(end)
+        if extension == "vtt" {
+            let start_text = &text[start_range.clone()];
+            let end_text = subtitle_formats::webvtt::format_time(end);
+            let header = if start_text.matches(':').count() == 1 {
+                match end_text.strip_prefix("00:") {
+                    Some(short_end) => format!("{start_text} --> {short_end}"),
+                    None => format!("00:{start_text} --> {end_text}"),
+                }
+            } else {
+                format!("{start_text} --> {end_text}")
+            };
+            output.replace_range(start_range.start..range.end, &header);
         } else {
-            subtitle_formats::srt::format_time(end)
-        };
-        output.replace_range(range.clone(), &replacement);
+            let replacement = if extension == "ass" {
+                subtitle_formats::ass::format_time(end)?
+            } else {
+                subtitle_formats::srt::format_time(end)
+            };
+            output.replace_range(range.clone(), &replacement);
+        }
         repairs.push(index as u32 + 1);
     }
     repairs.reverse();
@@ -269,6 +282,19 @@ mod tests {
             forced: true,
             hearing_impaired: true,
             unavailable: None,
+        }
+    }
+    #[test]
+    fn repaired_webvtt_endpoints_use_matching_clock_forms() {
+        for (timestamp, expected) in [
+            ("00:01.000", "00:01.000 --> 00:06.000"),
+            ("00:00:01.000", "00:00:01.000 --> 00:00:06.000"),
+            ("59:59.000", "00:59:59.000 --> 01:00:04.000"),
+        ] {
+            let input = format!("WEBVTT\n\n{timestamp} --> {timestamp} line:10%\nFirst\n");
+            let (fixed, repairs) = repair_missing_duration(&input, "vtt").unwrap();
+            assert_eq!(repairs, [1]);
+            assert_eq!(fixed, format!("WEBVTT\n\n{expected} line:10%\nFirst\n"));
         }
     }
     #[test]

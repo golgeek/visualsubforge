@@ -164,6 +164,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               loaded: true,
               dirty: true,
               requiresSaveAs: true,
+              suggestedSavePath: '/synthetic/video.fr.srt',
               extractedFrom: reply.provenance!,
               cues: [{ id: 1, startMs: 1000, endMs: 2000, text: 'Extracted' }],
             };

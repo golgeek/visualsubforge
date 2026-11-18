@@ -48,4 +48,23 @@ fn lists_extracts_and_refuses_input_overwrite() {
         std::fs::read_to_string(output).unwrap(),
         "1\n00:00:01,000 --> 00:00:02,000\nFirst\n\n2\n00:00:03,000 --> 00:00:04,000\nSecond\n\n"
     );
+    assert!(
+        String::from_utf8(extraction.stdout)
+            .unwrap()
+            .starts_with("Extracted 2 cues to ")
+    );
+    let output = root.path().join("one.vtt");
+    let single = Command::new(env!("CARGO_BIN_EXE_vsf"))
+        .arg("extract")
+        .arg(&video)
+        .args(["--track", "4", "-o"])
+        .arg(output)
+        .output()
+        .unwrap();
+    assert!(single.status.success());
+    assert!(
+        String::from_utf8(single.stdout)
+            .unwrap()
+            .starts_with("Extracted 1 cue to ")
+    );
 }

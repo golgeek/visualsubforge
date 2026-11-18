@@ -200,6 +200,8 @@ pub enum Action {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
+    suggested_save_path: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     translation: Option<translation::Summary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     extracted_from: Option<extraction::ExtractedSource>,
@@ -295,11 +297,14 @@ impl Loaded {
 impl Store {
     fn snapshot(&self) -> Snapshot {
         let loaded = self.loaded.as_ref();
+        let extracted_from = loaded
+            .filter(|d| d.path.is_none())
+            .and_then(|d| d.extracted_from.as_ref());
         Snapshot {
             translation: self.translation_summary(),
-            extracted_from: loaded
-                .filter(|d| d.path.is_none())
-                .and_then(|d| d.extracted_from.clone()),
+            suggested_save_path: extracted_from
+                .map(|origin| origin.media_path.with_file_name(&origin.suggested_name)),
+            extracted_from: extracted_from.cloned(),
             format: loaded.and_then(|d| {
                 if d.source().format() == subtitle_formats::Format::WebVtt {
                     return Some(FormatView {

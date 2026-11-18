@@ -76,6 +76,10 @@ mod tests {
         let snapshot = documents.accept_extraction(&capture, prepared()).unwrap();
         assert!(snapshot.dirty && snapshot.requires_save_as && snapshot.path.is_none());
         assert_eq!(
+            snapshot.suggested_save_path,
+            Some(std::env::temp_dir().join("video.fr.srt"))
+        );
+        assert_eq!(
             snapshot.extracted_from.unwrap().suggested_name,
             "video.fr.srt"
         );
@@ -124,6 +128,10 @@ mod tests {
             )
             .unwrap();
         assert!(snapshot.dirty && snapshot.requires_save_as);
+        assert_eq!(
+            snapshot.suggested_save_path,
+            Some(std::env::temp_dir().join("video.fr.srt"))
+        );
         assert_eq!(
             snapshot.extracted_from.unwrap().suggested_name,
             "video.fr.srt"

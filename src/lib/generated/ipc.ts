@@ -2719,6 +2719,7 @@ export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Deserialize;
 
 export type visualsubforge_document_Snapshot_Deserialize = {
+  suggestedSavePath: string | null;
   translation: visualsubforge_document_translation_Summary | null;
   extractedFrom: vsf_application_subtitle_extraction_Provenance | null;
   format: visualsubforge_document_FormatView | null;
@@ -2734,6 +2735,7 @@ export type visualsubforge_document_Snapshot_Deserialize = {
 };
 
 export type visualsubforge_document_Snapshot_Serialize = {
+  suggestedSavePath?: string | null;
   translation?: visualsubforge_document_translation_Summary | null;
   extractedFrom?: vsf_application_subtitle_extraction_Provenance | null;
   format?: visualsubforge_document_FormatView | null;

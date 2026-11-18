@@ -35,11 +35,13 @@
             ? entry.id
             : 'Untitled subtitles')}
       <div class="recovery-row">
-        <span class="label" title={label}
-          >{label}
-          {entry.capturedMs ? new Date(entry.capturedMs).toLocaleString() : ''}
-          {entry.error ?? ''}</span
-        >
+        <div class="identity" title={entry.sourcePath ?? label}>
+          <span class="label">{label}</span>
+          {#if entry.capturedMs !== null}
+            <time>{new Date(entry.capturedMs).toLocaleString()}</time>
+          {/if}
+          {#if entry.error}<span>{entry.error}</span>{/if}
+        </div>
         <button
           disabled={blocked || !!entry.error}
           onclick={() => void onchoose(entry.id, true)}>Recover</button
@@ -89,9 +91,15 @@
     padding: 3px 0;
     flex-wrap: wrap;
   }
-  .label {
+  .identity {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .identity > * {
+    display: block;
+  }
+  .label {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

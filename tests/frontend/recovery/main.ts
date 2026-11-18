@@ -32,7 +32,7 @@ const stale: RecoveryStatus = {
       suggestedName: 'old.srt',
       videoFilename: 'original.mkv',
       sourcePath: null,
-      capturedMs: null,
+      capturedMs: 1700000000000,
       revision: 2,
       error: null,
     },
@@ -135,6 +135,12 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
     assert(hasEntry('old.srt from original.mkv'), 'Extraction origin missing');
     const card = host.querySelector<HTMLElement>('.recovery')!;
     const label = card.querySelector<HTMLElement>('.label')!;
+    const date = card.querySelector('time')!;
+    assert(
+      date.textContent === new Date(1700000000000).toLocaleString() &&
+        !label.contains(date),
+      'Date is missing or truncated with the label',
+    );
     const confirm = button('Confirm discard').getBoundingClientRect();
     assert(
       card.scrollHeight <= card.clientHeight + 1 &&
@@ -183,6 +189,12 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
       passed(`${mode} started during discard is ignored after success`);
       if (mode === 'stale list') {
         await until(() => hasEntry('new.srt'), 'Fresh polling did not resume');
+        assert(
+          host
+            .querySelector('.recovery-row .identity')
+            ?.getAttribute('title') === '/disposable/new.srt',
+          'Full recovery path missing from tooltip',
+        );
         passed('a subsequent current poll still discovers a new entry');
       }
     }

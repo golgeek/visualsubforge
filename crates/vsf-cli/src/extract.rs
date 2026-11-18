@@ -45,11 +45,9 @@ pub fn run(args: Extract, cancel: &Cancellation) -> Result<u8, (u8, String)> {
             if args.json {
                 serde_json::json!({"schema_version":1,"cue_count":prepared.parsed.document.cues().len(),"output":output,"repaired_cues":prepared.repaired_cues}).to_string()
             } else {
-                format!(
-                    "Extracted {} cues to {}",
-                    prepared.parsed.document.cues().len(),
-                    output.display()
-                )
+                let count = prepared.parsed.document.cues().len();
+                let noun = if count == 1 { "cue" } else { "cues" };
+                format!("Extracted {count} {noun} to {}", output.display())
             }
         };
         writeln!(io::stdout().lock(), "{text}").map_err(|e| e.to_string())

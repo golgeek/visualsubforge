@@ -572,19 +572,11 @@ export class DocumentSession {
   async save(as: boolean): Promise<boolean> {
     if (!(await this.apply())) return false;
     as = as || this.accepted.requiresSaveAs;
-    const origin = this.accepted.extractedFrom;
-    let suggestedPath = this.accepted.path;
-    if (suggestedPath === null && origin) {
-      // The backend supplies an absolute native path. On POSIX a backslash
-      // belongs to the filename; Windows may use either separator.
-      const video = origin.media_path;
-      const separator = video.startsWith('/')
-        ? video.lastIndexOf('/')
-        : Math.max(video.lastIndexOf('/'), video.lastIndexOf('\\'));
-      suggestedPath = video.slice(0, separator + 1) + origin.suggested_name;
-    }
     const path = as
-      ? await this.client.chooseFile('saveSubtitles', suggestedPath)
+      ? await this.client.chooseFile(
+          'saveSubtitles',
+          this.accepted.path ?? this.accepted.suggestedSavePath ?? null,
+        )
       : null;
     if (!this.alive || (as && !path)) return false;
     return this.command({ kind: 'save', path });
