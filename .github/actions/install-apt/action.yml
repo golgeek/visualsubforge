@@ -1,0 +1,47 @@
+name: Install Ubuntu packages with verified archive reuse
+description: Cache the downloads selected by the current signed apt indexes
+inputs:
+  packages:
+    description: Space-separated apt package names
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Resolve current apt downloads
+      id: plan
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        read -ra packages <<< "$PACKAGES"
+        sudo apt-get update --error-on=any
+        apt-get --print-uris -o Acquire::ForceHash=SHA256 install "${packages[@]}" > "$RUNNER_TEMP/apt-plan"
+        awk '/^\x27/ {if ($4 !~ /^SHA256:/ || length($4) != 71) exit 1; print substr($4,8), $2}' "$RUNNER_TEMP/apt-plan" | sort > "$RUNNER_TEMP/apt-sha256"
+        echo "digest=$(sha256sum "$RUNNER_TEMP/apt-sha256" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      id: archives
+      with:
+        path: ${{ runner.temp }}/apt-downloads
+        key: apt-v1-noble-${{ runner.arch }}-${{ steps.plan.outputs.digest }}
+    - name: Install resolved packages
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        CACHE_HIT: ${{ steps.archives.outputs.cache-hit }}
+      run: |
+        read -ra packages <<< "$PACKAGES"
+        mkdir -p "$RUNNER_TEMP/apt-downloads"
+        cd "$RUNNER_TEMP/apt-downloads"
+        # Only hand apt files whose bytes match its current signed package metadata.
+        while read -r digest archive; do
+          if [[ -f "$archive" ]] && echo "$digest  $archive" | sha256sum --check --status; then
+            sudo install -m 644 -- "$archive" "/var/cache/apt/archives/$archive"
+          fi
+        done < "$RUNNER_TEMP/apt-sha256"
+        if [[ "$CACHE_HIT" != true ]]; then
+          sudo apt-get install --download-only -y "${packages[@]}"
+          while read -r digest archive; do
+            cp -- "/var/cache/apt/archives/$archive" .
+          done < "$RUNNER_TEMP/apt-sha256"
+        fi
+        sudo apt-get install -y "${packages[@]}"

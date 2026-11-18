@@ -28,9 +28,9 @@ jobs:
       - name: Install pinned Rust
         run: rustup show
       - name: Install fixture tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+        uses: ./.github/actions/install-apt
+        with:
+          packages: ffmpeg
       - run: python3 scripts/media-fixtures.py
       - run: python3 scripts/scene-fixtures.py
       - run: python3 scripts/resync-fixtures.py --extended --robustness
@@ -74,9 +74,9 @@ jobs:
           "$test_binary"
       - name: Install Linux FFmpeg
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+        uses: ./.github/actions/install-apt
+        with:
+          packages: ffmpeg
       - name: Verify Windows package network isolation and restoration
         if: runner.os == 'Windows'
         run: ./tests/release/windows-offline.ps1 -ControlOnly -Output "$env:RUNNER_TEMP/network-control"
@@ -130,6 +130,7 @@ jobs:
   browser-workflows:
     name: Browser workflows (modeled IPC, Chromium and WebKit)
     runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -137,7 +138,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:browser
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
@@ -183,9 +183,9 @@ jobs:
           cache: npm
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus python3-gi
+        uses: ./.github/actions/install-apt
+        with:
+          packages: libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus python3-gi ffmpeg
       - name: Install pinned Rust
         run: rustup show
       - run: npm ci
@@ -203,9 +203,6 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
-      - name: Install Linux FFmpeg for desktop resync owner tests
-        if: runner.os == 'Linux'
-        run: sudo apt-get install -y ffmpeg
       - name: Install macOS FFmpeg for desktop resync owner tests
         if: runner.os == 'macOS'
         run: brew install ffmpeg
