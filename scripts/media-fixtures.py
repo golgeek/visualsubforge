@@ -76,6 +76,46 @@ long_duration = float(json.loads(run([args.ffprobe, '-v', 'error', '-show_entrie
     'format=duration', '-of', 'json', str(args.output / 'long.flac')]))['format']['duration'])
 if abs(long_duration - 7200) > 0.001:
     raise RuntimeError(f'Unexpected long fixture duration: {long_duration}')
+# Original embedded-text corpus: shared by CLI, Rust and native review.
+subtitles = args.output / 'subtitle-extraction'
+subtitles.mkdir(exist_ok=True)
+(subtitles / 'text.srt').write_text('1\n00:00:01,000 --> 00:00:02,000\nFirst\n\n2\n00:00:03,000 --> 00:00:04,000\nSecond\n')
+(subtitles / 'text.vtt').write_text('WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:10%\n<v Test>First\n')
+(subtitles / 'text.ass').write_text("""[Script Info]
+; Original extraction fixture header
+ScriptType: v4.00+
+PlayResX: 160
+PlayResY: 90
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,VSF Fixture Font,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,1,0,2,10,10,10,1
+Style: Signs,VSF Fixture Font,18,&H0000FFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,1,0,8,10,10,10,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Comment: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Header comment
+Dialogue: 1,0:00:03.00,0:00:04.00,Signs,,0,0,0,,BA
+Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,AB
+""")
+run(base + ['-i', 'tests/fixtures/subtitles/styles.ssa', '-c:s', 'copy', str(subtitles / 'ssa.mkv')])
+font = Path('tests/fixtures/subtitles/fixture-font.ttf')
+inputs = sum((['-i', str(subtitles / ('text.' + ext))] for ext in ['srt', 'ass', 'vtt']), [])
+run(base + ['-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=25:duration=5',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:duration=5'] + inputs +
+    ['-map', '0:v', '-map', '1:a', '-map', '2:s', '-map', '3:s', '-map', '4:s',
+     '-c:v', 'ffv1', '-c:a', 'pcm_s16le', '-c:s', 'copy',
+     '-metadata:s:s:0', 'language=fra', '-metadata:s:s:0', 'title=French SRT',
+     '-metadata:s:s:1', 'language=eng', '-disposition:s:0', 'default',
+     '-attach', str(font), '-metadata:s:t:0', 'mimetype=application/x-truetype-font',
+     '-output_ts_offset', '1.5', str(subtitles / 'offset.mkv')])
+run(base + ['-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=25:duration=5',
+    '-i', str(subtitles / 'text.srt'), '-c:v', 'mpeg4', '-c:s', 'mov_text', str(subtitles / 'text.mp4')])
+(subtitles / 'ten-thousand.srt').write_text(''.join(
+    f'{i+1}\n00:{i//600:02}:{(i//10)%60:02},{(i%10)*100:03} --> 00:{(i+1)//600:02}:{((i+1)//10)%60:02},{((i+1)%10)*100:03}\nCue {i+1}\n\n'
+    for i in range(10000)))
+run(base + ['-i', str(subtitles / 'ten-thousand.srt'), '-c:s', 'copy', str(subtitles / 'ten-thousand.mkv')])
+
+run(['python3', 'scripts/subtitle-edge-fixtures.py', str(subtitles)])
+
 (args.output / 'generation.json').write_text(json.dumps({'versions': versions, 'commands': commands}, indent=2) + '\n')
 print(json.dumps(versions))
 print('Verified CFR/VFR timestamps, two audio offsets, PCM WAV/BWF zero PTS, and 7200-second duration.')

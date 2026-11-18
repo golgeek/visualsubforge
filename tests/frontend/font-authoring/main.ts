@@ -64,7 +64,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       args: { operation?: FontOperation; kind?: string },
     ) => {
       if (command === 'choose_file') {
-        assert(args.kind === 'font', 'Wrong chooser');
+        assert(
+          args.kind === 'font' || args.kind === 'videoFonts',
+          'Wrong chooser',
+        );
         return pickerCancel ? null : '/fixture/New.otf';
       }
       if (command === 'font_start') {
@@ -82,6 +85,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             revision: doc.revision,
           },
         };
+        if (operation.kind === 'videoFonts') {
+          view.summary = null;
+          view.videoFonts = [
+            { index: 5, filename: '../fixture.ttf', mimetype: 'font/ttf' },
+          ];
+        }
         if (operation.kind === 'inspect')
           view.inventory!.entries.push({
             ...structuredClone(view.inventory!.entries[0]!),
@@ -137,6 +146,7 @@ async function show() {
     target: host,
     props: {
       subtitles,
+      mediaPath: '/fixture/current.mkv',
       onclose: () => {},
       onaccepted: () => {
         accepted++;
@@ -294,9 +304,40 @@ async function run() {
       'Cancelled file picker changed state or started a proposal',
     );
     pickerCancel = false;
-    button('Replace font…').click();
+    button('Embed Fonts from Video…').click();
+    await until(() => host.textContent!.includes('Preview font embedding'));
+    assert(
+      !doc.dirty && host.textContent!.includes('../fixture.ttf'),
+      'Video listing changed document or lost label',
+    );
+    assert(
+      operation.kind === 'videoFonts' &&
+        operation.path === '/fixture/current.mkv',
+      'Expected current media without a picker',
+    );
+    button('Choose another video…').click();
+    await until(
+      () =>
+        operation.kind === 'videoFonts' &&
+        operation.path === '/fixture/New.otf',
+    );
+    button('Preview font embedding').click();
     await until(
       () => !!host.querySelector('[aria-label="Font change review"]'),
+    );
+    assert(
+      operation.kind === 'embedVideoFont' && operation.index === 5,
+      'Wrong attachment selected',
+    );
+    assert(!doc.dirty, 'Font extraction bypassed review');
+    passed(
+      'Video font selection uses stream identity and reviews before acceptance',
+    );
+    button('Replace font…').click();
+    await until(
+      () =>
+        operation.kind === 'replace' &&
+        !!host.querySelector('[aria-label="Font change review"]'),
     );
     assert(
       operation.kind === 'replace',

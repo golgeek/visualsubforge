@@ -798,5 +798,15 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 100
+  },
+  "extractSubtitles": {
+    "label": "Open Subtitles from Video\u2026",
+    "group": "File",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["extract", "embedded", "mkv", "track"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 1
   }
 }

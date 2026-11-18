@@ -375,3 +375,36 @@ pub(crate) fn ipc_samples() -> Vec<(&'static str, &'static str, serde_json::Valu
         ),
     ]
 }
+
+#[test]
+#[ignore = "requires media-fixtures.py corpus and FFmpeg"]
+fn video_font_uses_validated_review_and_exact_undo() {
+    let (_root, docs, original) = fixture("ass");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/fixtures/generated/subtitle-extraction/offset.mkv")
+        .to_string_lossy()
+        .into_owned();
+    let id = start(&docs, FontOperation::VideoFonts { path: path.clone() });
+    let list = ready(&docs, id).video_fonts.unwrap();
+    assert_eq!(list.len(), 1);
+    assert!(docs.font_accept(id).is_err());
+    let id = start(
+        &docs,
+        FontOperation::EmbedVideoFont {
+            path,
+            index: list[0].index,
+        },
+    );
+    let view = ready(&docs, id);
+    assert_eq!(
+        view.summary.unwrap().after.unwrap().decoded_bytes,
+        Some(TTF.len() as u32)
+    );
+    assert_eq!(bytes(&docs), original);
+    let accepted = docs.font_accept(id).unwrap();
+    assert!(accepted.dirty && accepted.can_undo);
+    assert!(bytes(&docs).contains("fontname: video-font-"));
+    action(&docs, Action::Undo);
+    assert_eq!(bytes(&docs), original);
+    docs.shutdown_texts().unwrap();
+}

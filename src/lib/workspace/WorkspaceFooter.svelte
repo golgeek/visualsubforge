@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ExtractionSession } from '../extraction/extraction-session.svelte';
   import type { Workspace } from './workspace.svelte';
   import type { MediaSession } from '../media/media-session.svelte';
   import type { TimingGesture } from '../timing/timing-gesture.svelte';
@@ -9,16 +10,50 @@
     media,
     gestures,
     timeline,
+    extraction,
+    documentGeneration,
+    showExtraction = false,
   }: {
     workspace: Workspace;
     media: MediaSession;
     gestures: TimingGesture;
     timeline: TimelineView;
+    extraction?: ExtractionSession;
+    documentGeneration?: number;
+    showExtraction?: boolean;
   } = $props();
   const status = $derived(media.status);
 </script>
 
 <footer>
+  {#if extraction?.result && extraction.result.generation === documentGeneration}
+    <span class="result" role="status">{extraction.result.message}</span>
+    <button
+      class="notice-action"
+      aria-label="Dismiss extraction result"
+      onclick={() => {
+        if (extraction) extraction.result = null;
+      }}>Dismiss</button
+    >
+  {/if}
+  {#if showExtraction && extraction?.notice}
+    <span role="status"
+      >This video contains {extraction.notice.count} subtitle track{extraction
+        .notice.count === 1
+        ? ''
+        : 's'}.</span
+    >
+    <button
+      class="notice-action"
+      onclick={() => void extraction?.open(extraction.notice?.path)}
+      >Extract…</button
+    >
+    <button
+      class="notice-action"
+      aria-label="Dismiss subtitle extraction notice"
+      onclick={() => extraction?.dismiss()}>Dismiss</button
+    >
+  {/if}
   <span
     class="message"
     role="status"
@@ -52,6 +87,14 @@
     z-index: 2;
     color: var(--text-muted);
     font-size: 11px;
+  }
+  .result {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .notice-action {
+    padding: 0 4px;
+    font-size: inherit;
   }
   .message {
     flex: 1;

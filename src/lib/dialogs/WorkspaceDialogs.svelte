@@ -49,6 +49,7 @@
 {/if}
 {#if workspaceModal.identity === 'fonts' && doc.format && subtitles.styled}
   <FontDialog
+    {mediaPath}
     {subtitles}
     onclose={() => void dialogs.closeAuthoring()}
     onaccepted={() => void dialogs.closeAuthoring(true)}

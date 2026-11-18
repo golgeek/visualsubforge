@@ -10,6 +10,13 @@ export const commands = {
       action,
       session,
     }),
+  extractionAction: (
+    action: visualsubforge_extraction_ExtractionAction_Deserialize,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_extraction_ExtractionReply_Serialize>(
+      'extraction_action',
+      { action },
+    ),
   documentAction: (
     action: visualsubforge_document_Action_Deserialize,
     generation: number,
@@ -326,7 +333,10 @@ export const commands = {
   ) =>
     __TAURI_INVOKE<number>('font_start', { generation, revision, operation }),
   fontView: (id: number) =>
-    __TAURI_INVOKE<visualsubforge_font_review_FontReview>('font_view', { id }),
+    __TAURI_INVOKE<visualsubforge_font_review_FontReview_Serialize>(
+      'font_view',
+      { id },
+    ),
   fontCancel: (id: number) => __TAURI_INVOKE<null>('font_cancel', { id }),
   fontAccept: (id: number) =>
     __TAURI_INVOKE<visualsubforge_document_Snapshot_Serialize>('font_accept', {
@@ -1413,6 +1423,8 @@ export type visualsubforge_recovery_store_Entry =
 
 export type visualsubforge_recovery_store_Entry_Deserialize = {
   id: string;
+  suggestedName: string | null;
+  videoFilename: string | null;
   sourcePath: string | null;
   capturedMs: number | null;
   revision: number | null;
@@ -1421,10 +1433,120 @@ export type visualsubforge_recovery_store_Entry_Deserialize = {
 
 export type visualsubforge_recovery_store_Entry_Serialize = {
   id: string;
+  suggestedName: string | null;
+  videoFilename: string | null;
   sourcePath: string | null;
   capturedMs: number | null;
   revision: number | null;
   error: string | null;
+};
+
+export type visualsubforge_extraction_ExtractionAction =
+  | visualsubforge_extraction_ExtractionAction_Serialize
+  | visualsubforge_extraction_ExtractionAction_Deserialize;
+
+export type visualsubforge_extraction_ExtractionAction_Deserialize =
+  | ({ kind: 'list'; path: string } & {
+      discard?: never;
+      generation?: never;
+      id?: never;
+      index?: never;
+      revision?: never;
+    })
+  | ({
+      kind: 'start';
+      path: string;
+      index: number;
+      generation: number;
+      revision: number;
+      discard: boolean;
+    } & { id?: never })
+  | ({ kind: 'view'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'cancel'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'accept'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    });
+
+export type visualsubforge_extraction_ExtractionAction_Serialize =
+  | ({ kind: 'list'; path: string } & {
+      discard?: never;
+      generation?: never;
+      id?: never;
+      index?: never;
+      revision?: never;
+    })
+  | ({
+      kind: 'start';
+      path: string;
+      index: number;
+      generation: number;
+      revision: number;
+      discard: boolean;
+    } & { id?: never })
+  | ({ kind: 'view'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'cancel'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    })
+  | ({ kind: 'accept'; id: number } & {
+      discard?: never;
+      generation?: never;
+      index?: never;
+      path?: never;
+      revision?: never;
+    });
+
+export type visualsubforge_extraction_ExtractionReply =
+  | visualsubforge_extraction_ExtractionReply_Serialize
+  | visualsubforge_extraction_ExtractionReply_Deserialize;
+
+export type visualsubforge_extraction_ExtractionReply_Deserialize = {
+  id: number;
+  status: string;
+  listing: media_analysis_subtitle_tracks_Listing | null;
+  error: string | null;
+  snapshot: visualsubforge_document_Snapshot_Deserialize | null;
+  provenance: vsf_application_subtitle_extraction_Provenance | null;
+  cueCount: number;
+  fontCount: number;
+  repairedCues: number[];
+};
+
+export type visualsubforge_extraction_ExtractionReply_Serialize = {
+  id: number;
+  status: string;
+  listing: media_analysis_subtitle_tracks_Listing | null;
+  error: string | null;
+  snapshot: visualsubforge_document_Snapshot_Serialize | null;
+  provenance: vsf_application_subtitle_extraction_Provenance | null;
+  cueCount: number;
+  fontCount: number;
+  repairedCues: number[];
 };
 
 export type vsf_application_quality_statistics_Extreme = {
@@ -1436,6 +1558,8 @@ export type vsf_application_quality_statistics_Extreme = {
 
 export type visualsubforge_desktop_FileChoice =
   | 'workspace'
+  | 'extractSubtitles'
+  | 'videoFonts'
   | 'media'
   | 'subtitles'
   | 'font'
@@ -1470,6 +1594,12 @@ export type vsf_application_quality_check_Finding = {
   language: vsf_application_language_analysis_Detail | null;
 };
 
+export type media_analysis_subtitle_tracks_FontAttachment = {
+  index: number;
+  filename: string | null;
+  mimetype: string | null;
+};
+
 export type vsf_application_authoring_fonts_sfnt_FontInfo = {
   kind: vsf_application_authoring_fonts_sfnt_FontKind;
   tables: number;
@@ -1482,16 +1612,35 @@ export type vsf_application_authoring_fonts_sfnt_FontKind =
 
 export type visualsubforge_font_review_FontOperation =
   | { kind: 'inspect' }
+  | { kind: 'videoFonts'; path: string }
+  | { kind: 'embedVideoFont'; path: string; index: number }
   | { kind: 'add'; path: string }
   | { kind: 'replace'; id: number; path: string }
   | { kind: 'remove'; id: number };
 
-export type visualsubforge_font_review_FontReview = {
+export type visualsubforge_font_review_FontReview =
+  | visualsubforge_font_review_FontReview_Serialize
+  | visualsubforge_font_review_FontReview_Deserialize;
+
+export type visualsubforge_font_review_FontReview_Deserialize = {
   id: number;
   key: visualsubforge_quality_check_Key;
   phase: visualsubforge_text_review_Phase;
   operation: visualsubforge_font_review_FontOperation;
   inventory: vsf_application_authoring_attachments_AttachmentInventory | null;
+  videoFonts: media_analysis_subtitle_tracks_FontAttachment[] | null;
+  summary: vsf_application_authoring_attachments_AttachmentSummary | null;
+  changed: boolean;
+  error: string | null;
+};
+
+export type visualsubforge_font_review_FontReview_Serialize = {
+  id: number;
+  key: visualsubforge_quality_check_Key;
+  phase: visualsubforge_text_review_Phase;
+  operation: visualsubforge_font_review_FontOperation;
+  inventory: vsf_application_authoring_attachments_AttachmentInventory | null;
+  videoFonts?: media_analysis_subtitle_tracks_FontAttachment[] | null;
   summary: vsf_application_authoring_attachments_AttachmentSummary | null;
   changed: boolean;
   error: string | null;
@@ -1725,6 +1874,12 @@ export type vsf_application_quality_profile_LineRule = {
   maximumLines: number;
   singleLinePreferred: number;
   maximumCharacters: number;
+};
+
+export type media_analysis_subtitle_tracks_Listing = {
+  tracks: media_analysis_subtitle_tracks_Track[];
+  font_count: number;
+  fonts: media_analysis_subtitle_tracks_FontAttachment[];
 };
 
 export type visualsubforge_text_review_Match = {
@@ -2112,6 +2267,15 @@ export type visualsubforge_project_Project_Serialize = {
   positionSeconds: number;
   options: visualsubforge_project_Options_Serialize;
   scenes: visualsubforge_scenes_Saved_Serialize | null;
+};
+
+export type vsf_application_subtitle_extraction_Provenance = {
+  media_path: string;
+  stream_index: number;
+  codec: string;
+  language: string | null;
+  title: string | null;
+  suggested_name: string;
 };
 
 export type vsf_application_quality_statistics_Range = {
@@ -2555,7 +2719,9 @@ export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Deserialize;
 
 export type visualsubforge_document_Snapshot_Deserialize = {
+  suggestedSavePath: string | null;
   translation: visualsubforge_document_translation_Summary | null;
+  extractedFrom: vsf_application_subtitle_extraction_Provenance | null;
   format: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -2569,7 +2735,9 @@ export type visualsubforge_document_Snapshot_Deserialize = {
 };
 
 export type visualsubforge_document_Snapshot_Serialize = {
+  suggestedSavePath?: string | null;
   translation?: visualsubforge_document_translation_Summary | null;
+  extractedFrom?: vsf_application_subtitle_extraction_Provenance | null;
   format?: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -2883,6 +3051,17 @@ export type vsf_application_quality_profile_Timing = {
   sceneAfterMs: number;
 };
 
+export type media_analysis_subtitle_tracks_Track = {
+  index: number;
+  codec: string;
+  language: string | null;
+  title: string | null;
+  default: boolean;
+  forced: boolean;
+  hearing_impaired: boolean;
+  unavailable: string | null;
+};
+
 export type vsf_application_quality_metrics_Unavailable =
   'empty_text' | 'invalid_duration' | 'reading_allowance';
 
@@ -3103,6 +3282,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'apply'
   | 'openMedia'
   | 'openSubtitles'
+  | 'extractSubtitles'
   | 'save'
   | 'saveAs'
   | 'convertSubtitles'

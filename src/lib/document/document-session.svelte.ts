@@ -1,5 +1,6 @@
 import {
   DocumentFailure,
+  extractionAction,
   chooseFile,
   documentAction,
   resyncAccept,
@@ -216,6 +217,25 @@ export class DocumentSession {
           () => {},
         );
       throw failure;
+    }
+  }
+  async acceptExtraction(
+    id: number,
+    expected: DocumentSnapshot,
+  ): Promise<boolean> {
+    if (this.accepted !== expected)
+      throw new Error('Subtitles changed during extraction.');
+    try {
+      return await this.update(async () => {
+        const reply = await extractionAction({ kind: 'accept', id });
+        if (!reply.snapshot) throw new Error('Extraction returned no document');
+        return reply.snapshot;
+      });
+    } catch (error) {
+      await this.command({ kind: 'status' }, { preserveDraft: true }).catch(
+        () => {},
+      );
+      throw error;
     }
   }
   acceptResync(id: number, expected: DocumentSnapshot): Promise<boolean> {
@@ -553,7 +573,10 @@ export class DocumentSession {
     if (!(await this.apply())) return false;
     as = as || this.accepted.requiresSaveAs;
     const path = as
-      ? await this.client.chooseFile('saveSubtitles', this.accepted.path)
+      ? await this.client.chooseFile(
+          'saveSubtitles',
+          this.accepted.path ?? this.accepted.suggestedSavePath ?? null,
+        )
       : null;
     if (!this.alive || (as && !path)) return false;
     return this.command({ kind: 'save', path });

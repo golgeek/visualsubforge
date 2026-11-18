@@ -26,27 +26,39 @@
         originals stay unchanged.
       </p>{/if}
     {#each recovery.status.entries as entry (entry.id)}
+      {@const label =
+        entry.sourcePath?.split(/[\\/]/).pop() ??
+        (entry.suggestedName
+          ? entry.suggestedName +
+            (entry.videoFilename ? ' from ' + entry.videoFilename : '')
+          : entry.error
+            ? entry.id
+            : 'Untitled subtitles')}
       <div class="recovery-row">
-        <span title={entry.sourcePath ?? entry.id}
-          >{entry.sourcePath?.split(/[\\/]/).pop() ??
-            (entry.error ? entry.id : 'Untitled subtitles')}
-          {entry.capturedMs ? new Date(entry.capturedMs).toLocaleString() : ''}
-          {entry.error ?? ''}</span
-        >
+        <div class="identity" title={entry.sourcePath ?? label}>
+          <span class="label">{label}</span>
+          {#if entry.capturedMs !== null}
+            <time>{new Date(entry.capturedMs).toLocaleString()}</time>
+          {/if}
+          {#if entry.error}<span>{entry.error}</span>{/if}
+        </div>
         <button
           disabled={blocked || !!entry.error}
           onclick={() => void onchoose(entry.id, true)}>Recover</button
         >
         {#if recovery.discardId === entry.id}
-          <span>Discard this recovery snapshot?</span>
-          <button
-            disabled={blocked}
-            onclick={() => void onchoose(entry.id, false)}
-            >Confirm discard</button
-          >
-          <button disabled={blocked} onclick={() => (recovery.discardId = null)}
-            >Cancel</button
-          >
+          <div class="confirmation">
+            <span>Discard this recovery snapshot?</span>
+            <button
+              disabled={blocked}
+              onclick={() => void onchoose(entry.id, false)}
+              >Confirm discard</button
+            >
+            <button
+              disabled={blocked}
+              onclick={() => (recovery.discardId = null)}>Cancel</button
+            >
+          </div>
         {:else}
           <button
             disabled={blocked}
@@ -77,14 +89,26 @@
     align-items: center;
     gap: 8px;
     padding: 3px 0;
+    flex-wrap: wrap;
   }
-  .recovery-row > span:first-child {
+  .identity {
     flex: 1;
+    min-width: 0;
     overflow-wrap: anywhere;
   }
-  @media (max-width: 799px), (max-height: 609px) {
-    .recovery-row {
-      flex-wrap: wrap;
-    }
+  .identity > * {
+    display: block;
+  }
+  .label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .confirmation {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
 </style>

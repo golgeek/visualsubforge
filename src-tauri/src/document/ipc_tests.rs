@@ -32,6 +32,8 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
     let recovery = RecoveryStatus {
         entries: vec![
             crate::recovery_store::Entry {
+                suggested_name: Some("example.fr.srt".into()),
+                video_filename: Some("example.mkv".into()),
                 id: "session-example".into(),
                 source_path: None,
                 captured_ms: Some(MAX_SAFE_INTEGER),
@@ -39,6 +41,8 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
                 error: None,
             },
             crate::recovery_store::Entry {
+                suggested_name: None,
+                video_filename: None,
                 id: "session-corrupt".into(),
                 source_path: None,
                 captured_ms: None,
@@ -52,6 +56,7 @@ pub(crate) fn samples() -> Vec<(&'static str, &'static str, Value)> {
         subtitle_formats::parse(super::ass_tests::ASS, Some(subtitle_formats::Format::Ass))
             .unwrap();
     store.loaded = Some(Loaded {
+        extracted_from: None,
         editor: Editor::with_properties(parsed.document, parsed.source),
         path: None,
         saved_bytes: super::ass_tests::ASS.as_bytes().to_vec(),
@@ -168,6 +173,8 @@ fn response_codecs_reject_lossy_ids_times_revisions_and_optional_metadata() {
     snapshot.revision = MAX_SAFE_INTEGER + 1;
     assert!(serde_json::to_value(snapshot).is_err());
     let mut entry = crate::recovery_store::Entry {
+        suggested_name: None,
+        video_filename: None,
         id: "session-example".into(),
         source_path: None,
         captured_ms: Some(MAX_SAFE_INTEGER + 1),

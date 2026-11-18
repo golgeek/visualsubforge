@@ -72,6 +72,7 @@ pub enum WorkspaceAction {
     Apply,
     OpenMedia,
     OpenSubtitles,
+    ExtractSubtitles,
     Save,
     SaveAs,
     ConvertSubtitles,
@@ -301,6 +302,8 @@ pub fn update_menu(app: tauri::AppHandle, state: MenuState) -> Result<(), String
 #[serde(rename_all = "camelCase")]
 pub enum FileChoice {
     Workspace,
+    ExtractSubtitles,
+    VideoFonts,
     Media,
     Subtitles,
     Font,
@@ -399,6 +402,12 @@ pub async fn choose_file(
             FileChoice::Workspace => dialog
                 .set_title("Open video, subtitles or project")
                 .blocking_pick_file(),
+            FileChoice::ExtractSubtitles => dialog
+                .set_title("Open Subtitles from Video")
+                .blocking_pick_file(),
+            FileChoice::VideoFonts => dialog
+                .set_title("Embed Fonts from Video")
+                .blocking_pick_file(),
             FileChoice::Media => dialog.set_title("Open Media").blocking_pick_file(),
             FileChoice::Font => dialog
                 .set_title("Choose Font Attachment")
@@ -447,6 +456,7 @@ pub async fn finish_exit(
             discard,
         )?;
         app.state::<crate::resync::Resync>().shutdown();
+        app.state::<crate::extraction::Extraction>().shutdown();
         app.state::<crate::project::Projects>().imports.shutdown()?;
         app.state::<crate::document::Documents>()
             .shutdown_quality()?;

@@ -690,3 +690,36 @@ draft commit and generation/session/pointer checks. Wheel zoom uses the pointer
 anchor while following is disabled or suspended; otherwise it uses the playhead.
 WorkspaceView remembers the Review dock displaced by Translation and restores it
 on close; accepted subtitle state remains entirely in Rust.
+
+## Embedded subtitle extraction
+
+`media-analysis::subtitle_tracks` lists streams and runs bounded FFmpeg extraction
+through the shared subprocess supervisor and tool discovery. It knows codec names
+and bytes, without depending on subtitle state. `vsf-application::subtitle_extraction`
+validates UTF-8 and format policy, prepares source provenance and suggested names,
+and publishes CLI output through the existing atomic no-clobber file boundary.
+`vsf extract` calls these synchronous operations without a GUI or native player.
+See the [extraction contract](docs/subtitle-extraction.md).
+
+The desktop `Extraction` service owns one lazy analysis worker and one replaceable
+pending request. It captures a document checkpoint before starting extraction;
+workers own only paths, cancellation tokens and immutable prepared results.
+Acceptance locks the job then the document, validates the complete checkpoint,
+and replaces the accepted editor once. Cancellation discards prepared content and
+terminates/reaps child work; shutdown joins off the UI thread. The frontend
+`ExtractionSession` owns chooser selection, polling identity and elapsed time,
+using WorkspaceModal/HideVideo and the existing unsaved-work decision before work.
+Results go through DocumentSession reconciliation. Media opens only after accepted
+extraction. An unavailable native player still permits headless document extraction.
+Recovery version 6 adds optional extraction provenance while reading versions 1–5;
+records without provenance retain their earlier version. Saving to a real path
+hides the extracted name. No document bytes cross the extraction IPC boundary.
+
+
+Font attachment listing and bounded byte extraction reuse `subtitle_tracks`.
+The existing document text/style/font worker runs these operations with its
+shared cancellation flag and ten-second review deadline. Immutable extracted
+bytes pass through the existing font validator and proposal before acceptance;
+the document owner commits one font per Undo step under the captured document
+key. Metadata filenames never become filesystem paths. Bounded stdout avoids
+an intermediate temporary file and its cleanup/filename ownership concerns.

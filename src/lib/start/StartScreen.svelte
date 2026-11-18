@@ -124,8 +124,14 @@
     gap: 24px;
   }
   @media (max-width: 799px) {
+    .start-side:has(:global(.recovery)) {
+      grid-row: 1;
+    }
+    .start-side > :global(.recovery) {
+      order: -1;
+    }
     .start-screen {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       align-content: start;
       gap: 24px;
     }

@@ -12,6 +12,7 @@ use subtitle_formats::{Source, srt};
 
 mod autosave;
 mod checks;
+pub(crate) mod extraction;
 mod plugins;
 #[cfg(test)]
 pub(crate) use plugins::ipc_samples as plugin_ipc_samples;
@@ -110,6 +111,7 @@ struct Loaded {
     // Independent of editor history: Undo must not remove this protection.
     resynced: bool,
     translation: translation::Context,
+    extracted_from: Option<extraction::ExtractedSource>,
 }
 #[derive(Deserialize, specta::Type)]
 #[serde(
@@ -198,7 +200,11 @@ pub enum Action {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
+    suggested_save_path: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     translation: Option<translation::Summary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    extracted_from: Option<extraction::ExtractedSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<FormatView>,
     #[serde(with = "crate::ipc_number")]
@@ -253,6 +259,7 @@ impl Loaded {
         self.editor.dirty()
             || self.recovered
             || self.resynced
+            || (self.path.is_none() && self.extracted_from.is_some())
             || (self.path.is_none() && self.translation.copied_from.is_some())
     }
     fn source(&self) -> &Source {
@@ -290,8 +297,14 @@ impl Loaded {
 impl Store {
     fn snapshot(&self) -> Snapshot {
         let loaded = self.loaded.as_ref();
+        let extracted_from = loaded
+            .filter(|d| d.path.is_none())
+            .and_then(|d| d.extracted_from.as_ref());
         Snapshot {
             translation: self.translation_summary(),
+            suggested_save_path: extracted_from
+                .map(|origin| origin.media_path.with_file_name(&origin.suggested_name)),
+            extracted_from: extracted_from.cloned(),
             format: loaded.and_then(|d| {
                 if d.source().format() == subtitle_formats::Format::WebVtt {
                     return Some(FormatView {
@@ -468,6 +481,7 @@ impl Store {
                     recovered: false,
                     resynced: false,
                     translation: translation::Context::default(),
+                    extracted_from: None,
                 });
                 self.generation += 1;
             }
@@ -491,6 +505,7 @@ impl Store {
                     recovered: true,
                     resynced: record.resynced,
                     translation,
+                    extracted_from: record.extracted_from,
                 });
                 self.generation += 1;
             }
@@ -537,6 +552,7 @@ impl Store {
                         recovered: false,
                         resynced: false,
                         translation: translation::Context::default(),
+                        extracted_from: None,
                     })
                 } else {
                     None
@@ -636,7 +652,12 @@ impl Store {
                 .save(
                     revision,
                     path.as_deref().map(Path::new),
-                    loaded.translation.protected_paths(),
+                    loaded.translation.protected_paths().chain(
+                        loaded
+                            .extracted_from
+                            .as_ref()
+                            .map(|origin| origin.media_path.as_path()),
+                    ),
                 )?;
             }
         }

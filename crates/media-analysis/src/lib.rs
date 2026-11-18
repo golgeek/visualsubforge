@@ -3,6 +3,7 @@
 pub mod alignment;
 mod process;
 pub mod scenes;
+pub mod subtitle_tracks;
 pub mod tools;
 
 use serde::{Deserialize, Serialize};
@@ -46,6 +47,10 @@ impl From<std::io::Error> for Error {
 #[derive(Clone, Default)]
 pub struct Cancellation(Arc<AtomicBool>);
 impl Cancellation {
+    /// Share the existing service cancellation owner with subprocess supervision.
+    pub fn from_flag(flag: Arc<AtomicBool>) -> Self {
+        Self(flag)
+    }
     pub fn cancel(&self) {
         self.0.store(true, Ordering::Relaxed);
     }

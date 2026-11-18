@@ -25,12 +25,18 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
+const videoStem =
+  'Synthetic.Festival.Documentary.S01E02.Extended.Edition.1080p';
+const videoFilename = videoStem + '.mkv';
+const suggestedName = videoStem + '.fr.forced.srt';
 const stale: RecoveryStatus = {
   entries: [
     {
       id: 'session-old',
-      sourcePath: '/disposable/old.srt',
-      capturedMs: null,
+      suggestedName,
+      videoFilename,
+      sourcePath: null,
+      capturedMs: 1700000000000,
       revision: 2,
       error: null,
     },
@@ -42,6 +48,8 @@ const fresh: RecoveryStatus = {
     {
       ...stale.entries[0]!,
       id: 'session-new',
+      suggestedName: null,
+      videoFilename: null,
       sourcePath: '/disposable/new.srt',
     },
   ],
@@ -123,11 +131,62 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
   const app = mount(App, { target: host });
   try {
     await until(
-      () => hasEntry('old.srt') && !button('Recover').disabled,
+      () => hasEntry(suggestedName) && !button('Recover').disabled,
       'Initial recovery list did not become ready',
     );
     button('Discard…').click();
     await settle();
+    assert(
+      hasEntry(`${suggestedName} from ${videoFilename}`),
+      'Extraction origin missing',
+    );
+    const card = host.querySelector<HTMLElement>('.recovery')!;
+    const label = card.querySelector<HTMLElement>('.label')!;
+    const start = host.querySelector<HTMLElement>('.start-screen')!;
+    assert(
+      start.scrollWidth <= start.clientWidth,
+      'Start screen overflows horizontally',
+    );
+    assert(
+      label.scrollWidth > label.clientWidth &&
+        getComputedStyle(label).textOverflow === 'ellipsis',
+      'Long recovery name is not ellipsized',
+    );
+    // The 520px workflow exercises the stacked start screen. At desktop
+    // width this browser-only harness also renders the fallback toolbar.
+    if (window.matchMedia('(max-width: 799px)').matches) {
+      for (const name of ['Recover', 'Confirm discard', 'Cancel']) {
+        const rect = button(name).getBoundingClientRect();
+        assert(
+          rect.width > 0 &&
+            rect.height > 0 &&
+            rect.left >= 0 &&
+            rect.right <= window.innerWidth &&
+            rect.top >= 0 &&
+            rect.bottom <= window.innerHeight,
+          name + ' is outside the narrow viewport',
+        );
+      }
+    }
+    const date = card.querySelector('time')!;
+    assert(
+      date.textContent === new Date(1700000000000).toLocaleString() &&
+        !label.contains(date),
+      'Date is missing or truncated with the label',
+    );
+    const confirm = button('Confirm discard').getBoundingClientRect();
+    assert(
+      card.scrollHeight <= card.clientHeight + 1 &&
+        confirm.bottom <= card.getBoundingClientRect().bottom &&
+        confirm.bottom <= window.innerHeight,
+      'Confirmation requires scrolling',
+    );
+    assert(
+      label.clientWidth >= 100 &&
+        label.offsetHeight <=
+          2 * parseFloat(getComputedStyle(label).fontSize) * 1.5,
+      'Recovery label collapsed',
+    );
     button('Confirm discard').click();
     // Keep real production polling intervals: the second read must begin
     // while the asynchronous mutation is pending, not before its invalidation.
@@ -136,26 +195,32 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
     if (mode === 'failed discard') {
       discard.reject(new Error('Disposable discard failure'));
       await settle();
-      assert(hasEntry('old.srt'), 'Failed discard removed the recovery entry');
+      assert(
+        hasEntry(suggestedName),
+        'Failed discard removed the recovery entry',
+      );
       assert(
         !!host.textContent?.includes('Disposable discard failure'),
         'Failed discard error was hidden',
       );
       poll.resolve(structuredClone(stale));
       await settle();
-      assert(hasEntry('old.srt'), 'Pending read lost the retained entry');
+      assert(hasEntry(suggestedName), 'Pending read lost the retained entry');
       passed('failed discard retains its entry and reports the error');
     } else {
       discard.resolve();
       await settle();
       assert(
-        !hasEntry('old.srt'),
+        !hasEntry(suggestedName),
         'Successful discard did not remove the entry',
       );
       if (mode === 'stale list') poll.resolve(structuredClone(stale));
       else poll.reject(new Error('Obsolete recovery-list failure'));
       await settle();
-      assert(!hasEntry('old.srt'), 'Late poll resurrected the discarded entry');
+      assert(
+        !hasEntry(suggestedName),
+        'Late poll resurrected the discarded entry',
+      );
       assert(
         !host.textContent?.includes('Obsolete recovery-list failure'),
         'Late poll surfaced an obsolete error after discard',
@@ -163,6 +228,12 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
       passed(`${mode} started during discard is ignored after success`);
       if (mode === 'stale list') {
         await until(() => hasEntry('new.srt'), 'Fresh polling did not resume');
+        assert(
+          host
+            .querySelector('.recovery-row .identity')
+            ?.getAttribute('title') === '/disposable/new.srt',
+          'Full recovery path missing from tooltip',
+        );
         passed('a subsequent current poll still discovers a new entry');
       }
     }

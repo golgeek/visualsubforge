@@ -12,6 +12,7 @@ mod desktop_test;
 mod document;
 #[cfg(all(feature = "media-prototype", target_os = "macos"))]
 mod extended_playback;
+mod extraction;
 mod file_lease;
 mod font_review;
 mod gap_review;
@@ -126,6 +127,7 @@ fn main() {
             app.manage(waveform::Waveforms::default());
             app.manage(scenes::Scenes::default());
             app.manage(resync::Resync::default());
+            app.manage(extraction::Extraction::default());
             desktop::install(app)?;
             #[cfg(target_os = "windows")]
             {
@@ -257,6 +259,7 @@ fn diagnostic_exit(app: &tauri::AppHandle, success: bool) {
             .0
             .store(true, Ordering::Release);
         app.state::<resync::Resync>().shutdown();
+        app.state::<extraction::Extraction>().shutdown();
         let _ = app.state::<project::Projects>().imports.shutdown();
         let _ = app.state::<document::Documents>().shutdown_quality();
         app.state::<waveform::Waveforms>().shutdown();

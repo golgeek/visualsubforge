@@ -30,12 +30,18 @@ async function verifyChecks(
   }
 }
 
+test('workflow: recovery in a narrow window', async ({ page }) => {
+  await page.setViewportSize({ width: 520, height: 720 });
+  await verifyChecks(page, () => page.goto('/tests/frontend/recovery/'));
+});
+
 for (const name of [
   'projects',
   'legacy-import',
   'recovery',
   'fast-editing',
   'new-subtitles',
+  'extraction',
   'magnetic-timing',
   'scenes',
   'cue-timing',

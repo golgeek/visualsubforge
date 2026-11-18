@@ -24,6 +24,8 @@ const recovery: RecoveryStatus = {
   entries: [
     {
       id: 'recover-1',
+      suggestedName: null,
+      videoFilename: null,
       sourcePath: '/original.srt',
       capturedMs: null,
       revision: 1,
@@ -208,6 +210,11 @@ async function run() {
         'none',
       'Mounted placeholder retains the window backdrop',
     );
+    const videoPrompt = host.querySelector<HTMLElement>('.video-space p')!;
+    assert(
+      getComputedStyle(videoPrompt).visibility === 'hidden',
+      'Start hides the empty video prompt',
+    );
     const editor = host.querySelector('[aria-label="Subtitle text"]');
     button('New subtitles').click();
     await until(() => !host.querySelector('.start-screen'));
@@ -221,6 +228,11 @@ async function run() {
     assert(
       host.querySelector('[aria-label="Subtitle text"]') === editor,
       'Editor remains mounted across start transition',
+    );
+    assert(
+      videoPrompt.isConnected &&
+        getComputedStyle(videoPrompt).visibility === 'visible',
+      'The empty video prompt returns in the subtitle workspace',
     );
     passed(
       'New subtitles leaves Start through the existing Rust-owned create flow without recreating owners',

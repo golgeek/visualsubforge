@@ -107,6 +107,7 @@
   {/if}
   {#snippet filename()}
     {doc.path?.split(/[\\/]/).pop() ??
+      doc.extractedFrom?.suggested_name ??
       (doc.loaded ? 'Untitled subtitles' : 'No subtitles')}{doc.dirty ||
     draftDirty
       ? ' •'

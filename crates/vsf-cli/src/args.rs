@@ -14,6 +14,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// List or extract embedded text subtitles to a new file.
+    Extract(Extract),
     /// Run local JavaScript subtitle checks and reviewable fixes.
     Plugin(Plugin),
     /// Check subtitle authoring rules without changing the file.
@@ -177,4 +179,19 @@ pub struct Stats {
     /// Stream the versioned summary and all scoped findings as JSON.
     #[arg(long)]
     pub json: bool,
+}
+
+#[derive(Args)]
+pub struct Extract {
+    pub video: PathBuf,
+    #[arg(long, conflicts_with_all = ["track", "output"])]
+    pub list: bool,
+    #[arg(long, required_unless_present = "list")]
+    pub track: Option<u32>,
+    #[arg(short, long, required_unless_present = "list")]
+    pub output: Option<PathBuf>,
+    #[arg(long)]
+    pub json: bool,
+    #[arg(long, default_value_t = 1800, value_parser = clap::value_parser!(u64).range(1..=14400))]
+    pub timeout_seconds: u64,
 }

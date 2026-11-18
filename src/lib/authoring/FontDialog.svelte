@@ -4,14 +4,19 @@
   import { FontSession } from './font-session.svelte';
   let {
     subtitles,
+    mediaPath = '',
     onclose,
     onaccepted,
   }: {
     subtitles: DocumentSession;
+    mediaPath?: string;
     onclose: () => void;
     onaccepted: () => void;
   } = $props();
   const session = untrack(() => new FontSession(subtitles));
+  const defaultVideo = $derived(
+    subtitles.snapshot.extractedFrom?.media_path || mediaPath,
+  );
   const summary = $derived(session.view?.summary);
   let dialog: HTMLDialogElement;
   onMount(() => {
@@ -76,6 +81,41 @@
       onclick={() => void session.cancel()}>Cancel font review</button
     >
   </div>
+  <button
+    disabled={!session.canPut}
+    onclick={() => void session.pickVideo(defaultVideo)}
+    >Embed Fonts from Video…</button
+  >
+  {#if defaultVideo}
+    <button disabled={!session.canPut} onclick={() => void session.pickVideo()}
+      >Choose another video…</button
+    >
+  {/if}
+  {#if session.view?.videoFonts}
+    {#if session.view.videoFonts.length}
+      <label
+        >Video font <select
+          bind:value={session.videoSelected}
+          disabled={!session.canPut}
+        >
+          {#each session.view.videoFonts as font (font.index)}<option
+              value={font.index}
+              >{font.filename ?? `Attachment ${font.index}`} ({font.mimetype ??
+                'font'})</option
+            >{/each}
+        </select></label
+      >
+      <button
+        disabled={!session.canPut || session.videoSelected === null}
+        onclick={() => void session.embedVideoFont()}
+        >Preview font embedding</button
+      >
+      <p>
+        Embed one selected font per reviewed Undo step. Attachment names are
+        labels, never file paths.
+      </p>
+    {:else}<p>This video has no supported font attachments.</p>{/if}
+  {/if}
   {#if session.pending}<p role="status">Preparing font review…</p>{/if}
   {#if session.error}<p role="alert">{session.error}</p>{/if}
   {#if session.view}<p role="status">Font review: {session.view.phase}</p>{/if}

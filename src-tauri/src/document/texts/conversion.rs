@@ -215,6 +215,10 @@ impl Documents {
                 }
                 if let Some(loaded) = &store.loaded {
                     loaded.translation.protect(&path)?;
+                    if let Some(origin) = &loaded.extracted_from {
+                        vsf_application::new_output::protect_source(&path, &origin.media_path)
+                            .map_err(|e| e.to_string())?;
+                    }
                 }
                 let job = store
                     .texts
