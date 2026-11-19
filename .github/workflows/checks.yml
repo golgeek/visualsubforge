@@ -187,12 +187,19 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - name: Install Linux desktop dependencies
+        id: desktop-apt
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-apt
         with:
           packages: libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus python3-gi ffmpeg
       - name: Install pinned Rust
         run: rustup show
+      - name: Cache compiled desktop dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          cache-bin: false
+          env-vars: ImageVersion
+          key: ${{ matrix.os }}-${{ steps.desktop-apt.outputs.digest }}
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint

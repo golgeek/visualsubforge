@@ -7,6 +7,10 @@ inputs:
   cache-also:
     description: Additional packages to download for another job sharing this archive
     default: ''
+outputs:
+  digest:
+    description: Identity of the packages resolved for this runner image
+    value: ${{ steps.plan.outputs.digest }}
 runs:
   using: composite
   steps:
