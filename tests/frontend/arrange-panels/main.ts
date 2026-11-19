@@ -381,6 +381,16 @@ async function run() {
           'Project layout changes stay in this workspace',
         ),
     );
+    // WebKit can deliver the remounted workspace's resize after the scope
+    // control is ready. Exercise the swap at the measured, visible size.
+    await until(() => {
+      const main = host.querySelector('main');
+      const height = host.querySelector('.workspace')?.clientHeight;
+      return (
+        !!height &&
+        main?.style.getPropertyValue('--workspace-height') === `${height}px`
+      );
+    });
     const userWrites = saves;
     await place('waveform', 'Video');
     await until(
