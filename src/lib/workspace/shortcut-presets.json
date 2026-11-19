@@ -374,6 +374,16 @@
       "action": "zoomIn",
       "mode": "alternate",
       "key": "CmdOrCtrl+Shift+="
+    },
+    {
+      "action": "nextChange",
+      "mode": "global",
+      "key": "F6"
+    },
+    {
+      "action": "previousChange",
+      "mode": "global",
+      "key": "Shift+F6"
     }
   ],
   "vsfDefault": [
@@ -841,6 +851,16 @@
       "action": "zoomIn",
       "mode": "alternate",
       "key": "CmdOrCtrl+Shift+="
+    },
+    {
+      "action": "nextChange",
+      "mode": "global",
+      "key": "F6"
+    },
+    {
+      "action": "previousChange",
+      "mode": "global",
+      "key": "Shift+F6"
     }
   ],
   "visualSubSyncClassic": [
@@ -1218,6 +1238,16 @@
       "action": "zoomIn",
       "mode": "alternate",
       "key": "CmdOrCtrl+Shift+="
+    },
+    {
+      "action": "nextChange",
+      "mode": "global",
+      "key": "F6"
+    },
+    {
+      "action": "previousChange",
+      "mode": "global",
+      "key": "Shift+F6"
     }
   ]
 }

@@ -6,6 +6,7 @@
   import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
   import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
+  import type { ReviewChange } from '../client';
   import type { QualityMetric } from '../client';
   import { formatTime } from '../timeline/timeline';
   import { rate } from '../quality/quality-display';
@@ -21,6 +22,7 @@
   import type { SelectionMode } from './cue-selection';
   import type { CueTableView } from './cue-table-view.svelte';
   let {
+    reviewChanges = [],
     ghosts = [],
     subtitles,
     quality,
@@ -31,6 +33,7 @@
     actions,
     controls,
   }: {
+    reviewChanges?: ReviewChange[];
     ghosts?: TimingGhost[];
     subtitles: DocumentSession;
     quality: QualitySession;
@@ -53,6 +56,13 @@
       focusText: () => Promise<void>;
     };
   } = $props();
+  const changes = $derived(
+    new Map(
+      reviewChanges.flatMap((c) =>
+        c.revised.map((cue) => [cue.cue_id, c.kind] as const),
+      ),
+    ),
+  );
   const deltas = $derived(
     new Map(ghosts.map((ghost) => [ghost.id, timingDelta(ghost)])),
   );
@@ -182,7 +192,7 @@
 
 <div
   class="cue-table"
-  style:--column-grid={columnGrid(columns)}
+  style:--column-grid={`${doc.review?.path ? '22px ' : ''}${columnGrid(columns)}`}
   style:--columns-min={`${minimumWidth}px`}
   style:--row-height={`${tableView.rowHeight}px`}
 >
@@ -232,6 +242,7 @@
         if (workspace.canAct) actions.columns();
       }}
     >
+      {#if doc.review?.path}<span aria-label="Changes">Δ</span>{/if}
       {#each columns as column (column.id)}
         <div class="column-heading" data-column={column.id}>
           <span>{column.id === 'issue' ? '!' : columnLabels[column.id]}</span>
@@ -320,6 +331,26 @@
               onkeydown={(e) => actions.cueSelectionKey(e, item.id)}
               ondblclick={() => void actions.focusText()}
             >
+              {#if doc.review?.path}<span
+                  class="change-marker"
+                  aria-label={changes.has(item.id)
+                    ? `Change: ${changes.get(item.id)}`
+                    : 'Unchanged'}
+                  title={changes.get(item.id)}
+                  >{changes.has(item.id)
+                    ? {
+                        text: 'T',
+                        timing: '◷',
+                        text_and_timing: '±',
+                        added: '+',
+                        removed: '−',
+                        split: '⑂',
+                        merged: '⑃',
+                        style: 'S',
+                        unchanged: '',
+                      }[changes.get(item.id)!]
+                    : ''}</span
+                >{/if}
               {#each columns as column (column.id)}
                 {#if column.id === 'issue'}<span
                     class="issue"

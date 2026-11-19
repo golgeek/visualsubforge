@@ -1,0 +1,169 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 2,
+    "changes": 3,
+    "added_cues": 1,
+    "text_cues": 0,
+    "timing_cues": 2,
+    "style_cues": 0,
+    "changed_cues": 2,
+    "text_percent": 0.0,
+    "timing_percent": 100.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "0e8a20e483b6b1544512cb4a6e2145db8ef299e082b8ae5108815f04bd6f46c3",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 3000,
+          "text": "We need to leave before the storm arrives.",
+          "reading": "We need to leave before the storm arrives.",
+          "style": null,
+          "actor": null,
+          "characters": 42,
+          "cps": {
+            "status": "finite",
+            "value": 21.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 28.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1300,
+          "end_ms": 3300,
+          "text": "We need to leave before the storm arrives.",
+          "reading": "We need to leave before the storm arrives.",
+          "style": null,
+          "actor": null,
+          "characters": 42,
+          "cps": {
+            "status": "finite",
+            "value": 21.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 28.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "We need to leave before the storm arrives."
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "1ed4f857e0f07a2ba60e78ae8c0d297be7273cadd8fe6b63762fd0f94fd4d4af",
+      "kind": "added",
+      "original": [],
+      "revised": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 3400,
+          "end_ms": 3900,
+          "text": "(Door slams)",
+          "reading": "(Door slams)",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 24.0
+          },
+          "reading_speed": {
+            "status": "unavailable",
+            "reason": "reading_allowance"
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "added",
+          "text": "(Door slams)"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "d9192063cc196c0d05f77b47f73c1af3e35d55de8e017ada610c3429c6729acf",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 4000,
+          "end_ms": 5000,
+          "text": "Get the horses ready.",
+          "reading": "Get the horses ready.",
+          "style": null,
+          "actor": null,
+          "characters": 21,
+          "cps": {
+            "status": "finite",
+            "value": 21.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 42.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 2,
+          "cue_id": 3,
+          "start_ms": 4300,
+          "end_ms": 5300,
+          "text": "Get the horses ready.",
+          "reading": "Get the horses ready.",
+          "style": null,
+          "actor": null,
+          "characters": 21,
+          "cps": {
+            "status": "finite",
+            "value": 21.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 42.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Get the horses ready."
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

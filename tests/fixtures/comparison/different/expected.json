@@ -1,0 +1,94 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 1,
+    "changes": 2,
+    "added_cues": 1,
+    "text_cues": 1,
+    "timing_cues": 1,
+    "style_cues": 0,
+    "changed_cues": 1,
+    "text_percent": 100.0,
+    "timing_percent": 100.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "29c6a28bc6c8be18896953644733fabff91dc1af0d4772c81ba3f75f21de9dcc",
+      "kind": "removed",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "revised": [],
+      "words": [
+        {
+          "kind": "removed",
+          "text": "one two three"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "6d3da6c6c8993b7180d77e1979d789e07e3b0415dbe4550f886925fa59ee820b",
+      "kind": "added",
+      "original": [],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 90000,
+          "end_ms": 92000,
+          "text": "entirely different",
+          "reading": "entirely different",
+          "style": null,
+          "actor": null,
+          "characters": 18,
+          "cps": {
+            "status": "finite",
+            "value": 9.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "added",
+          "text": "entirely different"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

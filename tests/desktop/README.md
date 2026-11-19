@@ -321,3 +321,15 @@ all Settings pages, text-operation variants and scrollable lower content. The
 fixture then resumes its normal behavioral assertions. Normal browser checks do
 not pause. These modeled-IPC captures establish appearance, not native playback.
 Optional trailing fixture names narrow a review (for example `font-authoring`).
+
+
+### Version comparison release lane
+
+`node tests/desktop/version-comparison.mjs --binary /absolute/path/to/visualsubforge --root /private/tmp/vsf-029-review`
+runs synthetic reviewer/author workflows through real Rust and the WebView.
+Build with `desktop-e2e` and the platform native media feature first; use a separate
+bundle identifier and test data directory. The lane generates subtitles and FFmpeg
+media, supplies chooser results, and records screenshots and a JSON receipt in a
+new directory under `--root`. `--hold` leaves the isolated window open briefly for
+independent native-window inspection. It never opens recent files. This lane uses
+DOM input and does not establish physical-key or real-chooser behavior.

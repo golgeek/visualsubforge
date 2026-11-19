@@ -20,6 +20,7 @@ import type { CueNavigation } from '../cues/cue-navigation.svelte';
 import type { WorkspaceDialogsState } from '../dialogs/workspace-dialogs.svelte';
 import type { WorkspaceModal } from '../dialogs/workspace-modal.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
+import type { ReviewSession } from '../review/review-session.svelte';
 import type { CueMenu } from '../cues/cue-menu.svelte';
 interface Owners {
   preferences: WorkspacePreferences;
@@ -37,6 +38,7 @@ interface Owners {
   workspaceModal: WorkspaceModal;
   gestures: TimingGesture;
   cueMenu: CueMenu;
+  review?: ReviewSession;
   keys: () => Parameters<typeof editingKey>[1];
 }
 
@@ -59,6 +61,7 @@ export class WorkspaceCommands {
     const status = media.status;
     return {
       checks: {
+        showOriginalTiming: this.owners.review?.showOriginal ?? false,
         themeSystem:
           this.owners.preferences.preferences.appearance.theme === 'system',
         themeDark:
@@ -106,12 +109,22 @@ export class WorkspaceCommands {
       problems: view.problemsOpen,
       previousProblem: !!quality.view?.previousCue,
       nextProblem: !!quality.view?.nextCue,
-      operations: Object.fromEntries(
-        cueEditing.operations.map((op) => [
-          op.operation,
-          op.plan ? null : op.reason,
-        ]),
-      ),
+      operations: {
+        endReview: doc.review?.path ? null : 'No review attached',
+        previousChange: doc.review?.path ? null : 'No review attached',
+        nextChange: doc.review?.path ? null : 'No review attached',
+        exportComparisonReport: doc.review?.path ? null : 'No review attached',
+        showOriginalTiming:
+          doc.review?.path && status.loaded
+            ? null
+            : 'Open media and attach an original',
+        ...Object.fromEntries(
+          cueEditing.operations.map((op) => [
+            op.operation,
+            op.plan ? null : op.reason,
+          ]),
+        ),
+      },
     };
   }
   async open(mode: 'commands' | 'shortcuts' | 'actionMenu') {

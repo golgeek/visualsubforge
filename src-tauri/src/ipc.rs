@@ -12,6 +12,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             crate::extraction::extraction_action,
             document::document_action,
             document::translation::translation_action,
+            document::review::review_action,
             document::recovery_status,
             document::recovery_discard,
             desktop::choose_file,

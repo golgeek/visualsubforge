@@ -17,6 +17,7 @@
     previewIds,
     enabled,
     issues,
+    changes,
     onclose,
     onpreview,
     onaccepted,
@@ -31,6 +32,7 @@
     previewIds: () => readonly number[];
     enabled: () => boolean;
     issues: Snippet;
+    changes: Snippet;
     onclose: () => void;
     onpreview: (value: TimingPreview | null) => void;
     onaccepted: () => void;
@@ -84,6 +86,7 @@
     { id: 'timing', label: 'Fix timing' },
     { id: 'shift', label: 'Shift' },
     { id: 'statistics', label: 'Statistics' },
+    { id: 'changes', label: 'Changes' },
   ] as const;
 </script>
 
@@ -103,7 +106,8 @@
       >{/each}
   </nav>
   <div class="review-options">
-    {#if view.reviewTab !== 'issues'}<label class="scope"
+    {#if view.reviewTab !== 'issues' && view.reviewTab !== 'changes'}<label
+        class="scope"
         >Scope <select
           disabled={busy}
           aria-label="Review scope"
@@ -144,6 +148,7 @@
   </div>
   <div class="body">
     {#if view.reviewTab === 'issues'}{@render issues()}
+    {:else if view.reviewTab === 'changes'}{@render changes()}
     {:else if view.reviewTab === 'statistics'}<StatisticsPanel
         {subtitles}
         {mediaSession}

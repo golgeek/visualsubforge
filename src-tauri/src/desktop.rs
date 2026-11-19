@@ -55,6 +55,14 @@ pub enum WorkspaceAction {
     Resync,
     Plugins,
     TranslationReference,
+    StartReview,
+    CompareOriginal,
+    CompareFiles,
+    EndReview,
+    PreviousChange,
+    NextChange,
+    ShowOriginalTiming,
+    ExportComparisonReport,
     ShowScenes,
     ScanScenes,
     CancelSceneScan,
@@ -152,6 +160,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let checked_ids = [
         "translationReference",
         "showScenes",
+        "showOriginalTiming",
         "diagnostics",
         "problems",
         "statistics",
@@ -309,6 +318,9 @@ pub enum FileChoice {
     Font,
     Plugin,
     SaveSubtitles,
+    ReviewOriginal,
+    ReviewRevised,
+    ComparisonReport,
     ExportSrt,
     ExportAss,
     ExportSsa,
@@ -416,6 +428,18 @@ pub async fn choose_file(
             FileChoice::Plugin => dialog
                 .set_title("Choose Subtitle Plugin Manifest")
                 .add_filter("Plugin manifest", &["json"])
+                .blocking_pick_file(),
+            FileChoice::ComparisonReport => dialog
+                .set_title("Export Comparison Report")
+                .add_filter("HTML report", &["html"])
+                .blocking_save_file(),
+            FileChoice::ReviewOriginal => dialog
+                .set_title("Compare: choose original")
+                .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt"])
+                .blocking_pick_file(),
+            FileChoice::ReviewRevised => dialog
+                .set_title("Compare: choose revised")
+                .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt"])
                 .blocking_pick_file(),
             FileChoice::Subtitles => dialog
                 .set_title("Open Subtitles")

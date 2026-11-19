@@ -30,6 +30,7 @@
     recoveryAvailable = false,
     issueCount = null,
     onissues,
+    onchanges,
   }: {
     workspace: Workspace;
     chrome?: WindowChrome;
@@ -44,6 +45,7 @@
     recoveryAvailable?: boolean;
     issueCount?: number | null;
     onissues?: () => void;
+    onchanges?: () => void;
     sceneState: { pending: boolean; running: boolean };
   } = $props();
   const doc = $derived(subtitles.snapshot);
@@ -105,6 +107,9 @@
       onclick={() => void workspace.run('save')}>Save</button
     >
   {/if}
+  {#if doc.review?.path}<button onclick={onchanges}
+      >compared with {doc.review.path.split(/[\\/]/).pop()}</button
+    >{/if}
   {#snippet filename()}
     {doc.path?.split(/[\\/]/).pop() ??
       doc.extractedFrom?.suggested_name ??

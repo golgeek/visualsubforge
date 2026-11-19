@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub(crate) struct Origin {
     pub(crate) path: PathBuf,
-    pub(super) selected: PathBuf,
+    pub(crate) selected: PathBuf,
 }
 impl Origin {
-    pub(super) fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         for path in [&self.path, &self.selected] {
             if !path.is_absolute() || path.as_os_str().len() > 32_768 {
                 return Err("Reference paths must be absolute and at most 32 KiB".into());
@@ -18,7 +18,7 @@ impl Origin {
         }
         Ok(())
     }
-    pub(super) fn protect(&self, output: &Path) -> Result<()> {
+    pub(crate) fn protect(&self, output: &Path) -> Result<()> {
         for source in [&self.path, &self.selected] {
             vsf_application::new_output::protect_source(output, source)
                 .map_err(|e| e.to_string())?;
@@ -34,7 +34,7 @@ pub(crate) struct ReferenceFile {
     pub(crate) offset: engine::Offset,
 }
 impl ReferenceFile {
-    pub(super) fn load(path: &Path, mut checkpoint: impl FnMut() -> Result<()>) -> Result<Self> {
+    pub(crate) fn load(path: &Path, mut checkpoint: impl FnMut() -> Result<()>) -> Result<Self> {
         if path.as_os_str().is_empty() || path.as_os_str().len() > 32_768 {
             return Err("Choose a reference filename with a supported path length".into());
         }
@@ -57,7 +57,7 @@ impl ReferenceFile {
             offset: engine::Offset::default(),
         })
     }
-    pub(super) fn verify(&self, mut checkpoint: impl FnMut() -> Result<()>) -> Result<()> {
+    pub(crate) fn verify(&self, mut checkpoint: impl FnMut() -> Result<()>) -> Result<()> {
         checkpoint()?;
         if self
             .origin
@@ -71,7 +71,7 @@ impl ReferenceFile {
         }
         checkpoint()
     }
-    pub(super) fn metadata(&self) -> Result<ReferenceInfo> {
+    pub(crate) fn metadata(&self) -> Result<ReferenceInfo> {
         Ok(ReferenceInfo {
             path: self.origin.path.to_string_lossy().into_owned(),
             format: self.reference.format().extension().into(),

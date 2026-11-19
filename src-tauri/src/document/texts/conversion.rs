@@ -219,6 +219,7 @@ impl Documents {
                         vsf_application::new_output::protect_source(&path, &origin.media_path)
                             .map_err(|e| e.to_string())?;
                     }
+                    loaded.review.reference.protect(&path)?;
                 }
                 let job = store
                     .texts

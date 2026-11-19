@@ -16,6 +16,8 @@ pub struct Cli {
 pub enum Command {
     /// List or extract embedded text subtitles to a new file.
     Extract(Extract),
+    /// Compare two subtitle versions without modifying either input.
+    Compare(Compare),
     /// Run local JavaScript subtitle checks and reviewable fixes.
     Plugin(Plugin),
     /// Check subtitle authoring rules without changing the file.
@@ -194,4 +196,22 @@ pub struct Extract {
     pub json: bool,
     #[arg(long, default_value_t = 1800, value_parser = clap::value_parser!(u64).range(1..=14400))]
     pub timeout_seconds: u64,
+}
+
+#[derive(Args)]
+pub struct Compare {
+    pub original: PathBuf,
+    pub revised: PathBuf,
+    #[arg(long)]
+    pub html: Option<PathBuf>,
+    #[arg(long)]
+    pub json: bool,
+    #[arg(long)]
+    pub tolerance_ms: Option<u32>,
+    #[arg(long)]
+    pub ignore_tags: bool,
+    #[arg(long)]
+    pub ignore_line_breaks: bool,
+    #[arg(long)]
+    pub include_unchanged: bool,
 }

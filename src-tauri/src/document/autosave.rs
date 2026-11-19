@@ -63,6 +63,7 @@ impl Documents {
                                     d.saved_bytes.clone(),
                                     d.translation.clone(),
                                     d.extracted_from.clone(),
+                                    d.review.clone(),
                                 )
                             })
                         } else {
@@ -82,6 +83,7 @@ impl Documents {
                                     saved,
                                     translation,
                                     extracted_from,
+                                    review,
                                 )) => {
                                     let saved =
                                         String::from_utf8(saved).map_err(|e| e.to_string())?;
@@ -96,6 +98,7 @@ impl Documents {
                                     record.resynced = key.resynced;
                                     record.set_translation(translation.stored()?);
                                     record.set_extracted_from(extracted_from);
+                                    record.set_review(review.stored()?);
                                     session.prepare(&record).map(Some)
                                 }
                                 None => Ok(None),

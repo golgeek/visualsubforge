@@ -808,5 +808,85 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 1
+  },
+  "startReview": {
+    "label": "Start Review\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 580
+  },
+  "compareOriginal": {
+    "label": "Compare with Original\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 581
+  },
+  "compareFiles": {
+    "label": "Compare Files\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 582
+  },
+  "endReview": {
+    "label": "End Review",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 583
+  },
+  "previousChange": {
+    "label": "Previous Change",
+    "group": "Review",
+    "native": true,
+    "shortcut": "Shift+F6",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 584
+  },
+  "nextChange": {
+    "label": "Next Change",
+    "group": "Review",
+    "native": true,
+    "shortcut": "F6",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 585
+  },
+  "showOriginalTiming": {
+    "label": "Show Original Timing",
+    "group": "View",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 586
+  },
+  "exportComparisonReport": {
+    "label": "Export Comparison Report\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 587
   }
 }

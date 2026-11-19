@@ -192,6 +192,7 @@ impl Documents {
         store.invalidate_checks();
         Ok(())
     }
+    #[cfg(test)]
     pub(crate) fn attach_quality_project(
         &self,
         projects: &crate::project::Projects,
@@ -201,10 +202,35 @@ impl Documents {
         media_path: Option<&Path>,
         reference_epoch: u64,
     ) -> Result<crate::project::Attachment> {
+        let review_epoch = self
+            .0
+            .lock()
+            .map_err(|_| "Document unavailable")?
+            .review
+            .epoch;
+        self.attach_quality_project_context(
+            projects,
+            token,
+            generation,
+            revision,
+            media_path,
+            (reference_epoch, review_epoch),
+        )
+    }
+    pub(crate) fn attach_quality_project_context(
+        &self,
+        projects: &crate::project::Projects,
+        token: u64,
+        generation: u64,
+        revision: u64,
+        media_path: Option<&Path>,
+        epochs: (u64, u64),
+    ) -> Result<crate::project::Attachment> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         if store.generation != generation
             || store.loaded.as_ref().map_or(0, |d| d.editor.revision()) != revision
-            || store.loaded.as_ref().map_or(0, |_| store.translation.epoch) != reference_epoch
+            || store.loaded.as_ref().map_or(0, |_| store.translation.epoch) != epochs.0
+            || store.loaded.as_ref().map_or(0, |_| store.review.epoch) != epochs.1
         {
             return Err("Document changed during project restoration".into());
         }
@@ -217,13 +243,15 @@ impl Documents {
             token,
             media_path,
             subtitle_path.as_deref(),
-            |policy, translation| {
+            |policy, translation, review| {
                 store.quality.current = policy.clone();
                 store.quality.epoch = next;
                 if let Some(loaded) = &mut store.loaded {
                     loaded.translation = translation;
+                    loaded.review = review;
                 }
                 store.translation.epoch = translation_epoch;
+                store.review.epoch += 1;
             },
         )?;
         store.invalidate_checks();

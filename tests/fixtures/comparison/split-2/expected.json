@@ -1,0 +1,110 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 1,
+    "changes": 1,
+    "added_cues": 0,
+    "text_cues": 1,
+    "timing_cues": 1,
+    "style_cues": 0,
+    "changed_cues": 1,
+    "text_percent": 100.0,
+    "timing_percent": 100.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "b11c2dac7b2a16ba2eb8c7b4e8fcb2554c1f000865307805764f778a7ec6e2fa",
+      "kind": "split",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 2500,
+          "text": "one",
+          "reading": "one",
+          "style": null,
+          "actor": null,
+          "characters": 3,
+          "cps": {
+            "status": "finite",
+            "value": 2.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 3.0
+          }
+        },
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 2500,
+          "end_ms": 4000,
+          "text": "two three",
+          "reading": "two three",
+          "style": null,
+          "actor": null,
+          "characters": 9,
+          "cps": {
+            "status": "finite",
+            "value": 6.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 9.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "one"
+        },
+        {
+          "kind": "removed",
+          "text": " "
+        },
+        {
+          "kind": "added",
+          "text": "\n"
+        },
+        {
+          "kind": "equal",
+          "text": "two three"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

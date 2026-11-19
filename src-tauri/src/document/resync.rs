@@ -60,6 +60,7 @@ impl Documents {
             &crate::quality_profile::Context,
             Option<subtitle_formats::Format>,
             &translation::Context,
+            &super::review::Context,
         ) -> Result<T>,
     ) -> Result<T> {
         let mut store = self.0.lock().map_err(|_| "Document worker unavailable")?;
@@ -86,6 +87,7 @@ impl Documents {
             );
         }
         let empty = translation::Context::default();
+        let empty_review = super::review::Context::default();
         let result = publish(
             &store.quality.context(),
             store
@@ -97,9 +99,14 @@ impl Documents {
                 .loaded
                 .as_ref()
                 .map_or(&empty, |loaded| &loaded.translation),
+            store
+                .loaded
+                .as_ref()
+                .map_or(&empty_review, |loaded| &loaded.review),
         )?;
         if let Some(loaded) = &mut store.loaded {
             loaded.translation.dirty = false;
+            loaded.review.reference.dirty = false;
         }
         Ok(result)
     }

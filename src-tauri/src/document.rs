@@ -16,6 +16,7 @@ pub(crate) mod extraction;
 mod plugins;
 #[cfg(test)]
 pub(crate) use plugins::ipc_samples as plugin_ipc_samples;
+pub(crate) mod review;
 mod statistics;
 pub(crate) mod translation;
 #[cfg(test)]
@@ -99,6 +100,7 @@ struct Store {
     timing_repairs: timing_repairs::State,
     texts: texts::State,
     translation: translation::State,
+    review: review::State,
     plugins: plugins::State,
 }
 struct Loaded {
@@ -112,6 +114,7 @@ struct Loaded {
     resynced: bool,
     translation: translation::Context,
     extracted_from: Option<extraction::ExtractedSource>,
+    review: review::Context,
 }
 #[derive(Deserialize, specta::Type)]
 #[serde(
@@ -205,6 +208,8 @@ pub struct Snapshot {
     translation: Option<translation::Summary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     extracted_from: Option<extraction::ExtractedSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    review: Option<review::ReviewSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<FormatView>,
     #[serde(with = "crate::ipc_number")]
@@ -305,6 +310,7 @@ impl Store {
             suggested_save_path: extracted_from
                 .map(|origin| origin.media_path.with_file_name(&origin.suggested_name)),
             extracted_from: extracted_from.cloned(),
+            review: self.review_summary(),
             format: loaded.and_then(|d| {
                 if d.source().format() == subtitle_formats::Format::WebVtt {
                     return Some(FormatView {
@@ -482,6 +488,7 @@ impl Store {
                     resynced: false,
                     translation: translation::Context::default(),
                     extracted_from: None,
+                    review: review::Context::default(),
                 });
                 self.generation += 1;
             }
@@ -495,6 +502,7 @@ impl Store {
                     record,
                     parsed,
                     translation,
+                    review,
                 } = crate::recovery_store::recover(root, &id)?;
                 self.loaded = Some(Loaded {
                     editor: Editor::with_properties(parsed.document, parsed.source),
@@ -506,6 +514,7 @@ impl Store {
                     resynced: record.resynced,
                     translation,
                     extracted_from: record.extracted_from,
+                    review,
                 });
                 self.generation += 1;
             }
@@ -553,6 +562,7 @@ impl Store {
                         resynced: false,
                         translation: translation::Context::default(),
                         extracted_from: None,
+                        review: review::Context::default(),
                     })
                 } else {
                     None
@@ -652,12 +662,16 @@ impl Store {
                 .save(
                     revision,
                     path.as_deref().map(Path::new),
-                    loaded.translation.protected_paths().chain(
-                        loaded
-                            .extracted_from
-                            .as_ref()
-                            .map(|origin| origin.media_path.as_path()),
-                    ),
+                    loaded
+                        .translation
+                        .protected_paths()
+                        .chain(loaded.review.reference.protected_paths())
+                        .chain(
+                            loaded
+                                .extracted_from
+                                .as_ref()
+                                .map(|origin| origin.media_path.as_path()),
+                        ),
                 )?;
             }
         }
@@ -669,16 +683,20 @@ impl Store {
             .ok_or_else(|| "Open subtitles first".into())
     }
     fn check_discard(&self, discard: bool) -> Result<()> {
-        if !discard && self.loaded.as_ref().is_some_and(|d| d.translation.dirty) {
-            return Err(
-                "Save the translation context in a project or explicitly discard it first".into(),
-            );
-        }
         if !discard
             && self
                 .loaded
                 .as_ref()
-                .is_some_and(|d| d.subtitle_dirty() || d.translation.dirty)
+                .is_some_and(|d| d.translation.dirty || d.review.reference.dirty)
+        {
+            return Err(
+                "Save the translation or review context in a project or explicitly discard it first".into(),
+            );
+        }
+        if !discard
+            && self.loaded.as_ref().is_some_and(|d| {
+                d.subtitle_dirty() || (d.translation.dirty || d.review.reference.dirty)
+            })
         {
             return Err("Save or explicitly discard subtitle changes first".into());
         }
@@ -794,6 +812,7 @@ struct CheckpointKey {
     resynced: bool,
     translation_epoch: u64,
     translation_dirty: bool,
+    review_epoch: u64,
 }
 impl Store {
     fn publish_checkpoint(
@@ -815,14 +834,17 @@ impl Store {
         CheckpointKey {
             generation: self.generation,
             revision: self.loaded.as_ref().map_or(0, |d| d.editor.revision()),
-            dirty: self
-                .loaded
-                .as_ref()
-                .is_some_and(|d| d.subtitle_dirty() || d.translation.dirty),
+            dirty: self.loaded.as_ref().is_some_and(|d| {
+                d.subtitle_dirty() || (d.translation.dirty || d.review.reference.dirty)
+            }),
             path: self.loaded.as_ref().and_then(|d| d.path.clone()),
             resynced: self.loaded.as_ref().is_some_and(|d| d.resynced),
             translation_epoch: self.translation.epoch,
-            translation_dirty: self.loaded.as_ref().is_some_and(|d| d.translation.dirty),
+            review_epoch: self.review.epoch,
+            translation_dirty: self
+                .loaded
+                .as_ref()
+                .is_some_and(|d| d.translation.dirty || d.review.reference.dirty),
         }
     }
 }

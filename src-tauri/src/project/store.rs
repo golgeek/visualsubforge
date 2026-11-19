@@ -27,6 +27,7 @@ struct Baseline {
     media_path: Option<PathBuf>,
     subtitle_path: Option<PathBuf>,
     translation: TranslationContext,
+    review: crate::document::review::Context,
 }
 #[derive(Serialize, specta::Type)]
 pub struct Attachment {
@@ -41,6 +42,8 @@ pub struct Opened {
     project: Project,
     #[serde(rename = "referenceIssue", skip_serializing_if = "Option::is_none")]
     reference_issue: Option<ReferenceIssue>,
+    #[serde(rename = "reviewIssue", skip_serializing_if = "Option::is_none")]
+    review_issue: Option<ReferenceIssue>,
     #[serde(with = "crate::ipc_number")]
     #[specta(type = crate::ipc_number::SafeU64)]
     pub token: u64,
@@ -87,7 +90,20 @@ impl Projects {
     pub fn open(&self, path: &Path) -> Result<Opened> {
         self.open_with(path, &ReferenceOverride::default())
     }
+    #[cfg(test)]
     pub fn open_with(&self, path: &Path, overrides: &ReferenceOverride) -> Result<Opened> {
+        self.open_review_with(
+            path,
+            overrides,
+            &crate::document::review::ProjectOverride::default(),
+        )
+    }
+    pub fn open_review_with(
+        &self,
+        path: &Path,
+        overrides: &ReferenceOverride,
+        review_override: &crate::document::review::ProjectOverride,
+    ) -> Result<Opened> {
         let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         let path = path
             .canonicalize()
@@ -96,13 +112,16 @@ impl Projects {
         let Resolved {
             project,
             translation,
+            review,
             reference_issue,
-        } = resolve(&path, &bytes, overrides)?;
-        if reference_issue.is_some() {
+            review_issue,
+        } = resolve(&path, &bytes, overrides, review_override)?;
+        if reference_issue.is_some() || review_issue.is_some() {
             return Ok(Opened {
                 project,
                 token: 0,
                 reference_issue,
+                review_issue,
             });
         }
         let token = store.token()?;
@@ -123,11 +142,13 @@ impl Projects {
             media_path: project.media_path.as_ref().map(PathBuf::from),
             subtitle_path: project.subtitle_path.as_ref().map(PathBuf::from),
             translation,
+            review,
         });
         Ok(Opened {
             project,
             token,
             reference_issue: None,
+            review_issue: None,
         })
     }
     #[cfg(test)]
@@ -141,14 +162,18 @@ impl Projects {
                 .ok_or("Project open unavailable")?;
             (pending.media_path.clone(), pending.subtitle_path.clone())
         };
-        self.attach_with(token, media.as_deref(), subtitles.as_deref(), |_, _| {})
+        self.attach_with(token, media.as_deref(), subtitles.as_deref(), |_, _, _| {})
     }
     pub(crate) fn attach_with(
         &self,
         token: u64,
         media_path: Option<&Path>,
         subtitle_path: Option<&Path>,
-        accept: impl FnOnce(&crate::quality_profile::Policy, TranslationContext),
+        accept: impl FnOnce(
+            &crate::quality_profile::Policy,
+            TranslationContext,
+            crate::document::review::Context,
+        ),
     ) -> Result<Attachment> {
         let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         if store
@@ -166,7 +191,11 @@ impl Projects {
         }
         let mut pending = store.pending.take().ok_or("Project open unavailable")?;
         // Infallible assignment callback, with document -> project lock order.
-        accept(&pending.policy, std::mem::take(&mut pending.translation));
+        accept(
+            &pending.policy,
+            std::mem::take(&mut pending.translation),
+            std::mem::take(&mut pending.review),
+        );
         let attachment = pending.attachment();
         store.active = Some(pending);
         Ok(attachment)
@@ -226,6 +255,7 @@ impl Projects {
                 .as_ref()
                 .map(|p| absolute(path.parent().unwrap_or(Path::new(".")), p)),
             translation: TranslationContext::default(),
+            review: crate::document::review::Context::default(),
         };
         let attachment = saved.attachment();
         store.active = Some(saved);
@@ -243,6 +273,7 @@ pub(super) fn ipc_sample(
     serde_json::to_value(Opened {
         project,
         reference_issue,
+        review_issue: None,
         token: crate::ipc_number::MAX_SAFE_INTEGER,
     })
     .unwrap()

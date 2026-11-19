@@ -558,17 +558,21 @@ export type ProjectReferenceOverride = NonNullable<
 >;
 export type ProjectReferenceIssue = NonNullable<
   OpenedProject['referenceIssue']
->;
+> & { reviewOriginal?: boolean };
 export function openProject(
   path: string,
   reference: ProjectReferenceOverride | null = null,
+  review: Parameters<typeof commands.projectOpen>[2] = null,
 ): Promise<OpenedProject> {
-  return commands.projectOpen(path, reference);
+  return commands.projectOpen(path, reference, review);
 }
 export function attachProject(
   token: number,
   session: number,
-  document: Pick<DocumentSnapshot, 'generation' | 'revision' | 'translation'>,
+  document: Pick<
+    DocumentSnapshot,
+    'generation' | 'revision' | 'translation' | 'review'
+  >,
 ): Promise<ProjectAttachment> {
   return commands.projectAttach(
     token,
@@ -576,6 +580,7 @@ export function attachProject(
     document.generation,
     document.revision,
     document.translation?.epoch ?? 0,
+    document.review?.epoch ?? 0,
   );
 }
 export async function detachProject(): Promise<void> {
@@ -767,3 +772,8 @@ export type ExtractionReply = Awaited<
 >;
 export const extractionAction = (action: ExtractionAction) =>
   commands.extractionAction(action);
+export type ReviewAction = Parameters<typeof commands.reviewAction>[0];
+export type ReviewReply = Awaited<ReturnType<typeof commands.reviewAction>>;
+export type ReviewChange = ReviewReply['rows'][number];
+export const reviewAction = (action: ReviewAction) =>
+  commands.reviewAction(action);

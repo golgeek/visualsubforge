@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 1,
+    "changes": 1,
+    "added_cues": 0,
+    "text_cues": 1,
+    "timing_cues": 1,
+    "style_cues": 0,
+    "changed_cues": 1,
+    "text_percent": 100.0,
+    "timing_percent": 100.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "ca87a1718d7d0111cd62e98f761592b40dee93d9b9bde75b96b5573038a36100",
+      "kind": "text_and_timing",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1020,
+          "end_ms": 4020,
+          "text": "one new three",
+          "reading": "one new three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "one "
+        },
+        {
+          "kind": "removed",
+          "text": "two"
+        },
+        {
+          "kind": "added",
+          "text": "new"
+        },
+        {
+          "kind": "equal",
+          "text": " three"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}

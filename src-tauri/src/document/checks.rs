@@ -392,6 +392,7 @@ impl Documents {
         self.shutdown_timing_repairs()?;
         self.shutdown_texts()?;
         self.shutdown_translation()?;
+        self.shutdown_review()?;
         self.shutdown_plugins()
     }
 }

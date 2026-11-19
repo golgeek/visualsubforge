@@ -1,0 +1,509 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 9,
+    "changes": 9,
+    "added_cues": 0,
+    "text_cues": 1,
+    "timing_cues": 9,
+    "style_cues": 0,
+    "changed_cues": 9,
+    "text_percent": 11.11111111111111,
+    "timing_percent": 100.0,
+    "total_percent": 100.0
+  },
+  "changes": [
+    {
+      "key": "a36aaa4f9a0620374b9eada9fe8761d0394b873c9e327cfa23eb62ffb2426b8b",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 0,
+          "end_ms": 1500,
+          "text": "Where are you going?",
+          "reading": "Where are you going?",
+          "style": null,
+          "actor": null,
+          "characters": 20,
+          "cps": {
+            "status": "finite",
+            "value": 13.333333333333334
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 20.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 300,
+          "end_ms": 1800,
+          "text": "Where are you going?",
+          "reading": "Where are you going?",
+          "style": null,
+          "actor": null,
+          "characters": 20,
+          "cps": {
+            "status": "finite",
+            "value": 13.333333333333334
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 20.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Where are you going?"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "38360f182c32f17c24963f3915066abdc7eea6cc7024e1e856995fc2c3014d62",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 2000,
+          "end_ms": 3500,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 2300,
+          "end_ms": 3800,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "♪ La la la ♪"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "1d4d7cdea4cbb543a03aca49b11ba4391ceb7728cf74dafdc8c75f3c45676d27",
+      "kind": "removed",
+      "original": [
+        {
+          "source_index": 2,
+          "cue_id": 3,
+          "start_ms": 4000,
+          "end_ms": 5500,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "revised": [],
+      "words": [
+        {
+          "kind": "removed",
+          "text": "♪ La la la ♪"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "0d83e934cb7bc8675ed218d23c850dcfe9cc8d62f400f28d164542e123e6c98e",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 3,
+          "cue_id": 4,
+          "start_ms": 6000,
+          "end_ms": 7500,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 2,
+          "cue_id": 3,
+          "start_ms": 6300,
+          "end_ms": 7800,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "♪ La la la ♪"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "1d852138c9bab36baadcfc5b89e2a1ee54c0ab37b40b7c99e80db27e75421a76",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 4,
+          "cue_id": 5,
+          "start_ms": 8000,
+          "end_ms": 9500,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 3,
+          "cue_id": 4,
+          "start_ms": 8300,
+          "end_ms": 9800,
+          "text": "♪ La la la ♪",
+          "reading": "♪ La la la ♪",
+          "style": null,
+          "actor": null,
+          "characters": 12,
+          "cps": {
+            "status": "finite",
+            "value": 8.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 12.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "♪ La la la ♪"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "1e1c87d66009c86e5cdd88a9edf13278290aa4c00b611c9e9ffa6c741a78bd46",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 5,
+          "cue_id": 6,
+          "start_ms": 10000,
+          "end_ms": 11500,
+          "text": "I told you already.",
+          "reading": "I told you already.",
+          "style": null,
+          "actor": null,
+          "characters": 19,
+          "cps": {
+            "status": "finite",
+            "value": 12.666666666666666
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 19.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 4,
+          "cue_id": 5,
+          "start_ms": 10300,
+          "end_ms": 11800,
+          "text": "I told you already.",
+          "reading": "I told you already.",
+          "style": null,
+          "actor": null,
+          "characters": 19,
+          "cps": {
+            "status": "finite",
+            "value": 12.666666666666666
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 19.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "I told you already."
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "cc2f63614b61d5d0698ca130f8e2dd4631219334e7fd49dd75b3c9ccc2e6e96a",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 6,
+          "cue_id": 7,
+          "start_ms": 12000,
+          "end_ms": 13500,
+          "text": "Yes.",
+          "reading": "Yes.",
+          "style": null,
+          "actor": null,
+          "characters": 4,
+          "cps": {
+            "status": "finite",
+            "value": 2.6666666666666665
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 4.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 5,
+          "cue_id": 6,
+          "start_ms": 12300,
+          "end_ms": 13800,
+          "text": "Yes.",
+          "reading": "Yes.",
+          "style": null,
+          "actor": null,
+          "characters": 4,
+          "cps": {
+            "status": "finite",
+            "value": 2.6666666666666665
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 4.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Yes."
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "39e3de3e19d6e0ff8172e42d9184505d44b5a7c361d7a48c5555eb8a7fb90b38",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 7,
+          "cue_id": 8,
+          "start_ms": 14000,
+          "end_ms": 15500,
+          "text": "Yes.",
+          "reading": "Yes.",
+          "style": null,
+          "actor": null,
+          "characters": 4,
+          "cps": {
+            "status": "finite",
+            "value": 2.6666666666666665
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 4.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 6,
+          "cue_id": 7,
+          "start_ms": 14300,
+          "end_ms": 15800,
+          "text": "Yes.",
+          "reading": "Yes.",
+          "style": null,
+          "actor": null,
+          "characters": 4,
+          "cps": {
+            "status": "finite",
+            "value": 2.6666666666666665
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 4.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Yes."
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    },
+    {
+      "key": "dbf7d212551d51af5c65a237655617f3bec73b0e118bdfe5b9c7eaddc758c88d",
+      "kind": "timing",
+      "original": [
+        {
+          "source_index": 8,
+          "cue_id": 9,
+          "start_ms": 16000,
+          "end_ms": 17500,
+          "text": "Fine, go.",
+          "reading": "Fine, go.",
+          "style": null,
+          "actor": null,
+          "characters": 9,
+          "cps": {
+            "status": "finite",
+            "value": 6.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 9.0
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 7,
+          "cue_id": 8,
+          "start_ms": 16300,
+          "end_ms": 17800,
+          "text": "Fine, go.",
+          "reading": "Fine, go.",
+          "style": null,
+          "actor": null,
+          "characters": 9,
+          "cps": {
+            "status": "finite",
+            "value": 6.0
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 9.0
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "Fine, go."
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": [
+    {
+      "first": 3,
+      "end": 9,
+      "delta_ms": 300,
+      "start_ms": 6000,
+      "end_ms": 17800,
+      "revised_start_ms": 6300,
+      "revised_end_ms": 17800
+    }
+  ]
+}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ChangeDetail from '../review/ChangeDetail.svelte';
+  import type { ReviewChange } from '../client';
   import { countLabel } from '../ui/count-label';
   import type { CueEditing } from './cue-editing.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -15,6 +17,8 @@
   import type { TextFormat, QualityRule, ShortcutPreferences } from '../client';
   import type { AuthoringModal } from '../dialogs/workspace-modal.svelte';
   let {
+    reviewChange = null,
+    onrevert,
     editing,
     shortcuts,
     fixes,
@@ -31,6 +35,8 @@
     onmove,
     actions,
   }: {
+    reviewChange?: ReviewChange | null;
+    onrevert?: (change: ReviewChange) => void;
     editing: CueEditing;
     shortcuts?: ShortcutPreferences;
     fixes: CueFixes;
@@ -53,6 +59,15 @@
       formatText: (style: TextFormat) => Promise<void>;
     };
   } = $props();
+  let qualityHeight = $state(0);
+  let originalHeight = $state(0);
+  $effect(() => {
+    if (qualityHeight > 0)
+      onmeasure(
+        'metrics',
+        qualityHeight + (reviewChange ? originalHeight + 3 : 0),
+      );
+  });
   const status = $derived(media.status);
   const busy = $derived(workspace.busy);
   const confirming = $derived(workspace.confirming);
@@ -252,7 +267,7 @@
   </div>
   <div
     class="quality-readout"
-    use:measurePaneControl={(height) => onmeasure('metrics', height)}
+    use:measurePaneControl={(height) => (qualityHeight = height)}
   >
     <CueIssueStrip
       {quality}
@@ -295,6 +310,7 @@
         >{/if}
     {/if}
   </div>
+
   <div class="text-area">
     <textarea
       onkeydown={editorKeydown}
@@ -324,6 +340,19 @@
           >{/if}
       </aside>{/if}
   </div>
+  {#if reviewChange}<div
+      class="original"
+      aria-label="Original"
+      use:measurePaneControl={(height) => (originalHeight = height)}
+    >
+      <header>
+        <strong>Original</strong><button
+          disabled={busy || confirming || draftDirty}
+          onclick={() => onrevert?.(reviewChange!)}>Revert</button
+        >
+      </header>
+      <div class="original-diff"><ChangeDetail change={reviewChange} /></div>
+    </div>{/if}
   <div
     class="editorfooter"
     use:measurePaneControl={(height) => onmeasure('footer', height)}
@@ -396,6 +425,22 @@
     flex: 1;
   }
 
+  .original header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: none;
+  }
+  .original-diff {
+    overflow: auto;
+  }
+  .original {
+    display: flex;
+    flex-direction: column;
+    max-height: 80px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
   .quality-readout {
     display: flex;
     flex-direction: column;

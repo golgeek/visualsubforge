@@ -1,0 +1,114 @@
+{
+  "schema_version": 2,
+  "options": {
+    "tolerance_ms": 1,
+    "ignore_tags": false,
+    "ignore_line_breaks": false,
+    "ignore_whitespace": true
+  },
+  "statistics": {
+    "original_cues": 1,
+    "changes": 1,
+    "added_cues": 1,
+    "text_cues": 0,
+    "timing_cues": 0,
+    "style_cues": 0,
+    "changed_cues": 0,
+    "text_percent": 0.0,
+    "timing_percent": 0.0,
+    "total_percent": 0.0
+  },
+  "changes": [
+    {
+      "key": "344a1f823cd88e1e5e48f719b7265801f534d131b6f1b041b00fbbe35dbc2574",
+      "kind": "unchanged",
+      "original": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "revised": [
+        {
+          "source_index": 0,
+          "cue_id": 1,
+          "start_ms": 1000,
+          "end_ms": 4000,
+          "text": "one two three",
+          "reading": "one two three",
+          "style": null,
+          "actor": null,
+          "characters": 13,
+          "cps": {
+            "status": "finite",
+            "value": 4.333333333333333
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 5.2
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "equal",
+          "text": "one two three"
+        }
+      ],
+      "text_changed": false,
+      "timing_changed": false,
+      "style_changed": false
+    },
+    {
+      "key": "3a62aae49534d3587e2ac5ff61c89882418a4560107bf2b3571707b93f8eed54",
+      "kind": "added",
+      "original": [],
+      "revised": [
+        {
+          "source_index": 1,
+          "cue_id": 2,
+          "start_ms": 5000,
+          "end_ms": 7000,
+          "text": "extra",
+          "reading": "extra",
+          "style": null,
+          "actor": null,
+          "characters": 5,
+          "cps": {
+            "status": "finite",
+            "value": 2.5
+          },
+          "reading_speed": {
+            "status": "finite",
+            "value": 3.3333333333333335
+          }
+        }
+      ],
+      "words": [
+        {
+          "kind": "added",
+          "text": "extra"
+        }
+      ],
+      "text_changed": true,
+      "timing_changed": true,
+      "style_changed": false
+    }
+  ],
+  "blocks": []
+}
