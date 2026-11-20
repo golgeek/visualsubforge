@@ -11,7 +11,7 @@ Open the [v0.1.0 test release](https://github.com/golgeek/visualsubforge/release
 | Apple Silicon Mac, macOS 14 or newer | Unzip **VisualSubForge_0.1.0_aarch64_macos.zip**, drag the app to Applications and open it. |
 | Intel Mac, macOS 15 or newer | Use **VisualSubForge_0.1.0_x86_64_macos.zip** and the same steps. |
 | Windows x64 | Run **VisualSubForge_0.1.0_x64-setup.exe**. This early build is unsigned. If SmartScreen shows “Windows protected your PC”, choose **More info → Run anyway** after verifying the download. A later version will be signed. For a portable installation, extract the entire Windows ZIP and open **visualsubforge.exe**. Both use WebView2. Record your Windows version. |
-| Ubuntu amd64 | In your download folder run `sudo apt install ./VisualSubForge_0.1.0_amd64.deb`, then open VisualSubForge from Applications. The package is built on 24.04. The release notes give the verified result for 26.04. |
+| Ubuntu 24.04 amd64 | In your download folder run `sudo apt install ./VisualSubForge_0.1.0_amd64_ubuntu24.04.deb`, then open VisualSubForge from Applications. This version supports Ubuntu 24.04 only. |
 
 ## The test
 
