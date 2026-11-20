@@ -38,6 +38,11 @@
       text = '';
     }
   }
+  function revealEditorForm(form: HTMLFormElement) {
+    if (!projection) return;
+    const pane = form.closest<HTMLElement>('[aria-label="Original"]');
+    if (pane) pane.scrollTop = pane.scrollHeight;
+  }
   function post() {
     if (pendingStatus) {
       void send(pendingStatus);
@@ -111,6 +116,7 @@
 {/each}
 {#if composer}
   <form
+    use:revealEditorForm
     onsubmit={(e) => {
       e.preventDefault();
       post();

@@ -388,7 +388,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                 .filter((c) =>
                   c.revised.some((cue) => a.ids.includes(cue.cue_id)),
                 )
-                .slice(0, 200),
+                .slice(0, 200)
+                .map((c) =>
+                  c.revised[0]?.cue_id === 8 ? { ...c, kind: 'unchanged' } : c,
+                ),
             };
           if (a.kind === 'navigate') {
             const stops = displayed(a.expanded ?? [], a.filter);
@@ -737,6 +740,40 @@ async function run() {
     await until(() => host.textContent?.includes('Change 6 of 199') ?? false);
     passed(
       'Block selection, collapsed paging, expanded navigation and Previous Change after selecting another cue',
+    );
+    for (const [cueId, changed] of [
+      [7, true],
+      [8, false],
+    ] as const) {
+      host.querySelector<HTMLElement>(`[data-cue-id="${cueId}"]`)!.click();
+      const pane = () =>
+        host.querySelector<HTMLElement>('[aria-label="Original"]');
+      await until(
+        () =>
+          !!pane() &&
+          !!pane()!.querySelector('.original-diff') === changed &&
+          !!host.querySelector(`[data-cue-id="${cueId}"][aria-pressed="true"]`),
+      );
+      const control = (name: string) =>
+        [...pane()!.querySelectorAll('button')].find(
+          (b) => b.textContent?.trim() === name,
+        )!;
+      control('Comment').click();
+      await until(() => {
+        const post = control('Post');
+        if (!post) return false;
+        const box = post.getBoundingClientRect();
+        return (
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ) === post
+        );
+      });
+      control('Cancel').click();
+    }
+    passed(
+      'Changed and unchanged cue editor composers expose a pointer-hittable Post button',
     );
     const changes = host.querySelector('section[aria-label="Changes"]')!;
     const inPanel = (label: string) =>

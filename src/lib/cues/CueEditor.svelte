@@ -442,13 +442,9 @@
     justify-content: space-between;
     flex: none;
   }
-  .original-diff {
-    overflow: auto;
-  }
   .original {
-    display: flex;
-    flex-direction: column;
-    max-height: 80px;
+    overflow: auto;
+    max-height: min(12rem, 22vh);
     flex-shrink: 0;
     font-size: 11px;
   }
