@@ -229,12 +229,17 @@ struct BlockRow {
     first_cue: SafeU64,
     last_cue: SafeU64,
 }
+enum ComparisonInput {
+    Retained(engine::Comparison),
+    Cues(Vec<subtitle_core::Cue>),
+}
 struct Job {
     key: ReviewKey,
     cancel: Arc<AtomicBool>,
     worker: Option<JoinHandle<Result<(engine::Comparison, ThreadIndex)>>>,
     threads: Option<ThreadIndex>,
     result: Option<engine::Comparison>,
+    needs_reanchor: bool,
     error: Option<String>,
 }
 impl Job {
@@ -246,7 +251,7 @@ impl Job {
             {
                 Ok((result, threads)) if !self.cancel.load(Ordering::Acquire) => {
                     self.result = Some(result);
-                    self.threads = Some(threads)
+                    self.threads = (!self.needs_reanchor).then_some(threads)
                 }
                 Err(error) if !self.cancel.load(Ordering::Acquire) => self.error = Some(error),
                 _ => {}
@@ -315,6 +320,19 @@ impl Store {
             .filter(|v| *v <= crate::ipc_number::MAX_SAFE_INTEGER)
             .ok_or_else(|| "Review epoch exhausted".into())
     }
+    // A discussion update cannot invalidate cue matching. An index addresses threads
+    // by their canonical positions, so only a change of thread IDs invalidates it.
+    fn advance_discussion(&mut self, key: ReviewKey, anchors_changed: bool) -> Result<()> {
+        self.review.epoch = self.prospective_review_epoch()?;
+        if let Some(job) = self.review.job.as_mut().filter(|j| j.key == key) {
+            job.key.epoch = self.review.epoch.try_into()?;
+            if anchors_changed {
+                job.needs_reanchor = true;
+                job.threads = None;
+            }
+        }
+        Ok(())
+    }
     fn next_review_epoch(&mut self) -> Result<()> {
         self.review.epoch = self.prospective_review_epoch()?;
         if let Some(job) = &mut self.review.job {
@@ -366,10 +384,10 @@ impl Store {
                 job.result = None;
             }
             job.refresh();
-            reply.working = job.worker.is_some();
+            reply.working = job.worker.is_some() || job.needs_reanchor && job.error.is_none();
             if job.key == key {
                 reply.error = job.error.clone();
-                if let Some(result) = &job.result {
+                if let (Some(result), Some(index)) = (&job.result, &job.threads) {
                     reply.statistics = Some(result.statistics.clone());
                     let discussion = &self
                         .loaded
@@ -381,7 +399,6 @@ impl Store {
                         open: discussion.threads.iter().filter(|t| !t.resolved()).count() as u32,
                         ..Default::default()
                     };
-                    let index = job.threads.as_ref().ok_or("Missing thread index")?;
                     let stops = operations::stops(result, filter, expanded);
                     reply.matched = result
                         .changes
@@ -688,12 +705,15 @@ impl Documents {
                         job.cancel.store(true, Ordering::Release);
                     }
                 }
-                if store
-                    .review
-                    .job
-                    .as_ref()
-                    .is_none_or(|j| j.key != key && j.worker.is_none())
-                {
+                if store.review.job.as_ref().is_none_or(|j| {
+                    (j.key != key || (j.needs_reanchor && j.result.is_some())) && j.worker.is_none()
+                }) {
+                    let retained = store
+                        .review
+                        .job
+                        .as_mut()
+                        .filter(|j| j.key == key)
+                        .and_then(|j| j.result.take());
                     let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
                     let original = loaded
                         .review
@@ -703,7 +723,10 @@ impl Documents {
                         .ok_or("Attach an original first")?
                         .reference
                         .clone();
-                    let cues = loaded.editor.document().cues().to_vec();
+                    let input = match retained {
+                        Some(c) => ComparisonInput::Retained(c),
+                        None => ComparisonInput::Cues(loaded.editor.document().cues().to_vec()),
+                    };
                     let format = loaded.source().format();
                     let options = loaded.review.options.clone();
                     let threads = loaded.review.discussion.threads.clone();
@@ -723,14 +746,17 @@ impl Documents {
                                     Ok(())
                                 }
                             };
-                            let c = engine::compare(
-                                original.cues(),
-                                original.format(),
-                                &cues,
-                                format,
-                                options,
-                                checkpoint,
-                            )?;
+                            let c = match input {
+                                ComparisonInput::Retained(c) => c,
+                                ComparisonInput::Cues(cues) => engine::compare(
+                                    original.cues(),
+                                    original.format(),
+                                    &cues,
+                                    format,
+                                    options,
+                                    checkpoint,
+                                )?,
+                            };
                             let positions = review_package::reanchor(
                                 &threads,
                                 &c,
@@ -746,6 +772,7 @@ impl Documents {
                         cancel,
                         worker: Some(worker),
                         result: None,
+                        needs_reanchor: false,
                         threads: None,
                         error: None,
                     });

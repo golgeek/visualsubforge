@@ -10,6 +10,12 @@ pub struct Discussion {
     pub(super) round: u32,
 }
 impl Discussion {
+    pub(super) fn same_anchors(&self, other: &Self) -> bool {
+        self.threads
+            .iter()
+            .map(|t| &t.id)
+            .eq(other.threads.iter().map(|t| &t.id))
+    }
     pub(super) fn empty(&self) -> bool {
         self.threads.is_empty() && self.round == 0 && self.exported.is_empty()
     }
@@ -149,7 +155,8 @@ impl Store {
         }
         discussion.threads.sort_by(|a, b| a.id.cmp(&b.id));
         discussion.validate()?;
-        self.next_review_epoch()?;
+        let anchors_changed = !discussion.same_anchors(&self.loaded_mut()?.review.discussion);
+        self.advance_discussion(key, anchors_changed)?;
         let context = &mut self.loaded_mut()?.review;
         context.discussion = discussion;
         context.reference.dirty = true;

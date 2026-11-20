@@ -737,7 +737,7 @@ The loaded document now has a separate `review` context alongside translation.
 It reuses immutable Reference and path/provenance validation through a distinct
 translation-context value, with its own options and epoch. One comparison worker
 owns captures only; Store validates generation/revision/epoch before exposing
-results. Pages are bounded and frontend requests debounce and discard stale
+results. Discussion-only epochs retain the comparison. A change in the ordered thread IDs invalidates the anchor index for the worker to rebuild. Replies, status events and export bookkeeping reuse both results. Pages are bounded and frontend requests debounce and discard stale
 replies. Shutdown cancels and joins outside Store. Start Review preserves the
 translation slot and any existing comparison base while publishing a new copy.
 

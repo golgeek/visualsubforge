@@ -745,6 +745,26 @@ async function run() {
       input.value = value;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     };
+    const retainedRow = changes.querySelector('article')!;
+    let scrollPane: HTMLElement | null = retainedRow.parentElement;
+    while (
+      scrollPane &&
+      !(
+        scrollPane.scrollHeight > scrollPane.clientHeight &&
+        ['auto', 'scroll'].includes(getComputedStyle(scrollPane).overflowY)
+      )
+    )
+      scrollPane = scrollPane.parentElement;
+    assert(!!scrollPane, 'Changes has a scroll container');
+    scrollPane!.scrollTop = 20;
+    const scroll = scrollPane!.scrollTop;
+    const retained = () =>
+      assert(
+        scroll > 0 &&
+          scrollPane!.scrollTop === scroll &&
+          retainedRow === changes.querySelector('article'),
+        'Discussion retained the Changes row and scroll',
+      );
     inPanel('Comment')!.click();
     await tick();
     assert(
@@ -763,6 +783,7 @@ async function run() {
         !changes.querySelector('img'),
       'Literal comment',
     );
+    retained();
     inPanel('Reply')!.click();
     await tick();
     fill('form textarea', 'Agreed');
@@ -771,8 +792,10 @@ async function run() {
     await until(
       () => !!inPanel('Resolve') && !!changes.textContent?.includes('Agreed'),
     );
+    retained();
     inPanel('Resolve')!.click();
     await until(() => !!inPanel('Reopen'));
+    retained();
     inPanel('Reopen')!.click();
     await until(() => !!inPanel('Resolve'));
     inPanel('Commented')!.click();

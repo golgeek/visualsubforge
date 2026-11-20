@@ -48,7 +48,7 @@
     {/if}
     {#if !s.changes}<p>No changes yet</p>{/if}
   {:else}<p>
-      {review.page?.working
+      {review.attached || review.page?.working
         ? 'Comparing…'
         : 'Attach an original to review changes'}
     </p>{/if}

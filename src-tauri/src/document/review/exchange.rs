@@ -247,6 +247,8 @@ impl Documents {
             reply.notice = Some("0 new messages · 0 threads resolved".into());
             return Ok(reply);
         }
+        let anchors_changed =
+            target.is_none() && !discussion.same_anchors(&store.loaded_mut()?.review.discussion);
         store.prospective_review_epoch()?;
         if let (Some(original), Some((saved_bytes, utf16_le))) = (original, baseline) {
             let parsed = target.ok_or("Missing embedded working document")?;
@@ -313,9 +315,11 @@ impl Documents {
             l.review.discussion = discussion;
             l.review.reference.dirty = true;
         }
-        store.next_review_epoch()?;
         if matches!(choice, ImportChoice::Open | ImportChoice::UseTheirs) {
+            store.next_review_epoch()?;
             store.invalidate_checks()
+        } else {
+            store.advance_discussion(key, anchors_changed)?
         }
         let snapshot = store.snapshot();
         let mut r = store.review_reply(Some(snapshot), 0, 0, None)?;
@@ -419,7 +423,7 @@ impl Documents {
                 .flat_map(|t| t.messages.iter().map(|m| m.id.clone())),
         );
         r.reference.dirty = true;
-        store.next_review_epoch()?;
+        store.advance_discussion(key, false)?;
         store.review_reply(None, 0, 0, None)
     }
 }

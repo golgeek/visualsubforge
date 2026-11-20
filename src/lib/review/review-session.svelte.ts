@@ -22,6 +22,7 @@ export type BlockRow = NonNullable<ReviewReply['blocks']>[number];
 export class ReviewSession {
   page = $state.raw<ReviewReply | null>(null);
   expanded = $state.raw<number[]>([]);
+  private documentCapture = '';
   private expandedCapture = '';
   offset = $state(0);
   filter = $state<ReviewReply['rows'][number]['kind'] | null>(null);
@@ -101,6 +102,9 @@ export class ReviewSession {
   projectionInput: () => { ids: number[]; startMs: number; endMs: number } =
     () => ({ ids: [], startMs: 0, endMs: 0 });
   private projectionSequence = 0;
+  get attached() {
+    return !!this.subtitles.snapshot.review?.path;
+  }
   get options() {
     return this.subtitles.snapshot.review?.options;
   }
@@ -147,8 +151,18 @@ export class ReviewSession {
     $effect(() => {
       const snapshot = this.subtitles.snapshot;
       const capture = `${snapshot.generation}/${snapshot.revision}/${snapshot.review?.epoch}`;
-      if (this.expandedCapture !== capture) {
-        this.expandedCapture = capture;
+      const documentCapture = JSON.stringify([
+        snapshot.generation,
+        snapshot.review?.path,
+      ]);
+      const comparisonCapture = JSON.stringify([
+        documentCapture,
+        snapshot.revision,
+        snapshot.review?.options,
+      ]);
+      const sameComparison = this.expandedCapture === comparisonCapture;
+      if (!sameComparison) {
+        this.expandedCapture = comparisonCapture;
         this.expanded = [];
       }
       const expanded = this.expanded;
@@ -156,9 +170,12 @@ export class ReviewSession {
       const filter = this.filter;
       const threadFilter = this.threadFilter;
       const sequence = ++this.sequence;
-      this.page = null;
-      this.projection = [];
-      this.visibleDiscussion = undefined;
+      if (this.documentCapture !== documentCapture) {
+        this.documentCapture = documentCapture;
+        this.page = null;
+        this.projection = [];
+        this.visibleDiscussion = undefined;
+      }
       if (!snapshot.review?.path) return;
       const timer = setTimeout(
         () =>
@@ -170,7 +187,7 @@ export class ReviewSession {
             expanded,
             threadFilter,
           ),
-        250,
+        sameComparison ? 0 : 250,
       );
       return () => {
         clearTimeout(timer);
@@ -455,7 +472,7 @@ export class ReviewSession {
         capture !== `${key.generation}/${key.revision}/${key.epoch}`
       )
         return;
-      this.page = reply;
+      if (!reply.working || reply.statistics || !this.page) this.page = reply;
       this.error = reply.error ?? '';
       if (reply.working)
         setTimeout(() => {

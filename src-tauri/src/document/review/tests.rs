@@ -555,6 +555,20 @@ fn discussion_is_independent_of_editor_and_survives_project_and_recovery() {
     let (dir, d, original, _) = fixture();
     attach(&d, &original);
     let row = ready(&d).rows.remove(0);
+    let allocation = || {
+        d.0.lock()
+            .unwrap()
+            .review
+            .job
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .changes
+            .as_ptr() as usize
+    };
+    let initial_comparison = allocation();
     let before = snapshot(&d);
     let post = |edit| {
         d.review_action(ReviewAction::Comment {
@@ -585,12 +599,24 @@ fn discussion_is_independent_of_editor_and_survives_project_and_recovery() {
         .next()
         .unwrap()
         .remove(0);
+    assert_eq!(allocation(), initial_comparison);
     post(CommentEdit::Reply {
         thread_id: t.id.clone(),
         event: review_package::Event::Resolve,
         text: None,
     })
     .unwrap();
+    assert_eq!(allocation(), initial_comparison);
+    assert!(
+        d.0.lock()
+            .unwrap()
+            .review
+            .job
+            .as_ref()
+            .unwrap()
+            .threads
+            .is_some()
+    );
     let restored = {
         let mut s = d.0.lock().unwrap();
         let c = &mut s.loaded_mut().unwrap().review;
