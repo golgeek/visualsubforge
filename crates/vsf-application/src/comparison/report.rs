@@ -81,9 +81,6 @@ pub fn html(comparison: &Comparison, options: &ReportOptions<'_>, extra: &ExtraS
                 timecode(block.revised_end_ms)
             );
         }
-        if c.kind == Kind::Unchanged && !options.include_unchanged {
-            continue;
-        }
         let occurrence = occurrences.entry(&c.key).or_insert(0usize);
         let id = if *occurrence == 0 {
             c.key.clone()
@@ -91,6 +88,12 @@ pub fn html(comparison: &Comparison, options: &ReportOptions<'_>, extra: &ExtraS
             format!("{}-{}", c.key, occurrence)
         };
         *occurrence += 1;
+        if c.kind == Kind::Unchanged
+            && !options.include_unchanged
+            && !extra.change_html.contains_key(&format!("change-{id}"))
+        {
+            continue;
+        }
         let _ = write!(
             out,
             "<article id=\"change-{}\"><h2>{}</h2><div class=\"diff\">",

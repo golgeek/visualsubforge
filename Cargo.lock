@@ -4672,6 +4672,7 @@ dependencies = [
 name = "vsf-application"
 version = "0.0.1-alpha"
 dependencies = [
+ "base64 0.22.1",
  "media-analysis",
  "regex",
  "serde",
@@ -4682,6 +4683,7 @@ dependencies = [
  "subtitle-core",
  "subtitle-formats",
  "tempfile",
+ "time",
  "unicode-normalization",
  "unicode-segmentation",
  "web_atoms",

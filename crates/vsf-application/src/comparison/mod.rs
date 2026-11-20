@@ -367,8 +367,15 @@ fn key(kind: Kind, a: &[CueSnapshot], b: &[CueSnapshot]) -> String {
             .map(|c| (c.start_ms, c.end_ms, c.text.as_str()))
             .collect()
     }
-    let bytes =
-        serde_json::to_vec(&(kind, side(a), side(b))).expect("scalar comparison key serialization");
+    content_key(kind, &side(a), &side(b))
+}
+pub(crate) fn content_key(
+    kind: Kind,
+    original: &[(u64, u64, &str)],
+    revised: &[(u64, u64, &str)],
+) -> String {
+    let bytes = serde_json::to_vec(&(kind, original, revised))
+        .expect("scalar comparison key serialization");
     format!("{:x}", Sha256::digest(bytes))
 }
 pub fn compare(

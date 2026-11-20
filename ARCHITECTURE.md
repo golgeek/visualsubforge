@@ -759,3 +759,5 @@ history. Source metadata comes from the immutable reference, not frontend text.
 Report generation captures under the document lock, formats/writes a temporary
 outside it, and rechecks identity before atomic new-file promotion. Native video
 frames never pass through this path.
+
+The shared `review_package` module validates bounded byte captures, derives discussion identities, merges immutable events and maps anchor snapshots onto comparison results. The CLI and desktop file adapters own IO. Exchange uses ordinary files so review of private subtitles requires no service, account or network connection.
