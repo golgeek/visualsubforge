@@ -5,6 +5,8 @@ GTK/WebKit, libc and display/audio drivers stay with the OS. Their package
 dependencies are resolved by apt; media libraries outside that runtime closure
 are copied privately. This is a validation artifact until release gates pass.
 """
+from release_version import release_version
+
 import argparse
 import json
 import os
@@ -205,11 +207,12 @@ def assemble(args):
     depends += ["xdg-desktop-portal", "xdg-desktop-portal-gtk", "fonts-dejavu-core"]
     control = tree / "DEBIAN/control"
     control.parent.mkdir()
-    control.write_text("Package: visualsubforge\nVersion: 0.0.1~alpha\nArchitecture: amd64\n"
+    debian_version = release_version().replace("-", "~", 1)
+    control.write_text(f"Package: visualsubforge\nVersion: {debian_version}\nArchitecture: amd64\n"
                        "Maintainer: VisualSubForge contributors <noreply@github.com>\n"
                        "Section: video\nPriority: optional\n" + "Depends: " + ", ".join(depends) + "\n"
                        "Description: VisualSubForge subtitle editor and resync CLI (preview)\n")
-    receipt = {"schema": 1, "version": "0.0.1-alpha", "architecture": "amd64", "os": "Ubuntu 24.04",
+    receipt = {"schema": 1, "version": release_version(), "architecture": "amd64", "os": "Ubuntu 24.04",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
                "files": records, "header_inputs": header_inputs,
                "platform_dependencies": depends, "native_sources": source_records,
@@ -218,7 +221,7 @@ def assemble(args):
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    artifact = root / "VisualSubForge_0.0.1-alpha_amd64_ubuntu24.04.deb"
+    artifact = root / f"VisualSubForge_{release_version()}_amd64.deb"
     subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(tree), str(artifact)], check=True)
     receipt["artifact"] = {"file": artifact.name, "sha256": digest(artifact)}
     (root / "assembly-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")

@@ -5,6 +5,8 @@ The Windows API set and an explicit list of OS DLLs remain platform components.
 Compiler runtimes must be bundled or statically linked; finding a DLL somewhere
 on a development machine never makes it an operating-system dependency.
 """
+from release_version import release_version
+
 import argparse
 import json
 import os
@@ -110,7 +112,7 @@ def main():
         application_inventory = digest(application / "application-inventory.json")
         shutil.copytree(application / "notices", bundle / "third-party/application")
         shutil.copy2(application / "application-inventory.json", bundle / "application-inventory.json")
-    receipt = {"schema": 1, "architecture": "x86_64", "version": "0.0.1-alpha",
+    receipt = {"schema": 1, "architecture": "x86_64", "version": release_version(),
                "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                "files": records, "ggml_policy": "No Whisper/GGML imports allowed, including delay imports",
                "application_inventory_sha256": application_inventory,

@@ -68,7 +68,7 @@ jobs:
           (root / 'context.json').write_text(json.dumps(context, indent=2) + '\n')
       - name: Unpack the assembled reference beside its installer
         run: |
-          Expand-Archive "$env:RUNNER_TEMP/candidate/VisualSubForge_0.0.1-alpha_x64_windows.zip" "$env:RUNNER_TEMP/candidate"
+          Expand-Archive "$env:RUNNER_TEMP/candidate/VisualSubForge_$(python scripts/release_version.py)_x64_windows.zip" "$env:RUNNER_TEMP/candidate"
           Copy-Item "$env:RUNNER_TEMP/candidate/VisualSubForge/native-runtime.json" "$env:RUNNER_TEMP/candidate/assembly-receipt.json"
       # The original unload hazard modifies libc++'s process-wide terminate
       # handler. An MSVC-linked probe would observe a different runtime.

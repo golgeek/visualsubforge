@@ -1,5 +1,13 @@
 # Preview candidate manual acceptance
 
+For v0.1.0, use the package for your platform, matching source archives,
+`VisualSubForge-0.1.0-test-media.zip` and `SHA256SUMS` from the
+[test release](https://github.com/golgeek/visualsubforge/releases/tag/v0.1.0).
+Before publication, the release rehearsal provides those files in one Actions artifact.
+On Ubuntu install with `sudo apt install ./VisualSubForge_0.1.0_amd64.deb`.
+
+## Earlier preview candidates
+
 The Windows x64 and Ubuntu24.04 x64 candidates below are updated to f0dbf68 on
 October18 and include the feature milestones. The Mac downloads in the table
 remain October12 baselines. Use an identified build containing the milestones
@@ -44,6 +52,8 @@ Windows installation/offline/native smoke passes with a virtual WASAPI device
 and software D3D11; Ubuntu smoke uses a prepared virtual PulseAudio sink. Neither
 establishes physical video/audio acceptance. The Mac signature checks likewise
 are separate from this manual checklist.
+
+## Manual acceptance
 
 Record the package SHA-256, app revision, OS version/architecture, physical
 machine or VM, GPU/driver, display scaling and audio device. Test on a clean OS

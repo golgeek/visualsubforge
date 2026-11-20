@@ -6,12 +6,21 @@ source inventories, audited release assembly, installer/runtime checks and
 macOS signing/notarization. See [the Make build guide](build.md#shared-release-compilation).
 
 
-`v0.0.1-alpha` is in preparation and has not been published. Release builds are
-to run on GitHub Actions, including native media dependencies. The repository
-became public on 2026-10-11; standard hosted Actions jobs now run successfully.
-The user confirmed on 2026-10-11 that publication must wait for packages on all
-three platforms: macOS, Windows and Linux. Successful Mac validation artifacts
-do not authorize a macOS-only release.
+## Cutting a quiet test release
+
+The workspace version in `Cargo.toml` drives packaging. After changing it, run
+`python3 scripts/release_version.py --sync` with the pinned npm and Cargo tools.
+`python3 scripts/release_version.py` checks the synchronized manifests and locks.
+
+1. On the chosen main commit, run `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=true`. Check the run's head SHA and all application checks. The existing Mac signing job runs only on main. A pull request touching the release workflow rehearses unsigned packaging.
+2. Download the combined `VisualSubForge-v0.1.0` artifact. Verify `shasum -a 256 -c SHA256SUMS`, both Mac plists, stapled tickets and Gatekeeper assessments, the Windows installer and both VSF executable versions, and the Debian version. Smoke-test the exact ARM download with the fixture ZIP. Record Ubuntu 24.04 and 26.04 results and review the [release notes](release-notes/v0.1.0.md).
+3. Owner: tag the verified commit with `git tag -a v0.1.0 <verified-commit> -m 'VisualSubForge 0.1.0 (test release)'` and `git push origin refs/tags/v0.1.0`.
+4. Owner: with main still at that commit, dispatch `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=false`. The workflow checks the existing tag before building and again before creating a draft. Only the draft job can write release assets.
+5. Review the draft and verify its actual downloads again. Signing and notarization produce fresh bytes. Publish as a pre-release with `gh release edit v0.1.0 --draft=false --prerelease --latest=false`. The owner can then apply for Windows signing.
+
+For a split source archive, verify all parts with the release checksum manifest and concatenate them in order, for example `cat VisualSubForge_0.1.0_windows-x64_native-sources.tar.gz.part??? > native-sources.tar.gz`.
+
+## Historical package evidence
 
 The macOS matrix has separate Apple Silicon and Intel validation artifacts.
 Their audited minimums are macOS 14.0 and 15.0 respectively. The Intel Homebrew
@@ -92,8 +101,8 @@ paths, audits architecture/deployment targets, and applies an ad-hoc signature
 for validation. It never overwrites an SDK or an earlier artifact. Developer ID
 signing and notarization follow assembly. Publishing also requires the completed
 license/source inventory and install/runtime checks below.
-Apple bundle version fields use numeric `0.0.1`; the application/CLI, artifact
-names and `VSFReleaseVersion` retain the full `0.0.1-alpha` version.
+Apple bundle version fields use the numeric version core; the application/CLI, artifact
+names and `VSFReleaseVersion` retain the full release version.
 
 Original VSF code is GPL-3.0-or-later. Existing third-party patches retain their
 licenses. Distributable artifacts need notices and the corresponding source and

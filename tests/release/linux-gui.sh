@@ -5,10 +5,11 @@ case "${VSF_NULL_SINK:-default}" in
   no-rewinds) sink_options=(norewinds=true) ;;
   *) echo 'Unknown diagnostic null-sink configuration' >&2; exit 2 ;;
 esac
-export XDG_RUNTIME_DIR=/tmp/vsf-gui-runtime
-mkdir -m 700 "$XDG_RUNTIME_DIR"
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp/vsf-gui-runtime}
+install -d -m 700 "$XDG_RUNTIME_DIR"
+evidence=${VSF_EVIDENCE:-/evidence}
 pulseaudio --start --exit-idle-time=-1 --log-level=debug \
-  --log-time=yes --log-target=file:/evidence/pulseaudio.log
+  --log-time=yes --log-target="file:$evidence/pulseaudio.log"
 silent_pid=
 cleanup() {
   if [[ -n "$silent_pid" ]]; then
@@ -20,21 +21,21 @@ cleanup() {
 trap cleanup EXIT
 # PulseAudio creates this dedicated diagnostic file with mode 0600. The host
 # artifact uploader has a different UID from this container's preview user.
-chmod 644 /evidence/pulseaudio.log
-pactl load-module module-null-sink sink_name=vsf_ci "${sink_options[@]}" > /evidence/null-sink.txt
+chmod 644 "$evidence"/pulseaudio.log
+pactl load-module module-null-sink sink_name=vsf_ci "${sink_options[@]}" > "$evidence"/null-sink.txt
 pactl set-default-sink vsf_ci
-glxinfo -B > /evidence/glxinfo.txt
-pactl list short sinks > /evidence/audio-sinks.txt
-pactl list sinks > /evidence/audio-sink-details.txt
+if [[ ${GDK_BACKEND:-x11} == x11 ]]; then glxinfo -B > "$evidence/glxinfo.txt"; fi
+pactl list short sinks > "$evidence"/audio-sinks.txt
+pactl list sinks > "$evidence"/audio-sink-details.txt
 if [[ "${VSF_NULL_SINK:-default}" == ready-default ]]; then
   # Keep the default sink's rewind behavior. A separate silent client requests
   # a bounded clock; observe readiness before launching the unchanged app.
   pacat --playback --raw --rate=44100 --channels=2 --format=s16le \
     --device=vsf_ci --latency-msec=160 --process-time-msec=20 \
-    --client-name='VSF diagnostic clock' < /dev/zero > /evidence/silent-client.log 2>&1 &
+    --client-name='VSF diagnostic clock' < /dev/zero > "$evidence"/silent-client.log 2>&1 &
   silent_pid=$!
   python3 - <<'PY'
-import json, math, subprocess, time
+import json, math, os, subprocess, time
 from pathlib import Path
 
 began = time.monotonic()
@@ -59,11 +60,11 @@ try:
     if not ready:
         raise RuntimeError('Virtual audio clock did not reach bounded latency')
 finally:
-    Path('/evidence/sink-readiness.json').write_text(json.dumps(
+    (Path(os.environ.get('VSF_EVIDENCE', '/evidence')) / 'sink-readiness.json').write_text(json.dumps(
         {'ready': ready, 'observations': observations}, indent=2) + '\n')
 PY
   kill -0 "$silent_pid"
 fi
-python3 /check-gui.py --executable /usr/lib/visualsubforge/visualsubforge \
-  --fixture /fixtures/vfr-offset.mkv --output /evidence/gui \
-  --environment "Ubuntu 24.04 container, network disabled, Xvfb/Mesa software renderer, PulseAudio ${VSF_NULL_SINK:-default} null sink"
+python3 "${VSF_GUI_CHECK:-/check-gui.py}" --executable /usr/lib/visualsubforge/visualsubforge \
+  --fixture "${VSF_FIXTURES:-/fixtures}/vfr-offset.mkv" --output "$evidence"/gui \
+  --environment "${VSF_GUI_ENVIRONMENT:-Ubuntu 24.04 offline container with Xvfb and Mesa}, PulseAudio ${VSF_NULL_SINK:-default} null sink"

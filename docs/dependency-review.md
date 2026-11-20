@@ -16,6 +16,80 @@ means that its declared inputs were captured; it is not, by itself, a review of
 all code embedded in a binary. Release publication and manual runtime acceptance
 remain separate gates in [releases.md](releases.md).
 
+## Windows release inventory and signing preparation
+
+The Windows release uses **tauri-winres 0.3.6** (MIT), already locked through
+`tauri-build`, as a direct build dependency of the CLI for its PE version resource.
+The CLI also serves as the application’s plugin helper. NSIS, the GUI and the CLI
+record the same product, publisher, version and copyright. The metadata check
+binds FFmpeg and ffprobe to their original build and records their own fields.
+
+The [November Windows inventory](https://github.com/golgeek/visualsubforge/actions/runs/43650584065)
+contains 31 MSYS2 library packages. The table records their package declarations
+and retained upstream notices. The release build captures the actual versions,
+licenses, signatures and hashes again. For application crates and npm packages
+see `application-inventory.json` and its notices. For the native, installer and
+compiler inputs see `native-inventory.json`, the installer inventory and the
+platform evidence described below.
+
+| Shipped package | November version | License or notice |
+| --- | --- | --- |
+| brotli | 1.2.1-1 | MIT |
+| bzip2 | 1.0.8-4 | bzip2-1.0.6 |
+| dav1d | 1.5.4-1 | BSD-2-Clause |
+| expat | 2.10.0-1 | MIT |
+| fontconfig | 2.18.3-1 | Fontconfig permissive notices |
+| freetype | 2.15.0-1 | GPL-2.0-or-later OR FTL |
+| fribidi | 1.0.18-1 | LGPL-2.1-or-later |
+| gettext-runtime | 1.0-1 | GPL-3.0-or-later AND LGPL-2.1-or-later |
+| glib2 | 2.90.1-1 | LGPL-2.1-or-later |
+| graphite2 | 1.3.15-1 | LGPL-2.1-or-later |
+| harfbuzz | 15.1.0-1 | MIT |
+| lcms2 | 2.20-1 | MIT AND GPL-3.0-or-later |
+| libass | 0.17.5-1 | ISC |
+| libc++ | 23.1.5-1 | Apache-2.0 WITH LLVM-exception |
+| libdovi | 3.4.0-1 | MIT |
+| libiconv | 1.19.1-1 | LGPL-2.1-or-later, documentation:GPL-3.0-or-later |
+| libjpeg-turbo | 3.2.1-1 | IJG, BSD-style and zlib notices |
+| libplacebo | 7.387.0-1 | LGPL2.1 |
+| libpng | 1.6.59-2 | libpng notices |
+| libunibreak | 7.0-1 | Zlib |
+| libvpx | 1.17.0-1 | BSD-3-Clause |
+| libwinpthread | 14.0.0.r598.ge3d18511f-1 | MIT AND BSD-3-Clause |
+| libx264 | 0.165.r3222.b35605a-3 | GPL-2.0-or-later; commercial licensing also offered |
+| luajit | 2.1.1793275035-1 | MIT |
+| opus | 1.6.1-2 | BSD-3-Clause |
+| pcre2 | 10.49-2 | BSD-3-Clause |
+| shaderc | 2026.4-1 | Apache-2.0 |
+| spirv-cross | 1~1.4.363.0-1 | Apache-2.0 |
+| vulkan-loader | 1~1.4.363.0-1 | Apache-2.0 |
+| xz | 5.8.4-1 | 0BSD AND LGPL-2.1-or-later AND GPL-2.0-or-later |
+| zlib | 1.4-2 | Zlib |
+
+The custom FFmpeg build enables GPL and version 3 features and links x264.
+mpv's build options, upstream licenses and patches accompany the native archives.
+x264 offers commercial licensing and needs resolution before applying for signing.
+An SPDX license alone cannot establish whether a vendor also offers commercial
+terms. The WebView2 loader and Microsoft runtime inputs require separate review
+against the platform-library exception. No SignPath acceptance has been obtained.
+
+The GUI and CLI use FFmpeg for audio samples, frame and scene analysis, subtitle
+extraction and resync. None requests libx264, libvpx or libopus encoding. Fixture
+generation uses libx264. A separately tested Windows build could use FFmpeg’s
+internal VP8/VP9 and Opus decoders and drop the external encoders. Removing x264
+would remove its GPL configuration requirement. A build with `--disable-gpl`
+must still demonstrate that every required filter, codec and mpv linkage works.
+The shipped configuration continues to include all three libraries.
+
+The earlier Windows candidate artifact measured 5,828,956,530 bytes. Most of
+its size comes from signed MSYS2 compiler/runtime packages at multiple versions.
+The MinGW headers declare **ZPL-2.1 AND LGPL-2.1-or-later**. Their full matching
+sources must accompany the distribution, including source archives shared by
+other package identities. The existing collector still verifies every package.
+The release collector splits oversized source archives into numbered parts.
+The macOS collector uses per-formula sources and the Linux collector uses Debian
+source packages and audited build inputs. Neither uses this MSYS2 toolchain graph.
+
 ## Artifact evidence
 
 | Target | Candidate evidence | Independent verification | Remaining work |
