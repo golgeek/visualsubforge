@@ -125,6 +125,34 @@ impl Updates {
     }
 }
 
+fn read_fixture(path: &Path) -> Result<Vec<u8>, Failure> {
+    // Reject UNC shares and device namespaces before the first filesystem call.
+    #[cfg(windows)]
+    if let Some(std::path::Component::Prefix(prefix)) = path.components().next()
+        && !matches!(
+            prefix.kind(),
+            std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)
+        )
+    {
+        return Err(Failure::Storage);
+    }
+    let metadata = fs::metadata(path).map_err(|_| Failure::Storage)?;
+    if !metadata.is_file() {
+        return Err(Failure::Storage);
+    }
+    let mut bytes = Vec::new();
+    fs::File::open(path)
+        .and_then(|file| {
+            file.take(releases::MAX_BYTES as u64 + 1)
+                .read_to_end(&mut bytes)
+        })
+        .map_err(|_| Failure::Storage)?;
+    if bytes.len() > releases::MAX_BYTES {
+        return Err(Failure::TooLarge);
+    }
+    Ok(bytes)
+}
+
 async fn check(
     app: tauri::AppHandle,
     manual: bool,
@@ -163,16 +191,9 @@ async fn check(
         .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into());
     let current = Version::parse(&version).map_err(|_| Failure::Invalid)?;
     let bytes = if let Some(path) = std::env::var_os("VSF_UPDATE_TEST_FIXTURE") {
-        tauri::async_runtime::spawn_blocking(move || {
-            let mut bytes = Vec::new();
-            fs::File::open(path)?
-                .take(releases::MAX_BYTES as u64 + 1)
-                .read_to_end(&mut bytes)?;
-            Ok::<_, std::io::Error>(bytes)
-        })
-        .await
-        .map_err(|_| Failure::Storage)?
-        .map_err(|_| Failure::Storage)?
+        tauri::async_runtime::spawn_blocking(move || read_fixture(Path::new(&path)))
+            .await
+            .map_err(|_| Failure::Storage)??
     } else {
         let client = network::client(Duration::from_secs(10), true)?;
         let url = format!("{API}/repos/{REPOSITORY}/releases?per_page=20");
@@ -270,6 +291,25 @@ pub async fn update_open(version: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fixture_input_is_a_bounded_regular_file() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(read_fixture(dir.path()), Err(Failure::Storage));
+        let file = dir.path().join("releases.json");
+        fs::write(&file, "[]").unwrap();
+        assert_eq!(read_fixture(&file).unwrap(), b"[]");
+        fs::write(&file, vec![0; releases::MAX_BYTES + 1]).unwrap();
+        assert_eq!(read_fixture(&file), Err(Failure::TooLarge));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn fixture_rejects_network_and_device_paths_before_opening() {
+        for path in [r"\\server\share\releases.json", r"\\.\pipe\test"] {
+            assert_eq!(read_fixture(Path::new(path)), Err(Failure::Storage));
+        }
+    }
+
     #[test]
     fn manual_check_supersedes_automatic_and_shutdown_cancels() {
         let service = Updates::default();
