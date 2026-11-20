@@ -6,6 +6,10 @@ on:
         description: Windows package run containing windows-preview-x64
         type: string
         required: true
+      reference_run:
+        description: Optional pre-removal package run containing windows-unsigned-x64 for decoded parity
+        type: string
+        default: ''
       fixture_run:
         description: Linux package run containing preview-acceptance-fixtures
         type: string
@@ -86,11 +90,28 @@ jobs:
         run: python tests/release/windows-install.py --package "$env:RUNNER_TEMP/candidate" --installer-dir "$env:RUNNER_TEMP/candidate" --probe "$env:RUNNER_TEMP/dll-reload-probe.exe" --fixtures "$env:RUNNER_TEMP/fixtures/resync" --output "$env:RUNNER_TEMP/install-check"
       - name: Exercise production GUI commands and ordered native shutdown
         run: python tests/release/packaged-gui.py --executable "$env:RUNNER_TEMP/install-check/Installed Preview/visualsubforge.exe" --fixture "$env:RUNNER_TEMP/fixtures/vfr-offset.mkv" --output "$env:RUNNER_TEMP/install-check/gui" --environment "Windows Server 2022 hosted runner; pinned Scream virtual WASAPI device; renderer must be read from logs"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.reference_run != ''
+        with:
+          name: windows-unsigned-x64
+          run-id: ${{ inputs.reference_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/reference
+      - name: Compare packaged decoders and analysis with the pre-removal build
+        if: inputs.reference_run != ''
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $root = $env:RUNNER_TEMP
+          Expand-Archive "$root/reference/*_x64_windows.zip" "$root/reference"
+          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          python tests/release/windows-codec-parity.py --before "$root/reference/VisualSubForge" --after "$root/install-check/Installed Preview" --diagnostics target/debug --fixtures "$root/fixtures" --output "$root/codec-parity"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: windows-installed-candidate-evidence
           path: |
+            ${{ runner.temp }}/codec-parity/*.json
+            ${{ runner.temp }}/codec-parity/*/*.log
             ${{ runner.temp }}/context.json
             ${{ runner.temp }}/probe-compiler.txt
             ${{ runner.temp }}/install-check/*.json

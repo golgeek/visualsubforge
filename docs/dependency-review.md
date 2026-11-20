@@ -324,3 +324,15 @@ Exact downloaded inputs, audit script/results and eight-command plugin receipt
 are retained under `test-results/native-reliability-20261018/` as
 `windows-package-f0db-*`, `audit-windows-package.py`,
 `windows-package-plugin-check.py` and `windows-package-plugin-validation.json`.
+
+## Windows FFmpeg codec selection
+
+The Windows FFmpeg recipe uses the built-in VP8, VP9, Opus and H.264 decoders.
+VSF analysis reads audio samples, decoded frames, scene metadata or subtitles.
+The resync CLI reads frames from both videos. These operations require none of
+the x264, VPx or Opus external encoders. The build disables GPL-only FFmpeg
+features and the PE import audit rejects the three external codec DLLs. mpv
+retains its own license and build configuration. The fixture toolchain supplies
+encoders separately. The optional Windows runtime comparison checks frame and
+PCM hashes, production waveform bins, detected cuts and the actual mpv decoder
+names with the pre-removal package.

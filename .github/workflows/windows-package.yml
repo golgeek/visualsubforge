@@ -49,9 +49,6 @@ jobs:
             mingw-w64-clang-x86_64-libjpeg-turbo
             mingw-w64-clang-x86_64-lcms2
             mingw-w64-clang-x86_64-dav1d
-            mingw-w64-clang-x86_64-opus
-            mingw-w64-clang-x86_64-libvpx
-            mingw-w64-clang-x86_64-libx264
             mingw-w64-clang-x86_64-zlib
             mingw-w64-clang-x86_64-bzip2
             mingw-w64-clang-x86_64-xz
@@ -98,10 +95,12 @@ jobs:
           VSF_MSYS: ${{ steps.msys.outputs.msys2-location }}
         run: |
           python scripts/package-windows.py --visualsubforge "$env:CARGO_TARGET_DIR/release/visualsubforge.exe" --vsf "$env:CARGO_TARGET_DIR/release/vsf.exe" --ffmpeg "$env:VSF_FFMPEG_BUILD/sdk/bin/ffmpeg.exe" --ffprobe "$env:VSF_FFMPEG_BUILD/sdk/bin/ffprobe.exe" --library-dir "$env:VSF_MPV_BUILD/build" --library-dir "$env:VSF_FFMPEG_BUILD/sdk/bin" --library-dir "$env:VSF_MSYS/clang64/bin" --application-sources "$env:RUNNER_TEMP/application-sources" --output "$env:RUNNER_TEMP/package"
-      - name: Generate fixture truth with the selected FFmpeg
+      - name: Install separate fixture encoders
+        run: ./scripts/install-ci-ffmpeg.ps1
+      - name: Generate fixture truth with the fixture toolchain
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
-          $env:PATH = "$env:VSF_FFMPEG_BUILD/sdk/bin;${{ steps.msys.outputs.msys2-location }}/clang64/bin;$env:PATH"
+          $env:PATH = "$(Join-Path $env:ChocolateyInstall 'lib/ffmpeg/tools/ffmpeg/bin');$env:PATH"
           python scripts/resync-fixtures.py
           python scripts/media-fixtures.py
       - name: Capture signed native packages, matching sources and notices
