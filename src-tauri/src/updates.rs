@@ -45,13 +45,21 @@ struct History {
     dismissed: Option<String>,
 }
 
-static HISTORY_WRITER: Mutex<()> = Mutex::new(());
-
 fn history(
     path: &Path,
     change: impl FnOnce(&mut History) -> bool,
 ) -> Result<Option<History>, Failure> {
-    let _writer = HISTORY_WRITER.lock().map_err(|_| Failure::Storage)?;
+    fs::create_dir_all(path.parent().ok_or(Failure::Storage)?).map_err(|_| Failure::Storage)?;
+    // Lock a stable sibling: an atomic replacement changes the history inode.
+    // Concurrent app processes must reserve the same 24-hour interval.
+    let writer = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(path.with_extension("lock"))
+        .map_err(|_| Failure::Storage)?;
+    writer.lock().map_err(|_| Failure::Storage)?;
     let mut state = match fs::File::open(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => History::default(),
         Ok(file) => {
@@ -69,7 +77,6 @@ fn history(
     if !change(&mut state) {
         return Ok(None);
     }
-    fs::create_dir_all(path.parent().ok_or(Failure::Storage)?).map_err(|_| Failure::Storage)?;
     let bytes = serde_json::to_vec(&state).map_err(|_| Failure::Storage)?;
     crate::atomic_file::write(path, &bytes).map_err(|_| Failure::Storage)?;
     Ok(Some(state))
@@ -128,6 +135,9 @@ async fn check(
         let enabled = preferences::read(&path)
             .map_err(|_| Failure::Storage)?
             .automatic_updates;
+        if !manual && enabled != Some(true) {
+            return Ok(None);
+        }
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Failure::Storage)?
@@ -277,6 +287,34 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_writers_admit_one_automatic_attempt() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("update-check-v1.json");
+        let admitted = std::thread::scope(|scope| {
+            let calls: Vec<_> = (0..8)
+                .map(|_| {
+                    scope.spawn(|| {
+                        history(&path, |state| {
+                            if !releases::due(Some(true), state.last_attempt, 123) {
+                                return false;
+                            }
+                            state.last_attempt = Some(123);
+                            true
+                        })
+                        .unwrap()
+                        .is_some()
+                    })
+                })
+                .collect();
+            calls
+                .into_iter()
+                .map(|call| usize::from(call.join().unwrap()))
+                .sum::<usize>()
+        });
+        assert_eq!(admitted, 1);
+    }
+
+    #[test]
     fn skips_preserve_history_and_failed_writes_surface() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("update-check-v1.json");
@@ -295,7 +333,9 @@ mod tests {
                 .is_none()
         );
         assert_eq!(fs::read(&path).unwrap(), saved);
-        assert!(history(dir.path(), |_| true).is_err());
+        let invalid = dir.path().join("invalid-history.json");
+        fs::create_dir(&invalid).unwrap();
+        assert!(history(&invalid, |_| true).is_err());
         assert!(checked_version("https://example.org/").is_err());
     }
 }

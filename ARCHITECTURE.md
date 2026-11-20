@@ -35,7 +35,7 @@ layout row outside the native video surface.
 
 The desktop service reads and atomically writes consent through the preferences
 writer. A separate bounded `update-check-v1.json` records attempts and the last
-dismissed version. Its writer lock reserves the 24-hour interval before the
+dismissed version. An OS file lock shared across app processes reserves the 24-hour interval before the
 request, including failed attempts. Disk operations use blocking workers. A
 manual request cancels a previous request. The exit gate cancels in-flight work,
 and the display owner discards obsolete replies. No lock spans network IO.
