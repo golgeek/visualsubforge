@@ -2415,10 +2415,29 @@ export type visualsubforge_preferences_Preferences_Serialize = {
  *  Lightweight identities for filtering the virtual list. Diff tokens, cue text
  *  and discussion bodies stay in the separately bounded page and projection.
  */
-export type visualsubforge_document_review_presentation_Presentation = {
-  rows: visualsubforge_document_review_presentation_Row[];
-  overview: vsf_application_comparison_overview_Overview;
-};
+export type visualsubforge_document_review_presentation_Presentation =
+  | visualsubforge_document_review_presentation_Presentation_Serialize
+  | visualsubforge_document_review_presentation_Presentation_Deserialize;
+
+/**
+ *  Lightweight identities for filtering the virtual list. Diff tokens, cue text
+ *  and discussion bodies stay in the separately bounded page and projection.
+ */
+export type visualsubforge_document_review_presentation_Presentation_Deserialize =
+  {
+    rows: visualsubforge_document_review_presentation_ReviewIndexEntry_Deserialize[];
+    overview: vsf_application_comparison_overview_Overview;
+  };
+
+/**
+ *  Lightweight identities for filtering the virtual list. Diff tokens, cue text
+ *  and discussion bodies stay in the separately bounded page and projection.
+ */
+export type visualsubforge_document_review_presentation_Presentation_Serialize =
+  {
+    rows: visualsubforge_document_review_presentation_ReviewIndexEntry_Serialize[];
+    overview: vsf_application_comparison_overview_Overview;
+  };
 
 export type visualsubforge_preferences_layout_Preset =
   'timing' | 'editorAbove' | 'review' | 'translation' | 'bigPicture';
@@ -2750,6 +2769,42 @@ export type visualsubforge_document_review_ReviewAction =
       filter: vsf_application_comparison_Kind | null;
     };
 
+export type visualsubforge_document_review_presentation_ReviewIndexEntry =
+  | visualsubforge_document_review_presentation_ReviewIndexEntry_Serialize
+  | visualsubforge_document_review_presentation_ReviewIndexEntry_Deserialize;
+
+export type visualsubforge_document_review_presentation_ReviewIndexEntry_Deserialize =
+  {
+    key: string;
+    occurrence: number;
+    index: number;
+    kind: vsf_application_comparison_Kind;
+    sourceIndex: number;
+    revised: number[];
+    nextCue: number | null;
+    hasThreads: boolean;
+    open: boolean;
+    bandChange: string | null;
+    block: number | null;
+    shiftMs: number | null;
+  };
+
+export type visualsubforge_document_review_presentation_ReviewIndexEntry_Serialize =
+  {
+    key: string;
+    occurrence: number;
+    index: number;
+    kind: vsf_application_comparison_Kind;
+    sourceIndex: number;
+    revised: number[];
+    nextCue: number | null;
+    hasThreads: boolean;
+    open: boolean;
+    bandChange?: string | null;
+    block: number | null;
+    shiftMs: number | null;
+  };
+
 export type visualsubforge_document_review_ReviewKey = {
   generation: number;
   revision: number;
@@ -2779,7 +2834,7 @@ export type visualsubforge_document_review_ReviewReply =
   | visualsubforge_document_review_ReviewReply_Deserialize;
 
 export type visualsubforge_document_review_ReviewReply_Deserialize = {
-  presentation: visualsubforge_document_review_presentation_Presentation | null;
+  presentation: visualsubforge_document_review_presentation_Presentation_Deserialize | null;
   blocks: visualsubforge_document_review_BlockRow[];
   discussion: visualsubforge_document_review_discussion_DiscussionPage_Deserialize | null;
   threadId: string | null;
@@ -2799,7 +2854,7 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
 };
 
 export type visualsubforge_document_review_ReviewReply_Serialize = {
-  presentation?: visualsubforge_document_review_presentation_Presentation | null;
+  presentation?: visualsubforge_document_review_presentation_Presentation_Serialize | null;
   blocks?: visualsubforge_document_review_BlockRow[];
   discussion?: visualsubforge_document_review_discussion_DiscussionPage_Serialize | null;
   threadId?: string | null;
@@ -2836,20 +2891,6 @@ export type visualsubforge_document_review_ReviewSummary_Serialize = {
   dirty: boolean;
   path: string | null;
   options: vsf_application_comparison_Options;
-};
-
-export type visualsubforge_document_review_presentation_Row = {
-  key: string;
-  occurrence: number;
-  index: number;
-  kind: vsf_application_comparison_Kind;
-  sourceIndex: number;
-  revised: number[];
-  nextCue: number | null;
-  hasThreads: boolean;
-  open: boolean;
-  block: number | null;
-  shiftMs: number | null;
 };
 
 export type visualsubforge_document_translation_Row = {

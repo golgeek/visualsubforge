@@ -53,10 +53,16 @@ export function cueWords(change: ReviewChange, side: Side, index: number) {
 export function reviewRows(rows: readonly ReviewRow[]) {
   const changed = new Set<number>(),
     threaded = new Set<number>();
+  const blocks = new Map<number, ReviewRow[]>();
   const removals = new Map<number, ReviewRow[]>();
   const byCue = new Map<number, ReviewRow>();
   const bySource = new Map<string, ReviewRow>();
   for (const row of rows) {
+    if (row.block != null) {
+      const members = blocks.get(row.block) ?? [];
+      members.push(row);
+      blocks.set(row.block, members);
+    }
     bySource.set(row.key + '/' + row.sourceIndex, row);
     for (const id of row.revised) {
       byCue.set(id, row);
@@ -71,7 +77,7 @@ export function reviewRows(rows: readonly ReviewRow[]) {
       removals.set(row.nextCue, group);
     }
   }
-  return { changed, threaded, removals, byCue, bySource };
+  return { changed, threaded, removals, byCue, bySource, blocks };
 }
 export const checkKey = (row: ReviewRow) => row.key + '/' + row.occurrence;
 export function retainedChecks(

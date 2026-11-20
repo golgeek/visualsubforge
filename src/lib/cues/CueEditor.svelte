@@ -21,7 +21,6 @@
   let {
     review,
     reviewChange = null,
-    onrevert,
     editing,
     shortcuts,
     fixes,
@@ -40,7 +39,6 @@
   }: {
     review?: ReviewSession;
     reviewChange?: ReviewChange | null;
-    onrevert?: (change: ReviewChange) => void;
     editing: CueEditing;
     shortcuts?: ShortcutPreferences;
     fixes: CueFixes;
@@ -349,15 +347,11 @@
       aria-label="Original"
       use:measurePaneControl={(height) => (originalHeight = height)}
     >
-      <header>
-        {#if reviewChange.kind !== 'unchanged'}<strong>Original</strong><button
-            disabled={busy || confirming || draftDirty}
-            onclick={() => onrevert?.(reviewChange!)}>Revert</button
-          >{/if}
-      </header>
-      {#if reviewChange.kind !== 'unchanged'}<div class="original-diff">
-          <ChangeDetail change={reviewChange} />
-        </div>{/if}
+      {#if reviewChange.kind !== 'unchanged'}<ChangeDetail
+          change={reviewChange}
+          {review}
+          editor
+        />{/if}
       {#if review}{#key review.rowId(reviewChange)}<CommentThreads
             {review}
             change={reviewChange}
@@ -436,12 +430,6 @@
     flex: 1;
   }
 
-  .original header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex: none;
-  }
   .original {
     overflow: auto;
     max-height: min(12rem, 22vh);

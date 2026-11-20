@@ -6,12 +6,12 @@ use std::collections::HashMap;
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Presentation {
-    rows: Vec<Row>,
+    rows: Vec<ReviewIndexEntry>,
     overview: engine::Overview,
 }
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-struct Row {
+struct ReviewIndexEntry {
     key: String,
     occurrence: u32,
     index: u32,
@@ -21,6 +21,8 @@ struct Row {
     next_cue: Option<SafeU64>,
     has_threads: bool,
     open: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    band_change: Option<String>,
     block: Option<u32>,
     #[specta(type=Option<f64>)]
     shift_ms: Option<i64>,
@@ -37,7 +39,7 @@ pub(super) fn build(
     for (i, change) in c.changes.iter().enumerate() {
         if let Some(q) = change.revised.first() {
             for pending in removals.drain(..) {
-                let row: &mut Row = &mut rows[pending];
+                let row: &mut ReviewIndexEntry = &mut rows[pending];
                 row.next_cue = Some(q.cue_id.try_into()?);
             }
         }
@@ -53,7 +55,7 @@ pub(super) fn build(
         if change.kind == engine::Kind::Removed {
             removals.push(rows.len());
         }
-        rows.push(Row {
+        rows.push(ReviewIndexEntry {
             key: change.key.clone(),
             occurrence: *occurrence,
             index: i as u32,
@@ -72,6 +74,7 @@ pub(super) fn build(
             next_cue: None,
             has_threads: !threads.is_empty(),
             open: threads.iter().any(|t| !discussion.threads[*t].resolved()),
+            band_change: band_change(change),
             block: block.map(|b| b.first),
             shift_ms: block.map(|b| b.delta_ms),
         });
@@ -81,4 +84,24 @@ pub(super) fn build(
         rows,
         overview: engine::overview(&c.changes),
     })
+}
+
+fn band_change(c: &engine::Change) -> Option<String> {
+    fn labels(side: &[engine::CueSnapshot]) -> Option<String> {
+        if side.is_empty() {
+            return None;
+        }
+        side.iter()
+            .map(|q| {
+                q.reading_speed.value()?;
+                vsf_application::quality::metrics::rates(q.characters, q.end_ms - q.start_ms, false)
+                    .2
+                    .map(|r| r.label())
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|labels| labels.join(" / "))
+    }
+    let a = labels(&c.original)?;
+    let b = labels(&c.revised)?;
+    (a != b).then(|| format!("{a} → {b}"))
 }

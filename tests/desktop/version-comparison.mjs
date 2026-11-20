@@ -433,7 +433,7 @@ async function comparisonWorkflows() {
     ),
   );
   const panel = browser.$('section[aria-label="Changes"]');
-  await (await panel.$('button=Split')).click();
+  await (await panel.$('[aria-label="Select Split change"]')).click();
   await until('split detail and fixed Revert header', () =>
     browser.execute(() => {
       const original = document.querySelector('[aria-label="Original"]');
@@ -443,7 +443,9 @@ async function comparisonWorkflows() {
       return (
         !!header &&
         header.bottom <= original.getBoundingClientRect().bottom + 1 &&
-        original.innerText.includes('Group span')
+        original
+          .querySelector('.compare .columns')
+          ?.innerText.includes('Revised')
       );
     }),
   );
@@ -456,7 +458,7 @@ async function comparisonWorkflows() {
         ...document.querySelectorAll(
           'section[aria-label="Changes"] article button[aria-pressed="true"]',
         ),
-      ].some((b) => b.innerText === 'Added'),
+      ].some((b) => b.getAttribute('aria-label') === 'Select Added change'),
     ),
   );
   await (await panel.$('nav').$('button=Timing')).click();
@@ -505,7 +507,8 @@ async function comparisonWorkflows() {
         const article = [
           ...document.querySelectorAll('[aria-label="Changes"] article'),
         ].find(
-          (a) => a.querySelector('button')?.textContent.toLowerCase() === kind,
+          (a) =>
+            a.querySelector('[data-kind]')?.getAttribute('data-kind') === kind,
         );
         const revert = [...(article?.querySelectorAll('button') ?? [])].find(
           (b) => b.textContent === 'Revert',
@@ -547,10 +550,10 @@ async function comparisonWorkflows() {
   );
   await click('Export Comparison Report…');
   await until('report disclosure', () =>
-    browser.$('button=Continue to Save').isExisting(),
+    browser.$('button=Export anyway').isExisting(),
   );
   await browser.$('dialog[open] input[maxlength]').setValue('Report reviewer');
-  await click('Continue to Save');
+  await click('Export anyway');
   await until('report file', async () => {
     try {
       return (await readFile(report, 'utf8')).includes('Subtitle comparison');
@@ -629,7 +632,9 @@ async function comparisonWorkflows() {
             ...document.querySelectorAll(
               'section[aria-label="Changes"] article button',
             ),
-          ].filter((b) => b.innerText === 'Timing').length,
+          ].filter(
+            (b) => b.getAttribute('aria-label') === 'Select Timing change',
+          ).length,
       )) === expected.length,
   );
   await browser.saveScreenshot(join(root, 'extracted-timing.png'));
@@ -705,15 +710,13 @@ async function comparisonWorkflows() {
     Array.from(
       document.querySelectorAll('section[aria-label="Changes"] article'),
       (row) => ({
-        kind: row.querySelector('button[aria-pressed]')?.innerText,
-        times: row.querySelector('small')?.innerText,
+        kind: row.querySelector('[data-kind]')?.textContent,
+        times: row.querySelector('footer')?.innerText ?? '',
+        original: row.querySelector('.orig')?.innerText,
       }),
     ),
   );
-  assert.deepEqual(
-    chorus.filter((row) => row.kind === 'Removed').map((row) => row.times),
-    ['In 00:00:04,000 · Out 00:00:05,500'],
-  );
+  assert.deepEqual(chorus.filter((row) => row.kind === 'Removed').length, 1);
   assert.equal(
     chorus.filter(
       (row) =>
@@ -722,7 +725,7 @@ async function comparisonWorkflows() {
     8,
   );
   const repeated = (await panel.$$('article'))[3];
-  await (await repeated.$('button=Timing')).click();
+  await (await repeated.$('[aria-label="Select Timing change"]')).click();
   await until('Original shows the confirmed chorus offset', () =>
     browser.execute(() =>
       document

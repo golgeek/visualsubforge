@@ -226,6 +226,14 @@
   });
 </script>
 
+{#snippet removalMarker(rows: import('../review/presentation').ReviewRow[])}
+  {#if rows.length}<b
+      class="removed-tag"
+      title={rows
+        .map((r) => 'Removed before this cue: #' + (r.sourceIndex + 1))
+        .join(' · ')}>−{rows.length}</b
+    >{/if}
+{/snippet}
 <div
   class="cue-table"
   style:--column-grid={`${doc.review?.path ? '22px ' : ''}${columnGrid(columns)}${review.attached ? ' 24px' : ''}`}
@@ -460,16 +468,7 @@
                       data-cell="original"
                       class:bracket={kind === 'split' || kind === 'merged'}
                     >
-                      {#if removed.length}<b
-                          class="removed-tag"
-                          title={removed
-                            .map(
-                              (r) =>
-                                'Removed before this cue: #' +
-                                (r.sourceIndex + 1),
-                            )
-                            .join(' · ')}>−{removed.length}</b
-                        >{/if}
+                      {@render removalMarker(removed)}
                       {#if kind === 'added'}<b class="added-chip">Added</b>
                       {:else if change && part > 0}<small
                           >↳ split from #{(change.original[0]?.source_index ??
@@ -523,7 +522,9 @@
                   {:else}<span
                       class:cue-text={column.id === 'text'}
                       data-cell={column.id}
-                      >{#if column.id === 'text' && change && review.attached}<DiffText
+                      >{#if column.id === 'text' && !columns.some((c) => c.id === 'original')}{@render removalMarker(
+                          removed,
+                        )}{/if}{#if column.id === 'text' && change && review.attached}<DiffText
                           words={cueWords(change, 'revised', part)}
                           side="revised"
                           singleLine
@@ -539,13 +540,17 @@
                     >{/if}
                 {/each}
               </button>
-              {#if summary && kind !== 'unchanged' && summary.revised[0] === item.id}
+              {#if summary && kind !== 'unchanged' && summary.revised[0] === item.id && (summary.block == null || summary.index === summary.block)}
                 <input
                   class="done"
                   type="checkbox"
                   aria-label={`Checked cue ${row.index + 1}`}
-                  checked={review.checked.has(checkKey(summary))}
-                  onchange={() => review.toggleCheck(summary)}
+                  checked={summary.block == null
+                    ? review.checked.has(checkKey(summary))
+                    : review.index.blocks
+                        .get(summary.block)
+                        ?.every((r) => review.checked.has(checkKey(r)))}
+                  onchange={() => review.toggleCheck(summary, true)}
                 />
               {/if}
             </div>

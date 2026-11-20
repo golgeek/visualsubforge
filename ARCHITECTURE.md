@@ -750,8 +750,12 @@ Project v4 captures the review struct and validates expected original identity
 before replacement, with explicit relocation/end handling. Publication captures
 both contexts under the existing document-to-project lock order; attachment checks
 both epochs. Project v5 and recovery v8 additionally retain discussion events, round and exported IDs. The project read/write limit rises from 8 MiB to 128 MiB to accommodate escaped discussion text and event metadata. The recovery envelope is 528 MiB for five independently bounded 16 MiB text budgets at worst-case JSON expansion plus metadata. Older contents retain their minimum save version. Context mutations do not enter subtitle Undo; Save As and conversion
-protect both reference slots. `ReviewSession` owns only paging, selection and
-request lifetime; mutations reconcile through DocumentSession's serialized path.
+protect both reference slots. `ReviewSession` owns paging, filters, selection,
+request lifetime and session-only checked marks. A mark identifies the content key
+and its occurrence in comparison order. A completed capture drops missing marks.
+Detaching or replacing the document clears the set. Both export paths read the
+same progress without writing marks into a package, project, or subtitle edit.
+The panel overview consumes the same Rust bucket DTO as the HTML renderer. Review mutations reconcile through DocumentSession's serialized path.
 
 
 Review projections and navigation reuse the worker's immutable result with the

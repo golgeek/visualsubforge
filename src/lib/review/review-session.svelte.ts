@@ -1,3 +1,4 @@
+/* eslint-disable svelte/prefer-svelte-reactivity -- Checked sets are replaced atomically. Navigation sets and the export timestamp are local snapshots. */
 import {
   reviewRows,
   checkKey,
@@ -20,10 +21,16 @@ import type { UnsavedChanges } from '../document/unsaved-changes';
 import type { Workspace } from '../workspace/workspace.svelte';
 import type { WorkspaceView } from '../workspace/workspace-view.svelte';
 export type ExchangePrompt =
-  | { kind: 'package' | 'report'; dirty: boolean; author: string }
+  | {
+      kind: 'package' | 'report';
+      dirty: boolean;
+      author: string;
+      progress: ReturnType<typeof exportProgress>;
+    }
   | { kind: 'different'; author: string; time: number };
 export type ExchangeAnswer =
   | 'theirs'
+  | 'review'
   | 'mine'
   | 'cancel'
   | { kind: 'export' | 'readable'; author: string };
@@ -43,10 +50,16 @@ export class ReviewSession {
   rowSummary(c: ReviewChange) {
     return this.index.bySource.get(this.rowId(c));
   }
-  toggleCheck(row: ReviewRow) {
-    const next = new Set(this.checked),
-      key = checkKey(row);
-    if (!next.delete(key)) next.add(key);
+  toggleCheck(row: ReviewRow, group = false) {
+    const members = (group && row.block != null
+      ? this.index.blocks.get(row.block)
+      : null) ?? [row];
+    const next = new Set(this.checked);
+    const checked = members.every((r) => next.has(checkKey(r)));
+    for (const r of members) {
+      if (checked) next.delete(checkKey(r));
+      else next.add(checkKey(r));
+    }
     this.checked = next;
   }
   get position() {
@@ -369,6 +382,7 @@ export class ReviewSession {
         this.alive &&
         sequence === this.moveSequence &&
         filter === this.filter &&
+        !this.threadFilter &&
         reply.rows[0] &&
         JSON.stringify(key) === JSON.stringify(this.key())
       ) {
@@ -435,16 +449,25 @@ export class ReviewSession {
     async () => 'cancel';
   async exportReport(kind: 'report' | 'package' = 'report') {
     if (!this.workspace.canAct || !this.page?.statistics) return;
+    const expected = this.subtitles.snapshot;
+    const before = this.progress;
+    let reviewFirst = false;
     await this.workspace.task(async () => {
       if (this.subtitles.dirty)
         throw new Error('Finish the current cue edit before exporting it.');
-      const expected = this.subtitles.snapshot;
+      if (
+        this.summaryCapture !==
+        `${expected.generation}/${expected.revision}/${expected.review?.epoch}`
+      )
+        throw new Error('Wait for the current comparison before exporting.');
       const key = this.key();
       const answer = await this.decideExchange({
         kind,
         dirty: expected.dirty,
+        progress: before,
         author: this.name(),
       });
+      reviewFirst = answer === 'review';
       if (
         !this.alive ||
         typeof answer === 'string' ||
@@ -477,6 +500,16 @@ export class ReviewSession {
             ? 'Comparison report exported'
             : 'Review package exported';
     });
+    if (
+      this.alive &&
+      reviewFirst &&
+      expected === this.subtitles.snapshot &&
+      before.unchecked[0]
+    ) {
+      this.setTableFilter('changed');
+      this.view.openReview('changes');
+      await this.goToRow(before.unchecked[0]);
+    }
   }
   async openPackage() {
     if (!this.workspace.canAct) return;

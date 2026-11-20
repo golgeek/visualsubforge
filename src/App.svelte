@@ -1301,7 +1301,6 @@
       <CueEditor
         {review}
         reviewChange={review.selectedChange}
-        onrevert={(key) => void review.revert(key)}
         shortcuts={preferences.preferences.shortcuts}
         editing={cueEditing}
         fixes={cueFixes}

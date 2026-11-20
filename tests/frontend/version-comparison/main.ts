@@ -638,18 +638,43 @@ async function run() {
         !button('Revert')?.disabled,
     );
     passed('Next Change navigates in a subtitles-only review');
+    const done = host.querySelector<HTMLInputElement>(
+      'input[aria-label="Checked change"]',
+    )!;
+    done.click();
+    await tick();
     await chooseCommand(host, 'exportComparisonReport');
-    await until(() => !!button('Continue to Save'));
+    await until(
+      () =>
+        host
+          .querySelector('dialog[open]')
+          ?.textContent?.includes(`You checked 1 of ${rows.length}`) ?? false,
+    );
+    button(`Review the ${rows.length - 1} unchecked`).click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        segment('Changed only').getAttribute('aria-pressed') === 'true',
+    );
+    await until(
+      () =>
+        host
+          .querySelector(`[data-cue-id="${rows[1]!.revised[0]!.cue_id}"]`)
+          ?.getAttribute('aria-pressed') === 'true',
+    );
+    passed('Export check returns to the first unchecked change without saving');
+    await chooseCommand(host, 'exportComparisonReport');
+    await until(() => !!button('Export anyway'));
     host
       .querySelector<HTMLInputElement>('dialog[open] input[type="checkbox"]')!
       .click();
     await tick();
     assert(
-      !button('Continue to Save').disabled &&
+      !button('Export anyway').disabled &&
         !host.querySelector('dialog[open] input[maxlength]'),
       'Readable only needs no exporter name',
     );
-    button('Continue to Save').click();
+    button('Export anyway').click();
     await until(() => exported);
     passed('Comparison report export works with no media');
     await chooseCommand(host, 'endReview');
@@ -824,7 +849,7 @@ async function run() {
       await until(
         () =>
           !!pane() &&
-          !!pane()!.querySelector('.original-diff') === changed &&
+          !!pane()!.querySelector('.compare') === changed &&
           !!host.querySelector(`[data-cue-id="${cueId}"][aria-pressed="true"]`),
       );
       const control = (name: string) =>
@@ -961,7 +986,7 @@ async function run() {
       await chooseCommand(host, id);
     };
     await exchangeCommand('exportReviewPackage');
-    await until(() => !!button('Continue to Save'));
+    await until(() => !!button('Export anyway'));
     assert(
       host
         .querySelector('dialog[open]')
