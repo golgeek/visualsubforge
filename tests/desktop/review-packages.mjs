@@ -32,6 +32,7 @@ export async function exchangeRoundTrip({
   record,
   invoke,
   ready,
+  keyboardUndo,
 }) {
   const panel = 'section[aria-label="Changes"]';
   async function press(label, scope = '') {
@@ -66,10 +67,25 @@ export async function exchangeRoundTrip({
       ),
     );
   }
-  await press('Comment', panel);
-  await fill(panel + ' form input', 'Ana');
-  await fill(panel + ' form textarea', '<script> Check this change');
-  await press('Post', panel);
+  const editor = '[aria-label="Original"]';
+  await press('Comment', editor);
+  await fill(editor + ' form input', 'Ana');
+  await fill(editor + ' form textarea', '<script> Check this change');
+  await until('cue editor Post hit target', () =>
+    browser.execute(() => {
+      const post = document.querySelector(
+        '[aria-label="Original"] button[type=submit]',
+      );
+      if (!post || post.disabled) return false;
+      const r = post.getBoundingClientRect();
+      return (
+        document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) ===
+        post
+      );
+    }),
+  );
+  await browser.saveScreenshot(join(root, 'editor-comment.png'));
+  await browser.$(editor + ' button[type=submit]').click();
   await until('posted', async () => (await compared()).discussion.open === 1);
   await until('posted comment visible', () =>
     browser.execute(
@@ -144,16 +160,6 @@ export async function exchangeRoundTrip({
     async () => (await invoke('preferences_get')).reviewName === 'Sam',
   );
   await press('Close', 'dialog[open]');
-  await press('Reply', panel);
-  await fill(panel + ' form textarea', 'Restoring this line');
-  await press('Post', panel);
-  await until('author reply', () =>
-    browser.execute(() =>
-      document
-        .querySelector('section[aria-label="Changes"]')
-        ?.innerText.includes('Restoring this line'),
-    ),
-  );
   await menu('openMedia');
   await until(
     'generated media loaded',
@@ -188,9 +194,18 @@ export async function exchangeRoundTrip({
     'thread detached',
     async () => (await compared()).discussion.detached.length === 1,
   );
+  await press('Reply', panel);
+  await fill(panel + ' form textarea', 'Restoring this line');
+  await press('Post', panel);
+  await until('author reply', () =>
+    browser.execute(() =>
+      document
+        .querySelector('section[aria-label="Changes"]')
+        ?.innerText.includes('Restoring this line'),
+    ),
+  );
   await press('Resolve', panel + ' [aria-label="Detached"]');
   await until('resolved', async () => (await compared()).discussion.open === 0);
-  await browser.saveScreenshot(join(root, 'author-detached.png'));
   await record(
     'Author opened an untitled review, saved separately, changed the name in Settings, replied and reverted during generated video playback',
   );
@@ -205,6 +220,12 @@ export async function exchangeRoundTrip({
           ?.innerText.includes('Resolved'),
     ),
   );
+  await browser.execute(() =>
+    document
+      .querySelector('[aria-label="Detached"]')
+      ?.scrollIntoView({ block: 'end' }),
+  );
+  await browser.saveScreenshot(join(root, 'author-detached.png'));
   await menu('exportComparisonReport');
   await press('Continue to Save', 'dialog[open]');
   await until('round two', async () => (await status()).review.round === 2);
@@ -239,12 +260,21 @@ export async function exchangeRoundTrip({
     document.querySelector('canvas[aria-label^="Audio waveform"]')?.focus(),
   );
   // Exercise the event delivered by the macOS Edit → Undo accelerator.
-  await menu('undo');
+  if (keyboardUndo) {
+    console.log(
+      'Waiting for Command-Z in the isolated reviewer window: ' + root,
+    );
+  } else await menu('undo');
   await until(
     'one undo restores reviewer',
     async () => (await status()).cues[0].text === 'one revised three',
+    keyboardUndo ? 15 * 60_000 : 30_000,
   );
   assert.equal((await compared()).discussion.open, 0);
+  if (keyboardUndo)
+    await record(
+      'External keyboard Undo restored the reviewer text and preserved the merged resolution',
+    );
   await record(
     'Round-2 HTML opened in Chromium and VSF. Use Their Version merged the resolved discussion and one Undo restored the reviewer cues',
   );

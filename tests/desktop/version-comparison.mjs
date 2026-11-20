@@ -16,6 +16,7 @@ const { values } = parseArgs({
   options: {
     binary: { type: 'string' },
     packages: { type: 'boolean', default: false },
+    'keyboard-undo': { type: 'boolean', default: false },
     root: { type: 'string' },
     hold: { type: 'boolean', default: false },
   },
@@ -171,8 +172,8 @@ const save = () =>
     JSON.stringify(receipt, null, 2) + '\n',
   );
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-async function until(name, fn) {
-  const end = Date.now() + 30000;
+async function until(name, fn, timeout = 30000) {
+  const end = Date.now() + timeout;
   while (Date.now() < end) {
     const result = await fn();
     if (result) return result;
@@ -316,6 +317,7 @@ try {
   );
   if (values.packages) {
     await exchangeRoundTrip({
+      keyboardUndo: values['keyboard-undo'],
       browser,
       root,
       project,
