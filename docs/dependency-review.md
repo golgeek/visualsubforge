@@ -99,6 +99,27 @@ The release collector splits oversized source archives into numbered parts.
 The macOS collector uses per-formula sources and the Linux collector uses Debian
 source packages and audited build inputs. Neither uses this MSYS2 toolchain graph.
 
+## Ubuntu media runtime compatibility
+
+The 24.04 FFmpeg libraries, libbluray and other private media libraries require
+the libxml2.so.2 ABI. Ubuntu 26.04 supplies libxml2.so.16 and ICU 78. The
+package therefore carries the existing 24.04 libxml2 and its two ICU 74
+libraries privately under the application's library directory. The package
+assembler captures their exact Ubuntu sources, copyright notices and hashes
+with the rest of the media runtime. GTK, WebKit and the drivers still come
+from the installed OS.
+
+| Build input reviewed | Package version in the compatibility check | License evidence |
+| --- | --- | --- |
+| libxml2 | 2.9.14+dfsg-1.3ubuntu3.10 | Ubuntu copyright file, including the upstream MIT terms and per-file notices |
+| ICU (libicuuc, libicudata) | 74.2-1ubuntu3.1 | Ubuntu libicu74 copyright file, including Unicode terms and Debian packaging notices |
+
+The first rehearsal installed on both systems. Its 26.04 GUI loader check
+found the missing XML ABI. In an isolated 26.04 container, the earlier package
+with these three private libraries resolved all four executables and decoded
+the synthetic VFR video offline. The release workflow repeats installation,
+offline functionality and desktop checks with the newly assembled package.
+
 ## Artifact evidence
 
 | Target | Candidate evidence | Independent verification | Remaining work |

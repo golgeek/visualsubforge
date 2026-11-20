@@ -10,4 +10,5 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends /tmp/preview.deb python3 \
     && rm /tmp/preview.deb \
     && ldd /usr/lib/visualsubforge/visualsubforge > /tmp/gui-libraries.txt \
+    && cat /tmp/gui-libraries.txt \
     && ! grep -q 'not found' /tmp/gui-libraries.txt

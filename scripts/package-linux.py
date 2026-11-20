@@ -26,6 +26,11 @@ PLATFORM_LIBRARIES = (
 )
 
 
+# Noble WebKit pulls these in transitively; Resolute WebKit uses different
+# SONAMEs. Private media binaries still need their original XML and ICU ABIs.
+PRIVATE_MEDIA_ABIS = {"libxml2.so.2", "libicuuc.so.74", "libicudata.so.74"}
+
+
 def capture(*command, env=None):
     return subprocess.check_output(list(map(str, command)), text=True, env=env).strip()
 
@@ -129,7 +134,7 @@ def assemble(args):
         resolved = dependencies(original, build_env)
         for name in capture("patchelf", "--print-needed", original).splitlines():
             dependency = resolved[name]
-            if dependency in platform:
+            if dependency in platform and name not in PRIVATE_MEDIA_ABIS:
                 continue
             relative = Path("lib") / name
             if dependency in destinations:
