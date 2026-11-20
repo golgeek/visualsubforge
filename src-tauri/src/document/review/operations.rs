@@ -183,6 +183,8 @@ impl Store {
             .ok_or("Open subtitles")?
             .review
             .discussion;
+        let mut changed = 0;
+        let mut unchanged = 0;
         let rows = job
             .result
             .as_ref()
@@ -197,7 +199,15 @@ impl Store {
                             .iter()
                             .any(|cue| cue.start_ms <= end && cue.end_ms >= start)
             })
-            .take(200)
+            .filter(|(_, c)| {
+                let count = if c.kind == engine::Kind::Unchanged {
+                    &mut unchanged
+                } else {
+                    &mut changed
+                };
+                *count += 1;
+                *count <= 200
+            })
             .map(|(i, c)| {
                 if let Some(page) = &mut reply.discussion {
                     index.project(i, c, d, page)

@@ -862,3 +862,40 @@ fn untouched_package_bytes_survive_untitled_import_with_bom_and_noncanonical_spa
         bytes
     );
 }
+
+#[test]
+fn unchanged_projection_does_not_crowd_out_later_removed_cues() {
+    let (_dir, d, original, working) = fixture();
+    let cue = |i: u32| {
+        format!(
+            "{}\n00:{:02}:{:02},000 --> 00:{:02}:{:02},500\nLine {i}\n\n",
+            i + 1,
+            i / 60,
+            i % 60,
+            i / 60,
+            i % 60
+        )
+    };
+    let identical: String = (0..200).map(cue).collect();
+    fs::write(&working, &identical).unwrap();
+    fs::write(&original, identical + &cue(200)).unwrap();
+    let doc = action(
+        &d,
+        super::super::Action::Open {
+            path: working.to_string_lossy().into(),
+            discard: true,
+        },
+    );
+    attach(&d, &original);
+    ready(&d);
+    let page = d
+        .review_action(ReviewAction::Projection {
+            key: key(&d),
+            ids: doc.cues.iter().map(|c| c.id.try_into().unwrap()).collect(),
+            start_ms: 0u64.try_into().unwrap(),
+            end_ms: 201000u64.try_into().unwrap(),
+        })
+        .unwrap();
+    assert_eq!(page.rows.len(), 201);
+    assert_eq!(page.rows.last().unwrap().kind, engine::Kind::Removed);
+}

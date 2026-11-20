@@ -103,7 +103,7 @@ The immutable original is separate from the translation reference; both may be
 attached at once. Attach, options and End Review change context rather than
 subtitle history. Original and copied-source paths are protected from Save As and
 conversion output, including deleted paths. No Mark Reviewed state is stored.
-The Changes tab pages at most 200 groups (100 by default).
+The Changes tab pages at most 200 groups (100 by default). The cue/timeline projection has separate allowances of 200 changed and 200 unchanged groups so a removed cue can still draw its ghost in a wide view.
 
 Comparison captures run on one worker with no queue, a cooperative ten-second
 deadline and generation/revision/review-epoch checks. The frontend debounces
