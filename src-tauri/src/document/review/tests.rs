@@ -286,7 +286,7 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
     d.review_action(ReviewAction::Export {
         author: String::new(),
         output: None,
-        date: "fixture".into(),
+        utc_offset_minutes: 0,
         key: key(&d),
         path: output.to_string_lossy().into(),
         include_unchanged: true,
@@ -303,7 +303,7 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
         d.review_action(ReviewAction::Export {
             author: String::new(),
             output: None,
-            date: "fixture".into(),
+            utc_offset_minutes: 0,
             key: old,
             path: dir.path().join("stale.html").to_string_lossy().into(),
             include_unchanged: false
@@ -698,7 +698,7 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
         .unwrap();
     let path = dir.path().join("round1.vsfreview");
     let publish = |d: &Documents, path: &Path, kind, author| {
-        d.publish_review(key(d), path, kind, author, "today", false)
+        d.publish_review(key(d), path, kind, author, 0, false)
             .unwrap()
     };
     ready(&reviewer);
@@ -862,7 +862,7 @@ fn untouched_package_bytes_survive_untitled_import_with_bom_and_noncanonical_spa
         &copy,
         exchange::OutputKind::Package,
         "Sam",
-        "today",
+        0,
         false,
     )
     .unwrap();

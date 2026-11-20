@@ -1,6 +1,9 @@
 //! Deterministic, bounded subtitle comparison. Immutable captures only; no IO.
 mod alignment;
+mod overview;
+pub use overview::{Overview, kind_index, overview};
 mod report;
+pub(crate) use report::change_ids;
 mod words;
 use crate::{Result, quality::metrics, subtitle_markup::Projection};
 pub use report::{ExtraSections, ReportOptions, escape_html, html};

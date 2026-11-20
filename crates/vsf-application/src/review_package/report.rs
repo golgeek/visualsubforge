@@ -1,6 +1,6 @@
 use super::*;
 use crate::comparison::{Comparison, ExtraSections, escape_html};
-use std::{collections::BTreeMap, fmt::Write};
+use std::{collections::BTreeSet, fmt::Write};
 pub const OPEN_TAG: &str =
     r#"<script type="application/vnd.visualsubforge.review+json" id="vsf-review-package">"#;
 pub(super) fn extract(page: &str) -> Result<&str> {
@@ -18,7 +18,12 @@ pub(super) fn extract(page: &str) -> Result<&str> {
     }
     Ok(data)
 }
-pub fn sections(package: &Package, comparison: &Comparison, embed: bool) -> Result<ExtraSections> {
+pub fn sections(
+    package: &Package,
+    comparison: &Comparison,
+    embed: bool,
+    offset_minutes: i16,
+) -> Result<ExtraSections> {
     let mut extra = ExtraSections::default();
     if embed {
         let data = String::from_utf8(package.write_bounded(check_report_size)?)
@@ -39,78 +44,123 @@ pub fn sections(package: &Package, comparison: &Comparison, embed: bool) -> Resu
         format(&package.revised)?,
         || Ok(()),
     )?;
-    let mut occurrences = BTreeMap::new();
-    let ids: Vec<_> = comparison
-        .changes
-        .iter()
-        .map(|c| {
-            let n = occurrences.entry(&c.key).or_insert(0);
-            let id = if *n == 0 {
-                format!("change-{}", c.key)
-            } else {
-                format!("change-{}-{n}", c.key)
-            };
-            *n += 1;
-            id
-        })
-        .collect();
-    let open = package.threads.iter().filter(|t| !t.resolved()).count();
-    let total = package.threads.len();
-    extra.end_html = format!(
-        "<section><h2>Discussion</h2><p>{open} open thread{} · {total} thread{} in total</p></section>",
-        if open == 1 { "" } else { "s" },
-        if total == 1 { "" } else { "s" },
-    );
+    let ids = crate::comparison::change_ids(&comparison.changes);
+    extra.open = package.threads.iter().filter(|t| !t.resolved()).count();
+    extra.total = package.threads.len();
+    extra.author = package.exported_by.clone();
+    extra.round = Some(package.round);
     let mut detached = String::new();
-    for (t, pos) in package.threads.iter().zip(positions) {
-        let out = match pos {
-            Some(i) => extra.change_html.entry(ids[i].clone()).or_default(),
-            None => &mut detached,
-        };
-        let _ = write!(
-            out,
-            "<section><h3>{} thread</h3>",
-            if t.resolved() { "Resolved" } else { "Open" }
-        );
-        if pos.is_none() {
-            let (a, b) = t.anchor.sides();
-            for (label, side) in [("Original", a), ("Revised", b)] {
-                for c in side {
+    for (n, (thread, pos)) in package.threads.iter().zip(positions).enumerate() {
+        let out = if let Some(i) = pos {
+            if !thread.resolved() {
+                *extra.open_rows.entry(ids[i].clone()).or_default() += 1;
+            }
+            extra.change_html.entry(ids[i].clone()).or_default()
+        } else {
+            detached.push_str("<article class=\"detached-card\"><div class=\"pair\">");
+            let (a, b) = thread.anchor.sides();
+            for (label, cues) in [("Original", a), ("Revised", b)] {
+                let _ = write!(detached, "<div><span class=\"label\">{label}</span>");
+                for q in cues {
                     let _ = write!(
-                        out,
-                        "<pre>{label} ({}–{} ms): {}</pre>",
-                        c.start_ms,
-                        c.end_ms,
-                        escape_html(&c.text)
+                        detached,
+                        "<p>{}–{} ms · {}</p>",
+                        q.start_ms,
+                        q.end_ms,
+                        escape_html(&q.text)
                     );
                 }
+                detached.push_str("</div>");
             }
-        }
-        for m in &t.messages {
-            let timestamp =
-                time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(m.at_ms) * 1_000_000)
-                    .ok()
-                    .and_then(|t| {
-                        t.format(&time::format_description::well_known::Rfc3339)
-                            .ok()
-                    })
-                    .unwrap_or_else(|| format!("{} ms since the Unix epoch", m.at_ms));
+            detached.push_str("</div>");
+            &mut detached
+        };
+        let status = if thread.resolved() {
+            "Resolved"
+        } else {
+            "Open"
+        };
+        let count = thread
+            .messages
+            .iter()
+            .filter(|m| m.event == Event::Comment)
+            .count();
+        let people = thread
+            .messages
+            .iter()
+            .map(|m| m.author.as_str())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(escape_html)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let id = n + 1;
+        let _ = write!(
+            out,
+            "<div class=\"thread {}\"><input type=\"checkbox\" class=\"vh tt\" id=\"t-{id}\"><label class=\"disc\" for=\"t-{id}\"><svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M2 3h12v8H7l-3 3v-3H2z\"/></svg><span>{count} comment{}</span><span class=\"status\">{status}</span><span class=\"people\">{people}</span><span class=\"chev\"></span></label><ol class=\"thread-body\">",
+            status.to_lowercase(),
+            if count == 1 { "" } else { "s" }
+        );
+        for m in &thread.messages {
+            let at = report_date(m.at_ms, offset_minutes)?;
             let _ = write!(
                 out,
-                "<p>{} · {timestamp}</p><pre>{}</pre>",
-                escape_html(&m.author),
-                escape_html(m.text.as_deref().unwrap_or(if m.event == Event::Resolve {
-                    "Resolved"
-                } else {
-                    "Reopened"
-                }))
+                "<li><span class=\"who a{}\">{}</span> ",
+                author_colour(&m.author),
+                escape_html(&m.author)
             );
+            out.push_str(match m.event {
+                Event::Resolve => "resolved this thread ",
+                Event::Reopen => "reopened this thread ",
+                Event::Comment => "",
+            });
+            let _ = write!(out, "<time>{at}</time>");
+            if let Some(text) = &m.text {
+                let _ = write!(out, "<p>{}</p>", escape_html(text));
+            }
+            out.push_str("</li>");
         }
-        out.push_str("</section>");
+        out.push_str("</ol></div>");
+        if pos.is_none() {
+            out.push_str("</article>");
+        }
     }
     if !detached.is_empty() {
-        extra.end_html.push_str("<h2>Detached</h2>");
-        extra.end_html.push_str(&detached)
+        extra.end_html =
+            format!("<section class=\"detached\"><h2>Detached</h2>{detached}</section>");
     }
     Ok(extra)
+}
+fn author_colour(name: &str) -> u32 {
+    name.bytes().map(u32::from).sum::<u32>() % 6
+}
+pub fn report_date(ms: u64, offset_minutes: i16) -> Result<String> {
+    let offset = time::UtcOffset::from_whole_seconds(i32::from(offset_minutes) * 60)
+        .map_err(|e| e.to_string())?;
+    let Some(t) = time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms) * 1_000_000)
+        .ok()
+        .and_then(|t| t.checked_to_offset(offset))
+    else {
+        return Ok(format!("{ms} ms since the Unix epoch"));
+    };
+    Ok(format!(
+        "{} {} {} at {:02}:{:02} UTC{}{:02}:{:02}",
+        t.day(),
+        &t.month().to_string()[..3],
+        t.year(),
+        t.hour(),
+        t.minute(),
+        if offset_minutes < 0 { '−' } else { '+' },
+        offset_minutes.unsigned_abs() / 60,
+        offset_minutes.unsigned_abs() % 60
+    ))
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn author_colours_use_utf8_bytes() {
+        assert_eq!(author_colour("Ana"), 2);
+        assert_eq!(author_colour("é"), 4);
+    }
 }

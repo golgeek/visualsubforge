@@ -203,12 +203,15 @@ pub struct Extract {
 
 #[derive(Args)]
 pub struct Compare {
+    /// UTC offset in minutes for report dates (default UTC).
+    #[arg(long,default_value_t=0,allow_hyphen_values=true,value_parser=clap::value_parser!(i16).range(-1439..=1439))]
+    pub utc_offset: i16,
     /// Write a self-contained review package to a new file.
     #[arg(long)]
     pub package: Option<PathBuf>,
     pub original: PathBuf,
     pub revised: PathBuf,
-    #[arg(long)]
+    #[arg(long, visible_alias = "report")]
     pub html: Option<PathBuf>,
     /// Include both complete subtitle files so the HTML can be reopened in VSF.
     #[arg(long, requires = "html")]

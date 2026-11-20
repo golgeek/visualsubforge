@@ -5,7 +5,7 @@ mod threads;
 use crate::{Result, comparison::Options, srt_limits, subtitle_file};
 pub use anchors::reanchor;
 use base64::{Engine, engine::general_purpose::STANDARD};
-pub use report::{OPEN_TAG, sections};
+pub use report::{OPEN_TAG, report_date, sections};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use subtitle_formats::{Format, Parsed};

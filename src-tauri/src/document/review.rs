@@ -148,7 +148,8 @@ pub enum ReviewAction {
         key: ReviewKey,
         path: String,
         include_unchanged: bool,
-        date: String,
+        #[serde(default)]
+        utc_offset_minutes: i16,
     },
     Projection {
         key: ReviewKey,
@@ -486,7 +487,7 @@ impl Documents {
             key,
             path,
             include_unchanged,
-            date,
+            utc_offset_minutes,
         } = &action
         {
             return self.publish_review(
@@ -494,7 +495,7 @@ impl Documents {
                 Path::new(path),
                 output.unwrap_or(OutputKind::Readable),
                 author,
-                date,
+                *utc_offset_minutes,
                 *include_unchanged,
             );
         }

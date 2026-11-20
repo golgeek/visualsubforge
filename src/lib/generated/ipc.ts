@@ -2668,7 +2668,7 @@ export type visualsubforge_document_review_ReviewAction =
       key: visualsubforge_document_review_ReviewKey;
       path: string;
       includeUnchanged: boolean;
-      date: string;
+      utcOffsetMinutes?: number;
     }
   | {
       kind: 'projection';

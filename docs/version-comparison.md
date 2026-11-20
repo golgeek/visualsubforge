@@ -80,7 +80,7 @@ can remain visible in an included unchanged row. Source text is never interprete
 ## Reports and discussion
 
 HTML has inline CSS, no required script or external requests, escaped names/text,
-visible line breaks, metrics and both timings. Change element IDs derive from
+a linked timeline overview, two-column word differences and numeric reading speeds. Timing changes show the affected endpoints and nonzero deltas. Checkboxes control kinds, unchanged rows, open threads and discussion expansion. Print expands discussions and shift blocks. CLI dates use UTC unless you pass an offset in minutes with `--utc-offset`. Change element IDs derive from
 keys. The writer accepts explicit trusted extension sections for the head, each
 change element ID (including the occurrence suffix for duplicates) and the end, which carry escaped discussions and optional inert review data. See [review packages](review-packages.md).
 

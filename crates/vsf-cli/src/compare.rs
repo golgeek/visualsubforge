@@ -69,17 +69,21 @@ pub fn run(args: Compare, cancel: &Cancellation) -> Result<u8, (u8, String)> {
     }
     if let Some(path) = args.html {
         let output = vsf_application::new_output::resolve(&path).map_err(|e| (5, e.to_string()))?;
-        let date = time::OffsetDateTime::now_utc()
-            .format(&time::format_description::well_known::Rfc3339)
-            .map_err(|e| (2, e.to_string()))?;
+        let date = vsf_application::review_package::report_date(
+            (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64,
+            args.utc_offset,
+        )
+        .map_err(|e| (2, e))?;
         let extra = if let Some(p) = package.as_ref().filter(|_| args.embed_package) {
-            sections(p, &result, true).map_err(|e| (2, e))?
+            sections(p, &result, true, args.utc_offset).map_err(|e| (2, e))?
         } else {
             Default::default()
         };
         let html = comparison::html(
             &result,
             &ReportOptions {
+                original_format: a.source.format(),
+                revised_format: b.source.format(),
                 original_name: &args
                     .original
                     .file_name()

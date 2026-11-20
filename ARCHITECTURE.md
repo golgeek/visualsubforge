@@ -730,7 +730,12 @@ an intermediate temporary file and its cleanup/filename ownership concerns.
 cooperative checkpoints. It owns no filesystem, media, UI or accepted editor.
 The CLI reads through the bounded subtitle reader and atomically publishes new
 HTML reports. Content snapshots, a callable group scorer and content-derived keys
-support future review anchors; report extensions accept trusted encoded sections.
+identify review anchors. The pure Rust overview buckets revised starts (original starts
+for removals) and assigns each cue one category. The HTML writer escapes subtitle,
+author and comment text. Local checkboxes and CSS control filters, threads and shift
+blocks without executable script. The optional inert JSON block still permits import.
+Callers supply their UTC offset. The comparison capture carries numeric reading
+rates but no quality profile.
 See [comparison policy and limits](docs/version-comparison.md).
 
 The loaded document now has a separate `review` context alongside translation.

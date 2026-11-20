@@ -176,6 +176,8 @@ fn report_escapes_text_names_and_extensions_are_explicit() {
     let report = html(
         &c,
         &ReportOptions {
+            original_format: subtitle_formats::Format::Srt,
+            revised_format: subtitle_formats::Format::Srt,
             original_name: "<original>",
             revised_name: "&revised",
             date: "today",
@@ -192,6 +194,8 @@ fn report_escapes_text_names_and_extensions_are_explicit() {
         html(
             &c,
             &ReportOptions {
+                original_format: subtitle_formats::Format::Srt,
+                revised_format: subtitle_formats::Format::Srt,
                 original_name: "<original>",
                 revised_name: "&revised",
                 date: "today",
@@ -577,4 +581,42 @@ fn ten_thousand_cues_with_mid_file_ad_break() {
         assert!(c.changes[..5000].iter().all(|c| c.kind == Kind::Unchanged));
         assert!(c.changes[5000..].iter().all(|c| c.kind == Kind::Timing));
     }
+}
+#[test]
+fn overview_counts_once_per_cue_at_the_displayed_start() {
+    let a = [cue(1, 500, 2500, "One"), cue(2, 40_000, 41_000, "Gone")];
+    let b = [cue(1, 10_500, 12_500, "One more")];
+    let mut c = run(&a, &b, Options::default());
+    assert_eq!(c.changes[0].kind, Kind::TextAndTiming);
+    c.changes[0].style_changed = true;
+    let graph = overview(&c.changes);
+    assert_eq!(graph.buckets[1].kinds, [0, 0, 0, 1, 0, 0]);
+    assert_eq!(graph.buckets[4].kinds, [0, 1, 0, 0, 0, 0]);
+}
+#[test]
+fn report_omits_unavailable_bands_zero_deltas_and_empty_controls() {
+    let opts = ReportOptions {
+        original_name: "A",
+        revised_name: "B",
+        original_format: Format::Srt,
+        revised_format: Format::Srt,
+        date: "fixture",
+        include_unchanged: false,
+    };
+    let draw = |a: &[Cue], b: &[Cue]| {
+        html(
+            &run(a, b, Options::default()),
+            &opts,
+            &ExtraSections::default(),
+        )
+    };
+    let empty = draw(&[], &[]);
+    assert!(empty.contains("No differences"));
+    assert!(!empty.contains("<svg") && !empty.contains("<nav"));
+    let page = draw(
+        &[cue(1, 0, 1000, "one")],
+        &[cue(1, 0, 1000, "one <script>")],
+    );
+    assert!(!page.contains("Reading-speed distribution") && !page.contains("class=\"delta\""));
+    assert!(page.contains("one &lt;script&gt;</title>"));
 }

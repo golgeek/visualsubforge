@@ -349,10 +349,7 @@ export class ReviewSession {
           path,
           output: answer.kind === 'readable' ? 'readable' : kind,
           author: answer.author,
-          date: new Intl.DateTimeFormat(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          }).format(),
+          utcOffsetMinutes: -new Date().getTimezoneOffset(),
           includeUnchanged: this.includeUnchanged,
         },
         expected,

@@ -2,6 +2,7 @@
 //! identities and the inspected file digest before publishing one transaction.
 use super::discussion::Discussion;
 use super::*;
+use subtitle_formats::Format;
 use translation::context::Origin;
 use vsf_application::review_package::{Package, Subtitle};
 
@@ -336,7 +337,7 @@ impl Documents {
         path: &Path,
         kind: OutputKind,
         author: &str,
-        date: &str,
+        offset_minutes: i16,
         include_unchanged: bool,
     ) -> Result<ReviewReply> {
         let importable = !matches!(kind, OutputKind::Readable);
@@ -390,13 +391,22 @@ impl Documents {
             (store.checkpoint_key(), c, p)
         };
         let data = if let Some(c) = comparison {
-            let sections = review_package::sections(&p, &c, matches!(kind, OutputKind::Report))?;
+            let sections = review_package::sections(
+                &p,
+                &c,
+                matches!(kind, OutputKind::Report),
+                offset_minutes,
+            )?;
             engine::html(
                 &c,
                 &engine::ReportOptions {
                     original_name: &p.original.name,
                     revised_name: &p.revised.name,
-                    date,
+                    original_format: Format::from_extension(&p.original.format)
+                        .ok_or("Unknown original format")?,
+                    revised_format: Format::from_extension(&p.revised.format)
+                        .ok_or("Unknown revised format")?,
+                    date: &review_package::report_date(p.exported_at_ms, offset_minutes)?,
                     include_unchanged,
                 },
                 &sections,

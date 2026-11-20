@@ -51,6 +51,8 @@ fn synthetic_fixture_classifications_word_diffs_metrics_and_json_contract() {
                 comparison::html(
                     &result,
                     &ReportOptions {
+                        original_format: subtitle_formats::Format::Srt,
+                        revised_format: subtitle_formats::Format::Srt,
                         original_name: "original.srt",
                         revised_name: "revised.srt",
                         date: "fixture",
