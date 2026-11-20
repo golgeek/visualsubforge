@@ -365,10 +365,6 @@ impl Documents {
                 .and_then(|p| p.file_name()?.to_str())
                 .or_else(|| r.package.as_ref().map(|p| p.revised_name.as_str()))
                 .unwrap_or("Untitled");
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_err(|e| e.to_string())?
-                .as_millis() as u64;
             let p = Package {
                 format: "visualsubforge-review".into(),
                 version: 1,
@@ -381,7 +377,7 @@ impl Documents {
                     r.discussion.round
                 },
                 exported_by: author.into(),
-                exported_at_ms: now,
+                exported_at_ms: now_ms()?,
                 original: Subtitle::capture(
                     original_name,
                     orig.reference.format(),

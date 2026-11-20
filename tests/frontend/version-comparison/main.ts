@@ -36,7 +36,7 @@ function discussionPage() {
         : {},
     detached: !c && discussion ? [discussion] : [],
     exported: [],
-    blockCounts: {},
+    blockCounts: blockMode ? { 0: 1 } : {},
     open:
       discussion &&
       ![...discussion.messages]
@@ -313,7 +313,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                   {
                     id: 'first',
                     author: a.author,
-                    at_ms: a.atMs,
+                    at_ms: Date.now(),
                     type: 'comment',
                     text: edit.text,
                   },
@@ -323,7 +323,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               discussion.messages.push({
                 id: 'm' + discussion.messages.length,
                 author: a.author,
-                at_ms: a.atMs,
+                at_ms: Date.now(),
                 type: edit.event,
                 ...(edit.text ? { text: edit.text } : {}),
               });
@@ -698,6 +698,12 @@ async function run() {
     for (const c of rows.slice(0, 3)) c.kind = 'timing';
     button('Timing').click();
     await until(() => !!button('Expand'));
+    assert(
+      host
+        .querySelector('section[aria-label="Changes"] article span')
+        ?.textContent?.trim() === '1 thread',
+      'Singular block badge',
+    );
     assert(
       host.querySelectorAll('[aria-label="Changes"] article').length === 1,
       'Collapsed block occupies one stop',

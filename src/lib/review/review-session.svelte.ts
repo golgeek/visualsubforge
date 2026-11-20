@@ -59,7 +59,7 @@ export class ReviewSession {
       if (!this.alive || JSON.stringify(key) !== JSON.stringify(this.key()))
         return;
       posted = await this.subtitles.changeReview(
-        { kind: 'comment', key, author: this.name(), atMs: Date.now(), edit },
+        { kind: 'comment', key, author: this.name(), edit },
         this.subtitles.snapshot,
       );
     });

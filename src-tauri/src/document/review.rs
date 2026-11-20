@@ -106,7 +106,6 @@ pub enum ReviewAction {
     Comment {
         key: ReviewKey,
         author: String,
-        at_ms: SafeU64,
         edit: CommentEdit,
     },
     Threads {
@@ -458,6 +457,14 @@ impl Store {
         Ok(reply)
     }
 }
+fn now_ms() -> Result<u64> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis()
+        .try_into()
+        .map_err(|_| "Review timestamp out of range".into())
+}
 impl Documents {
     pub(crate) fn review_action(&self, action: ReviewAction) -> Result<ReviewReply> {
         if let ReviewAction::InspectPackage { key, path } = &action {
@@ -609,13 +616,8 @@ impl Documents {
         match action {
             ReviewAction::Attach { .. } | ReviewAction::Inspect { .. } => unreachable!(),
             ReviewAction::Status => {}
-            ReviewAction::Comment {
-                key,
-                author,
-                at_ms,
-                edit,
-            } => {
-                store.comment(key, author, at_ms.get(), edit)?;
+            ReviewAction::Comment { key, author, edit } => {
+                store.comment(key, author, now_ms()?, edit)?;
             }
             ReviewAction::Threads {
                 key,

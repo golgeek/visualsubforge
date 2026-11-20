@@ -32,7 +32,10 @@
       ).toFixed(1)} % · timing {(s.timing_percent ?? 0).toFixed(1)} % · total {(
         s.total_percent ?? 0
       ).toFixed(1)} % · {s.added_cues}
-      added · {review.page.discussion?.open ?? 0} open threads
+      added · {review.page.discussion?.open ?? 0} open {review.page.discussion
+        ?.open === 1
+        ? 'thread'
+        : 'threads'}
     </p>
     {#if review.page.total}
       {@const index = review.page.rows.findIndex(
@@ -130,7 +133,10 @@
     <article>
       {#if block}
         {#if review.page?.discussion?.blockCounts[block.block.first]}<span
-            >{review.page.discussion.blockCounts[block.block.first]} threads</span
+            >{review.page.discussion.blockCounts[block.block.first]}
+            {review.page.discussion.blockCounts[block.block.first] === 1
+              ? 'thread'
+              : 'threads'}</span
           >{/if}
         <button onclick={() => void review.select(change, block)}
           >Shifted {block.block.end - block.block.first} cues by {block.block

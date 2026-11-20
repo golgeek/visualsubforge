@@ -15,7 +15,7 @@ CLI HTML is readable only by default. `--embed-package` opts into including both
 
 ## Version 1 wire format
 
-The media type is `application/vnd.visualsubforge.review+json`. The UTF-8 JSON uses snake_case keys at every level. The [exact fixture](../crates/vsf-application/tests/fixtures/review-v1.vsfreview) includes a cue thread. Message text is omitted on status events, and the first occurrence of a change omits its occurrence field. Unknown fields or versions are rejected.
+The media type is `application/vnd.visualsubforge.review+json`. Readers accept a leading UTF-8 BOM in JSON and HTML. Rust timestamps locally accepted discussion events. The UTF-8 JSON uses snake_case keys at every level. The [exact fixture](../crates/vsf-application/tests/fixtures/review-v1.vsfreview) includes a cue thread. Message text is omitted on status events, and the first occurrence of a change omits its occurrence field. Unknown fields or versions are rejected.
 
 | Object | Fields |
 | --- | --- |

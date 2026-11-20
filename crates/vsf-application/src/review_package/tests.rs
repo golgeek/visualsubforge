@@ -222,6 +222,9 @@ fn report_block_is_inert_unique_and_optional() {
     let render = |embed| comparison::html(&c, &opts, &sections(&p, &c, embed).unwrap());
     let html = render(true);
     assert_eq!(read(html.as_bytes()).unwrap(), p);
+    for input in [html.as_bytes(), &p.write().unwrap()] {
+        assert_eq!(read(&[b"\xef\xbb\xbf", input].concat()).unwrap(), p);
+    }
     assert!(html.contains("&lt;img&gt;") && !html.contains("<img>"));
     for page in [
         html.replace(

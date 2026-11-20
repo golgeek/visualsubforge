@@ -569,12 +569,12 @@ fn discussion_is_independent_of_editor_and_survives_project_and_recovery() {
             .as_ptr() as usize
     };
     let initial_comparison = allocation();
+    let started = now_ms().unwrap();
     let before = snapshot(&d);
     let post = |edit| {
         d.review_action(ReviewAction::Comment {
             key: key(&d),
             author: "Ana".into(),
-            at_ms: 12u64.try_into().unwrap(),
             edit,
         })
     };
@@ -599,6 +599,7 @@ fn discussion_is_independent_of_editor_and_survives_project_and_recovery() {
         .next()
         .unwrap()
         .remove(0);
+    assert!((started..=now_ms().unwrap()).contains(&t.messages[0].at_ms));
     assert_eq!(allocation(), initial_comparison);
     post(CommentEdit::Reply {
         thread_id: t.id.clone(),
@@ -659,7 +660,6 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
         .review_action(ReviewAction::Comment {
             key: key(&reviewer),
             author: "Ana".into(),
-            at_ms: 10u64.try_into().unwrap(),
             edit: CommentEdit::Post {
                 change_key: row.key,
                 source_index: 0,
@@ -714,7 +714,6 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
             .review_action(ReviewAction::Comment {
                 key: key(&author),
                 author: "Ana".into(),
-                at_ms: 20u64.try_into().unwrap(),
                 edit: CommentEdit::Delete {
                     thread_id: t.id.clone(),
                     message_id: t.first_message_id.clone()
@@ -726,7 +725,6 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
         .review_action(ReviewAction::Comment {
             key: key(&author),
             author: "Sam".into(),
-            at_ms: 20u64.try_into().unwrap(),
             edit: CommentEdit::Reply {
                 thread_id: t.id,
                 event: review_package::Event::Resolve,

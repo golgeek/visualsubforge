@@ -995,17 +995,46 @@ export type vsf_application_quality_statistics_Aggregate = {
 };
 
 export type vsf_application_review_package_threads_Anchor =
+  | vsf_application_review_package_threads_Anchor_Serialize
+  | vsf_application_review_package_threads_Anchor_Deserialize;
+
+export type vsf_application_review_package_threads_Anchor_Deserialize =
   | {
       kind: 'change';
       change_kind: vsf_application_comparison_Kind;
       change_key: string;
+      occurrence?: number | null;
       original: vsf_application_review_package_threads_SnapshotCue[];
       revised: vsf_application_review_package_threads_SnapshotCue[];
     }
-  | {
+  | ({
       kind: 'cue';
       revised: [vsf_application_review_package_threads_SnapshotCue];
-    };
+    } & {
+      change_key?: never;
+      change_kind?: never;
+      occurrence?: never;
+      original?: never;
+    });
+
+export type vsf_application_review_package_threads_Anchor_Serialize =
+  | {
+      kind: 'change';
+      change_kind: vsf_application_comparison_Kind;
+      change_key: string;
+      occurrence?: number | null;
+      original: vsf_application_review_package_threads_SnapshotCue[];
+      revised: vsf_application_review_package_threads_SnapshotCue[];
+    }
+  | ({
+      kind: 'cue';
+      revised: [vsf_application_review_package_threads_SnapshotCue];
+    } & {
+      change_key?: never;
+      change_kind?: never;
+      occurrence?: never;
+      original?: never;
+    });
 
 export type visualsubforge_preferences_appearance_Appearance = {
   theme: visualsubforge_preferences_appearance_Theme;
@@ -2592,7 +2621,6 @@ export type visualsubforge_document_review_ReviewAction =
       kind: 'comment';
       key: visualsubforge_document_review_ReviewKey;
       author: string;
-      atMs: number;
       edit: visualsubforge_document_review_discussion_CommentEdit;
     }
   | {
@@ -3472,14 +3500,14 @@ export type vsf_application_review_package_threads_Thread =
 
 export type vsf_application_review_package_threads_Thread_Deserialize = {
   id: string;
-  anchor: vsf_application_review_package_threads_Anchor;
+  anchor: vsf_application_review_package_threads_Anchor_Deserialize;
   first_message_id: string;
   messages: vsf_application_review_package_threads_Message_Deserialize[];
 };
 
 export type vsf_application_review_package_threads_Thread_Serialize = {
   id: string;
-  anchor: vsf_application_review_package_threads_Anchor;
+  anchor: vsf_application_review_package_threads_Anchor_Serialize;
   first_message_id: string;
   messages: vsf_application_review_package_threads_Message_Serialize[];
 };

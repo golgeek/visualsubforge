@@ -185,7 +185,7 @@ impl Package {
 }
 pub fn read(bytes: &[u8]) -> Result<Package> {
     check_size(bytes.len())?;
-    let input = std::str::from_utf8(bytes)
+    let input = std::str::from_utf8(bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes))
         .map_err(|_| "Review package must be UTF-8")?
         .trim_start();
     let json = if input.starts_with('<') {
