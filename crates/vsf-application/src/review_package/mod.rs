@@ -13,6 +13,10 @@ pub use threads::*;
 
 // Two 16 MiB files take about 43 MiB in base64. Leave room for comments and HTML.
 pub const MAX_BYTES: usize = 4 * srt_limits::MAX_BYTES;
+pub fn check_report_size(n: usize) -> Result<()> {
+    check_size(n)
+        .map_err(|err| format!("{err}. Try Readable only or reduce the displayed content."))
+}
 pub fn check_size(n: usize) -> Result<()> {
     if n > MAX_BYTES {
         Err("Review exceeds the 64 MiB limit".into())
@@ -170,9 +174,12 @@ impl Package {
         Ok(())
     }
     pub fn write(&self) -> Result<Vec<u8>> {
+        self.write_bounded(check_size)
+    }
+    fn write_bounded(&self, check: fn(usize) -> Result<()>) -> Result<Vec<u8>> {
         self.validate()?;
         let bytes = serde_json::to_vec(self).map_err(|e| e.to_string())?;
-        check_size(bytes.len())?;
+        check(bytes.len())?;
         Ok(bytes)
     }
 }

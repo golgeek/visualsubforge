@@ -339,6 +339,7 @@ impl Documents {
         date: &str,
         include_unchanged: bool,
     ) -> Result<ReviewReply> {
+        let importable = !matches!(kind, OutputKind::Readable);
         let (checkpoint, comparison, p) = {
             let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
             store.check_review_key(key)?;
@@ -371,11 +372,14 @@ impl Documents {
             let p = Package {
                 format: "visualsubforge-review".into(),
                 version: 1,
-                round: r
-                    .discussion
-                    .round
-                    .checked_add(1)
-                    .ok_or("Review round exhausted")?,
+                round: if importable {
+                    r.discussion
+                        .round
+                        .checked_add(1)
+                        .ok_or("Review round exhausted")?
+                } else {
+                    r.discussion.round
+                },
                 exported_by: author.into(),
                 exported_at_ms: now,
                 original: Subtitle::capture(
@@ -405,13 +409,19 @@ impl Documents {
         } else {
             p.write()?
         };
-        review_package::check_size(data.len())?;
+        if !matches!(kind, OutputKind::Package) {
+            review_package::check_report_size(data.len())?;
+        }
         let path = vsf_application::new_output::resolve(path).map_err(|e| e.to_string())?;
         let prepared = vsf_application::atomic_file::prepare(&path, &data)?;
         let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
         store.check_review_key(key)?;
         if store.checkpoint_key() != checkpoint {
             return Err("Workspace changed while exporting".into());
+        }
+        if !importable {
+            prepared.commit_new()?;
+            return store.review_reply(None, 0, 0, None);
         }
         store.prospective_review_epoch()?;
         prepared.commit_new()?;

@@ -21,7 +21,7 @@ pub(super) fn extract(page: &str) -> Result<&str> {
 pub fn sections(package: &Package, comparison: &Comparison, embed: bool) -> Result<ExtraSections> {
     let mut extra = ExtraSections::default();
     if embed {
-        let data = String::from_utf8(package.write()?)
+        let data = String::from_utf8(package.write_bounded(check_report_size)?)
             .map_err(|e| e.to_string())?
             .replace('&', "\\u0026")
             .replace('<', "\\u003c")

@@ -50,8 +50,10 @@
           ? ' This report can be opened in VSF.'
           : ''}
       </p>{/if}
-    {#if prompt.dirty}<p>The package includes your unsaved changes.</p>{/if}
-    {#if !prompt.author}
+    {#if prompt.dirty && !readable}<p>
+        The package includes your unsaved changes.
+      </p>{/if}
+    {#if !readable && !prompt.author}
       <label
         >Name on this export <input
           maxlength="100"
@@ -60,7 +62,7 @@
       >
     {/if}
     <button
-      disabled={!(prompt.author || exportName.trim())}
+      disabled={!readable && !(prompt.author || exportName.trim())}
       onclick={() =>
         onchoose({
           kind: readable ? 'readable' : 'export',

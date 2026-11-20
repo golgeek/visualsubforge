@@ -485,7 +485,7 @@ impl Documents {
             return self.publish_review(
                 *key,
                 Path::new(path),
-                output.unwrap_or(OutputKind::Report),
+                output.unwrap_or(OutputKind::Readable),
                 author,
                 date,
                 *include_unchanged,

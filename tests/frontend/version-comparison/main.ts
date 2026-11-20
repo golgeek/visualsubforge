@@ -572,12 +572,15 @@ async function run() {
     passed('Next Change navigates in a subtitles-only review');
     await chooseCommand(host, 'exportComparisonReport');
     await until(() => !!button('Continue to Save'));
-    const exportName = host.querySelector<HTMLInputElement>(
-      'dialog[open] input[maxlength]',
-    )!;
-    exportName.value = 'Report reviewer';
-    exportName.dispatchEvent(new Event('input', { bubbles: true }));
+    host
+      .querySelector<HTMLInputElement>('dialog[open] input[type="checkbox"]')!
+      .click();
     await tick();
+    assert(
+      !button('Continue to Save').disabled &&
+        !host.querySelector('dialog[open] input[maxlength]'),
+      'Readable only needs no exporter name',
+    );
     button('Continue to Save').click();
     await until(() => exported);
     passed('Comparison report export works with no media');

@@ -236,6 +236,11 @@ fn report_block_is_inert_unique_and_optional() {
                 .contains("doesn't contain review data")
         )
     }
+    assert!(
+        check_report_size(MAX_BYTES + 1)
+            .unwrap_err()
+            .contains("Readable only")
+    );
     let mut oversized = OPEN_TAG.as_bytes().to_vec();
     oversized.resize(MAX_BYTES, b' ');
     oversized.extend_from_slice(b"</script>");

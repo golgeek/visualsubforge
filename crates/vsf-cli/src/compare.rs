@@ -95,7 +95,7 @@ pub fn run(args: Compare, cancel: &Cancellation) -> Result<u8, (u8, String)> {
             },
             &extra,
         );
-        vsf_application::review_package::check_size(html.len()).map_err(|e| (2, e))?;
+        vsf_application::review_package::check_report_size(html.len()).map_err(|e| (2, e))?;
         vsf_application::atomic_file::prepare_with_checkpoint(&output, html.as_bytes(), checkpoint)
             .and_then(|p| p.commit_new())
             .map_err(|e| (if cancel.is_cancelled() { 130 } else { 5 }, e))?;

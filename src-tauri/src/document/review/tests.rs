@@ -672,6 +672,15 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
         d.publish_review(key(d), path, kind, author, "today", false)
             .unwrap()
     };
+    ready(&reviewer);
+    let original_key = key(&reviewer);
+    let readable = dir.path().join("readable.html");
+    publish(&reviewer, &readable, OutputKind::Readable, "");
+    assert_eq!(key(&reviewer), original_key);
+    assert!(vsf_application::review_file::read(&readable).is_err());
+    let page = ready(&reviewer).discussion.unwrap();
+    assert!(page.exported.is_empty() && !page.rows.is_empty());
+    assert!(snapshot(&reviewer).review.unwrap().round.is_none());
     publish(&reviewer, &path, OutputKind::Package, "Ana");
     let import = |d: &Documents, path: &Path, case, choice| {
         let info = d
