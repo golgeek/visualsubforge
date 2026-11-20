@@ -39,6 +39,25 @@ def observe(bundle, fixture, codec, diagnostics):
     return observations, '\n'.join(logs)
 
 
+def resync_parity(before, after, fixtures, output, encoder):
+    # Both installed CLIs must recover the synthetic edit with each video codec.
+    for name in ('source', 'offset', 'speed-ads'):
+        run([before / 'ffmpeg.exe', '-v', 'error', '-nostdin', '-i', fixtures / f'{name}.mkv',
+             '-fps_mode', 'passthrough', '-threads', '1', '-c:v', encoder, output / f'{name}.mkv'])
+    results = {}
+    for name in ('offset', 'speed-ads'):
+        expected = (fixtures / f'{name}.expected.srt').read_text(encoding='utf-8')
+        for label, bundle in (('before', before), ('after', after)):
+            target = output / f'{name}-{label}.srt'
+            result = run([bundle / 'vsf.exe', 'resync', '--source-video', output / 'source.mkv',
+                          '--source-subtitles', fixtures / 'source.srt', '--target-video', output / f'{name}.mkv',
+                          '--output', target, '--report', target.with_suffix('.json'), '--json'])
+            if json.loads(result.stdout)['status'] != 'complete' or target.read_text(encoding='utf-8') != expected:
+                raise ValueError(f'{name} resync differs from the expected subtitle text or timings ({label})')
+        results[name] = hashlib.sha256(expected.encode()).hexdigest()
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ['before', 'after', 'diagnostics', 'fixtures', 'output']:
@@ -59,6 +78,7 @@ def main():
         subprocess.run([sys.executable, Path(__file__).with_name('packaged-gui.py'), '--executable',
                         args.after / 'visualsubforge.exe', '--fixture', fixture, '--output', output,
                         '--environment', 'Hosted Windows, software D3D11, virtual WASAPI'], check=True)
+        candidate['resync_srt_sha256'] = resync_parity(args.before, args.after, args.fixtures / 'resync', output, encoder)
         (output / 'ffmpeg.log').write_text(logs)
         mpv = (output / 'stderr.log').read_text(errors='replace')
         for module, name in [('vd', codec), ('ad', 'opus')]:
