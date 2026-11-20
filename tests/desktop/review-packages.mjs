@@ -207,7 +207,7 @@ export async function exchangeRoundTrip({
   await press('Resolve', panel + ' [aria-label="Detached"]');
   await until('resolved', async () => (await compared()).discussion.open === 0);
   await record(
-    'Author opened an untitled review, saved separately, changed the name in Settings, replied and reverted during generated video playback',
+    'Author opened an untitled review, saved separately, changed the name in Settings, reverted during playback, then replied and resolved in Detached',
   );
   await until('resolved author discussion visible', () =>
     browser.execute(

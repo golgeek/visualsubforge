@@ -44,7 +44,9 @@
       <p>
         {#if index >= 0}Change {review.offset + index + 1} of {review.page
             .total}{:else}Showing {review.offset + 1}–{Math.min(
-            review.offset + review.page.rows.length,
+            review.offset +
+              review.page.rows.length +
+              (review.page.discussion?.detached.length ?? 0),
             review.page.total,
           )} of {review.page.total}{/if}
       </p>

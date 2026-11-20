@@ -201,6 +201,7 @@ export class ReviewSession {
     const input = this.projectionInput();
     const key = this.key();
     const serial = ++this.projectionSequence;
+    if (JSON.stringify(this.page?.key) !== JSON.stringify(key)) return;
     try {
       const reply = await reviewAction({
         kind: 'projection',
@@ -429,8 +430,10 @@ export class ReviewSession {
         },
       );
       if (adopted && this.alive) {
-        if (choice === 'open') await this.detachProject();
-        this.offset = 0;
+        if (choice === 'open') {
+          await this.detachProject();
+          this.offset = 0;
+        }
         this.view.openReview('changes');
       }
     });
@@ -475,6 +478,15 @@ export class ReviewSession {
         capture !== `${key.generation}/${key.revision}/${key.epoch}`
       )
         return;
+      if (
+        !reply.working &&
+        reply.statistics &&
+        offset > 0 &&
+        offset >= reply.total
+      ) {
+        this.offset = Math.floor(Math.max(0, reply.total - 1) / 100) * 100;
+        return;
+      }
       if (!reply.working || reply.statistics || !this.page) this.page = reply;
       this.error = reply.error ?? '';
       if (reply.working)

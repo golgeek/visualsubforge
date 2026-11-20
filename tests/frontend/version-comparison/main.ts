@@ -874,6 +874,10 @@ async function run() {
     await until(() => !!inPanel('Revert') && !inPanel('Revert')!.disabled);
     inPanel('Revert')!.click();
     await until(() => !!changes.querySelector('[aria-label="Detached"]'));
+    assert(
+      changes.textContent?.includes('Showing 1–1 of 1'),
+      'Detached threads count in the displayed page range',
+    );
     inPanel('Reply')!.click();
     await tick();
     fill('form textarea', 'Still visible');
@@ -904,8 +908,26 @@ async function run() {
     [...host.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
       .find((b) => b.textContent?.trim() === 'Cancel')!
       .click();
+    inPanel('All')!.click();
+    await until(() => !inPanel('Next page')!.disabled);
+    inPanel('Next page')!.click();
+    await until(
+      () =>
+        !inPanel('Previous page')!.disabled &&
+        changes.querySelectorAll('article').length < 100,
+    );
+    const secondPage = changes.querySelector('article');
     await exchangeCommand('openReviewPackage');
-    await until(() => imports.includes('merge'));
+    await until(
+      () =>
+        imports.includes('merge') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(
+      !inPanel('Previous page')!.disabled &&
+        secondPage === changes.querySelector('article'),
+      'Merging a discussion preserves the current page',
+    );
     importCase = 'different';
     await exchangeCommand('openReviewPackage');
     await until(() => !!button('Keep Mine'));
