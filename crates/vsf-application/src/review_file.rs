@@ -5,6 +5,9 @@ use crate::{
 };
 use std::{fs::File, io::Read, path::Path};
 pub fn read(path: &Path) -> Result<Package> {
+    Ok(read_identified(path)?.0)
+}
+pub fn read_identified(path: &Path) -> Result<(Package, String)> {
     let meta = std::fs::metadata(path).map_err(|e| format!("Cannot open review: {e}"))?;
     if !meta.is_file() {
         return Err("Choose a regular review file".into());
@@ -14,5 +17,8 @@ pub fn read(path: &Path) -> Result<Package> {
     f.take(review_package::MAX_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
-    review_package::read(&bytes)
+    Ok((
+        review_package::read(&bytes)?,
+        review_package::digest(&bytes),
+    ))
 }

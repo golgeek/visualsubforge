@@ -1,5 +1,6 @@
 // Isolated real Rust/WebView review lane. All subtitles/media are generated here.
 // File choices and DOM events are supplied; native-window observations are separate.
+import { packageChoices, exchangeRoundTrip } from './review-packages.mjs';
 import { acceptReview } from './review.mjs';
 import { time } from './timing-fixtures.mjs';
 import assert from 'node:assert/strict';
@@ -14,6 +15,7 @@ import { installEditorInput, commitCue } from './editor-input.mjs';
 const { values } = parseArgs({
   options: {
     binary: { type: 'string' },
+    packages: { type: 'boolean', default: false },
     root: { type: 'string' },
     hold: { type: 'boolean', default: false },
   },
@@ -145,7 +147,11 @@ const app = spawn(binary, [], {
   env: {
     ...process.env,
     VSF_E2E_ROOT: root,
-    VSF_E2E_CHOICES: JSON.stringify(choices),
+    VSF_E2E_CHOICES: JSON.stringify(
+      values.packages
+        ? packageChoices(root, original, copy, video, project, report)
+        : choices,
+    ),
     TAURI_WEBDRIVER_PORT: String(port),
   },
   stdio: ['ignore', log.fd, log.fd],
@@ -237,7 +243,11 @@ async function compared() {
         limit: 100,
         filter: null,
       },
+    }).catch((error) => {
+      if (String(error).includes('Review changed; refresh')) return null;
+      throw error;
     });
+    if (!r) return false;
     if (r.error) throw new Error(r.error);
     return !r.working && r.statistics && r;
   });
@@ -289,20 +299,77 @@ try {
     'Start Review writes byte-exact copy and opens an unchanged comparison without media',
   );
   await browser.$('[aria-label="Subtitle text"]').setValue('one revised three');
-  await commitCue(browser);
+  if (!values.packages) await commitCue(browser);
   await until(
     'text edit',
     async () => (await status()).cues[0].text === 'one revised three',
   );
   assert.equal((await compared()).statistics.changes, 1);
   await until('singular change summary', () =>
-    browser.execute(() =>
-      document
-        .querySelector('section[aria-label="Changes"] > p')
-        ?.innerText.trim()
-        .startsWith('1 change ·'),
+    browser.execute(
+      () =>
+        document
+          .querySelector('section[aria-label="Changes"] > p')
+          ?.innerText.trim()
+          .startsWith('1 change ·') === true,
     ),
   );
+  if (values.packages) {
+    await exchangeRoundTrip({
+      browser,
+      root,
+      project,
+      report,
+      menu,
+      until,
+      status,
+      compared,
+      record,
+      invoke,
+      ready,
+    });
+  } else {
+    await comparisonWorkflows();
+  }
+  receipt.status = 'workflows-passed';
+  await save();
+  console.log('EVIDENCE ' + root);
+  if (values.hold) {
+    console.log(
+      'Holding isolated app for independent native-window observation',
+    );
+    await delay(120000);
+  }
+  await menu('quit');
+  await delay(150);
+  if (await browser.execute(() => !!document.querySelector('dialog[open]')))
+    await click('Discard changes');
+  await until(
+    'owned app exited',
+    () => app.exitCode !== null || app.signalCode !== null,
+  );
+  assert.equal(app.exitCode, 0);
+  receipt.exitCode = app.exitCode;
+  receipt.status = 'passed';
+  await save();
+} catch (error) {
+  receipt.status = 'failed';
+  receipt.error = String(error);
+  if (browser) {
+    await browser.saveScreenshot(join(root, 'failure.png')).catch(() => {});
+    receipt.dom = await browser
+      .execute(() => document.body.innerText)
+      .catch(() => null);
+  }
+  await save();
+  throw error;
+} finally {
+  if (browser) await browser.deleteSession().catch(() => {});
+  if (app.exitCode === null && app.signalCode === null) app.kill('SIGTERM');
+  await log.close();
+}
+
+async function comparisonWorkflows() {
   await menu('saveProject');
   await until('saved project', async () => {
     try {
@@ -477,6 +544,11 @@ try {
     ),
   );
   await click('Export Comparison Report…');
+  await until('report disclosure', () =>
+    browser.$('button=Continue to Save').isExisting(),
+  );
+  await browser.$('dialog[open] input[maxlength]').setValue('Report reviewer');
+  await click('Continue to Save');
   await until('report file', async () => {
     try {
       return (await readFile(report, 'utf8')).includes('Subtitle comparison');
@@ -687,40 +759,4 @@ try {
   await record(
     'One +30 s ad-break block on the revised timeline; Revert Block cleared all four changes and one Undo restored it',
   );
-  receipt.status = 'workflows-passed';
-  await save();
-  console.log('EVIDENCE ' + root);
-  if (values.hold) {
-    console.log(
-      'Holding isolated app for independent native-window observation',
-    );
-    await delay(120000);
-  }
-  await menu('quit');
-  await delay(150);
-  if (await browser.execute(() => !!document.querySelector('dialog[open]')))
-    await click('Discard changes');
-  await until(
-    'owned app exited',
-    () => app.exitCode !== null || app.signalCode !== null,
-  );
-  assert.equal(app.exitCode, 0);
-  receipt.exitCode = app.exitCode;
-  receipt.status = 'passed';
-  await save();
-} catch (error) {
-  receipt.status = 'failed';
-  receipt.error = String(error);
-  if (browser) {
-    await browser.saveScreenshot(join(root, 'failure.png')).catch(() => {});
-    receipt.dom = await browser
-      .execute(() => document.body.innerText)
-      .catch(() => null);
-  }
-  await save();
-  throw error;
-} finally {
-  if (browser) await browser.deleteSession().catch(() => {});
-  if (app.exitCode === null && app.signalCode === null) app.kill('SIGTERM');
-  await log.close();
 }

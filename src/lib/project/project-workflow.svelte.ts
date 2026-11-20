@@ -125,7 +125,10 @@ export class ProjectWorkflow {
         if (project.reviewIssue) {
           if (choice === 'reload') review = { path: null, end: true };
           else {
-            const path = await this.client.chooseFile('subtitles', issue.path);
+            const path = await this.client.chooseFile(
+              project.review?.package ? 'reviewPackage' : 'subtitles',
+              issue.path,
+            );
             this.check(operation);
             if (path) review = { path, end: false };
           }

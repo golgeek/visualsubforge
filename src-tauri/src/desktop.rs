@@ -64,6 +64,8 @@ pub enum WorkspaceAction {
     PreviousChange,
     NextChange,
     ShowOriginalTiming,
+    OpenReviewPackage,
+    ExportReviewPackage,
     ExportComparisonReport,
     ShowScenes,
     ScanScenes,
@@ -322,6 +324,8 @@ pub enum FileChoice {
     SaveSubtitles,
     ReviewOriginal,
     ReviewRevised,
+    ReviewPackage,
+    SaveReviewPackage,
     ComparisonReport,
     ExportSrt,
     ExportAss,
@@ -431,6 +435,14 @@ pub async fn choose_file(
                 .set_title("Choose Subtitle Plugin Manifest")
                 .add_filter("Plugin manifest", &["json"])
                 .blocking_pick_file(),
+            FileChoice::ReviewPackage => dialog
+                .set_title("Open Review Package")
+                .add_filter("Review package or report", &["vsfreview", "html"])
+                .blocking_pick_file(),
+            FileChoice::SaveReviewPackage => dialog
+                .set_title("Export Review Package")
+                .add_filter("Review package", &["vsfreview"])
+                .blocking_save_file(),
             FileChoice::ComparisonReport => dialog
                 .set_title("Export Comparison Report")
                 .add_filter("HTML report", &["html"])

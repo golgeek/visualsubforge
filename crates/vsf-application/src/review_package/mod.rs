@@ -81,6 +81,11 @@ impl Subtitle {
 }
 /// BOM-marked UTF-16 is decoded only for parsing. The envelope retains its exact bytes.
 pub fn parse_embedded(bytes: &[u8], format: Format) -> Result<Parsed> {
+    let text = embedded_text(bytes)?;
+    subtitle_file::parse_document(text.as_ref(), Some(format.extension()))
+}
+/// UTF-8 recovery baseline, preserving source spelling and line endings.
+pub fn embedded_text(bytes: &[u8]) -> Result<std::borrow::Cow<'_, [u8]>> {
     srt_limits::validate_size(bytes.len())?;
     if bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]) {
         if !bytes.len().is_multiple_of(2) {
@@ -97,9 +102,9 @@ pub fn parse_embedded(bytes: &[u8], format: Format) -> Result<Parsed> {
         let text = char::decode_utf16(units)
             .collect::<std::result::Result<String, _>>()
             .map_err(|_| "Invalid UTF-16 subtitle")?;
-        subtitle_file::parse_document(text.as_bytes(), Some(format.extension()))
+        Ok(std::borrow::Cow::Owned(text.into_bytes()))
     } else {
-        subtitle_file::parse_document(bytes, Some(format.extension()))
+        Ok(std::borrow::Cow::Borrowed(bytes))
     }
 }
 pub fn safe_name(name: &str, ext: &str) -> String {
@@ -154,6 +159,12 @@ impl Package {
         }
         validate_time(self.exported_at_ms)?;
         validate_threads(&self.threads)?;
+        if [&self.original, &self.revised]
+            .iter()
+            .any(|s| s.name.chars().any(char::is_control))
+        {
+            return Err("Control characters in review filename".into());
+        }
         self.original.parsed()?;
         self.revised.parsed()?;
         Ok(())

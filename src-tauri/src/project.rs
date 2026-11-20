@@ -490,7 +490,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                         translation.verify_project_reference()?;
                         project.translation = translation.project_description(base)?;
                         review.reference.protect(&destination)?;
-                        review.reference.verify_project_reference()?;
+                        review.verify_source()?;
                         project.review = review.project_description(base)?;
                         project.version = project.version_for_save();
                         app.state::<Projects>()

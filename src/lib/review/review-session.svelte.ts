@@ -10,6 +10,14 @@ import type { DocumentSession } from '../document/document-session.svelte';
 import type { UnsavedChanges } from '../document/unsaved-changes';
 import type { Workspace } from '../workspace/workspace.svelte';
 import type { WorkspaceView } from '../workspace/workspace-view.svelte';
+export type ExchangePrompt =
+  | { kind: 'package' | 'report'; dirty: boolean; author: string }
+  | { kind: 'different'; author: string; time: number };
+export type ExchangeAnswer =
+  | 'theirs'
+  | 'mine'
+  | 'cancel'
+  | { kind: 'export' | 'readable'; author: string };
 export type BlockRow = NonNullable<ReviewReply['blocks']>[number];
 export class ReviewSession {
   page = $state.raw<ReviewReply | null>(null);
@@ -109,6 +117,7 @@ export class ReviewSession {
     );
   }
 
+  detachProject: () => Promise<void> = async () => {};
   projectAttached: () => boolean = () => false;
   decideProject: () => Promise<'save' | 'later'> = async () => 'later';
   private offeredProject = '';
@@ -284,29 +293,126 @@ export class ReviewSession {
       ),
     );
   }
-  async exportReport() {
+  decideExchange: (prompt: ExchangePrompt) => Promise<ExchangeAnswer> =
+    async () => 'cancel';
+  async exportReport(kind: 'report' | 'package' = 'report') {
     if (!this.workspace.canAct || !this.page?.statistics) return;
     await this.workspace.task(async () => {
+      if (this.subtitles.dirty)
+        throw new Error('Finish the current cue edit before exporting it.');
+      const expected = this.subtitles.snapshot;
       const key = this.key();
+      const answer = await this.decideExchange({
+        kind,
+        dirty: expected.dirty,
+        author: this.name(),
+      });
+      if (
+        !this.alive ||
+        typeof answer === 'string' ||
+        expected !== this.subtitles.snapshot
+      )
+        return;
+      const suffix = kind === 'report' ? '.comparison.html' : '.vsfreview';
+      const stem =
+        expected.path ?? expected.suggestedSavePath ?? 'Untitled.srt';
       const path = await chooseFile(
-        'comparisonReport',
-        this.subtitles.snapshot.path?.replace(
-          /\.[^./\\]+$/u,
-          '.comparison.html',
-        ) ?? 'comparison.html',
+        kind === 'report' ? 'comparisonReport' : 'saveReviewPackage',
+        stem.replace(/\.[^./\\]+$/u, '') + suffix,
       );
       if (!path || !this.alive) return;
-      await reviewAction({
-        kind: 'export',
+      await this.subtitles.changeReview(
+        {
+          kind: 'export',
+          key,
+          path,
+          output: answer.kind === 'readable' ? 'readable' : kind,
+          author: answer.author,
+          date: new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          }).format(),
+          includeUnchanged: this.includeUnchanged,
+        },
+        expected,
+      );
+      if (this.alive)
+        this.workspace.notice =
+          kind === 'report'
+            ? 'Comparison report exported'
+            : 'Review package exported';
+    });
+  }
+  async openPackage() {
+    if (!this.workspace.canAct) return;
+    await this.workspace.task(async () => {
+      const path = await chooseFile(
+        'reviewPackage',
+        this.subtitles.snapshot.path,
+      );
+      if (!path || !this.alive) return;
+
+      let key = this.key();
+      const inspected = await reviewAction({
+        kind: 'inspectPackage',
         key,
         path,
-        date: new Intl.DateTimeFormat(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }).format(),
-        includeUnchanged: this.includeUnchanged,
       });
-      if (this.alive) this.workspace.notice = 'Comparison report exported';
+      const info = inspected.inspection;
+      if (
+        !info ||
+        !this.alive ||
+        JSON.stringify(key) !== JSON.stringify(this.key())
+      )
+        return;
+      let choice: 'open' | 'merge' | 'keep' | 'useTheirs';
+      if (info.case === 'new') {
+        if (!(await this.unsaved.protect(this.saveProject)) || !this.alive)
+          return;
+        const protectedKey = this.key();
+        if (protectedKey.generation !== key.generation) return;
+        if (JSON.stringify(key) !== JSON.stringify(protectedKey)) {
+          const checked = await reviewAction({
+            kind: 'inspectPackage',
+            key: protectedKey,
+            path,
+          });
+          if (
+            checked.inspection?.case !== 'new' ||
+            checked.inspection.digest !== info.digest
+          )
+            throw new Error('The review changed. Open the package again.');
+          key = protectedKey;
+        }
+        choice = 'open';
+      } else if (info.case === 'different') {
+        const answer = await this.decideExchange({
+          kind: 'different',
+          author: info.exportedBy,
+          time: info.exportedAtMs,
+        });
+        if (!this.alive || (answer !== 'theirs' && answer !== 'mine')) return;
+        choice = answer === 'theirs' ? 'useTheirs' : 'keep';
+      } else choice = 'merge';
+      const adopted = await this.subtitles.changeReview(
+        {
+          kind: 'importPackage',
+          key,
+          path,
+          digest: info.digest,
+          choice,
+          discard: choice === 'open',
+        },
+        this.subtitles.snapshot,
+        (notice) => {
+          if (this.alive) this.workspace.notice = notice;
+        },
+      );
+      if (adopted && this.alive) {
+        if (choice === 'open') await this.detachProject();
+        this.offset = 0;
+        this.view.openReview('changes');
+      }
     });
   }
   key() {

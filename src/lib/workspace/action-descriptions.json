@@ -908,5 +908,25 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 589
+  },
+  "openReviewPackage": {
+    "label": "Open Review Package\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 590
+  },
+  "exportReviewPackage": {
+    "label": "Export Review Package\u2026",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 591
   }
 }

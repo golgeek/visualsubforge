@@ -37,3 +37,15 @@ Change anchors first match the comparison content key. Fallback searches within 
 The package/report limit is 64 MiB. Each decoded subtitle may occupy 16 MiB. UTF-8 and BOM-marked UTF-16 embedded data pass through the format parser. Fingerprints always cover the original bytes. A reader checks both fingerprints and all identities before adoption. The discussion limit is 10,000 threads, 100,000 messages, 10,000 Unicode characters per message and 100 per author. Names, anchor text and comment text together may occupy 16 MiB of UTF-8. Only line breaks and tabs are allowed as controls in text. Names allow no controls. CLI exports can have an empty exporter.
 
 The report displays escaped plain text. Exactly one inert script element with the review media type and ID `vsf-review-package` carries the JSON. The writer escapes less-than, greater-than, ampersand, U+2028 and U+2029 inside that block. Import reads only its bounded JSON payload.
+
+## Desktop workflow
+
+Start Review or attach an original. In Changes or the cue editor, choose Comment. A cue can have a discussion even when it matches the original. On first use enter the display name that recipients will see. Change it later in Settings → Editing. Reply, Resolve and Reopen append events. Delete draft is available until a message has been exported. Delete replies first if removing a draft that started a thread. Imported messages have already been exchanged. Comments affect the project and recovery checkpoint only. The unposted composer stays local to the current view.
+
+Open threads and Commented show individual changes, including cues inside collapsed shift blocks. Counts on blocks include their constituent cues. Previous/Next Open Thread visit individual discussions. After a revert, unmatched discussions appear under Detached with their original snapshot. Go to Time frames that snapshot on the timeline.
+
+Review → Export Review Package includes the accepted working document, even when unsaved. If your name preference is empty, enter a name for this export. Each successful export records the display name and time and advances the round. HTML reports include both subtitle versions by default. Choose Readable only to omit the embedded package. Its visible discussion still discloses the names and messages.
+
+Open Review Package accepts either file. A different original opens an untitled document with both versions embedded. Save As proposes a sanitized revised filename beside the package. With the same original and revised fingerprints, opening merges only the messages. If working content differs, Keep Mine merges discussion, Use Their Version also replaces the cues in one Undo step, and Cancel keeps the current review. Undo restores cue content and leaves the discussion in place. The original always stays the comparison base.
+
+Save a project to retain threads, export history, round and the link to a package-sourced original. Reopening a moved package offers relocation or End Review. Recovery includes accepted drafts and the original contents and can restore without the package.

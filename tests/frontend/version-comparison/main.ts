@@ -13,12 +13,16 @@ import {
 } from '../../../src/lib/client';
 import { sceneView, waveformView } from '../ipc-contract-samples';
 import { emptyQuality } from '../empty-quality';
+import { matchesShortcut } from '../../../src/lib/workspace/action-registry';
 import { chooseCommand } from '../command-discovery';
 const host = document.querySelector<HTMLElement>('#test')!;
 let doc: DocumentSnapshot = structuredClone(emptyDocument);
 let media = { ...emptyStatus, available: true };
 let newer = false;
 let exported = false;
+let importCase: 'same' | 'new' | 'different' = 'same';
+const imports: string[] = [];
+let previousCues: typeof doc.cues | null = null;
 let starts = 0;
 let queryCount = 0;
 let discussion: ReviewThread | null = null;
@@ -153,6 +157,7 @@ function loaded(path: string) {
     })),
   };
 }
+let menuListener = 0;
 const callbacks = new Map<number, (value: unknown) => void>();
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
@@ -175,6 +180,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recent_forget':
           return [];
         case 'plugin:event|listen':
+          if (args.event === 'workspace-action')
+            menuListener = Number(args.handler);
           return args.handler;
         case 'plugin:event|unlisten':
         case 'update_menu':
@@ -241,6 +248,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             doc.cues.find((c) => c.id === a.cueId)!.text = a.text;
           }
           if (a.kind === 'undo') {
+            if (previousCues) {
+              doc.cues = previousCues;
+              previousCues = null;
+            }
             rows = history.pop() ?? rows;
             doc.revision++;
           }
@@ -248,6 +259,39 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         }
         case 'review_action': {
           const a = args.action as ReviewAction;
+          if (a.kind === 'inspectPackage')
+            return {
+              ...reply(),
+              inspection: {
+                case: importCase,
+                digest: 'fixture',
+                exportedBy: 'Sam',
+                exportedAtMs: 21,
+              },
+            };
+          if (a.kind === 'importPackage') {
+            imports.push(a.choice);
+            if (a.choice === 'open') {
+              doc = {
+                ...doc,
+                generation: doc.generation + 1,
+                path: null,
+                dirty: true,
+              };
+            }
+            if (a.choice === 'useTheirs') {
+              previousCues = structuredClone(doc.cues);
+              doc.cues = [{ ...doc.cues[0]!, text: 'Incoming' }];
+              doc.revision++;
+              doc.canUndo = true;
+            }
+            doc.review = { ...doc.review!, epoch: ++epoch, round: 2 };
+            return {
+              ...reply(),
+              document: structuredClone(doc),
+              notice: '1 new message',
+            };
+          }
           if (a.kind === 'comment') {
             const edit = a.edit;
             if (edit.kind === 'post') {
@@ -527,6 +571,14 @@ async function run() {
     );
     passed('Next Change navigates in a subtitles-only review');
     await chooseCommand(host, 'exportComparisonReport');
+    await until(() => !!button('Continue to Save'));
+    const exportName = host.querySelector<HTMLInputElement>(
+      'dialog[open] input[maxlength]',
+    )!;
+    exportName.value = 'Report reviewer';
+    exportName.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    button('Continue to Save').click();
     await until(() => exported);
     passed('Comparison report export works with no media');
     await chooseCommand(host, 'endReview');
@@ -740,6 +792,71 @@ async function run() {
     await until(() => !!changes.textContent?.includes('Still visible'));
     passed(
       'Name prompt, literal comments, replies, status events, comment filters, navigation and detached replies',
+    );
+    const exchangeCommand = async (
+      id: 'openReviewPackage' | 'exportReviewPackage',
+    ) => {
+      await until(
+        () =>
+          !host.querySelector('dialog[open]') &&
+          host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+      );
+      await chooseCommand(host, id);
+    };
+    await exchangeCommand('exportReviewPackage');
+    await until(() => !!button('Continue to Save'));
+    assert(
+      host
+        .querySelector('dialog[open]')
+        ?.textContent?.includes('The package includes your unsaved changes'),
+      'Unsaved package disclosure',
+    );
+    [...host.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
+      .find((b) => b.textContent?.trim() === 'Cancel')!
+      .click();
+    await exchangeCommand('openReviewPackage');
+    await until(() => imports.includes('merge'));
+    importCase = 'different';
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Keep Mine'));
+    button('Keep Mine')!.click();
+    await until(() => imports.includes('keep'));
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Use Their Version'));
+    [...host.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
+      .find((b) => b.textContent?.trim() === 'Cancel')!
+      .click();
+    assert(imports.length === 2, 'Cancel does not adopt');
+    const before = doc.cues[0]!.text;
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Use Their Version'));
+    button('Use Their Version')!.click();
+    await until(() => doc.cues[0]?.text === 'Incoming');
+    await until(
+      () =>
+        !button('Undo')?.disabled &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    // Model the macOS menu bridge from the configured global accelerator to its Tauri event.
+    const shortcut = new KeyboardEvent('keydown', {
+      key: 'z',
+      code: 'KeyZ',
+      metaKey: true,
+      bubbles: true,
+    });
+    const binding = defaultPreferences.shortcuts.bindings.find(
+      (b) => b.mode === 'global' && matchesShortcut(b.key, shortcut),
+    );
+    assert(binding?.action === 'undo', 'Command-Z is bound to Undo');
+    callbacks.get(menuListener)!({ payload: binding!.action });
+    await until(() => doc.cues[0]?.text === before);
+    importCase = 'new';
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Discard changes'));
+    button('Discard changes')!.click();
+    await until(() => imports.includes('open') && doc.path === null);
+    passed(
+      'Export disclosure, new and same package opens, different-version choices and one-step Undo',
     );
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =

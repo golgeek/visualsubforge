@@ -760,3 +760,5 @@ outside it, and rechecks identity before atomic new-file promotion. Native video
 frames never pass through this path.
 
 The shared `review_package` module validates bounded byte captures, derives discussion identities, merges immutable events and maps anchor snapshots onto comparison results. The CLI and desktop file adapters own IO. Exchange uses ordinary files so review of private subtitles requires no service, account or network connection.
+
+Package inspection and import share the bounded reader. Adoption rechecks the selected file digest and the working generation, revision and review epoch. The review context retains the immutable original, discussion and optional package link. Project paths resolve relative to the project directory, with the expected original SHA-256 verified on relocation. Recovery embeds the original, including its original encoding. Export captures accepted content, prepares an atomic new file and rechecks the workspace before publishing and marking messages exported. Use Their Version delegates the complete cue replacement to the document editor as one history step.

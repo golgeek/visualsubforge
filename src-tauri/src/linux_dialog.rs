@@ -133,7 +133,13 @@ async fn request_file(
         FileChoice::QualityPreset | FileChoice::SaveQualityPreset
     );
     let filter = || {
-        if matches!(kind, FileChoice::ComparisonReport) {
+        if matches!(kind, FileChoice::ReviewPackage) {
+            FileFilter::new("Review package or report")
+                .glob("*.vsfreview")
+                .glob("*.html")
+        } else if matches!(kind, FileChoice::SaveReviewPackage) {
+            FileFilter::new("Review package").glob("*.vsfreview")
+        } else if matches!(kind, FileChoice::ComparisonReport) {
             FileFilter::new("HTML report").glob("*.html")
         } else if plugin {
             FileFilter::new("Plugin manifest").glob("*.json")
@@ -173,7 +179,8 @@ async fn request_file(
         if conversion { "Converted" } else { "Untitled" }
     );
     let response = match kind {
-        FileChoice::ComparisonReport
+        FileChoice::SaveReviewPackage
+        | FileChoice::ComparisonReport
         | FileChoice::SaveSubtitles
         | FileChoice::ExportSrt
         | FileChoice::ExportAss
@@ -183,7 +190,9 @@ async fn request_file(
         | FileChoice::SaveQualityPreset => {
             SelectedFiles::save_file()
                 .identifier(identifier)
-                .title(if matches!(kind, FileChoice::ComparisonReport) {
+                .title(if matches!(kind, FileChoice::SaveReviewPackage) {
+                    "Export Review Package"
+                } else if matches!(kind, FileChoice::ComparisonReport) {
                     "Export Comparison Report"
                 } else if conversion {
                     "Export Converted Subtitles to a New File"
@@ -217,6 +226,7 @@ async fn request_file(
         | FileChoice::Media
         | FileChoice::Font
         | FileChoice::Plugin
+        | FileChoice::ReviewPackage
         | FileChoice::ReviewOriginal
         | FileChoice::ReviewRevised
         | FileChoice::Subtitles
@@ -230,7 +240,9 @@ async fn request_file(
             );
             let mut request = SelectedFiles::open_file()
                 .identifier(identifier)
-                .title(if matches!(kind, FileChoice::ReviewOriginal) {
+                .title(if matches!(kind, FileChoice::ReviewPackage) {
+                    "Open Review Package"
+                } else if matches!(kind, FileChoice::ReviewOriginal) {
                     "Choose Original Subtitles"
                 } else if matches!(kind, FileChoice::ReviewRevised) {
                     "Choose Revised Subtitles"
@@ -261,7 +273,15 @@ async fn request_file(
                 .multiple(false)
                 .current_folder::<&Path>(folder)
                 .map_err(portal_failure)?;
-            if subtitles || project || legacy_project || preset || quality || font || plugin {
+            if matches!(kind, FileChoice::ReviewPackage)
+                || subtitles
+                || project
+                || legacy_project
+                || preset
+                || quality
+                || font
+                || plugin
+            {
                 request = request.filter(filter());
             }
             request.send().await

@@ -115,6 +115,8 @@ export class WorkspaceCommands {
         nextOpenThread: doc.review?.path ? null : 'No review attached',
         previousChange: doc.review?.path ? null : 'No review attached',
         nextChange: doc.review?.path ? null : 'No review attached',
+        openReviewPackage: null,
+        exportReviewPackage: doc.review?.path ? null : 'No review attached',
         exportComparisonReport: doc.review?.path ? null : 'No review attached',
         showOriginalTiming:
           doc.review?.path && status.loaded

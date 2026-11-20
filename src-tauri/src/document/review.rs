@@ -2,6 +2,8 @@
 use super::translation::context::ReferenceFile;
 use super::*;
 mod discussion;
+mod exchange;
+use exchange::{ImportChoice, Inspection, OutputKind, PackageLink};
 mod operations;
 use crate::ipc_number::SafeU64;
 use discussion::{CommentEdit, Discussion, DiscussionPage, ThreadIndex};
@@ -17,6 +19,7 @@ pub(crate) struct Context {
     pub(crate) reference: translation::Context,
     pub(crate) options: engine::Options,
     discussion: Discussion,
+    package: Option<PackageLink>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25,6 +28,8 @@ pub(crate) struct Stored {
     options: engine::Options,
     #[serde(default, skip_serializing_if = "Discussion::empty")]
     discussion: Discussion,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    package: Option<PackageLink>,
 }
 impl Context {
     pub(crate) fn stored(&self) -> Result<Option<Stored>> {
@@ -35,16 +40,23 @@ impl Context {
             reference: self.reference.stored()?,
             options: self.options.clone(),
             discussion: self.discussion.clone(),
+            package: self.package.clone(),
         }))
     }
 }
 impl Stored {
     pub(crate) fn has_discussion(&self) -> bool {
-        !self.discussion.empty()
+        !self.discussion.empty() || self.package.is_some()
     }
     pub(crate) fn restore(&self) -> Result<Context> {
         self.discussion.validate()?;
-        Ok(Context {
+        if let Some(link) = &self.package {
+            link.validate()?;
+            if !Path::new(&link.path).is_absolute() {
+                return Err("Expected absolute review package path in recovery".into());
+            }
+        }
+        let context = Context {
             reference: self
                 .reference
                 .as_ref()
@@ -53,7 +65,16 @@ impl Stored {
                 .unwrap_or_default(),
             options: self.options.clone(),
             discussion: self.discussion.clone(),
-        })
+            package: self.package.clone(),
+        };
+        if let Some(link) = &context.package
+            && context.reference.reference.as_ref().is_none_or(|r| {
+                r.reference.fingerprint() != link.sha256 || r.origin.path != Path::new(&link.path)
+            })
+        {
+            return Err("Recovery package identity mismatch".into());
+        }
+        Ok(context)
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -66,6 +87,8 @@ pub struct ReviewKey {
 #[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewSummary {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub round: Option<u32>,
     pub epoch: SafeU64,
     pub dirty: bool,
     pub path: Option<String>,
@@ -107,7 +130,22 @@ pub enum ReviewAction {
         source_index: Option<u32>,
         filter: Option<engine::Kind>,
     },
+    InspectPackage {
+        key: ReviewKey,
+        path: String,
+    },
+    ImportPackage {
+        key: ReviewKey,
+        path: String,
+        digest: String,
+        choice: ImportChoice,
+        discard: bool,
+    },
     Export {
+        #[serde(default)]
+        output: Option<OutputKind>,
+        #[serde(default)]
+        author: String,
         key: ReviewKey,
         path: String,
         include_unchanged: bool,
@@ -166,6 +204,10 @@ pub struct ReviewReply {
     discussion: Option<DiscussionPage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inspection: Option<Inspection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    notice: Option<String>,
     matched: u32,
     key: ReviewKey,
     context: Option<ReviewSummary>,
@@ -235,7 +277,11 @@ impl Store {
                 .as_ref()
                 .map_or(0, |l| l.editor.revision())
                 .try_into()?,
-            epoch: self.review.epoch.try_into()?,
+            epoch: self
+                .loaded
+                .as_ref()
+                .map_or(0, |_| self.review.epoch)
+                .try_into()?,
         })
     }
     fn check_review_key(&self, key: ReviewKey) -> Result<()> {
@@ -251,6 +297,7 @@ impl Store {
             return None;
         }
         Some(ReviewSummary {
+            round: (context.discussion.round > 0).then_some(context.discussion.round),
             epoch: self.review.epoch.try_into().ok()?,
             dirty: context.reference.dirty,
             path: context
@@ -261,13 +308,15 @@ impl Store {
             options: context.options.clone(),
         })
     }
-    fn next_review_epoch(&mut self) -> Result<()> {
-        self.review.epoch = self
-            .review
+    fn prospective_review_epoch(&self) -> Result<u64> {
+        self.review
             .epoch
             .checked_add(1)
             .filter(|v| *v <= crate::ipc_number::MAX_SAFE_INTEGER)
-            .ok_or("Review epoch exhausted")?;
+            .ok_or_else(|| "Review epoch exhausted".into())
+    }
+    fn next_review_epoch(&mut self) -> Result<()> {
+        self.review.epoch = self.prospective_review_epoch()?;
         if let Some(job) = &mut self.review.job {
             job.cancel.store(true, Ordering::Release);
             job.result = None;
@@ -297,6 +346,8 @@ impl Store {
             blocks: Vec::new(),
             discussion: None,
             thread_id: None,
+            inspection: None,
+            notice: None,
             matched: 0,
             key,
             context,
@@ -392,14 +443,36 @@ impl Store {
 }
 impl Documents {
     pub(crate) fn review_action(&self, action: ReviewAction) -> Result<ReviewReply> {
+        if let ReviewAction::InspectPackage { key, path } = &action {
+            return self.import_review(*key, Path::new(path), None);
+        }
+        if let ReviewAction::ImportPackage {
+            key,
+            path,
+            digest,
+            choice,
+            discard,
+        } = &action
+        {
+            return self.import_review(*key, Path::new(path), Some((digest, *choice, *discard)));
+        }
         if let ReviewAction::Export {
+            output,
+            author,
             key,
             path,
             include_unchanged,
             date,
         } = &action
         {
-            return self.export_review(*key, Path::new(path), *include_unchanged, date);
+            return self.publish_review(
+                *key,
+                Path::new(path),
+                output.unwrap_or(OutputKind::Report),
+                author,
+                date,
+                *include_unchanged,
+            );
         }
         if let ReviewAction::Inspect { original, revised } = &action {
             let original = ReferenceFile::load(Path::new(original), || Ok(()))?;
@@ -506,6 +579,7 @@ impl Documents {
                 },
                 options,
                 discussion: Default::default(),
+                package: None,
             };
             store.next_review_epoch()?;
             let document = Some(store.snapshot());
@@ -536,7 +610,9 @@ impl Documents {
                 return store.thread_page(key, true, 0, 1, Some((from, forward)));
             }
             ReviewAction::Start { .. } => unreachable!(),
-            ReviewAction::Export { .. } => unreachable!(),
+            ReviewAction::Export { .. }
+            | ReviewAction::InspectPackage { .. }
+            | ReviewAction::ImportPackage { .. } => unreachable!(),
             ReviewAction::RevertBlock { key, first } => {
                 store.revert_review(key, None, None, None, Some(first))?;
                 document = Some(store.snapshot());
@@ -580,6 +656,7 @@ impl Documents {
                 let c = &mut store.loaded_mut()?.review;
                 c.reference.reference = None;
                 c.discussion = Discussion::default();
+                c.package = None;
                 c.reference.dirty = true;
                 store.next_review_epoch()?;
                 document = Some(store.snapshot());
@@ -706,6 +783,8 @@ pub struct ReviewProjectContext {
     options: engine::Options,
     #[serde(default, skip_serializing_if = "Discussion::empty")]
     discussion: Discussion,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    package: Option<PackageLink>,
 }
 impl Context {
     pub(crate) fn project_description(&self, base: &Path) -> Result<Option<ReviewProjectContext>> {
@@ -716,15 +795,25 @@ impl Context {
                 reference,
                 options: self.options.clone(),
                 discussion: self.discussion.clone(),
+                package: self.package.clone().map(|mut l| {
+                    l.path = crate::project::portable(base, Path::new(&l.path));
+                    l
+                }),
             }))
     }
 }
 impl ReviewProjectContext {
     pub(crate) fn has_discussion(&self) -> bool {
-        !self.discussion.empty()
+        !self.discussion.empty() || self.package.is_some()
     }
     pub(crate) fn validate(&self) -> Result<()> {
         self.discussion.validate()?;
+        if let Some(l) = &self.package {
+            l.validate()?;
+            if !self.reference.identifies(&l.path, &l.sha256) {
+                return Err("Package link and review original disagree".into());
+            }
+        }
         self.reference.validate()
     }
     pub(crate) fn protect(&self, base: &Path, path: &Path) -> Result<()> {
@@ -735,10 +824,30 @@ impl ReviewProjectContext {
         base: &Path,
         overrides: &translation::ReferenceOverride,
     ) -> std::result::Result<Context, translation::ReferenceIssue> {
+        let reference = self.reference.load_with(base, overrides, |path| {
+            if let Some(link) = &self.package {
+                let p = vsf_application::review_file::read(path)?;
+                if p.original.sha256 != link.sha256 {
+                    return Err(
+                        "Choose the review package with the expected original fingerprint".into(),
+                    );
+                }
+                exchange::reference(path, &p.original)
+            } else {
+                ReferenceFile::load(path, || Ok(()))
+            }
+        })?;
+        let package = self.package.clone().map(|mut l| {
+            if let Some(r) = &reference.reference {
+                l.path = r.origin.path.to_string_lossy().into()
+            }
+            l
+        });
         Ok(Context {
-            reference: self.reference.load(base, overrides)?,
+            reference,
             options: self.options.clone(),
             discussion: self.discussion.clone(),
+            package,
         })
     }
 }

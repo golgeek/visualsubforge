@@ -1681,6 +1681,8 @@ export type visualsubforge_desktop_FileChoice =
   | 'saveSubtitles'
   | 'reviewOriginal'
   | 'reviewRevised'
+  | 'reviewPackage'
+  | 'saveReviewPackage'
   | 'comparisonReport'
   | 'exportSrt'
   | 'exportAss'
@@ -1828,6 +1830,12 @@ export type visualsubforge_gap_review_GapView_Serialize = {
   rows: visualsubforge_gap_review_Row[];
 };
 
+export type visualsubforge_document_review_exchange_ImportCase =
+  'new' | 'same' | 'different';
+
+export type visualsubforge_document_review_exchange_ImportChoice =
+  'open' | 'merge' | 'keep' | 'useTheirs';
+
 export type visualsubforge_timing_preset_Imported = {
   preset: visualsubforge_timing_preset_Preset;
   warnings: string[];
@@ -1875,6 +1883,13 @@ export type visualsubforge_workflow_trace_InputEvent_Serialize = {
 };
 
 export type visualsubforge_workflow_trace_InputType = 'click' | 'keydown';
+
+export type visualsubforge_document_review_exchange_Inspection = {
+  case: visualsubforge_document_review_exchange_ImportCase;
+  digest: string;
+  exportedBy: string;
+  exportedAtMs: number;
+};
 
 export type visualsubforge_document_translation_JobView = {
   id: number;
@@ -2165,6 +2180,29 @@ export type visualsubforge_project_Options_Serialize = {
   showScenes: boolean;
   timing: visualsubforge_timing_preset_Settings;
   quality: vsf_application_quality_profile_Profile_Serialize | null;
+};
+
+export type visualsubforge_document_review_exchange_OutputKind =
+  'package' | 'report' | 'readable';
+
+export type visualsubforge_document_review_exchange_PackageLink =
+  | visualsubforge_document_review_exchange_PackageLink_Serialize
+  | visualsubforge_document_review_exchange_PackageLink_Deserialize;
+
+export type visualsubforge_document_review_exchange_PackageLink_Deserialize = {
+  path: string;
+  sha256: string;
+  original_name: string;
+  revised_name: string;
+  utf16_le?: boolean | null;
+};
+
+export type visualsubforge_document_review_exchange_PackageLink_Serialize = {
+  path: string;
+  sha256: string;
+  original_name: string;
+  revised_name: string;
+  utf16_le?: boolean | null;
 };
 
 export type visualsubforge_document_translation_Page = {
@@ -2583,7 +2621,22 @@ export type visualsubforge_document_review_ReviewAction =
       filter: vsf_application_comparison_Kind | null;
     }
   | {
+      kind: 'inspectPackage';
+      key: visualsubforge_document_review_ReviewKey;
+      path: string;
+    }
+  | {
+      kind: 'importPackage';
+      key: visualsubforge_document_review_ReviewKey;
+      path: string;
+      digest: string;
+      choice: visualsubforge_document_review_exchange_ImportChoice;
+      discard: boolean;
+    }
+  | {
       kind: 'export';
+      output?: visualsubforge_document_review_exchange_OutputKind | null;
+      author?: string;
       key: visualsubforge_document_review_ReviewKey;
       path: string;
       includeUnchanged: boolean;
@@ -2646,12 +2699,14 @@ export type visualsubforge_document_review_ReviewProjectContext_Deserialize = {
   reference: visualsubforge_document_translation_project_ProjectContext;
   options: vsf_application_comparison_Options;
   discussion?: visualsubforge_document_review_discussion_Discussion_Deserialize;
+  package?: visualsubforge_document_review_exchange_PackageLink_Deserialize | null;
 };
 
 export type visualsubforge_document_review_ReviewProjectContext_Serialize = {
   reference: visualsubforge_document_translation_project_ProjectContext;
   options: vsf_application_comparison_Options;
   discussion?: visualsubforge_document_review_discussion_Discussion_Serialize;
+  package?: visualsubforge_document_review_exchange_PackageLink_Serialize | null;
 };
 
 export type visualsubforge_document_review_ReviewReply =
@@ -2662,9 +2717,11 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
   blocks: visualsubforge_document_review_BlockRow[];
   discussion: visualsubforge_document_review_discussion_DiscussionPage_Deserialize | null;
   threadId: string | null;
+  inspection: visualsubforge_document_review_exchange_Inspection | null;
+  notice: string | null;
   matched: number;
   key: visualsubforge_document_review_ReviewKey;
-  context: visualsubforge_document_review_ReviewSummary | null;
+  context: visualsubforge_document_review_ReviewSummary_Deserialize | null;
   document: visualsubforge_document_Snapshot_Deserialize | null;
   working: boolean;
   statistics: vsf_application_comparison_Statistics | null;
@@ -2679,9 +2736,11 @@ export type visualsubforge_document_review_ReviewReply_Serialize = {
   blocks?: visualsubforge_document_review_BlockRow[];
   discussion?: visualsubforge_document_review_discussion_DiscussionPage_Serialize | null;
   threadId?: string | null;
+  inspection?: visualsubforge_document_review_exchange_Inspection | null;
+  notice?: string | null;
   matched: number;
   key: visualsubforge_document_review_ReviewKey;
-  context: visualsubforge_document_review_ReviewSummary | null;
+  context: visualsubforge_document_review_ReviewSummary_Serialize | null;
   document: visualsubforge_document_Snapshot_Serialize | null;
   working: boolean;
   statistics: vsf_application_comparison_Statistics | null;
@@ -2692,7 +2751,20 @@ export type visualsubforge_document_review_ReviewReply_Serialize = {
   newerOriginal: boolean | null;
 };
 
-export type visualsubforge_document_review_ReviewSummary = {
+export type visualsubforge_document_review_ReviewSummary =
+  | visualsubforge_document_review_ReviewSummary_Serialize
+  | visualsubforge_document_review_ReviewSummary_Deserialize;
+
+export type visualsubforge_document_review_ReviewSummary_Deserialize = {
+  round: number | null;
+  epoch: number;
+  dirty: boolean;
+  path: string | null;
+  options: vsf_application_comparison_Options;
+};
+
+export type visualsubforge_document_review_ReviewSummary_Serialize = {
+  round?: number | null;
   epoch: number;
   dirty: boolean;
   path: string | null;
@@ -3056,7 +3128,7 @@ export type visualsubforge_document_Snapshot_Deserialize = {
   suggestedSavePath: string | null;
   translation: visualsubforge_document_translation_Summary | null;
   extractedFrom: vsf_application_subtitle_extraction_Provenance | null;
-  review: visualsubforge_document_review_ReviewSummary | null;
+  review: visualsubforge_document_review_ReviewSummary_Deserialize | null;
   format: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -3073,7 +3145,7 @@ export type visualsubforge_document_Snapshot_Serialize = {
   suggestedSavePath?: string | null;
   translation?: visualsubforge_document_translation_Summary | null;
   extractedFrom?: vsf_application_subtitle_extraction_Provenance | null;
-  review?: visualsubforge_document_review_ReviewSummary | null;
+  review?: visualsubforge_document_review_ReviewSummary_Serialize | null;
   format?: visualsubforge_document_FormatView | null;
   generation: number;
   revision: number;
@@ -3649,6 +3721,8 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'previousChange'
   | 'nextChange'
   | 'showOriginalTiming'
+  | 'openReviewPackage'
+  | 'exportReviewPackage'
   | 'exportComparisonReport'
   | 'showScenes'
   | 'scanScenes'

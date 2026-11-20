@@ -264,6 +264,7 @@ impl Loaded {
         self.editor.dirty()
             || self.recovered
             || self.resynced
+            || (self.path.is_none() && self.review.suggestion().is_some())
             || (self.path.is_none() && self.extracted_from.is_some())
             || (self.path.is_none() && self.translation.copied_from.is_some())
     }
@@ -308,7 +309,8 @@ impl Store {
         Snapshot {
             translation: self.translation_summary(),
             suggested_save_path: extracted_from
-                .map(|origin| origin.media_path.with_file_name(&origin.suggested_name)),
+                .map(|origin| origin.media_path.with_file_name(&origin.suggested_name))
+                .or_else(|| loaded.filter(|l| l.path.is_none())?.review.suggestion()),
             extracted_from: extracted_from.cloned(),
             review: self.review_summary(),
             format: loaded.and_then(|d| {

@@ -105,6 +105,11 @@
 
   import { ReviewSession } from './lib/review/review-session.svelte';
   import ChangesPanel from './lib/review/ChangesPanel.svelte';
+  import ExchangeDialog from './lib/review/ExchangeDialog.svelte';
+  import type {
+    ExchangeAnswer,
+    ExchangePrompt,
+  } from './lib/review/review-session.svelte';
   import SwapDialog from './lib/review/SwapDialog.svelte';
   import SaveReviewDialog from './lib/review/SaveReviewDialog.svelte';
 
@@ -251,6 +256,16 @@
 
   const reviewDecision = disposeWithComponent(
     new WorkspaceDecision<'swap' | 'keep' | 'cancel', string>(
+      'cancel',
+      workspace,
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
+    ),
+  );
+  const exchangeDecision = disposeWithComponent(
+    new WorkspaceDecision<ExchangeAnswer, ExchangePrompt>(
       'cancel',
       workspace,
       decisionEffects(
@@ -485,6 +500,8 @@
   };
   review.goToTime = (startMs) =>
     timeline.frameCue({ id: 0, startMs, endMs: startMs + 1, text: '' });
+  review.decideExchange = (prompt) => exchangeDecision.request(prompt);
+  review.detachProject = () => projects.detach();
   review.projectAttached = () => !!projects.path;
   review.decideProject = () => reviewProjectDecision.request(true);
   review.projectionInput = () => ({
@@ -806,6 +823,10 @@
       case 'showOriginalTiming':
         review.showOriginal = !review.showOriginal;
         return;
+      case 'exportReviewPackage':
+        return review.exportReport('package');
+      case 'openReviewPackage':
+        return review.openPackage();
       case 'exportComparisonReport':
         return review.exportReport();
       case 'startReview':
@@ -950,6 +971,7 @@
       subtitleDecision.active ||
       projectExitDecision.active ||
       projectReferenceDecision.active ||
+      exchangeDecision.active ||
       reviewDecision.active ||
       reviewProjectDecision.active ||
       workspaceModal.active,
@@ -1443,6 +1465,10 @@
 
 {#if workspaceModal.identity === 'extraction'}<ExtractionDialog
     session={extraction}
+  />{/if}
+{#if exchangeDecision.visible && exchangeDecision.payload}<ExchangeDialog
+    prompt={exchangeDecision.payload}
+    onchoose={(answer) => void exchangeDecision.answer(answer)}
   />{/if}
 {#if reviewDecision.visible && reviewDecision.payload}<SwapDialog
     path={reviewDecision.payload}

@@ -185,6 +185,7 @@ export class DocumentSession {
   async changeReview(
     action: ReviewAction,
     expected: DocumentSnapshot,
+    onNotice?: (notice: string) => void,
   ): Promise<boolean> {
     if (this.accepted !== expected)
       throw new Error('The review changed; refresh first.');
@@ -192,6 +193,7 @@ export class DocumentSession {
       return await this.update(
         async (before) => {
           const reply = await reviewAction(action);
+          if (reply.notice) onNotice?.(reply.notice);
           if (reply.document) return reply.document;
           if (
             reply.key.generation !== before.generation ||
