@@ -353,3 +353,113 @@ fn snapshot_controls_follow_cue_rules_and_comment_controls_remain_strict() {
         assert!(validate_name(&format!("Ana{control}")).is_err());
     }
 }
+
+#[test]
+fn merge_laws_for_independent_threads_random_subsets_and_clock_ties() {
+    let anchor = fixture().threads.remove(0).anchor;
+    // Reproducible subsets and arrival orders without a runtime RNG dependency.
+    let mut seed = 17u32;
+    let mut next = || {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        seed >> 16
+    };
+    let mut sample = || {
+        let mut threads = Vec::new();
+        for i in 0..4 {
+            if next() % 5 == 0 {
+                continue;
+            }
+            let mut t =
+                Thread::new(anchor.clone(), format!("Reviewer {i}"), 12, "First".into()).unwrap();
+            for (j, event) in [
+                Event::Resolve,
+                Event::Reopen,
+                Event::Comment,
+                Event::Comment,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                if next() & 1 != 0 {
+                    t.messages.push(
+                        Message::new(
+                            &t.id,
+                            "Sam".into(),
+                            12,
+                            event,
+                            (event == Event::Comment).then(|| format!("Reply {j}")),
+                        )
+                        .unwrap(),
+                    );
+                }
+            }
+            if next() & 1 != 0 {
+                t.messages.reverse();
+            }
+            threads.push(t)
+        }
+        if next() & 1 != 0 {
+            threads.reverse();
+        }
+        threads
+    };
+    for _ in 0..32 {
+        let (a, b, c) = (sample(), sample(), sample());
+        let ab = merge(&a, &b).unwrap();
+        assert_eq!(ab, merge(&b, &a).unwrap());
+        assert_eq!(ab, merge(&ab, &ab).unwrap());
+        assert_eq!(
+            merge(&ab, &c).unwrap(),
+            merge(&a, &merge(&b, &c).unwrap()).unwrap()
+        );
+        for thread in ab {
+            let expected = thread
+                .messages
+                .iter()
+                .filter(|m| m.event != Event::Comment)
+                .max_by_key(|m| &m.id);
+            assert_eq!(
+                thread.resolved(),
+                expected.is_some_and(|m| m.event == Event::Resolve)
+            );
+        }
+    }
+}
+
+#[test]
+fn dense_all_fallback_reanchoring_budget() {
+    let make = |edit: &str| {
+        (0..10_000u64)
+            .map(|i| {
+                let text = if i % 10 == 0 {
+                    format!("Line {i} {edit}")
+                } else {
+                    format!("Line {i}")
+                };
+                cue(i + 1, i * 250, i * 250 + 500, &text)
+            })
+            .collect::<Vec<_>>()
+    };
+    let original = make("original");
+    let previous = compare(&original, &make("edited"));
+    let current = compare(&original, &make("revised again"));
+    let threads: Vec<_> = previous
+        .changes
+        .iter()
+        .filter(|c| c.kind != Kind::Unchanged)
+        .map(thread)
+        .collect();
+    assert_eq!(threads.len(), 1000);
+    let keys: std::collections::BTreeSet<_> = current.changes.iter().map(|c| &c.key).collect();
+    assert!(
+        threads.iter().all(
+            |t| matches!(&t.anchor, Anchor::Change{change_key,..} if !keys.contains(change_key))
+        )
+    );
+    let start = std::time::Instant::now();
+    let attached = positions(&threads, &current);
+    let elapsed = start.elapsed();
+    assert!(attached.iter().enumerate().all(|(i, p)| *p == Some(i * 10)));
+    eprintln!("Dense all-fallback: 10k cues, 1k threads, {elapsed:?} (500 ms budget)");
+    assert!(elapsed < std::time::Duration::from_millis(500));
+}
