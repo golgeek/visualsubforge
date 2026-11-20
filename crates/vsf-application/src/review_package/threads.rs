@@ -33,6 +33,8 @@ pub enum Anchor {
     Change {
         change_kind: Kind,
         change_key: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        occurrence: Option<u32>,
         original: Vec<SnapshotCue>,
         revised: Vec<SnapshotCue>,
     },
@@ -41,7 +43,7 @@ pub enum Anchor {
     },
 }
 impl Anchor {
-    pub fn from_change(c: &Change) -> Self {
+    pub fn from_change(c: &Change, occurrence: u32) -> Self {
         if c.kind == Kind::Unchanged {
             return Self::Cue {
                 revised: [(&c.revised[0]).into()],
@@ -50,6 +52,7 @@ impl Anchor {
         Self::Change {
             change_kind: c.kind,
             change_key: c.key.clone(),
+            occurrence: (occurrence != 0).then_some(occurrence),
             original: c.original.iter().map(Into::into).collect(),
             revised: c.revised.iter().map(Into::into).collect(),
         }

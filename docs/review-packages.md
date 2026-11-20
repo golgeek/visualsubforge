@@ -15,7 +15,7 @@ Outputs publish atomically to new paths. Merge requires identical original finge
 
 ## Version 1 wire format
 
-The media type is `application/vnd.visualsubforge.review+json`. The UTF-8 JSON uses snake_case keys at every level. The [exact fixture](../crates/vsf-application/tests/fixtures/review-v1.vsfreview) includes a cue thread. All fields are required except message text on status events. Unknown fields or versions are rejected.
+The media type is `application/vnd.visualsubforge.review+json`. The UTF-8 JSON uses snake_case keys at every level. The [exact fixture](../crates/vsf-application/tests/fixtures/review-v1.vsfreview) includes a cue thread. Message text is omitted on status events, and the first occurrence of a change omits its occurrence field. Unknown fields or versions are rejected.
 
 | Object | Fields |
 | --- | --- |
@@ -23,14 +23,14 @@ The media type is `application/vnd.visualsubforge.review+json`. The UTF-8 JSON u
 | Subtitle | `name` (sanitized filename), `format` (srt, vtt, ass, ssa), `sha256` (lowercase hex of the exact bytes), `bytes` (standard padded base64) |
 | Options | Integer `tolerance_ms` and booleans `ignore_tags`, `ignore_line_breaks`, `ignore_whitespace` |
 | Thread | `id`, `anchor`, `first_message_id`, `messages` |
-| Change anchor | `kind` = change, `change_kind`, `change_key`, arrays `original` and `revised` |
+| Change anchor | `kind` = change, `change_kind`, `change_key`, optional zero-based `occurrence` for duplicates, arrays `original` and `revised` |
 | Cue anchor | `kind` = cue, single-element array `revised` |
 | Anchor cue | Integer `start_ms`, `end_ms`, exact subtitle `text` |
 | Message | `id`, `author`, Unix millisecond `at_ms`, `type` (comment, resolve, reopen), `text` for comments |
 
 Hash the compact UTF-8 JSON array of [anchor, first author, first timestamp, first text] for the thread ID. Anchor object fields follow the table order. Hash [thread ID, author, timestamp, type, text or null] for each message ID. SHA-256 hex is lowercase. The explicit first message ID identifies the creator even when a peer's clock is behind. Display events in (timestamp, ID) order. The latest resolve/reopen in that order determines status. Merging unions both sets by ID. Once exchanged, messages are immutable.
 
-Change anchors first match the comparison content key. Fallback searches within ten seconds of the snapshot's start using the comparison pair score. A change can match another changed group with the same sides present and positive time overlap between at least one corresponding pair of original or revised cues. Average the available original/revised scores, or compare the revised cue alone for cue anchors. Require at least 0.25. Prefer the closest time, then earliest comparison index. A missing match leaves a detached discussion with its immutable snapshot.
+Change anchors first match the comparison content key and its occurrence in comparison order. The first occurrence omits the field, preserving earlier IDs. If fewer matches survive, use the last available occurrence. Fallback searches within ten seconds of the snapshot's start using the comparison pair score. A change can match another changed group with the same sides present and positive time overlap between at least one corresponding pair of original or revised cues. Average the available original/revised scores, or compare the revised cue alone for cue anchors. Require at least 0.25. Prefer the closest time, then earliest comparison index. A missing match leaves a detached discussion with its immutable snapshot.
 
 ## Limits and report safety
 

@@ -34,7 +34,7 @@ pub fn reanchor(
     let mut timeline = Vec::new();
     for (index, c) in comparison.changes.iter().enumerate() {
         checkpoint()?;
-        keys.entry(&c.key).or_insert(index);
+        keys.entry(&c.key).or_insert_with(Vec::new).push(index);
         for cue in &c.revised {
             timeline.push((cue.start_ms, index))
         }
@@ -47,10 +47,16 @@ pub fn reanchor(
         .iter()
         .map(|thread| {
             checkpoint()?;
-            if let Anchor::Change { change_key, .. } = &thread.anchor
-                && let Some(&index) = keys.get(change_key)
+            if let Anchor::Change {
+                change_key,
+                occurrence,
+                ..
+            } = &thread.anchor
+                && let Some(matches) = keys.get(change_key)
             {
-                return Ok(Some(index));
+                return Ok(Some(
+                    matches[(occurrence.unwrap_or(0) as usize).min(matches.len() - 1)],
+                ));
             }
             let (a, b) = thread.anchor.sides();
             let (at, bt) = (reading(a, original), reading(b, revised));

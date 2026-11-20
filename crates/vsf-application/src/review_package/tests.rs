@@ -31,7 +31,7 @@ fn positions(t: &[Thread], c: &comparison::Comparison) -> Vec<Option<usize>> {
     reanchor(t, c, Format::Srt, Format::Srt, || Ok(())).unwrap()
 }
 fn thread(c: &comparison::Change) -> Thread {
-    Thread::new(Anchor::from_change(c), "Ana".into(), 20, "Check".into()).unwrap()
+    Thread::new(Anchor::from_change(c, 0), "Ana".into(), 20, "Check".into()).unwrap()
 }
 #[test]
 fn wire_fixture_and_untrusted_fields() {
@@ -301,4 +301,23 @@ fn reverted_similar_line_detaches_but_edits_in_the_same_span_follow() {
     );
     revised[0] = original[0].clone();
     assert_eq!(positions(&[t], &compare(&original, &revised)), [None]);
+}
+
+#[test]
+fn identical_changes_keep_the_commented_occurrence_across_exchange() {
+    let mut c = compare(&[cue(1, 10, 20, "old")], &[cue(1, 10, 20, "new")]);
+    c.changes.push(c.changes[0].clone());
+    let second = Thread::new(
+        Anchor::from_change(&c.changes[1], 1),
+        "Ana".into(),
+        1,
+        "Second".into(),
+    )
+    .unwrap();
+    let mut package = fixture();
+    package.threads = vec![second];
+    assert_eq!(
+        positions(&read(&package.write().unwrap()).unwrap().threads, &c),
+        [Some(1)]
+    );
 }

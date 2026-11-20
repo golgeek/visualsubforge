@@ -84,19 +84,25 @@ impl Store {
                 source_index,
                 text,
             } => {
-                let c = self
+                let (occurrence, c) = self
                     .comparison(key)?
                     .changes
                     .iter()
-                    .find(|c| {
-                        c.key == change_key
-                            && c.original
-                                .first()
-                                .or(c.revised.first())
-                                .is_some_and(|q| q.source_index == source_index)
+                    .filter(|c| c.key == change_key)
+                    .enumerate()
+                    .find(|(_, c)| {
+                        c.original
+                            .first()
+                            .or(c.revised.first())
+                            .is_some_and(|q| q.source_index == source_index)
                     })
                     .ok_or("The commented cue changed")?;
-                let t = Thread::new(Anchor::from_change(c), author, at_ms, text)?;
+                let t = Thread::new(
+                    Anchor::from_change(c, occurrence as u32),
+                    author,
+                    at_ms,
+                    text,
+                )?;
                 if !discussion.threads.iter().any(|other| other.id == t.id) {
                     discussion.threads.push(t)
                 }
