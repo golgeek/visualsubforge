@@ -78,7 +78,17 @@ pub fn reanchor(
                     Anchor::Change { .. }
                         if c.kind != Kind::Unchanged
                             && a.is_empty() == c.original.is_empty()
-                            && b.is_empty() == c.revised.is_empty() =>
+                            && b.is_empty() == c.revised.is_empty()
+                            && [(&a, &c.original), (&b, &c.revised)].into_iter().any(
+                                |(old, new)| {
+                                    old.iter().any(|before| {
+                                        new.iter().any(|after| {
+                                            before.start_ms < after.end_ms
+                                                && after.start_ms < before.end_ms
+                                        })
+                                    })
+                                },
+                            ) =>
                     {
                         let mut sum = 0.0;
                         for (old, new) in [(&a, &c.original), (&b, &c.revised)] {

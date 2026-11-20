@@ -30,7 +30,7 @@ The media type is `application/vnd.visualsubforge.review+json`. The UTF-8 JSON u
 
 Hash the compact UTF-8 JSON array of [anchor, first author, first timestamp, first text] for the thread ID. Anchor object fields follow the table order. Hash [thread ID, author, timestamp, type, text or null] for each message ID. SHA-256 hex is lowercase. The explicit first message ID identifies the creator even when a peer's clock is behind. Display events in (timestamp, ID) order. The latest resolve/reopen in that order determines status. Merging unions both sets by ID. Once exchanged, messages are immutable.
 
-Change anchors first match the comparison content key. Fallback searches within ten seconds of the snapshot's start using the comparison pair score. A change can match another changed group with the same sides present. Average the available original/revised scores, or compare the revised cue alone for cue anchors. Require at least 0.25. Prefer the closest time, then earliest comparison index. A missing match leaves a detached discussion with its immutable snapshot.
+Change anchors first match the comparison content key. Fallback searches within ten seconds of the snapshot's start using the comparison pair score. A change can match another changed group with the same sides present and positive time overlap between at least one corresponding pair of original or revised cues. Average the available original/revised scores, or compare the revised cue alone for cue anchors. Require at least 0.25. Prefer the closest time, then earliest comparison index. A missing match leaves a detached discussion with its immutable snapshot.
 
 ## Limits and report safety
 

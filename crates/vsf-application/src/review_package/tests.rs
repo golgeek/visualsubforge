@@ -282,3 +282,23 @@ fn ten_thousand_cues_one_thousand_threads_budget() {
     assert!(elapsed < std::time::Duration::from_millis(500));
     assert!(comparison + elapsed < std::time::Duration::from_millis(2500));
 }
+
+#[test]
+fn reverted_similar_line_detaches_but_edits_in_the_same_span_follow() {
+    let original = [
+        cue(1, 1000, 2500, "Come on, let's go."),
+        cue(2, 6000, 7500, "Come on, let's go now."),
+    ];
+    let mut revised = [
+        cue(1, 1000, 2500, "Come on, let’s go!"),
+        cue(2, 6000, 7500, "Come on, let's go!"),
+    ];
+    let t = thread(&compare(&original, &revised).changes[0]);
+    revised[0] = cue(1, 1000, 2500, "Let's go!");
+    assert_eq!(
+        positions(std::slice::from_ref(&t), &compare(&original, &revised)),
+        [Some(0)]
+    );
+    revised[0] = original[0].clone();
+    assert_eq!(positions(&[t], &compare(&original, &revised)), [None]);
+}
