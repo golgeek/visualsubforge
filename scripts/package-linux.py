@@ -216,7 +216,7 @@ def assemble(args):
     control.write_text(f"Package: visualsubforge\nVersion: {debian_version}\nArchitecture: amd64\n"
                        "Maintainer: VisualSubForge contributors <noreply@github.com>\n"
                        "Section: video\nPriority: optional\n" + "Depends: " + ", ".join(depends) + "\n"
-                       "Description: VisualSubForge subtitle editor and resync CLI (preview)\n")
+                       "Description: VisualSubForge subtitle editor and resync CLI (test release)\n Built on Ubuntu 24.04 amd64. See release notes for tested desktop versions.\n")
     receipt = {"schema": 1, "version": release_version(), "architecture": "amd64", "os": "Ubuntu 24.04",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
                "files": records, "header_inputs": header_inputs,

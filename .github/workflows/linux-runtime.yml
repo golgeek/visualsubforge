@@ -126,7 +126,12 @@ jobs:
           (cd "$VSF_FIXTURES" && sha256sum -c SHA256SUMS)
           sudo apt-get update
           sudo apt-get install -y "$RUNNER_TEMP"/candidate/*.deb weston xwayland pulseaudio pulseaudio-utils mesa-utils
-          mkdir "$VSF_EVIDENCE"
+          sudo install -d -m 1777 /tmp/.X11-unix
+          mkdir -p "$VSF_EVIDENCE/dash"
+          export VSF_XML_FIXTURE="$VSF_EVIDENCE/dash/test.mpd"
+          /usr/lib/visualsubforge/ffmpeg -v error -nostdin -f lavfi -i testsrc2=size=96x64:rate=10:duration=2 \
+            -an -c:v mpeg4 -g 10 -seg_duration 1 -f dash "$VSF_XML_FIXTURE"
+          (cd "$VSF_EVIDENCE/dash" && sha256sum ./* > ../dash-sha256.txt)
           export XDG_RUNTIME_DIR="$RUNNER_TEMP/runtime" VSF_GUI_CHECK="$PWD/tests/release/packaged-gui.py"
           install -d -m 700 "$XDG_RUNTIME_DIR"
           dbus-run-session -- timeout 200 bash tests/release/linux-weston.sh

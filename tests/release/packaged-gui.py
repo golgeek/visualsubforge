@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import tempfile
 import subprocess
 import sys
 import time
@@ -20,6 +21,7 @@ def main():
     for name in ['executable', 'fixture', 'output']:
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--environment', required=True, help='Describe the actual runner/display/audio setup')
+    parser.add_argument('--xml-fixture', type=Path, help='Ubuntu XML ABI check using a local synthetic DASH manifest')
     args = parser.parse_args()
     executable = args.executable.resolve(strict=True)
     fixture = args.fixture.resolve(strict=True)
@@ -32,6 +34,15 @@ def main():
     evidence = {'status': 'incomplete', 'environment': args.environment,
                 'scope': __doc__.strip(), 'executable_sha256': hashlib.sha256(executable.read_bytes()).hexdigest(),
                 'fixture_sha256': hashlib.sha256(fixture.read_bytes()).hexdigest()}
+    trace = None
+    if args.xml_fixture:
+        if not sys.platform.startswith('linux'):
+            parser.error('--xml-fixture needs the Linux dynamic loader')
+        manifest = args.xml_fixture.resolve(strict=True)
+        evidence['dash_sha256'] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        trace = tempfile.TemporaryDirectory()
+        env.update(VSF_MEDIA_SMOKE_XML=str(manifest), LD_DEBUG='files,bindings',
+                   LD_DEBUG_OUTPUT=str(Path(trace.name) / 'loader'))
     process, mapped = None, set()
     try:
         with (args.output / 'stdout.log').open('wb') as stdout, (args.output / 'stderr.log').open('wb') as stderr:
@@ -52,6 +63,12 @@ def main():
                 time.sleep(0.1)
         evidence['exit'] = process.returncode
         log = (args.output / 'stderr.log').read_text(errors='replace')
+        if trace:
+            from linux_xml_bindings import audit
+            with (Path(trace.name) / f'loader.{process.pid}').open(errors='replace') as lines:
+                audit(lines, mapped, executable.parent / 'lib', args.output / 'xml-bindings.json')
+            if 'VSF XML SMOKE: rendered and played the DASH fixture' not in log:
+                raise ValueError('GUI did not render and play the synthetic DASH manifest')
         if process.returncode != 0 or 'VSF GPU SMOKE: PASS' not in log or 'VSF GPU SMOKE: FAIL' in log:
             raise ValueError(f'Packaged native smoke failed (exit {process.returncode}); inspect stderr.log')
         if hashlib.sha256(fixture.read_bytes()).hexdigest() != evidence['fixture_sha256']:
@@ -71,6 +88,8 @@ def main():
             else:
                 os.killpg(process.pid, signal.SIGKILL)
             process.wait(timeout=10)
+        if trace:
+            trace.cleanup()
         (args.output / 'packaged-gui-check.json').write_text(json.dumps(evidence, indent=2) + '\n')
 
 

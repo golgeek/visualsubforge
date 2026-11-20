@@ -81,7 +81,14 @@ would remove its GPL configuration requirement. A build with `--disable-gpl`
 must still demonstrate that every required filter, codec and mpv linkage works.
 The shipped configuration continues to include all three libraries.
 
-The earlier Windows candidate artifact measured 5,828,956,530 bytes. Most of
+The earlier Windows candidate artifact measured 5,828,956,530 bytes. For that
+signed inventory, the exact registry objects comprised 5,232,816,268 bytes of
+source archives and 266,335,097 bytes of binary packages. Applying the release
+selection to those same objects retains 1,072,344,537 bytes of sources (0.999
+GiB, 54 of 96 archives). All 40 MinGW wrapper recipes matched their signed
+package hashes. The recipes identified 13 upstream commit/checksum pairs.
+Each CRT or toolchain-only winpthreads input matched a retained headers version.
+The source for the shipped libwinpthread DLL and the xxhash source remain. Most of
 its size comes from signed MSYS2 compiler/runtime packages at multiple versions.
 The MinGW headers declare **ZPL-2.1 AND LGPL-2.1-or-later**. Their full matching
 sources must accompany the distribution, including source archives shared by
@@ -119,6 +126,12 @@ found the missing XML ABI. In an isolated 26.04 container, the earlier package
 with these three private libraries resolved all four executables and decoded
 the synthetic VFR video offline. The release workflow repeats installation,
 offline functionality and desktop checks with the newly assembled package.
+On Ubuntu 26.04 both Weston backends open a local synthetic DASH manifest
+through the installed GUI. The diagnostic records XML consumers, providers and
+symbol names from that GUI process's dynamic-loader trace and the XML paths
+in its memory map. Media libraries must resolve the private ABI 2 and WebKitGTK
+must resolve system ABI 16. A failed DASH or mixed-binding check limits this
+release to Ubuntu 24.04.
 
 ## Artifact evidence
 
