@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '../ui/date-format';
   import { kindLabel } from './presentation';
   import { onMount } from 'svelte';
   import type { ExchangePrompt, ExchangeAnswer } from './review-session.svelte';
@@ -24,9 +25,9 @@
   {#if prompt.kind === 'different'}
     <h2>Different working subtitles</h2>
     <p>
-      {prompt.author || 'An unnamed reviewer'} exported this review on {new Date(
+      {prompt.author || 'An unnamed reviewer'} exported this review on {formatDateTime(
         prompt.time,
-      ).toLocaleString()}.
+      )}.
     </p>
     <p>
       Both choices merge the discussion. Use Their Version also replaces the

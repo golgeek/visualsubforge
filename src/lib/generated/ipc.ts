@@ -47,6 +47,7 @@ export const commands = {
     kind: visualsubforge_desktop_FileChoice,
     current: string | null,
   ) => __TAURI_INVOKE<string | null>('choose_file', { kind, current }),
+  systemRegion: () => __TAURI_INVOKE<string | null>('system_region'),
   updateMenu: (state: visualsubforge_desktop_MenuState) =>
     __TAURI_INVOKE<null>('update_menu', { state }),
   preferencesGet: () =>

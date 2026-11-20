@@ -77,6 +77,8 @@ and legacy paths preselect the existing explicit import review. Late picker and
 listener replies cannot reopen work after disposal. client.ts owns the native
 subscription boundary.
 
+App dates use the UI language for words and the OS formatting region for date order and hour cycle, with a fixed English day–month–year, 24-hour fallback.
+
 RecentWork keeps a bounded historical projection, not another document/checker
 owner. Rust captures version-checked paths and completed checker metadata from
 existing media/scene/document/project owners, releases those locks, then hashes
