@@ -994,6 +994,19 @@ export type vsf_application_quality_statistics_Aggregate = {
   mean: number | null;
 };
 
+export type vsf_application_review_package_threads_Anchor =
+  | {
+      kind: 'change';
+      change_kind: vsf_application_comparison_Kind;
+      change_key: string;
+      original: vsf_application_review_package_threads_SnapshotCue[];
+      revised: vsf_application_review_package_threads_SnapshotCue[];
+    }
+  | {
+      kind: 'cue';
+      revised: [vsf_application_review_package_threads_SnapshotCue];
+    };
+
 export type visualsubforge_preferences_appearance_Appearance = {
   theme: visualsubforge_preferences_appearance_Theme;
   density: visualsubforge_preferences_appearance_Density;
@@ -1184,6 +1197,16 @@ export type visualsubforge_document_CommandError =
   | { kind: 'documentReplaced'; message: string }
   | { kind: 'rejected'; message: string }
   | { kind: 'outcomeUnknown'; message: string };
+
+export type visualsubforge_document_review_discussion_CommentEdit =
+  | { kind: 'post'; changeKey: string; sourceIndex: number; text: string }
+  | {
+      kind: 'reply';
+      threadId: string;
+      event: vsf_application_review_package_threads_Event;
+      text: string | null;
+    }
+  | { kind: 'delete'; threadId: string; messageId: string };
 
 export type visualsubforge_plugin_review_Content = {
   startMs: number;
@@ -1378,6 +1401,52 @@ export type vsf_application_language_analysis_Detail = {
   manualReason: string | null;
 };
 
+export type visualsubforge_document_review_discussion_Discussion =
+  | visualsubforge_document_review_discussion_Discussion_Serialize
+  | visualsubforge_document_review_discussion_Discussion_Deserialize;
+
+export type visualsubforge_document_review_discussion_DiscussionPage =
+  | visualsubforge_document_review_discussion_DiscussionPage_Serialize
+  | visualsubforge_document_review_discussion_DiscussionPage_Deserialize;
+
+export type visualsubforge_document_review_discussion_DiscussionPage_Deserialize =
+  {
+    rows: {
+      [
+        key in string
+      ]: vsf_application_review_package_threads_Thread_Deserialize[];
+    };
+    detached: vsf_application_review_package_threads_Thread_Deserialize[];
+    exported: string[];
+    blockCounts: { [key in number]: number };
+    open: number;
+  };
+
+export type visualsubforge_document_review_discussion_DiscussionPage_Serialize =
+  {
+    rows: {
+      [
+        key in string
+      ]: vsf_application_review_package_threads_Thread_Serialize[];
+    };
+    detached: vsf_application_review_package_threads_Thread_Serialize[];
+    exported: string[];
+    blockCounts: { [key in number]: number };
+    open: number;
+  };
+
+export type visualsubforge_document_review_discussion_Discussion_Deserialize = {
+  threads: vsf_application_review_package_threads_Thread_Deserialize[];
+  exported: string[];
+  round: number;
+};
+
+export type visualsubforge_document_review_discussion_Discussion_Serialize = {
+  threads: vsf_application_review_package_threads_Thread_Serialize[];
+  exported: string[];
+  round: number;
+};
+
 export type visualsubforge_quality_check_Draft = {
   cueId: number;
   startMs: number;
@@ -1482,6 +1551,9 @@ export type visualsubforge_recovery_store_Entry_Serialize = {
   revision: number | null;
   error: string | null;
 };
+
+export type vsf_application_review_package_threads_Event =
+  'comment' | 'resolve' | 'reopen';
 
 export type visualsubforge_extraction_ExtractionAction =
   | visualsubforge_extraction_ExtractionAction_Serialize
@@ -1965,6 +2037,26 @@ export type visualsubforge_desktop_MenuState = {
   checked: string[];
 };
 
+export type vsf_application_review_package_threads_Message =
+  | vsf_application_review_package_threads_Message_Serialize
+  | vsf_application_review_package_threads_Message_Deserialize;
+
+export type vsf_application_review_package_threads_Message_Deserialize = {
+  id: string;
+  author: string;
+  at_ms: number | null;
+  type: vsf_application_review_package_threads_Event;
+  text: string | null;
+};
+
+export type vsf_application_review_package_threads_Message_Serialize = {
+  id: string;
+  author: string;
+  at_ms: number | null;
+  type: vsf_application_review_package_threads_Event;
+  text?: string | null;
+};
+
 export type visualsubforge_quality_check_Metric = {
   data: vsf_application_quality_check_CueMetrics;
   lineCount: number;
@@ -2200,6 +2292,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
   layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
   appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
+  reviewName?: string;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -2214,6 +2307,7 @@ export type visualsubforge_preferences_Preferences_Serialize = {
   layout: visualsubforge_preferences_layout_LayoutPreferences_Serialize;
   appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
+  reviewName: string;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -2322,7 +2416,7 @@ export type visualsubforge_project_Project_Deserialize = {
   subtitleFormat?: string | null;
   mediaIdentity: visualsubforge_project_MediaIdentity_Deserialize | null;
   translation?: visualsubforge_document_translation_project_ProjectContext | null;
-  review?: visualsubforge_document_review_ReviewProjectContext | null;
+  review?: visualsubforge_document_review_ReviewProjectContext_Deserialize | null;
   positionSeconds: number;
   options: visualsubforge_project_Options_Deserialize;
   scenes: visualsubforge_scenes_Saved_Deserialize | null;
@@ -2335,7 +2429,7 @@ export type visualsubforge_project_Project_Serialize = {
   subtitleFormat?: string | null;
   mediaIdentity: visualsubforge_project_MediaIdentity_Serialize | null;
   translation?: visualsubforge_document_translation_project_ProjectContext | null;
-  review?: visualsubforge_document_review_ReviewProjectContext | null;
+  review?: visualsubforge_document_review_ReviewProjectContext_Serialize | null;
   positionSeconds: number;
   options: visualsubforge_project_Options_Serialize;
   scenes: visualsubforge_scenes_Saved_Serialize | null;
@@ -2457,6 +2551,26 @@ export type visualsubforge_recent_Request = {
 export type visualsubforge_document_review_ReviewAction =
   | { kind: 'status' }
   | {
+      kind: 'comment';
+      key: visualsubforge_document_review_ReviewKey;
+      author: string;
+      atMs: number;
+      edit: visualsubforge_document_review_discussion_CommentEdit;
+    }
+  | {
+      kind: 'threads';
+      key: visualsubforge_document_review_ReviewKey;
+      open: boolean;
+      offset: number;
+      limit: number;
+    }
+  | {
+      kind: 'navigateThread';
+      key: visualsubforge_document_review_ReviewKey;
+      from: string | null;
+      forward: boolean;
+    }
+  | {
       kind: 'revertBlock';
       key: visualsubforge_document_review_ReviewKey;
       first: number;
@@ -2524,9 +2638,20 @@ export type visualsubforge_document_review_ReviewKey = {
   epoch: number;
 };
 
-export type visualsubforge_document_review_ReviewProjectContext = {
+export type visualsubforge_document_review_ReviewProjectContext =
+  | visualsubforge_document_review_ReviewProjectContext_Serialize
+  | visualsubforge_document_review_ReviewProjectContext_Deserialize;
+
+export type visualsubforge_document_review_ReviewProjectContext_Deserialize = {
   reference: visualsubforge_document_translation_project_ProjectContext;
   options: vsf_application_comparison_Options;
+  discussion?: visualsubforge_document_review_discussion_Discussion_Deserialize;
+};
+
+export type visualsubforge_document_review_ReviewProjectContext_Serialize = {
+  reference: visualsubforge_document_translation_project_ProjectContext;
+  options: vsf_application_comparison_Options;
+  discussion?: visualsubforge_document_review_discussion_Discussion_Serialize;
 };
 
 export type visualsubforge_document_review_ReviewReply =
@@ -2535,6 +2660,8 @@ export type visualsubforge_document_review_ReviewReply =
 
 export type visualsubforge_document_review_ReviewReply_Deserialize = {
   blocks: visualsubforge_document_review_BlockRow[];
+  discussion: visualsubforge_document_review_discussion_DiscussionPage_Deserialize | null;
+  threadId: string | null;
   matched: number;
   key: visualsubforge_document_review_ReviewKey;
   context: visualsubforge_document_review_ReviewSummary | null;
@@ -2550,6 +2677,8 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
 
 export type visualsubforge_document_review_ReviewReply_Serialize = {
   blocks?: visualsubforge_document_review_BlockRow[];
+  discussion?: visualsubforge_document_review_discussion_DiscussionPage_Serialize | null;
+  threadId?: string | null;
   matched: number;
   key: visualsubforge_document_review_ReviewKey;
   context: visualsubforge_document_review_ReviewSummary | null;
@@ -2917,6 +3046,12 @@ export type visualsubforge_document_Snapshot =
   | visualsubforge_document_Snapshot_Serialize
   | visualsubforge_document_Snapshot_Deserialize;
 
+export type vsf_application_review_package_threads_SnapshotCue = {
+  start_ms: number | null;
+  end_ms: number | null;
+  text: string;
+};
+
 export type visualsubforge_document_Snapshot_Deserialize = {
   suggestedSavePath: string | null;
   translation: visualsubforge_document_translation_Summary | null;
@@ -3259,6 +3394,24 @@ export type visualsubforge_text_review_TextView = {
 export type visualsubforge_preferences_appearance_Theme =
   'system' | 'dark' | 'light';
 
+export type vsf_application_review_package_threads_Thread =
+  | vsf_application_review_package_threads_Thread_Serialize
+  | vsf_application_review_package_threads_Thread_Deserialize;
+
+export type vsf_application_review_package_threads_Thread_Deserialize = {
+  id: string;
+  anchor: vsf_application_review_package_threads_Anchor;
+  first_message_id: string;
+  messages: vsf_application_review_package_threads_Message_Deserialize[];
+};
+
+export type vsf_application_review_package_threads_Thread_Serialize = {
+  id: string;
+  anchor: vsf_application_review_package_threads_Anchor;
+  first_message_id: string;
+  messages: vsf_application_review_package_threads_Message_Serialize[];
+};
+
 export type vsf_application_quality_profile_Timing = {
   cueGapMs: number;
   sceneBeforeMs: number;
@@ -3491,6 +3644,8 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'compareOriginal'
   | 'compareFiles'
   | 'endReview'
+  | 'previousOpenThread'
+  | 'nextOpenThread'
   | 'previousChange'
   | 'nextChange'
   | 'showOriginalTiming'

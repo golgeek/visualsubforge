@@ -22,6 +22,7 @@
   import WorkspaceDecisions from './lib/dialogs/WorkspaceDecisions.svelte';
   import WorkspaceLegacyImport from './lib/project/WorkspaceLegacyImport.svelte';
   import VideoPreview from './lib/media/VideoPreview.svelte';
+  import { SettingsSession } from './lib/settings/settings-session.svelte';
   import { WorkspacePreferences } from './lib/settings/workspace-preferences.svelte';
   import { WorkspaceScenes } from './lib/timeline/workspace-scenes.svelte';
   import { LegacyImportDecision } from './lib/project/legacy-import-decision.svelte';
@@ -465,6 +466,25 @@
       [...tableView.visibleCues, ...timeline.waveCues].map((cue) => cue.id),
     ),
   ];
+  review.name = () => preferences.preferences.reviewName ?? '';
+  review.saveName = async (name) => {
+    const session = new SettingsSession(
+      preferences.preferences,
+      (p) => preferences.accept(p),
+      () => null,
+    );
+    try {
+      await session.load();
+      if (!session.ready) throw new Error(session.error);
+      session.draft.reviewName = name;
+      if (!(await session.flush()))
+        throw new Error(session.error || 'Could not save review name');
+    } finally {
+      session.dispose();
+    }
+  };
+  review.goToTime = (startMs) =>
+    timeline.frameCue({ id: 0, startMs, endMs: startMs + 1, text: '' });
   review.projectAttached = () => !!projects.path;
   review.decideProject = () => reviewProjectDecision.request(true);
   review.projectionInput = () => ({
@@ -525,15 +545,17 @@
   });
   const originalGhosts = $derived(
     review.showOriginal && status.loaded
-      ? review.projection.flatMap((change) =>
-          change.original.map((cue) => ({
-            id: -(cue.source_index + 1),
-            startMs: cue.start_ms,
-            endMs: cue.end_ms,
-            oldStartMs: cue.start_ms,
-            oldEndMs: cue.end_ms,
-          })),
-        )
+      ? review.projection
+          .filter((c) => c.kind !== 'unchanged')
+          .flatMap((change) =>
+            change.original.map((cue) => ({
+              id: -(cue.source_index + 1),
+              startMs: cue.start_ms,
+              endMs: cue.end_ms,
+              oldStartMs: cue.start_ms,
+              oldEndMs: cue.end_ms,
+            })),
+          )
       : [],
   );
 
@@ -773,6 +795,10 @@
       case 'saveProject':
       case 'saveProjectAs':
         return runFileAction(action, fileActions);
+      case 'previousOpenThread':
+        return review.navigateThread(false);
+      case 'nextOpenThread':
+        return review.navigateThread(true);
       case 'previousChange':
         return review.navigate(false);
       case 'nextChange':
@@ -1122,6 +1148,9 @@
         <div class="slot slot-cues" style={layout.panelStyle('cues')}>
           <CueTable
             reviewChanges={review.projection}
+            commentedIds={review.projection
+              .filter((c) => review.threads(c, true).length)
+              .flatMap((c) => c.revised.map((q) => q.cue_id))}
             ghosts={reviewGhosts}
             {subtitles}
             {quality}
@@ -1243,6 +1272,7 @@
         !layout.custom.rows.some((row) => row.panels.includes('editor'))}
     >
       <CueEditor
+        {review}
         reviewChange={review.selectedChange}
         onrevert={(key) => void review.revert(key)}
         shortcuts={preferences.preferences.shortcuts}

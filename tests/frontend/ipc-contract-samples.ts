@@ -3021,6 +3021,7 @@ export const workspaceActions = [
   'mergePrevious',
   'nextChange',
   'nextFrame',
+  'nextOpenThread',
   'nextProblem',
   'nextScene',
   'openMedia',
@@ -3031,6 +3032,7 @@ export const workspaceActions = [
   'plugins',
   'previousChange',
   'previousFrame',
+  'previousOpenThread',
   'previousProblem',
   'previousScene',
   'problems',
@@ -3525,6 +3527,7 @@ export const preferences = {
     },
     version: 2,
   },
+  reviewName: '',
   sceneDetail: 'standard',
   shortcuts: {
     bindings: [

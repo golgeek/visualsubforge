@@ -16,7 +16,7 @@ The editor provides:
   and experimental visual resynchronization through the desktop or CLI.
 - [Embedded subtitle extraction](docs/subtitle-extraction.md) with a desktop track chooser, recovery, CLI and reviewed font embedding.
 
-- Headless [version comparison](docs/version-comparison.md) with escaped HTML reports.
+- Headless [version comparison](docs/version-comparison.md) with escaped HTML reports and [offline review discussions](docs/review-packages.md).
 - Projects, portable settings/profiles, reviewed VisualSubSync project import,
   manual translation references and a bounded JavaScript checker/fix plugin subset.
 

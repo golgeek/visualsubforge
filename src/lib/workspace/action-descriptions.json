@@ -888,5 +888,25 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 587
+  },
+  "previousOpenThread": {
+    "label": "Previous Open Thread",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 588
+  },
+  "nextOpenThread": {
+    "label": "Next Open Thread",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 589
   }
 }

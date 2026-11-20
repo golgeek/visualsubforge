@@ -23,6 +23,8 @@ pub struct Preferences {
     layout: LayoutPreferences,
     pub(crate) appearance: appearance::Appearance,
     pub(crate) shortcuts: shortcuts::Shortcuts,
+    #[serde(default)]
+    review_name: String,
     auto_scan_scenes: bool,
     scene_detail: Detail,
     timing: Timing,
@@ -40,6 +42,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             version: 6,
+            review_name: String::new(),
             appearance: Default::default(),
             layout: Default::default(),
             shortcuts: Default::default(),
@@ -57,6 +60,9 @@ impl Preferences {
     fn validate(&self) -> Result<()> {
         if self.version != 6 {
             return Err("Unsupported settings version".into());
+        }
+        if !self.review_name.is_empty() {
+            vsf_application::review_package::validate_name(&self.review_name)?;
         }
         self.layout.validate()?;
         self.shortcuts.validate()?;

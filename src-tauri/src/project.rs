@@ -110,7 +110,9 @@ impl Project {
     // Layout is the only v3 feature. Ordinary view saves (including quit) must
     // retain the oldest format that represents the actual project contents.
     fn version_for_save(&self) -> u32 {
-        if self.review.is_some() {
+        if self.review.as_ref().is_some_and(|r| r.has_discussion()) {
+            5
+        } else if self.review.is_some() {
             4
         } else if self.options.layout.is_some() {
             3
@@ -126,7 +128,7 @@ impl Project {
         if let Some(profile) = &self.options.quality {
             crate::quality_profile::Policy::new(profile.clone(), self.options.timing.clone())?;
         }
-        if !matches!(self.version, 1..=4) {
+        if !matches!(self.version, 1..=5) {
             return Err("Unsupported VSF project version".into());
         }
         if let Some(layout) = &self.options.layout {
@@ -147,7 +149,10 @@ impl Project {
             );
         }
         if let Some(review) = &self.review {
-            if self.version < 4 || self.subtitle_path.is_none() {
+            if (self.version < 5 && review.has_discussion())
+                || self.version < 4
+                || self.subtitle_path.is_none()
+            {
                 return Err("Review projects require version 4 and saved subtitles".into());
             }
             review.validate()?;
@@ -214,11 +219,11 @@ fn read_bytes(path: &Path) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     fs::File::open(path)
         .map_err(|e| format!("Cannot open project: {e}"))?
-        .take(8 * 1024 * 1024 + 1)
+        .take(128 * 1024 * 1024 + 1)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
-    if bytes.len() > 8 * 1024 * 1024 {
-        return Err("Project exceeds 8 MiB limit".into());
+    if bytes.len() > 128 * 1024 * 1024 {
+        return Err("Project exceeds 128 MiB limit".into());
     }
     Ok(bytes)
 }
@@ -527,8 +532,8 @@ fn serialize(path: &Path, project: &Project) -> Result<Vec<u8>> {
         translation.protect(base, path)?;
     }
     let bytes = serde_json::to_vec_pretty(project).map_err(|e| e.to_string())?;
-    if bytes.len() > 8 * 1024 * 1024 {
-        return Err("Project exceeds 8 MiB limit".into());
+    if bytes.len() > 128 * 1024 * 1024 {
+        return Err("Project exceeds 128 MiB limit".into());
     }
     Ok(bytes)
 }
@@ -709,7 +714,7 @@ mod tests {
         let mut project = fixture(dir.path());
         let path = dir.path().join("test.vsfproject");
         let write = |p: &Project| fs::write(&path, serde_json::to_vec(p).unwrap()).unwrap();
-        project.version = 5;
+        project.version = 6;
         write(&project);
         assert!(read(&path).err().unwrap().contains("version"));
         project.version = 1;

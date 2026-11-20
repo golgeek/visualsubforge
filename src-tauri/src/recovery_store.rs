@@ -9,8 +9,8 @@ use std::{
 };
 
 type Result<T> = std::result::Result<T, String>;
-// Four independently bounded 16 MiB strings can each expand sixfold as JSON.
-const MAX_RECORD: u64 = 400 * 1024 * 1024;
+// Five 16 MiB text budgets at 6x JSON expansion, plus event/identity metadata.
+const MAX_RECORD: u64 = 528 * 1024 * 1024;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -113,7 +113,13 @@ impl Record {
 
     pub(crate) fn set_review(&mut self, review: Option<crate::document::review::Stored>) {
         if review.is_some() {
-            self.version = self.version.max(7);
+            self.version =
+                self.version
+                    .max(if review.as_ref().is_some_and(|r| r.has_discussion()) {
+                        8
+                    } else {
+                        7
+                    });
         }
         self.review = review;
     }
@@ -126,10 +132,11 @@ impl Record {
         crate::document::translation::Context,
         crate::document::review::Context,
     )> {
-        if !matches!(self.version, 1..=7)
+        if !matches!(self.version, 1..=8)
             || (self.version < 3 && self.resynced)
             || (self.version < 4 && self.format.is_some())
             || (self.version < 5 && self.translation.is_some())
+            || (self.version < 8 && self.review.as_ref().is_some_and(|r| r.has_discussion()))
             || (self.version < 7 && self.review.is_some())
             || (self.version >= 4
                 && self

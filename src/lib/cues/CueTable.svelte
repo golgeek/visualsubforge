@@ -23,6 +23,7 @@
   import type { CueTableView } from './cue-table-view.svelte';
   let {
     reviewChanges = [],
+    commentedIds = [],
     ghosts = [],
     subtitles,
     quality,
@@ -33,6 +34,7 @@
     actions,
     controls,
   }: {
+    commentedIds?: number[];
     reviewChanges?: ReviewChange[];
     ghosts?: TimingGhost[];
     subtitles: DocumentSession;
@@ -349,7 +351,10 @@
                         style: 'S',
                         unchanged: '',
                       }[changes.get(item.id)!]
-                    : ''}</span
+                    : ''}{#if commentedIds.includes(item.id)}<span
+                      aria-label="Commented cue"
+                      title="Review comments">▤</span
+                    >{/if}</span
                 >{/if}
               {#each columns as column (column.id)}
                 {#if column.id === 'issue'}<span

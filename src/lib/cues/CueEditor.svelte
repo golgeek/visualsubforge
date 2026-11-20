@@ -16,7 +16,10 @@
   import { matchesShortcut } from '../workspace/action-registry';
   import type { TextFormat, QualityRule, ShortcutPreferences } from '../client';
   import type { AuthoringModal } from '../dialogs/workspace-modal.svelte';
+  import CommentThreads from '../review/CommentThreads.svelte';
+  import type { ReviewSession } from '../review/review-session.svelte';
   let {
+    review,
     reviewChange = null,
     onrevert,
     editing,
@@ -35,6 +38,7 @@
     onmove,
     actions,
   }: {
+    review?: ReviewSession;
     reviewChange?: ReviewChange | null;
     onrevert?: (change: ReviewChange) => void;
     editing: CueEditing;
@@ -346,12 +350,19 @@
       use:measurePaneControl={(height) => (originalHeight = height)}
     >
       <header>
-        <strong>Original</strong><button
-          disabled={busy || confirming || draftDirty}
-          onclick={() => onrevert?.(reviewChange!)}>Revert</button
-        >
+        {#if reviewChange.kind !== 'unchanged'}<strong>Original</strong><button
+            disabled={busy || confirming || draftDirty}
+            onclick={() => onrevert?.(reviewChange!)}>Revert</button
+          >{/if}
       </header>
-      <div class="original-diff"><ChangeDetail change={reviewChange} /></div>
+      {#if reviewChange.kind !== 'unchanged'}<div class="original-diff">
+          <ChangeDetail change={reviewChange} />
+        </div>{/if}
+      {#if review}{#key review.rowId(reviewChange)}<CommentThreads
+            {review}
+            change={reviewChange}
+            projection
+          />{/key}{/if}
     </div>{/if}
   <div
     class="editorfooter"

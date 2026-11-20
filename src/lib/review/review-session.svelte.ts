@@ -1,4 +1,6 @@
 import {
+  type CommentEdit,
+  type ReviewThread,
   chooseFile,
   reviewAction,
   type ReviewChange,
@@ -21,6 +23,71 @@ export class ReviewSession {
   projection = $state.raw<ReviewChange[]>([]);
   showOriginal = $state(true);
   includeUnchanged = $state(false);
+  threadFilter = $state<'open' | 'commented' | null>(null);
+  visibleDiscussion = $state.raw<ReviewReply['discussion']>(undefined);
+  currentThread = $state<string | null>(null);
+  name: () => string = () => '';
+  saveName: (name: string) => Promise<void> = async () => {};
+  goToTime: (ms: number) => void = () => {};
+  rowId(c: ReviewChange) {
+    return c.key + '/' + (c.original[0] ?? c.revised[0])?.source_index;
+  }
+  threads(c: ReviewChange, projection = false) {
+    return (
+      (projection ? this.visibleDiscussion : this.page?.discussion)?.rows[
+        this.rowId(c)
+      ] ?? []
+    );
+  }
+  async comment(edit: CommentEdit, inlineName: string) {
+    if (!this.workspace.canAct) return false;
+    const key = this.key();
+    let posted = false;
+    await this.workspace.task(async () => {
+      if (!this.name() && edit.kind !== 'delete')
+        await this.saveName(inlineName.trim());
+      if (!this.alive || JSON.stringify(key) !== JSON.stringify(this.key()))
+        return;
+      posted = await this.subtitles.changeReview(
+        { kind: 'comment', key, author: this.name(), atMs: Date.now(), edit },
+        this.subtitles.snapshot,
+      );
+    });
+    return posted;
+  }
+  async navigateThread(forward: boolean) {
+    if (!this.workspace.canAct || !this.page?.statistics) return;
+    const key = this.key();
+    try {
+      const r = await reviewAction({
+        kind: 'navigateThread',
+        key,
+        from: this.currentThread,
+        forward,
+      });
+      if (
+        !this.alive ||
+        JSON.stringify(key) !== JSON.stringify(this.key()) ||
+        !r.threadId
+      )
+        return;
+      this.view.openReview('changes');
+      this.currentThread = r.threadId;
+      this.threadFilter = 'open';
+      this.offset = Math.floor(((r.position ?? 1) - 1) / 100) * 100;
+      if (r.rows[0]) await this.select(r.rows[0]);
+      else if (r.discussion?.detached[0])
+        this.frameThread(r.discussion.detached[0]);
+    } catch (error) {
+      if (this.alive) this.error = String(error);
+    }
+  }
+  frameThread(t: ReviewThread) {
+    const q =
+      t.anchor.revised[0] ??
+      (t.anchor.kind === 'change' ? t.anchor.original[0] : null);
+    if (q) this.goToTime(q.start_ms!);
+  }
   navigateTo: (change: ReviewChange, block?: BlockRow) => Promise<void> =
     async () => {};
   projectionInput: () => { ids: number[]; startMs: number; endMs: number } =
@@ -78,12 +145,22 @@ export class ReviewSession {
       const expanded = this.expanded;
       const offset = this.offset;
       const filter = this.filter;
+      const threadFilter = this.threadFilter;
       const sequence = ++this.sequence;
       this.page = null;
       this.projection = [];
+      this.visibleDiscussion = undefined;
       if (!snapshot.review?.path) return;
       const timer = setTimeout(
-        () => void this.query(capture, offset, filter, sequence, expanded),
+        () =>
+          void this.query(
+            capture,
+            offset,
+            filter,
+            sequence,
+            expanded,
+            threadFilter,
+          ),
         250,
       );
       return () => {
@@ -107,8 +184,10 @@ export class ReviewSession {
         this.alive &&
         serial === this.projectionSequence &&
         JSON.stringify(key) === JSON.stringify(this.key())
-      )
+      ) {
         this.projection = reply.rows;
+        this.visibleDiscussion = reply.discussion;
+      }
     } catch (error) {
       if (
         this.alive &&
@@ -244,9 +323,10 @@ export class ReviewSession {
     filter: typeof this.filter,
     sequence: number,
     expanded: number[],
+    threadFilter: typeof this.threadFilter,
   ) {
     try {
-      const reply = await reviewAction({
+      let reply = await reviewAction({
         kind: 'query',
         key: this.key(),
         offset,
@@ -254,6 +334,14 @@ export class ReviewSession {
         expanded,
         filter,
       });
+      if (threadFilter && reply.statistics && !reply.working)
+        reply = await reviewAction({
+          kind: 'threads',
+          key: reply.key,
+          open: threadFilter === 'open',
+          offset,
+          limit: 100,
+        });
       const key = this.key();
       if (
         !this.alive ||
@@ -266,7 +354,14 @@ export class ReviewSession {
       if (reply.working)
         setTimeout(() => {
           if (this.alive && sequence === this.sequence)
-            void this.query(capture, offset, filter, sequence, expanded);
+            void this.query(
+              capture,
+              offset,
+              filter,
+              sequence,
+              expanded,
+              threadFilter,
+            );
         }, 75);
     } catch (error) {
       if (this.alive && sequence === this.sequence) this.error = String(error);

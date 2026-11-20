@@ -59,6 +59,8 @@ pub enum WorkspaceAction {
     CompareOriginal,
     CompareFiles,
     EndReview,
+    PreviousOpenThread,
+    NextOpenThread,
     PreviousChange,
     NextChange,
     ShowOriginalTiming,

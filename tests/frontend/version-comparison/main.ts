@@ -9,6 +9,7 @@ import {
   type ReviewAction,
   type ReviewReply,
   type ReviewChange,
+  type ReviewThread,
 } from '../../../src/lib/client';
 import { sceneView, waveformView } from '../ipc-contract-samples';
 import { emptyQuality } from '../empty-quality';
@@ -20,6 +21,28 @@ let newer = false;
 let exported = false;
 let starts = 0;
 let queryCount = 0;
+let discussion: ReviewThread | null = null;
+let commentedKey = '';
+function discussionPage() {
+  const c = rows.find((c) => c.key === commentedKey);
+  return {
+    rows:
+      c && discussion
+        ? { [c.key + '/' + c.original[0]!.source_index]: [discussion] }
+        : {},
+    detached: !c && discussion ? [discussion] : [],
+    exported: [],
+    blockCounts: {},
+    open:
+      discussion &&
+      ![...discussion.messages]
+        .reverse()
+        .find((m) => m.type !== 'comment')
+        ?.type?.includes('resolve')
+        ? 1
+        : 0,
+  };
+}
 let epoch = 0;
 let savedCopies = 0;
 let held: Promise<void> | null = null;
@@ -94,6 +117,7 @@ function reply(): ReviewReply {
   return {
     key: { generation: doc.generation, revision: doc.revision, epoch },
     context: doc.review ?? null,
+    discussion: discussionPage(),
     document: null,
     working: false,
     matched: rows.length,
@@ -156,6 +180,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'update_menu':
         case 'layout_save':
           return;
+        case 'preferences_save':
+          return 2;
         case 'preferences_get':
           return structuredClone(defaultPreferences);
         case 'quality_read':
@@ -222,6 +248,51 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         }
         case 'review_action': {
           const a = args.action as ReviewAction;
+          if (a.kind === 'comment') {
+            const edit = a.edit;
+            if (edit.kind === 'post') {
+              commentedKey = edit.changeKey;
+              const c = rows.find((c) => c.key === commentedKey)!;
+              discussion = {
+                id: 'thread',
+                first_message_id: 'first',
+                anchor: {
+                  kind: 'change',
+                  change_key: c.key,
+                  change_kind: c.kind,
+                  original: c.original,
+                  revised: c.revised,
+                },
+                messages: [
+                  {
+                    id: 'first',
+                    author: a.author,
+                    at_ms: a.atMs,
+                    type: 'comment',
+                    text: edit.text,
+                  },
+                ],
+              };
+            } else if (edit.kind === 'reply' && discussion) {
+              discussion.messages.push({
+                id: 'm' + discussion.messages.length,
+                author: a.author,
+                at_ms: a.atMs,
+                type: edit.event,
+                ...(edit.text ? { text: edit.text } : {}),
+              });
+            }
+            doc.review = { ...doc.review!, epoch: ++epoch, dirty: true };
+            return reply();
+          }
+          if (a.kind === 'threads' || a.kind === 'navigateThread') {
+            const r = reply();
+            r.rows = rows.filter((c) => c.key === commentedKey);
+            r.total = r.rows.length + (r.discussion?.detached.length ?? 0);
+            r.position = 1;
+            r.threadId = discussion?.id ?? null;
+            return r;
+          }
           if (a.kind === 'inspect') return { ...reply(), newerOriginal: newer };
           if (a.kind === 'attach') {
             doc.review = { epoch: ++epoch, dirty: true, path: a.path, options };
@@ -609,6 +680,66 @@ async function run() {
     await until(() => host.textContent?.includes('Change 6 of 199') ?? false);
     passed(
       'Block selection, collapsed paging, expanded navigation and Previous Change after selecting another cue',
+    );
+    const changes = host.querySelector('section[aria-label="Changes"]')!;
+    const inPanel = (label: string) =>
+      [...changes.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === label,
+      );
+    const fill = (selector: string, value: string) => {
+      const input = changes.querySelector<
+        HTMLInputElement | HTMLTextAreaElement
+      >(selector)!;
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    inPanel('Comment')!.click();
+    await tick();
+    assert(
+      changes.textContent?.includes(
+        'Shown to everyone who receives your review files',
+      ),
+      'Inline name disclosure',
+    );
+    fill('form input', 'Ana');
+    fill('form textarea', '<img> Check');
+    await tick();
+    inPanel('Post')!.click();
+    await until(() => !!inPanel('Reply'));
+    assert(
+      changes.textContent?.includes('<img> Check') &&
+        !changes.querySelector('img'),
+      'Literal comment',
+    );
+    inPanel('Reply')!.click();
+    await tick();
+    fill('form textarea', 'Agreed');
+    await tick();
+    inPanel('Post')!.click();
+    await until(
+      () => !!inPanel('Resolve') && !!changes.textContent?.includes('Agreed'),
+    );
+    inPanel('Resolve')!.click();
+    await until(() => !!inPanel('Reopen'));
+    inPanel('Reopen')!.click();
+    await until(() => !!inPanel('Resolve'));
+    inPanel('Commented')!.click();
+    await until(() => changes.querySelectorAll('article').length === 1);
+    await chooseCommand(host, 'nextOpenThread');
+    await until(
+      () => inPanel('Open threads')?.getAttribute('aria-pressed') === 'true',
+    );
+    await until(() => !!inPanel('Revert') && !inPanel('Revert')!.disabled);
+    inPanel('Revert')!.click();
+    await until(() => !!changes.querySelector('[aria-label="Detached"]'));
+    inPanel('Reply')!.click();
+    await tick();
+    fill('form textarea', 'Still visible');
+    await tick();
+    inPanel('Post')!.click();
+    await until(() => !!changes.textContent?.includes('Still visible'));
+    passed(
+      'Name prompt, literal comments, replies, status events, comment filters, navigation and detached replies',
     );
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =

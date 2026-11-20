@@ -744,8 +744,7 @@ translation slot and any existing comparison base while publishing a new copy.
 Project v4 captures the review struct and validates expected original identity
 before replacement, with explicit relocation/end handling. Publication captures
 both contexts under the existing document-to-project lock order; attachment checks
-both epochs. Recovery v7 captures both references and options, using a 400 MiB
-record bound. Context mutations do not enter subtitle Undo; Save As and conversion
+both epochs. Project v5 and recovery v8 additionally retain discussion events, round and exported IDs. The recovery envelope is 528 MiB for five independently bounded 16 MiB text budgets at worst-case JSON expansion plus metadata. Older contents retain their minimum save version. Context mutations do not enter subtitle Undo; Save As and conversion
 protect both reference slots. `ReviewSession` owns only paging, selection and
 request lifetime; mutations reconcile through DocumentSession's serialized path.
 

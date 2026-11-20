@@ -49,7 +49,7 @@ pub(super) fn stops<'a>(
     result
 }
 impl Store {
-    fn comparison(&mut self, key: ReviewKey) -> Result<&engine::Comparison> {
+    pub(super) fn comparison(&mut self, key: ReviewKey) -> Result<&engine::Comparison> {
         self.check_review_key(key)?;
         let job = self
             .review
@@ -173,22 +173,38 @@ impl Store {
             return Err("Invalid comparison projection window".into());
         }
         let ids: HashSet<_> = ids.iter().map(|id| id.get()).collect();
-        let rows = self
-            .comparison(key)?
+        self.comparison(key)?;
+        let mut reply = self.review_reply(None, 0, 0, None)?;
+        let job = self.review.job.as_ref().ok_or("Wait for comparison")?;
+        let index = job.threads.as_ref().ok_or("Wait for thread index")?;
+        let d = &self
+            .loaded
+            .as_ref()
+            .ok_or("Open subtitles")?
+            .review
+            .discussion;
+        let rows = job
+            .result
+            .as_ref()
+            .ok_or("Wait for comparison")?
             .changes
             .iter()
-            .filter(|c| {
-                c.kind != engine::Kind::Unchanged
-                    && (c.revised.iter().any(|cue| ids.contains(&cue.cue_id))
-                        || c.kind == engine::Kind::Removed
-                            && c.original
-                                .iter()
-                                .any(|cue| cue.start_ms <= end && cue.end_ms >= start))
+            .enumerate()
+            .filter(|(_, c)| {
+                c.revised.iter().any(|cue| ids.contains(&cue.cue_id))
+                    || c.kind == engine::Kind::Removed
+                        && c.original
+                            .iter()
+                            .any(|cue| cue.start_ms <= end && cue.end_ms >= start)
             })
             .take(200)
-            .cloned()
+            .map(|(i, c)| {
+                if let Some(page) = &mut reply.discussion {
+                    index.project(i, c, d, page)
+                }
+                c.clone()
+            })
             .collect();
-        let mut reply = self.review_reply(None, 0, 1, None)?;
         reply.rows = rows;
         Ok(reply)
     }

@@ -1,24 +1,30 @@
 //! Independent review slot. Workers retain immutable captures, never Store.
 use super::translation::context::ReferenceFile;
 use super::*;
+mod discussion;
 mod operations;
 use crate::ipc_number::SafeU64;
+use discussion::{CommentEdit, Discussion, DiscussionPage, ThreadIndex};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle,
 };
 use vsf_application::comparison as engine;
+use vsf_application::review_package;
 
 #[derive(Clone, Default, Debug)]
 pub(crate) struct Context {
     pub(crate) reference: translation::Context,
     pub(crate) options: engine::Options,
+    discussion: Discussion,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Stored {
     reference: Option<translation::Stored>,
     options: engine::Options,
+    #[serde(default, skip_serializing_if = "Discussion::empty")]
+    discussion: Discussion,
 }
 impl Context {
     pub(crate) fn stored(&self) -> Result<Option<Stored>> {
@@ -28,11 +34,16 @@ impl Context {
         Ok(Some(Stored {
             reference: self.reference.stored()?,
             options: self.options.clone(),
+            discussion: self.discussion.clone(),
         }))
     }
 }
 impl Stored {
+    pub(crate) fn has_discussion(&self) -> bool {
+        !self.discussion.empty()
+    }
     pub(crate) fn restore(&self) -> Result<Context> {
+        self.discussion.validate()?;
         Ok(Context {
             reference: self
                 .reference
@@ -41,6 +52,7 @@ impl Stored {
                 .transpose()?
                 .unwrap_or_default(),
             options: self.options.clone(),
+            discussion: self.discussion.clone(),
         })
     }
 }
@@ -68,6 +80,23 @@ pub struct ReviewSummary {
 )]
 pub enum ReviewAction {
     Status,
+    Comment {
+        key: ReviewKey,
+        author: String,
+        at_ms: SafeU64,
+        edit: CommentEdit,
+    },
+    Threads {
+        key: ReviewKey,
+        open: bool,
+        offset: u32,
+        limit: u32,
+    },
+    NavigateThread {
+        key: ReviewKey,
+        from: Option<String>,
+        forward: bool,
+    },
     RevertBlock {
         key: ReviewKey,
         first: u32,
@@ -133,6 +162,10 @@ pub enum ReviewAction {
 pub struct ReviewReply {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     blocks: Vec<BlockRow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    discussion: Option<DiscussionPage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thread_id: Option<String>,
     matched: u32,
     key: ReviewKey,
     context: Option<ReviewSummary>,
@@ -157,7 +190,8 @@ struct BlockRow {
 struct Job {
     key: ReviewKey,
     cancel: Arc<AtomicBool>,
-    worker: Option<JoinHandle<Result<engine::Comparison>>>,
+    worker: Option<JoinHandle<Result<(engine::Comparison, ThreadIndex)>>>,
+    threads: Option<ThreadIndex>,
     result: Option<engine::Comparison>,
     error: Option<String>,
 }
@@ -168,7 +202,10 @@ impl Job {
                 .join()
                 .unwrap_or_else(|_| Err("Comparison worker stopped".into()))
             {
-                Ok(result) if !self.cancel.load(Ordering::Acquire) => self.result = Some(result),
+                Ok((result, threads)) if !self.cancel.load(Ordering::Acquire) => {
+                    self.result = Some(result);
+                    self.threads = Some(threads)
+                }
                 Err(error) if !self.cancel.load(Ordering::Acquire) => self.error = Some(error),
                 _ => {}
             }
@@ -258,6 +295,8 @@ impl Store {
         let context = self.review_summary();
         let mut reply = ReviewReply {
             blocks: Vec::new(),
+            discussion: None,
+            thread_id: None,
             matched: 0,
             key,
             context,
@@ -281,6 +320,17 @@ impl Store {
                 reply.error = job.error.clone();
                 if let Some(result) = &job.result {
                     reply.statistics = Some(result.statistics.clone());
+                    let discussion = &self
+                        .loaded
+                        .as_ref()
+                        .ok_or("Review has ended")?
+                        .review
+                        .discussion;
+                    let mut page = DiscussionPage {
+                        open: discussion.threads.iter().filter(|t| !t.resolved()).count() as u32,
+                        ..Default::default()
+                    };
+                    let index = job.threads.as_ref().ok_or("Missing thread index")?;
                     let stops = operations::stops(result, filter, expanded);
                     reply.matched = result
                         .changes
@@ -289,7 +339,15 @@ impl Store {
                         .count() as u32;
                     reply.total = stops.len() as u32;
                     for stop in stops.iter().skip(offset as usize).take(limit as usize) {
+                        index.project(
+                            stop.first,
+                            &result.changes[stop.first],
+                            discussion,
+                            &mut page,
+                        );
                         if let Some(block) = stop.block {
+                            page.block_counts
+                                .insert(block.first, index.block_count(block));
                             reply.blocks.push(BlockRow {
                                 row: reply.rows.len() as u32,
                                 block: block.clone(),
@@ -303,6 +361,20 @@ impl Store {
                         }
                         reply.rows.push(result.changes[stop.first].clone());
                     }
+                    if filter.is_none() {
+                        reply.total += index.detached.len() as u32;
+                        for &t in index
+                            .detached
+                            .iter()
+                            .skip((offset as usize).saturating_sub(stops.len()))
+                            .take((limit as usize).saturating_sub(reply.rows.len()))
+                        {
+                            let thread = &discussion.threads[t];
+                            page.include_exported(thread, discussion);
+                            page.detached.push(thread.clone());
+                        }
+                    }
+                    reply.discussion = Some(page);
                     for cue in reply
                         .rows
                         .iter()
@@ -433,6 +505,7 @@ impl Documents {
                     dirty: true,
                 },
                 options,
+                discussion: Default::default(),
             };
             store.next_review_epoch()?;
             let document = Some(store.snapshot());
@@ -445,6 +518,23 @@ impl Documents {
         match action {
             ReviewAction::Attach { .. } | ReviewAction::Inspect { .. } => unreachable!(),
             ReviewAction::Status => {}
+            ReviewAction::Comment {
+                key,
+                author,
+                at_ms,
+                edit,
+            } => {
+                store.comment(key, author, at_ms.get(), edit)?;
+            }
+            ReviewAction::Threads {
+                key,
+                open,
+                offset,
+                limit,
+            } => return store.thread_page(key, open, offset, limit, None),
+            ReviewAction::NavigateThread { key, from, forward } => {
+                return store.thread_page(key, true, 0, 1, Some((from, forward)));
+            }
             ReviewAction::Start { .. } => unreachable!(),
             ReviewAction::Export { .. } => unreachable!(),
             ReviewAction::RevertBlock { key, first } => {
@@ -489,6 +579,7 @@ impl Documents {
                 store.check_review_key(key)?;
                 let c = &mut store.loaded_mut()?.review;
                 c.reference.reference = None;
+                c.discussion = Discussion::default();
                 c.reference.dirty = true;
                 store.next_review_epoch()?;
                 document = Some(store.snapshot());
@@ -538,6 +629,7 @@ impl Documents {
                     let cues = loaded.editor.document().cues().to_vec();
                     let format = loaded.source().format();
                     let options = loaded.review.options.clone();
+                    let threads = loaded.review.discussion.threads.clone();
                     let cancel = Arc::new(AtomicBool::new(false));
                     let token = cancel.clone();
                     let worker = std::thread::Builder::new()
@@ -545,22 +637,31 @@ impl Documents {
                         .spawn(move || {
                             let deadline =
                                 std::time::Instant::now() + std::time::Duration::from_secs(10);
-                            engine::compare(
+                            let checkpoint = || {
+                                if token.load(Ordering::Acquire) {
+                                    Err("Comparison cancelled".into())
+                                } else if std::time::Instant::now() > deadline {
+                                    Err("Comparison timed out".into())
+                                } else {
+                                    Ok(())
+                                }
+                            };
+                            let c = engine::compare(
                                 original.cues(),
                                 original.format(),
                                 &cues,
                                 format,
                                 options,
-                                || {
-                                    if token.load(Ordering::Acquire) {
-                                        Err("Comparison cancelled".into())
-                                    } else if std::time::Instant::now() > deadline {
-                                        Err("Comparison timed out".into())
-                                    } else {
-                                        Ok(())
-                                    }
-                                },
-                            )
+                                checkpoint,
+                            )?;
+                            let positions = review_package::reanchor(
+                                &threads,
+                                &c,
+                                original.format(),
+                                format,
+                                checkpoint,
+                            )?;
+                            Ok((c, ThreadIndex::new(positions)))
                         })
                         .map_err(|e| e.to_string())?;
                     store.review.job = Some(Job {
@@ -568,6 +669,7 @@ impl Documents {
                         cancel,
                         worker: Some(worker),
                         result: None,
+                        threads: None,
                         error: None,
                     });
                 }
@@ -602,6 +704,8 @@ pub async fn review_action(
 pub struct ReviewProjectContext {
     reference: translation::ProjectContext,
     options: engine::Options,
+    #[serde(default, skip_serializing_if = "Discussion::empty")]
+    discussion: Discussion,
 }
 impl Context {
     pub(crate) fn project_description(&self, base: &Path) -> Result<Option<ReviewProjectContext>> {
@@ -611,11 +715,16 @@ impl Context {
             .map(|reference| ReviewProjectContext {
                 reference,
                 options: self.options.clone(),
+                discussion: self.discussion.clone(),
             }))
     }
 }
 impl ReviewProjectContext {
+    pub(crate) fn has_discussion(&self) -> bool {
+        !self.discussion.empty()
+    }
     pub(crate) fn validate(&self) -> Result<()> {
+        self.discussion.validate()?;
         self.reference.validate()
     }
     pub(crate) fn protect(&self, base: &Path, path: &Path) -> Result<()> {
@@ -629,6 +738,7 @@ impl ReviewProjectContext {
         Ok(Context {
             reference: self.reference.load(base, overrides)?,
             options: self.options.clone(),
+            discussion: self.discussion.clone(),
         })
     }
 }

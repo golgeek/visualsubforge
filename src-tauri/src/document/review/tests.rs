@@ -546,3 +546,75 @@ fn shift_block_is_one_stop_and_one_undo_step() {
     let undone = action(&d, super::super::Action::Undo);
     assert_eq!(serde_json::to_value(undone.cues).unwrap(), cues);
 }
+#[test]
+fn discussion_is_independent_of_editor_and_survives_project_and_recovery() {
+    let (dir, d, original, _) = fixture();
+    attach(&d, &original);
+    let row = ready(&d).rows.remove(0);
+    let before = snapshot(&d);
+    let post = |edit| {
+        d.review_action(ReviewAction::Comment {
+            key: key(&d),
+            author: "Ana".into(),
+            at_ms: 12u64.try_into().unwrap(),
+            edit,
+        })
+    };
+    post(CommentEdit::Post {
+        change_key: row.key,
+        source_index: row.original[0].source_index,
+        text: "Check".into(),
+    })
+    .unwrap();
+    let after = snapshot(&d);
+    assert_eq!(
+        (after.revision, after.dirty, after.can_undo),
+        (before.revision, before.dirty, before.can_undo)
+    );
+    assert_eq!(after.cues[0].text, before.cues[0].text);
+    assert!(after.review.unwrap().dirty);
+    let t = ready(&d)
+        .discussion
+        .unwrap()
+        .rows
+        .into_values()
+        .next()
+        .unwrap()
+        .remove(0);
+    post(CommentEdit::Reply {
+        thread_id: t.id.clone(),
+        event: review_package::Event::Resolve,
+        text: None,
+    })
+    .unwrap();
+    let restored = {
+        let mut s = d.0.lock().unwrap();
+        let c = &mut s.loaded_mut().unwrap().review;
+        c.discussion.exported.insert(t.first_message_id.clone());
+        let recovery = c.stored().unwrap().unwrap().restore().unwrap();
+        let project = c.project_description(dir.path()).unwrap().unwrap();
+        let r: ReviewProjectContext =
+            serde_json::from_slice(&serde_json::to_vec(&project).unwrap()).unwrap();
+        let reopened = r.load(dir.path(), &Default::default()).ok().unwrap();
+        assert!(reopened.discussion == c.discussion && recovery.discussion == c.discussion);
+        reopened.discussion
+    };
+    assert!(
+        post(CommentEdit::Delete {
+            thread_id: t.id.clone(),
+            message_id: t.first_message_id
+        })
+        .is_err()
+    );
+    let event = restored.threads[0]
+        .messages
+        .iter()
+        .find(|m| m.event == review_package::Event::Resolve)
+        .unwrap();
+    post(CommentEdit::Delete {
+        thread_id: t.id,
+        message_id: event.id.clone(),
+    })
+    .unwrap();
+    assert_eq!(ready(&d).discussion.unwrap().open, 1);
+}
