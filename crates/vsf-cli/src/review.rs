@@ -57,12 +57,14 @@ pub fn run(args: Review, cancel: &Cancellation) -> Result<u8> {
             if json {
                 serde_json::to_writer_pretty(&mut out,&serde_json::json!({"round":p.round,"statistics":c.statistics,"threads":threads})).map_err(|e|(5,e.to_string()))?;
             } else {
+                let changes = c.statistics.changes;
+                let total = threads.len();
                 writeln!(
                     out,
-                    "Round {} · {} changes · {} threads",
+                    "Round {} · {changes} change{} · {total} thread{}",
                     p.round,
-                    c.statistics.changes,
-                    threads.len()
+                    if changes == 1 { "" } else { "s" },
+                    if total == 1 { "" } else { "s" },
                 )
                 .map_err(|e| (5, e.to_string()))?;
                 for t in threads {

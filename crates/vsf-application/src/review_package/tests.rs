@@ -200,6 +200,19 @@ fn immutable_anchors_insert_revert_split_and_retime() {
     }
 }
 #[test]
+fn report_summary_uses_singular_for_one_open_thread() {
+    let p = fixture();
+    let parsed = p.original.parsed().unwrap();
+    let c = compare(parsed.document.cues(), parsed.document.cues());
+    let report = sections(&p, &c, false).unwrap();
+    assert!(
+        report
+            .end_html
+            .contains("<p>1 open thread · 1 thread in total</p>")
+    );
+}
+
+#[test]
 fn report_block_is_inert_unique_and_optional() {
     let mut p = fixture();
     let parsed = p.original.parsed().unwrap();

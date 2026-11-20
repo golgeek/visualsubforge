@@ -78,3 +78,34 @@ fn compare_show_and_concurrent_reviewers_in_both_orders() {
         2
     );
 }
+
+#[test]
+fn show_uses_singular_for_one_change_and_one_thread() {
+    let mut package = review_file::read(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../vsf-application/tests/fixtures/review-v1.vsfreview"),
+    )
+    .unwrap();
+    package.original = vsf_application::review_package::Subtitle::capture(
+        "original.srt",
+        subtitle_formats::Format::Srt,
+        b"1\n00:00:00,000 --> 00:00:01,000\nHello there\n",
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("single.vsfreview");
+    fs::write(&path, package.write().unwrap()).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_vsf"))
+        .args(["review", "show"])
+        .arg(path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap().lines().next(),
+        Some("Round 1 · 1 change · 1 thread")
+    );
+}

@@ -55,9 +55,11 @@ pub fn sections(package: &Package, comparison: &Comparison, embed: bool) -> Resu
         })
         .collect();
     let open = package.threads.iter().filter(|t| !t.resolved()).count();
+    let total = package.threads.len();
     extra.end_html = format!(
-        "<section><h2>Discussion</h2><p>{open} open threads · {} threads in total</p></section>",
-        package.threads.len()
+        "<section><h2>Discussion</h2><p>{open} open thread{} · {total} thread{} in total</p></section>",
+        if open == 1 { "" } else { "s" },
+        if total == 1 { "" } else { "s" },
     );
     let mut detached = String::new();
     for (t, pos) in package.threads.iter().zip(positions) {
