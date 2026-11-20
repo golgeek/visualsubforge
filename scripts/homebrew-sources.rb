@@ -9,7 +9,13 @@ def resource_record(resource)
 end
 
 records = ARGV.map do |path|
-  formula = Formulary.factory(Pathname.new(path))
+  # The name lookup uses today's catalog. Read the recipe inside the actual
+  # installed keg so the source manifest describes the bytes we packaged.
+  recipe = Pathname.new(path).realpath
+  keg = Keg.for(recipe)
+  raise "Unexpected installed recipe: #{recipe}" unless recipe == keg/".brew/#{keg.name}.rb"
+
+  formula = Formulary.from_path(recipe)
   patches = formula.stable.patches.map do |patch|
     record = { type: patch.class.name, strip: patch.strip.to_s }
     if patch.is_a?(ExternalPatch)
