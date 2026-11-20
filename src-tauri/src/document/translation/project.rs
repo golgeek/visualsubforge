@@ -99,6 +99,11 @@ impl Context {
     }
 }
 impl ProjectContext {
+    pub(crate) fn identifies(&self, path: &str, sha256: &str) -> bool {
+        self.reference
+            .as_ref()
+            .is_some_and(|r| r.path == path && r.sha256 == sha256)
+    }
     pub(crate) fn validate(&self) -> Result<()> {
         if let Some(reference) = &self.reference {
             validate_path(&reference.path)?;
@@ -142,6 +147,14 @@ impl ProjectContext {
         base: &Path,
         overrides: &ReferenceOverride,
     ) -> std::result::Result<Context, ReferenceIssue> {
+        self.load_with(base, overrides, |path| ReferenceFile::load(path, || Ok(())))
+    }
+    pub(crate) fn load_with(
+        &self,
+        base: &Path,
+        overrides: &ReferenceOverride,
+        loader: impl FnOnce(&Path) -> Result<ReferenceFile>,
+    ) -> std::result::Result<Context, ReferenceIssue> {
         let path = self
             .reference
             .as_ref()
@@ -163,7 +176,7 @@ impl ProjectContext {
         let mut dirty = false;
         let reference = match (&self.reference, path.as_ref()) {
             (Some(expected), Some(path)) => {
-                let mut file = ReferenceFile::load(path, || Ok(())).map_err(|e| issue(e, false))?;
+                let mut file = loader(path).map_err(|e| issue(e, false))?;
                 let changed = file.reference.fingerprint() != expected.sha256
                     || file.reference.format().extension() != expected.format;
                 if changed && !overrides.reload {

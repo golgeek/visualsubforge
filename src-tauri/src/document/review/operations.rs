@@ -49,7 +49,7 @@ pub(super) fn stops<'a>(
     result
 }
 impl Store {
-    fn comparison(&mut self, key: ReviewKey) -> Result<&engine::Comparison> {
+    pub(super) fn comparison(&mut self, key: ReviewKey) -> Result<&engine::Comparison> {
         self.check_review_key(key)?;
         let job = self
             .review
@@ -173,22 +173,48 @@ impl Store {
             return Err("Invalid comparison projection window".into());
         }
         let ids: HashSet<_> = ids.iter().map(|id| id.get()).collect();
-        let rows = self
-            .comparison(key)?
+        self.comparison(key)?;
+        let mut reply = self.review_reply(None, 0, 0, None)?;
+        let job = self.review.job.as_ref().ok_or("Wait for comparison")?;
+        let index = job.threads.as_ref().ok_or("Wait for thread index")?;
+        let d = &self
+            .loaded
+            .as_ref()
+            .ok_or("Open subtitles")?
+            .review
+            .discussion;
+        let mut changed = 0;
+        let mut unchanged = 0;
+        let rows = job
+            .result
+            .as_ref()
+            .ok_or("Wait for comparison")?
             .changes
             .iter()
-            .filter(|c| {
-                c.kind != engine::Kind::Unchanged
-                    && (c.revised.iter().any(|cue| ids.contains(&cue.cue_id))
-                        || c.kind == engine::Kind::Removed
-                            && c.original
-                                .iter()
-                                .any(|cue| cue.start_ms <= end && cue.end_ms >= start))
+            .enumerate()
+            .filter(|(_, c)| {
+                c.revised.iter().any(|cue| ids.contains(&cue.cue_id))
+                    || c.kind == engine::Kind::Removed
+                        && c.original
+                            .iter()
+                            .any(|cue| cue.start_ms <= end && cue.end_ms >= start)
             })
-            .take(200)
-            .cloned()
+            .filter(|(_, c)| {
+                let count = if c.kind == engine::Kind::Unchanged {
+                    &mut unchanged
+                } else {
+                    &mut changed
+                };
+                *count += 1;
+                *count <= 200
+            })
+            .map(|(i, c)| {
+                if let Some(page) = &mut reply.discussion {
+                    index.project(i, c, d, page)
+                }
+                c.clone()
+            })
             .collect();
-        let mut reply = self.review_reply(None, 0, 1, None)?;
         reply.rows = rows;
         Ok(reply)
     }
@@ -262,56 +288,5 @@ impl Store {
         )?;
         reply.position = next.map(|i| i as u32 + 1);
         Ok(reply)
-    }
-}
-impl Documents {
-    pub(super) fn export_review(
-        &self,
-        key: ReviewKey,
-        path: &Path,
-        include_unchanged: bool,
-        date: &str,
-    ) -> Result<ReviewReply> {
-        let (comparison, original, revised) = {
-            let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
-            let comparison = store.comparison(key)?.clone();
-            let loaded = store.loaded.as_ref().ok_or("Open subtitles")?;
-            loaded.translation.protect(path)?;
-            loaded.review.reference.protect(path)?;
-            let original = loaded
-                .review
-                .reference
-                .reference
-                .as_ref()
-                .ok_or("Attach an original")?
-                .origin
-                .path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned();
-            let revised = loaded
-                .path
-                .as_ref()
-                .and_then(|p| p.file_name())
-                .map_or_else(|| "Untitled".into(), |s| s.to_string_lossy().into_owned());
-            (comparison, original, revised)
-        };
-        let html = engine::html(
-            &comparison,
-            &engine::ReportOptions {
-                original_name: &original,
-                revised_name: &revised,
-                date,
-                include_unchanged,
-            },
-            &engine::ExtraSections::default(),
-        );
-        let output = vsf_application::new_output::resolve(path).map_err(|e| e.to_string())?;
-        let prepared = vsf_application::atomic_file::prepare(&output, html.as_bytes())?;
-        let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
-        store.check_review_key(key)?;
-        prepared.commit_new()?;
-        store.review_reply(None, 0, 100, None)
     }
 }

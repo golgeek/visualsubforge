@@ -284,6 +284,8 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
     let compared = ready(&d);
     let output = dir.path().join("report.html");
     d.review_action(ReviewAction::Export {
+        author: String::new(),
+        output: None,
         date: "fixture".into(),
         key: key(&d),
         path: output.to_string_lossy().into(),
@@ -299,6 +301,8 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
     d.review_action(ReviewAction::Detach { key: old }).unwrap();
     assert!(
         d.review_action(ReviewAction::Export {
+            author: String::new(),
+            output: None,
             date: "fixture".into(),
             key: old,
             path: dir.path().join("stale.html").to_string_lossy().into(),
@@ -365,6 +369,35 @@ fn recovery_record_reopens_review_after_original_is_deleted() {
         ORIGINAL.as_bytes()
     );
     assert!(restored.snapshot().review.unwrap().path.is_some());
+    let d = Documents::default();
+    *d.0.lock().unwrap() = restored;
+    let capture = || {
+        d.0.lock()
+            .unwrap()
+            .loaded
+            .as_ref()
+            .unwrap()
+            .review
+            .stored()
+            .unwrap()
+    };
+    record.set_review(capture());
+    assert_eq!(serde_json::to_value(&record).unwrap()["version"], 7);
+    let row = ready(&d).rows.remove(0);
+    d.review_action(ReviewAction::Comment {
+        key: key(&d),
+        author: "Ana".into(),
+        edit: CommentEdit::Post {
+            change_key: row.key,
+            source_index: row.original[0].source_index,
+            text: "Recovered draft".into(),
+        },
+    })
+    .unwrap();
+    record.set_review(capture());
+    assert_eq!(serde_json::to_value(&record).unwrap()["version"], 8);
+    let session = crate::recovery_store::Session::create(dir.path()).unwrap();
+    session.prepare(&record).unwrap().commit().unwrap();
 }
 
 #[test]
@@ -545,4 +578,351 @@ fn shift_block_is_one_stop_and_one_undo_step() {
     assert_eq!(ready(&d).matched, 0);
     let undone = action(&d, super::super::Action::Undo);
     assert_eq!(serde_json::to_value(undone.cues).unwrap(), cues);
+}
+#[test]
+fn discussion_is_independent_of_editor_and_survives_project_and_recovery() {
+    let (dir, d, original, _) = fixture();
+    attach(&d, &original);
+    let row = ready(&d).rows.remove(0);
+    let allocation = || {
+        d.0.lock()
+            .unwrap()
+            .review
+            .job
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .changes
+            .as_ptr() as usize
+    };
+    let initial_comparison = allocation();
+    let started = now_ms().unwrap();
+    let before = snapshot(&d);
+    let post = |edit| {
+        d.review_action(ReviewAction::Comment {
+            key: key(&d),
+            author: "Ana".into(),
+            edit,
+        })
+    };
+    post(CommentEdit::Post {
+        change_key: row.key,
+        source_index: row.original[0].source_index,
+        text: "Check".into(),
+    })
+    .unwrap();
+    let after = snapshot(&d);
+    assert_eq!(
+        (after.revision, after.dirty, after.can_undo),
+        (before.revision, before.dirty, before.can_undo)
+    );
+    assert_eq!(after.cues[0].text, before.cues[0].text);
+    assert!(after.review.unwrap().dirty);
+    let t = ready(&d)
+        .discussion
+        .unwrap()
+        .rows
+        .into_values()
+        .next()
+        .unwrap()
+        .remove(0);
+    assert!((started..=now_ms().unwrap()).contains(&t.messages[0].at_ms));
+    assert_eq!(allocation(), initial_comparison);
+    post(CommentEdit::Reply {
+        thread_id: t.id.clone(),
+        event: review_package::Event::Resolve,
+        text: None,
+    })
+    .unwrap();
+    assert_eq!(allocation(), initial_comparison);
+    assert!(
+        d.0.lock()
+            .unwrap()
+            .review
+            .job
+            .as_ref()
+            .unwrap()
+            .threads
+            .is_some()
+    );
+    let restored = {
+        let mut s = d.0.lock().unwrap();
+        let c = &mut s.loaded_mut().unwrap().review;
+        c.discussion.exported.insert(t.first_message_id.clone());
+        let recovery = c.stored().unwrap().unwrap().restore().unwrap();
+        let project = c.project_description(dir.path()).unwrap().unwrap();
+        let r: ReviewProjectContext =
+            serde_json::from_slice(&serde_json::to_vec(&project).unwrap()).unwrap();
+        let reopened = r.load(dir.path(), &Default::default()).ok().unwrap();
+        assert!(reopened.discussion == c.discussion && recovery.discussion == c.discussion);
+        reopened.discussion
+    };
+    assert!(
+        post(CommentEdit::Delete {
+            thread_id: t.id.clone(),
+            message_id: t.first_message_id
+        })
+        .is_err()
+    );
+    let event = restored.threads[0]
+        .messages
+        .iter()
+        .find(|m| m.event == review_package::Event::Resolve)
+        .unwrap();
+    post(CommentEdit::Delete {
+        thread_id: t.id,
+        message_id: event.id.clone(),
+    })
+    .unwrap();
+    assert_eq!(ready(&d).discussion.unwrap().open, 1);
+}
+
+#[test]
+fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
+    use exchange::{ImportCase, ImportChoice, OutputKind};
+    let (dir, reviewer, original, working) = fixture();
+    attach(&reviewer, &original);
+    let row = ready(&reviewer).rows.remove(0);
+    reviewer
+        .review_action(ReviewAction::Comment {
+            key: key(&reviewer),
+            author: "Ana".into(),
+            edit: CommentEdit::Post {
+                change_key: row.key,
+                source_index: 0,
+                text: "Review".into(),
+            },
+        })
+        .unwrap();
+    let path = dir.path().join("round1.vsfreview");
+    let publish = |d: &Documents, path: &Path, kind, author| {
+        d.publish_review(key(d), path, kind, author, "today", false)
+            .unwrap()
+    };
+    ready(&reviewer);
+    let original_key = key(&reviewer);
+    let readable = dir.path().join("readable.html");
+    publish(&reviewer, &readable, OutputKind::Readable, "");
+    assert_eq!(key(&reviewer), original_key);
+    assert!(vsf_application::review_file::read(&readable).is_err());
+    let page = ready(&reviewer).discussion.unwrap();
+    assert!(page.exported.is_empty() && !page.rows.is_empty());
+    assert!(snapshot(&reviewer).review.unwrap().round.is_none());
+    publish(&reviewer, &path, OutputKind::Package, "Ana");
+    let import = |d: &Documents, path: &Path, case, choice| {
+        let info = d
+            .import_review(key(d), path, None)
+            .unwrap()
+            .inspection
+            .unwrap();
+        assert_eq!(info.case, case);
+        d.import_review(key(d), path, Some((&info.digest, choice, true)))
+            .unwrap()
+    };
+    let author = Documents::default();
+    import(&author, &path, ImportCase::New, ImportChoice::Open);
+    let s = snapshot(&author);
+    assert!(s.path.is_none() && s.dirty && !s.can_undo);
+    assert_eq!(
+        s.suggested_save_path.unwrap().file_name().unwrap(),
+        "working.srt"
+    );
+    import(&author, &path, ImportCase::Same, ImportChoice::Merge);
+    let t = ready(&author)
+        .discussion
+        .unwrap()
+        .rows
+        .into_values()
+        .next()
+        .unwrap()
+        .remove(0);
+    assert!(
+        author
+            .review_action(ReviewAction::Comment {
+                key: key(&author),
+                author: "Ana".into(),
+                edit: CommentEdit::Delete {
+                    thread_id: t.id.clone(),
+                    message_id: t.first_message_id.clone()
+                }
+            })
+            .is_err()
+    );
+    author
+        .review_action(ReviewAction::Comment {
+            key: key(&author),
+            author: "Sam".into(),
+            edit: CommentEdit::Reply {
+                thread_id: t.id,
+                event: review_package::Event::Resolve,
+                text: None,
+            },
+        })
+        .unwrap();
+    ready(&author);
+    author
+        .review_action(ReviewAction::Revert {
+            key: key(&author),
+            change_key: None,
+            source_index: None,
+            filter: None,
+        })
+        .unwrap();
+    let detached = ready(&author).discussion.unwrap().detached;
+    assert!(detached.len() == 1 && detached[0].resolved());
+    let out = dir.path().join("round2.html");
+    publish(&author, &out, OutputKind::Report, "Sam");
+    let content = vsf_application::review_file::read(&out).unwrap();
+    assert_eq!((content.round, content.exported_by.as_str()), (2, "Sam"));
+    let before = snapshot(&reviewer);
+    import(&reviewer, &out, ImportCase::Different, ImportChoice::Keep);
+    assert_eq!(snapshot(&reviewer).revision, before.revision);
+    let r = import(
+        &reviewer,
+        &out,
+        ImportCase::Different,
+        ImportChoice::UseTheirs,
+    );
+    assert_eq!(r.document.unwrap().cues[0].text, "Original");
+    let u = action(&reviewer, super::super::Action::Undo);
+    assert_eq!(
+        (u.cues[0].text.as_str(), u.path.as_deref()),
+        ("Revised", working.canonicalize().unwrap().to_str())
+    );
+    assert!(!u.can_undo);
+    let (stored, project) = {
+        let mut s = author.0.lock().unwrap();
+        let c = &s.loaded_mut().unwrap().review;
+        (
+            c.stored().unwrap().unwrap(),
+            c.project_description(dir.path()).unwrap().unwrap(),
+        )
+    };
+    let moved = dir.path().join("moved.vsfreview");
+    fs::rename(&path, &moved).unwrap();
+    assert!(project.load(dir.path(), &Default::default()).is_err());
+    let relocated = serde_json::from_value(serde_json::json!({"path":moved})).unwrap();
+    let restored = project.load(dir.path(), &relocated).ok().unwrap();
+    assert!(restored.discussion == stored.restore().unwrap().discussion);
+    assert_eq!(
+        restored.package.unwrap().path,
+        moved.canonicalize().unwrap().to_string_lossy()
+    );
+    assert!(
+        author
+            .import_review(
+                key(&author),
+                &moved,
+                Some(("changed", ImportChoice::Keep, true))
+            )
+            .is_err()
+    );
+}
+#[test]
+fn untouched_package_bytes_survive_untitled_import_with_bom_and_noncanonical_spacing() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("external.vsfreview");
+    let raw = ORIGINAL.replace(" --> ", "  -->  ");
+    let mut bytes = vec![255, 254];
+    bytes.extend(raw.encode_utf16().flat_map(u16::to_le_bytes));
+    let subtitle =
+        review_package::Subtitle::capture("sample.srt", subtitle_formats::Format::Srt, &bytes);
+    let p = review_package::Package {
+        format: "visualsubforge-review".into(),
+        version: 1,
+        round: 1,
+        exported_by: "Ana".into(),
+        exported_at_ms: 10,
+        original: subtitle.clone(),
+        revised: subtitle,
+        options: Default::default(),
+        threads: vec![],
+    };
+    fs::write(&source, p.write().unwrap()).unwrap();
+    let d = Documents::default();
+    let inspect = || {
+        d.import_review(key(&d), &source, None)
+            .unwrap()
+            .inspection
+            .unwrap()
+    };
+    let first = inspect();
+    d.import_review(
+        key(&d),
+        &source,
+        Some((&first.digest, exchange::ImportChoice::Open, true)),
+    )
+    .unwrap();
+    assert_eq!(inspect().case, exchange::ImportCase::Same);
+    let copy = dir.path().join("round2.vsfreview");
+    d.publish_review(
+        key(&d),
+        &copy,
+        exchange::OutputKind::Package,
+        "Sam",
+        "today",
+        false,
+    )
+    .unwrap();
+    let exported = vsf_application::review_file::read(&copy).unwrap();
+    assert_eq!(exported.revised.decode().unwrap(), bytes);
+    let restored =
+        d.0.lock()
+            .unwrap()
+            .loaded_mut()
+            .unwrap()
+            .review
+            .stored()
+            .unwrap()
+            .unwrap()
+            .restore()
+            .unwrap();
+    assert_eq!(
+        restored
+            .reference
+            .reference
+            .unwrap()
+            .reference
+            .original_bytes(),
+        bytes
+    );
+}
+
+#[test]
+fn unchanged_projection_does_not_crowd_out_later_removed_cues() {
+    let (_dir, d, original, working) = fixture();
+    let cue = |i: u32| {
+        format!(
+            "{}\n00:{:02}:{:02},000 --> 00:{:02}:{:02},500\nLine {i}\n\n",
+            i + 1,
+            i / 60,
+            i % 60,
+            i / 60,
+            i % 60
+        )
+    };
+    let identical: String = (0..200).map(cue).collect();
+    fs::write(&working, &identical).unwrap();
+    fs::write(&original, identical + &cue(200)).unwrap();
+    let doc = action(
+        &d,
+        super::super::Action::Open {
+            path: working.to_string_lossy().into(),
+            discard: true,
+        },
+    );
+    attach(&d, &original);
+    ready(&d);
+    let page = d
+        .review_action(ReviewAction::Projection {
+            key: key(&d),
+            ids: doc.cues.iter().map(|c| c.id.try_into().unwrap()).collect(),
+            start_ms: 0u64.try_into().unwrap(),
+            end_ms: 201000u64.try_into().unwrap(),
+        })
+        .unwrap();
+    assert_eq!(page.rows.len(), 201);
+    assert_eq!(page.rows.last().unwrap().kind, engine::Kind::Removed);
 }

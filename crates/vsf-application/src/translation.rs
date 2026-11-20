@@ -89,6 +89,19 @@ impl Reference {
     ) -> Result<Self> {
         checkpoint()?;
         let parsed = crate::subtitle_file::parse_document(&bytes, extension)?;
+        Self::indexed(bytes, parsed, checkpoint)
+    }
+    pub fn from_embedded(subtitle: &crate::review_package::Subtitle) -> Result<Self> {
+        let bytes = subtitle.decode()?;
+        let format = Format::from_extension(&subtitle.format).ok_or("Unsupported review format")?;
+        let parsed = crate::review_package::parse_embedded(&bytes, format)?;
+        Self::indexed(bytes, parsed, || Ok(()))
+    }
+    fn indexed(
+        bytes: Vec<u8>,
+        parsed: Parsed,
+        mut checkpoint: impl FnMut() -> Result<()>,
+    ) -> Result<Self> {
         checkpoint()?;
         let cues = parsed.document.cues();
         let mut timeline = Vec::with_capacity(cues.len());

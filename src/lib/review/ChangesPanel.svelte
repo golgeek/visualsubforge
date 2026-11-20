@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ReviewSession } from './review-session.svelte';
+  import CommentThreads from './CommentThreads.svelte';
   import ChangeDetail from './ChangeDetail.svelte';
   let {
     review,
@@ -31,7 +32,10 @@
       ).toFixed(1)} % · timing {(s.timing_percent ?? 0).toFixed(1)} % · total {(
         s.total_percent ?? 0
       ).toFixed(1)} % · {s.added_cues}
-      added
+      added · {review.page.discussion?.open ?? 0} open {review.page.discussion
+        ?.open === 1
+        ? 'thread'
+        : 'threads'}
     </p>
     {#if review.page.total}
       {@const index = review.page.rows.findIndex(
@@ -40,39 +44,50 @@
       <p>
         {#if index >= 0}Change {review.offset + index + 1} of {review.page
             .total}{:else}Showing {review.offset + 1}–{Math.min(
-            review.offset + review.page.rows.length,
+            review.offset +
+              review.page.rows.length +
+              (review.page.discussion?.detached.length ?? 0),
             review.page.total,
           )} of {review.page.total}{/if}
       </p>
     {/if}
     {#if !s.changes}<p>No changes yet</p>{/if}
   {:else}<p>
-      {review.page?.working
+      {review.attached || review.page?.working
         ? 'Comparing…'
         : 'Attach an original to review changes'}
     </p>{/if}
   <nav aria-label="Change filters">
     {#each filters as [value, label] (value)}<button
-        aria-pressed={(review.filter ?? '') === value}
+        aria-pressed={!review.threadFilter && (review.filter ?? '') === value}
         onclick={() => {
+          review.threadFilter = null;
           review.offset = 0;
           review.filter = value || null;
         }}>{label}</button
+      >{/each}
+    {#each ['open', 'commented'] as const as f (f)}<button
+        aria-pressed={review.threadFilter === f}
+        onclick={() => {
+          review.threadFilter = f;
+          review.offset = 0;
+          review.filter = null;
+        }}>{f === 'open' ? 'Open threads' : 'Commented'}</button
       >{/each}
   </nav>
   <div>
     <button onclick={() => void review.navigate(false)}>Previous Change</button
     ><button onclick={() => void review.navigate(true)}>Next Change</button>
-    <button
-      disabled={!review.canMutate || !review.page?.total}
-      onclick={() => void review.revert(null)}
-      >Revert {review.page?.matched ?? 0}
-      {review.filter
-        ? label(
-            filters.find(([v]) => v === review.filter)?.[1] ?? review.filter,
-          ) + ' '
-        : ''}{review.page?.matched === 1 ? 'Change' : 'Changes'}</button
-    >
+    {#if !review.threadFilter}<button
+        disabled={!review.canMutate || !review.page?.total}
+        onclick={() => void review.revert(null)}
+        >Revert {review.page?.matched ?? 0}
+        {review.filter
+          ? label(
+              filters.find(([v]) => v === review.filter)?.[1] ?? review.filter,
+            ) + ' '
+          : ''}{review.page?.matched === 1 ? 'Change' : 'Changes'}</button
+      >{/if}
   </div>
   {#if review.options}{@const options = review.options}
     <details>
@@ -119,6 +134,12 @@
       review.page?.blocks?.find((b) => b.row === index)}
     <article>
       {#if block}
+        {#if review.page?.discussion?.blockCounts[block.block.first]}<span
+            >{review.page.discussion.blockCounts[block.block.first]}
+            {review.page.discussion.blockCounts[block.block.first] === 1
+              ? 'thread'
+              : 'threads'}</span
+          >{/if}
         <button onclick={() => void review.select(change, block)}
           >Shifted {block.block.end - block.block.first} cues by {block.block
             .delta_ms >= 0
@@ -147,12 +168,25 @@
           >{label(change.kind)}</button
         >
         <ChangeDetail {change} />
-        <button
-          disabled={!review.canMutate}
-          onclick={() => void review.revert(change)}>Revert</button
-        >
+        <CommentThreads {review} {change} />
+        {#if change.kind !== 'unchanged'}
+          <button
+            disabled={!review.canMutate}
+            onclick={() => void review.revert(change)}>Revert</button
+          >{/if}
       {/if}
     </article>{/each}
+  {#if review.page?.discussion?.detached.length}<section aria-label="Detached">
+      <h3>Detached</h3>
+      {#each review.page.discussion.detached as t (t.id)}
+        <article>
+          {#if t.anchor.kind === 'change'}{#each t.anchor.original as q, i (i)}<pre>Original: {q.text}</pre>{/each}{/if}
+          {#each t.anchor.revised as q, i (i)}<pre>Revised: {q.text}</pre>{/each}
+          <button onclick={() => review.frameThread(t)}>Go to Time</button
+          ><CommentThreads {review} detached={t} />
+        </article>
+      {/each}
+    </section>{/if}
   <button
     disabled={review.offset === 0}
     onclick={() => (review.offset = Math.max(0, review.offset - 100))}

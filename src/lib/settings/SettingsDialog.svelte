@@ -250,6 +250,12 @@
         <section hidden={!shown('editing')}>
           <h3>Editing</h3>
           <label
+            >Your name on review comments <input
+              {disabled}
+              bind:value={draft.reviewName}
+            /></label
+          >
+          <label
             ><input
               type="checkbox"
               bind:checked={draft.zoomWaveformToCue}

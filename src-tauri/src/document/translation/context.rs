@@ -128,8 +128,18 @@ impl Context {
                         origin: file.origin.clone(),
                         format: file.reference.format().extension().into(),
                         sha256: file.reference.fingerprint().into(),
-                        text: String::from_utf8(file.reference.original_bytes().to_vec())
-                            .map_err(|e| e.to_string())?,
+                        text: std::str::from_utf8(file.reference.original_bytes())
+                            .unwrap_or_default()
+                            .to_owned(),
+                        encoded: std::str::from_utf8(file.reference.original_bytes())
+                            .is_err()
+                            .then(|| {
+                                vsf_application::review_package::Subtitle::capture(
+                                    "Original",
+                                    file.reference.format(),
+                                    file.reference.original_bytes(),
+                                )
+                            }),
                         offset_ms: file.offset.get(),
                     })
                 })
@@ -152,6 +162,8 @@ struct StoredReference {
     format: String,
     sha256: String,
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    encoded: Option<vsf_application::review_package::Subtitle>,
     offset_ms: i64,
 }
 impl Stored {
@@ -166,11 +178,18 @@ impl Stored {
                 stored.origin.validate()?;
                 let format = subtitle_formats::Format::from_extension(&stored.format)
                     .ok_or("Unknown recovery reference format")?;
-                let reference = engine::Reference::parse(
-                    stored.text.as_bytes().to_vec(),
-                    Some(&stored.format),
-                    || Ok(()),
-                )?;
+                let reference = if let Some(encoded) = &stored.encoded {
+                    if !stored.text.is_empty() {
+                        return Err("Ambiguous recovery subtitle encoding".into());
+                    }
+                    engine::Reference::from_embedded(encoded)?
+                } else {
+                    engine::Reference::parse(
+                        stored.text.as_bytes().to_vec(),
+                        Some(&stored.format),
+                        || Ok(()),
+                    )?
+                };
                 if reference.format() != format || reference.fingerprint() != stored.sha256 {
                     return Err(
                         "Recovery reference format or content identity does not match".into(),

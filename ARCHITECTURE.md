@@ -737,15 +737,14 @@ The loaded document now has a separate `review` context alongside translation.
 It reuses immutable Reference and path/provenance validation through a distinct
 translation-context value, with its own options and epoch. One comparison worker
 owns captures only; Store validates generation/revision/epoch before exposing
-results. Pages are bounded and frontend requests debounce and discard stale
+results. Discussion-only epochs retain the comparison. A change in the ordered thread IDs invalidates the anchor index for the worker to rebuild. Replies, status events and export bookkeeping reuse both results. Pages are bounded and frontend requests debounce and discard stale
 replies. Shutdown cancels and joins outside Store. Start Review preserves the
 translation slot and any existing comparison base while publishing a new copy.
 
 Project v4 captures the review struct and validates expected original identity
 before replacement, with explicit relocation/end handling. Publication captures
 both contexts under the existing document-to-project lock order; attachment checks
-both epochs. Recovery v7 captures both references and options, using a 400 MiB
-record bound. Context mutations do not enter subtitle Undo; Save As and conversion
+both epochs. Project v5 and recovery v8 additionally retain discussion events, round and exported IDs. The project read/write limit rises from 8 MiB to 128 MiB to accommodate escaped discussion text and event metadata. The recovery envelope is 528 MiB for five independently bounded 16 MiB text budgets at worst-case JSON expansion plus metadata. Older contents retain their minimum save version. Context mutations do not enter subtitle Undo; Save As and conversion
 protect both reference slots. `ReviewSession` owns only paging, selection and
 request lifetime; mutations reconcile through DocumentSession's serialized path.
 
@@ -759,3 +758,7 @@ history. Source metadata comes from the immutable reference, not frontend text.
 Report generation captures under the document lock, formats/writes a temporary
 outside it, and rechecks identity before atomic new-file promotion. Native video
 frames never pass through this path.
+
+The shared `review_package` module validates bounded byte captures, derives discussion identities, merges immutable events and maps anchor snapshots onto comparison results. The CLI and desktop file adapters own IO. Exchange uses ordinary files so review of private subtitles requires no service, account or network connection.
+
+Package inspection and import share the bounded reader. Adoption rechecks the selected file digest and the working generation, revision and review epoch. The review context retains the immutable original, discussion and optional package link. Project paths resolve relative to the project directory, with the expected original SHA-256 verified on relocation. Recovery embeds the original, including its original encoding. Export captures accepted content, prepares an atomic new file and rechecks the workspace before publishing and marking messages exported. Use Their Version delegates the complete cue replacement to the document editor as one history step.

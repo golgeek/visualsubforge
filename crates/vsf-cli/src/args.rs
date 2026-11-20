@@ -18,6 +18,9 @@ pub enum Command {
     Extract(Extract),
     /// Compare two subtitle versions without modifying either input.
     Compare(Compare),
+    /// Inspect or merge offline review files.
+    #[command(subcommand)]
+    Review(Review),
     /// Run local JavaScript subtitle checks and reviewable fixes.
     Plugin(Plugin),
     /// Check subtitle authoring rules without changing the file.
@@ -200,10 +203,16 @@ pub struct Extract {
 
 #[derive(Args)]
 pub struct Compare {
+    /// Write a self-contained review package to a new file.
+    #[arg(long)]
+    pub package: Option<PathBuf>,
     pub original: PathBuf,
     pub revised: PathBuf,
     #[arg(long)]
     pub html: Option<PathBuf>,
+    /// Include both complete subtitle files so the HTML can be reopened in VSF.
+    #[arg(long, requires = "html")]
+    pub embed_package: bool,
     #[arg(long)]
     pub json: bool,
     #[arg(long)]
@@ -214,4 +223,21 @@ pub struct Compare {
     pub ignore_line_breaks: bool,
     #[arg(long)]
     pub include_unchanged: bool,
+}
+
+#[derive(Subcommand)]
+pub enum Review {
+    /// Show comparison statistics, discussion and anchor snapshots.
+    Show {
+        file: PathBuf,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Union discussions, retaining the revised subtitle from the latest round.
+    Merge {
+        #[arg(num_args=2.., required=true)]
+        files: Vec<PathBuf>,
+        #[arg(short, long)]
+        output: PathBuf,
+    },
 }

@@ -91,4 +91,4 @@ comparison and HTML reports. Desktop review entry points, paged comparisons,
 independent original protection, project persistence and recovery are implemented.
 In-context markers, Original diffs, media-optional navigation, original timing
 ghosts, one-step undoable revert and filtered batch revert are implemented.
-Comments and exchange packages are not included.
+The [review package contract](review-packages.md) covers comments, project and recovery persistence, exporting and reopening offline reviews in the desktop and CLI.

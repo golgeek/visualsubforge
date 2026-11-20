@@ -15,6 +15,8 @@ pub mod plugin_files;
 pub mod plugins;
 pub mod quality;
 pub mod resync;
+pub mod review_file;
+pub mod review_package;
 pub mod save_lease;
 pub mod srt_limits;
 pub mod subtitle_extraction;

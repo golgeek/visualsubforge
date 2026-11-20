@@ -612,6 +612,7 @@ export async function exportTimingPreset(
 }
 
 export const defaultPreferences: Preferences = {
+  reviewName: '',
   version: 6,
   appearance: { theme: 'dark', density: 'compact', customTitleBar: false },
   shortcuts: shortcutPreset('current'),
@@ -775,5 +776,9 @@ export const extractionAction = (action: ExtractionAction) =>
 export type ReviewAction = Parameters<typeof commands.reviewAction>[0];
 export type ReviewReply = Awaited<ReturnType<typeof commands.reviewAction>>;
 export type ReviewChange = ReviewReply['rows'][number];
+export type ReviewThread = NonNullable<
+  ReviewReply['discussion']
+>['detached'][number];
+export type CommentEdit = Extract<ReviewAction, { kind: 'comment' }>['edit'];
 export const reviewAction = (action: ReviewAction) =>
   commands.reviewAction(action);

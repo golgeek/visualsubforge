@@ -1,4 +1,6 @@
 import {
+  type CommentEdit,
+  type ReviewThread,
   chooseFile,
   reviewAction,
   type ReviewChange,
@@ -8,10 +10,19 @@ import type { DocumentSession } from '../document/document-session.svelte';
 import type { UnsavedChanges } from '../document/unsaved-changes';
 import type { Workspace } from '../workspace/workspace.svelte';
 import type { WorkspaceView } from '../workspace/workspace-view.svelte';
+export type ExchangePrompt =
+  | { kind: 'package' | 'report'; dirty: boolean; author: string }
+  | { kind: 'different'; author: string; time: number };
+export type ExchangeAnswer =
+  | 'theirs'
+  | 'mine'
+  | 'cancel'
+  | { kind: 'export' | 'readable'; author: string };
 export type BlockRow = NonNullable<ReviewReply['blocks']>[number];
 export class ReviewSession {
   page = $state.raw<ReviewReply | null>(null);
   expanded = $state.raw<number[]>([]);
+  private documentCapture = '';
   private expandedCapture = '';
   offset = $state(0);
   filter = $state<ReviewReply['rows'][number]['kind'] | null>(null);
@@ -21,11 +32,82 @@ export class ReviewSession {
   projection = $state.raw<ReviewChange[]>([]);
   showOriginal = $state(true);
   includeUnchanged = $state(false);
+  threadFilter = $state<'open' | 'commented' | null>(null);
+  visibleDiscussion = $state.raw<ReviewReply['discussion']>(undefined);
+  currentThread = $state<string | null>(null);
+  name: () => string = () => '';
+  saveName: (name: string) => Promise<void> = async () => {};
+  goToTime: (ms: number) => void = () => {};
+  rowId(c: ReviewChange) {
+    return c.key + '/' + (c.original[0] ?? c.revised[0])?.source_index;
+  }
+  threads(c: ReviewChange, projection = false) {
+    return (
+      (projection ? this.visibleDiscussion : this.page?.discussion)?.rows[
+        this.rowId(c)
+      ] ?? []
+    );
+  }
+  async comment(edit: CommentEdit, inlineName: string) {
+    if (!this.workspace.canAct)
+      return 'The workspace is busy. Try posting again.';
+    const key = this.key();
+    let posted = false;
+    await this.workspace.task(async () => {
+      if (!this.name() && edit.kind !== 'delete')
+        await this.saveName(inlineName.trim());
+      if (!this.alive || JSON.stringify(key) !== JSON.stringify(this.key()))
+        return;
+      posted = await this.subtitles.changeReview(
+        { kind: 'comment', key, author: this.name(), edit },
+        this.subtitles.snapshot,
+      );
+    });
+    return posted
+      ? null
+      : this.workspace.error || 'The review changed. Try posting again.';
+  }
+  async navigateThread(forward: boolean) {
+    if (!this.workspace.canAct || !this.page?.statistics) return;
+    const key = this.key();
+    try {
+      const r = await reviewAction({
+        kind: 'navigateThread',
+        key,
+        from: this.currentThread,
+        forward,
+      });
+      if (
+        !this.alive ||
+        JSON.stringify(key) !== JSON.stringify(this.key()) ||
+        !r.threadId
+      )
+        return;
+      this.view.openReview('changes');
+      this.currentThread = r.threadId;
+      this.threadFilter = 'open';
+      this.offset = Math.floor(((r.position ?? 1) - 1) / 100) * 100;
+      if (r.rows[0]) await this.select(r.rows[0]);
+      else if (r.discussion?.detached[0])
+        this.frameThread(r.discussion.detached[0]);
+    } catch (error) {
+      if (this.alive) this.error = String(error);
+    }
+  }
+  frameThread(t: ReviewThread) {
+    const q =
+      t.anchor.revised[0] ??
+      (t.anchor.kind === 'change' ? t.anchor.original[0] : null);
+    if (q) this.goToTime(q.start_ms!);
+  }
   navigateTo: (change: ReviewChange, block?: BlockRow) => Promise<void> =
     async () => {};
   projectionInput: () => { ids: number[]; startMs: number; endMs: number } =
     () => ({ ids: [], startMs: 0, endMs: 0 });
   private projectionSequence = 0;
+  get attached() {
+    return !!this.subtitles.snapshot.review?.path;
+  }
   get options() {
     return this.subtitles.snapshot.review?.options;
   }
@@ -42,6 +124,7 @@ export class ReviewSession {
     );
   }
 
+  detachProject: () => Promise<void> = async () => {};
   projectAttached: () => boolean = () => false;
   decideProject: () => Promise<'save' | 'later'> = async () => 'later';
   private offeredProject = '';
@@ -71,20 +154,43 @@ export class ReviewSession {
     $effect(() => {
       const snapshot = this.subtitles.snapshot;
       const capture = `${snapshot.generation}/${snapshot.revision}/${snapshot.review?.epoch}`;
-      if (this.expandedCapture !== capture) {
-        this.expandedCapture = capture;
+      const documentCapture = JSON.stringify([
+        snapshot.generation,
+        snapshot.review?.path,
+      ]);
+      const comparisonCapture = JSON.stringify([
+        documentCapture,
+        snapshot.revision,
+        snapshot.review?.options,
+      ]);
+      const sameComparison = this.expandedCapture === comparisonCapture;
+      if (!sameComparison) {
+        this.expandedCapture = comparisonCapture;
         this.expanded = [];
       }
       const expanded = this.expanded;
       const offset = this.offset;
       const filter = this.filter;
+      const threadFilter = this.threadFilter;
       const sequence = ++this.sequence;
-      this.page = null;
-      this.projection = [];
+      if (this.documentCapture !== documentCapture) {
+        this.documentCapture = documentCapture;
+        this.page = null;
+        this.projection = [];
+        this.visibleDiscussion = undefined;
+      }
       if (!snapshot.review?.path) return;
       const timer = setTimeout(
-        () => void this.query(capture, offset, filter, sequence, expanded),
-        250,
+        () =>
+          void this.query(
+            capture,
+            offset,
+            filter,
+            sequence,
+            expanded,
+            threadFilter,
+          ),
+        sameComparison ? 0 : 250,
       );
       return () => {
         clearTimeout(timer);
@@ -95,6 +201,7 @@ export class ReviewSession {
     const input = this.projectionInput();
     const key = this.key();
     const serial = ++this.projectionSequence;
+    if (JSON.stringify(this.page?.key) !== JSON.stringify(key)) return;
     try {
       const reply = await reviewAction({
         kind: 'projection',
@@ -107,8 +214,10 @@ export class ReviewSession {
         this.alive &&
         serial === this.projectionSequence &&
         JSON.stringify(key) === JSON.stringify(this.key())
-      )
+      ) {
         this.projection = reply.rows;
+        this.visibleDiscussion = reply.discussion;
+      }
     } catch (error) {
       if (
         this.alive &&
@@ -205,29 +314,128 @@ export class ReviewSession {
       ),
     );
   }
-  async exportReport() {
+  decideExchange: (prompt: ExchangePrompt) => Promise<ExchangeAnswer> =
+    async () => 'cancel';
+  async exportReport(kind: 'report' | 'package' = 'report') {
     if (!this.workspace.canAct || !this.page?.statistics) return;
     await this.workspace.task(async () => {
+      if (this.subtitles.dirty)
+        throw new Error('Finish the current cue edit before exporting it.');
+      const expected = this.subtitles.snapshot;
       const key = this.key();
+      const answer = await this.decideExchange({
+        kind,
+        dirty: expected.dirty,
+        author: this.name(),
+      });
+      if (
+        !this.alive ||
+        typeof answer === 'string' ||
+        expected !== this.subtitles.snapshot
+      )
+        return;
+      const suffix = kind === 'report' ? '.comparison.html' : '.vsfreview';
+      const stem =
+        expected.path ?? expected.suggestedSavePath ?? 'Untitled.srt';
       const path = await chooseFile(
-        'comparisonReport',
-        this.subtitles.snapshot.path?.replace(
-          /\.[^./\\]+$/u,
-          '.comparison.html',
-        ) ?? 'comparison.html',
+        kind === 'report' ? 'comparisonReport' : 'saveReviewPackage',
+        stem.replace(/\.[^./\\]+$/u, '') + suffix,
       );
       if (!path || !this.alive) return;
-      await reviewAction({
-        kind: 'export',
+      await this.subtitles.changeReview(
+        {
+          kind: 'export',
+          key,
+          path,
+          output: answer.kind === 'readable' ? 'readable' : kind,
+          author: answer.author,
+          date: new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          }).format(),
+          includeUnchanged: this.includeUnchanged,
+        },
+        expected,
+      );
+      if (this.alive)
+        this.workspace.notice =
+          kind === 'report'
+            ? 'Comparison report exported'
+            : 'Review package exported';
+    });
+  }
+  async openPackage() {
+    if (!this.workspace.canAct) return;
+    await this.workspace.task(async () => {
+      const path = await chooseFile(
+        'reviewPackage',
+        this.subtitles.snapshot.path,
+      );
+      if (!path || !this.alive) return;
+
+      let key = this.key();
+      const inspected = await reviewAction({
+        kind: 'inspectPackage',
         key,
         path,
-        date: new Intl.DateTimeFormat(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }).format(),
-        includeUnchanged: this.includeUnchanged,
       });
-      if (this.alive) this.workspace.notice = 'Comparison report exported';
+      const info = inspected.inspection;
+      if (
+        !info ||
+        !this.alive ||
+        JSON.stringify(key) !== JSON.stringify(this.key())
+      )
+        return;
+      let choice: 'open' | 'merge' | 'keep' | 'useTheirs';
+      if (info.case === 'new') {
+        if (!(await this.unsaved.protect(this.saveProject)) || !this.alive)
+          return;
+        const protectedKey = this.key();
+        if (protectedKey.generation !== key.generation) return;
+        if (JSON.stringify(key) !== JSON.stringify(protectedKey)) {
+          const checked = await reviewAction({
+            kind: 'inspectPackage',
+            key: protectedKey,
+            path,
+          });
+          if (
+            checked.inspection?.case !== 'new' ||
+            checked.inspection.digest !== info.digest
+          )
+            throw new Error('The review changed. Open the package again.');
+          key = protectedKey;
+        }
+        choice = 'open';
+      } else if (info.case === 'different') {
+        const answer = await this.decideExchange({
+          kind: 'different',
+          author: info.exportedBy,
+          time: info.exportedAtMs,
+        });
+        if (!this.alive || (answer !== 'theirs' && answer !== 'mine')) return;
+        choice = answer === 'theirs' ? 'useTheirs' : 'keep';
+      } else choice = 'merge';
+      const adopted = await this.subtitles.changeReview(
+        {
+          kind: 'importPackage',
+          key,
+          path,
+          digest: info.digest,
+          choice,
+          discard: choice === 'open',
+        },
+        this.subtitles.snapshot,
+        (notice) => {
+          if (this.alive) this.workspace.notice = notice;
+        },
+      );
+      if (adopted && this.alive) {
+        if (choice === 'open') {
+          await this.detachProject();
+          this.offset = 0;
+        }
+        this.view.openReview('changes');
+      }
     });
   }
   key() {
@@ -244,9 +452,10 @@ export class ReviewSession {
     filter: typeof this.filter,
     sequence: number,
     expanded: number[],
+    threadFilter: typeof this.threadFilter,
   ) {
     try {
-      const reply = await reviewAction({
+      let reply = await reviewAction({
         kind: 'query',
         key: this.key(),
         offset,
@@ -254,6 +463,14 @@ export class ReviewSession {
         expanded,
         filter,
       });
+      if (threadFilter && reply.statistics && !reply.working)
+        reply = await reviewAction({
+          kind: 'threads',
+          key: reply.key,
+          open: threadFilter === 'open',
+          offset,
+          limit: 100,
+        });
       const key = this.key();
       if (
         !this.alive ||
@@ -261,12 +478,28 @@ export class ReviewSession {
         capture !== `${key.generation}/${key.revision}/${key.epoch}`
       )
         return;
-      this.page = reply;
+      if (
+        !reply.working &&
+        reply.statistics &&
+        offset > 0 &&
+        offset >= reply.total
+      ) {
+        this.offset = Math.floor(Math.max(0, reply.total - 1) / 100) * 100;
+        return;
+      }
+      if (!reply.working || reply.statistics || !this.page) this.page = reply;
       this.error = reply.error ?? '';
       if (reply.working)
         setTimeout(() => {
           if (this.alive && sequence === this.sequence)
-            void this.query(capture, offset, filter, sequence, expanded);
+            void this.query(
+              capture,
+              offset,
+              filter,
+              sequence,
+              expanded,
+              threadFilter,
+            );
         }, 75);
     } catch (error) {
       if (this.alive && sequence === this.sequence) this.error = String(error);

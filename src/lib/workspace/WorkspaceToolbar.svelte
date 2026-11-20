@@ -108,7 +108,10 @@
     >
   {/if}
   {#if doc.review?.path}<button onclick={onchanges}
-      >compared with {doc.review.path.split(/[\\/]/).pop()}</button
+      >compared with {doc.review.path
+        .split(/[\\/]/)
+        .pop()}{#if doc.review.round}
+        · round {doc.review.round}{/if}</button
     >{/if}
   {#snippet filename()}
     {doc.path?.split(/[\\/]/).pop() ??

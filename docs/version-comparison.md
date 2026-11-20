@@ -11,7 +11,7 @@ vsf compare original.srt revised.srt --json --html comparison.html
 Inputs use the existing bounded UTF-8 SRT, WebVTT, ASS and SSA parsers. Exit 0
 means compared, including files with changes; 2 means invalid input/comparison
 limit, 5 means IO failure, 130 means cancellation. HTML publication is atomic to
-a new path. `--tolerance-ms`, `--ignore-tags`, `--ignore-line-breaks` and
+a new path. CLI HTML is readable only by default. Add `--embed-package` to include both complete files. `--tolerance-ms`, `--ignore-tags`, `--ignore-line-breaks` and
 `--include-unchanged` control comparison/reporting. Whitespace-only differences
 are ignored by default. Tolerance defaults to the original format's tick (1 ms
 SRT/WebVTT, 10 ms ASS/SSA). Both endpoints must be within tolerance.
@@ -77,18 +77,17 @@ whole tags. A 512-edit-distance search cap bounds pathological cue allocations;
 above it complete removed/added text blocks retain all content. Ignored differences
 can remain visible in an included unchanged row. Source text is never interpreted.
 
-## Reports and future review hooks
+## Reports and discussion
 
 HTML has inline CSS, no required script or external requests, escaped names/text,
 visible line breaks, metrics and both timings. Change element IDs derive from
 keys. The writer accepts explicit trusted extension sections for the head, each
-change element ID (including the occurrence suffix for duplicates) and the end, so future escaped comment blocks and inert package data
-need no report rewrite. No comment or package implementation is included.
+change element ID (including the occurrence suffix for duplicates) and the end, which carry escaped discussions and optional inert review data. See [review packages](review-packages.md).
 
 Unlike Comparo², VSF groups uniform retimes into collapsible blocks. The JSON `blocks` array gives half-open `first..end` indices into the complete ordered changes, signed `delta_ms` and the union timeline span `start_ms..end_ms`, and the revised span `revised_start_ms..revised_end_ms` shown in block labels. At least three consecutive timing-only rows must agree on the offset of both endpoints within tolerance. Other kinds, including unchanged cues, break a block. Statistics, anchors and keys stay per cue.
 
 Compared with Comparo², VSF detects splits/merges, defines its own percentages,
-accepts no `.scenechange` input, and has no groups or comment filters. Source code
+accepts no `.scenechange` input, and supports file-based discussions. Source code
 and wording from that service are not reused.
 
 ## Desktop review context
@@ -104,7 +103,7 @@ The immutable original is separate from the translation reference; both may be
 attached at once. Attach, options and End Review change context rather than
 subtitle history. Original and copied-source paths are protected from Save As and
 conversion output, including deleted paths. No Mark Reviewed state is stored.
-The Changes tab pages at most 200 groups (100 by default).
+The Changes tab pages at most 200 groups (100 by default). The cue/timeline projection has separate allowances of 200 changed and 200 unchanged groups so a removed cue can still draw its ghost in a wide view.
 
 Comparison captures run on one worker with no queue, a cooperative ten-second
 deadline and generation/revision/review-epoch checks. The frontend debounces
@@ -116,8 +115,7 @@ provenance and comparison options. Older projects retain the minimum version
 needed for their contents. Missing/changed originals are resolved before current
 work is discarded: choose the expected file or end the review. Recovery version 7
 retains original bytes as well, independently of translation; the JSON envelope
-is 400 MiB for four bounded 16 MiB strings at worst-case JSON expansion plus
-metadata. Ordinary subtitle files contain neither relationship.
+is 528 MiB including the version 8 thread budget and metadata. Version 5 projects and version 8 recovery preserve posted discussion and draft/export state. Ordinary subtitle files contain neither relationship.
 
 ## Reviewing in context
 

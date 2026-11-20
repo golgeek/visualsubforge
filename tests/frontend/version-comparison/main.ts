@@ -9,17 +9,44 @@ import {
   type ReviewAction,
   type ReviewReply,
   type ReviewChange,
+  type ReviewThread,
 } from '../../../src/lib/client';
 import { sceneView, waveformView } from '../ipc-contract-samples';
 import { emptyQuality } from '../empty-quality';
+import { matchesShortcut } from '../../../src/lib/workspace/action-registry';
 import { chooseCommand } from '../command-discovery';
 const host = document.querySelector<HTMLElement>('#test')!;
 let doc: DocumentSnapshot = structuredClone(emptyDocument);
 let media = { ...emptyStatus, available: true };
 let newer = false;
 let exported = false;
+let importCase: 'same' | 'new' | 'different' = 'same';
+const imports: string[] = [];
+let previousCues: typeof doc.cues | null = null;
 let starts = 0;
 let queryCount = 0;
+let discussion: ReviewThread | null = null;
+let commentedKey = '';
+function discussionPage() {
+  const c = rows.find((c) => c.key === commentedKey);
+  return {
+    rows:
+      c && discussion
+        ? { [c.key + '/' + c.original[0]!.source_index]: [discussion] }
+        : {},
+    detached: !c && discussion ? [discussion] : [],
+    exported: [],
+    blockCounts: blockMode ? { 0: 1 } : {},
+    open:
+      discussion &&
+      ![...discussion.messages]
+        .reverse()
+        .find((m) => m.type !== 'comment')
+        ?.type?.includes('resolve')
+        ? 1
+        : 0,
+  };
+}
 let epoch = 0;
 let savedCopies = 0;
 let held: Promise<void> | null = null;
@@ -94,6 +121,7 @@ function reply(): ReviewReply {
   return {
     key: { generation: doc.generation, revision: doc.revision, epoch },
     context: doc.review ?? null,
+    discussion: structuredClone(discussionPage()),
     document: null,
     working: false,
     matched: rows.length,
@@ -129,6 +157,7 @@ function loaded(path: string) {
     })),
   };
 }
+let menuListener = 0;
 const callbacks = new Map<number, (value: unknown) => void>();
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
 Object.defineProperty(window, '__TAURI_EVENT_PLUGIN_INTERNALS__', {
@@ -151,11 +180,15 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recent_forget':
           return [];
         case 'plugin:event|listen':
+          if (args.event === 'workspace-action')
+            menuListener = Number(args.handler);
           return args.handler;
         case 'plugin:event|unlisten':
         case 'update_menu':
         case 'layout_save':
           return;
+        case 'preferences_save':
+          return 2;
         case 'preferences_get':
           return structuredClone(defaultPreferences);
         case 'quality_read':
@@ -215,6 +248,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             doc.cues.find((c) => c.id === a.cueId)!.text = a.text;
           }
           if (a.kind === 'undo') {
+            if (previousCues) {
+              doc.cues = previousCues;
+              previousCues = null;
+            }
             rows = history.pop() ?? rows;
             doc.revision++;
           }
@@ -222,6 +259,86 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         }
         case 'review_action': {
           const a = args.action as ReviewAction;
+          if (a.kind === 'inspectPackage')
+            return {
+              ...reply(),
+              inspection: {
+                case: importCase,
+                digest: 'fixture',
+                exportedBy: 'Sam',
+                exportedAtMs: 21,
+              },
+            };
+          if (a.kind === 'importPackage') {
+            imports.push(a.choice);
+            if (a.choice === 'open') {
+              doc = {
+                ...doc,
+                generation: doc.generation + 1,
+                path: null,
+                dirty: true,
+              };
+            }
+            if (a.choice === 'useTheirs') {
+              previousCues = structuredClone(doc.cues);
+              doc.cues = [{ ...doc.cues[0]!, text: 'Incoming' }];
+              doc.revision++;
+              doc.canUndo = true;
+            }
+            doc.review = { ...doc.review!, epoch: ++epoch, round: 2 };
+            return {
+              ...reply(),
+              document: structuredClone(doc),
+              notice: '1 new message',
+            };
+          }
+          if (a.kind === 'comment') {
+            const edit = a.edit;
+            if (edit.kind === 'post') {
+              if (edit.text.includes('REJECT'))
+                throw new Error('Refused comment');
+              commentedKey = edit.changeKey;
+              const c = rows.find((c) => c.key === commentedKey)!;
+              discussion = {
+                id: 'thread',
+                first_message_id: 'first',
+                anchor: {
+                  kind: 'change',
+                  change_key: c.key,
+                  change_kind: c.kind,
+                  original: c.original,
+                  revised: c.revised,
+                },
+                messages: [
+                  {
+                    id: 'first',
+                    author: a.author,
+                    at_ms: Date.now(),
+                    type: 'comment',
+                    text: edit.text,
+                  },
+                ],
+              };
+            } else if (edit.kind === 'reply' && discussion) {
+              discussion.messages.push({
+                id: 'm' + discussion.messages.length,
+                author: a.author,
+                at_ms: Date.now(),
+                type: edit.event,
+                ...(edit.text ? { text: edit.text } : {}),
+              });
+            }
+            doc.review = { ...doc.review!, epoch: ++epoch, dirty: true };
+            return reply();
+          }
+          if (a.kind === 'threads' || a.kind === 'navigateThread') {
+            const r = reply();
+            r.rows = rows.filter((c) => c.key === commentedKey);
+            r.total = r.rows.length + (r.discussion?.detached.length ?? 0);
+            r.position = 1;
+            r.threadId = discussion?.id ?? null;
+            return r;
+          }
           if (a.kind === 'inspect') return { ...reply(), newerOriginal: newer };
           if (a.kind === 'attach') {
             doc.review = { epoch: ++epoch, dirty: true, path: a.path, options };
@@ -271,7 +388,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                 .filter((c) =>
                   c.revised.some((cue) => a.ids.includes(cue.cue_id)),
                 )
-                .slice(0, 200),
+                .slice(0, 200)
+                .map((c) =>
+                  c.revised[0]?.cue_id === 8 ? { ...c, kind: 'unchanged' } : c,
+                ),
             };
           if (a.kind === 'navigate') {
             const stops = displayed(a.expanded ?? [], a.filter);
@@ -456,6 +576,17 @@ async function run() {
     );
     passed('Next Change navigates in a subtitles-only review');
     await chooseCommand(host, 'exportComparisonReport');
+    await until(() => !!button('Continue to Save'));
+    host
+      .querySelector<HTMLInputElement>('dialog[open] input[type="checkbox"]')!
+      .click();
+    await tick();
+    assert(
+      !button('Continue to Save').disabled &&
+        !host.querySelector('dialog[open] input[maxlength]'),
+      'Readable only needs no exporter name',
+    );
+    button('Continue to Save').click();
     await until(() => exported);
     passed('Comparison report export works with no media');
     await chooseCommand(host, 'endReview');
@@ -568,6 +699,14 @@ async function run() {
     button('Timing').click();
     await until(() => !!button('Expand'));
     assert(
+      [
+        ...host.querySelectorAll('section[aria-label="Changes"] article span'),
+      ].some(
+        (el) => el.textContent?.trim().replace(/\s+/g, ' ') === '1 thread',
+      ),
+      'Singular block badge',
+    );
+    assert(
       host.querySelectorAll('[aria-label="Changes"] article').length === 1,
       'Collapsed block occupies one stop',
     );
@@ -609,6 +748,227 @@ async function run() {
     await until(() => host.textContent?.includes('Change 6 of 199') ?? false);
     passed(
       'Block selection, collapsed paging, expanded navigation and Previous Change after selecting another cue',
+    );
+    // Pin the app viewport above the harness receipt while testing pointer geometry.
+    host.style.cssText = 'position: fixed; inset: 0; background: white';
+    for (const [cueId, changed] of [
+      [7, true],
+      [8, false],
+    ] as const) {
+      host.querySelector<HTMLElement>(`[data-cue-id="${cueId}"]`)!.click();
+      const pane = () =>
+        host.querySelector<HTMLElement>('[aria-label="Original"]');
+      await until(
+        () =>
+          !!pane() &&
+          !!pane()!.querySelector('.original-diff') === changed &&
+          !!host.querySelector(`[data-cue-id="${cueId}"][aria-pressed="true"]`),
+      );
+      const control = (name: string) =>
+        [...pane()!.querySelectorAll('button')].find(
+          (b) => b.textContent?.trim() === name,
+        )!;
+      control('Comment').click();
+      await until(() => {
+        const post = control('Post');
+        if (!post) return false;
+        const box = post.getBoundingClientRect();
+        return (
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ) === post
+        );
+      });
+      control('Cancel').click();
+    }
+    host.style.cssText = '';
+    passed(
+      'Changed and unchanged cue editor composers expose a pointer-hittable Post button',
+    );
+    const changes = host.querySelector('section[aria-label="Changes"]')!;
+    const inPanel = (label: string) =>
+      [...changes.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === label,
+      );
+    const fill = (selector: string, value: string) => {
+      const input = changes.querySelector<
+        HTMLInputElement | HTMLTextAreaElement
+      >(selector)!;
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const retainedRow = changes.querySelector('article')!;
+    let scrollPane: HTMLElement | null = retainedRow.parentElement;
+    while (
+      scrollPane &&
+      !(
+        scrollPane.scrollHeight > scrollPane.clientHeight &&
+        ['auto', 'scroll'].includes(getComputedStyle(scrollPane).overflowY)
+      )
+    )
+      scrollPane = scrollPane.parentElement;
+    assert(!!scrollPane, 'Changes has a scroll container');
+    scrollPane!.scrollTop = 20;
+    const scroll = scrollPane!.scrollTop;
+    const retained = () =>
+      assert(
+        scroll > 0 &&
+          scrollPane!.scrollTop === scroll &&
+          retainedRow === changes.querySelector('article'),
+        'Discussion retained the Changes row and scroll',
+      );
+    inPanel('Comment')!.click();
+    await tick();
+    assert(
+      changes.textContent?.includes(
+        'Shown to everyone who receives your review files',
+      ),
+      'Inline name disclosure',
+    );
+    fill('form input', 'Ana');
+    fill('form textarea', 'REJECT this draft');
+    await tick();
+    inPanel('Post')!.click();
+    await until(
+      () =>
+        !!changes
+          .querySelector('[role="alert"]')
+          ?.textContent?.includes('Refused comment'),
+    );
+    assert(
+      changes.querySelector<HTMLTextAreaElement>('form textarea')?.value ===
+        'REJECT this draft',
+      'Refused comment stays editable',
+    );
+    fill('form textarea', '<img> Check');
+    await tick();
+    inPanel('Post')!.click();
+    await until(() => !!inPanel('Reply'));
+    assert(
+      changes.textContent?.includes('<img> Check') &&
+        !changes.querySelector('img'),
+      'Literal comment',
+    );
+    retained();
+    inPanel('Reply')!.click();
+    await tick();
+    fill('form textarea', 'Agreed');
+    await tick();
+    inPanel('Post')!.click();
+    await until(
+      () => !!inPanel('Resolve') && !!changes.textContent?.includes('Agreed'),
+    );
+    retained();
+    inPanel('Resolve')!.click();
+    await until(() => !!inPanel('Reopen'));
+    retained();
+    inPanel('Reopen')!.click();
+    await until(() => !!inPanel('Resolve'));
+    inPanel('Commented')!.click();
+    await until(() => changes.querySelectorAll('article').length === 1);
+    await chooseCommand(host, 'nextOpenThread');
+    await until(
+      () => inPanel('Open threads')?.getAttribute('aria-pressed') === 'true',
+    );
+    await until(() => !!inPanel('Revert') && !inPanel('Revert')!.disabled);
+    inPanel('Revert')!.click();
+    await until(() => !!changes.querySelector('[aria-label="Detached"]'));
+    assert(
+      changes.textContent?.includes('Showing 1–1 of 1'),
+      'Detached threads count in the displayed page range',
+    );
+    inPanel('Reply')!.click();
+    await tick();
+    fill('form textarea', 'Still visible');
+    await tick();
+    inPanel('Post')!.click();
+    await until(() => !!changes.textContent?.includes('Still visible'));
+    passed(
+      'Name prompt, literal comments, replies, status events, comment filters, navigation and detached replies',
+    );
+    const exchangeCommand = async (
+      id: 'openReviewPackage' | 'exportReviewPackage',
+    ) => {
+      await until(
+        () =>
+          !host.querySelector('dialog[open]') &&
+          host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+      );
+      await chooseCommand(host, id);
+    };
+    await exchangeCommand('exportReviewPackage');
+    await until(() => !!button('Continue to Save'));
+    assert(
+      host
+        .querySelector('dialog[open]')
+        ?.textContent?.includes('The package includes your unsaved changes'),
+      'Unsaved package disclosure',
+    );
+    [...host.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
+      .find((b) => b.textContent?.trim() === 'Cancel')!
+      .click();
+    inPanel('All')!.click();
+    await until(() => !inPanel('Next page')!.disabled);
+    inPanel('Next page')!.click();
+    await until(
+      () =>
+        !inPanel('Previous page')!.disabled &&
+        changes.querySelectorAll('article').length < 100,
+    );
+    const secondPage = changes.querySelector('article');
+    await exchangeCommand('openReviewPackage');
+    await until(
+      () =>
+        imports.includes('merge') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(
+      !inPanel('Previous page')!.disabled &&
+        secondPage === changes.querySelector('article'),
+      'Merging a discussion preserves the current page',
+    );
+    importCase = 'different';
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Keep Mine'));
+    button('Keep Mine')!.click();
+    await until(() => imports.includes('keep'));
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Use Their Version'));
+    [...host.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
+      .find((b) => b.textContent?.trim() === 'Cancel')!
+      .click();
+    assert(imports.length === 2, 'Cancel does not adopt');
+    const before = doc.cues[0]!.text;
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Use Their Version'));
+    button('Use Their Version')!.click();
+    await until(() => doc.cues[0]?.text === 'Incoming');
+    await until(
+      () =>
+        !button('Undo')?.disabled &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    // Model the macOS menu bridge from the configured global accelerator to its Tauri event.
+    const shortcut = new KeyboardEvent('keydown', {
+      key: 'z',
+      code: 'KeyZ',
+      metaKey: true,
+      bubbles: true,
+    });
+    const binding = defaultPreferences.shortcuts.bindings.find(
+      (b) => b.mode === 'global' && matchesShortcut(b.key, shortcut),
+    );
+    assert(binding?.action === 'undo', 'Command-Z is bound to Undo');
+    callbacks.get(menuListener)!({ payload: binding!.action });
+    await until(() => doc.cues[0]?.text === before);
+    importCase = 'new';
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Discard changes'));
+    button('Discard changes')!.click();
+    await until(() => imports.includes('open') && doc.path === null);
+    passed(
+      'Export disclosure, new and same package opens, different-version choices and one-step Undo',
     );
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =
