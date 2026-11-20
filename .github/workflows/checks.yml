@@ -257,6 +257,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install mpv pkg-config
-          pkg-config --modversion mpv
+          # mpv.pc requires libarchive, which Homebrew installs keg-only on macOS.
+          export PKG_CONFIG_PATH="$(brew --prefix libarchive)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          pkg-config --libs --cflags 'mpv >= 2.0'
           cargo clippy --locked -p visualsubforge --features media-prototype --all-targets -- -D warnings
           npm run tauri -- build --debug --no-bundle --features media-prototype -- --locked
