@@ -326,3 +326,27 @@ fn identical_changes_keep_the_commented_occurrence_across_exchange() {
         [Some(1)]
     );
 }
+
+#[test]
+fn snapshot_controls_follow_cue_rules_and_comment_controls_remain_strict() {
+    let c = compare(
+        &[cue(1, 10, 20, "a\u{85}\x0c\x1bb")],
+        &[cue(2, 10, 20, "edited")],
+    );
+    let mut p = fixture();
+    p.threads = vec![thread(&c.changes[0])];
+    assert_eq!(read(&p.write().unwrap()).unwrap().threads, p.threads);
+    for control in ["\u{85}", "\x0c", "\x1b"] {
+        assert!(
+            Message::new(
+                "id",
+                "Ana".into(),
+                1,
+                Event::Comment,
+                Some(format!("a{control}b"))
+            )
+            .is_err()
+        );
+        assert!(validate_name(&format!("Ana{control}")).is_err());
+    }
+}

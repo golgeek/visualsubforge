@@ -295,6 +295,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (a.kind === 'comment') {
             const edit = a.edit;
             if (edit.kind === 'post') {
+              if (edit.text.includes('REJECT'))
+                throw new Error('Refused comment');
               commentedKey = edit.changeKey;
               const c = rows.find((c) => c.key === commentedKey)!;
               discussion = {
@@ -777,6 +779,20 @@ async function run() {
       'Inline name disclosure',
     );
     fill('form input', 'Ana');
+    fill('form textarea', 'REJECT this draft');
+    await tick();
+    inPanel('Post')!.click();
+    await until(
+      () =>
+        !!changes
+          .querySelector('[role="alert"]')
+          ?.textContent?.includes('Refused comment'),
+    );
+    assert(
+      changes.querySelector<HTMLTextAreaElement>('form textarea')?.value ===
+        'REJECT this draft',
+      'Refused comment stays editable',
+    );
     fill('form textarea', '<img> Check');
     await tick();
     inPanel('Post')!.click();

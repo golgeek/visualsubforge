@@ -34,7 +34,7 @@ Change anchors first match the comparison content key and its occurrence in comp
 
 ## Limits and report safety
 
-The package/report limit is 64 MiB. Each decoded subtitle may occupy 16 MiB. UTF-8 and BOM-marked UTF-16 embedded data pass through the format parser. Fingerprints always cover the original bytes. A reader checks both fingerprints and all identities before adoption. The discussion limit is 10,000 threads, 100,000 messages, 10,000 Unicode characters per message and 100 per author. Names, anchor text and comment text together may occupy 16 MiB of UTF-8. Only line breaks and tabs are allowed as controls in text. Names allow no controls. CLI exports can have an empty exporter.
+The package/report limit is 64 MiB. Each decoded subtitle may occupy 16 MiB. UTF-8 and BOM-marked UTF-16 embedded data pass through the format parser. Fingerprints always cover the original bytes. A reader checks both fingerprints and all identities before adoption. The discussion limit is 10,000 threads, 100,000 messages, 10,000 Unicode characters per message and 100 per author. Names, anchor text and comment text together may occupy 16 MiB of UTF-8. Comment text allows line breaks and tabs. Anchor snapshots follow subtitle-core cue rules and preserve the source text. Names allow no controls. CLI exports can have an empty exporter.
 
 The report displays escaped plain text. Exactly one inert script element with the review media type and ID `vsf-review-package` carries the JSON. The writer escapes less-than, greater-than, ampersand, U+2028 and U+2029 inside that block. Import reads only its bounded JSON payload.
 

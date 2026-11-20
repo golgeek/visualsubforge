@@ -49,7 +49,8 @@ export class ReviewSession {
     );
   }
   async comment(edit: CommentEdit, inlineName: string) {
-    if (!this.workspace.canAct) return false;
+    if (!this.workspace.canAct)
+      return 'The workspace is busy. Try posting again.';
     const key = this.key();
     let posted = false;
     await this.workspace.task(async () => {
@@ -62,7 +63,9 @@ export class ReviewSession {
         this.subtitles.snapshot,
       );
     });
-    return posted;
+    return posted
+      ? null
+      : this.workspace.error || 'The review changed. Try posting again.';
   }
   async navigateThread(forward: boolean) {
     if (!this.workspace.canAct || !this.page?.statistics) return;

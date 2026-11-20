@@ -95,10 +95,9 @@ impl Anchor {
         }
         let mut size = 0;
         for cue in a.iter().chain(b) {
-            if cue.end_ms <= cue.start_ms || cue.end_ms > subtitle_core::Milliseconds::MAX {
-                return Err("Invalid anchor time".into());
-            }
-            text_controls(&cue.text)?;
+            let time = |ms| subtitle_core::Milliseconds::new(ms).map_err(|e| e.to_string());
+            subtitle_core::Cue::validate(time(cue.start_ms)?, time(cue.end_ms)?, &cue.text)
+                .map_err(|e| e.to_string())?;
             size += cue.text.len();
         }
         Ok(size)

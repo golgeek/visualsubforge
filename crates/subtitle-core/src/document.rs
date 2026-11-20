@@ -122,7 +122,8 @@ impl Cue {
             metadata: None,
         })
     }
-    pub(crate) fn validate(start: Milliseconds, end: Milliseconds, text: &str) -> Result<()> {
+    /// Validate imported cue content against the same invariants as the editor.
+    pub fn validate(start: Milliseconds, end: Milliseconds, text: &str) -> Result<()> {
         if end <= start {
             return Err(Error::InvalidTimeRange { start, end });
         }

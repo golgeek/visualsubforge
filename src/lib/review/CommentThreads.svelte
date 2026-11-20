@@ -14,6 +14,7 @@
   } = $props();
   let composer = $state<string | null>(null);
   let text = $state('');
+  let error = $state('');
   let name = $state('');
   let pendingStatus = $state<CommentEdit | null>(null);
   const threads = $derived(
@@ -30,7 +31,9 @@
     );
   }
   async function send(edit: CommentEdit) {
-    if (await review.comment(edit, name)) {
+    error = (await review.comment(edit, name)) ?? '';
+    if (!error) {
+      pendingStatus = null;
       composer = null;
       text = '';
     }
@@ -38,7 +41,6 @@
   function post() {
     if (pendingStatus) {
       void send(pendingStatus);
-      pendingStatus = null;
       return;
     }
     if (composer === 'new' && change)
@@ -133,12 +135,14 @@
       type="button"
       onclick={() => {
         composer = null;
+        error = '';
         pendingStatus = null;
         text = '';
       }}>Cancel</button
     >
   </form>
 {/if}
+{#if error}<p role="alert">{error}</p>{/if}
 
 <style>
   section,
