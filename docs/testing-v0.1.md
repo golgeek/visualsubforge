@@ -19,7 +19,7 @@ Open the [v0.1.0 test release](https://github.com/golgeek/visualsubforge/release
 2. **Open the video.** Choose **File → Open Media…** and select `h264-1080p.mp4`. The test pattern should appear alongside the cues.
 3. **Play and seek.** Press Play, listen for a steady tone, then seek from before six seconds to after it. The image changes colour and playback resumes at the chosen time.
 4. **Preview subtitles.** Pause around two seconds. The first cue appears on the video. Around seven seconds the second cue appears.
-5. **Use the waveform.** Wait for the waveform, then click a different point in it. The playhead and picture should follow.
+5. **Use the waveform.** Wait for the waveform, then click an empty part between the two cues. The playhead and picture should follow.
 6. **Scan for shot changes.** Choose **Review → Scan Scene Changes**. Enable **Scene changes** if needed. Look for a marker near the colour change at six seconds.
 7. **Edit one cue.** Select the first cue and change “Café” to “Coffee”. Pause typing, then click another cue. The list should retain the edit.
 8. **Split a cue.** Select the first cue, place the playhead inside it around two seconds and choose **Cue → Split at Playhead**. Two adjacent cues should replace it.
@@ -27,8 +27,8 @@ Open the [v0.1.0 test release](https://github.com/golgeek/visualsubforge/release
 10. **Undo.** Choose **Edit → Undo**. The split cues should return.
 11. **Save and reopen.** Choose **File → Save Subtitles As…** and save a new SRT outside the sample folder. Quit and reopen VSF, then open your saved SRT. Check the edited text and cue times.
 12. **Switch audio tracks.** Open `vfr-offset.mkv`. In **Audio track**, try each of the two tracks from the beginning. Listen for a short impulse around 1.25 seconds on one and 2 seconds on the other.
-13. **Resynchronize.** Open `resync/offset.mkv` and `resync/source.srt`. Choose **Review → Resynchronize Subtitles…** and select `resync/source.mkv` as the source video. Review the proposed timings. Compare them to `resync/offset.expected.srt` (the first cue starts at six seconds).
-14. **Export a copy.** With an SRT open, choose **File → Export As…**, choose ASS, review the conversion and save a separate file. Open that file and check the text and times. The pack also includes `subtitles/styles.ass` to try.
+13. **Resynchronize.** Open `resync/offset.mkv` and `resync/source.srt`. Choose **Review → Resynchronize Subtitles…** and select `resync/source.mkv` as the source video. Choose **Analyze videos** and review the proposed timings. Compare them to `resync/offset.expected.srt` (the first cue starts at six seconds). Choose **Close** to return to the editor.
+14. **Export a copy.** With an SRT open, choose **File → Export As…**, choose ASS, then **Review conversion → Choose new output file…**. When **Export complete** appears, close the dialog and open that file and check the text and times. The pack also includes `subtitles/styles.ass` to try.
 15. **Check for updates.** Choose **Help → Check for Updates…**. Expect a current-version message, a newer release link, or an explanation if GitHub cannot be reached. Automatic checks are optional in **Settings → Advanced**.
 
 ## Send your results
