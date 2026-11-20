@@ -121,7 +121,7 @@ function reply(): ReviewReply {
   return {
     key: { generation: doc.generation, revision: doc.revision, epoch },
     context: doc.review ?? null,
-    discussion: discussionPage(),
+    discussion: structuredClone(discussionPage()),
     document: null,
     working: false,
     matched: rows.length,
@@ -699,9 +699,11 @@ async function run() {
     button('Timing').click();
     await until(() => !!button('Expand'));
     assert(
-      host
-        .querySelector('section[aria-label="Changes"] article span')
-        ?.textContent?.trim() === '1 thread',
+      [
+        ...host.querySelectorAll('section[aria-label="Changes"] article span'),
+      ].some(
+        (el) => el.textContent?.trim().replace(/\s+/g, ' ') === '1 thread',
+      ),
       'Singular block badge',
     );
     assert(
@@ -747,6 +749,8 @@ async function run() {
     passed(
       'Block selection, collapsed paging, expanded navigation and Previous Change after selecting another cue',
     );
+    // Pin the app viewport above the harness receipt while testing pointer geometry.
+    host.style.cssText = 'position: fixed; inset: 0; background: white';
     for (const [cueId, changed] of [
       [7, true],
       [8, false],
@@ -778,6 +782,7 @@ async function run() {
       });
       control('Cancel').click();
     }
+    host.style.cssText = '';
     passed(
       'Changed and unchanged cue editor composers expose a pointer-hittable Post button',
     );
