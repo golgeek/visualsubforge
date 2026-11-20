@@ -160,6 +160,49 @@ item. Both hosted GUIs rendered and played the DASH fixture, then failed
 the binding audit. See the [Wayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44841406565/artifacts/14681650584)
 and [XWayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44841406565/artifacts/14681306546).
 
+## Desktop update check dependencies
+
+The desktop enables rustls on the already locked reqwest client, using ring
+and platform trust. Linux discovers the existing root store and adds no system
+library. The Windows ring crate contains pregenerated assembly and matching
+object files. Its checksum-matched source package and license notices accompany
+the Windows application sources. The inventory below includes target-specific
+lockfile inputs, including Android-only entries that desktop packages omit.
+
+| Crate | Version | Declared license | Purpose |
+| --- | --- | --- | --- |
+| getrandom | 0.2.17 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| hyper-rustls | 0.27.10 | Apache-2.0 OR ISC OR MIT | Platform trust, cryptography or HTTP/TLS transport dependency |
+| is-docker | 0.2.0 | MIT | Browser launcher environment selection |
+| is-wsl | 0.4.0 | MIT | Browser launcher environment selection |
+| jni | 0.22.4 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| jni-macros | 0.22.4 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| log | 0.4.34 | MIT OR Apache-2.0 | Debug-level failure diagnostics |
+| open | 5.4.5 | MIT | User-initiated OS browser launch |
+| openssl-probe | 0.2.2 | MIT OR Apache-2.0 | Locates existing CA files on Linux; contains no OpenSSL linkage |
+| reqwest | 0.13.5 | MIT OR Apache-2.0 | Fixed-origin, timeout-bounded HTTP request |
+| ring | 0.17.14 | Apache-2.0 AND ISC | Rustls cryptographic provider |
+| rustls | 0.23.46 | Apache-2.0 OR ISC OR MIT | TLS implementation and ring provider selection |
+| rustls-native-certs | 0.8.5 | Apache-2.0 OR ISC OR MIT | Platform trust, cryptography or HTTP/TLS transport dependency |
+| rustls-pki-types | 1.16.0 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| rustls-platform-verifier | 0.7.1 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| rustls-platform-verifier-android | 0.2.0 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| rustls-webpki | 0.103.17 | ISC | Platform trust, cryptography or HTTP/TLS transport dependency |
+| schannel | 0.1.30 | MIT | Platform trust, cryptography or HTTP/TLS transport dependency |
+| security-framework | 3.7.0 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| security-framework-sys | 2.17.0 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| semver | 1.0.28 | MIT OR Apache-2.0 | Version precedence |
+| simd_cesu8 | 1.2.0 | Apache-2.0 OR MIT | Platform trust, cryptography or HTTP/TLS transport dependency |
+| simdutf8 | 0.1.5 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| subtle | 2.6.1 | BSD-3-Clause | Platform trust, cryptography or HTTP/TLS transport dependency |
+| tokio | 1.53.1 | MIT | Cancelable asynchronous request |
+| tokio-rustls | 0.26.6 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| tokio-util | 0.7.19 | MIT | Cancellation tokens |
+| untrusted | 0.9.0 | ISC | Platform trust, cryptography or HTTP/TLS transport dependency |
+| webpki-root-certs | 1.0.12 | CDLA-Permissive-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| windows-sys | 0.52.0 | MIT OR Apache-2.0 | Platform trust, cryptography or HTTP/TLS transport dependency |
+| zeroize | 1.9.2 | Apache-2.0 OR MIT | Platform trust, cryptography or HTTP/TLS transport dependency |
+
 ## Artifact evidence
 
 | Target | Candidate evidence | Independent verification | Remaining work |

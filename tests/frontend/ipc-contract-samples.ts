@@ -2989,6 +2989,7 @@ export const workspaceActions = [
   'apply',
   'arrangePanels',
   'cancelSceneScan',
+  'checkUpdates',
   'clearLoop',
   'closeMedia',
   'closeSubtitles',
@@ -3106,6 +3107,7 @@ export const preferences = {
     theme: 'dark',
   },
   autoScanScenes: true,
+  automaticUpdates: null,
   layout: {
     active: 'timing',
     bigPicture: {

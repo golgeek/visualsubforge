@@ -25,6 +25,8 @@ pub struct Preferences {
     pub(crate) shortcuts: shortcuts::Shortcuts,
     #[serde(default)]
     review_name: String,
+    #[serde(default)]
+    pub(crate) automatic_updates: Option<bool>,
     auto_scan_scenes: bool,
     scene_detail: Detail,
     timing: Timing,
@@ -43,6 +45,7 @@ impl Default for Preferences {
         Self {
             version: 6,
             review_name: String::new(),
+            automatic_updates: None,
             appearance: Default::default(),
             layout: Default::default(),
             shortcuts: Default::default(),

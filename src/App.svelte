@@ -43,6 +43,8 @@
   import { WorkspaceDialogsState } from './lib/dialogs/workspace-dialogs.svelte';
   import { Recovery } from './lib/document/recovery.svelte';
   import RecoveryDialog from './lib/document/RecoveryDialog.svelte';
+  import UpdateNotice from './lib/updates/UpdateNotice.svelte';
+  import { UpdateSession } from './lib/updates/update-session.svelte';
   import StartScreen from './lib/start/StartScreen.svelte';
   import { RecentWork } from './lib/start/recent-work.svelte';
   import { WorkspaceOpen } from './lib/start/workspace-open';
@@ -135,6 +137,18 @@
   const view = new WorkspaceView();
 
   const preferences = new WorkspacePreferences();
+  const updates = disposeWithComponent(
+    new UpdateSession(
+      (enabled) => preferences.acceptUpdateConsent(enabled),
+      () => preferences.preferences.automaticUpdates === true,
+    ),
+  );
+  $effect(() => {
+    if (!workspace.ready || preferences.preferences.automaticUpdates !== true)
+      return;
+    const timer = setTimeout(() => void updates.check(false), 3500);
+    return () => clearTimeout(timer);
+  });
   const appearance = disposeWithComponent(new Appearance());
   $effect(() => appearance.apply(preferences.preferences.appearance));
 
@@ -831,6 +845,8 @@
       case 'showOriginalTiming':
         review.showOriginal = !review.showOriginal;
         return;
+      case 'checkUpdates':
+        return updates.check(true);
       case 'exportReviewPackage':
         return review.exportReport('package');
       case 'openReviewPackage':
@@ -966,6 +982,7 @@
   });
   workspace.connect({
     activity: () =>
+      updates.saving ||
       layout.active ||
       view.reviewBusy ||
       workspaceModal.opening ||
@@ -1418,6 +1435,13 @@
     documentGeneration={subtitles.snapshot.generation}
     showExtraction={!subtitles.snapshot.loaded}
   />
+  {#if workspace.ready}
+    <UpdateNotice
+      session={updates}
+      consent={preferences.preferences.automaticUpdates}
+      disabled={!workspace.canAct}
+    />
+  {/if}
   <PlaybackDiagnostics
     {workspace}
     {media}
@@ -1489,13 +1513,13 @@
     height: 100dvh;
     min-height: 610px;
     display: grid;
-    grid-template-rows: 40px minmax(var(--workspace-min-height), 1fr) 20px;
+    grid-template-rows: 40px minmax(var(--workspace-min-height), 1fr) 20px auto;
     isolation: isolate;
     overflow: auto;
   }
 
   main.start-visible {
-    grid-template-rows: 40px minmax(0, 1fr) 20px;
+    grid-template-rows: 40px minmax(0, 1fr) 20px auto;
   }
   .workspace.start-hidden {
     position: absolute;

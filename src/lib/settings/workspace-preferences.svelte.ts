@@ -23,6 +23,9 @@ export class WorkspacePreferences {
     this.timing = { ...value.timing };
     this.showQualityMetrics = value.showQualityMetrics;
   }
+  acceptUpdateConsent(enabled: boolean) {
+    this.saved = { ...this.saved, automaticUpdates: enabled };
+  }
   acceptLayout(layout: Preferences['layout']) {
     this.saved = { ...this.saved, layout };
   }
