@@ -121,17 +121,19 @@ from the installed OS.
 | libxml2 | 2.9.14+dfsg-1.3ubuntu3.10 | Ubuntu copyright file, including the upstream MIT terms and per-file notices |
 | ICU (libicuuc, libicudata) | 74.2-1ubuntu3.1 | Ubuntu libicu74 copyright file, including Unicode terms and Debian packaging notices |
 
-The first rehearsal installed on both systems. Its 26.04 GUI loader check
-found the missing XML ABI. In an isolated 26.04 container, the earlier package
-with these three private libraries resolved all four executables and decoded
-the synthetic VFR video offline. The release workflow repeats installation,
-offline functionality and desktop checks with the newly assembled package.
-On Ubuntu 26.04 both Weston backends open a local synthetic DASH manifest
-through the installed GUI. The diagnostic records XML consumers, providers and
-symbol names from that GUI process's dynamic-loader trace and the XML paths
-in its memory map. Media libraries must resolve the private ABI 2 and WebKitGTK
-must resolve system ABI 16. A failed DASH or mixed-binding check limits this
-release to Ubuntu 24.04.
+The v0.1.0 package supports Ubuntu 24.04 amd64 only. On Ubuntu 26.04, apt
+installed the original 24.04 build but could not supply libxml2.so.2. Adding
+the three private libraries allowed offline CLI resync and ordinary VFR GUI
+playback under Wayland and XWayland in the isolated 26.04 test environment.
+
+Opening a synthetic DASH manifest in the GUI exposed a mixed binding. The
+loader mapped both XML ABIs, but private libavformat.so.60 resolved 20 XML
+symbols, including xmlDocGetRootElement, against system libxml2.so.16.1.2.
+WebKitGTK resolved 49 XML symbols against that same system library. The media
+libraries need ABI 2. The diagnostic workflow retains the installed-GUI check
+on hosted 26.04 for both display backends and records the consumer, provider
+and symbols. A separate Ubuntu 26.04 build and source inventory are a v0.1.1
+item.
 
 ## Artifact evidence
 

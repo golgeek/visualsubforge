@@ -4,7 +4,7 @@ For v0.1.0, use the package for your platform, matching source archives,
 `VisualSubForge-0.1.0-test-media.zip` and `SHA256SUMS` from the
 [test release](https://github.com/golgeek/visualsubforge/releases/tag/v0.1.0).
 Before publication, the release rehearsal provides those files in one Actions artifact.
-On Ubuntu install with `sudo apt install ./VisualSubForge_0.1.0_amd64.deb`.
+On Ubuntu 24.04 amd64 install with `sudo apt install ./VisualSubForge_0.1.0_amd64_ubuntu24.04.deb`.
 
 ## Earlier preview candidates
 

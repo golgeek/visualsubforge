@@ -36,7 +36,7 @@ def collect(inputs, output, signed):
     setup, = [path for name, path in windows.items() if name.endswith('-setup.exe')]
     linux = verified(inputs / 'linux-preview-amd64')
     assets = [setup, windows[f'VisualSubForge_{version}_x64_windows.zip'],
-              linux[f'VisualSubForge_{version}_amd64.deb']]
+              linux[f'VisualSubForge_{version}_amd64_ubuntu24.04.deb']]
     inventories = {'windows-x64': windows, 'linux-amd64': linux}
     for arch in ['aarch64', 'x86_64']:
         unsigned = verified(inputs / f'macos-unsigned-{arch}')

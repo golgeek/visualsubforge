@@ -216,7 +216,7 @@ def assemble(args):
     control.write_text(f"Package: visualsubforge\nVersion: {debian_version}\nArchitecture: amd64\n"
                        "Maintainer: VisualSubForge contributors <noreply@github.com>\n"
                        "Section: video\nPriority: optional\n" + "Depends: " + ", ".join(depends) + "\n"
-                       "Description: VisualSubForge subtitle editor and resync CLI (test release)\n Built on Ubuntu 24.04 amd64. See release notes for tested desktop versions.\n")
+                       "Description: VisualSubForge subtitle editor and resync CLI (test release)\n This test release supports Ubuntu 24.04 amd64.\n")
     receipt = {"schema": 1, "version": release_version(), "architecture": "amd64", "os": "Ubuntu 24.04",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
                "files": records, "header_inputs": header_inputs,
@@ -226,7 +226,7 @@ def assemble(args):
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    artifact = root / f"VisualSubForge_{release_version()}_amd64.deb"
+    artifact = root / f"VisualSubForge_{release_version()}_amd64_ubuntu24.04.deb"
     subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(tree), str(artifact)], check=True)
     receipt["artifact"] = {"file": artifact.name, "sha256": digest(artifact)}
     (root / "assembly-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
