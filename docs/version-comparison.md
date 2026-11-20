@@ -11,7 +11,7 @@ vsf compare original.srt revised.srt --json --html comparison.html
 Inputs use the existing bounded UTF-8 SRT, WebVTT, ASS and SSA parsers. Exit 0
 means compared, including files with changes; 2 means invalid input/comparison
 limit, 5 means IO failure, 130 means cancellation. HTML publication is atomic to
-a new path. `--tolerance-ms`, `--ignore-tags`, `--ignore-line-breaks` and
+a new path. CLI HTML is readable only by default. Add `--embed-package` to include both complete files. `--tolerance-ms`, `--ignore-tags`, `--ignore-line-breaks` and
 `--include-unchanged` control comparison/reporting. Whitespace-only differences
 are ignored by default. Tolerance defaults to the original format's tick (1 ms
 SRT/WebVTT, 10 ms ASS/SSA). Both endpoints must be within tolerance.

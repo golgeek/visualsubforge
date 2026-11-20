@@ -210,6 +210,9 @@ pub struct Compare {
     pub revised: PathBuf,
     #[arg(long)]
     pub html: Option<PathBuf>,
+    /// Include both complete subtitle files so the HTML can be reopened in VSF.
+    #[arg(long, requires = "html")]
+    pub embed_package: bool,
     #[arg(long)]
     pub json: bool,
     #[arg(long)]

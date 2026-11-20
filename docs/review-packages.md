@@ -5,13 +5,13 @@ A `.vsfreview` file contains the complete original and revised subtitles, includ
 ## Command line
 
 ```sh
-vsf compare original.srt revised.srt --package round1.vsfreview --html comparison.html
+vsf compare original.srt revised.srt --package round1.vsfreview --html comparison.html --embed-package
 vsf review show round1.vsfreview --json
 vsf review show comparison.html
 vsf review merge ana.vsfreview sam.vsfreview -o combined.vsfreview
 ```
 
-Outputs publish atomically to new paths. Merge requires identical original fingerprints. The highest round supplies the revised file and options, with latest export time breaking ties. Further ties compare the revised SHA-256, exporter, names, serialized options and formats in that order. The CLI reports the selected input. Merge preserves the maximum round.
+CLI HTML is readable only by default. `--embed-package` opts into including both subtitle files, independently of `--package`. Outputs publish atomically to new paths. Merge requires identical original fingerprints. The highest round supplies the revised file and options, with latest export time breaking ties. Further ties compare the revised SHA-256, exporter, names, serialized options and formats in that order. The CLI reports the selected input. Merge preserves the maximum round.
 
 ## Version 1 wire format
 

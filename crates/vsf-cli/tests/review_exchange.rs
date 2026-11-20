@@ -31,7 +31,23 @@ fn compare_show_and_concurrent_reviewers_in_both_orders() {
         "a.vsfreview",
         "--html",
         "a.html",
+        "--embed-package",
     ]);
+    run(&[
+        "compare",
+        "a.srt",
+        "b.srt",
+        "--html",
+        "plain.html",
+        "--package",
+        "separate.vsfreview",
+    ]);
+    assert!(
+        review_file::read(&d.path().join("plain.html"))
+            .unwrap_err()
+            .contains("doesn't contain review data")
+    );
+    assert!(review_file::read(&d.path().join("separate.vsfreview")).is_ok());
     let show = run(&["review", "show", "a.html", "--json"]);
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&show).unwrap()["round"],
