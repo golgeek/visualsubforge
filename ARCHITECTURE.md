@@ -755,7 +755,8 @@ request lifetime; mutations reconcile through DocumentSession's serialized path.
 
 
 Review projections and navigation reuse the worker's immutable result with the
-same generation/revision/epoch guard. The frontend owns active filter, selected
+same generation/revision/epoch guard. A completed comparison can additionally return a compact index of change identities, affected cue IDs, thread status, shift membership and removal successors. The frontend requests this index once per capture. Filtering the virtual list uses those IDs and keeps full word diffs within the existing visible projection limits.
+The frontend owns active filter, selected
 content key, ghost visibility and request sequencing. Revert builds one domain
 `ReplaceCues` edit: validates IDs and the complete candidate before publishing,
 allocates missing IDs monotonically, and trims unchanged edges for ordinary

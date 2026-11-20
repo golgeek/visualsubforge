@@ -16,6 +16,7 @@ export const columnLabels: Record<ColumnId, string> = {
   gap: 'Gap to next',
   style: 'Style',
   actor: 'Actor',
+  original: 'Original',
   text: 'Text',
 };
 export const metricColumns = new Set<ColumnId>([
@@ -42,18 +43,32 @@ export function defaultColumns(): CueColumns {
       { id: 'gap', visible: false, width: 90 },
       { id: 'style', visible: false, width: 120 },
       { id: 'actor', visible: false, width: 120 },
+      { id: 'original', visible: true, width: 240 },
       { id: 'text', visible: true, width: 240 },
     ],
   };
 }
 export const mandatoryColumn = (id: ColumnId) =>
   id === 'issue' || id === 'text';
-export const availableColumn = (id: ColumnId, styled: boolean) =>
-  styled || (id !== 'style' && id !== 'actor');
+export const availableColumn = (
+  id: ColumnId,
+  styled: boolean,
+  review = false,
+) =>
+  (id !== 'original' || review) &&
+  (styled || (id !== 'style' && id !== 'actor'));
 export const rowHeight = (density: CueColumns['density']) =>
   density === 'compact' ? 24 : 32;
-export function visibleColumns(value: CueColumns, styled: boolean) {
-  return value.items.filter((c) => c.visible && availableColumn(c.id, styled));
+export function visibleColumns(
+  value: CueColumns,
+  styled: boolean,
+  review = false,
+) {
+  return value.items.filter(
+    (c) =>
+      (c.visible || (c.id === 'original' && value.originalPending)) &&
+      availableColumn(c.id, styled, review),
+  );
 }
 export function showColumn(
   value: CueColumns,
@@ -62,6 +77,7 @@ export function showColumn(
 ): CueColumns {
   return {
     ...value,
+    ...(id === 'original' ? { originalPending: false } : {}),
     items: value.items.map((c) =>
       c.id === id ? { ...c, visible: mandatoryColumn(id) || visible } : c,
     ),
@@ -73,8 +89,8 @@ export function resizeColumn(
   width: number,
 ): CueColumns {
   if (!Number.isFinite(width) || id === 'issue') return value;
-  const minimum = id === 'text' ? 120 : 40;
-  const maximum = id === 'text' ? 1600 : 600;
+  const minimum = id === 'text' || id === 'original' ? 120 : 40;
+  const maximum = id === 'text' || id === 'original' ? 1600 : 600;
   // Whole CSS pixels at the persisted presentation boundary.
   const accepted = Math.round(Math.min(maximum, Math.max(minimum, width)));
   return {

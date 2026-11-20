@@ -38,6 +38,7 @@ fn ready(d: &Documents) -> ReviewReply {
     loop {
         let r = d
             .review_action(ReviewAction::Query {
+                presentation: false,
                 expanded: vec![],
                 key: key(d),
                 offset: 0,
@@ -560,6 +561,7 @@ fn shift_block_is_one_stop_and_one_undo_step() {
     assert_eq!((before.total, before.matched), (1, 5));
     let expanded = d
         .review_action(ReviewAction::Query {
+            presentation: false,
             key: key(&d),
             expanded: vec![0],
             offset: 2,
@@ -925,4 +927,73 @@ fn unchanged_projection_does_not_crowd_out_later_removed_cues() {
         .unwrap();
     assert_eq!(page.rows.len(), 201);
     assert_eq!(page.rows.last().unwrap().kind, engine::Kind::Removed);
+}
+
+#[test]
+fn dense_table_filter_uses_identities_and_fetches_only_visible_diffs() {
+    let (_dir, d, original, working) = fixture();
+    let make = |edit: &str| {
+        let mut text = String::new();
+        use std::fmt::Write;
+        for i in 0..10_000u64 {
+            let start = Milliseconds::new(i * 250).unwrap();
+            let end = Milliseconds::new(i * 250 + 500).unwrap();
+            let suffix = if i % 10 == 0 { edit } else { "" };
+            writeln!(
+                text,
+                "{}\n{} --> {}\nLine {i}{suffix}\n",
+                i + 1,
+                srt::format_time(start),
+                srt::format_time(end)
+            )
+            .unwrap();
+        }
+        text
+    };
+    fs::write(&original, make(" original")).unwrap();
+    fs::write(&working, make(" revised")).unwrap();
+    action(
+        &d,
+        super::super::Action::Open {
+            path: working.to_string_lossy().into(),
+            discard: true,
+        },
+    );
+    attach(&d, &original);
+    ready(&d);
+    let key = key(&d);
+    let page = d
+        .review_action(ReviewAction::Query {
+            key,
+            presentation: true,
+            expanded: vec![],
+            offset: 0,
+            limit: 1,
+            filter: None,
+        })
+        .unwrap();
+    assert_eq!(page.rows.len(), 1);
+    let index = serde_json::to_value(page.presentation.unwrap()).unwrap();
+    let rows = index["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 1000);
+    assert!(
+        rows.iter()
+            .all(|r| r.get("words").is_none() && r.get("text").is_none())
+    );
+    let ids = rows
+        .iter()
+        .skip(500)
+        .take(25)
+        .map(|r| r["revised"][0].as_u64().unwrap().try_into().unwrap())
+        .collect();
+    let window = d
+        .review_action(ReviewAction::Projection {
+            key,
+            ids,
+            start_ms: 0u64.try_into().unwrap(),
+            end_ms: 0u64.try_into().unwrap(),
+        })
+        .unwrap();
+    assert_eq!(window.rows.len(), 25);
+    assert!(window.presentation.is_none());
 }

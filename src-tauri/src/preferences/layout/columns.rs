@@ -18,6 +18,7 @@ pub enum ColumnId {
     Style,
     Actor,
     Text,
+    Original,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -32,16 +33,49 @@ pub struct Column {
     pub visible: bool,
     pub width: u16,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Columns {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub original_pending: bool,
     pub items: Vec<Column>,
     pub density: Density,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SavedColumns {
+    items: Vec<Column>,
+    density: Density,
+    #[serde(default)]
+    original_pending: bool,
+}
+impl<'de> Deserialize<'de> for Columns {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(SavedColumns::deserialize(d)?.into())
+    }
+}
+impl From<SavedColumns> for Columns {
+    fn from(mut saved: SavedColumns) -> Self {
+        if saved.items.len() == 13 && !saved.items.iter().any(|c| c.id == ColumnId::Original) {
+            saved.items.push(Column {
+                id: ColumnId::Original,
+                width: 240,
+                visible: false,
+            });
+            saved.original_pending = true;
+        }
+        Self {
+            items: saved.items,
+            density: saved.density,
+            original_pending: saved.original_pending,
+        }
+    }
 }
 impl Default for Columns {
     fn default() -> Self {
         use ColumnId::*;
         Self {
+            original_pending: false,
             density: Density::Compact,
             items: [
                 (Issue, true, 24),
@@ -56,6 +90,7 @@ impl Default for Columns {
                 (Gap, false, 90),
                 (Style, false, 120),
                 (Actor, false, 120),
+                (Original, true, 240),
                 (Text, true, 240),
             ]
             .into_iter()
@@ -66,7 +101,7 @@ impl Default for Columns {
 }
 impl Columns {
     pub fn validate(&self) -> Result<(), String> {
-        if self.items.len() != 13 || self.items.first().map(|c| c.id) != Some(ColumnId::Issue) {
+        if self.items.len() != 14 || self.items.first().map(|c| c.id) != Some(ColumnId::Issue) {
             return Err("Columns must contain every supported column, with Issues first".into());
         }
         let mut seen = HashSet::new();
@@ -79,7 +114,7 @@ impl Columns {
             }
             let valid_width = match column.id {
                 ColumnId::Issue => column.width == 24,
-                ColumnId::Text => (120..=1600).contains(&column.width),
+                ColumnId::Text | ColumnId::Original => (120..=1600).contains(&column.width),
                 _ => (40..=600).contains(&column.width),
             };
             if !valid_width {
@@ -93,6 +128,25 @@ impl Columns {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn old_column_lists_append_original_hidden_until_review() {
+        let mut value = serde_json::to_value(Columns::default()).unwrap();
+        value["items"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|c| c["id"] != "original");
+        let columns: Columns = serde_json::from_value(value).unwrap();
+        columns.validate().unwrap();
+        assert!(columns.original_pending);
+        assert_eq!(
+            columns.items.last(),
+            Some(&Column {
+                id: ColumnId::Original,
+                width: 240,
+                visible: false
+            })
+        );
+    }
     #[test]
     fn order_visibility_and_widths_preserve_mandatory_columns() {
         let mut columns = Columns::default();
@@ -109,7 +163,7 @@ mod tests {
         invalid.items[0].visible = false;
         assert!(invalid.validate().is_err());
         invalid = columns.clone();
-        invalid.items[12].visible = false;
+        invalid.items[13].visible = false;
         assert!(invalid.validate().is_err());
         invalid = columns.clone();
         invalid.items[2].id = invalid.items[1].id;

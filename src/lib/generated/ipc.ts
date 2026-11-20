@@ -1157,6 +1157,16 @@ export type visualsubforge_document_review_BlockRow = {
   lastCue: number;
 };
 
+/**
+ *  Counts revised cues (each split member separately), or original cues for removals.
+ *  Stack order: additions, removals, groups, text, style, timing.
+ */
+export type vsf_application_comparison_overview_Bucket = {
+  total: number;
+  kinds: [number, number, number, number, number, number];
+  first: number | null;
+};
+
 export type visualsubforge_batch_timing_Change =
   | { kind: 'shift'; earlier: boolean; amountMs: number }
   | { kind: 'align'; playheadMs: number };
@@ -1209,9 +1219,21 @@ export type visualsubforge_preferences_layout_columns_ColumnId =
   | 'gap'
   | 'style'
   | 'actor'
-  | 'text';
+  | 'text'
+  | 'original';
 
-export type visualsubforge_preferences_layout_columns_Columns = {
+export type visualsubforge_preferences_layout_columns_Columns =
+  | visualsubforge_preferences_layout_columns_Columns_Serialize
+  | visualsubforge_preferences_layout_columns_Columns_Deserialize;
+
+export type visualsubforge_preferences_layout_columns_Columns_Deserialize = {
+  originalPending?: boolean;
+  items: visualsubforge_preferences_layout_columns_Column[];
+  density: visualsubforge_preferences_layout_columns_Density;
+};
+
+export type visualsubforge_preferences_layout_columns_Columns_Serialize = {
+  originalPending?: boolean;
   items: visualsubforge_preferences_layout_columns_Column[];
   density: visualsubforge_preferences_layout_columns_Density;
 };
@@ -2214,6 +2236,11 @@ export type visualsubforge_project_Options_Serialize = {
 export type visualsubforge_document_review_exchange_OutputKind =
   'package' | 'report' | 'readable';
 
+export type vsf_application_comparison_overview_Overview = {
+  width_ms: number | null;
+  buckets: vsf_application_comparison_overview_Bucket[];
+};
+
 export type visualsubforge_document_review_exchange_PackageLink =
   | visualsubforge_document_review_exchange_PackageLink_Serialize
   | visualsubforge_document_review_exchange_PackageLink_Deserialize;
@@ -2247,7 +2274,7 @@ export type visualsubforge_preferences_layout_PaneSizes =
 
 export type visualsubforge_preferences_layout_PaneSizes_Deserialize = {
   topResized?: boolean;
-  columns: visualsubforge_preferences_layout_columns_Columns;
+  columns: visualsubforge_preferences_layout_columns_Columns_Deserialize;
   topPct: number;
   editorPct: number;
   wavePct: number;
@@ -2255,7 +2282,7 @@ export type visualsubforge_preferences_layout_PaneSizes_Deserialize = {
 
 export type visualsubforge_preferences_layout_PaneSizes_Serialize = {
   topResized?: boolean;
-  columns: visualsubforge_preferences_layout_columns_Columns;
+  columns: visualsubforge_preferences_layout_columns_Columns_Serialize;
   topPct: number;
   editorPct: number;
   wavePct: number;
@@ -2382,6 +2409,15 @@ export type visualsubforge_preferences_Preferences_Serialize = {
   showQualityMetrics: boolean;
   zoomWaveformToCue: boolean;
   personalWords: vsf_application_language_dictionary_WordLists;
+};
+
+/**
+ *  Lightweight identities for filtering the virtual list. Diff tokens, cue text
+ *  and discussion bodies stay in the separately bounded page and projection.
+ */
+export type visualsubforge_document_review_presentation_Presentation = {
+  rows: visualsubforge_document_review_presentation_Row[];
+  overview: vsf_application_comparison_overview_Overview;
 };
 
 export type visualsubforge_preferences_layout_Preset =
@@ -2706,6 +2742,7 @@ export type visualsubforge_document_review_ReviewAction =
     }
   | {
       kind: 'query';
+      presentation?: boolean;
       expanded?: number[];
       key: visualsubforge_document_review_ReviewKey;
       offset: number;
@@ -2742,6 +2779,7 @@ export type visualsubforge_document_review_ReviewReply =
   | visualsubforge_document_review_ReviewReply_Deserialize;
 
 export type visualsubforge_document_review_ReviewReply_Deserialize = {
+  presentation: visualsubforge_document_review_presentation_Presentation | null;
   blocks: visualsubforge_document_review_BlockRow[];
   discussion: visualsubforge_document_review_discussion_DiscussionPage_Deserialize | null;
   threadId: string | null;
@@ -2761,6 +2799,7 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
 };
 
 export type visualsubforge_document_review_ReviewReply_Serialize = {
+  presentation?: visualsubforge_document_review_presentation_Presentation | null;
   blocks?: visualsubforge_document_review_BlockRow[];
   discussion?: visualsubforge_document_review_discussion_DiscussionPage_Serialize | null;
   threadId?: string | null;
@@ -2797,6 +2836,20 @@ export type visualsubforge_document_review_ReviewSummary_Serialize = {
   dirty: boolean;
   path: string | null;
   options: vsf_application_comparison_Options;
+};
+
+export type visualsubforge_document_review_presentation_Row = {
+  key: string;
+  occurrence: number;
+  index: number;
+  kind: vsf_application_comparison_Kind;
+  sourceIndex: number;
+  revised: number[];
+  nextCue: number | null;
+  hasThreads: boolean;
+  open: boolean;
+  block: number | null;
+  shiftMs: number | null;
 };
 
 export type visualsubforge_document_translation_Row = {

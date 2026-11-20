@@ -1,4 +1,13 @@
 import {
+  reviewRows,
+  checkKey,
+  retainedChecks,
+  exportProgress,
+  type ReviewRow,
+  type Summary,
+  type TableFilter,
+} from './presentation';
+import {
   type CommentEdit,
   type ReviewThread,
   chooseFile,
@@ -22,6 +31,91 @@ export type BlockRow = NonNullable<ReviewReply['blocks']>[number];
 export class ReviewSession {
   page = $state.raw<ReviewReply | null>(null);
   expanded = $state.raw<number[]>([]);
+  summary = $state.raw<Summary | null>(null);
+  private summaryCapture = '';
+  tableFilter = $state<TableFilter>('all');
+  checked = $state.raw<ReadonlySet<string>>(new Set());
+  readonly index = $derived(reviewRows(this.summary?.rows ?? []));
+  readonly progress = $derived(
+    exportProgress(this.summary?.rows ?? [], this.checked),
+  );
+  selectedRow = $state<string | null>(null);
+  rowSummary(c: ReviewChange) {
+    return this.index.bySource.get(this.rowId(c));
+  }
+  toggleCheck(row: ReviewRow) {
+    const next = new Set(this.checked),
+      key = checkKey(row);
+    if (!next.delete(key)) next.add(key);
+    this.checked = next;
+  }
+  get position() {
+    const i =
+      this.page?.rows.findIndex((c) => this.rowId(c) === this.selectedRow) ??
+      -1;
+    return i >= 0 ? this.offset + i + 1 : 0;
+  }
+  async goToRow(row: ReviewRow, threadFilter: typeof this.threadFilter = null) {
+    const key = this.key();
+    const threaded = threadFilter != null;
+    this.threadFilter = threadFilter;
+    this.filter = null;
+    if (row.block != null && !this.expanded.includes(row.block))
+      this.toggleBlock(row.block);
+    const visited = new Set<number>();
+    const stops =
+      this.summary?.rows.filter((r) => {
+        if (threaded) return threadFilter === 'open' ? r.open : r.hasThreads;
+        if (r.kind === 'unchanged') return false;
+        if (r.block == null || this.expanded.includes(r.block)) return true;
+        if (visited.has(r.block)) return false;
+        visited.add(r.block);
+        return true;
+      }) ?? [];
+    const pos = stops.indexOf(row);
+    if (pos < 0) return;
+    const sequence = ++this.moveSequence;
+    const request = threaded
+      ? {
+          kind: 'threads' as const,
+          key,
+          open: threadFilter === 'open',
+          offset: pos,
+          limit: 1,
+        }
+      : {
+          kind: 'query' as const,
+          key,
+          filter: null,
+          expanded: this.expanded,
+          offset: pos,
+          limit: 1,
+        };
+    try {
+      const reply = await reviewAction(request);
+      if (
+        this.alive &&
+        sequence === this.moveSequence &&
+        threadFilter === this.threadFilter &&
+        JSON.stringify(key) === JSON.stringify(this.key()) &&
+        reply.rows[0] &&
+        this.rowSummary(reply.rows[0]) === row
+      ) {
+        this.offset = Math.floor(pos / 100) * 100;
+        await this.select(reply.rows[0]);
+      }
+    } catch (e) {
+      if (this.alive && sequence === this.moveSequence) this.error = String(e);
+    }
+  }
+  setTableFilter(value: TableFilter) {
+    this.moveSequence++;
+    this.tableFilter = value;
+    this.threadFilter = value === 'threads' ? 'commented' : null;
+    this.filter = null;
+    this.offset = 0;
+  }
+  private moveSequence = 0;
   private documentCapture = '';
   private expandedCapture = '';
   offset = $state(0);
@@ -175,6 +269,11 @@ export class ReviewSession {
       const sequence = ++this.sequence;
       if (this.documentCapture !== documentCapture) {
         this.documentCapture = documentCapture;
+        this.checked = new Set();
+        this.summary = null;
+        this.summaryCapture = '';
+        this.selectedRow = null;
+        this.tableFilter = 'all';
         this.page = null;
         this.projection = [];
         this.visibleDiscussion = undefined;
@@ -233,12 +332,28 @@ export class ReviewSession {
     await this.navigateTo(change, block);
     if (this.alive && JSON.stringify(key) === JSON.stringify(this.key())) {
       this.selected = change.key;
+      this.selectedRow = this.rowId(change);
       this.selectedCue = this.subtitles.selected;
     }
   }
   async navigate(forward: boolean) {
     if (!this.workspace.canAct || !this.page?.statistics) return;
+    if (this.threadFilter) {
+      const rows =
+        this.summary?.rows.filter((r) =>
+          this.threadFilter === 'open' ? r.open : r.hasThreads,
+        ) ?? [];
+      const i = rows.findIndex(
+        (r) => r.key + '/' + r.sourceIndex === this.selectedRow,
+      );
+      const row =
+        rows[i < 0 ? (forward ? 0 : rows.length - 1) : i + (forward ? 1 : -1)];
+      if (row) await this.goToRow(row, this.threadFilter);
+      return;
+    }
     const key = this.key();
+    const sequence = ++this.moveSequence;
+    const filter = this.filter;
     try {
       const reply = await reviewAction({
         kind: 'navigate',
@@ -252,6 +367,8 @@ export class ReviewSession {
       });
       if (
         this.alive &&
+        sequence === this.moveSequence &&
+        filter === this.filter &&
         reply.rows[0] &&
         JSON.stringify(key) === JSON.stringify(this.key())
       ) {
@@ -454,12 +571,14 @@ export class ReviewSession {
     try {
       let reply = await reviewAction({
         kind: 'query',
+        presentation: this.summaryCapture !== capture,
         key: this.key(),
         offset,
         limit: 100,
         expanded,
         filter,
       });
+      const presentation = reply.presentation;
       if (threadFilter && reply.statistics && !reply.working)
         reply = await reviewAction({
           kind: 'threads',
@@ -483,6 +602,11 @@ export class ReviewSession {
       ) {
         this.offset = Math.floor(Math.max(0, reply.total - 1) / 100) * 100;
         return;
+      }
+      if (presentation && !reply.working) {
+        this.summary = presentation;
+        this.summaryCapture = capture;
+        this.checked = retainedChecks(presentation.rows, this.checked);
       }
       if (!reply.working || reply.statistics || !this.page) this.page = reply;
       this.error = reply.error ?? '';

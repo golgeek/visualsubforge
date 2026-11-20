@@ -17,6 +17,7 @@ import { matchesShortcut } from '../../../src/lib/workspace/action-registry';
 import { chooseCommand } from '../command-discovery';
 const host = document.querySelector<HTMLElement>('#test')!;
 let doc: DocumentSnapshot = structuredClone(emptyDocument);
+let storedLayout = structuredClone(defaultPreferences.layout);
 let media = { ...emptyStatus, available: true };
 let newer = false;
 let exported = false;
@@ -143,6 +144,34 @@ function reply(): ReviewReply {
     newerOriginal: null,
   };
 }
+function presentation(): NonNullable<ReviewReply['presentation']> {
+  const entries = rows.map((c, index) => ({
+    key: c.key,
+    index,
+    occurrence: 0,
+    kind: c.kind,
+    sourceIndex: (c.original[0] ?? c.revised[0])!.source_index,
+    revised: c.revised.map((q) => q.cue_id),
+    nextCue: null,
+    hasThreads: !!discussion && c.key === commentedKey,
+    open: c.key === commentedKey && discussionPage().open > 0,
+    block: blockMode && index < 3 ? 0 : null,
+    shiftMs: blockMode && index < 3 ? 400 : null,
+  }));
+  return {
+    rows: entries,
+    overview: {
+      width_ms: 10000,
+      buckets: [
+        {
+          total: entries.length,
+          kinds: [0, 0, 0, entries.length - 1, 0, 1],
+          first: 0,
+        },
+      ],
+    },
+  };
+}
 function loaded(path: string) {
   doc = {
     ...emptyDocument,
@@ -151,7 +180,7 @@ function loaded(path: string) {
     path,
     cues: Array.from({ length: 201 }, (_, i) => ({
       id: i + 1,
-      startMs: 1000 + i * 3000,
+      startMs: (i === 0 ? 1240 : 1000) + i * 3000,
       endMs: 3000 + i * 3000,
       text: 'Revised',
     })),
@@ -185,12 +214,17 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return args.handler;
         case 'plugin:event|unlisten':
         case 'update_menu':
+          return;
         case 'layout_save':
+          storedLayout = structuredClone(args.layout as typeof storedLayout);
           return;
         case 'preferences_save':
           return 2;
         case 'preferences_get':
-          return structuredClone(defaultPreferences);
+          return structuredClone({
+            ...defaultPreferences,
+            layout: storedLayout,
+          });
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
@@ -372,6 +406,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             const filtered = displayed(a.expanded ?? [], a.filter);
             return {
               ...captured,
+              presentation: a.presentation ? presentation() : undefined,
               blocks:
                 blockMode && a.offset === 0 && filtered[0]?.key === 'change1'
                   ? [blockRow]
@@ -469,7 +504,7 @@ async function until(fn: () => boolean) {
   await tick();
 }
 async function run() {
-  const app = mount(App, { target: host });
+  let app = mount(App, { target: host });
   try {
     await until(
       () => !!button('New subtitles') && !button('New subtitles').disabled,
@@ -491,6 +526,34 @@ async function run() {
       'Frame option disabled',
     );
     passed('No-media review shows numeric timing and disables frame tolerance');
+    const segment = (label: string) =>
+      [
+        ...host.querySelectorAll<HTMLButtonElement>(
+          '[aria-label="Review cues"] button',
+        ),
+      ].find((b) => b.textContent?.includes(label))!;
+    await until(
+      () =>
+        !!host.querySelector(
+          '[data-cue-id="1"] [data-cell="start"][title*="+0.240 s"]',
+        ),
+    );
+    assert(
+      !!host.querySelector('[data-column="original"]'),
+      'New review shows Original',
+    );
+    segment('With threads').click();
+    await until(() => !host.querySelector('[data-cue-id]'));
+    segment('Changed only').click();
+    await until(() => !!host.querySelector('[data-cue-id]'));
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Next table change"]')!
+      .click();
+    await until(() => !!host.querySelector('[aria-label="Original"]'));
+    segment('All cues').click();
+    passed(
+      'Table filters, changed-time tooltip, Original column and change stepper',
+    );
     button('Next page').click();
     await until(
       () =>
@@ -970,6 +1033,32 @@ async function run() {
     passed(
       'Export disclosure, new and same package opens, different-version choices and one-step Undo',
     );
+    await until(
+      () => !!host.querySelector('[aria-label="Resize Original column"]'),
+    );
+    host
+      .querySelector('[aria-label="Resize Original column"]')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+      );
+    await until(
+      () =>
+        storedLayout[storedLayout.active].columns.items.find(
+          (c) => c.id === 'original',
+        )?.width === 248,
+    );
+    await unmount(app);
+    app = mount(App, { target: host });
+    await until(
+      () => !!host.querySelector('.column-heading[data-column="original"]'),
+    );
+    assert(
+      host
+        .querySelector('.column-heading[data-column="original"]')!
+        .getBoundingClientRect().width === 248,
+      'Original width survives restart',
+    );
+    passed('Original column persists across workspace restart');
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =
       `PASS: all ${document.querySelectorAll('#checks li').length} version comparison checks`;

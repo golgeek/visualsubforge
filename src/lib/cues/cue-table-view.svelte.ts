@@ -23,7 +23,7 @@ export class CueTableView {
       this.query,
       this.issuesOnly,
       this.effects.issues?.() ?? new Map(),
-    ),
+    ).filter((row) => this.effects.reviewIds?.()?.has(row.cue.id) ?? true),
   );
   readonly order = $derived(this.rows.map((row) => row.cue));
   private indices = $derived(
@@ -34,6 +34,9 @@ export class CueTableView {
       cues: () => Cue[];
       position: () => number | null;
       columns?: () => CueColumns;
+      attached?: () => boolean;
+      reviewFilter?: () => string;
+      reviewIds?: () => ReadonlySet<number> | undefined;
       styled?: () => boolean;
       issues?: () => ReadonlyMap<string, unknown>;
     },
@@ -42,7 +45,11 @@ export class CueTableView {
     return this.effects.columns?.() ?? this.defaults;
   }
   get visibleColumns() {
-    return visibleColumns(this.columns, this.effects.styled?.() ?? false);
+    return visibleColumns(
+      this.columns,
+      this.effects.styled?.() ?? false,
+      this.effects.attached?.(),
+    );
   }
   get needsMetrics() {
     return this.visibleColumns.some((c) => metricColumns.has(c.id));
@@ -54,7 +61,7 @@ export class CueTableView {
     return !!this.query.trim() || this.issuesOnly;
   }
   get filterKey() {
-    return `${this.query}/${this.issuesOnly}/${this.rowHeight}`;
+    return `${this.query}/${this.issuesOnly}/${this.effects.reviewFilter?.()}/${this.rowHeight}`;
   }
   clearFilter() {
     if (!this.alive) return;
