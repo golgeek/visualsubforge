@@ -85,7 +85,16 @@ The earlier Windows candidate artifact measured 5,828,956,530 bytes. Most of
 its size comes from signed MSYS2 compiler/runtime packages at multiple versions.
 The MinGW headers declare **ZPL-2.1 AND LGPL-2.1-or-later**. Their full matching
 sources must accompany the distribution, including source archives shared by
-other package identities. The existing collector still verifies every package.
+other package identities. The collector verifies each signed binary and source archive and retains the
+URLs, SHA-256 hashes, detached signatures, verification logs, recipes and notices.
+It keeps one source archive per headers version. A permissively licensed CRT or
+winpthreads input can reference that archive only when its signed recipe records
+the same upstream commit and source SHA-256. Unmatched snapshots and all shipped
+DLL owners stay in full. The same conservative rule keeps other copyleft sources,
+including xxhash. Only reviewed permissive LLVM/Rust toolchain-only archives and
+the redundant binary copies are omitted. The inventory records verified and
+published byte counts. Custom FFmpeg’s original tarball, complete patch set and
+build script reproduce the prepared tree.
 The release collector splits oversized source archives into numbered parts.
 The macOS collector uses per-formula sources and the Linux collector uses Debian
 source packages and audited build inputs. Neither uses this MSYS2 toolchain graph.
