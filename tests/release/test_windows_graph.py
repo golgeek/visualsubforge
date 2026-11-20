@@ -37,7 +37,7 @@ class WindowsGraph(unittest.TestCase):
 
     def test_fixture_encoders_cannot_enter_the_transitive_package_graph(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             app, ffmpeg = root / "vsf.exe", root / "avcodec.dll"
             app.touch()
             ffmpeg.touch()
