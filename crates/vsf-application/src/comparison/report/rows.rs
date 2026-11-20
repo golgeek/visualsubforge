@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn timecode(ms: u64, format: Format) -> String {
+pub(crate) fn timecode(ms: u64, format: Format) -> String {
     let (h, m, s) = (ms / 3600000, ms / 60000 % 60, ms / 1000 % 60);
     match format {
         Format::Ass | Format::Ssa => format!("{h}:{m:02}:{s:02}.{:02}", ms % 1000 / 10),
@@ -178,18 +178,45 @@ pub(super) fn row(
     side(out, c, false, opts.original_format);
     side(out, c, true, opts.revised_format);
     out.push_str("<div class=\"rs\">");
-    for (name, side) in [("Original", &c.original), ("Revised", &c.revised)] {
-        for q in side {
-            let rate =
-                |r: &metrics::Rate| r.value().map_or_else(|| "—".into(), |v| format!("{v:.1}"));
+    let metrics = |cues: &[CueSnapshot]| {
+        let rate = |r: &metrics::Rate| r.value().map_or_else(|| "—".into(), |v| format!("{v:.1}"));
+        let join = |values: Vec<String>| values.join(" / ");
+        [
+            (
+                join(cues.iter().map(|q| rate(&q.reading_speed)).collect()),
+                "RS",
+            ),
+            (join(cues.iter().map(|q| rate(&q.cps)).collect()), "cps"),
+            (
+                join(cues.iter().map(|q| q.characters.to_string()).collect()),
+                "chars",
+            ),
+        ]
+    };
+    let after = metrics(&c.revised);
+    if !c.revised.is_empty() {
+        let values = after
+            .iter()
+            .map(|(v, unit)| format!("{v} {unit}"))
+            .collect::<Vec<_>>();
+        let _ = write!(out, "<span class=\"metrics\">{}</span>", values.join(" · "));
+    }
+    if !c.original.is_empty() {
+        let prior = metrics(&c.original)
+            .into_iter()
+            .zip(after)
+            .filter_map(|((v, unit), (new, _))| (v != new).then(|| format!("{v} {unit}")))
+            .collect::<Vec<_>>();
+        if !prior.is_empty() {
             let _ = write!(
                 out,
-                "<span class=\"metrics\">{name} · {} RS · {} cps · {} chars</span>",
-                rate(&q.reading_speed),
-                rate(&q.cps),
-                q.characters
+                "<span class=\"metrics\">was {}</span>",
+                prior.join(" · ")
             );
         }
+    }
+    if let Some(transition) = c.band_change() {
+        let _ = write!(out, "<span class=\"band-change\">{transition}</span>");
     }
     out.push_str("</div>");
     if c.kind != Kind::Unchanged

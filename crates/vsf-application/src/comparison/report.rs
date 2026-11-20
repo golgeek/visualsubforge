@@ -1,7 +1,9 @@
 use super::*;
 use std::{collections::BTreeMap, fmt::Write};
+mod bands;
 mod chart;
 mod rows;
+pub(crate) use rows::timecode;
 
 pub struct ReportOptions<'a> {
     pub original_name: &'a str,
@@ -58,8 +60,7 @@ const KINDS: [(&str, &str); 6] = [
 ];
 fn filters(out: &mut String, c: &Comparison, unchanged: bool) {
     out.push_str("<nav class=\"filters\" aria-label=\"Filter changes\"><h2>Changes</h2>");
-    for i in [3, 5, 0, 1, 2, 4] {
-        let (k, label) = KINDS[i];
+    for (i, (k, label)) in KINDS.iter().enumerate() {
         let count = c
             .changes
             .iter()
@@ -69,6 +70,9 @@ fn filters(out: &mut String, c: &Comparison, unchanged: bool) {
                     || (i == 5 && row.kind == Kind::Timing)
             })
             .count();
+        if count == 0 {
+            continue;
+        }
         let _ = write!(
             out,
             "<input type=\"checkbox\" class=\"vh\" id=\"f-{k}\" checked><label class=\"toggle\" for=\"f-{k}\"><span class=\"sw k-{k}\"></span>{label}<span class=\"count\">{count}</span></label>"
@@ -131,24 +135,33 @@ pub fn html(c: &Comparison, opts: &ReportOptions<'_>, extra: &ExtraSections) -> 
         ),
         ("text changed".into(), format!("{:.1}%", s.text_percent)),
         ("timing changed".into(), format!("{:.1}%", s.timing_percent)),
-        (
-            "cues added / removed".into(),
-            format!("+{} / −{removed}", s.added_cues),
-        ),
-        (
-            format!(
-                "of {} thread{}",
-                extra.total,
-                if extra.total == 1 { "" } else { "s" }
-            ),
-            format!(
-                "{} open thread{}",
-                extra.open,
-                if extra.open == 1 { "" } else { "s" }
-            ),
-        ),
     ] {
         let _ = write!(out, "<div><dt>{label}</dt><dd>{value}</dd></div>");
+    }
+    if s.added_cues != 0 || removed != 0 {
+        let _ = write!(
+            out,
+            "<div><dt>cues added / removed</dt><dd>+{} / −{removed}</dd></div>",
+            s.added_cues
+        );
+    }
+    let bands = bands::Distribution::new(&c.changes);
+    if s.changes > 0 {
+        let delta = bands.outer_delta();
+        let _ = write!(
+            out,
+            "<div><dt>cues in the outer reading-speed bands (by cue duration)</dt><dd>{delta:+}</dd></div>"
+        );
+    }
+    if extra.total > 0 {
+        let _ = write!(
+            out,
+            "<div><dt>of {} thread{}</dt><dd>{} open thread{}</dd></div>",
+            extra.total,
+            if extra.total == 1 { "" } else { "s" },
+            extra.open,
+            if extra.open == 1 { "" } else { "s" }
+        );
     }
     out.push_str("</dl>");
     if s.changes == 0 {
@@ -159,6 +172,7 @@ pub fn html(c: &Comparison, opts: &ReportOptions<'_>, extra: &ExtraSections) -> 
         let ids = change_ids(&c.changes);
         if s.changes > 0 {
             chart::render(&mut out, c, &ids, extra, opts.include_unchanged);
+            bands.render(&mut out);
         }
         filters(&mut out, c, opts.include_unchanged);
         out.push_str("<section id=\"changes\" aria-label=\"Cue changes\"><div class=\"cols\"><span>Cue</span><span>Original</span><span>Revised</span><span>Reading speed</span></div>");

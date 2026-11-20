@@ -487,6 +487,32 @@ fn dense_all_fallback_reanchoring_budget() {
     assert!(elapsed < std::time::Duration::from_millis(500));
 }
 #[test]
+fn detached_report_uses_each_source_clock_and_one_export_offset() {
+    let original = cue(1, 3120, 4980, "Before");
+    let revised = cue(1, 3120, 4980, "After");
+    let mut package = fixture();
+    package.original.format = "ass".into();
+    package.revised.format = "vtt".into();
+    package.threads = vec![thread(&compare(&[original], &[revised]).changes[0])];
+    let empty = compare(&[], &[]);
+    let html = comparison::html(
+        &empty,
+        &comparison::ReportOptions {
+            original_format: Format::Ass,
+            revised_format: Format::WebVtt,
+            original_name: "A.ass",
+            revised_name: "B.vtt",
+            date: &report_date(20, -300).unwrap(),
+            include_unchanged: false,
+        },
+        &sections(&package, &empty, false, -300).unwrap(),
+    );
+    assert!(html.contains("0:00:03.12–0:00:04.98 · Before"));
+    assert!(html.contains("00:00:03.120–00:00:04.980 · After"));
+    assert_eq!(html.matches("UTC−05:00").count(), 1);
+    assert!(html.contains("<time>31 Dec 1969 at 19:00</time>"));
+}
+#[test]
 fn discussion_report_demo() {
     let mut p = fixture();
     let lines = [

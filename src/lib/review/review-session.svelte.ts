@@ -46,7 +46,7 @@ export class ReviewSession {
   readonly progress = $derived(
     exportProgress(this.summary?.rows ?? [], this.checked),
   );
-  selectedRow = $state<string | null>(null);
+  private selectedRow = $state<string | null>(null);
   rowSummary(c: ReviewChange) {
     return this.index.bySource.get(this.rowId(c));
   }
@@ -62,11 +62,62 @@ export class ReviewSession {
     }
     this.checked = next;
   }
+  private readonly stops = $derived(
+    (this.summary?.rows ?? []).filter((row) => {
+      if (this.threadFilter)
+        return this.threadFilter === 'open' ? row.open : row.hasThreads;
+      if (row.kind === 'unchanged') return false;
+      if (
+        row.block != null &&
+        row.index !== row.block &&
+        !this.expanded.includes(row.block)
+      )
+        return false;
+      return (
+        !this.filter ||
+        row.kind === this.filter ||
+        (row.kind === 'text_and_timing' &&
+          (this.filter === 'text' || this.filter === 'timing')) ||
+        (this.filter === 'split' && row.kind === 'merged')
+      );
+    }),
+  );
+  private readonly stopNumbers = $derived(
+    new Map(this.stops.map((row, i) => [row, i + 1])),
+  );
+  private readonly activeStop = $derived.by(() => {
+    const id = this.subtitles.selected;
+    const selected =
+      this.selectedRow && id === this.selectedCue
+        ? this.index.bySource.get(this.selectedRow)
+        : null;
+    const candidates = [
+      selected,
+      id == null ? null : this.index.byCue.get(id),
+      ...(id == null ? [] : (this.index.removals.get(id) ?? [])),
+    ];
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      const row =
+        !this.threadFilter &&
+        candidate.block != null &&
+        !this.expanded.includes(candidate.block)
+          ? this.index.blocks.get(candidate.block)?.[0]
+          : candidate;
+      if (row && this.stopNumbers.has(row)) return row;
+    }
+    return null;
+  });
+  get activeRowId() {
+    return this.activeStop
+      ? this.activeStop.key + '/' + this.activeStop.sourceIndex
+      : null;
+  }
+  get stopCount() {
+    return this.stops.length;
+  }
   get position() {
-    const i =
-      this.page?.rows.findIndex((c) => this.rowId(c) === this.selectedRow) ??
-      -1;
-    return i >= 0 ? this.offset + i + 1 : 0;
+    return this.activeStop ? this.stopNumbers.get(this.activeStop) : undefined;
   }
   async goToRow(row: ReviewRow, threadFilter: typeof this.threadFilter = null) {
     const key = this.key();
@@ -75,17 +126,7 @@ export class ReviewSession {
     this.filter = null;
     if (row.block != null && !this.expanded.includes(row.block))
       this.toggleBlock(row.block);
-    const visited = new Set<number>();
-    const stops =
-      this.summary?.rows.filter((r) => {
-        if (threaded) return threadFilter === 'open' ? r.open : r.hasThreads;
-        if (r.kind === 'unchanged') return false;
-        if (r.block == null || this.expanded.includes(r.block)) return true;
-        if (visited.has(r.block)) return false;
-        visited.add(r.block);
-        return true;
-      }) ?? [];
-    const pos = stops.indexOf(row);
+    const pos = this.stops.indexOf(row);
     if (pos < 0) return;
     const sequence = ++this.moveSequence;
     const request = threaded
@@ -133,25 +174,32 @@ export class ReviewSession {
   private expandedCapture = '';
   offset = $state(0);
   filter = $state<ReviewReply['rows'][number]['kind'] | null>(null);
-  private selectedCue: number | null = null;
-  selected = $state<string | null>(null);
+  private selectedCue = $state<number | null>(null);
   error = $state('');
   projection = $state.raw<ReviewChange[]>([]);
   showOriginal = $state(true);
   includeUnchanged = $state(false);
   threadFilter = $state<'open' | 'commented' | null>(null);
+  removalDetails = $state.raw<ReadonlyMap<string, ReviewChange>>(new Map());
+  get selectedRemovals() {
+    const id = this.subtitles.selected;
+    return (id == null ? [] : (this.index.removals.get(id) ?? [])).flatMap(
+      (row) => this.removalDetails.get(checkKey(row)) ?? [],
+    );
+  }
   visibleDiscussion = $state.raw<ReviewReply['discussion']>(undefined);
   currentThread = $state<string | null>(null);
   name: () => string = () => '';
   saveName: (name: string) => Promise<void> = async () => {};
   goToTime: (ms: number) => void = () => {};
   rowId(c: ReviewChange) {
-    return c.key + '/' + (c.original[0] ?? c.revised[0])?.source_index;
+    return c.key + '/' + (c.revised[0] ?? c.original[0])?.source_index;
   }
   threads(c: ReviewChange, projection = false) {
+    // The discussion IPC uses the original source position when both sides exist.
     return (
       (projection ? this.visibleDiscussion : this.page?.discussion)?.rows[
-        this.rowId(c)
+        c.key + '/' + (c.original[0] ?? c.revised[0])?.source_index
       ] ?? []
     );
   }
@@ -289,6 +337,7 @@ export class ReviewSession {
         this.tableFilter = 'all';
         this.page = null;
         this.projection = [];
+        this.removalDetails = new Map();
         this.visibleDiscussion = undefined;
       }
       if (!snapshot.review?.path) return;
@@ -314,6 +363,13 @@ export class ReviewSession {
     const key = this.key();
     const serial = ++this.projectionSequence;
     if (JSON.stringify(this.page?.key) !== JSON.stringify(key)) return;
+    const removals = input.ids.flatMap(
+      (id) => this.index.removals.get(id) ?? [],
+    );
+    const current = () =>
+      this.alive &&
+      serial === this.projectionSequence &&
+      JSON.stringify(key) === JSON.stringify(this.key());
     try {
       const reply = await reviewAction({
         kind: 'projection',
@@ -322,14 +378,28 @@ export class ReviewSession {
         startMs: Math.max(0, Math.round(input.startMs)),
         endMs: Math.max(0, Math.round(input.endMs)),
       });
-      if (
-        this.alive &&
-        serial === this.projectionSequence &&
-        JSON.stringify(key) === JSON.stringify(this.key())
-      ) {
-        this.projection = reply.rows;
-        this.visibleDiscussion = reply.discussion;
+      if (!current()) return;
+      this.projection = reply.rows;
+      this.visibleDiscussion = reply.discussion;
+      const details = new Map<string, ReviewChange>();
+      for (const change of reply.rows) {
+        const row = change.kind === 'removed' && this.rowSummary(change);
+        if (row) details.set(checkKey(row), change);
       }
+      const missing = removals.filter((row) => !details.has(checkKey(row)));
+      for (let i = 0; i < missing.length; i += 200) {
+        const batch = await reviewAction({
+          kind: 'projectRemovals',
+          key,
+          indices: missing.slice(i, i + 200).map((row) => row.index),
+        });
+        if (!current()) return;
+        for (const change of batch.rows) {
+          const row = this.rowSummary(change);
+          if (row) details.set(checkKey(row), change);
+        }
+      }
+      this.removalDetails = details;
     } catch (error) {
       if (
         this.alive &&
@@ -344,7 +414,6 @@ export class ReviewSession {
     const key = this.key();
     await this.navigateTo(change, block);
     if (this.alive && JSON.stringify(key) === JSON.stringify(this.key())) {
-      this.selected = change.key;
       this.selectedRow = this.rowId(change);
       this.selectedCue = this.subtitles.selected;
     }
@@ -356,9 +425,7 @@ export class ReviewSession {
         this.summary?.rows.filter((r) =>
           this.threadFilter === 'open' ? r.open : r.hasThreads,
         ) ?? [];
-      const i = rows.findIndex(
-        (r) => r.key + '/' + r.sourceIndex === this.selectedRow,
-      );
+      const i = (this.position ?? 0) - 1;
       const row =
         rows[i < 0 ? (forward ? 0 : rows.length - 1) : i + (forward ? 1 : -1)];
       if (row) await this.goToRow(row, this.threadFilter);
@@ -371,8 +438,7 @@ export class ReviewSession {
       const reply = await reviewAction({
         kind: 'navigate',
         key,
-        from:
-          this.subtitles.selected === this.selectedCue ? this.selected : null,
+        from: this.activeStop?.key ?? null,
         cueId: this.subtitles.selected,
         forward,
         expanded: this.expanded,

@@ -57,11 +57,19 @@ impl<'de> Deserialize<'de> for Columns {
 impl From<SavedColumns> for Columns {
     fn from(mut saved: SavedColumns) -> Self {
         if saved.items.len() == 13 && !saved.items.iter().any(|c| c.id == ColumnId::Original) {
-            saved.items.push(Column {
-                id: ColumnId::Original,
-                width: 240,
-                visible: false,
-            });
+            let position = saved
+                .items
+                .iter()
+                .position(|c| c.id == ColumnId::Text)
+                .unwrap_or(saved.items.len());
+            saved.items.insert(
+                position,
+                Column {
+                    id: ColumnId::Original,
+                    width: 240,
+                    visible: false,
+                },
+            );
             saved.original_pending = true;
         }
         Self {
@@ -129,17 +137,19 @@ impl Columns {
 mod tests {
     use super::*;
     #[test]
-    fn old_column_lists_append_original_hidden_until_review() {
+    fn old_column_lists_insert_original_before_the_saved_text_position() {
         let mut value = serde_json::to_value(Columns::default()).unwrap();
         value["items"]
             .as_array_mut()
             .unwrap()
             .retain(|c| c["id"] != "original");
+        value["items"].as_array_mut().unwrap().swap(2, 12);
         let columns: Columns = serde_json::from_value(value).unwrap();
         columns.validate().unwrap();
         assert!(columns.original_pending);
+        assert_eq!(columns.items[3].id, ColumnId::Text);
         assert_eq!(
-            columns.items.last(),
+            columns.items.get(2),
             Some(&Column {
                 id: ColumnId::Original,
                 width: 240,

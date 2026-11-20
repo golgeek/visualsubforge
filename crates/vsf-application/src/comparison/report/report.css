@@ -433,6 +433,65 @@ header {
 }
 
 /* ---- Filter bar (no script: checkboxes + :has()) ---- */
+.bands {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+.band,
+.bands-head {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.bands-head,
+.bar-l,
+.bar-r {
+  color: var(--muted);
+}
+.bands-head span:nth-child(2) {
+  text-align: right;
+}
+.bar-l,
+.bar-r {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.bar-l {
+  justify-content: flex-end;
+}
+.b {
+  height: 12px;
+  border-radius: 2px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.b.orig,
+.b.rs-none {
+  background: var(--line-strong);
+}
+.b.rs-good {
+  background: var(--k-added);
+}
+.b.rs-meh {
+  background: var(--k-timing);
+}
+.b.rs-ok {
+  background: var(--k-ok);
+}
+.b.rs-bad {
+  background: var(--k-removed);
+}
+.band-change {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
 .filters {
   position: sticky;
   top: 0;

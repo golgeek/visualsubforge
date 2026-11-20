@@ -37,11 +37,13 @@ pub fn sections(
     }
     let format =
         |s: &Subtitle| Format::from_extension(&s.format).ok_or("Unknown review subtitle format");
+    let original_format = format(&package.original)?;
+    let revised_format = format(&package.revised)?;
     let positions = reanchor(
         &package.threads,
         comparison,
-        format(&package.original)?,
-        format(&package.revised)?,
+        original_format,
+        revised_format,
         || Ok(()),
     )?;
     let ids = crate::comparison::change_ids(&comparison.changes);
@@ -59,14 +61,17 @@ pub fn sections(
         } else {
             detached.push_str("<article class=\"detached-card\"><div class=\"pair\">");
             let (a, b) = thread.anchor.sides();
-            for (label, cues) in [("Original", a), ("Revised", b)] {
+            for (label, cues, fmt) in [
+                ("Original", a, original_format),
+                ("Revised", b, revised_format),
+            ] {
                 let _ = write!(detached, "<div><span class=\"label\">{label}</span>");
                 for q in cues {
                     let _ = write!(
                         detached,
-                        "<p>{}–{} ms · {}</p>",
-                        q.start_ms,
-                        q.end_ms,
+                        "<p>{}–{} · {}</p>",
+                        crate::comparison::timecode(q.start_ms, fmt),
+                        crate::comparison::timecode(q.end_ms, fmt),
                         escape_html(&q.text)
                     );
                 }
@@ -102,7 +107,7 @@ pub fn sections(
             if count == 1 { "" } else { "s" }
         );
         for m in &thread.messages {
-            let at = report_date(m.at_ms, offset_minutes)?;
+            let at = local_date(m.at_ms, offset_minutes)?;
             let _ = write!(
                 out,
                 "<li><span class=\"who a{}\">{}</span> ",
@@ -134,7 +139,7 @@ pub fn sections(
 fn author_colour(name: &str) -> u32 {
     name.bytes().map(u32::from).sum::<u32>() % 6
 }
-pub fn report_date(ms: u64, offset_minutes: i16) -> Result<String> {
+fn local_date(ms: u64, offset_minutes: i16) -> Result<String> {
     let offset = time::UtcOffset::from_whole_seconds(i32::from(offset_minutes) * 60)
         .map_err(|e| e.to_string())?;
     let Some(t) = time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms) * 1_000_000)
@@ -144,12 +149,18 @@ pub fn report_date(ms: u64, offset_minutes: i16) -> Result<String> {
         return Ok(format!("{ms} ms since the Unix epoch"));
     };
     Ok(format!(
-        "{} {} {} at {:02}:{:02} UTC{}{:02}:{:02}",
+        "{} {} {} at {:02}:{:02}",
         t.day(),
         &t.month().to_string()[..3],
         t.year(),
         t.hour(),
         t.minute(),
+    ))
+}
+pub fn report_date(ms: u64, offset_minutes: i16) -> Result<String> {
+    Ok(format!(
+        "{} UTC{}{:02}:{:02}",
+        local_date(ms, offset_minutes)?,
         if offset_minutes < 0 { '−' } else { '+' },
         offset_minutes.unsigned_abs() / 60,
         offset_minutes.unsigned_abs() % 60

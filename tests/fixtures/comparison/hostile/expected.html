@@ -433,6 +433,65 @@ header {
 }
 
 /* ---- Filter bar (no script: checkboxes + :has()) ---- */
+.bands {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+.band,
+.bands-head {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.bands-head,
+.bar-l,
+.bar-r {
+  color: var(--muted);
+}
+.bands-head span:nth-child(2) {
+  text-align: right;
+}
+.bar-l,
+.bar-r {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.bar-l {
+  justify-content: flex-end;
+}
+.b {
+  height: 12px;
+  border-radius: 2px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.b.orig,
+.b.rs-none {
+  background: var(--line-strong);
+}
+.b.rs-good {
+  background: var(--k-added);
+}
+.b.rs-meh {
+  background: var(--k-timing);
+}
+.b.rs-ok {
+  background: var(--k-ok);
+}
+.b.rs-bad {
+  background: var(--k-removed);
+}
+.band-change {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
 .filters {
   position: sticky;
   top: 0;
@@ -1064,5 +1123,5 @@ footer p {
     white-space: nowrap;
   }
 }
-</style></head><body><main class="page"><header><span class="eyebrow">VisualSubForge · comparison report</span><h1>original.srt → revised.srt</h1><p class="sub">Exported fixture · 0 original cues</p><ul class="chips" aria-label="Comparison options"><li>Timing tolerance 1 ms</li><li>Tags compared</li><li>Line breaks compared</li><li>Whitespace ignored</li></ul></header><dl class="tiles" aria-label="Summary"><div><dt>changed cues of 0</dt><dd>0</dd></div><div><dt>text changed</dt><dd>0.0%</dd></div><div><dt>timing changed</dt><dd>0.0%</dd></div><div><dt>cues added / removed</dt><dd>+1 / −0</dd></div><div><dt>of 0 threads</dt><dd>0 open threads</dd></div></dl><section class="card"><div class="card-head"><h2>Where the changes are</h2><p>Each bar is 10 seconds. Grey is every cue, colour is changed cues by kind. Select a bar to go to its first change.</p></div><div class="chart" style="--buckets:1"><div class="yaxis"><span>5</span><span>0</span></div><svg viewBox="0 0 10 100" preserveAspectRatio="none" role="group" aria-label="Changed cues over time"><a href="#change-6c142e0e883608a91e9031bb854d0a997adb418b326e1241c97d17c462149fa7"><title>00:00–00:10 · 1 of 1 cues changed · &lt;script&gt;&amp;{\fnArial}</title><rect class="all" x="1" y="80.00" width="8" height="20.00"/><rect class="k-added" x="1" y="80.00" width="8" height="20.00"/></a></svg><div class="pins"><span></span></div><div class="axis"><span>00:00</span><span class="end">00:10</span></div></div><ul class="legend"><li><span class="sw k-all"></span>All cues</li><li><span class="sw k-added"></span>Added</li><li><span class="sw k-removed"></span>Removed</li><li><span class="sw k-split"></span>Split or merged</li><li><span class="sw k-text"></span>Text</li><li><span class="sw k-style"></span>Style</li><li><span class="sw k-timing"></span>Timing</li><li><span class="sw pin"></span>Open thread</li></ul></section><nav class="filters" aria-label="Filter changes"><h2>Changes</h2><input type="checkbox" class="vh" id="f-text" checked><label class="toggle" for="f-text"><span class="sw k-text"></span>Text<span class="count">0</span></label><input type="checkbox" class="vh" id="f-timing" checked><label class="toggle" for="f-timing"><span class="sw k-timing"></span>Timing<span class="count">0</span></label><input type="checkbox" class="vh" id="f-added" checked><label class="toggle" for="f-added"><span class="sw k-added"></span>Added<span class="count">1</span></label><input type="checkbox" class="vh" id="f-removed" checked><label class="toggle" for="f-removed"><span class="sw k-removed"></span>Removed<span class="count">0</span></label><input type="checkbox" class="vh" id="f-split" checked><label class="toggle" for="f-split"><span class="sw k-split"></span>Split or merged<span class="count">0</span></label><input type="checkbox" class="vh" id="f-style" checked><label class="toggle" for="f-style"><span class="sw k-style"></span>Style<span class="count">0</span></label><input type="checkbox" class="vh" id="f-open"><label class="toggle" for="f-open">Only with open threads</label><input type="checkbox" class="vh" id="f-expand"><label class="toggle" for="f-expand"><span class="when-off">Expand all comments</span><span class="when-on">Collapse all comments</span></label></nav><section id="changes" aria-label="Cue changes"><div class="cols"><span>Cue</span><span>Original</span><span>Revised</span><span>Reading speed</span></div><article class="change k-added" id="change-6c142e0e883608a91e9031bb854d0a997adb418b326e1241c97d17c462149fa7"><div class="meta"><a class="num" href="#change-6c142e0e883608a91e9031bb854d0a997adb418b326e1241c97d17c462149fa7">#1</a><span class="kind k-added">Added</span></div><div class="side orig"><span class="none">Not in the original</span></div><div class="side rev"><span class="times"><span class="tc"><ins>00:00:01,000</ins></span> → <span class="tc"><ins>00:00:02,000</ins></span></span><ins>&lt;script&gt;&amp;{\fnArial}</ins></div><div class="rs"><span class="metrics">Revised · 2.0 RS · 1.0 cps · 1 chars</span></div></article>
+</style></head><body><main class="page"><header><span class="eyebrow">VisualSubForge · comparison report</span><h1>original.srt → revised.srt</h1><p class="sub">Exported fixture · 0 original cues</p><ul class="chips" aria-label="Comparison options"><li>Timing tolerance 1 ms</li><li>Tags compared</li><li>Line breaks compared</li><li>Whitespace ignored</li></ul></header><dl class="tiles" aria-label="Summary"><div><dt>changed cues of 0</dt><dd>0</dd></div><div><dt>text changed</dt><dd>0.0%</dd></div><div><dt>timing changed</dt><dd>0.0%</dd></div><div><dt>cues added / removed</dt><dd>+1 / −0</dd></div><div><dt>cues in the outer reading-speed bands (by cue duration)</dt><dd>+1</dd></div></dl><section class="card"><div class="card-head"><h2>Where the changes are</h2><p>Each bar is 10 seconds. Grey is every cue, colour is changed cues by kind. Select a bar to go to its first change.</p></div><div class="chart" style="--buckets:1"><div class="yaxis"><span>5</span><span>0</span></div><svg viewBox="0 0 10 100" preserveAspectRatio="none" role="group" aria-label="Changed cues over time"><a href="#change-6c142e0e883608a91e9031bb854d0a997adb418b326e1241c97d17c462149fa7"><title>00:00–00:10 · 1 of 1 cues changed · &lt;script&gt;&amp;{\fnArial}</title><rect class="all" x="1" y="80.00" width="8" height="20.00"/><rect class="k-added" x="1" y="80.00" width="8" height="20.00"/></a></svg><div class="pins"><span></span></div><div class="axis"><span>00:00</span><span class="end">00:10</span></div></div><ul class="legend"><li><span class="sw k-all"></span>All cues</li><li><span class="sw k-added"></span>Added</li><li><span class="sw k-removed"></span>Removed</li><li><span class="sw k-split"></span>Split or merged</li><li><span class="sw k-text"></span>Text</li><li><span class="sw k-style"></span>Style</li><li><span class="sw k-timing"></span>Timing</li><li><span class="sw pin"></span>Open thread</li></ul></section><section class="card"><div class="card-head"><h2>Reading speed, before and after</h2><p>Cues per band, by cue duration.</p></div><div class="bands"><div class="bands-head"><span></span><span>Original · 0 cues</span><span>Revised · 1 cues</span></div><div class="band"><span>TOO SLOW</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-bad" style="width:100.0%"></i>1</span></div><div class="band"><span>Slow, acceptable</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-ok" style="width:0.0%"></i>0</span></div><div class="band"><span>A bit slow</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-meh" style="width:0.0%"></i>0</span></div><div class="band"><span>Good (slow side)</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-good" style="width:0.0%"></i>0</span></div><div class="band"><span>Perfect</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-good" style="width:0.0%"></i>0</span></div><div class="band"><span>Good (fast side)</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-good" style="width:0.0%"></i>0</span></div><div class="band"><span>A bit fast</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-meh" style="width:0.0%"></i>0</span></div><div class="band"><span>Fast, acceptable</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-ok" style="width:0.0%"></i>0</span></div><div class="band"><span>TOO FAST</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-bad" style="width:0.0%"></i>0</span></div></div></section><nav class="filters" aria-label="Filter changes"><h2>Changes</h2><input type="checkbox" class="vh" id="f-added" checked><label class="toggle" for="f-added"><span class="sw k-added"></span>Added<span class="count">1</span></label><input type="checkbox" class="vh" id="f-open"><label class="toggle" for="f-open">Only with open threads</label><input type="checkbox" class="vh" id="f-expand"><label class="toggle" for="f-expand"><span class="when-off">Expand all comments</span><span class="when-on">Collapse all comments</span></label></nav><section id="changes" aria-label="Cue changes"><div class="cols"><span>Cue</span><span>Original</span><span>Revised</span><span>Reading speed</span></div><article class="change k-added" id="change-6c142e0e883608a91e9031bb854d0a997adb418b326e1241c97d17c462149fa7"><div class="meta"><a class="num" href="#change-6c142e0e883608a91e9031bb854d0a997adb418b326e1241c97d17c462149fa7">#1</a><span class="kind k-added">Added</span></div><div class="side orig"><span class="none">Not in the original</span></div><div class="side rev"><span class="times"><span class="tc"><ins>00:00:01,000</ins></span> → <span class="tc"><ins>00:00:02,000</ins></span></span><ins>&lt;script&gt;&amp;{\fnArial}</ins></div><div class="rs"><span class="metrics">2.0 RS · 1.0 cps · 1 chars</span></div></article>
 </section></main></body></html>

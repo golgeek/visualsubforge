@@ -54,7 +54,11 @@
     {#if prompt.progress.unchecked.length}
       <ul class="unchecked" aria-label="Unchecked changes">
         {#each prompt.progress.unchecked.slice(uncheckedPage * 40, (uncheckedPage + 1) * 40) as row (row.key + '/' + row.occurrence)}
-          <li>#{row.sourceIndex + 1} · {kindLabel(row.kind)}</li>{/each}
+          <li>
+            {row.kind === 'removed' ? 'was ' : ''}#{row.sourceIndex + 1} · {kindLabel(
+              row.kind,
+            )}
+          </li>{/each}
       </ul>
       {#if prompt.progress.unchecked.length > 40}
         <button disabled={!uncheckedPage} onclick={() => uncheckedPage--}

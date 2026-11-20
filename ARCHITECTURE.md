@@ -734,8 +734,7 @@ identify review anchors. The pure Rust overview buckets revised starts (original
 for removals) and assigns each cue one category. The HTML writer escapes subtitle,
 author and comment text. Local checkboxes and CSS control filters, threads and shift
 blocks without executable script. The optional inert JSON block still permits import.
-Callers supply their UTC offset. The comparison capture carries numeric reading
-rates but no quality profile.
+Callers supply their UTC offset. The report and desktop derive reading-speed bands through the same comparison snapshot method. It calls the quality metric on the raw cue duration. The report counts each original and revised cue separately, including unrated cues.
 See [comparison policy and limits](docs/version-comparison.md).
 
 The loaded document now has a separate `review` context alongside translation.
@@ -759,7 +758,7 @@ The panel overview consumes the same Rust bucket DTO as the HTML renderer. Revie
 
 
 Review projections and navigation reuse the worker's immutable result with the
-same generation/revision/epoch guard. A completed comparison can additionally return a compact index of change identities, affected cue IDs, thread status, shift membership and removal successors. The frontend requests this index once per capture. Filtering the virtual list uses those IDs and keeps full word diffs within the existing visible projection limits.
+same generation/revision/epoch guard. A completed comparison can additionally return a compact index of change identities, affected cue IDs, thread status, shift membership and removal successors. The frontend requests this index once per capture. Filtering the virtual list uses those IDs and keeps full word diffs within the existing visible projection limits. The table and editor request missing removal details by change index in batches of up to 200 for visible successors. These use the same capture and viewport sequence guards as the timeline projection.
 The frontend owns active filter, selected
 content key, ghost visibility and request sequencing. Revert builds one domain
 `ReplaceCues` edit: validates IDs and the complete candidate before publishing,

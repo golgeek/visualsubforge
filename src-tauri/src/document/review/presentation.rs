@@ -61,9 +61,9 @@ pub(super) fn build(
             index: i as u32,
             kind: change.kind,
             source_index: change
-                .original
+                .revised
                 .first()
-                .or(change.revised.first())
+                .or(change.original.first())
                 .ok_or("Empty comparison group")?
                 .source_index,
             revised: change
@@ -74,7 +74,7 @@ pub(super) fn build(
             next_cue: None,
             has_threads: !threads.is_empty(),
             open: threads.iter().any(|t| !discussion.threads[*t].resolved()),
-            band_change: band_change(change),
+            band_change: change.band_change(),
             block: block.map(|b| b.first),
             shift_ms: block.map(|b| b.delta_ms),
         });
@@ -84,24 +84,4 @@ pub(super) fn build(
         rows,
         overview: engine::overview(&c.changes),
     })
-}
-
-fn band_change(c: &engine::Change) -> Option<String> {
-    fn labels(side: &[engine::CueSnapshot]) -> Option<String> {
-        if side.is_empty() {
-            return None;
-        }
-        side.iter()
-            .map(|q| {
-                q.reading_speed.value()?;
-                vsf_application::quality::metrics::rates(q.characters, q.end_ms - q.start_ms, false)
-                    .2
-                    .map(|r| r.label())
-            })
-            .collect::<Option<Vec<_>>>()
-            .map(|labels| labels.join(" / "))
-    }
-    let a = labels(&c.original)?;
-    let b = labels(&c.revised)?;
-    (a != b).then(|| format!("{a} → {b}"))
 }

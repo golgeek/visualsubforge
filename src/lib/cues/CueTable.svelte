@@ -104,10 +104,17 @@
   );
   const doc = $derived(subtitles.snapshot);
   const columns = $derived(tableView.visibleColumns);
+  const checkWidth = $derived.by(() => {
+    let count = 1;
+    for (const rows of review.index.removals.values())
+      count = Math.max(count, rows.length + 1);
+    return 24 * Math.min(count, 4);
+  });
   const minimumWidth = $derived(
     columns.reduce(
       (sum, c) => sum + c.width,
-      (review.attached ? 74 : 20) + Math.max(0, columns.length - 1) * 6,
+      (review.attached ? 50 + checkWidth : 20) +
+        Math.max(0, columns.length - 1) * 6,
     ),
   );
   const activeIds = $derived(tableView.activeIds);
@@ -230,13 +237,23 @@
   {#if rows.length}<b
       class="removed-tag"
       title={rows
-        .map((r) => 'Removed before this cue: #' + (r.sourceIndex + 1))
-        .join(' · ')}>−{rows.length}</b
+        .map(
+          (r) =>
+            'Removed before this cue: #' +
+            (r.sourceIndex + 1) +
+            ' ' +
+            (review.removalDetails
+              .get(checkKey(r))
+              ?.original.map((q) => q.text)
+              .join(' / ') ?? ''),
+        )
+        .join('\n')}>−{rows.length}</b
     >{/if}
 {/snippet}
 <div
   class="cue-table"
-  style:--column-grid={`${doc.review?.path ? '22px ' : ''}${columnGrid(columns)}${review.attached ? ' 24px' : ''}`}
+  style:--check-width={`${checkWidth}px`}
+  style:--column-grid={`${doc.review?.path ? '22px ' : ''}${columnGrid(columns)}${review.attached ? ' var(--check-width)' : ''}`}
   style:--columns-min={`${minimumWidth}px`}
   style:--row-height={`${tableView.rowHeight}px`}
 >
@@ -291,7 +308,7 @@
           aria-label="Previous table change"
           onclick={() => void review.navigate(false)}>‹</button
         >
-        <span>Change {review.position} of {review.page?.total ?? 0}</span>
+        <span>Stop {review.position || '—'} of {review.stopCount}</span>
         <button
           aria-label="Next table change"
           onclick={() => void review.navigate(true)}>›</button
@@ -540,19 +557,29 @@
                     >{/if}
                 {/each}
               </button>
-              {#if summary && kind !== 'unchanged' && summary.revised[0] === item.id && (summary.block == null || summary.index === summary.block)}
-                <input
-                  class="done"
-                  type="checkbox"
-                  aria-label={`Checked cue ${row.index + 1}`}
-                  checked={summary.block == null
-                    ? review.checked.has(checkKey(summary))
-                    : review.index.blocks
-                        .get(summary.block)
-                        ?.every((r) => review.checked.has(checkKey(r)))}
-                  onchange={() => review.toggleCheck(summary, true)}
-                />
-              {/if}
+              <div class="checks">
+                {#each removed as removal (checkKey(removal))}
+                  <input
+                    type="checkbox"
+                    aria-label={`Checked removed cue ${removal.sourceIndex + 1}`}
+                    title={`Removed · was #${removal.sourceIndex + 1}`}
+                    checked={review.checked.has(checkKey(removal))}
+                    onchange={() => review.toggleCheck(removal)}
+                  />
+                {/each}
+                {#if summary && kind !== 'unchanged' && summary.revised[0] === item.id && (summary.block == null || summary.index === summary.block)}
+                  <input
+                    type="checkbox"
+                    aria-label={`Checked cue ${row.index + 1}`}
+                    checked={summary.block == null
+                      ? review.checked.has(checkKey(summary))
+                      : review.index.blocks
+                          .get(summary.block)
+                          ?.every((r) => review.checked.has(checkKey(r)))}
+                    onchange={() => review.toggleCheck(summary, true)}
+                  />
+                {/if}
+              </div>
             </div>
           {/each}
         </div>
@@ -603,12 +630,21 @@
   .row-wrap {
     position: relative;
   }
-  .done {
+  .checks {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    max-width: var(--check-width);
+    overflow-x: auto;
     position: absolute;
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
     margin: 0;
+  }
+  .checks input {
+    margin: 0;
+    flex: none;
   }
   .removed-before {
     border-top: 2px solid var(--kind-removed);

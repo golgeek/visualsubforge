@@ -24,6 +24,11 @@
     (projection ? review.visibleDiscussion : review.page?.discussion)
       ?.exported ?? [],
   );
+  const month = new Intl.DateTimeFormat('en-US', { month: 'short' });
+  function threadDate(ms: number) {
+    const date = new Date(ms);
+    return `${date.getDate()} ${month.format(date)} ${date.getFullYear()} at ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
   function resolved(t: ReviewThread) {
     return (
       [...t.messages].reverse().find((m) => m.type !== 'comment')?.type ===
@@ -74,7 +79,7 @@
     <strong>{resolved(t) ? 'Resolved' : 'Open'}</strong>
     {#each t.messages as m (m.id)}
       <p>
-        <b>{m.author}</b> · <time>{new Date(m.at_ms!).toLocaleString()}</time>
+        <b>{m.author}</b> · <time>{threadDate(m.at_ms!)}</time>
       </p>
       <p class="message">
         {m.type === 'comment'

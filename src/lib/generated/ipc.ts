@@ -2726,6 +2726,11 @@ export type visualsubforge_document_review_ReviewAction =
       utcOffsetMinutes?: number;
     }
   | {
+      kind: 'projectRemovals';
+      key: visualsubforge_document_review_ReviewKey;
+      indices: number[];
+    }
+  | {
       kind: 'projection';
       key: visualsubforge_document_review_ReviewKey;
       ids: number[];

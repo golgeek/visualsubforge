@@ -594,7 +594,7 @@ fn overview_counts_once_per_cue_at_the_displayed_start() {
     assert_eq!(graph.buckets[4].kinds, [0, 1, 0, 0, 0, 0]);
 }
 #[test]
-fn report_omits_unavailable_bands_zero_deltas_and_empty_controls() {
+fn report_counts_cue_duration_bands_and_omits_empty_controls() {
     let opts = ReportOptions {
         original_name: "A",
         revised_name: "B",
@@ -617,6 +617,47 @@ fn report_omits_unavailable_bands_zero_deltas_and_empty_controls() {
         &[cue(1, 0, 1000, "one")],
         &[cue(1, 0, 1000, "one <script>")],
     );
-    assert!(!page.contains("Reading-speed distribution") && !page.contains("class=\"delta\""));
+    assert!(!page.contains("class=\"delta\""));
     assert!(page.contains("one &lt;script&gt;</title>"));
+    assert!(!page.contains("+0 / −0") && !page.contains("of 0 threads"));
+    assert!(!page.contains("id=\"f-added\"") && !page.contains("<span>Not rated</span>"));
+
+    // The first two cues overlap. Each band uses the full 1500 ms cue duration.
+    let a = [
+        cue(1, 0, 1500, "one"),
+        cue(2, 100, 1600, "123456"),
+        cue(3, 2000, 3500, &"x".repeat(33)),
+        cue(4, 4000, 5500, &"y".repeat(40)),
+        cue(5, 6000, 6400, "z"),
+    ];
+    let mut b = a.clone();
+    b[0] = cue(1, 0, 1500, "a perfect sentence");
+    b[3] = cue(4, 4000, 5500, "b perfect sentence");
+    let page = draw(&a, &b);
+    assert!(page.contains("Cues per band, by cue duration."));
+    assert!(page.contains("outer reading-speed bands (by cue duration)</dt><dd>-2</dd>"));
+    for (name, original, revised) in [
+        ("TOO SLOW", 1, 0),
+        ("Slow, acceptable", 1, 1),
+        ("Fast, acceptable", 1, 1),
+        ("TOO FAST", 1, 0),
+        ("Perfect", 0, 2),
+        ("Not rated", 1, 1),
+    ] {
+        let (_, band) = page
+            .split_once(&format!("<div class=\"band\"><span>{name}</span>"))
+            .unwrap();
+        let (band, _) = band.split_once("</div>").unwrap();
+        assert!(band.starts_with(&format!("<span class=\"bar-l\">{original}<")));
+        assert!(band.ends_with(&format!("</i>{revised}</span>")));
+    }
+    assert!(page.contains("TOO SLOW → Perfect") && page.contains("TOO FAST → Perfect"));
+    let shifted = draw(
+        &[cue(1, 0, 1500, "same words")],
+        &[cue(1, 100, 1600, "same words")],
+    );
+    assert!(
+        !shifted.contains("class=\"metrics\">was ")
+            && !shifted.contains("<span class=\"band-change\">")
+    );
 }

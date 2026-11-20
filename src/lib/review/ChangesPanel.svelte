@@ -44,55 +44,91 @@
 <section aria-label="Changes">
   {#if review.error}<p role="alert">{review.error}</p>{/if}
   {#if review.page?.statistics}{@const s = review.page.statistics}
-    <p>
-      {s.changes}
-      {s.changes === 1 ? 'change' : 'changes'} · text {(
-        s.text_percent ?? 0
-      ).toFixed(1)} % · timing {(s.timing_percent ?? 0).toFixed(1)} % · total {(
-        s.total_percent ?? 0
-      ).toFixed(1)} % · {s.added_cues}
-      added · {review.page.discussion?.open ?? 0} open {review.page.discussion
-        ?.open === 1
-        ? 'thread'
-        : 'threads'}
-    </p>
-    {#if buckets.length}<div class="spark" aria-label="Changes over time">
-        {#each buckets as bucket, i (i)}
-          <button
-            title={`${bucket.kinds.reduce((a, b) => a + b, 0)} of ${bucket.total} cues changed · ${formatTime(i * (review.summary?.overview.width_ms ?? 0))}`}
-            disabled={bucket.first == null}
-            style:height={`${(100 * bucket.total) / maximum}%`}
-            onclick={() => {
-              const row = review.summary?.rows.find(
-                (r) => r.index === bucket.first,
-              );
-              if (row) {
-                review.setTableFilter('changed');
-                void review.goToRow(row);
-              }
-            }}
-          >
-            {#each bucket.kinds as n, j (j)}{#if n}<i
-                  style:height={`${(100 * n) / bucket.total}%`}
-                  style:background={`var(--kind-${colours[j]})`}
-                ></i>{/if}{/each}
-          </button>
-        {/each}
-      </div>{/if}
-    {#if review.page.total}
-      {@const index = review.page.rows.findIndex(
-        (c) => review.rowId(c) === review.selectedRow,
-      )}
+    <div class="overview">
       <p>
-        {#if index >= 0}Change {review.offset + index + 1} of {review.page
-            .total}{:else}Showing {review.offset + 1}–{Math.min(
-            review.offset +
-              review.page.rows.length +
-              (review.page.discussion?.detached.length ?? 0),
-            review.page.total,
-          )} of {review.page.total}{/if}
+        {s.changes}
+        {s.changes === 1 ? 'change' : 'changes'} · {review.page.discussion
+          ?.open ?? 0} open {review.page.discussion?.open === 1
+          ? 'thread'
+          : 'threads'}
       </p>
-    {/if}
+      {#if buckets.length}<div class="spark" aria-label="Changes over time">
+          {#each buckets as bucket, i (i)}
+            <button
+              title={`${bucket.kinds.reduce((a, b) => a + b, 0)} of ${bucket.total} cues changed · ${formatTime(i * (review.summary?.overview.width_ms ?? 0))}`}
+              disabled={bucket.first == null}
+              style:height={`${(100 * bucket.total) / maximum}%`}
+              onclick={() => {
+                const row = review.summary?.rows.find(
+                  (r) => r.index === bucket.first,
+                );
+                if (row) {
+                  review.setTableFilter('changed');
+                  void review.goToRow(row);
+                }
+              }}
+            >
+              {#each bucket.kinds as n, j (j)}{#if n}<i
+                    style:height={`${(100 * n) / bucket.total}%`}
+                    style:background={`var(--kind-${colours[j]})`}
+                  ></i>{/if}{/each}
+            </button>
+          {/each}
+        </div>{/if}
+      <button onclick={() => void review.navigate(false)}
+        >Previous Change</button
+      ><button onclick={() => void review.navigate(true)}>Next Change</button>
+      {#if review.options}{@const options = review.options}
+        <details>
+          <summary>Comparison options</summary>
+          <p>
+            Text {(s.text_percent ?? 0).toFixed(1)} % · timing {(
+              s.timing_percent ?? 0
+            ).toFixed(1)} % · total {(s.total_percent ?? 0).toFixed(1)} % · {s.added_cues}
+            added
+          </p>
+          <label
+            >Timing tolerance (ms) <input
+              type="number"
+              min="0"
+              step="1"
+              value={options.tolerance_ms}
+              onchange={(e) => {
+                const n = Number(e.currentTarget.value);
+                if (Number.isInteger(n) && n >= 0 && n <= 4294967295)
+                  void review.setOptions({ ...options, tolerance_ms: n });
+              }}
+            /></label
+          >
+          <button
+            disabled={!frameRate}
+            title={!frameRate
+              ? 'Open media with a frame rate first'
+              : undefined}
+            onclick={() => {
+              if (frameRate)
+                void review.setOptions({
+                  ...options,
+                  tolerance_ms: Math.floor(1000 / frameRate),
+                });
+            }}>Ignore timing changes under one frame</button
+          >
+          {#each [['ignore_tags', 'Ignore tags'], ['ignore_line_breaks', 'Ignore line-break changes'], ['ignore_whitespace', 'Ignore whitespace-only changes']] as [key, label] (key)}<label
+              ><input
+                type="checkbox"
+                checked={options[
+                  key as
+                    'ignore_tags' | 'ignore_line_breaks' | 'ignore_whitespace'
+                ]}
+                onchange={(e) =>
+                  void review.setOptions({
+                    ...options,
+                    [key!]: e.currentTarget.checked,
+                  })}
+              />{label}</label
+            >{/each}
+        </details>{/if}
+    </div>
     {#if !s.changes}<p>No changes yet</p>{/if}
   {:else}<p>
       {review.attached || review.page?.working
@@ -123,64 +159,10 @@
         }}>{f === 'open' ? 'Open threads' : 'Commented'}</button
       >{/each}
   </nav>
-  <div class="panel-nav">
-    <button onclick={() => void review.navigate(false)}>Previous Change</button
-    ><button onclick={() => void review.navigate(true)}>Next Change</button>
-    {#if !review.threadFilter}<button
-        disabled={!review.canMutate || !review.page?.total}
-        onclick={() => void review.revert(null)}
-        >Revert {review.page?.matched ?? 0}
-        {review.filter
-          ? (filters.find(([v]) => v === review.filter)?.[1] ??
-              label(review.filter)) + ' '
-          : ''}{review.page?.matched === 1 ? 'Change' : 'Changes'}</button
-      >{/if}
-  </div>
-  {#if review.options}{@const options = review.options}
-    <details>
-      <summary>Comparison options</summary>
-      <label
-        >Timing tolerance (ms) <input
-          type="number"
-          min="0"
-          step="1"
-          value={options.tolerance_ms}
-          onchange={(e) => {
-            const n = Number(e.currentTarget.value);
-            if (Number.isInteger(n) && n >= 0 && n <= 4294967295)
-              void review.setOptions({ ...options, tolerance_ms: n });
-          }}
-        /></label
-      >
-      <button
-        disabled={!frameRate}
-        title={!frameRate ? 'Open media with a frame rate first' : undefined}
-        onclick={() => {
-          if (frameRate)
-            void review.setOptions({
-              ...options,
-              tolerance_ms: Math.floor(1000 / frameRate),
-            });
-        }}>Ignore timing changes under one frame</button
-      >
-      {#each [['ignore_tags', 'Ignore tags'], ['ignore_line_breaks', 'Ignore line-break changes'], ['ignore_whitespace', 'Ignore whitespace-only changes']] as [key, label] (key)}<label
-          ><input
-            type="checkbox"
-            checked={options[
-              key as 'ignore_tags' | 'ignore_line_breaks' | 'ignore_whitespace'
-            ]}
-            onchange={(e) =>
-              void review.setOptions({
-                ...options,
-                [key!]: e.currentTarget.checked,
-              })}
-          />{label}</label
-        >{/each}
-    </details>{/if}
   {#each review.page?.rows ?? [] as change, index (`${change.key}/${index}`)}{@const block =
       review.page?.blocks?.find((b) => b.row === index)}
     {@const summary = review.rowSummary(change)}
-    <article class:selected={review.selectedRow === review.rowId(change)}>
+    <article class:selected={review.activeRowId === review.rowId(change)}>
       {#if block}<div class="block-card">
           {#if review.page?.discussion?.blockCounts[block.block.first]}<span
               >{review.page.discussion.blockCounts[block.block.first]}
@@ -223,7 +205,7 @@
         <div class="card-head">
           <button
             class="select"
-            aria-pressed={review.rowId(change) === review.selectedRow}
+            aria-pressed={review.rowId(change) === review.activeRowId}
             aria-label={`Select ${label(change.kind)} change`}
             onclick={() => void review.select(change)}
           >
@@ -262,6 +244,31 @@
         </article>
       {/each}
     </section>{/if}
+  {#if !review.threadFilter}<button
+      disabled={!review.canMutate || !review.page?.total}
+      onclick={() => void review.revert(null)}
+      >Revert {review.page?.matched ?? 0}
+      {review.filter
+        ? (filters.find(([v]) => v === review.filter)?.[1] ??
+            label(review.filter)) + ' '
+        : ''}{review.page?.matched === 1 ? 'Change' : 'Changes'}</button
+    >{/if}
+  {#if review.page}
+    {#if review.page.total}
+      {@const index = review.page.rows.findIndex(
+        (c) => review.rowId(c) === review.activeRowId,
+      )}
+      <p>
+        {#if index >= 0}Stop {review.offset + index + 1} of {review.page
+            .total}{:else}Showing {review.offset + 1}–{Math.min(
+            review.offset +
+              review.page.rows.length +
+              (review.page.discussion?.detached.length ?? 0),
+            review.page.total,
+          )} of {review.page.total}{/if}
+      </p>
+    {/if}
+  {/if}
   <button
     disabled={review.offset === 0}
     onclick={() => (review.offset = Math.max(0, review.offset - 100))}
@@ -310,10 +317,17 @@
     font-weight: 600;
     text-align: left;
   }
-  .panel-nav {
-    padding: 5px 8px;
+
+  .overview details[open] {
+    flex-basis: 100%;
   }
-  .panel-nav button {
+  .overview summary {
+    cursor: pointer;
+  }
+  .overview details {
+    margin-left: auto;
+  }
+  .overview > button {
     font-size: 11px;
     padding: 1px 7px;
   }
@@ -322,13 +336,25 @@
     overflow-wrap: anywhere;
   }
 
+  .overview {
+    display: flex;
+    align-items: center;
+    padding: 2px 8px;
+    gap: 6px;
+  }
+  .overview p {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.3;
+  }
   .spark {
-    height: 34px;
+    flex: 1 0 48px;
+    height: 18px;
     display: flex;
     align-items: flex-end;
     gap: 1px;
     border-bottom: 1px solid var(--line-strong);
-    margin: 0 10px;
+    margin: 0;
   }
   .spark button {
     border: 0;
@@ -341,6 +367,9 @@
     background: var(--surface-pressed);
   }
   nav button {
+    flex: none;
+    white-space: nowrap;
+    padding: 1px 5px;
     border-radius: 999px;
     font-size: 11px;
   }
@@ -399,13 +428,29 @@
   }
   article {
     border-bottom: 1px solid var(--line-strong);
-    padding: 0.6rem;
+    padding: 4px 8px;
   }
   nav,
   section > div {
     display: flex;
     gap: 0.3rem;
     flex-wrap: wrap;
+  }
+  nav[aria-label] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    gap: 3px;
+  }
+  section > .overview {
+    flex-wrap: wrap;
+    font-size: 11px;
+  }
+  .overview p {
+    white-space: nowrap;
+  }
+  .overview details[open] p {
+    white-space: normal;
   }
   label {
     display: block;

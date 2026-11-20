@@ -80,7 +80,7 @@ can remain visible in an included unchanged row. Source text is never interprete
 ## Reports and discussion
 
 HTML has inline CSS, no required script or external requests, escaped names/text,
-a linked timeline overview, two-column word differences and numeric reading speeds. Timing changes show the affected endpoints and nonzero deltas. Checkboxes control kinds, unchanged rows, open threads and discussion expansion. Print expands discussions and shift blocks. CLI dates use UTC unless you pass an offset in minutes with `--utc-offset`. Change element IDs derive from
+a linked timeline overview, two-column word differences and before/after reading-speed bands by cue duration. Both sides use the quality rating for each cue’s own duration. Statistics uses an overlap-adjusted interval. Timing changes show the affected endpoints and nonzero deltas. Checkboxes control kinds, unchanged rows, open threads and discussion expansion. Print expands discussions and shift blocks. CLI dates use UTC unless you pass an offset in minutes with `--utc-offset`. Change element IDs derive from
 keys. The writer accepts explicit trusted extension sections for the head, each
 change element ID (including the occurrence suffix for duplicates) and the end, which carry escaped discussions and optional inert review data. See [review packages](review-packages.md).
 
@@ -122,7 +122,7 @@ is 528 MiB including the version 8 thread budget and metadata. Version 5 project
 Changes offers text, timing, additions, removals, split/merge and style filters.
 The cue list has All cues, Changed only and With threads filters. Original is a
 movable, resizable column while a review is attached. A removal marks the next
-surviving cue; trailing removals remain available in Changes. Checked marks
+surviving cue. Its tooltip shows the removed text. Select that row to check or revert individual removals in the editor. Trailing removals remain available in Changes. Checked marks
 track individual change occurrences. Changing or removing a checked change
 clears its mark. Export shows unchecked changes and can take you to the first
 one. Marks stay outside subtitle Undo, projects and review packages.

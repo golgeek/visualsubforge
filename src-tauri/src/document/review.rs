@@ -152,6 +152,10 @@ pub enum ReviewAction {
         #[serde(default)]
         utc_offset_minutes: i16,
     },
+    ProjectRemovals {
+        key: ReviewKey,
+        indices: Vec<u32>,
+    },
     Projection {
         key: ReviewKey,
         ids: Vec<SafeU64>,
@@ -654,6 +658,22 @@ impl Documents {
                 store.revert_review(key, change_key.as_deref(), source_index, filter, None)?;
                 document = Some(store.snapshot());
                 store.invalidate_checks();
+            }
+            ReviewAction::ProjectRemovals { key, indices } => {
+                if indices.len() > 200 {
+                    return Err("Too many projected removals".into());
+                }
+                let mut reply = store.review_reply(None, 0, 0, None)?;
+                let result = store.comparison(key)?;
+                for index in indices {
+                    let change = result
+                        .changes
+                        .get(index as usize)
+                        .filter(|c| c.kind == engine::Kind::Removed)
+                        .ok_or("Invalid removal in comparison projection")?;
+                    reply.rows.push(change.clone());
+                }
+                return Ok(reply);
             }
             ReviewAction::Projection {
                 key,

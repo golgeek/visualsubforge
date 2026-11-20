@@ -62,12 +62,14 @@
     };
   } = $props();
   let qualityHeight = $state(0);
+  const removals = $derived(review?.selectedRemovals ?? []);
   let originalHeight = $state(0);
   $effect(() => {
     if (qualityHeight > 0)
       onmeasure(
         'metrics',
-        qualityHeight + (reviewChange ? originalHeight + 3 : 0),
+        qualityHeight +
+          (reviewChange || removals.length ? originalHeight + 3 : 0),
       );
   });
   const status = $derived(media.status);
@@ -342,17 +344,20 @@
           >{/if}
       </aside>{/if}
   </div>
-  {#if reviewChange}<div
+  {#if reviewChange || removals.length}<div
       class="original"
       aria-label="Original"
       use:measurePaneControl={(height) => (originalHeight = height)}
     >
-      {#if reviewChange.kind !== 'unchanged'}<ChangeDetail
+      {#each removals as removed (review?.rowId(removed))}
+        <ChangeDetail change={removed} {review} editor />
+      {/each}
+      {#if reviewChange && reviewChange.kind !== 'unchanged'}<ChangeDetail
           change={reviewChange}
           {review}
           editor
         />{/if}
-      {#if review}{#key review.rowId(reviewChange)}<CommentThreads
+      {#if review && reviewChange}{#key review.rowId(reviewChange)}<CommentThreads
             {review}
             change={reviewChange}
             projection
