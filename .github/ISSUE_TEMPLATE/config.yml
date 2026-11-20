@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Tester guide and sample walkthrough
+    url: https://github.com/golgeek/visualsubforge/blob/main/docs/testing-v0.1.md
+    about: Download the early test release and try the 15-minute walkthrough.

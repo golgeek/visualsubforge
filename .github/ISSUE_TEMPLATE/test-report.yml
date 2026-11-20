@@ -1,0 +1,191 @@
+name: v0.1 test report
+description: Share results from the early test release on your machine.
+labels: [test-report]
+body:
+  - type: markdown
+    attributes:
+      value: "Follow the [tester guide](https://github.com/golgeek/visualsubforge/blob/main/docs/testing-v0.1.md). Please attach only synthetic media and remove identifying paths."
+  - type: input
+    id: version
+    attributes:
+      label: "VSF version"
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: "Operating system and version"
+      placeholder: "Ubuntu 26.04"
+    validations:
+      required: true
+  - type: input
+    id: cpu
+    attributes:
+      label: "CPU architecture"
+      placeholder: "x86_64 or arm64"
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: "GPU and driver"
+      placeholder: "Model and driver version, or unknown"
+    validations:
+      required: true
+  - type: input
+    id: scale
+    attributes:
+      label: "Display scaling"
+      placeholder: "150% or the macOS display size"
+    validations:
+      required: true
+  - type: dropdown
+    id: machine
+    attributes:
+      label: "Machine type"
+      options: [Physical machine, Virtual machine]
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: "Linux display session"
+      options: [Wayland, X11, Unknown, Not using Linux]
+  - type: input
+    id: audio
+    attributes:
+      label: "Audio output device"
+  - type: input
+    id: install
+    attributes:
+      label: "Install method"
+  - type: input
+    id: security
+    attributes:
+      label: "Security prompts seen"
+  - type: dropdown
+    id: step-1
+    attributes:
+      label: "1. Open the sample project"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-2
+    attributes:
+      label: "2. Open the video"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-3
+    attributes:
+      label: "3. Play and seek"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-4
+    attributes:
+      label: "4. Preview subtitles"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-5
+    attributes:
+      label: "5. Use the waveform"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-6
+    attributes:
+      label: "6. Scan for shot changes"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-7
+    attributes:
+      label: "7. Edit one cue"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-8
+    attributes:
+      label: "8. Split a cue"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-9
+    attributes:
+      label: "9. Merge the parts"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-10
+    attributes:
+      label: "10. Undo"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-11
+    attributes:
+      label: "11. Save and reopen"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-12
+    attributes:
+      label: "12. Switch audio tracks"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-13
+    attributes:
+      label: "13. Resynchronize"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-14
+    attributes:
+      label: "14. Export a copy"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: step-15
+    attributes:
+      label: "15. Check for updates"
+      options: [Pass, Fail, Not tried]
+      default: 2
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: "What went wrong or worked especially well?"
+      description: Include the step number, what you saw and the exact error text. Screenshot attachments are optional.

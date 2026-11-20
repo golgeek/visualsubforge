@@ -55,6 +55,13 @@ are separate from this manual checklist.
 
 ## Manual acceptance
 
+The [tester guide](testing-v0.1.md) and test report form use the checklist
+below. Map playback, tracks and preview to Video and sound / Variable rate and
+tracks / Subtitle preview; waveform and shot markers to Analysis; editing,
+export, save/reopen and Undo to Files and history; and the offset proposal to
+Resync. Record the reported machine and artifact with each result. A user
+report is tester-reported evidence. Maintainer reproduction gets its own entry.
+
 Record the package SHA-256, app revision, OS version/architecture, physical
 machine or VM, GPU/driver, display scaling and audio device. Test on a clean OS
 without FFmpeg, mpv, developer SDKs or codec packs. Installation may download
