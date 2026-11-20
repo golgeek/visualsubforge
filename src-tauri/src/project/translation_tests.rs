@@ -409,3 +409,57 @@ fn review_project_roundtrip_options_independent_translation_and_missing_original
     let missing = projects.open(&path).unwrap();
     assert!(!serde_json::to_value(missing).unwrap()["reviewIssue"].is_null());
 }
+
+#[test]
+fn v4_review_saves_as_v4_until_discussion_and_missing_package_preserves_v5() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    let (mut project, target, _) = fixture(&root, "srt", SRT);
+    let path = root.join("review.vsfproject");
+    let reference = project.translation.take().unwrap();
+    let options = vsf_application::comparison::Options::default();
+    project.review =
+        Some(serde_json::from_value(json!({"reference":reference,"options":options})).unwrap());
+    project.version = 4;
+    write(&path, &project).unwrap();
+    let mut loaded = read(&path).unwrap();
+    assert_eq!(loaded.version_for_save(), 4);
+    let pack = vsf_application::review_package::read(include_bytes!(
+        "../../../crates/vsf-application/tests/fixtures/review-v1.vsfreview"
+    ))
+    .unwrap();
+    let mut review = serde_json::to_value(&loaded.review).unwrap();
+    review["discussion"] = json!({"threads":pack.threads,"round":0,"exported":[]});
+    loaded.review = Some(serde_json::from_value(review.clone()).unwrap());
+    assert_eq!(loaded.version_for_save(), 5);
+    loaded.version = loaded.version_for_save();
+    write(&path, &loaded).unwrap();
+    assert_eq!(read(&path).unwrap().version, 5);
+
+    let source = root.join("round.vsfreview");
+    fs::write(&source, pack.write().unwrap()).unwrap();
+    review["reference"] = json!({"reference":{"path":"round.vsfreview","sha256":pack.original.sha256,"offsetMs":0,"format":"srt"}});
+    review["package"] = json!({"path":"round.vsfreview","sha256":pack.original.sha256,"original_name":pack.original.name,"revised_name":pack.revised.name,"utf16_le":null});
+    loaded.review = Some(serde_json::from_value(review).unwrap());
+    write(&path, &loaded).unwrap();
+    let projects = Projects::default();
+    let opened = projects.open(&path).unwrap();
+    assert!(serde_json::to_value(&opened).unwrap()["reviewIssue"].is_null());
+    let docs = Documents::default();
+    open_target(&docs, &target);
+    let token = attach(&projects, &docs, opened.token).unwrap().token;
+    let previous = fs::read(&path).unwrap();
+    fs::rename(&source, root.join("moved.vsfreview")).unwrap();
+    loaded.options.follow_playback = !loaded.options.follow_playback;
+    assert!(
+        projects
+            .save_document(&docs, Some(&target), &path, Some(token), loaded.clone())
+            .is_err()
+    );
+    assert_eq!(fs::read(&path).unwrap(), previous);
+    fs::rename(root.join("moved.vsfreview"), &source).unwrap();
+    projects
+        .save_document(&docs, Some(&target), &path, Some(token), loaded)
+        .unwrap();
+    assert_ne!(fs::read(&path).unwrap(), previous);
+}

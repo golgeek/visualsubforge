@@ -369,6 +369,35 @@ fn recovery_record_reopens_review_after_original_is_deleted() {
         ORIGINAL.as_bytes()
     );
     assert!(restored.snapshot().review.unwrap().path.is_some());
+    let d = Documents::default();
+    *d.0.lock().unwrap() = restored;
+    let capture = || {
+        d.0.lock()
+            .unwrap()
+            .loaded
+            .as_ref()
+            .unwrap()
+            .review
+            .stored()
+            .unwrap()
+    };
+    record.set_review(capture());
+    assert_eq!(serde_json::to_value(&record).unwrap()["version"], 7);
+    let row = ready(&d).rows.remove(0);
+    d.review_action(ReviewAction::Comment {
+        key: key(&d),
+        author: "Ana".into(),
+        edit: CommentEdit::Post {
+            change_key: row.key,
+            source_index: row.original[0].source_index,
+            text: "Recovered draft".into(),
+        },
+    })
+    .unwrap();
+    record.set_review(capture());
+    assert_eq!(serde_json::to_value(&record).unwrap()["version"], 8);
+    let session = crate::recovery_store::Session::create(dir.path()).unwrap();
+    session.prepare(&record).unwrap().commit().unwrap();
 }
 
 #[test]

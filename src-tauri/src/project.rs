@@ -451,7 +451,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         })
         .transpose()?
         .flatten();
-    let mut project = Project {
+    let project = Project {
         version: if media.is_some() { 1 } else { 2 },
         media_path: media.as_ref().map(|media| portable(base, media)),
         subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
@@ -477,27 +477,41 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
             {
                 return Err("Project references differ from the selected media".into());
             }
-            app.state::<crate::document::Documents>()
-                .with_project_subtitle(
-                    subtitle.as_deref(),
-                    |context, format, translation, review| {
-                        // Only Rust's accepted effective rules may be persisted.
-                        // Ignore optional frontend profile and stale timing fields.
-                        project.options.quality = Some(context.profile.clone());
-                        project.options.timing = context.timing.clone();
-                        project.subtitle_format = format.map(|format| format.extension().into());
-                        translation.protect(&destination)?;
-                        translation.verify_project_reference()?;
-                        project.translation = translation.project_description(base)?;
-                        review.reference.protect(&destination)?;
-                        review.verify_source()?;
-                        project.review = review.project_description(base)?;
-                        project.version = project.version_for_save();
-                        app.state::<Projects>()
-                            .save(&destination, request.token, &project)
-                    },
-                )
+            app.state::<Projects>().save_document(
+                &app.state::<crate::document::Documents>(),
+                subtitle.as_deref(),
+                &destination,
+                request.token,
+                project,
+            )
         })
+}
+impl Projects {
+    fn save_document(
+        &self,
+        documents: &crate::document::Documents,
+        subtitle: Option<&Path>,
+        destination: &Path,
+        token: Option<u64>,
+        mut project: Project,
+    ) -> Result<Attachment> {
+        let base = destination.parent().ok_or("Project path has no parent")?;
+        documents.with_project_subtitle(subtitle, |context, format, translation, review| {
+            // Only Rust's accepted effective rules may be persisted.
+            // Ignore optional frontend profile and stale timing fields.
+            project.options.quality = Some(context.profile.clone());
+            project.options.timing = context.timing.clone();
+            project.subtitle_format = format.map(|format| format.extension().into());
+            translation.protect(destination)?;
+            translation.verify_project_reference()?;
+            project.translation = translation.project_description(base)?;
+            review.reference.protect(destination)?;
+            review.verify_source()?;
+            project.review = review.project_description(base)?;
+            project.version = project.version_for_save();
+            self.save(destination, token, &project)
+        })
+    }
 }
 fn destination(path: &Path) -> Result<PathBuf> {
     let base = path.parent().ok_or("Project path has no parent")?;
