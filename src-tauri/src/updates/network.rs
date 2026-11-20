@@ -57,6 +57,50 @@ mod tests {
     use std::io::{Read, Write};
     use std::net::TcpListener;
     #[tokio::test]
+    async fn interprets_bounded_http_responses_from_the_release_endpoint() {
+        use crate::updates::releases::newest;
+        use semver::Version;
+
+        let version = Version::new(0, 1, 0);
+        let newer = br#"[{"draft":false,"tag_name":"v0.2.0","prerelease":true}]"#;
+        let older = br#"[{"draft":false,"tag_name":"v0.0.9"}]"#;
+        for (body, expected) in [
+            (newer.to_vec(), Ok(Some(Version::new(0, 2, 0)))),
+            (older.to_vec(), Ok(None)),
+            (b"unreadable".to_vec(), Err(Failure::Invalid)),
+            (vec![b' '; MAX_BYTES + 1], Err(Failure::TooLarge)),
+        ] {
+            let server = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = server.local_addr().unwrap();
+            let task = std::thread::spawn(move || {
+                let (mut stream, _) = server.accept().unwrap();
+                let mut request = Vec::new();
+                std::io::BufRead::read_until(
+                    &mut std::io::BufReader::new(&stream),
+                    b'\n',
+                    &mut request,
+                )
+                .unwrap();
+                assert_eq!(request, b"GET /releases?per_page=20 HTTP/1.1\r\n");
+                // Closing the connection delimits the body. Enforce the limit even
+                // when the server does not announce its length.
+                stream
+                    .write_all(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n")
+                    .unwrap();
+                let _ = stream.write_all(&body);
+            });
+            let result = read(
+                client(Duration::from_secs(3), false).unwrap(),
+                &format!("http://{address}/releases?per_page=20"),
+            )
+            .await
+            .and_then(|bytes| newest(&bytes, &version));
+            assert_eq!(result, expected);
+            task.join().unwrap();
+        }
+    }
+
+    #[tokio::test]
     async fn bounds_transport_and_maps_plain_failures() {
         for (status, length, payload, stall, expected) in [
             ("200 OK", 2, "[]", false, Ok(vec![b'[', b']'])),

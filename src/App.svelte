@@ -143,9 +143,9 @@
       () => preferences.preferences.automaticUpdates === true,
     ),
   );
+  const automaticUpdates = $derived(preferences.preferences.automaticUpdates);
   $effect(() => {
-    if (!workspace.ready || preferences.preferences.automaticUpdates !== true)
-      return;
+    if (!workspace.ready || automaticUpdates !== true) return;
     const timer = setTimeout(() => void updates.check(false), 3500);
     return () => clearTimeout(timer);
   });
@@ -1438,7 +1438,7 @@
   {#if workspace.ready}
     <UpdateNotice
       session={updates}
-      consent={preferences.preferences.automaticUpdates}
+      askForConsent={startVisible && automaticUpdates == null}
       disabled={!workspace.canAct}
     />
   {/if}

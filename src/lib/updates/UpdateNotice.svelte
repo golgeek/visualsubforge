@@ -2,9 +2,9 @@
   import type { UpdateSession } from './update-session.svelte';
   let {
     session,
-    consent,
+    askForConsent,
     disabled,
-  }: { session: UpdateSession; consent: boolean | null; disabled: boolean } =
+  }: { session: UpdateSession; askForConsent: boolean; disabled: boolean } =
     $props();
   const reasons = {
     connection: 'GitHub could not be reached.',
@@ -17,7 +17,7 @@
   };
 </script>
 
-{#if session.result || session.checking || (consent == null && !session.postponed)}
+{#if session.result || session.checking || (askForConsent && !session.postponed)}
   <section class="updates" aria-label="Version updates">
     {#if session.checking}
       <span role="status">Checking for updates…</span>
