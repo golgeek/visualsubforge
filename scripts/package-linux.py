@@ -263,7 +263,8 @@ def assemble(args):
     icon = private / "share/icons/hicolor/512x512/apps/visualsubforge.png"
     icon.parent.mkdir(parents=True)
     shutil.copy2(ROOT / "src-tauri/icons/icon.png", icon)
-    for relative in [Path("bin/visualsubforge"), Path("bin/vsf"), desktop.relative_to(private), icon.relative_to(private)]:
+    for relative in [Path("bin/visualsubforge"), Path("bin/vsf"), desktop.relative_to(private), icon.relative_to(private),
+                     doc.relative_to(private)]:
         link = tree / "usr" / relative
         link.parent.mkdir(parents=True, exist_ok=True)
         link.symlink_to(os.path.relpath(private / relative, link.parent))
