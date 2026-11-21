@@ -48,7 +48,9 @@
   </h2>
   <p>
     {subtitleDecision.payload === 'review'
-      ? 'Continuing removes the current review, including its discussion and export history. Save a project to keep it.'
+      ? doc.review?.hasDiscussion
+        ? 'Continuing removes the current review, including its discussion and export history. Save a project to keep it.'
+        : 'Continuing removes the current review. Save a project to keep its original and comparison options.'
       : doc.review?.dirty
         ? 'Save the review original and comparison options in a project.'
         : projectDirty

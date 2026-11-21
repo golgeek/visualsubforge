@@ -737,8 +737,10 @@ export class ReviewSession {
     return confirmReviewChange(
       key,
       () => this.key(),
-      replaceDocument || losesReview,
-      () => this.unsaved.protect(this.saveProject, losesReview),
+      replaceDocument || losesReview
+        ? () => this.unsaved.decide(this.saveProject, losesReview)
+        : null,
+      () => this.subtitles.apply(),
     );
   }
   run = async (

@@ -1,26 +1,38 @@
 import type { ReviewReply } from '../client';
 
+import type { UnsavedDecision } from './unsaved-changes';
+
 type Key = ReviewReply['key'];
 
-function matches(a: Key, b: Key) {
-  return (
-    a.generation === b.generation &&
-    a.revision === b.revision &&
-    a.epoch === b.epoch
-  );
+function requireKey(expected: Key, actual: Key) {
+  if (
+    expected.generation !== actual.generation ||
+    expected.revision !== actual.revision ||
+    expected.epoch !== actual.epoch
+  )
+    throw new Error('The review changed; refresh first.');
 }
 
-/** Consent belongs to the review the user saw when the decision opened. */
+/** Only the user's own accepted draft may advance consent to a new revision. */
 export async function confirmReviewChange(
   key: Key,
   current: () => Key,
-  needsConsent: boolean,
-  protect: () => Promise<boolean>,
+  decide: (() => Promise<UnsavedDecision>) | null,
+  applyDraft: () => Promise<boolean>,
 ) {
-  if (!matches(key, current()))
-    throw new Error('The review changed; refresh first.');
-  if (needsConsent && !(await protect())) return null;
-  if (!matches(key, current()))
-    throw new Error('The review changed; refresh first.');
-  return { key, discard: needsConsent };
+  requireKey(key, current());
+  if (!decide) return { key, discard: false };
+  const decision = await decide();
+  if (decision === 'cancel') return null;
+  requireKey(key, current());
+  if (typeof decision !== 'object')
+    return { key, discard: decision === 'discard' };
+
+  // Pin the accepted revision before file choosers, IO or project refresh.
+  if (!(await applyDraft())) return null;
+  const applied = current();
+  requireKey({ ...key, revision: applied.revision }, applied);
+  if (!(await decision.save())) return null;
+  requireKey(applied, current());
+  return { key: applied, discard: true };
 }
