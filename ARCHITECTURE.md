@@ -77,6 +77,8 @@ and legacy paths preselect the existing explicit import review. Late picker and
 listener replies cannot reopen work after disposal. client.ts owns the native
 subscription boundary.
 
+App dates use the UI language for words and the OS formatting region for date order and hour cycle, with a fixed English day–month–year, 24-hour fallback.
+
 RecentWork keeps a bounded historical projection, not another document/checker
 owner. Rust captures version-checked paths and completed checker metadata from
 existing media/scene/document/project owners, releases those locks, then hashes
@@ -730,7 +732,11 @@ an intermediate temporary file and its cleanup/filename ownership concerns.
 cooperative checkpoints. It owns no filesystem, media, UI or accepted editor.
 The CLI reads through the bounded subtitle reader and atomically publishes new
 HTML reports. Content snapshots, a callable group scorer and content-derived keys
-support future review anchors; report extensions accept trusted encoded sections.
+identify review anchors. The pure Rust overview buckets revised starts (original starts
+for removals) and assigns each cue one category. The HTML writer escapes subtitle,
+author and comment text. Local checkboxes and CSS control filters, threads and shift
+blocks without executable script. The optional inert JSON block still permits import.
+Callers supply their UTC offset. The report and desktop derive reading-speed bands through the same comparison snapshot method. It calls the quality metric on the raw cue duration. The report counts each original and revised cue separately, including unrated cues.
 See [comparison policy and limits](docs/version-comparison.md).
 
 The loaded document now has a separate `review` context alongside translation.
@@ -745,12 +751,17 @@ Project v4 captures the review struct and validates expected original identity
 before replacement, with explicit relocation/end handling. Publication captures
 both contexts under the existing document-to-project lock order; attachment checks
 both epochs. Project v5 and recovery v8 additionally retain discussion events, round and exported IDs. The project read/write limit rises from 8 MiB to 128 MiB to accommodate escaped discussion text and event metadata. The recovery envelope is 528 MiB for five independently bounded 16 MiB text budgets at worst-case JSON expansion plus metadata. Older contents retain their minimum save version. Context mutations do not enter subtitle Undo; Save As and conversion
-protect both reference slots. `ReviewSession` owns only paging, selection and
-request lifetime; mutations reconcile through DocumentSession's serialized path.
+protect both reference slots. `ReviewSession` owns paging, filters, selection,
+request lifetime and session-only checked marks. A mark identifies the content key
+and its occurrence in comparison order. A completed capture drops missing marks.
+Detaching or replacing the document clears the set. Both export paths read the
+same progress without writing marks into a package, project, or subtitle edit.
+The panel overview consumes the same Rust bucket DTO as the HTML renderer. Review mutations reconcile through DocumentSession's serialized path.
 
 
 Review projections and navigation reuse the worker's immutable result with the
-same generation/revision/epoch guard. The frontend owns active filter, selected
+same generation/revision/epoch guard. A completed comparison can additionally return a compact index of change identities, affected cue IDs, thread status, shift membership and removal successors. The frontend requests this index once per capture. Filtering the virtual list uses those IDs and keeps full word diffs within the existing visible projection limits. The table and editor request missing removal details by change index in batches of up to 200 for visible successors. These use the same capture and viewport sequence guards as the timeline projection.
+The frontend owns active filter, selected
 content key, ghost visibility and request sequencing. Revert builds one domain
 `ReplaceCues` edit: validates IDs and the complete candidate before publishing,
 allocates missing IDs monotonically, and trims unchanged edges for ordinary

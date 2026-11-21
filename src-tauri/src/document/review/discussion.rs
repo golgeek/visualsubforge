@@ -183,7 +183,7 @@ impl ThreadIndex {
         }
         index
     }
-    fn row(&self, index: usize) -> &[usize] {
+    pub(super) fn row(&self, index: usize) -> &[usize] {
         self.attached.get(&index).map_or(&[], Vec::as_slice)
     }
     pub(super) fn project(

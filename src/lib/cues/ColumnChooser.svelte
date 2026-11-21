@@ -12,16 +12,18 @@
   let {
     layout,
     styled,
+    review = false,
     onclose,
   }: {
     layout: WorkspaceLayout;
     styled: boolean;
+    review?: boolean;
     onclose: () => Promise<void>;
   } = $props();
   let dialog: HTMLDialogElement;
   let dragged = $state<ColumnId | null>(null);
   const columns = $derived(
-    layout.columns.items.filter((c) => availableColumn(c.id, styled)),
+    layout.columns.items.filter((c) => availableColumn(c.id, styled, review)),
   );
   onMount(() => dialog.showModal());
   function move(id: ColumnId, target: ColumnId) {
@@ -62,7 +64,8 @@
         <label
           ><input
             type="checkbox"
-            checked={column.visible}
+            checked={column.visible ||
+              (column.id === 'original' && layout.columns.originalPending)}
             disabled={mandatoryColumn(column.id)}
             onchange={(e) =>
               layout.setColumns(

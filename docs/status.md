@@ -89,6 +89,6 @@ Embedded text track extraction, desktop adoption/recovery and reviewed font embe
 The [version comparison engine and CLI](version-comparison.md) provide immutable
 comparison and HTML reports. Desktop review entry points, paged comparisons,
 independent original protection, project persistence and recovery are implemented.
-In-context markers, Original diffs, media-optional navigation, original timing
+The review-only Original column, changed/thread filters, session checks, script-free report overview, media-optional navigation, original timing
 ghosts, one-step undoable revert and filtered batch revert are implemented.
 The [review package contract](review-packages.md) covers comments, project and recovery persistence, exporting and reopening offline reviews in the desktop and CLI.

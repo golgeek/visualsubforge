@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../../src/lib/ui/date-format';
 import { emptyQuality } from '../empty-quality';
 import { defaultPreferences } from '../../../src/lib/client';
 import { mount, tick, unmount } from 'svelte';
@@ -170,7 +171,7 @@ async function runCase(mode: 'stale list' | 'stale error' | 'failed discard') {
     }
     const date = card.querySelector('time')!;
     assert(
-      date.textContent === new Date(1700000000000).toLocaleString() &&
+      date.textContent === formatDateTime(1700000000000) &&
         !label.contains(date),
       'Date is missing or truncated with the label',
     );

@@ -38,6 +38,7 @@ fn ready(d: &Documents) -> ReviewReply {
     loop {
         let r = d
             .review_action(ReviewAction::Query {
+                presentation: false,
                 expanded: vec![],
                 key: key(d),
                 offset: 0,
@@ -286,7 +287,7 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
     d.review_action(ReviewAction::Export {
         author: String::new(),
         output: None,
-        date: "fixture".into(),
+        utc_offset_minutes: 0,
         key: key(&d),
         path: output.to_string_lossy().into(),
         include_unchanged: true,
@@ -303,7 +304,7 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
         d.review_action(ReviewAction::Export {
             author: String::new(),
             output: None,
-            date: "fixture".into(),
+            utc_offset_minutes: 0,
             key: old,
             path: dir.path().join("stale.html").to_string_lossy().into(),
             include_unchanged: false
@@ -560,6 +561,7 @@ fn shift_block_is_one_stop_and_one_undo_step() {
     assert_eq!((before.total, before.matched), (1, 5));
     let expanded = d
         .review_action(ReviewAction::Query {
+            presentation: false,
             key: key(&d),
             expanded: vec![0],
             offset: 2,
@@ -698,7 +700,7 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
         .unwrap();
     let path = dir.path().join("round1.vsfreview");
     let publish = |d: &Documents, path: &Path, kind, author| {
-        d.publish_review(key(d), path, kind, author, "today", false)
+        d.publish_review(key(d), path, kind, author, 0, false)
             .unwrap()
     };
     ready(&reviewer);
@@ -862,7 +864,7 @@ fn untouched_package_bytes_survive_untitled_import_with_bom_and_noncanonical_spa
         &copy,
         exchange::OutputKind::Package,
         "Sam",
-        "today",
+        0,
         false,
     )
     .unwrap();
@@ -925,4 +927,119 @@ fn unchanged_projection_does_not_crowd_out_later_removed_cues() {
         .unwrap();
     assert_eq!(page.rows.len(), 201);
     assert_eq!(page.rows.last().unwrap().kind, engine::Kind::Removed);
+}
+
+#[test]
+fn projections_fetch_consecutive_removals_by_identity_and_number_survivors_from_revised() {
+    let (_dir, d, original, working) = fixture();
+    fs::write(&original, "1\n00:00:00,000 --> 00:00:01,000\nGone one\n\n2\n00:00:02,000 --> 00:00:03,000\nGone two\n\n3\n00:01:00,000 --> 00:01:02,000\nThe survivor\n").unwrap();
+    fs::write(
+        &working,
+        "1\n00:01:00,000 --> 00:01:02,000\nThe survivor!\n",
+    )
+    .unwrap();
+    let doc = action(
+        &d,
+        super::super::Action::Open {
+            path: working.to_string_lossy().into(),
+            discard: true,
+        },
+    );
+    attach(&d, &original);
+    ready(&d);
+    let key = key(&d);
+    let result = d
+        .review_action(ReviewAction::Query {
+            key,
+            presentation: true,
+            expanded: vec![],
+            offset: 0,
+            limit: 1,
+            filter: None,
+        })
+        .unwrap();
+    let summary = serde_json::to_value(result.presentation.unwrap()).unwrap();
+    let rows = summary["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 3);
+    for (i, row) in rows[..2].iter().enumerate() {
+        assert_eq!(row["nextCue"], doc.cues[0].id);
+        assert_eq!(row["sourceIndex"], i);
+        assert!(row.get("original").is_none());
+    }
+    assert_eq!(rows[2]["sourceIndex"], 0);
+    let project = |indices| d.review_action(ReviewAction::ProjectRemovals { key, indices });
+    let result = project(vec![0, 1]).unwrap();
+    assert_eq!(result.rows[0].original[0].text, "Gone one");
+    assert_eq!(result.rows[1].original[0].text, "Gone two");
+    assert!(project(vec![2]).is_err());
+    assert!(project(vec![0; 201]).is_err());
+}
+
+#[test]
+fn dense_table_filter_uses_identities_and_fetches_only_visible_diffs() {
+    let (_dir, d, original, working) = fixture();
+    let make = |edit: &str| {
+        let mut text = String::new();
+        use std::fmt::Write;
+        for i in 0..10_000u64 {
+            let start = Milliseconds::new(i * 250).unwrap();
+            let end = Milliseconds::new(i * 250 + 500).unwrap();
+            let suffix = if i % 10 == 0 { edit } else { "" };
+            writeln!(
+                text,
+                "{}\n{} --> {}\nLine {i}{suffix}\n",
+                i + 1,
+                srt::format_time(start),
+                srt::format_time(end)
+            )
+            .unwrap();
+        }
+        text
+    };
+    fs::write(&original, make(" original")).unwrap();
+    fs::write(&working, make(" revised")).unwrap();
+    action(
+        &d,
+        super::super::Action::Open {
+            path: working.to_string_lossy().into(),
+            discard: true,
+        },
+    );
+    attach(&d, &original);
+    ready(&d);
+    let key = key(&d);
+    let page = d
+        .review_action(ReviewAction::Query {
+            key,
+            presentation: true,
+            expanded: vec![],
+            offset: 0,
+            limit: 1,
+            filter: None,
+        })
+        .unwrap();
+    assert_eq!(page.rows.len(), 1);
+    let index = serde_json::to_value(page.presentation.unwrap()).unwrap();
+    let rows = index["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 1000);
+    assert!(
+        rows.iter()
+            .all(|r| r.get("words").is_none() && r.get("text").is_none())
+    );
+    let ids = rows
+        .iter()
+        .skip(500)
+        .take(25)
+        .map(|r| r["revised"][0].as_u64().unwrap().try_into().unwrap())
+        .collect();
+    let window = d
+        .review_action(ReviewAction::Projection {
+            key,
+            ids,
+            start_ms: 0u64.try_into().unwrap(),
+            end_ms: 0u64.try_into().unwrap(),
+        })
+        .unwrap();
+    assert_eq!(window.rows.len(), 25);
+    assert!(window.presentation.is_none());
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '../ui/date-format';
   import { countLabel } from '../ui/count-label';
   import type { RecentWork } from './recent-work.svelte';
   import type { RecentEntry } from '../client';
@@ -43,7 +44,7 @@
               ? ` · ${name(entry.mediaPath)}`
               : ''}</span
           >
-          <small>Last used {new Date(entry.usedAtMs).toLocaleString()}</small>
+          <small>Last used {formatDateTime(entry.usedAtMs)}</small>
           {#if entry.summary}
             <span
               >{countLabel(entry.summary.cues, 'cue')} · {countLabel(
@@ -54,10 +55,8 @@
             <small
               title={`Source SHA-256: ${entry.summary.sourceSha256}\nProfile: ${entry.summary.profileHash}`}
             >
-              Last checked {new Date(
-                entry.summary.checkedAtMs,
-              ).toLocaleString()} · {entry.summary.profileName}{entry.summary
-                .complete
+              Last checked {formatDateTime(entry.summary.checkedAtMs)} · {entry
+                .summary.profileName}{entry.summary.complete
                 ? ''
                 : ' · partial coverage'}
             </small>

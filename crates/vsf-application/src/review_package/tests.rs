@@ -204,12 +204,20 @@ fn report_summary_uses_singular_for_one_open_thread() {
     let p = fixture();
     let parsed = p.original.parsed().unwrap();
     let c = compare(parsed.document.cues(), parsed.document.cues());
-    let report = sections(&p, &c, false).unwrap();
-    assert!(
-        report
-            .end_html
-            .contains("<p>1 open thread · 1 thread in total</p>")
+    let report = sections(&p, &c, false, 0).unwrap();
+    let html = comparison::html(
+        &c,
+        &comparison::ReportOptions {
+            original_name: "a",
+            revised_name: "b",
+            original_format: Format::Srt,
+            revised_format: Format::Srt,
+            date: "fixture",
+            include_unchanged: false,
+        },
+        &report,
     );
+    assert!(html.contains(">1 open thread<") && html.contains(">of 1 thread<"));
 }
 
 #[test]
@@ -227,12 +235,14 @@ fn report_block_is_inert_unique_and_optional() {
         .unwrap(),
     ];
     let opts = comparison::ReportOptions {
+        original_format: subtitle_formats::Format::Srt,
+        revised_format: subtitle_formats::Format::Srt,
         original_name: "A",
         revised_name: "B",
         date: "today",
         include_unchanged: false,
     };
-    let render = |embed| comparison::html(&c, &opts, &sections(&p, &c, embed).unwrap());
+    let render = |embed| comparison::html(&c, &opts, &sections(&p, &c, embed, 0).unwrap());
     let html = render(true);
     assert_eq!(read(html.as_bytes()).unwrap(), p);
     for input in [html.as_bytes(), &p.write().unwrap()] {
@@ -475,4 +485,92 @@ fn dense_all_fallback_reanchoring_budget() {
     assert!(attached.iter().enumerate().all(|(i, p)| *p == Some(i * 10)));
     eprintln!("Dense all-fallback: 10k cues, 1k threads, {elapsed:?} (500 ms budget)");
     assert!(elapsed < std::time::Duration::from_millis(500));
+}
+#[test]
+fn detached_report_uses_each_source_clock_and_one_export_offset() {
+    let original = cue(1, 3120, 4980, "Before");
+    let revised = cue(1, 3120, 4980, "After");
+    let mut package = fixture();
+    package.original.format = "ass".into();
+    package.revised.format = "vtt".into();
+    package.threads = vec![thread(&compare(&[original], &[revised]).changes[0])];
+    let empty = compare(&[], &[]);
+    let html = comparison::html(
+        &empty,
+        &comparison::ReportOptions {
+            original_format: Format::Ass,
+            revised_format: Format::WebVtt,
+            original_name: "A.ass",
+            revised_name: "B.vtt",
+            date: &report_date(20, -300).unwrap(),
+            include_unchanged: false,
+        },
+        &sections(&package, &empty, false, -300).unwrap(),
+    );
+    assert!(html.contains("0:00:03.12–0:00:04.98 · Before"));
+    assert!(html.contains("00:00:03.120–00:00:04.980 · After"));
+    assert_eq!(html.matches("UTC−05:00").count(), 1);
+    assert!(html.contains("<time>31 Dec 1969 at 19:00</time>"));
+}
+#[test]
+fn discussion_report_demo() {
+    let mut p = fixture();
+    let lines = [
+        "The station is quiet.",
+        "Last train at midnight.",
+        "Wait by the gate.",
+        "The platform is empty.",
+        "I'll bring a ticket.",
+        "See you there.",
+    ];
+    let mut a = Vec::new();
+    let mut b = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let start = i as u64 * 9000;
+        a.push(cue(i as u64 + 1, start, start + 2000, line));
+        let shift = if i >= 3 { 300 } else { 0 };
+        b.push(cue(
+            i as u64 + 1,
+            start + shift,
+            start + 2000 + shift,
+            match i {
+                0 => "The station is silent.",
+                1 => "Last train\nat midnight.",
+                _ => line,
+            },
+        ));
+    }
+    let c = compare(&a, &b);
+    p.threads = [
+        ("Ana", "Listen for the announcement before the cut."),
+        ("Sam", "The break reads well here."),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, (name, msg))| {
+        Thread::new(
+            Anchor::from_change(&c.changes[i], 0),
+            name.into(),
+            1795187400000 + i as u64 * 60000,
+            msg.into(),
+        )
+        .unwrap()
+    })
+    .collect();
+    let rendered = comparison::html(
+        &c,
+        &comparison::ReportOptions {
+            original_format: Format::Srt,
+            revised_format: Format::Srt,
+            original_name: "Station.srt",
+            revised_name: "Station.reviewed.srt",
+            date: "20 Nov 2026 at 10:14 UTC−05:00",
+            include_unchanged: true,
+        },
+        &sections(&p, &c, false, -300).unwrap(),
+    );
+    assert_eq!(
+        rendered,
+        include_str!("../../../../tests/fixtures/comparison/discussion/expected.html")
+    );
 }

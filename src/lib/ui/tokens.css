@@ -12,6 +12,27 @@
 
 :root {
   color-scheme: dark;
+  --diff-del-bg: rgba(240, 97, 109, 0.2);
+  --diff-del-text: #ffb3b9;
+  --diff-del-line: #f0616d;
+  --diff-ins-bg: rgba(63, 199, 154, 0.2);
+  --diff-ins-text: #a6f0d3;
+  --kind-text: #f08ac8;
+  --kind-text-soft: rgba(240, 138, 200, 0.15);
+  --kind-timing: var(--warn);
+  --kind-timing-soft: var(--warn-soft);
+  --kind-added: var(--ok);
+  --kind-added-soft: var(--ok-soft);
+  --kind-removed: var(--err);
+  --kind-removed-soft: var(--err-soft);
+  --kind-group: var(--cut);
+  --kind-group-soft: var(--cut-soft);
+  --kind-style: var(--wave);
+  --kind-style-soft: rgba(95, 163, 196, 0.15);
+  --thread-open: #8fb4f0;
+  --thread-open-soft: rgba(76, 127, 230, 0.18);
+  --thread-resolved: var(--ok);
+  --thread-resolved-soft: var(--ok-soft);
 
   --control-pad-y: 5px;
   --control-pad-x: 9px;
@@ -98,6 +119,16 @@
 
 :root[data-theme='light'] {
   color-scheme: light;
+  --diff-del-bg: rgba(208, 59, 76, 0.13);
+  --diff-del-text: #8e1b26;
+  --diff-del-line: #c43344;
+  --diff-ins-bg: rgba(22, 149, 108, 0.15);
+  --diff-ins-text: #0b5536;
+  --kind-text: #b2357f;
+  --kind-text-soft: rgba(178, 53, 127, 0.11);
+  --kind-style-soft: rgba(62, 137, 173, 0.13);
+  --thread-open: #2457b8;
+  --thread-open-soft: rgba(52, 102, 214, 0.12);
 
   --surface-base: #eceff3;
   --surface-panel: #ffffff;

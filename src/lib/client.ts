@@ -628,6 +628,9 @@ export const defaultPreferences: Preferences = {
 export async function saveLayout(layout: Preferences['layout']): Promise<void> {
   await commands.layoutSave(layout);
 }
+export function getSystemRegion(): Promise<string | null> {
+  return isTauri() ? commands.systemRegion() : Promise.resolve(null);
+}
 export function getPreferences(): Promise<Preferences> {
   return commands.preferencesGet();
 }

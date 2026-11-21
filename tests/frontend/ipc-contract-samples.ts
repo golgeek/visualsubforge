@@ -3173,6 +3173,11 @@ export const preferences = {
             width: 120,
           },
           {
+            id: 'original',
+            visible: true,
+            width: 240,
+          },
+          {
             id: 'text',
             visible: true,
             width: 240,
@@ -3246,6 +3251,11 @@ export const preferences = {
             id: 'actor',
             visible: false,
             width: 120,
+          },
+          {
+            id: 'original',
+            visible: true,
+            width: 240,
           },
           {
             id: 'text',
@@ -3323,6 +3333,11 @@ export const preferences = {
             width: 120,
           },
           {
+            id: 'original',
+            visible: true,
+            width: 240,
+          },
+          {
             id: 'text',
             visible: true,
             width: 240,
@@ -3398,6 +3413,11 @@ export const preferences = {
             width: 120,
           },
           {
+            id: 'original',
+            visible: true,
+            width: 240,
+          },
+          {
             id: 'text',
             visible: true,
             width: 240,
@@ -3471,6 +3491,11 @@ export const preferences = {
             id: 'actor',
             visible: false,
             width: 120,
+          },
+          {
+            id: 'original',
+            visible: true,
+            width: 240,
           },
           {
             id: 'text',
