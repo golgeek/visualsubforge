@@ -119,7 +119,7 @@ def capture_resource(resource, destination, *, formula_name=None):
     if (formula_name == 'dav1d' and resource.get('test_only') is True
             and all(resource.get(key) == value for key, value in DAV1D_TEST_MEDIA.items())):
         return {'kind': 'Homebrew post-install test media, excluded from VSF sources and fixtures',
-                'url': resource['url'], 'formula_sha256': resource['checksum'], 'notices': []}
+                'url': resource['url'], 'declared_sha256': resource['checksum'], 'notices': []}
     destination.mkdir(parents=True, exist_ok=False)
     url, checksum = resource['url'], resource['checksum']
     if checksum:

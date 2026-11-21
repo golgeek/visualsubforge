@@ -81,7 +81,7 @@ class HomebrewSources(unittest.TestCase):
             record = capture_resource(media, output, formula_name='dav1d')
             fetch.assert_not_called()
             self.assertFalse(output.exists())
-            self.assertEqual(record['formula_sha256'], media['checksum'])
+            self.assertEqual(record['declared_sha256'], media['checksum'])
             self.assertEqual(record['url'], media['url'])
             fetch.side_effect = ValueError('Normal capture required')
             for name, resource in [('another-formula', media), ('dav1d', dict(media, test_only=False)),
