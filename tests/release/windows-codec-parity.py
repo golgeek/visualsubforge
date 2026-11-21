@@ -92,6 +92,10 @@ def main():
             output = args.output / codec
             output.mkdir()
             baseline['resync_srt_sha256'] = resync_parity(args.before, None, args.fixtures / 'resync', output, encoder)
+            observations = {'pr39': record['identical'], 'replay': baseline,
+                            'pr39_fixture_sha256': record['fixture_sha256'],
+                            'replay_fixture_sha256': hashlib.sha256(fixture.read_bytes()).hexdigest()}
+            (output / 'observations.json').write_text(json.dumps(observations, indent=2) + '\n', encoding='utf-8')
             if baseline != record['identical']:
                 raise ValueError(f'Recreated {codec} observations differ from recorded PR 39 results')
             # Matroska assigns a fresh segment UID on encode. Retain the actual
