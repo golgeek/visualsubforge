@@ -125,6 +125,8 @@ including IPC generation and native-feature tests.
 | Native builds and playback | [Mac build guide](docs/build-macos.md), [Windows](docs/native-runtime.md#windows-native-playback-experiment), [Linux](docs/native-runtime.md#linux-native-playback-experiment), and [runtime selection](docs/native-runtime.md#development-runtime-selection-notes). Keep exact SDK/runtime identities and adoption limits. |
 | Documentation | Check relative paths and section anchors against tracked files plus intended additions, not local notes; run `git diff --check`. Preserve prerequisites, arguments and limitations when moving commands. |
 
+Give each native command its own CI step on Windows, or set `$PSNativeCommandUseErrorActionPreference = $true` when commands must share a PowerShell step.
+
 CI definitions live in [application checks](.github/workflows/checks.yml) and
 [native build contracts](.github/workflows/native.yml). Configured jobs alone
 are not evidence of hosted execution. Consult [release preparation](docs/releases.md)
