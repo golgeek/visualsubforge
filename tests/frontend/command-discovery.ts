@@ -39,3 +39,4 @@ export async function chooseCommand(host: Element, id: ActionId) {
   }
   await tick();
 }
+// Frontend-only path-filter control.
