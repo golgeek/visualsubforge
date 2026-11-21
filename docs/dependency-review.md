@@ -24,27 +24,27 @@ The CLI also serves as the application’s plugin helper. NSIS, the GUI and the 
 record the same product, publisher, version and copyright. The metadata check
 binds FFmpeg and ffprobe to their original build and records their own fields.
 
-The [November Windows inventory](https://github.com/golgeek/visualsubforge/actions/runs/43650584065)
-contains 31 MSYS2 library packages. The table records their package declarations
-and retained upstream notices. The release build captures the actual versions,
+The [Windows package inventory](https://github.com/golgeek/visualsubforge/actions/runs/44834011693)
+contains 27 MSYS2 packages supplying shipped DLLs. The table records their
+package declarations and retained upstream notices. The release build captures the actual versions,
 licenses, signatures and hashes again. For application crates and npm packages
 see `application-inventory.json` and its notices. For the native, installer and
 compiler inputs see `native-inventory.json`, the installer inventory and the
 platform evidence described below.
 
-| Shipped package | November version | License or notice |
+| Shipped package | Audited version | License or notice |
 | --- | --- | --- |
 | brotli | 1.2.1-1 | MIT |
 | bzip2 | 1.0.8-4 | bzip2-1.0.6 |
-| dav1d | 1.5.4-1 | BSD-2-Clause |
+| dav1d | 1.5.5-1 | BSD-2-Clause |
 | expat | 2.10.0-1 | MIT |
-| fontconfig | 2.18.3-1 | Fontconfig permissive notices |
+| fontconfig | 2.18.4-1 | Fontconfig permissive notices |
 | freetype | 2.15.0-1 | GPL-2.0-or-later OR FTL |
 | fribidi | 1.0.18-1 | LGPL-2.1-or-later |
 | gettext-runtime | 1.0-1 | GPL-3.0-or-later AND LGPL-2.1-or-later |
 | glib2 | 2.90.1-1 | LGPL-2.1-or-later |
 | graphite2 | 1.3.15-1 | LGPL-2.1-or-later |
-| harfbuzz | 15.1.0-1 | MIT |
+| harfbuzz | 15.2.0-1 | MIT |
 | lcms2 | 2.20-1 | MIT AND GPL-3.0-or-later |
 | libass | 0.17.5-1 | ISC |
 | libc++ | 23.1.5-1 | Apache-2.0 WITH LLVM-exception |
@@ -54,11 +54,7 @@ platform evidence described below.
 | libplacebo | 7.387.0-1 | LGPL2.1 |
 | libpng | 1.6.59-2 | libpng notices |
 | libunibreak | 7.0-1 | Zlib |
-| libvpx | 1.17.0-1 | BSD-3-Clause |
-| libwinpthread | 14.0.0.r598.ge3d18511f-1 | MIT AND BSD-3-Clause |
-| libx264 | 0.165.r3222.b35605a-3 | GPL-2.0-or-later; commercial licensing also offered |
 | luajit | 2.1.1793275035-1 | MIT |
-| opus | 1.6.1-2 | BSD-3-Clause |
 | pcre2 | 10.49-2 | BSD-3-Clause |
 | shaderc | 2026.4-1 | Apache-2.0 |
 | spirv-cross | 1~1.4.363.0-1 | Apache-2.0 |
@@ -66,20 +62,33 @@ platform evidence described below.
 | xz | 5.8.4-1 | 0BSD AND LGPL-2.1-or-later AND GPL-2.0-or-later |
 | zlib | 1.4-2 | Zlib |
 
-The custom FFmpeg build enables GPL and version 3 features and links x264.
-mpv's build options, upstream licenses and patches accompany the native archives.
-x264 offers commercial licensing and needs resolution before applying for signing.
-An SPDX license alone cannot establish whether a vendor also offers commercial
-terms. The WebView2 loader and Microsoft runtime inputs require separate review
-against the platform-library exception. No SignPath acceptance has been obtained.
+| Other shipped code or installer input | License evidence |
+| --- | --- |
+| Custom FFmpeg 8.1.2 libraries and tools | This build reports LGPL-3.0-or-later, with version 3 enabled and GPL/nonfree disabled. |
+| Custom mpv at `c1529642089b` with the repository patches | The build receipt enables mpv’s GPL-2.0-or-later configuration. |
+| Tauri 2.12.0 bundler template and nsis_tauri_utils 0.5.3 helper | The pinned sources carry the MIT and Apache-2.0 alternatives. The helper’s locked Rust inputs have their own notices. |
+| NSIS 3.11 stub and plugins | NSIS’s COPYING specifies the zlib/libpng license by default, the bzip2 license for bzip2 and CPL-1.0 for its LZMA module. The installer archive preserves the distribution and per-plugin notices. |
+| WebView2Loader static library from Microsoft.Web.WebView2 1.0.3800.47 | The SDK has BSD-3-Clause terms and additional NOTICE.txt. The nine loader objects are compared to the locked webview2-com-sys crate. Evergreen WebView2 is installed separately. |
+| Rust, npm and Microsoft toolchain link inputs | The application, installer and platform inventories enumerate each dependency and its licenses/notices. The audit identifies proprietary platform inputs and their available provenance. |
 
-The GUI and CLI use FFmpeg for audio samples, frame and scene analysis, subtitle
-extraction and resync. None requests libx264, libvpx or libopus encoding. Fixture
-generation uses libx264. A separately tested Windows build could use FFmpeg’s
-internal VP8/VP9 and Opus decoders and drop the external encoders. Removing x264
-would remove its GPL configuration requirement. A build with `--disable-gpl`
-must still demonstrate that every required filter, codec and mpv linkage works.
-The shipped configuration continues to include all three libraries.
+The Windows package retains 41 native executables and DLLs. The removal of
+x264, libvpx and libopus also removes their transitive libwinpthread DLL.
+FFmpeg builds with GPL mode disabled. FFmpeg and mpv source releases,
+configuration, notices and patches accompany the package. The fixture build
+uses the existing Chocolatey FFmpeg 9.0.2 encoder toolchain. The Windows package audit rejects any of the three
+removed external codec DLLs, including through transitive or delayed imports.
+
+The [installed runtime comparison](https://github.com/golgeek/visualsubforge/actions/runs/44839538621)
+used identical synthetic VP8/Opus and VP9/Opus media with the original and
+replacement packages. Decoded video, both audio streams, waveform bins, scene
+cuts and both sets of resynchronized subtitles matched. mpv and FFmpeg logged
+their native decoders. The GUI, CLI and plugin helper do not use these encoders.
+
+Removing x264 resolves the known commercial dual-license concern in the Windows
+media closure. The WebView2 loader and Microsoft runtime inputs still require
+owner review against the signing program’s platform-library exception. The
+per-component license records and notices accompany each package. SignPath
+eligibility remains the provider’s decision.
 
 The earlier Windows candidate artifact measured 5,828,956,530 bytes. For that
 signed inventory, the exact registry objects comprised 5,232,816,268 bytes of
@@ -88,8 +97,10 @@ selection to those same objects retains 1,072,344,537 bytes of sources (0.999
 GiB, 54 of 96 archives). All 40 MinGW wrapper recipes matched their signed
 package hashes. The recipes identified 13 upstream commit/checksum pairs.
 Each CRT or toolchain-only winpthreads input matched a retained headers version.
-The source for the shipped libwinpthread DLL and the xxhash source remain. Most of
-its size comes from signed MSYS2 compiler/runtime packages at multiple versions.
+That selection retains the then-shipped libwinpthread and xxhash sources. In
+the codec-reduced package, the latest winpthreads input is toolchain-only and
+uses the same snapshot comparison as earlier versions. Most of the original
+inventory’s size comes from signed MSYS2 compiler/runtime packages at multiple versions.
 The MinGW headers declare **ZPL-2.1 AND LGPL-2.1-or-later**. Their full matching
 sources must accompany the distribution, including source archives shared by
 other package identities. The collector verifies each signed binary and source archive and retains the
@@ -102,7 +113,10 @@ including xxhash. Only reviewed permissive LLVM/Rust toolchain-only archives and
 the redundant binary copies are omitted. The inventory records verified and
 published byte counts. Custom FFmpeg’s original tarball, complete patch set and
 build script reproduce the prepared tree.
-The release collector splits oversized source archives into numbered parts.
+For the codec-reduced Windows inventory from run 44834011693, the same rule
+selects 936,060,726 bytes (49 of 90 archives) from 5,050,856,851 verified
+source bytes and omits 253,173,405 bytes of binary-package copies. The release
+collector splits oversized source archives into numbered parts.
 The macOS collector uses per-formula sources and the Linux collector uses Debian
 source packages and audited build inputs. Neither uses this MSYS2 toolchain graph.
 
@@ -133,7 +147,9 @@ WebKitGTK resolved 49 XML symbols against that same system library. The media
 libraries need ABI 2. The diagnostic workflow retains the installed-GUI check
 on hosted 26.04 for both display backends and records the consumer, provider
 and symbols. A separate Ubuntu 26.04 build and source inventory are a v0.1.1
-item.
+item. Both hosted GUIs rendered and played the DASH fixture, then failed
+the binding audit. See the [Wayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44841406565/artifacts/14681650584)
+and [XWayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44841406565/artifacts/14681306546).
 
 ## Artifact evidence
 

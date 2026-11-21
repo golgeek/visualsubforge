@@ -21,14 +21,14 @@ mv "$output/source/VERSION" "$output/source/VERSION.txt"
 patch --batch --fuzz=0 -p1 -d "$output/source" < "$recipe_root/tests/native/ffmpeg-windows/0001-gfxcapture-include-system-error.patch"
 cd "$output/build"
 # Built-in codecs/demuxers/filters remain enabled. Explicit external libraries
-# cover AV1, VP8/9, Opus, H.264 encoding and compressed inputs. Whisper/GGML is
+# cover AV1 and compressed inputs. VP8, VP9 and Opus use built-in decoders. Whisper/GGML is
 # deliberately absent: VSF has no speech-recognition operation and that runtime
 # has an independently reproduced unload hazard.
 options=(
   "--prefix=$(cygpath -m "$output/sdk")" --cc=clang --cxx=clang++
   --disable-autodetect --enable-shared --disable-static --disable-debug
-  --disable-doc --disable-ffplay --enable-gpl --enable-version3
-  --enable-libdav1d --enable-libopus --enable-libvpx --enable-libx264
+  --disable-doc --disable-ffplay --disable-gpl --enable-version3
+  --enable-libdav1d
   --enable-zlib --enable-bzlib --enable-lzma --enable-schannel
   --enable-dxva2 --enable-d3d11va
 )

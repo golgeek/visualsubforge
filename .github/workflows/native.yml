@@ -78,6 +78,7 @@ jobs:
       - name: Compile the Linux adapter and Rust FFI
         if: runner.os == 'Linux'
         run: |
-          c++ -std=c++17 -fsyntax-only $(pkg-config --cflags gtk+-3.0 epoxy) -I"$RUNNER_TEMP/mpv-headers/source/include" crates/media-player/native/player_linux.cpp
+          pkg-config --cflags gtk+-3.0 epoxy > "$RUNNER_TEMP/gtk-cflags"
+          c++ -std=c++17 -fsyntax-only @"$RUNNER_TEMP/gtk-cflags" -I"$RUNNER_TEMP/mpv-headers/source/include" crates/media-player/native/player_linux.cpp
           rustup show
           cargo check --locked -p media-player --features native-mpv

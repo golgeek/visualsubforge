@@ -35,6 +35,17 @@ class WindowsGraph(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Unexpected runtime"):
                     PACKAGER.resolve_graph([app], [root], imports.__getitem__)
 
+    def test_fixture_encoders_cannot_enter_the_transitive_package_graph(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            app, ffmpeg = root / "vsf.exe", root / "avcodec.dll"
+            app.touch()
+            ffmpeg.touch()
+            for name in ["libx264-165.dll", "libvpx-1.dll", "libopus-0.dll"]:
+                (root / name).touch()
+                with self.assertRaisesRegex(ValueError, "Unexpected fixture codec library"):
+                    PACKAGER.resolve_graph([app], [root], {app: [ffmpeg.name], ffmpeg: [name]}.__getitem__)
+
     def test_compiler_runtime_is_not_assumed_to_be_an_os_library(self):
         self.assertFalse(PACKAGER.is_platform("vcruntime140.dll"))
         self.assertFalse(PACKAGER.is_platform("libc++.dll"))
