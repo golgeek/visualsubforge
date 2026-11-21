@@ -85,6 +85,12 @@ jobs:
         if: inputs.reference_run != ''
         run: |
           (cd "$RUNNER_TEMP/reference" && sha256sum -c SHA256SUMS)
+          # The hosted runner is separate from the clean install containers.
+          # Both extracted packages need their own declared desktop runtimes.
+          sudo apt-get update
+          sudo apt-get satisfy -y --no-install-recommends \
+            "$(dpkg-deb -f "$RUNNER_TEMP"/reference/*.deb Depends)" \
+            "$(dpkg-deb -f "$RUNNER_TEMP"/candidate/*.deb Depends)"
           dpkg-deb -x "$RUNNER_TEMP"/reference/*.deb "$RUNNER_TEMP/before"
           dpkg-deb -x "$RUNNER_TEMP"/candidate/*.deb "$RUNNER_TEMP/after"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
