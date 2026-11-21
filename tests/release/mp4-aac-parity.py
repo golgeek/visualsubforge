@@ -1,10 +1,14 @@
 """Check retained release MP4 duration, decoded frames and native-rate AAC padding."""
 import argparse
+from array import array
 from decimal import Decimal
 import hashlib
 import json
+from itertools import combinations
 from pathlib import Path
 import subprocess
+
+from codec_parity_audio import sample_differences
 
 
 def capture(bin_dir, fixture):
@@ -28,8 +32,8 @@ def capture(bin_dir, fixture):
     if '#tb 0: 1/1000000' not in framehash:
         raise ValueError('Unexpected frame time base')
     frames = [line.strip() for line in framehash.splitlines() if line and not line.startswith('#')]
-    if not frames or len(pcm) % 2:
-        raise ValueError('Empty video or incomplete PCM')
+    if len(frames) != 360 or len(pcm) % 2:
+        raise ValueError(f'Expected 360 complete video frames and aligned PCM, found {len(frames)} frames')
     return {'probe': info, 'frames': frames, 'samples': len(pcm) // 2,
             'pcm_sha256': hashlib.sha256(pcm).hexdigest()}, pcm
 
@@ -69,11 +73,25 @@ def compare_packages(directory):
         reports.append(report['files'])
     for name in ('h264-1080p.mp4', 'hevc-4k.mp4'):
         reference = reports[0][name]
+        decoded = {}
         for runner, report in zip(runners, reports, strict=True):
             candidate = report[name]['candidate']
+            data = (directory / ('decoder-parity-' + runner) / (name + '.s16le')).read_bytes()
+            if hashlib.sha256(data).hexdigest() != candidate['pcm_sha256']:
+                raise ValueError(f'{runner}: PCM hash differs from observation for {name}')
+            samples = array('h', data)  # All four validation hosts are little-endian.
+            if len(samples) != 576512:
+                raise ValueError(f'{runner}: unexpected PCM count for {name}: {len(samples)}')
+            decoded[runner] = samples
             if (report[name]['file_sha256'] != reference['file_sha256'] or candidate['samples'] != 576512
                     or any(candidate[k] != reference['candidate'][k] for k in ('probe', 'frames'))):
                 raise ValueError(f'{runner}: retained MP4 bytes, decoded frame/timing or sample count differs: {name}')
+        for first, second in combinations(runners, 2):
+            stats = sample_differences(decoded[first], decoded[second])
+            largest = stats['max_absolute_difference']
+            print(f'{first} / {second} {name}: largest difference {largest} signed-16 units')
+            if largest > 2:
+                raise ValueError(f'{first} / {second}: cross-platform PCM exceeds the bound for {name}')
         print(f'{name}: four packages, 576512 samples, {len(reference["candidate"]["frames"])} identical frames and timestamps')
 
 

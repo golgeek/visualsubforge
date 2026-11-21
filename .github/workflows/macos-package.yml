@@ -1,242 +1,53 @@
-name: macOS preview packages
+name: Retained Intel AAC diagnostic
 on:
-  workflow_call:
-    inputs:
-      architecture:
-        type: string
-        default: both
-      sign:
-        type: boolean
-        default: false
-      unsigned_run_id:
-        type: string
-        default: ''
   workflow_dispatch:
-    inputs:
-      architecture:
-        description: Architecture to build
-        type: choice
-        options: [both, aarch64, x86_64]
-        default: both
-      sign:
-        description: Sign and notarize the validation package (does not publish a release)
-        type: boolean
-        default: true
-      unsigned_run_id:
-        description: Reuse this workflow's successful main-branch package jobs for a signing-only retry (empty builds packages)
-        type: string
-        default: ''
 permissions:
   contents: read
   actions: read
-concurrency:
-  group: macos-preview-${{ github.ref }}-${{ inputs.architecture }}
-  cancel-in-progress: false
 jobs:
-  package:
-    name: Native package (${{ matrix.arch }})
-    if: ${{ inputs.unsigned_run_id == '' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(inputs.architecture == 'aarch64' && '[{"os":"macos-15","arch":"aarch64"}]' || inputs.architecture == 'x86_64' && '[{"os":"macos-15-intel","arch":"x86_64"}]' || '[{"os":"macos-15","arch":"aarch64"},{"os":"macos-15-intel","arch":"x86_64"}]') }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+  intel:
+    runs-on: macos-15-intel
     env:
-      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
-      - name: Install application and native build prerequisites
+      - name: Build the Intel FFmpeg SDK
         run: |
+          test "$(uname -m)" = x86_64
           sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          xcodebuild -version
-          xcrun --sdk macosx --show-sdk-version
-          rustup show
-          brew install mpv pkg-config xxhash
-          if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
-      - name: Check packaging controls before the native build
-        run: python -m unittest discover -s tests/release -p 'test_*.py'
-      - name: Select Make toolchains and cache paths
-        run: |
-          make paths JOBS=3 PYTHON=python
-          python scripts/native-build-paths.py github target/native/macos/build-paths.json
-      - name: Restore the ANGLE SDK selected by Make
-        id: angle-cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ${{ env.VSF_ANGLE_BUILD }}/sdk
-            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
-            ${{ env.VSF_ANGLE_BUILD }}/.complete
-          key: make-angle-${{ matrix.os }}-${{ matrix.arch }}-${{ env.VSF_ANGLE_KEY }}
-      - name: Build native SDKs, GUI and CLI through Make
-        run: make app JOBS=3 PYTHON=python
-      # Preserve a completed SDK even if later compilation/packaging fails.
-      - name: Save the completed ANGLE SDK
-        if: ${{ !cancelled() && steps.angle-cache.outputs.cache-hit != 'true' && hashFiles(format('{0}/.complete', env.VSF_ANGLE_BUILD)) != '' }}
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ${{ env.VSF_ANGLE_BUILD }}/sdk
-            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
-            ${{ env.VSF_ANGLE_BUILD }}/.complete
-          key: ${{ steps.angle-cache.outputs.cache-primary-key }}
-      - name: Capture matching Rust/frontend sources and notices
-        run: python scripts/application-sources.py --target ${{ matrix.arch }}-apple-darwin --features visualsubforge/macos-angle,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
-      - name: Assemble and audit the private dependency bundle
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python scripts/package-macos.py \
-            --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
-            --vsf "$CARGO_TARGET_DIR/release/vsf" \
-            --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
-            --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_ANGLE_BUILD/sdk/out/Metal" \
-            --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" --placebo-build "$VSF_PLACEBO_BUILD" \
-            --application-sources "$RUNNER_TEMP/application-sources" \
-            --native-sources "$RUNNER_TEMP/native-sources" --homebrew-cellar "$(brew --cellar)" \
-            --mpv-build "$VSF_MPV_BUILD" --angle-sdk "$VSF_ANGLE_BUILD/sdk" \
-            --angle-receipt "$VSF_ANGLE_BUILD/build-receipt.json" \
-            --output "$RUNNER_TEMP/package/VisualSubForge.app"
-      - name: Exercise relocated packaged tools and failed-install behavior
-        run: |
-          python scripts/resync-fixtures.py
-          python tests/release/packaged-cli.py --bundle "$RUNNER_TEMP/package/VisualSubForge.app" --bin Contents/MacOS --output "$RUNNER_TEMP/packaged-cli-check"
-      - name: Archive the unsigned validation artifact
-        run: |
-          mkdir -p "$RUNNER_TEMP/artifacts"
-          c++ -std=c++17 -Wall -Wextra -Werror -fobjc-arc \
-            -I"$(pkg-config --variable=includedir mpv)" tests/release/macos-player-init.mm \
-            -L"$RUNNER_TEMP/package/VisualSubForge.app/Contents/Frameworks" -lmpv.2 \
-            -framework AppKit -Wl,-rpath,@executable_path/VisualSubForge.app/Contents/Frameworks \
-            -o "$RUNNER_TEMP/artifacts/macos-player-init"
-          version=$(python scripts/release_version.py)
-          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_${version}_${{ matrix.arch }}_macos-unsigned.zip"
-          cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
-          cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
-          tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
-          tar -czf "$RUNNER_TEMP/artifacts/native-sources.tar.gz" -C "$RUNNER_TEMP/native-sources" .
-          cd "$RUNNER_TEMP/artifacts"
-          shasum -a 256 ./*.zip application-sources.tar.gz native-sources.tar.gz macos-player-init > SHA256SUMS
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: macos-unsigned-${{ matrix.arch }}
-          path: ${{ runner.temp }}/artifacts/
-          if-no-files-found: error
-          retention-days: 14
-      # Meson's raw logs include the inherited environment. Upload only the
-      # sanitized receipt/commands and the explicitly scoped CLI check.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ !cancelled() }}
-        with:
-          name: macos-package-evidence-${{ matrix.arch }}
-          path: |
-            target/native/macos/cache-inputs.json
-            target/native/macos/build-paths.json
-            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
-            ${{ env.VSF_ANGLE_BUILD }}/sdk/dependency-revisions.txt
-            ${{ env.VSF_MPV_BUILD }}/build-receipt.json
-            ${{ env.VSF_MPV_BUILD }}/commands.log
-            ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
-            ${{ env.VSF_PLACEBO_BUILD }}/commands.log
-            ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
-          retention-days: 14
-  sign:
-    name: Sign and notarize (${{ matrix.arch }})
-    needs: package
-    if: ${{ !cancelled() && inputs.sign && github.ref == 'refs/heads/main' && (needs.package.result == 'success' || (needs.package.result == 'skipped' && inputs.unsigned_run_id != '')) }}
-    runs-on: ${{ matrix.arch == 'aarch64' && 'macos-15' || 'macos-15-intel' }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: ${{ fromJSON(inputs.architecture == 'both' && '["aarch64","x86_64"]' || inputs.architecture == 'aarch64' && '["aarch64"]' || '["x86_64"]') }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.14.7'
-      - name: Validate the selected package run
-        id: package-source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VSF_PACKAGE_RUN: ${{ inputs.unsigned_run_id || github.run_id }}
-          VSF_PACKAGE_ARCH: ${{ matrix.arch }}
-        run: |
-          python - <<'PY'
-          import json, os, subprocess
-          run = os.environ['VSF_PACKAGE_RUN']
-          if not run.isdigit():
-              raise SystemExit('Package run must be a numeric Actions run ID')
-          endpoint = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run}"
-          def get(path):
-              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
-          source = get(endpoint)
-          standalone = source['path'] == '.github/workflows/macos-package.yml'
-          release = (source['path'] == '.github/workflows/release.yml'
-                     and run == os.environ['GITHUB_RUN_ID'] and source['head_sha'] == os.environ['GITHUB_SHA'])
-          if source['head_branch'] != 'main' or not (standalone or release):
-              raise SystemExit('Only this workflow\'s main-branch packages may be signed')
-          expected = f"Native package ({os.environ['VSF_PACKAGE_ARCH']})"
-          jobs = get(endpoint + '/jobs?per_page=100')['jobs']
-          if not any(job['name'].split(' / ')[-1] == expected and job['conclusion'] == 'success' for job in jobs):
-              raise SystemExit('The selected architecture has no successful package job')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f"run={run}\ncommit={source['head_sha']}\n")
-          print(f"Using package run {run} at {source['head_sha']}")
-          PY
+          brew install xz nasm pkg-config
+          if brew list --formula | grep -E '^ffmpeg(@.*)?$'; then exit 1; fi
+          python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
+          export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          export PKG_CONFIG_PATH="" PKG_CONFIG_LIBDIR="$(brew --prefix xz)/lib/pkgconfig"
+          sh scripts/build-ffmpeg.sh "$RUNNER_TEMP/ffmpeg" 4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: macos-unsigned-${{ matrix.arch }}
-          path: ${{ runner.temp }}/unsigned
+          name: macos-unsigned-x86_64
+          run-id: '44947623171'
           github-token: ${{ github.token }}
-          run-id: ${{ steps.package-source.outputs.run }}
-      - name: Expand the assembled app
-        run: |
-          archive=$(find "$RUNNER_TEMP/unsigned" -name '*_macos-unsigned.zip' -type f)
-          test -f "$archive"
-          ditto -x -k "$archive" "$RUNNER_TEMP/signing-input"
-      - name: Bind application sources to the selected package commit
-        env:
-          VSF_PACKAGE_COMMIT: ${{ steps.package-source.outputs.commit }}
-        run: |
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          path = Path(os.environ['RUNNER_TEMP']) / 'signing-input/VisualSubForge.app/Contents/Resources/application-inventory.json'
-          inventory = json.loads(path.read_text())
-          if inventory['commit'] != os.environ['VSF_PACKAGE_COMMIT'] or inventory['tracked_changes']:
-              raise SystemExit('Application source inventory differs from the selected package commit')
-          PY
-      - name: Sign, notarize, staple and verify
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: python scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --startup-probe "$RUNNER_TEMP/unsigned/macos-player-init" --output "$RUNNER_TEMP/signed"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          path: baseline
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: macos-notarized-${{ matrix.arch }}
-          path: |
-            ${{ runner.temp }}/signed/*.zip
-            ${{ runner.temp }}/signed/SHA256SUMS
-          if-no-files-found: error
-          retention-days: 14
+          name: preview-acceptance-fixtures
+          run-id: '44874189702'
+          github-token: ${{ github.token }}
+          path: fixtures
+      - name: Compare the retained MP4s to the packaged Intel baseline
+        run: |
+          (cd baseline && shasum -a 256 -c SHA256SUMS)
+          (cd fixtures && shasum -a 256 -c SHA256SUMS)
+          ditto -x -k baseline/*.zip baseline/app
+          mkdir results
+          python tests/release/mp4-aac-parity.py decode --before baseline/app/VisualSubForge.app/Contents/MacOS --bundle "$RUNNER_TEMP/ffmpeg/sdk/bin" --fixtures fixtures --output results/mp4-aac.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: macos-signing-evidence-${{ matrix.arch }}
+          name: intel-aac-diagnostic
           path: |
-            ${{ runner.temp }}/signed/signing-receipt.json
-            ${{ runner.temp }}/signed/notarization-log.json
-          retention-days: 14
+            results/
+            ${{ runner.temp }}/ffmpeg/configure-options.txt
+            ${{ runner.temp }}/ffmpeg/build-receipt.json
