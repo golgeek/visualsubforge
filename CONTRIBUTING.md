@@ -128,7 +128,7 @@ including IPC generation and native-feature tests.
 Give each native command its own CI step on Windows, or set `$PSNativeCommandUseErrorActionPreference = $true` when commands must share a PowerShell step.
 
 CI definitions live in [application checks](.github/workflows/checks.yml) and
-[native build contracts](.github/workflows/native.yml). Configured jobs alone
+[native build contracts](.github/workflows/native.yml). Path-filtered workflows never report a check for excluded pull requests and must not be configured as required checks as-is. Configured jobs alone
 are not evidence of hosted execution. Consult [release preparation](docs/releases.md)
 for dated hosted/package results and [signing setup](docs/macos-signing.md) for
 macOS credentials. Package creation does not establish release support.
