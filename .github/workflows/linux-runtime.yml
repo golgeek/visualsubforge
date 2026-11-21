@@ -161,12 +161,19 @@ jobs:
           TRIALS: ${{ matrix.trials }}
           VSF_GUI_ENVIRONMENT: ${{ matrix.image }}
         run: |
+          failed=0
           for n in $(seq 1 "$TRIALS"); do
-            mkdir "evidence/trial-$n"
-            docker run --rm --network none -e VSF_GUI_ENVIRONMENT -e VSF_FULL_TRIAL="$((n == 1))" \
+            evidence="$PWD/evidence/trial-$n"
+            mkdir "$evidence"
+            if ! docker run --rm --network none -e VSF_GUI_ENVIRONMENT -e VSF_FULL_TRIAL="$((n == 1))" \
               -v "$PWD/fixtures:/fixtures:ro" -v "$PWD/tests/release:/tests:ro" \
-              -v "$PWD/evidence/trial-$n:/evidence" vsf-matrix bash /tests/linux-matrix-trial.sh "$FORMAT"
+              -v "$evidence:/evidence" vsf-matrix timeout --kill-after=10s 240s \
+              bash /tests/linux-matrix-trial.sh "$FORMAT" > "$evidence/container.log" 2>&1; then
+              tail -60 "$evidence/container.log"
+              failed=1
+            fi
           done
+          exit "$failed"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
