@@ -178,6 +178,16 @@ def assemble(args):
         required_va = {"libva.so.2", "libva-drm.so.2", "libva-x11.so.2"}
         if missing := required_va - system_links.keys():
             raise ValueError(f"Media SDK is missing required VA-API loader links: {sorted(missing)}")
+    bundled_families = {}
+    for original, relative in destinations.items():
+        if original in roots:
+            continue
+        soname = capture("patchelf", "--print-soname", original)
+        if soname != relative.name or family(soname) in system_families:
+            raise ValueError(f"Unexpected private SONAME: {original}: {soname}")
+        previous = bundled_families.setdefault(family(soname), soname)
+        if previous != soname:
+            raise ValueError(f"Multiple private ABIs: {previous} and {soname}")
     for library in sorted(linked_platform_files):
         owner = package_owner(library)
         platform_packages[owner["package"]] = owner["version"]

@@ -128,7 +128,7 @@ def main():
                 # auto-copy enumerates libavcodec devices and creates them via
                 # av_hwdevice_ctx_create. GTK owns display and presentation.
                 options += ["-Dauto_features=disabled", "-Dlua=disabled", "-Dgl=enabled", "-Dplain-gl=enabled",
-                            "-Degl=enabled",
+                            "-Degl=enabled", "-Dlibavdevice=enabled",
                             "-Dalsa=enabled", "-Dpulse=enabled", "-Dlcms2=enabled", "-Dzlib=enabled"]
             if platform.system() == "Darwin":
                 options += ["-Dcocoa=enabled", "-Dswift-build=enabled", "-Dmacos-media-player=disabled"]
