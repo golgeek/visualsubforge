@@ -22,6 +22,10 @@ on:
         description: Optional Ubuntu-FFmpeg package run for synthetic decode parity
         type: string
         default: ''
+      shared_fixture_run:
+        description: Reuse the checksummed shared-codec-fixtures artifact from an earlier run
+        type: string
+        default: ''
       windows_package_run:
         description: Windows package or release run at current main (required with reference_run)
         type: string
@@ -36,7 +40,7 @@ permissions:
   actions: read
 jobs:
   shared-fixtures:
-    if: inputs.reference_run != ''
+    if: inputs.reference_run != '' && inputs.shared_fixture_run == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -61,6 +65,7 @@ jobs:
           retention-days: 90
   windows-parity:
     needs: shared-fixtures
+    if: ${{ !cancelled() && inputs.reference_run != '' && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
     runs-on: windows-2022
     timeout-minutes: 15
     steps:
@@ -85,6 +90,8 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: shared-codec-fixtures
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.shared_fixture_run || github.run_id }}
           path: ${{ runner.temp }}/packets
       - name: Decode the verified files with the main Windows package
         run: |
@@ -159,6 +166,8 @@ jobs:
         if: inputs.reference_run != ''
         with:
           name: shared-codec-fixtures
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.shared_fixture_run || github.run_id }}
           path: ${{ runner.temp }}/packets
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         if: inputs.reference_run != ''

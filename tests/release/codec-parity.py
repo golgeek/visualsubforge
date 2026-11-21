@@ -210,7 +210,21 @@ def compare(args):
     verify_packets(args.packets)
     args.output.mkdir(parents=True, exist_ok=False)
     version = run([tool(args.bundle, 'ffmpeg'), '-version']).decode().splitlines()[0]
-    if not version.startswith('ffmpeg version 8.1.2 '):
+    if os.name == 'nt':
+        # This build embeds the enclosing checkout's Git revision in its
+        # banner. The published inventory binds its binaries and source.
+        inventory_file = args.bundle / 'native-inventory.json'
+        receipt = json.loads((args.bundle / 'native-runtime.json').read_bytes())
+        if digest(inventory_file.read_bytes()) != receipt['native_inventory_sha256']:
+            raise ValueError('Windows source inventory differs from the package receipt')
+        inventory = json.loads(inventory_file.read_bytes())
+        if inventory['custom_files']['ffmpeg-8.1.2.tar.xz'] != '464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c':
+            raise ValueError('Windows FFmpeg source differs from the pinned 8.1.2 archive')
+        files = {entry['path']: entry['sha256'] for entry in inventory['files']}
+        for name in ('ffmpeg.exe', 'ffprobe.exe'):
+            if files[name] != digest((args.bundle / name).read_bytes()):
+                raise ValueError(f'Windows package inventory mismatch: {name}')
+    elif not version.startswith('ffmpeg version 8.1.2 '):
         raise ValueError(f'Unexpected packaged FFmpeg: {version}')
     results = {'manifest_sha256': digest((args.packets / 'SHA256SUMS').read_bytes()), 'codecs': {}}
     differences = []
