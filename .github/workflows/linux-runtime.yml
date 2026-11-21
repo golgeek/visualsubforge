@@ -6,6 +6,11 @@ on:
         description: Package run containing both Linux architectures
         type: string
         required: true
+      architecture:
+        description: Run both architectures for acceptance, or one for install diagnostics
+        type: choice
+        options: [both, amd64, arm64]
+        default: both
       from_release:
         description: Test the Linux packages and media in the combined release artifact
         type: boolean
@@ -25,7 +30,7 @@ permissions:
 jobs:
   shared-fixtures:
     needs: platforms
-    if: inputs.shared_fixture_run == ''
+    if: inputs.shared_fixture_run == '' && (inputs.architecture == 'both' || !inputs.architecture)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -107,6 +112,8 @@ jobs:
           if-no-files-found: error
           compression-level: 0
       - id: images
+        env:
+          ARCH: ${{ inputs.architecture || 'both' }}
         shell: python
         run: |
           import json, os
@@ -114,6 +121,8 @@ jobs:
           rows = []
           for distro, digests in json.loads(Path('tests/release/linux-images.json').read_text()).items():
               for arch, digest in digests.items():
+                  if os.environ['ARCH'] not in ('both', arch):
+                      continue
                   for fmt in (['tar', 'deb'] if distro.startswith(('ubuntu:', 'debian:')) else ['tar']):
                       rows.append({'image': distro + '@' + digest, 'id': distro.replace(':', '-'),
                                    'arch': arch, 'format': fmt,
@@ -181,7 +190,7 @@ jobs:
           path: evidence/
   observe-amd64:
     needs: [platforms, shared-fixtures]
-    if: ${{ !cancelled() && needs.platforms.result == 'success' && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
+    if: ${{ !cancelled() && (inputs.architecture == 'both' || !inputs.architecture) && needs.platforms.result == 'success' && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -251,7 +260,7 @@ jobs:
       fail-fast: false
       matrix:
         backend: [wayland, x11]
-        arch: [amd64, arm64]
+        arch: ${{ fromJSON(inputs.architecture == 'amd64' && '["amd64"]' || inputs.architecture == 'arm64' && '["arm64"]' || '["amd64","arm64"]') }}
     runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-26.04' || 'ubuntu-26.04-arm' }}
     timeout-minutes: 15
     steps:
