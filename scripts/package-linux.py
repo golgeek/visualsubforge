@@ -16,7 +16,6 @@ import shutil
 import subprocess
 import tarfile
 from native_evidence import digest, verified_headers
-from ubuntu_native_sources import collect as collect_ubuntu_inputs
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,8 +32,6 @@ libva.so.2 libva-drm.so.2 libva-x11.so.2 libva-wayland.so.2 libX11.so.6 libXext.
 libpulse.so.0 libasound.so.2 libfreetype.so.6 libfribidi.so.0 libharfbuzz.so.0
 libfontconfig.so.1 libz.so.1 liblzma.so.5 liblcms2.so.2
 """.split())
-DISTRO_BUNDLED = {"libass.so.9", "libunibreak.so.5", "libshaderc.so.1",
-                  "libspirv-cross-c-shared.so.0"}
 
 
 def family(name):
@@ -168,7 +165,7 @@ def assemble(args):
                 continue
             if family(name) in system_families:
                 raise ValueError(f"Bundled family overlaps system runtime: {name}")
-            if not any(dependency.is_relative_to(path) for path in custom_dirs) and name not in DISTRO_BUNDLED:
+            if not any(dependency.is_relative_to(path) for path in custom_dirs):
                 raise ValueError(f"Unreviewed system library: {original}: {name} -> {dependency}")
             relative = Path("lib") / name
             if dependency in destinations:
@@ -204,10 +201,6 @@ def assemble(args):
         subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/../lib" if relative.parent == Path("bin") else "$ORIGIN", str(copied)], check=True)
         record = {"path": str(relative), "source": str(original), "source_sha256": digest(original), "sha256": digest(copied),
                   "needed": capture("patchelf", "--print-needed", copied).splitlines()}
-        if original not in roots and not any(original.is_relative_to(path) for path in custom_dirs):
-            owner = package_owner(original)
-            record["distro"] = owner
-            distro[owner["package"]] = owner
         records.append(record)
     # Audit the copied graph with no build-time library overrides. RUNPATH is
     # attached to each library, since executable RUNPATH is not transitive.
@@ -230,9 +223,6 @@ def assemble(args):
             header_inputs.append({**header, "distro": owner, "used_by": "libplacebo embedded header"})
         shutil.copy2(build_receipt, root / "libplacebo-build.json")
     collect_distro_sources(distro, root / "distro-sources", notices)
-    embedded_sources = root / "distro-sources/build-inputs"
-    collect_ubuntu_inputs(records, embedded_sources, notices / "build-inputs")
-    shutil.copy2(embedded_sources / "inventory.json", doc / "ubuntu-build-inputs.json")
     source_records = []
     for item in args.native_source:
         name, path = item.split("=", 1)
@@ -288,7 +278,6 @@ def assemble(args):
                "files": records, "header_inputs": header_inputs, "system_libraries": system_links,
                "platform_dependencies": depends, "native_sources": source_records,
                "application_inventory_sha256": application_inventory,
-               "ubuntu_build_inputs_sha256": digest(embedded_sources / "inventory.json"),
                "redistribution": source_inventory_reference(release_version(), "linux-" + arch),
                "validation": "Assembly verified ELF dependencies and recorded file checksums."}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 
@@ -85,3 +86,31 @@ class LinuxAssembly(unittest.TestCase):
             for item in receipt["files"]:
                 self.assertEqual(PACKAGER.digest(private / item["path"]), item["sha256"])
             self.assertEqual(PACKAGER.digest(args.output / receipt["artifact"]["file"]), receipt["artifact"]["sha256"])
+            extracted = root / "tar"
+            with tarfile.open(args.output / receipt["tarball"]["file"]) as tar:
+                tar.extractall(extracted, filter="data")
+            distribution, = extracted.iterdir()
+            payload = {p.relative_to(private): p.read_bytes() for p in private.rglob("*") if p.is_file()}
+            self.assertEqual(payload, {p.relative_to(distribution): p.read_bytes()
+                                       for p in distribution.rglob("*") if p.is_file()})
+            home = root / "home with spaces"
+            home.mkdir()
+            installed = home / ".local/opt/visualsubforge"
+            install_env = {**env, "HOME": str(home)}
+            for _ in range(2):
+                subprocess.run([distribution / "install.sh"], env=install_env, check=True)
+                self.assertEqual((home / ".local/bin/vsf").resolve(), installed / "bin/vsf")
+            (installed / "my file").touch()
+            blocked = subprocess.run([distribution / "uninstall.sh"], env=install_env, capture_output=True)
+            self.assertNotEqual(blocked.returncode, 0)
+            self.assertTrue((installed / "my file").exists())
+            (installed / "my file").unlink()
+            subprocess.run([installed / "uninstall.sh"], env=install_env, check=True)
+            self.assertFalse(installed.exists())
+            self.assertFalse(any(p.is_file() or p.is_symlink() for p in home.rglob("*")))
+            unrelated = home / ".local/bin/visualsubforge"
+            unrelated.write_text("existing program")
+            blocked = subprocess.run([distribution / "install.sh"], env=install_env, capture_output=True)
+            self.assertNotEqual(blocked.returncode, 0)
+            self.assertEqual(unrelated.read_text(), "existing program")
+            self.assertFalse(installed.exists())
