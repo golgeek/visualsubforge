@@ -139,7 +139,7 @@ metadata; Revert Changes applies the active filter as one ordinary Undo step.
 Existing IDs are reused where possible, new cues use the document's monotonic ID
 allocator, and validation precedes publication. Identical duplicate content keys
 use a source-position hint within the guarded capture for precise single revert.
-End Review keeps edits and history. Saving subtitles offers project saving once
+Reattaching the same canonical original with identical bytes keeps discussion, options, and export history. Replacing the original or ending a review with pending review changes, discussion or package state offers Save project, Discard changes and Cancel. End Review removes the reference, threads and package round/export state from the working session. Subtitle edits and Undo history survive. Saving subtitles offers project saving once
 per review because subtitle files cannot retain the original relationship.
 
 The HTML report includes signed timing, character-count and reading-rate deltas.

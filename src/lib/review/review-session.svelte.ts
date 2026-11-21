@@ -17,6 +17,7 @@ import {
   type ReviewReply,
 } from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
+import { confirmReviewChange } from '../document/review-change';
 import type { UnsavedChanges } from '../document/unsaved-changes';
 import type { Workspace } from '../workspace/workspace.svelte';
 import type { WorkspaceView } from '../workspace/workspace-view.svelte';
@@ -725,14 +726,33 @@ export class ReviewSession {
       if (this.alive && sequence === this.sequence) this.error = String(error);
     }
   }
+  private confirmReplacement(
+    key: ReviewReply['key'],
+    sameOriginal = false,
+    replaceDocument = false,
+  ) {
+    const review = this.subtitles.snapshot.review;
+    const losesReview =
+      !sameOriginal && Boolean(review?.dirty || review?.hasDiscussion);
+    return confirmReviewChange(
+      key,
+      () => this.key(),
+      replaceDocument || losesReview
+        ? () => this.unsaved.decide(this.saveProject, losesReview)
+        : null,
+      () => this.subtitles.apply(),
+    );
+  }
   run = async (
     operation: 'startReview' | 'compareOriginal' | 'compareFiles' | 'endReview',
   ) => {
     if (!this.workspace.canAct) return;
     await this.workspace.task(async () => {
       if (operation === 'endReview') {
+        const consent = await this.confirmReplacement(this.key());
+        if (!consent || !this.alive) return;
         await this.subtitles.changeReview(
-          { kind: 'detach', key: this.key() },
+          { kind: 'detach', ...consent },
           this.subtitles.snapshot,
         );
         return;
@@ -762,16 +782,14 @@ export class ReviewSession {
             ? await chooseFile('reviewRevised', this.subtitles.snapshot.path)
             : this.subtitles.snapshot.path;
         if (!this.alive || (operation === 'compareFiles' && !revised)) return;
-        const inspect = revised
-          ? await reviewAction({
-              kind: 'inspect',
-              original,
-              revised,
-            })
-          : null;
+        const inspect = await reviewAction({
+          kind: 'inspect',
+          original,
+          revised,
+        });
         if (!this.alive) return;
         let replace = operation === 'compareFiles';
-        if (inspect?.newerOriginal && revised) {
+        if (inspect.newerOriginal && revised) {
           const choice = await this.decideSwap(original);
           if (!this.alive || choice === 'cancel') return;
           if (choice === 'swap') {
@@ -779,9 +797,13 @@ export class ReviewSession {
             replace = true;
           }
         }
+        const consent = await this.confirmReplacement(
+          inspect.key,
+          !replace && !!inspect.sameOriginal,
+          replace,
+        );
+        if (!consent || !this.alive) return;
         if (replace && revised) {
-          if (!(await this.unsaved.protect(this.saveProject)) || !this.alive)
-            return;
           if (
             !(await this.subtitles.command({
               kind: 'open',
@@ -792,7 +814,11 @@ export class ReviewSession {
             return;
         }
         await this.subtitles.changeReview(
-          { kind: 'attach', key: this.key(), path: original },
+          {
+            kind: 'attach',
+            path: original,
+            ...(replace ? { key: this.key(), discard: false } : consent),
+          },
           this.subtitles.snapshot,
         );
       }

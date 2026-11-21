@@ -50,6 +50,7 @@ function discussionPage() {
 }
 let epoch = 0;
 let savedCopies = 0;
+let savedCueText: string | undefined;
 let held: Promise<void> | null = null;
 let release: () => void = () => {};
 const files: string[] = [];
@@ -280,6 +281,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           const a = args.action as DocumentAction;
           if (a.kind === 'open') loaded(a.path);
           if (a.kind === 'save') {
+            savedCueText = doc.cues[0]?.text;
             doc.dirty = false;
           }
           if (a.kind === 'edit') {
@@ -685,7 +687,25 @@ async function run() {
     button('Export anyway').click();
     await until(() => exported);
     passed('Comparison report export works with no media');
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     await chooseCommand(host, 'endReview');
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Cancel').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(doc.review?.path, 'Cancel keeps the attached review');
+    await chooseCommand(host, 'endReview');
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Discard changes').click();
     await until(() => !doc.review?.path);
     assert(doc.canUndo, 'End Review preserves history');
     passed('End Review preserves subtitle history');
@@ -702,10 +722,29 @@ async function run() {
       'Start Review preserves the non-Review preset',
     );
     passed('Start Review writes a reviewed copy and opens Changes');
+    const beforeAttach = structuredClone(doc.review);
+    await chooseCommand(host, 'compareOriginal');
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Cancel').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(
+      JSON.stringify(doc.review) === JSON.stringify(beforeAttach),
+      'Cancel sends no replacing attach and preserves the review',
+    );
     newer = true;
     await chooseCommand(host, 'compareOriginal');
     await until(() => !!button('Swap'));
     button('Keep').click();
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Discard changes').click();
     await until(() => doc.review?.path === '/original.srt');
     passed('Newer-original prompt supports keeping the current direction');
     held = new Promise<void>((resolve) => (release = resolve));
@@ -1192,6 +1231,45 @@ async function run() {
     passed(
       'Selecting the successor exposes removed text, independent checks and Revert; export tracks the marked removal and revised cue numbers',
     );
+    await unmount(app);
+    loaded('/before-compare.srt');
+    epoch = 0;
+    newer = false;
+    app = mount(App, { target: host });
+    const draftField = () =>
+      host.querySelector<HTMLTextAreaElement>('[aria-label="Subtitle text"]');
+    await until(
+      () => draftField()?.value === 'Revised' && !draftField()!.disabled,
+    );
+    const pendingText = 'Save this cue before comparing files';
+    draftField()!.value = pendingText;
+    draftField()!.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    await chooseCommand(host, 'compareFiles');
+    await until(() => button('Save changes')?.closest('dialog')?.open === true);
+    assert(
+      doc.cues[0]?.text === 'Revised',
+      'Cue draft is still uncommitted at the prompt',
+    );
+    button('Save changes').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(
+      savedCueText === pendingText,
+      'Save committed and persisted the pending cue',
+    );
+    const error = host
+      .querySelector('[role="status"].message')
+      ?.getAttribute('title');
+    assert(!error, 'Compare Files reported ' + error);
+    assert(
+      doc.path === '/revised.srt' && doc.review?.path === '/original.srt',
+      'Save opens the revised file and attaches the original',
+    );
+    passed('Compare Files continues after saving an uncommitted cue draft');
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =
       `PASS: all ${document.querySelectorAll('#checks li').length} version comparison checks`;

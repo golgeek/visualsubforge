@@ -10,7 +10,10 @@
     confirmation = $bindable(),
   }: {
     subtitles: DocumentSession;
-    subtitleDecision: WorkspaceDecision<'save' | 'discard' | 'cancel'>;
+    subtitleDecision: WorkspaceDecision<
+      'save' | 'discard' | 'cancel',
+      'review'
+    >;
     projectExitDecision: WorkspaceDecision<ProjectExitChoice, string>;
     projectReferenceDecision: WorkspaceDecision<
       'cancel' | 'choose' | 'reload',
@@ -23,7 +26,9 @@
   } from '../project/ProjectSaveFailureDialog.svelte';
   import ProjectReferenceDialog from '../project/ProjectReferenceDialog.svelte';
   const projectDirty = $derived(
-    subtitles.snapshot.translation?.dirty || subtitles.snapshot.review?.dirty,
+    subtitleDecision.payload === 'review' ||
+      subtitles.snapshot.translation?.dirty ||
+      subtitles.snapshot.review?.dirty,
   );
   const doc = $derived(subtitles.snapshot);
 </script>
@@ -42,11 +47,15 @@
     {projectDirty ? 'Save project changes?' : 'Save subtitle changes?'}
   </h2>
   <p>
-    {doc.review?.dirty
-      ? 'Save the review original and comparison options in a project.'
-      : projectDirty
-        ? 'Save your subtitle changes and the translation reference and offset in a project.'
-        : 'Your current document or cue draft has changes.'}
+    {subtitleDecision.payload === 'review'
+      ? doc.review?.hasDiscussion
+        ? 'Continuing removes the current review, including its discussion and export history. Save a project to keep it.'
+        : 'Continuing removes the current review. Save a project to keep its original and comparison options.'
+      : doc.review?.dirty
+        ? 'Save the review original and comparison options in a project.'
+        : projectDirty
+          ? 'Save your subtitle changes and the translation reference and offset in a project.'
+          : 'Your current document or cue draft has changes.'}
   </p>
   <div class="dialog-actions">
     <button onclick={() => subtitleDecision.answer('cancel')}>Cancel</button

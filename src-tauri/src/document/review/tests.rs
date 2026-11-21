@@ -28,6 +28,7 @@ fn fixture() -> (tempfile::TempDir, Documents, PathBuf, PathBuf) {
 }
 fn attach(d: &Documents, p: &Path) {
     d.review_action(ReviewAction::Attach {
+        discard: false,
         key: key(d),
         path: p.to_string_lossy().into(),
     })
@@ -83,11 +84,17 @@ fn independent_reference_context_worker_protection_and_history() {
     })
     .unwrap();
     assert!(
-        d.review_action(ReviewAction::Detach { key: stale })
-            .is_err()
+        d.review_action(ReviewAction::Detach {
+            key: stale,
+            discard: true
+        })
+        .is_err()
     );
-    d.review_action(ReviewAction::Detach { key: key(&d) })
-        .unwrap();
+    d.review_action(ReviewAction::Detach {
+        key: key(&d),
+        discard: true,
+    })
+    .unwrap();
     assert_eq!(snapshot(&d).revision, before.revision);
 }
 #[test]
@@ -299,7 +306,11 @@ fn export_refuses_stale_keys_and_escapes_current_content() {
             .contains(&compared.rows[0].key)
     );
     let old = key(&d);
-    d.review_action(ReviewAction::Detach { key: old }).unwrap();
+    d.review_action(ReviewAction::Detach {
+        key: old,
+        discard: true,
+    })
+    .unwrap();
     assert!(
         d.review_action(ReviewAction::Export {
             author: String::new(),
@@ -725,6 +736,22 @@ fn package_exchange_is_guarded_and_one_edit_restores_previous_cues() {
     };
     let author = Documents::default();
     import(&author, &path, ImportCase::New, ImportChoice::Open);
+    let imported_key = key(&author);
+    attach(&author, &path);
+    assert_eq!(key(&author), imported_key);
+    let store = author.0.lock().unwrap();
+    let context = &store.loaded.as_ref().unwrap().review;
+    assert_eq!(
+        context.package.as_ref().unwrap().path,
+        path.canonicalize().unwrap().to_string_lossy()
+    );
+    assert_eq!(context.discussion.round, 1);
+    assert_eq!(context.discussion.exported.len(), 1);
+    assert_eq!(
+        context.discussion.threads[0].messages[0].text.as_deref(),
+        Some("Review")
+    );
+    drop(store);
     let s = snapshot(&author);
     assert!(s.path.is_none() && s.dirty && !s.can_undo);
     assert_eq!(
@@ -1042,4 +1069,115 @@ fn dense_table_filter_uses_identities_and_fetches_only_visible_diffs() {
         .unwrap();
     assert_eq!(window.rows.len(), 25);
     assert!(window.presentation.is_none());
+}
+
+#[test]
+fn reattach_preserves_comment_options_and_exported_round() {
+    let (dir, d, original, _) = fixture();
+    attach(&d, &original);
+    d.review_action(ReviewAction::Options {
+        key: key(&d),
+        options: engine::Options {
+            ignore_tags: true,
+            ..engine::Options::default()
+        },
+    })
+    .unwrap();
+    let row = ready(&d).rows.remove(0);
+    d.review_action(ReviewAction::Comment {
+        key: key(&d),
+        author: "Ana".into(),
+        edit: CommentEdit::Post {
+            change_key: row.key,
+            source_index: row.original[0].source_index,
+            text: "Check timing".into(),
+        },
+    })
+    .unwrap();
+    ready(&d);
+    d.publish_review(
+        key(&d),
+        &dir.path().join("round.vsfreview"),
+        OutputKind::Package,
+        "Ana",
+        0,
+        false,
+    )
+    .unwrap();
+    let before = key(&d);
+    let exported = ready(&d).discussion.unwrap().exported;
+    assert_eq!(exported.len(), 1);
+    attach(&d, &dir.path().join(".").join("original.srt"));
+    let page = ready(&d);
+    let discussion = page.discussion.unwrap();
+    assert_eq!(discussion.open, 1);
+    let threads: Vec<_> = discussion.rows.values().flatten().collect();
+    assert_eq!(threads.len(), 1);
+    assert_eq!(threads[0].messages[0].text.as_deref(), Some("Check timing"));
+    assert_eq!(discussion.exported, exported);
+    let summary = page.context.unwrap();
+    assert_eq!(summary.round, Some(1));
+    assert!(summary.options.ignore_tags);
+    assert_eq!(page.key, before);
+}
+
+#[test]
+fn replacing_or_ending_review_requires_current_discard_consent() {
+    let (dir, d, original, _) = fixture();
+    attach(&d, &original);
+    let before_post = key(&d);
+    let row = ready(&d).rows.remove(0);
+    d.review_action(ReviewAction::Comment {
+        key: before_post,
+        author: "Ana".into(),
+        edit: CommentEdit::Post {
+            change_key: row.key,
+            source_index: 0,
+            text: "Keep me".into(),
+        },
+    })
+    .unwrap();
+    // A saved project still holds discussion even after its dirty flag clears.
+    d.0.lock()
+        .unwrap()
+        .loaded_mut()
+        .unwrap()
+        .review
+        .reference
+        .dirty = false;
+    let current = key(&d);
+    let other = dir.path().join("other.srt");
+    fs::write(&other, ORIGINAL).unwrap();
+    let replace = |path: &Path, key, discard| {
+        d.review_action(ReviewAction::Attach {
+            key,
+            discard,
+            path: path.to_string_lossy().into(),
+        })
+    };
+    assert!(replace(&other, current, false).is_err());
+    fs::write(&original, ORIGINAL.replace("Original", "Updated")).unwrap();
+    assert!(replace(&original, current, false).is_err());
+    assert!(replace(&other, before_post, true).is_err());
+    assert!(
+        d.review_action(ReviewAction::Detach {
+            key: current,
+            discard: false
+        })
+        .is_err()
+    );
+    assert_eq!(key(&d), current);
+    assert_eq!(ready(&d).discussion.unwrap().open, 1);
+    replace(&other, current, true).unwrap();
+    assert_eq!(ready(&d).discussion.unwrap().open, 0);
+    assert_eq!(
+        snapshot(&d).review.unwrap().path.as_deref(),
+        other.canonicalize().unwrap().to_str()
+    );
+    d.review_action(ReviewAction::Detach {
+        key: key(&d),
+        discard: true,
+    })
+    .unwrap();
+    assert!(snapshot(&d).review.unwrap().path.is_none());
 }

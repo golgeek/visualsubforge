@@ -216,7 +216,7 @@
   );
 
   const subtitleDecision = disposeWithComponent(
-    new WorkspaceDecision<'save' | 'discard' | 'cancel'>(
+    new WorkspaceDecision<'save' | 'discard' | 'cancel', 'review'>(
       'cancel',
       workspace,
       decisionEffects(

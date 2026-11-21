@@ -33,6 +33,22 @@ pub(crate) struct Stored {
     package: Option<PackageLink>,
 }
 impl Context {
+    fn same_original(&self, incoming: &ReferenceFile) -> bool {
+        self.reference.reference.as_ref().is_some_and(|current| {
+            current.origin.path == incoming.origin.path
+                && current.reference.fingerprint() == incoming.reference.fingerprint()
+        })
+    }
+    fn has_discussion(&self) -> bool {
+        !self.discussion.empty() || self.package.is_some()
+    }
+    fn check_discard(&self, discard: bool) -> Result<()> {
+        if !discard && (self.reference.dirty || self.has_discussion()) {
+            return Err("Save or discard the current review before replacing it".into());
+        }
+        Ok(())
+    }
+
     pub(crate) fn stored(&self) -> Result<Option<Stored>> {
         if self.reference.is_empty() {
             return Ok(None);
@@ -88,6 +104,8 @@ pub struct ReviewKey {
 #[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewSummary {
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub has_discussion: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub round: Option<u32>,
     pub epoch: SafeU64,
@@ -173,9 +191,11 @@ pub enum ReviewAction {
     },
     Inspect {
         original: String,
-        revised: String,
+        revised: Option<String>,
     },
     Attach {
+        #[serde(default)]
+        discard: bool,
         key: ReviewKey,
         path: String,
     },
@@ -185,6 +205,8 @@ pub enum ReviewAction {
         discard: bool,
     },
     Detach {
+        #[serde(default)]
+        discard: bool,
         key: ReviewKey,
     },
     Options {
@@ -228,6 +250,8 @@ pub struct ReviewReply {
     #[serde(skip_serializing_if = "Option::is_none")]
     position: Option<u32>,
     error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    same_original: Option<bool>,
     newer_original: Option<bool>,
 }
 #[derive(Serialize, specta::Type)]
@@ -311,6 +335,7 @@ impl Store {
             return None;
         }
         Some(ReviewSummary {
+            has_discussion: context.has_discussion(),
             round: (context.discussion.round > 0).then_some(context.discussion.round),
             epoch: self.review.epoch.try_into().ok()?,
             dirty: context.reference.dirty,
@@ -386,6 +411,7 @@ impl Store {
             total: 0,
             position: None,
             error: None,
+            same_original: None,
             newer_original: None,
         };
         if let Some(job) = &mut self.review.job {
@@ -477,6 +503,30 @@ fn now_ms() -> Result<u64> {
         .map_err(|_| "Review timestamp out of range".into())
 }
 impl Documents {
+    // A package-backed original lives inside its container. Only the already
+    // attached package can be reselected here; opening packages uses exchange.
+    fn load_review_original(&self, path: &Path) -> Result<ReferenceFile> {
+        let canonical = path
+            .canonicalize()
+            .map_err(|e| format!("Cannot open reference: {e}"))?;
+        let active_package = {
+            let store = self.0.lock().map_err(|_| "Document unavailable")?;
+            store
+                .loaded
+                .as_ref()
+                .and_then(|l| l.review.package.as_ref())
+                .filter(|link| Path::new(&link.path) == canonical)
+                .map(|link| link.sha256.clone())
+        };
+        if let Some(expected) = active_package {
+            let package = vsf_application::review_file::read(&canonical)?;
+            if package.original.sha256 != expected {
+                return Err("Review package original changed; open the package again".into());
+            }
+            return exchange::reference(path, &package.original);
+        }
+        ReferenceFile::load(path, || Ok(()))
+    }
     pub(crate) fn review_action(&self, action: ReviewAction) -> Result<ReviewReply> {
         if let ReviewAction::InspectPackage { key, path } = &action {
             return self.import_review(*key, Path::new(path), None);
@@ -510,20 +560,25 @@ impl Documents {
             );
         }
         if let ReviewAction::Inspect { original, revised } = &action {
-            let original = ReferenceFile::load(Path::new(original), || Ok(()))?;
-            let revised = ReferenceFile::load(Path::new(revised), || Ok(()))?;
-            let newer = std::fs::metadata(&original.origin.path)
-                .and_then(|m| m.modified())
-                .ok()
-                .zip(
-                    std::fs::metadata(&revised.origin.path)
-                        .and_then(|m| m.modified())
-                        .ok(),
-                )
-                .is_some_and(|(a, b)| a > b);
+            let original = self.load_review_original(Path::new(original))?;
+            let revised = revised
+                .as_ref()
+                .map(|path| ReferenceFile::load(Path::new(path), || Ok(())))
+                .transpose()?;
+            let modified =
+                |file: &ReferenceFile| std::fs::metadata(&file.origin.path).ok()?.modified().ok();
+            let newer = revised
+                .and_then(|r| modified(&original).zip(modified(&r)))
+                .map(|(a, b)| a > b);
             let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
             let mut reply = store.review_reply(None, 0, 100, None)?;
-            reply.newer_original = Some(newer);
+            reply.same_original = Some(
+                store
+                    .loaded
+                    .as_ref()
+                    .is_some_and(|l| l.review.same_original(&original)),
+            );
+            reply.newer_original = newer;
             return Ok(reply);
         }
         if let ReviewAction::Start { key, path, discard } = action {
@@ -590,21 +645,25 @@ impl Documents {
             return store.review_reply(document, 0, 100, None);
         }
         // File preparation runs outside Store. Adoption rechecks all identities.
-        if let ReviewAction::Attach { key, path } = action {
+        if let ReviewAction::Attach { key, path, discard } = action {
             {
                 self.0
                     .lock()
                     .map_err(|_| "Document unavailable")?
                     .check_review_key(key)?;
             }
-            let original = ReferenceFile::load(Path::new(&path), || Ok(()))?;
+            let original = self.load_review_original(Path::new(&path))?;
             let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
             store.check_review_key(key)?;
             let loaded = store.loaded_mut()?;
             if loaded.path.as_ref() == Some(&original.origin.path) {
                 return Err("Choose a different original file".into());
             }
+            if loaded.review.same_original(&original) {
+                return store.review_reply(None, 0, 100, None);
+            }
             original.verify(|| Ok(()))?;
+            loaded.review.check_discard(discard)?;
             let options = engine::Options::for_format(original.reference.format());
             loaded.review = Context {
                 reference: translation::Context {
@@ -698,9 +757,10 @@ impl Documents {
                     &expanded,
                 );
             }
-            ReviewAction::Detach { key } => {
+            ReviewAction::Detach { key, discard } => {
                 store.check_review_key(key)?;
                 let c = &mut store.loaded_mut()?.review;
+                c.check_discard(discard)?;
                 c.reference.reference = None;
                 c.discussion = Discussion::default();
                 c.package = None;
