@@ -26,11 +26,6 @@ PLATFORM_LIBRARIES = (
 )
 
 
-# Noble WebKit pulls these in transitively; Resolute WebKit uses different
-# SONAMEs. Private media binaries still need their original XML and ICU ABIs.
-PRIVATE_MEDIA_ABIS = {"libxml2.so.2", "libicuuc.so.74", "libicudata.so.74"}
-
-
 def capture(*command, env=None):
     return subprocess.check_output(list(map(str, command)), text=True, env=env).strip()
 
@@ -126,6 +121,7 @@ def assemble(args):
     roots = {getattr(args, name).resolve(strict=True): Path(name)
              for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe")}
     destinations = dict(roots)
+    linked_platform_files = set()
     queue = list(roots)
     while queue:
         original = queue.pop()
@@ -134,7 +130,8 @@ def assemble(args):
         resolved = dependencies(original, build_env)
         for name in capture("patchelf", "--print-needed", original).splitlines():
             dependency = resolved[name]
-            if dependency in platform and name not in PRIVATE_MEDIA_ABIS:
+            if dependency in platform:
+                linked_platform_files.add(dependency)
                 continue
             relative = Path("lib") / name
             if dependency in destinations:
@@ -145,6 +142,9 @@ def assemble(args):
                 raise ValueError(f"Conflicting library basename: {name}")
             destinations[dependency] = relative
             queue.append(dependency)
+    for library in sorted(linked_platform_files):
+        owner = package_owner(library)
+        platform_packages[owner["package"]] = owner["version"]
     records, distro = [], {}
     custom_dirs = [path.resolve(strict=True) for path in args.library_dir]
     for original, relative in destinations.items():

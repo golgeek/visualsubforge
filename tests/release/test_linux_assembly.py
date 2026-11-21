@@ -71,6 +71,8 @@ class LinuxAssembly(unittest.TestCase):
             result = subprocess.check_output([str(private / "vsf")], env=env, text=True)
             self.assertEqual(result, "42\n")
             receipt = json.loads((args.output / "assembly-receipt.json").read_text())
+            libc = PACKAGER.package_owner(PACKAGER.dependencies(private / "vsf", env)["libc.so.6"])
+            self.assertIn(f"{libc['package']} (>= {libc['version']})", receipt["platform_dependencies"])
             for item in receipt["files"]:
                 self.assertEqual(PACKAGER.digest(private / item["path"]), item["sha256"])
             self.assertEqual(PACKAGER.digest(args.output / receipt["artifact"]["file"]), receipt["artifact"]["sha256"])

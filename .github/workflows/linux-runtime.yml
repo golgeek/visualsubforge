@@ -15,7 +15,7 @@ on:
         type: string
         required: true
       test_ubuntu_26:
-        description: Also run the 26.04 Wayland and XWayland XML compatibility diagnosis
+        description: Also verify a clean Ubuntu 26.04 container refuses the package
         type: boolean
         default: false
       null_sink:
@@ -98,12 +98,8 @@ jobs:
           path: ${{ runner.temp }}/evidence
           if-no-files-found: error
           retention-days: 14
-  ubuntu-26-desktop:
+  ubuntu-26-install-refusal:
     if: inputs.test_ubuntu_26
-    strategy:
-      fail-fast: false
-      matrix:
-        backend: [wayland, x11]
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
@@ -114,36 +110,14 @@ jobs:
           run-id: ${{ inputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/candidate
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: preview-acceptance-fixtures
-          run-id: ${{ inputs.package_run }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/fixtures
-      - name: Install the same deb and exercise GTK under Weston
-        env:
-          GDK_BACKEND: ${{ matrix.backend }}
-          VSF_FIXTURES: ${{ runner.temp }}/fixtures
-          VSF_EVIDENCE: ${{ runner.temp }}/evidence
-          VSF_NULL_SINK: ready-default
-          VSF_GUI_ENVIRONMENT: Ubuntu 26.04 headless Weston with Mesa software rendering
-          LIBGL_ALWAYS_SOFTWARE: '1'
+      - name: Verify the downloaded Noble package is refused before unpacking
+        shell: bash
         run: |
           (cd "$RUNNER_TEMP/candidate" && sha256sum -c SHA256SUMS)
-          (cd "$VSF_FIXTURES" && sha256sum -c SHA256SUMS)
-          sudo apt-get update
-          sudo apt-get install -y "$RUNNER_TEMP"/candidate/*.deb weston xwayland pulseaudio pulseaudio-utils mesa-utils
-          sudo install -d -m 1777 /tmp/.X11-unix
-          mkdir -p "$VSF_EVIDENCE/dash"
-          export VSF_XML_FIXTURE="$VSF_EVIDENCE/dash/test.mpd"
-          /usr/lib/visualsubforge/ffmpeg -v error -nostdin -f lavfi -i testsrc2=size=96x64:rate=10:duration=2 \
-            -an -c:v mpeg4 -g 10 -seg_duration 1 -f dash "$VSF_XML_FIXTURE"
-          (cd "$VSF_EVIDENCE/dash" && sha256sum ./* > ../dash-sha256.txt)
-          export XDG_RUNTIME_DIR="$RUNNER_TEMP/runtime" VSF_GUI_CHECK="$PWD/tests/release/packaged-gui.py"
-          install -d -m 700 "$XDG_RUNTIME_DIR"
-          dbus-run-session -- timeout 200 bash tests/release/linux-weston.sh
+          bash tests/release/linux-refusal.sh "$RUNNER_TEMP"/candidate/*.deb |
+            tee "$RUNNER_TEMP/26.04-refusal.txt"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: linux-26.04-${{ matrix.backend }}-evidence
-          path: ${{ runner.temp }}/evidence
+          name: linux-26.04-install-refusal
+          path: ${{ runner.temp }}/26.04-refusal.txt
