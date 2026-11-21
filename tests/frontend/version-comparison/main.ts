@@ -699,9 +699,6 @@ async function run() {
         host.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     assert(doc.review?.path, 'Cancel keeps the attached review');
-    await until(
-      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
-    );
     await chooseCommand(host, 'endReview');
     await until(
       () => button('Discard changes')?.closest('dialog')?.open === true,
@@ -723,6 +720,21 @@ async function run() {
       'Start Review preserves the non-Review preset',
     );
     passed('Start Review writes a reviewed copy and opens Changes');
+    const beforeAttach = structuredClone(doc.review);
+    await chooseCommand(host, 'compareOriginal');
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Cancel').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(
+      JSON.stringify(doc.review) === JSON.stringify(beforeAttach),
+      'Cancel sends no replacing attach and preserves the review',
+    );
     newer = true;
     await chooseCommand(host, 'compareOriginal');
     await until(() => !!button('Swap'));
