@@ -18,6 +18,7 @@ on:
       - 'scripts/build-linux-shader-stack.sh'
       - 'build/linux-shaders.mk'
       - 'build/linux-private-cxx.map'
+      - 'scripts/linux-portable/check-runtime.c'
       - 'scripts/build-placebo.py'
       - 'scripts/check-mpv-build.py'
       - 'scripts/prepare-mpv-clock.py'

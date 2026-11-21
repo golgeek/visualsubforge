@@ -76,7 +76,9 @@ test media. Both shipped tools come from the private SDK. The native source
 archive includes the shader and text sources, the FFmpeg and dav1d releases,
 and the source for headers embedded in libplacebo. The host supplies GTK,
 WebKitGTK and the display and audio drivers.
-The receipt lists each ELF's required libraries. Its libva loaders are startup
+The assembler selects the direct system SONAMEs from each architecture’s ELF receipt
+and writes their distribution providers to `share/doc/visualsubforge/runtime-packages.tsv`.
+The launcher, clean-image installs and Debian Depends use these providers. The VA loaders are startup
 dependencies even when libmpv falls back to software decoding. Run the
 installed app from a graphical desktop with a working desktop portal.
 

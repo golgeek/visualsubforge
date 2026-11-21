@@ -16,9 +16,10 @@ checks. The release workflow calls them for one commit, verifies their checksum
 manifests and stages the public downloads. The Mac package workflow owns signing
 on main. Windows version resources identify the GUI, CLI/plugin runner and
 installer as VSF. FFmpeg and ffprobe retain their upstream identity. Linux natively builds its private media SDKs on Ubuntu 22.04 for each architecture.
-One payload supplies both the portable archive and the Debian package. The launcher
-checks WebKitGTK, GTK and the linked VA-API loaders before starting the GUI. The package assembler classifies each
-direct ELF dependency against the system SONAME allowlist and copies private
+One payload supplies both the portable archive and the Debian package. The assembler
+maps every direct system SONAME in the architecture’s ELF receipt to its distribution
+package. This mapping generates the launcher’s checks, its install command and the
+Debian dependencies. The assembler copies private
 media libraries with per-file origin-relative runpaths. GTK, WebKitGTK and
 driver libraries retain their distribution-managed dependencies. The loader
 audit observes bindings and mapped files in the running GUI process.

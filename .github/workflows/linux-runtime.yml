@@ -159,7 +159,9 @@ jobs:
         run: |
           (cd candidate && sha256sum -c SHA256SUMS)
           (cd fixtures && sha256sum -c SHA256SUMS)
-          mkdir -p matrix-context/tests/release evidence
+          mkdir -p matrix-context/tests/release evidence unpacked
+          tar -xzf candidate/*_linux.tar.gz -C unpacked
+          python3 tests/release/linux-runtime-receipt.py unpacked/* candidate/*.deb
           cp -r candidate matrix-context/
           cp tests/release/linux-matrix-install.sh matrix-context/tests/release/
           docker pull "$BASE_IMAGE"

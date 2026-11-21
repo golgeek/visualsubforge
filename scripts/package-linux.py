@@ -19,19 +19,43 @@ from native_evidence import digest, verified_headers
 
 
 ROOT = Path(__file__).resolve().parent.parent
-# Direct DT_NEEDED boundary of shipped ELF files. System libraries manage
-# their own transitive dependencies (including the distribution's JPEG/XML).
-PLATFORM_LIBRARIES = frozenset("""
-ld-linux-x86-64.so.2 ld-linux-aarch64.so.1 libc.so.6 libm.so.6 libdl.so.2 libpthread.so.0 librt.so.1
-libstdc++.so.6 libgcc_s.so.1 libatomic.so.1 libwebkit2gtk-4.1.so.0
-libjavascriptcoregtk-4.1.so.0 libsoup-3.0.so.0 libgtk-3.so.0 libgdk-3.so.0
-libglib-2.0.so.0 libgobject-2.0.so.0 libgio-2.0.so.0 libgdk_pixbuf-2.0.so.0
-libcairo.so.2 libcairo-gobject.so.2 libdbus-1.so.3 libpango-1.0.so.0 libpangocairo-1.0.so.0
-libepoxy.so.0 libGL.so.1 libEGL.so.1 libvulkan.so.1 libgbm.so.1 libdrm.so.2
-libva.so.2 libva-drm.so.2 libva-x11.so.2 libva-wayland.so.2 libX11.so.6 libXext.so.6 libxcb.so.1 libwayland-client.so.0
-libpulse.so.0 libasound.so.2 libfreetype.so.6 libfribidi.so.0 libharfbuzz.so.0
-libfontconfig.so.1 libz.so.1 liblzma.so.5 liblcms2.so.2
-""".split())
+
+def read_system_providers(path):
+    """The reviewed system ABI boundary and its installation names."""
+    providers = {}
+    for row in path.read_text().splitlines():
+        if row.startswith("#"):
+            continue
+        fields = row.split("\t")
+        if len(fields) != 5 or not all(re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.+-]*", field) for field in fields):
+            raise ValueError(f"Incomplete or invalid runtime package mapping: {row!r}")
+        soname, *packages = fields
+        if soname in providers:
+            raise ValueError(f"Duplicate runtime package mapping: {soname}")
+        providers[soname] = packages
+    return providers
+
+
+SYSTEM_PROVIDERS = read_system_providers(ROOT / "scripts/linux-portable/system-packages.tsv")
+
+
+def write_runtime_packages(path, files, system_links):
+    private = {Path(item["path"]).name for item in files if Path(item["path"]).parent == Path("lib")}
+    direct = {name for item in files for name in item["needed"]} - private
+    if direct != system_links.keys():
+        raise ValueError(f"Runtime checks disagree with packaged DT_NEEDED: {sorted(direct ^ system_links.keys())}")
+    rows, depends = [], set()
+    for name in sorted(direct):
+        packages = SYSTEM_PROVIDERS[name]
+        old, current = packages[:2]
+        owner = package_owner(Path(system_links[name]))["package"].split(":")[0]
+        if owner not in (old, current):
+            raise ValueError(f"{name} belongs to {owner}, expected {old} or {current}")
+        dependency = current if current == old else f"{current} | {old}"
+        depends.add("libc6 (>= 2.35)" if dependency == "libc6" else dependency)
+        rows.append("\t".join([name, *packages]))
+    path.write_text("\n".join(rows) + "\n")
+    return sorted(depends)
 
 
 def family(name):
@@ -79,7 +103,7 @@ def package_owner(path):
 
 def platform_runtime(env, architecture):
     cache = capture("/usr/sbin/ldconfig", "-p")
-    paths, packages = set(), {}
+    paths = set()
     machine = {"amd64": "x86-64", "arm64": "AArch64"}[architecture]
     # Detect collisions with libraries that WebKit or drivers already require.
     for name in ("libwebkit2gtk-4.1.so.0", "libepoxy.so.0", "libpulse.so.0", "libasound.so.2"):
@@ -90,9 +114,7 @@ def platform_runtime(env, architecture):
         library = resolved.pop()
         paths.add(library)
         paths.update(dependencies(library, env).values())
-        owner = package_owner(library)
-        packages[owner["package"]] = owner["version"]
-    return paths, packages
+    return paths
 
 
 def collect_distro_sources(packages, destination, notices):
@@ -134,7 +156,7 @@ def assemble(args):
         shutil.copy2(application / "application-inventory.json", doc / "application-inventory.json")
     env = {key: value for key, value in os.environ.items() if not key.startswith(("LD_", "DYLD_"))}
     env["LC_ALL"] = "C"
-    platform, platform_packages = platform_runtime(env, arch)
+    platform = platform_runtime(env, arch)
     build_env = {**env, "LD_LIBRARY_PATH": ":".join(str(p.resolve(strict=True)) for p in args.library_dir)}
     roots = {getattr(args, name).resolve(strict=True): Path("bin") / ("visualsubforge.real" if name == "visualsubforge" else name)
              for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe")}
@@ -151,9 +173,8 @@ def assemble(args):
         if name != "libspirv-cross-c-shared.so.0":
             raise ValueError(f"Unexpected SPIRV-Cross ABI: {name}")
         destinations[library] = Path("lib") / name
-    system_families = {family(path.name) for path in platform} | {family(name) for name in PLATFORM_LIBRARIES}
+    system_families = {family(path.name) for path in platform} | {family(name) for name in SYSTEM_PROVIDERS}
     system_links = {}
-    linked_platform_files = set()
     rejected = set()
     queue = list(destinations)
     while queue:
@@ -163,10 +184,9 @@ def assemble(args):
         resolved = dependencies(original, build_env)
         for name in capture("patchelf", "--print-needed", original).splitlines():
             dependency = resolved[name]
-            if name in PLATFORM_LIBRARIES:
+            if name in SYSTEM_PROVIDERS:
                 if any(dependency.is_relative_to(path) for path in custom_dirs):
                     raise ValueError(f"System SONAME resolves to SDK: {name} -> {dependency}")
-                linked_platform_files.add(dependency)
                 system_links[name] = str(dependency)
                 continue
             if family(name) in system_families:
@@ -200,9 +220,6 @@ def assemble(args):
         previous = bundled_families.setdefault(family(soname), soname)
         if previous != soname:
             raise ValueError(f"Multiple private ABIs: {previous} and {soname}")
-    for library in sorted(linked_platform_files):
-        owner = package_owner(library)
-        platform_packages[owner["package"]] = owner["version"]
     records, distro = [], {}
     for original, relative in destinations.items():
         copied = private / relative
@@ -224,7 +241,7 @@ def assemble(args):
         resolved = dependencies(copied, env)
         for name in capture("patchelf", "--print-needed", copied).splitlines():
             path = resolved[name]
-            if name in PLATFORM_LIBRARIES:
+            if name in SYSTEM_PROVIDERS:
                 if str(path) != system_links[name]:
                     raise ValueError(f"Changed system provider: {name} -> {path}")
             elif path != libraries / name:
@@ -273,12 +290,7 @@ def assemble(args):
         link = tree / "usr" / relative
         link.parent.mkdir(parents=True, exist_ok=True)
         link.symlink_to(os.path.relpath(private / relative, link.parent))
-    package_names = {name.split(":")[0] for name in platform_packages}
-    alternatives = {
-        "libasound2": "libasound2t64 | libasound2", "libgtk-3-0": "libgtk-3-0t64 | libgtk-3-0",
-        "libglib2.0-0": "libglib2.0-0t64 | libglib2.0-0", "libc6": "libc6 (>= 2.35)",
-    }
-    depends = sorted({alternatives.get(name.removesuffix("t64"), name) for name in package_names})
+    depends = write_runtime_packages(doc / "runtime-packages.tsv", records, system_links)
     control = tree / "DEBIAN/control"
     control.parent.mkdir()
     debian_version = release_version().replace("-", "~", 1)

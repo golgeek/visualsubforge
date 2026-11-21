@@ -1,20 +1,18 @@
 #include <dlfcn.h>
 #include <stdio.h>
 
-int main(void) {
-    static const char *const libraries[] = {
-        "libwebkit2gtk-4.1.so.0", "libgtk-3.so.0", "libva.so.2",
-        "libva-drm.so.2", "libva-x11.so.2", NULL
-    };
-    int failed = 0;
-    for (const char *const *name = libraries; *name; ++name) {
-        void *handle = dlopen(*name, RTLD_NOW | RTLD_LOCAL);
-        if (!handle) {
-            fprintf(stderr, "VisualSubForge requires %s (%s)\n", *name, dlerror());
-            failed = 1;
-        }
-        /* The process exits immediately. Keep GTK and its dependencies loaded
-           while testing the remaining libraries. */
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fputs("Missing runtime SONAME list\n", stderr);
+        return 2;
     }
-    return failed;
+    int missing = 0;
+    for (int i = 1; i < argc; ++i) {
+        /* This short-lived helper leaves the GUI's loader namespace untouched. */
+        if (!dlopen(argv[i], RTLD_NOW | RTLD_LOCAL)) {
+            puts(argv[i]);
+            missing = 1;
+        }
+    }
+    return missing;
 }

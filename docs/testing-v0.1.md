@@ -17,9 +17,9 @@ Open the [v0.1.0 test release](https://github.com/golgeek/visualsubforge/release
 The portable installation lives in `~/.local/opt/visualsubforge`. Use
 `~/.local/opt/visualsubforge/uninstall.sh` to remove it. For all users run
 `./install.sh --system` and later `/opt/visualsubforge/uninstall.sh --system`.
-The launcher prints the distribution package command if its GTK or VA-API
-libraries are missing. Fedora uses `sudo dnf install webkit2gtk4.1 gtk3 libva`;
-Arch uses `sudo pacman -S webkit2gtk-4.1 gtk3 libva`.
+If the app needs a system library, run `~/.local/bin/visualsubforge` in a terminal.
+It prints the missing libraries and a single install command for your distribution.
+Run that command and open the app again.
 
 ## The test
 

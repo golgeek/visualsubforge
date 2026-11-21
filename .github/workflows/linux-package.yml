@@ -107,6 +107,7 @@ jobs:
             (cd "$root" && find . -printf '%P\t%y\t%m\t%l\n' | LC_ALL=C sort) > "$RUNNER_TEMP/unpacked/$kind.tsv"
           done
           cmp "$RUNNER_TEMP/unpacked/tar.tsv" "$RUNNER_TEMP/unpacked/deb.tsv"
+          python "$GITHUB_WORKSPACE/tests/release/linux-runtime-receipt.py" "${tar_roots[0]}" ./*.deb
           cp "$RUNNER_TEMP/unpacked/deb.tsv" payload-files.tsv
       # Retain exact candidate bytes even if a later runtime assertion fails.
       - name: Archive matching native dependency sources

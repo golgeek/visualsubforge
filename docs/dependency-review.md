@@ -186,6 +186,11 @@ architecture's assembly receipt records which SONAMEs its binaries use.
 | Window system and sound | `libX11.so.6`, `libXext.so.6`, `libxcb.so.1`, `libwayland-client.so.0`, `libpulse.so.0`, `libasound.so.2` |
 | Fonts, compression and color | `libfreetype.so.6`, `libfribidi.so.0`, `libharfbuzz.so.0`, `libfontconfig.so.1`, `libz.so.1`, `liblzma.so.5`, `liblcms2.so.2` |
 
+The assembler selects the direct system SONAMEs actually used by each architecture
+from this boundary. The launcher probes each one and names its distribution
+package if missing. Debian Depends and clean-image installs use the same provider
+table, including the Debian and Ubuntu t64 alternatives.
+
 The distribution owns the transitive dependencies of these libraries, including
 WebKitGTK's XML and JPEG providers. mpv disables its JPEG writer and scripts.
 

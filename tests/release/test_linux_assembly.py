@@ -34,6 +34,44 @@ class LddGraph(unittest.TestCase):
             PACKAGER.parse_ldd("libmedia.so => not found")
 
 
+class RuntimeProviders(unittest.TestCase):
+    def test_partial_or_duplicate_package_mappings_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mapping = Path(directory) / "providers.tsv"
+            row = "libasound.so.2\tlibasound2\tlibasound2t64\talsa-lib\talsa-lib"
+            for invalid in (row.rsplit("\t", 1)[0], row + "\n" + row):
+                with self.subTest(invalid=invalid):
+                    mapping.write_text(invalid + "\n")
+                    with self.assertRaises(ValueError):
+                        PACKAGER.read_system_providers(mapping)
+
+    def test_direct_system_edge_cannot_be_omitted(self):
+        files = [{"path": "bin/vsf", "needed": ["libasound.so.2", "libmpv.so.2"]},
+                 {"path": "lib/libmpv.so.2", "needed": ["libc.so.6"]}]
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "libasound"):
+                PACKAGER.write_runtime_packages(Path(directory) / "providers.tsv", files, {"libc.so.6": "/lib/libc.so.6"})
+
+    def test_launcher_passes_every_checked_soname_and_preserves_app_arguments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            doc = root / "share/doc/visualsubforge"
+            doc.mkdir(parents=True)
+            names = sorted(PACKAGER.SYSTEM_PROVIDERS)
+            (doc / "runtime-packages.tsv").write_text("".join(
+                "\t".join([name, *PACKAGER.SYSTEM_PROVIDERS[name]]) + "\n" for name in names))
+            binaries = root / "bin"
+            binaries.mkdir()
+            shutil.copy2(ROOT / "scripts/linux-portable/visualsubforge", binaries / "visualsubforge")
+            for program, output in (("check-runtime", "checked"), ("visualsubforge.real", "opened")):
+                script = binaries / program
+                script.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > {output}\n')
+                script.chmod(0o755)
+            subprocess.run([binaries / "visualsubforge", "with spaces", "*.srt"], cwd=root, check=True)
+            self.assertEqual((root / "checked").read_text().splitlines(), names)
+            self.assertEqual((root / "opened").read_text().splitlines(), ["with spaces", "*.srt"])
+
+
 @unittest.skipUnless(sys.platform == "linux", "Requires Linux ELF and Debian package tools")
 class LinuxAssembly(unittest.TestCase):
     def test_private_library_survives_sdk_removal_and_inputs_stay_unchanged(self):
@@ -68,11 +106,11 @@ class LinuxAssembly(unittest.TestCase):
                 ("unreviewed", platform, [], "Unreviewed system library"),
                 ("overlap", platform | {root / "system/libanswer.so.2"}, [sdk], "overlaps system runtime"),
             ):
-                with self.subTest(name=name), patch.object(PACKAGER, "platform_runtime", return_value=(system, {})):
+                with self.subTest(name=name), patch.object(PACKAGER, "platform_runtime", return_value=system):
                     trial = argparse.Namespace(**{**vars(args), "library_dir": search, "output": root / name})
                     with self.assertRaisesRegex(ValueError, error):
                         PACKAGER.assemble(trial)
-            with patch.object(PACKAGER, "platform_runtime", return_value=(platform, {})), \
+            with patch.object(PACKAGER, "platform_runtime", return_value=platform), \
                     patch.object(PACKAGER, "collect_distro_sources", side_effect=no_sources):
                 PACKAGER.assemble(args)
             self.assertEqual(originals, {path: PACKAGER.digest(path) for path in originals})
