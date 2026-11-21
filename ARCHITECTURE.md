@@ -19,6 +19,11 @@ installer as VSF. FFmpeg and ffprobe retain their upstream identity. The Ubuntu
 package also owns the XML and ICU ABIs linked by its private 24.04 media
 libraries. Each desktop supplies its own GTK, WebKit and driver stack.
 
+The GTK timer services libmpv render updates on the GTK main thread. It tracks a
+pending frame until GTK paints it or the surface becomes unmapped, at which point
+it acknowledges a skipped frame. GTK can discard a queued draw during
+close/reopen or occlusion. The mpv control worker remains independent of painting.
+
 ## Code map and dependencies
 
 ```mermaid
