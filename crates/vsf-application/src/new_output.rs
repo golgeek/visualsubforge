@@ -55,21 +55,23 @@ pub fn require_absent(path: &Path) -> Result<(), Error> {
         ))),
     }
 }
+/// Compare resolved output names conservatively across filesystem case and
+/// Unicode normalization policies, including when neither file exists yet.
+pub fn equivalent_name(left: &Path, right: &Path) -> bool {
+    left == right
+        || left
+            .to_string_lossy()
+            .nfd()
+            .flat_map(char::to_lowercase)
+            .eq(right.to_string_lossy().nfd().flat_map(char::to_lowercase))
+}
 /// Protect provenance even when the original file was deleted after opening.
 /// Existing file/symlink/hardlink aliases are already rejected by resolve.
 pub fn protect_source(output: &Path, source: &Path) -> Result<(), Error> {
     let absolute = std::path::absolute(source).map_err(|e| Error::Io(e.to_string()))?;
-    // Be conservative even on case-sensitive filesystems: a deleted provenance
-    // name must not become writable merely through case/Unicode normalization.
-    let same = |path: &Path| {
-        output == path
-            || output
-                .to_string_lossy()
-                .nfd()
-                .flat_map(char::to_lowercase)
-                .eq(path.to_string_lossy().nfd().flat_map(char::to_lowercase))
-    };
-    if same(&absolute) || location(source).is_ok_and(|resolved| same(&resolved)) {
+    if equivalent_name(output, &absolute)
+        || location(source).is_ok_and(|resolved| equivalent_name(output, &resolved))
+    {
         return Err(Error::InvalidInput(
             "Choose a different file to preserve the original subtitles".into(),
         ));

@@ -11,17 +11,19 @@ use vsf_application::{
 };
 
 type Result<T> = std::result::Result<T, (u8, String)>;
-pub(super) fn publish(path: &Path, p: &Package, cancel: &Cancellation) -> Result<()> {
+pub(super) fn prepare_package(
+    path: &Path,
+    p: &Package,
+    cancel: &Cancellation,
+) -> Result<vsf_application::atomic_file::Prepared> {
     let bytes = p.write().map_err(|e| (2, e))?;
-    let path = vsf_application::new_output::resolve(path).map_err(|e| (5, e.to_string()))?;
-    vsf_application::atomic_file::prepare_with_checkpoint(&path, &bytes, || {
+    vsf_application::atomic_file::prepare_with_checkpoint(path, &bytes, || {
         if cancel.is_cancelled() {
             Err("Cancelled".into())
         } else {
             Ok(())
         }
     })
-    .and_then(|f| f.commit_new())
     .map_err(|e| (if cancel.is_cancelled() { 130 } else { 5 }, e))
 }
 pub fn run(args: Review, cancel: &Cancellation) -> Result<u8> {
@@ -109,7 +111,11 @@ pub fn run(args: Review, cancel: &Cancellation) -> Result<u8> {
                 }
                 best.threads = threads;
             }
-            publish(&output, &best, cancel)?;
+            let path =
+                vsf_application::new_output::resolve(&output).map_err(|e| (5, e.to_string()))?;
+            prepare_package(&path, &best, cancel)?
+                .commit_new()
+                .map_err(|e| (5, e))?;
             writeln!(
                 out,
                 "Revised subtitles from {} (round {})",
