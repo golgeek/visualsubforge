@@ -58,6 +58,24 @@ fn video_ready(status: &Status) -> bool {
         }
 }
 fn run(media: &Media, path: &str) -> Result<(), String> {
+    // Exercise the XML demuxer alongside the real WebKit runtime. The
+    // usual VFR and virtual-audio checks follow in the same GUI process.
+    #[cfg(target_os = "linux")]
+    if let Ok(path) = std::env::var("VSF_MEDIA_SMOKE_XML") {
+        let xml = media.request(
+            Action::Open {
+                path,
+                hardware: false,
+            },
+            0,
+        )?;
+        wait(media, |s| s.session == xml.session && video_ready(s))?;
+        media.request(Action::Pause { paused: false }, xml.session)?;
+        wait(media, |s| {
+            s.session == xml.session && s.position_seconds.is_some_and(|t| t > 0.3)
+        })?;
+        eprintln!("VSF XML SMOKE: rendered and played the DASH fixture");
+    }
     let start = Instant::now();
     media.request(
         Action::Open {

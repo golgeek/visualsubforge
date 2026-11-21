@@ -33,6 +33,15 @@ HARFBUZZ_TEST_FONT = {
 }
 
 
+# Declared :test by the dav1d formula. Homebrew opens this raw AV1 clip only
+# after installation. It is neither implementation source nor a VSF fixture.
+DAV1D_TEST_MEDIA = {
+    'name': 'homebrew-00000000.ivf',
+    'url': 'https://code.videolan.org/videolan/dav1d-test-data/raw/1.1.0/8-bit/data/00000000.ivf',
+    'checksum': '52b4351f9bc8a876c8f3c9afc403d9e90f319c1882bfe44667d41c8c6f5486f3',
+}
+
+
 def without_bottle_metadata(text):
     return re.sub(r'\n  bottle do\n.*?^  end\n', '', text, flags=re.M | re.S)
 
@@ -106,7 +115,11 @@ def matching_recipe(formula, directory):
     raise ValueError(f'No matching historical formula for {name} in {len(candidates)} revisions')
 
 
-def capture_resource(resource, destination):
+def capture_resource(resource, destination, *, formula_name=None):
+    if (formula_name == 'dav1d' and resource.get('test_only') is True
+            and all(resource.get(key) == value for key, value in DAV1D_TEST_MEDIA.items())):
+        return {'kind': 'Homebrew post-install test media, excluded from VSF sources and fixtures',
+                'url': resource['url'], 'declared_sha256': resource['checksum'], 'notices': []}
     destination.mkdir(parents=True, exist_ok=False)
     url, checksum = resource['url'], resource['checksum']
     if checksum:
@@ -223,7 +236,7 @@ def collect(records, cellar, output):
             # Retain ancillary sources even when used only during the build.
             for index, resource in enumerate(formula['resources']):
                 record['resources'].append({'name': resource['name'],
-                    **capture_resource(resource, directory / f'resource-{index}')})
+                    **capture_resource(resource, directory / f'resource-{index}', formula_name=name)})
             for index, patch in enumerate(formula['patches']):
                 patch_path = directory / f'patch-{index}.diff'
                 captured = {key: value for key, value in patch.items() if key != 'contents'}

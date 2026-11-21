@@ -36,6 +36,7 @@ struct Surface {
     std::atomic<int> error{0};
     mpv_render_context *renderer = nullptr; // Main only, including free.
     Bounds applied; // Main only; used by overlay allocation.
+    bool pending_paint = false; // Main only; GTK may unmap a queued draw.
     const bool trace = std::getenv("VSF_RENDER_TRACE") != nullptr;
     gint64 last_tick = 0, last_render = 0, last_report = 0;
     gint64 max_tick_gap = 0, max_render_time = 0;
@@ -100,7 +101,7 @@ gboolean render(GtkGLArea *area, GdkGLContext *, gpointer raw) {
     auto &s = *static_cast<Surface *>(raw);
     if (!s.renderer) return TRUE;
     const gint64 started = s.trace ? g_get_monotonic_time() : 0;
-    mpv_render_context_update(s.renderer);
+    s.pending_paint = false;
     gtk_gl_area_attach_buffers(area);
     GLint framebuffer = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
@@ -142,22 +143,27 @@ gboolean tick(gpointer raw) {
     }
     if (s.layout_dirty.exchange(false)) apply_layout(s);
     if (s.renderer && s.frame_dirty.exchange(false)) {
-        if (gtk_widget_get_mapped(s.area)) {
-            ++s.queued_renders;
-            gtk_gl_area_queue_render(GTK_GL_AREA(s.area));
+        // Advanced control needs an update for every coalesced mpv callback,
+        // even if GTK drops a queued paint when the surface is hidden.
+        gtk_gl_area_make_current(GTK_GL_AREA(s.area));
+        if (mpv_render_context_update(s.renderer) & MPV_RENDER_UPDATE_FRAME) {
+            s.pending_paint = true;
+            if (gtk_widget_get_mapped(s.area)) {
+                ++s.queued_renders;
+                gtk_gl_area_queue_render(GTK_GL_AREA(s.area));
+            }
         }
-        else {
-            // Hidden surfaces must still service render updates to avoid blocking
-            // the core during HTML dialogs, clipping, unload or replacement.
-            gtk_gl_area_make_current(GTK_GL_AREA(s.area));
-            mpv_render_context_update(s.renderer);
-            int skip = 1;
-            mpv_render_param params[] = {{MPV_RENDER_PARAM_SKIP_RENDERING, &skip},
-                                         {MPV_RENDER_PARAM_INVALID, nullptr}};
-            int result = mpv_render_context_render(s.renderer, params);
-            ++s.skipped_renders;
-            if (result < 0) s.error.store(result);
-        }
+    }
+    if (s.renderer && s.pending_paint && !gtk_widget_get_mapped(s.area)) {
+        gtk_gl_area_make_current(GTK_GL_AREA(s.area));
+        int skip = 1, block = 0;
+        mpv_render_param params[] = {{MPV_RENDER_PARAM_SKIP_RENDERING, &skip},
+                                     {MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block},
+                                     {MPV_RENDER_PARAM_INVALID, nullptr}};
+        int result = mpv_render_context_render(s.renderer, params);
+        s.pending_paint = false;
+        ++s.skipped_renders;
+        if (result < 0) s.error.store(result);
     }
     return G_SOURCE_CONTINUE;
 }
@@ -289,6 +295,7 @@ extern "C" void vsf_player_destroy(void *raw) {
         mpv_render_context_set_update_callback(s.renderer,nullptr,nullptr);
         mpv_render_context_free(s.renderer); s.renderer=nullptr;
         s.frame_dirty.store(false);
+        s.pending_paint = false;
         std::fprintf(stderr,"VSF Linux render context removed\n");
     });
     mpv_terminate_destroy(player->core);

@@ -4,7 +4,6 @@ import argparse
 import json
 from pathlib import Path
 import shutil
-import tarfile
 
 from msys_sources import collect
 from source_notices import source_notices
@@ -57,8 +56,6 @@ def main():
     shutil.copy2(mpv / 'source.tar.gz', custom / 'mpv-source.tar.gz')
     shutil.copy2(mpv / 'build-receipt.json', custom / 'mpv-build.json')
     shutil.copy2(ffmpeg / 'ffmpeg-8.1.2.tar.xz', custom)
-    with tarfile.open(custom / 'ffmpeg-patched-source.tar.gz', 'x:gz') as archive:
-        archive.add(ffmpeg / 'source', arcname='source')
     shutil.copytree(ROOT / 'tests/native/ffmpeg-windows', custom / 'ffmpeg-patches')
     shutil.copy2(ROOT / 'scripts/build-ffmpeg-windows.sh', custom)
     for name in ['configure-options.txt', 'build-packages.txt', 'config.h', 'config_components.h',
@@ -66,7 +63,7 @@ def main():
         shutil.copy2(ffmpeg / name, custom)
     custom_notices = output / 'custom-notices'
     inventory['custom_notices'] = {}
-    for name in ['mpv-source.tar.gz', 'ffmpeg-patched-source.tar.gz']:
+    for name in ['mpv-source.tar.gz', 'ffmpeg-8.1.2.tar.xz']:
         notices = source_notices(custom / name, custom_notices / name)
         if not notices:
             raise ValueError(f'Missing custom source notices: {name}')

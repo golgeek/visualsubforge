@@ -1,5 +1,16 @@
 name: macOS preview packages
 on:
+  workflow_call:
+    inputs:
+      architecture:
+        type: string
+        default: both
+      sign:
+        type: boolean
+        default: false
+      unsigned_run_id:
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       architecture:
@@ -106,7 +117,8 @@ jobs:
             -L"$RUNNER_TEMP/package/VisualSubForge.app/Contents/Frameworks" -lmpv.2 \
             -framework AppKit -Wl,-rpath,@executable_path/VisualSubForge.app/Contents/Frameworks \
             -o "$RUNNER_TEMP/artifacts/macos-player-init"
-          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_0.0.1-alpha_${{ matrix.arch }}_macos-unsigned.zip"
+          version=$(python scripts/release_version.py)
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_${version}_${{ matrix.arch }}_macos-unsigned.zip"
           cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
           cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
           tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
@@ -167,11 +179,14 @@ jobs:
           def get(path):
               return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
           source = get(endpoint)
-          if source['head_branch'] != 'main' or source['path'] != '.github/workflows/macos-package.yml':
+          standalone = source['path'] == '.github/workflows/macos-package.yml'
+          release = (source['path'] == '.github/workflows/release.yml'
+                     and run == os.environ['GITHUB_RUN_ID'] and source['head_sha'] == os.environ['GITHUB_SHA'])
+          if source['head_branch'] != 'main' or not (standalone or release):
               raise SystemExit('Only this workflow\'s main-branch packages may be signed')
           expected = f"Native package ({os.environ['VSF_PACKAGE_ARCH']})"
           jobs = get(endpoint + '/jobs?per_page=100')['jobs']
-          if not any(job['name'] == expected and job['conclusion'] == 'success' for job in jobs):
+          if not any(job['name'].split(' / ')[-1] == expected and job['conclusion'] == 'success' for job in jobs):
               raise SystemExit('The selected architecture has no successful package job')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f"run={run}\ncommit={source['head_sha']}\n")

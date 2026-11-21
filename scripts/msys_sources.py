@@ -12,6 +12,7 @@ import tarfile
 import urllib.request
 
 from native_evidence import digest
+from msys_release_sources import mingw_snapshot, prepare_release
 from source_notices import source_notices
 from locked_crate_sources import collect as collect_locked_crates
 
@@ -109,9 +110,10 @@ def verify_recipe(archive, expected):
         if len(recipes) != 1:
             raise ValueError(f'Expected one MSYS2 source recipe: {archive}')
         with source.extractfile(recipes[0]) as stream:
-            actual = hashlib.file_digest(stream, 'sha256').hexdigest()
-        if actual != expected:
+            recipe = stream.read()
+        if hashlib.sha256(recipe).hexdigest() != expected:
             raise ValueError(f'Source recipe differs from binary .BUILDINFO: {archive}')
+        return recipe
 
 
 def capture_native_rust(archive, base, output):
@@ -207,13 +209,19 @@ def collect(msys, shipped, output):
         if source_name not in captured:
             source_url = 'https://repo.msys2.org/mingw/sources/' + source_name
             archive = signed_download(source_url, sources, msys)
-            verify_recipe(archive, build['pkgbuild_sha256sum'][0])
+            recipe = verify_recipe(archive, build['pkgbuild_sha256sum'][0])
             non_archive_fixtures = []
             found = source_notices(archive, notices / source_name, lzip=msys / 'usr/bin/lzip.exe',
                                    non_archive_fixtures=non_archive_fixtures)
             if not found:
                 raise ValueError(f'No source license notices collected: {source_name}')
             captured[source_name] = {'file': source_name, 'url': source_url, 'sha256': digest(archive), 'notices': found}
+            recipe_path = output / 'recipes' / source_name / 'PKGBUILD'
+            recipe_path.parent.mkdir(parents=True)
+            recipe_path.write_bytes(recipe)
+            captured[source_name]['signature_check'] = f'source-packages/{source_name}.verification.txt'
+            if base in ('mingw-w64-headers', 'mingw-w64-crt', 'mingw-w64-winpthreads'):
+                captured[source_name]['mingw_snapshot'] = mingw_snapshot(recipe.decode('utf-8'))
             if non_archive_fixtures:
                 captured[source_name]['non_archive_fixtures'] = non_archive_fixtures
             rust_directory = output / 'rust-dependencies' / source_name
@@ -229,12 +237,14 @@ def collect(msys, shipped, output):
                 item = pending.setdefault(dependency, {'files': {}, 'required_by': [], 'embedded': True})
                 item['required_by'].append(filename)
         records.append({'name': name, 'version': version, 'license': package.get('license', []),
-                        'binary': {'file': filename, 'url': url, 'sha256': digest(binary)},
+                        'binary': {'file': filename, 'url': url, 'sha256': digest(binary),
+                                   'signature_check': f'binary-packages/{filename}.verification.txt'},
                         'source': source_name, 'package_metadata': package, 'build_metadata': build,
                         'input_files': {file: digest(path) for file, path in group['files'].items()},
                         'required_by': group['required_by']})
         completed.add(key)
-    receipt = {'packages': records, 'sources': captured,
+    sizes = prepare_release(output, records, captured)
+    receipt = {'packages': records, 'sources': captured, 'archive_sizes': sizes,
                'scope': 'Signed DLL owners and reviewed compiler/header/generated-code inputs; '
                         'supplemental versions come from each binary build record. Per-recipe coverage still requires review.'}
     (output / 'msys-inventory.json').write_text(json.dumps(receipt, indent=2) + '\n')

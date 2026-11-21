@@ -5,6 +5,8 @@ This copies inputs without changing them, resolves every linked non-system
 library, rejects ambiguous SDKs, and replaces load paths inside the copy. It
 does not establish redistribution rights or clean-machine/device acceptance.
 """
+from release_version import release_version
+
 import argparse
 import hashlib
 import json
@@ -105,7 +107,8 @@ def assemble(args):
     if len(architecture) != 1:
         raise ValueError("This preview packager expects one architecture per artifact")
     edges, destinations, ids, targets = {}, dict(roots), {}, {}
-    minimums = [info.get("LSMinimumSystemVersion", "11.0")]
+    minimums = [{"arm64": "14.0", "x86_64": "15.0"}[architecture[0]],
+                info.get("LSMinimumSystemVersion", "14.0")]
     queue = list(roots)
     while queue:
         original = queue.pop()
@@ -159,8 +162,8 @@ def assemble(args):
         records.append({"file": str(relative), "source": str(original),
                         "minimum_macos": targets[original],
                         "source_sha256": digest(original)})
-    version = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text())["version"]
-    numeric_version = version.split("-", 1)[0]
+    version = release_version()
+    numeric_version = re.split("[-+]", version, maxsplit=1)[0]
     info.update(CFBundleShortVersionString=numeric_version, CFBundleVersion=numeric_version,
                 VSFReleaseVersion=version,
                 LSMinimumSystemVersion=max(minimums, key=lambda value: tuple(map(int, value.split(".")))))

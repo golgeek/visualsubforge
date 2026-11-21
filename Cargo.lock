@@ -2198,7 +2198,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "media-analysis"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2208,7 +2208,7 @@ dependencies = [
 
 [[package]]
 name = "media-player"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "cc",
  "pkg-config",
@@ -3684,11 +3684,11 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "subtitle-core"
-version = "0.0.1-alpha"
+version = "0.1.0"
 
 [[package]]
 name = "subtitle-formats"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "subtitle-core",
 ]
@@ -4639,7 +4639,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "visualsubforge"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "ashpd",
  "cc",
@@ -4673,7 +4673,7 @@ dependencies = [
 
 [[package]]
 name = "vsf-application"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "media-analysis",
@@ -4694,7 +4694,7 @@ dependencies = [
 
 [[package]]
 name = "vsf-cli"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -4702,6 +4702,7 @@ dependencies = [
  "serde",
  "serde_json",
  "subtitle-formats",
+ "tauri-winres",
  "tempfile",
  "time",
  "vsf-application",
@@ -4710,7 +4711,7 @@ dependencies = [
 
 [[package]]
 name = "vsf-plugin-host"
-version = "0.0.1-alpha"
+version = "0.1.0"
 dependencies = [
  "rquickjs",
  "serde",

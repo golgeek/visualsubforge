@@ -1,5 +1,13 @@
 # Preview candidate manual acceptance
 
+For v0.1.0, use the package for your platform, matching source archives,
+`VisualSubForge-0.1.0-test-media.zip` and `SHA256SUMS` from the
+[test release](https://github.com/golgeek/visualsubforge/releases/tag/v0.1.0).
+Before publication, the release rehearsal provides those files in one Actions artifact.
+On Ubuntu 24.04 amd64 install with `sudo apt install ./VisualSubForge_0.1.0_amd64_ubuntu24.04.deb`.
+
+## Earlier preview candidates
+
 The Windows x64 and Ubuntu24.04 x64 candidates below are updated to f0dbf68 on
 October18 and include the feature milestones. The Mac downloads in the table
 remain October12 baselines. Use an identified build containing the milestones
@@ -45,6 +53,8 @@ and software D3D11; Ubuntu smoke uses a prepared virtual PulseAudio sink. Neithe
 establishes physical video/audio acceptance. The Mac signature checks likewise
 are separate from this manual checklist.
 
+## Manual acceptance
+
 Record the package SHA-256, app revision, OS version/architecture, physical
 machine or VM, GPU/driver, display scaling and audio device. Test on a clean OS
 without FFmpeg, mpv, developer SDKs or codec packs. Installation may download
@@ -52,8 +62,7 @@ ordinary OS runtimes; disconnect networking after installation. On Linux use
 `sudo apt install ./<candidate>.deb`; on Windows use the installer; on macOS copy
 the notarized app into Applications. Record security prompts and every extra step.
 
-The current Mac candidates require macOS 14 on Apple Silicon and macOS 15 on
-Intel. Ubuntu candidates target 24.04 x64. Windows x64 candidates are built on
+The v0.1.0 packages require macOS 15 on both Apple Silicon and Intel. Ubuntu candidates target 24.04 x64. Windows x64 candidates are built on
 Server 2022; clean Windows 10/11 behavior remains to be established. A newer-OS
 pass does not establish the oldest-version gate.
 

@@ -5,6 +5,8 @@ GTK/WebKit, libc and display/audio drivers stay with the OS. Their package
 dependencies are resolved by apt; media libraries outside that runtime closure
 are copied privately. This is a validation artifact until release gates pass.
 """
+from release_version import release_version
+
 import argparse
 import json
 import os
@@ -22,6 +24,11 @@ PLATFORM_LIBRARIES = (
     "libGL.so.1", "libEGL.so.1", "libpulse.so.0", "libasound.so.2",
     "libc.so.6", "libstdc++.so.6", "libgcc_s.so.1",
 )
+
+
+# Noble WebKit pulls these in transitively; Resolute WebKit uses different
+# SONAMEs. Private media binaries still need their original XML and ICU ABIs.
+PRIVATE_MEDIA_ABIS = {"libxml2.so.2", "libicuuc.so.74", "libicudata.so.74"}
 
 
 def capture(*command, env=None):
@@ -127,7 +134,7 @@ def assemble(args):
         resolved = dependencies(original, build_env)
         for name in capture("patchelf", "--print-needed", original).splitlines():
             dependency = resolved[name]
-            if dependency in platform:
+            if dependency in platform and name not in PRIVATE_MEDIA_ABIS:
                 continue
             relative = Path("lib") / name
             if dependency in destinations:
@@ -205,11 +212,12 @@ def assemble(args):
     depends += ["xdg-desktop-portal", "xdg-desktop-portal-gtk", "fonts-dejavu-core"]
     control = tree / "DEBIAN/control"
     control.parent.mkdir()
-    control.write_text("Package: visualsubforge\nVersion: 0.0.1~alpha\nArchitecture: amd64\n"
+    debian_version = release_version().replace("-", "~", 1)
+    control.write_text(f"Package: visualsubforge\nVersion: {debian_version}\nArchitecture: amd64\n"
                        "Maintainer: VisualSubForge contributors <noreply@github.com>\n"
                        "Section: video\nPriority: optional\n" + "Depends: " + ", ".join(depends) + "\n"
-                       "Description: VisualSubForge subtitle editor and resync CLI (preview)\n")
-    receipt = {"schema": 1, "version": "0.0.1-alpha", "architecture": "amd64", "os": "Ubuntu 24.04",
+                       "Description: VisualSubForge subtitle editor and resync CLI (test release)\n This test release supports Ubuntu 24.04 amd64.\n")
+    receipt = {"schema": 1, "version": release_version(), "architecture": "amd64", "os": "Ubuntu 24.04",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
                "files": records, "header_inputs": header_inputs,
                "platform_dependencies": depends, "native_sources": source_records,
@@ -218,7 +226,7 @@ def assemble(args):
                "redistribution": "Pending complete Rust/frontend/native license review",
                "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    artifact = root / "VisualSubForge_0.0.1-alpha_amd64_ubuntu24.04.deb"
+    artifact = root / f"VisualSubForge_{release_version()}_amd64_ubuntu24.04.deb"
     subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(tree), str(artifact)], check=True)
     receipt["artifact"] = {"file": artifact.name, "sha256": digest(artifact)}
     (root / "assembly-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")

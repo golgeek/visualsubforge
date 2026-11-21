@@ -7,6 +7,9 @@ Exact commands, source/runtime identities, results and unavailable checks belong
 in each PR description. [The test guide](../tests/desktop/README.md) explains how
 to reproduce suites and what their results can establish.
 
+The [v0.1.0 test release checklist](releases.md#cutting-a-quiet-test-release)
+covers package verification and outstanding desktop acceptance.
+
 Cue-list columns, widths and 24/32 px density save per layout preset. Issues and
 Text stay visible; text/file-number and Issues filters preserve original cue
 indices. Metrics come from Rust's checker, and ASS/SSA also expose Style/Actor.

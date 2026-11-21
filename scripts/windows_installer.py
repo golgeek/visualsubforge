@@ -32,6 +32,10 @@ TEMPLATE_DIRECTIVE = '!addplugindir "${ADDITIONALPLUGINSPATH}"'
 def select_plugin_template(original):
     if original.count(TEMPLATE_DIRECTIVE) != 1:
         raise ValueError('Pinned installer template plugin selection changed')
+    product_key = 'VIAddVersionKey "ProductName" "${PRODUCTNAME}"'
+    if original.count(product_key) != 1:
+        raise ValueError('Pinned installer product metadata changed')
+    original = original.replace(product_key, product_key + '\nVIAddVersionKey "CompanyName" "${MANUFACTURER}"')
     return original.replace(TEMPLATE_DIRECTIVE, '\n'.join([
         '; VSF builds this helper from pinned source, Cargo.lock and Rust.',
         '!if "$%VSF_NSIS_PLUGIN_DIR%" == ""',
@@ -82,7 +86,7 @@ def prepare(output, cached=None):
     (recipe / 'installer.nsi').write_text(select_plugin_template(original), encoding='utf-8')
     receipt['template'] = {'original_sha256': digest(recipe / 'original-installer.nsi'),
                            'selected_sha256': digest(recipe / 'installer.nsi'),
-                           'change': 'Select the source-built helper through VSF_NSIS_PLUGIN_DIR'}
+                           'change': 'Select inventoried helper and write CompanyName from manufacturer'}
     return receipt
 
 

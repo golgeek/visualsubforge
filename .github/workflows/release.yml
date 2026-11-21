@@ -1,0 +1,112 @@
+name: Test release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag for publication (prospective tag for a rehearsal)
+        type: string
+        required: true
+      dry_run:
+        description: Rehearse packaging and retain downloads as an Actions artifact
+        type: boolean
+        default: true
+  # A new dispatch workflow cannot be selected until it reaches the default branch.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          TAG: ${{ inputs.tag }}
+          REAL: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
+        run: |
+          set -eu
+          version=$(python3 scripts/release_version.py)
+          tag=${TAG:-v$version}
+          test "$tag" = "v$version"
+          test -s "docs/release-notes/$tag.md"
+          if [[ "$REAL" == true ]]; then
+            test "$GITHUB_REF" = refs/heads/main
+            test "$(git rev-parse --verify "refs/tags/$tag^{commit}")" = "$GITHUB_SHA"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+  linux:
+    needs: version
+    uses: ./.github/workflows/linux-package.yml
+  linux-runtime:
+    needs: linux
+    uses: ./.github/workflows/linux-runtime.yml
+    with:
+      package_run: ${{ format('{0}', github.run_id) }}
+  windows:
+    needs: version
+    uses: ./.github/workflows/windows-package.yml
+  mac-unsigned:
+    if: github.ref != 'refs/heads/main'
+    needs: version
+    uses: ./.github/workflows/macos-package.yml
+  mac-signed:
+    if: github.ref == 'refs/heads/main'
+    needs: version
+    uses: ./.github/workflows/macos-package.yml
+    with:
+      sign: true
+    secrets: inherit
+  collect:
+    needs: [version, linux-runtime, windows, mac-signed, mac-unsigned]
+    if: >-
+      ${{ !cancelled() && needs.linux-runtime.result == 'success' && needs.windows.result == 'success' &&
+          (needs.mac-signed.result == 'success' || needs.mac-unsigned.result == 'success') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: '{linux-preview-amd64,windows-preview-x64,macos-unsigned-*,macos-notarized-*,preview-acceptance-fixtures}'
+          path: inputs
+      - name: Verify inner manifests and generate release checksums
+        run: |
+          args=()
+          if [[ "$GITHUB_REF" == refs/heads/main ]]; then args+=(--signed); fi
+          python3 scripts/release-assets.py inputs downloads "${args[@]}"
+          (cd downloads && sha256sum -c SHA256SUMS)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: VisualSubForge-${{ needs.version.outputs.tag }}
+          path: downloads/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+  draft:
+    if: github.event_name == 'workflow_dispatch' && !inputs.dry_run && github.ref == 'refs/heads/main'
+    needs: [version, collect]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: VisualSubForge-${{ needs.version.outputs.tag }}
+          path: downloads
+      - name: Create draft for the verified existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          git fetch --no-tags origin "refs/tags/$TAG"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$GITHUB_SHA"
+          (cd downloads && sha256sum -c SHA256SUMS)
+          gh release create "$TAG" downloads/* --draft --prerelease --verify-tag \
+            --title "VisualSubForge ${TAG#v} (test release)" --notes-file "docs/release-notes/$TAG.md"
