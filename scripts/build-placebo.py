@@ -59,6 +59,9 @@ def main():
             # autodetect an unused Vulkan/MoltenVK backend from the build host.
             # Linux retains its existing Vulkan support and upstream tests.
             backend_options = ["-Dvulkan=disabled"] if platform.system() == "Darwin" else []
+            if platform.system() == "Linux":
+                backend_options = ["-Dvulkan=enabled", "-Dshaderc=enabled", "-Dlibdovi=enabled",
+                                   "-Dglslang=disabled", "-Dunwind=disabled"]
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
                 "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *backend_options, *header_options)

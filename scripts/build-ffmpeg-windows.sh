@@ -26,12 +26,9 @@ cd "$output/build"
 # has an independently reproduced unload hazard.
 options=(
   "--prefix=$(cygpath -m "$output/sdk")" --cc=clang --cxx=clang++
-  --disable-autodetect --enable-shared --disable-static --disable-debug
-  --disable-doc --disable-ffplay --disable-gpl --enable-version3
-  --enable-libdav1d
-  --enable-zlib --enable-bzlib --enable-lzma --enable-schannel
-  --enable-dxva2 --enable-d3d11va
 )
+while IFS= read -r option; do options+=("$option"); done < "$recipe_root/build/ffmpeg-options.txt"
+options+=(--enable-schannel --enable-dxva2 --enable-d3d11va)
 printf '%s\n' "${options[@]}" > "$output/configure-options.txt"
 "$output/source/configure" "${options[@]}" > "$output/configure.log" 2>&1
 make -j "$jobs" > "$output/build.log" 2>&1

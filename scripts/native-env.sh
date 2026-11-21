@@ -44,8 +44,8 @@ case "$(uname -s)" in
         # shellcheck source=/dev/null
         . /etc/os-release
         [[ "$ID:$VERSION_ID:$(uname -m)" == ubuntu:24.04:x86_64 ]] || fail 'The native Linux package currently requires Ubuntu 24.04 amd64'
-        for tool in patchelf ffmpeg ffprobe; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
-        pkg-config --exists gtk+-3.0 epoxy libavcodec libass || fail 'Missing native development packages'
+        for tool in patchelf cargo-cinstall nasm; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
+        pkg-config --exists gtk+-3.0 epoxy libva libass || fail 'Missing native development packages'
         ;;
     MINGW*|MSYS*)
         platform=windows

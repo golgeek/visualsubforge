@@ -123,6 +123,10 @@ def main():
             receipt["source_archive_sha256"] = digest(output / "source.tar.gz")
             options = ["-Dlibmpv=true", "-Dtests=true", "-Dmanpage-build=disabled",
                        "-Dvapoursynth=disabled"]
+            if platform.system() == "Linux" and os.environ.get("VSF_NATIVE_PLATFORM") == "linux":
+                options += ["-Dauto_features=disabled", "-Dlua=disabled", "-Dgl=enabled", "-Dplain-gl=enabled",
+                            "-Degl=enabled", "-Ddrm=enabled", "-Dvaapi=enabled", "-Dvaapi-drm=enabled",
+                            "-Dalsa=enabled", "-Dpulse=enabled", "-Dlcms2=enabled", "-Dzlib=enabled"]
             if platform.system() == "Darwin":
                 options += ["-Dcocoa=enabled", "-Dswift-build=enabled", "-Dmacos-media-player=disabled"]
             run(["meson", "setup", build, checkout, *options])

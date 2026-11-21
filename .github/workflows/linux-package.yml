@@ -32,8 +32,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config patchelf ffmpeg \
             libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-            libepoxy-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev \
-            libswresample-dev libswscale-dev libass-dev liblua5.2-dev \
+            libepoxy-dev nasm cargo-c curl zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libass-dev libspirv-cross-c-shared-dev \
             liblcms2-dev libshaderc-dev libvulkan-dev libxxhash-dev \
             libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
           rustup show
@@ -50,7 +49,12 @@ jobs:
         run: |
           python scripts/package-linux.py \
             --visualsubforge "$CARGO_TARGET_DIR/release/visualsubforge" --vsf "$CARGO_TARGET_DIR/release/vsf" \
-            --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe \
+            --ffmpeg "$VSF_FFMPEG_BUILD/sdk/bin/ffmpeg" --ffprobe "$VSF_FFMPEG_BUILD/sdk/bin/ffprobe" \
+            --library-dir "$VSF_FFMPEG_BUILD/sdk/lib" --library-dir "$VSF_DOVI_BUILD/sdk/lib" \
+            --spirv-cross "$(pkg-config --variable=libdir spirv-cross-c-shared)/libspirv-cross-c-shared.so" \
+            --native-source "ffmpeg=$VSF_FFMPEG_BUILD/ffmpeg.tar.xz" --native-source "dav1d=$VSF_FFMPEG_BUILD/dav1d.tar.xz" \
+            --native-source "libdovi=$VSF_DOVI_BUILD/source.tar.gz" --native-notices "ffmpeg=$VSF_FFMPEG_BUILD/source" \
+            --native-notices "dav1d=$VSF_FFMPEG_BUILD/dav1d" --native-notices "libdovi=$VSF_DOVI_BUILD/source/dolby_vision" \
             --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" \
             --native-source "mpv=$VSF_MPV_BUILD/source.tar.gz" \
             --native-source "libplacebo=$VSF_PLACEBO_BUILD/source.tar.gz" \
@@ -62,7 +66,11 @@ jobs:
       # Retain exact candidate bytes even if a later runtime assertion fails.
       - name: Archive matching native dependency sources
         run: |
-          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" distro-sources mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json
+          mkdir "$RUNNER_TEMP/package/recipes"
+          cp scripts/build-ffmpeg.sh scripts/build-linux-dovi.sh build/ffmpeg-options.txt \
+            "$VSF_FFMPEG_BUILD/configure-options.txt" "$VSF_FFMPEG_BUILD/config.h" "$VSF_FFMPEG_BUILD/config_components.h" \
+            "$RUNNER_TEMP/package/recipes/"
+          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" recipes distro-sources mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json ffmpeg-source.tar.xz dav1d-source.tar.xz libdovi-source.tar.gz
           tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
           cd "$RUNNER_TEMP/package"
           sha256sum ./*.deb native-sources.tar.gz application-sources.tar.gz > SHA256SUMS
