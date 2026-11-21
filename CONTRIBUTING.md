@@ -126,7 +126,7 @@ including IPC generation and native-feature tests.
 | Documentation | Check relative paths and section anchors against tracked files plus intended additions, not local notes; run `git diff --check`. Preserve prerequisites, arguments and limitations when moving commands. |
 
 CI definitions live in [application checks](.github/workflows/checks.yml) and
-[native build contracts](.github/workflows/native.yml). Configured jobs alone
+[native build contracts](.github/workflows/native.yml). Path-filtered workflows never report a check for excluded pull requests and must not be configured as required checks as-is. Configured jobs alone
 are not evidence of hosted execution. Consult [release preparation](docs/releases.md)
 for dated hosted/package results and [signing setup](docs/macos-signing.md) for
 macOS credentials. Package creation does not establish release support.

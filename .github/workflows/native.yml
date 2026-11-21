@@ -4,6 +4,24 @@ on:
     branches: [main]
     tags: ['*']
   pull_request:
+    paths:
+      - '.github/workflows/native.yml'
+      - '.github/actions/install-apt/**'
+      - 'scripts/check-mpv-build.py'
+      - 'scripts/prepare-mpv-clock.py'
+      - 'scripts/prepare-angle-headers.py'
+      - 'scripts/native_evidence.py'
+      - 'scripts/source_archive.py'
+      - 'tests/native/build-requirements.txt'
+      - 'tests/native/mpv-render/**'
+      - 'tests/native/mpv-clock/**'
+      - 'tests/native/mpv-coreaudio-cleanup/**'
+      - 'tests/native/angle/**'
+      - 'crates/media-player/**'
+      - '**/Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.cargo/**'
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
