@@ -6,7 +6,7 @@ use super::{
 };
 use crate::text::{self, Operation};
 use std::collections::HashMap;
-use subtitle_core::{Cue, CueId, CueUpdate, Document, Edit};
+use subtitle_core::{Cue, CueId, Document, Edit};
 
 pub struct Proposal {
     before: Document,
@@ -25,18 +25,28 @@ impl Proposal {
         if self.fixed == 0 {
             return Err(Error::Invalid("No safe cue fixes are available".into()));
         }
-        Ok(Edit::UpdateBatch {
-            cues: self
-                .after
-                .cues()
-                .iter()
-                .map(|cue| CueUpdate {
-                    id: cue.id(),
-                    start: cue.start(),
-                    end: cue.end(),
-                    text: cue.text().into(),
-                })
-                .collect(),
+        let before = current.cues();
+        let after = self.after.cues();
+        let index = after
+            .iter()
+            .position(|cue| cue.id() == self.cue_id)
+            .ok_or_else(|| Error::Invalid("Selected cue is missing from the repair".into()))?;
+        let selected = &after[index];
+        if before.len() != after.len()
+            || before[..index] != after[..index]
+            || before[index + 1..] != after[index + 1..]
+            || before[index].id() != selected.id()
+            || before[index].metadata() != selected.metadata()
+        {
+            return Err(Error::Invalid(
+                "Safe fix must only change the selected cue's text and timing".into(),
+            ));
+        }
+        Ok(Edit::Text {
+            id: selected.id(),
+            start: selected.start(),
+            end: selected.end(),
+            text: selected.text().into(),
         })
     }
 }

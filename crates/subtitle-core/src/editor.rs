@@ -891,6 +891,37 @@ mod tests {
     }
 
     #[test]
+    fn ordinary_text_edit_retains_only_selected_cue_in_history() {
+        let template = editor().document().cues()[0].clone();
+        let document = Document::new(
+            (1..=3)
+                .map(|id| Cue {
+                    id: CueId(id),
+                    ..template.clone()
+                })
+                .collect(),
+        )
+        .unwrap();
+        let mut e = Editor::new(document);
+        e.apply_edit(
+            0,
+            Edit::Text {
+                id: CueId(2),
+                start: template.start(),
+                end: template.end(),
+                text: "Fixed".into(),
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+        let change = e.undo.last().unwrap();
+        assert_eq!(
+            (change.index, change.before.len(), change.after.len()),
+            (1, 1, 1)
+        );
+    }
+
+    #[test]
     fn properties_only_history_does_not_retain_unchanged_cues() {
         let original = editor().document().clone();
         let mut e = Editor::with_properties(original.clone(), 0);
