@@ -95,8 +95,12 @@ jobs:
       - name: Archive matching native dependency sources
         run: |
           mkdir "$RUNNER_TEMP/package/recipes"
-          cp scripts/build-linux-shader-stack.sh scripts/build-ffmpeg.sh scripts/build-linux-dovi.sh scripts/configure-ffmpeg.sh \
-            "$VSF_FFMPEG_BUILD/configure-options.txt" "$VSF_FFMPEG_BUILD/config.h" "$VSF_FFMPEG_BUILD/config_components.h" \
+          git archive HEAD Makefile build scripts/build-{ffmpeg,linux-dovi,linux-shader-stack}.sh \
+            scripts/configure-ffmpeg.sh scripts/{build-placebo,check-mpv-build,prepare-mpv-clock}.py \
+            scripts/{native-cache,native-build-paths,native_evidence,source_archive}.py \
+            scripts/native-{env,stage}.sh scripts/linux-portable tests/native/build-requirements.txt \
+            tests/native/{mpv-clock,mpv-render,mpv-coreaudio-cleanup} | tar -xf - -C "$RUNNER_TEMP/package/recipes"
+          cp "$VSF_FFMPEG_BUILD/configure-options.txt" "$VSF_FFMPEG_BUILD/config.h" "$VSF_FFMPEG_BUILD/config_components.h" \
             "$RUNNER_TEMP/package/recipes/"
           tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" recipes distro-sources shader-stack-source.tar.gz bzip2-source.tar.gz mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json ffmpeg-source.tar.xz dav1d-source.tar.xz libdovi-source.tar.gz
           tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
