@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 
@@ -31,6 +32,45 @@ class LddGraph(unittest.TestCase):
         })
         with self.assertRaisesRegex(ValueError, "Unresolved ELF"):
             PACKAGER.parse_ldd("libmedia.so => not found")
+
+
+class RuntimeProviders(unittest.TestCase):
+    def test_partial_or_duplicate_package_mappings_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mapping = Path(directory) / "providers.tsv"
+            row = "libasound.so.2\tlibasound2\tlibasound2t64\talsa-lib\talsa-lib"
+            for invalid in (row.rsplit("\t", 1)[0], row + "\n" + row):
+                with self.subTest(invalid=invalid):
+                    mapping.write_text(invalid + "\n")
+                    with self.assertRaises(ValueError):
+                        PACKAGER.read_system_providers(mapping)
+
+    def test_direct_system_edge_cannot_be_omitted(self):
+        files = [{"path": "bin/vsf", "needed": ["libasound.so.2", "libmpv.so.2"]},
+                 {"path": "lib/libmpv.so.2", "needed": ["libc.so.6"]}]
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "libasound"):
+                PACKAGER.write_runtime_packages(Path(directory) / "providers.tsv", files, {"libc.so.6": "/lib/libc.so.6"})
+
+    @unittest.skipUnless(os.name == "posix", "The Linux launcher executes POSIX shell programs")
+    def test_launcher_passes_every_checked_soname_and_preserves_app_arguments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            doc = root / "share/doc/visualsubforge"
+            doc.mkdir(parents=True)
+            names = sorted(PACKAGER.SYSTEM_PROVIDERS)
+            (doc / "runtime-packages.tsv").write_text("".join(
+                "\t".join([name, *PACKAGER.SYSTEM_PROVIDERS[name]]) + "\n" for name in names))
+            binaries = root / "bin"
+            binaries.mkdir()
+            shutil.copy2(ROOT / "scripts/linux-portable/visualsubforge", binaries / "visualsubforge")
+            for program, output in (("check-runtime", "checked"), ("visualsubforge.real", "opened")):
+                script = binaries / program
+                script.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > {output}\n')
+                script.chmod(0o755)
+            subprocess.run([binaries / "visualsubforge", "with spaces", "*.srt"], cwd=root, check=True)
+            self.assertEqual((root / "checked").read_text().splitlines(), names)
+            self.assertEqual((root / "opened").read_text().splitlines(), ["with spaces", "*.srt"])
 
 
 @unittest.skipUnless(sys.platform == "linux", "Requires Linux ELF and Debian package tools")
@@ -67,22 +107,50 @@ class LinuxAssembly(unittest.TestCase):
                 ("unreviewed", platform, [], "Unreviewed system library"),
                 ("overlap", platform | {root / "system/libanswer.so.2"}, [sdk], "overlaps system runtime"),
             ):
-                with self.subTest(name=name), patch.object(PACKAGER, "platform_runtime", return_value=(system, {})):
+                with self.subTest(name=name), patch.object(PACKAGER, "platform_runtime", return_value=system):
                     trial = argparse.Namespace(**{**vars(args), "library_dir": search, "output": root / name})
                     with self.assertRaisesRegex(ValueError, error):
                         PACKAGER.assemble(trial)
-            with patch.object(PACKAGER, "platform_runtime", return_value=(platform, {})), \
+            with patch.object(PACKAGER, "platform_runtime", return_value=platform), \
                     patch.object(PACKAGER, "collect_distro_sources", side_effect=no_sources):
                 PACKAGER.assemble(args)
             self.assertEqual(originals, {path: PACKAGER.digest(path) for path in originals})
             sdk.rename(root / "hidden-sdk")
             private = args.output / "root/usr/lib/visualsubforge"
             env = {key: value for key, value in os.environ.items() if not key.startswith("LD_")}
-            result = subprocess.check_output([str(private / "vsf")], env=env, text=True)
+            result = subprocess.check_output([str(private / "bin/vsf")], env=env, text=True)
             self.assertEqual(result, "42\n")
             receipt = json.loads((args.output / "assembly-receipt.json").read_text())
-            libc = PACKAGER.package_owner(PACKAGER.dependencies(private / "vsf", env)["libc.so.6"])
-            self.assertIn(f"{libc['package']} (>= {libc['version']})", receipt["platform_dependencies"])
+            self.assertIn("libc6 (>= 2.35)", receipt["platform_dependencies"])
             for item in receipt["files"]:
                 self.assertEqual(PACKAGER.digest(private / item["path"]), item["sha256"])
             self.assertEqual(PACKAGER.digest(args.output / receipt["artifact"]["file"]), receipt["artifact"]["sha256"])
+            extracted = root / "tar"
+            with tarfile.open(args.output / receipt["tarball"]["file"]) as tar:
+                tar.extractall(extracted, filter="data")
+            distribution, = extracted.iterdir()
+            payload = {p.relative_to(private): p.read_bytes() for p in private.rglob("*") if p.is_file()}
+            self.assertEqual(payload, {p.relative_to(distribution): p.read_bytes()
+                                       for p in distribution.rglob("*") if p.is_file()})
+            home = root / "home with spaces"
+            home.mkdir()
+            installed = home / ".local/opt/visualsubforge"
+            install_env = {**env, "HOME": str(home)}
+            for _ in range(2):
+                subprocess.run([distribution / "install.sh"], env=install_env, check=True)
+                self.assertEqual((home / ".local/bin/vsf").resolve(), installed / "bin/vsf")
+            (installed / "my file").touch()
+            blocked = subprocess.run([distribution / "uninstall.sh"], env=install_env, capture_output=True)
+            self.assertNotEqual(blocked.returncode, 0)
+            self.assertTrue((installed / "my file").exists())
+            (installed / "my file").unlink()
+            subprocess.run([installed / "uninstall.sh"], env=install_env, check=True)
+            self.assertFalse(installed.exists())
+            self.assertEqual(list(home.iterdir()), [])
+            unrelated = home / ".local/bin/visualsubforge"
+            unrelated.parent.mkdir(parents=True)
+            unrelated.write_text("existing program")
+            blocked = subprocess.run([distribution / "install.sh"], env=install_env, capture_output=True)
+            self.assertNotEqual(blocked.returncode, 0)
+            self.assertEqual(unrelated.read_text(), "existing program")
+            self.assertFalse(installed.exists())

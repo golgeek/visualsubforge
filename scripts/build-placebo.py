@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 from native_evidence import digest
 from source_archive import archive_source
@@ -53,6 +54,12 @@ def main():
                 if selected.returncode == 0:
                     include = Path(selected.stdout.strip()).resolve(strict=True)
                     test_includes.append("-I" + str(include))
+            vulkan_headers = source / "3rdparty/Vulkan-Headers/include"
+            if platform.system() == "Linux":
+                # The FFmpeg interop tests include hwcontext_vulkan.h through
+                # libplacebo's public headers. Use the same pinned declarations
+                # as the library itself on the older build distribution.
+                test_includes.append("-I" + str(vulkan_headers.resolve(strict=True)))
             header_options = [f"-Dc_args={json.dumps(test_includes)}",
                               f"-Dcpp_args={json.dumps(test_includes)}"] if test_includes else []
             # The Mac adapter renders exclusively through ANGLE/OpenGL. Do not
@@ -60,8 +67,11 @@ def main():
             # Linux retains its existing Vulkan support and upstream tests.
             backend_options = ["-Dvulkan=disabled"] if platform.system() == "Darwin" else []
             if platform.system() == "Linux":
+                export_map = Path(__file__).resolve().parents[1] / "build/linux-private-cxx.map"
+                elf_link_options = json.dumps(["-Wl,--version-script=" + str(export_map)])
                 backend_options = ["-Dvulkan=enabled", "-Dshaderc=enabled", "-Dlibdovi=enabled",
-                                   "-Dglslang=disabled", "-Dunwind=disabled"]
+                                   "-Dglslang=disabled", "-Dunwind=disabled",
+                                   "-Dc_link_args=" + elf_link_options, "-Dcpp_link_args=" + elf_link_options]
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
                 "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *backend_options, *header_options)
@@ -82,11 +92,21 @@ def main():
             receipt["tests"] = [{key: test[key] for key in ("name", "result", "returncode")}
                                 for test in tests]
             run("meson", "install", "-C", build)
+            if platform.system() == "Linux":
+                # mpv includes the same interop header when compiling its video output.
+                shutil.copytree(vulkan_headers, sdk / "include", dirs_exist_ok=True)
             libraries = [path for path in (sdk / "lib").iterdir()
                          if path.is_file() and not path.is_symlink()
                          and (path.name.endswith(".dylib") or ".so" in path.name)]
             if len(libraries) != 1 or not libraries[0].name.startswith("libplacebo."):
                 raise ValueError(f"Expected one installed shared libplacebo: {libraries}")
+            if platform.system() == "Linux":
+                symbols = subprocess.check_output(["nm", "-D", "--defined-only", libraries[0]], text=True)
+                exports = {line.split()[-1] for line in symbols.splitlines() if line.strip()}
+                if not {"memcpy_layout", "pl_gpu_finish"} <= exports:
+                    raise ValueError("Missing libplacebo C API exports")
+                if any(name.startswith("_Z") for name in exports):
+                    raise ValueError("libplacebo exported C++ implementation symbols")
             receipt["binaries"] = [{"path": str(path), "sha256": digest(path)} for path in libraries]
             receipt["status"] = "passed"
     finally:

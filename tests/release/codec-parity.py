@@ -246,7 +246,7 @@ def compare(args):
             differences.append('release media streams')
     for codec in ('vp8', 'vp9'):
         candidate = package_observation(args.bundle, args.packets, codec, args.diagnostics, args.output / codec / 'after',
-                                        save_pcm=bool(args.windows) or os.name == 'nt')
+                                        save_pcm=args.save_pcm or bool(args.windows) or os.name == 'nt')
         results['codecs'][codec] = candidate
         if candidate['cuts'] != [2.0] or candidate['timestamps']['format']['start_time'] != '0.000000':
             differences.append(f'{codec} candidate cut or container origin')
@@ -285,7 +285,8 @@ def main():
         observe_parser.add_argument('--' + name, type=lambda value: Path(value).resolve(), required=True)
     observe_parser.add_argument('--before', type=Path, help='Former Ubuntu package')
     observe_parser.add_argument('--fixtures', type=Path, help='Original unencoded release pack for the Ubuntu comparison')
-    observe_parser.add_argument('--windows', type=Path, help='Exact Windows package observations')
+    observe_parser.add_argument('--save-pcm', action='store_true')
+    observe_parser.add_argument('--windows', '--reference-observations', type=Path, help='Exact Windows package observations')
     args = parser.parse_args()
     if args.mode == 'encode':
         encode(args.ffmpeg, args.fixtures, args.output)

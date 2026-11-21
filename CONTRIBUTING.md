@@ -52,7 +52,7 @@ Run all commands from the repository root. Rust 1.98.1 (including rustfmt and Cl
 
 ### Install and launch
 
-For the app with media on macOS, Windows x64 or Ubuntu 24.04 amd64, follow
+For the app with media on macOS, Windows x64 or Linux amd64/arm64, follow
 [the native build guide](docs/build.md): `make build`, optionally `make install`.
 `make debug` produces a debugging app with the same native media support.
 

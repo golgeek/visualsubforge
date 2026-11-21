@@ -7,6 +7,7 @@ PLACEBO := $(VSF_PLACEBO_BUILD)
 MPV := $(VSF_MPV_BUILD)
 FFMPEG := $(VSF_FFMPEG_BUILD)
 DOVI := $(VSF_DOVI_BUILD)
+SHADERS := $(VSF_SHADERS_BUILD)
 MPV_SDK := $(VSF_MPV_SDK_BUILD)
 UPSTREAM := $(VSF_MPV_BUILD)-upstream
 PLATFORM := $(VSF_NATIVE_PLATFORM)
@@ -31,8 +32,8 @@ export VSF_ANGLE_SDK := $(abspath $(ANGLE)/sdk)
 export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
 NATIVE := $(ANGLE)/.complete $(MPV)/.complete
 else ifeq ($(PLATFORM),linux)
-export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(abspath $(FFMPEG)/sdk/lib/pkgconfig):$(abspath $(DOVI)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
-export LD_LIBRARY_PATH := $(abspath $(MPV)/build):$(abspath $(PLACEBO)/sdk/lib):$(abspath $(FFMPEG)/sdk/lib):$(abspath $(DOVI)/sdk/lib)
+export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(abspath $(FFMPEG)/sdk/lib/pkgconfig):$(abspath $(DOVI)/sdk/lib/pkgconfig):$(abspath $(SHADERS)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
+export LD_LIBRARY_PATH := $(abspath $(MPV)/build):$(abspath $(PLACEBO)/sdk/lib):$(abspath $(FFMPEG)/sdk/lib):$(abspath $(DOVI)/sdk/lib):$(abspath $(SHADERS)/sdk/lib)
 NATIVE := $(MPV)/.complete
 else ifeq ($(PLATFORM),windows)
 export VSF_MPV_SDK := $(shell cygpath -m '$(abspath $(MPV_SDK))')
@@ -55,7 +56,7 @@ include build/mpv.mk
 ifeq ($(PLATFORM),macos)
 include build/angle.mk build/placebo.mk
 else ifeq ($(PLATFORM),linux)
-include build/ffmpeg.mk build/placebo.mk
+include build/ffmpeg.mk build/linux-shaders.mk build/placebo.mk
 else
 include build/ffmpeg.mk build/mpv-sdk.mk
 endif

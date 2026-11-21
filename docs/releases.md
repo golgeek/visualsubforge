@@ -13,14 +13,18 @@ The workspace version in `Cargo.toml` drives packaging. After changing it, run
 `python3 scripts/release_version.py` checks the synchronized manifests and locks.
 
 1. On the chosen main commit, run `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=true`. Check the run's head SHA and all application checks. The existing Mac signing job runs only on main. A pull request touching the release workflow rehearses unsigned packaging.
-2. Download the combined `VisualSubForge-v0.1.0` artifact. Verify `shasum -a 256 -c SHA256SUMS`, both Mac plists, stapled tickets and Gatekeeper assessments, the Windows installer and both VSF executable versions, and the Debian version. Smoke-test the exact ARM download with the fixture ZIP. Record Ubuntu 24.04 acceptance and the Ubuntu 26.04 compatibility limit and review the [release notes](release-notes/v0.1.0.md).
+2. Download the combined `VisualSubForge-v0.1.0` artifact. Verify `shasum -a 256 -c SHA256SUMS`, both Mac plists, stapled tickets and Gatekeeper assessments, the Windows installer and both VSF executable versions, and the versions and checksums of both Linux tarballs and Debian packages. Smoke-test the exact ARM download with the fixture ZIP. Install the downloaded Linux packages across the native distribution matrix and review the [release notes](release-notes/v0.1.0.md).
 3. Owner: tag the verified commit with `git tag -a v0.1.0 <verified-commit> -m 'VisualSubForge 0.1.0 (test release)'` and `git push origin refs/tags/v0.1.0`.
 4. Owner: with main still at that commit, dispatch `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=false`. The workflow checks the existing tag before building and again before creating a draft. Only the draft job can write release assets.
 5. Review the draft and verify its actual downloads again. Signing and notarization produce fresh bytes. Publish as a pre-release with `gh release edit v0.1.0 --draft=false --prerelease --latest=false`. The owner can then apply for Windows signing.
 
-The Ubuntu 24.04 amd64 package declares the system libraries required by its
-media runtime. Apt refuses the install on 26.04 because its archive lacks
-the required libxml2 ABI. A separate 26.04 package is planned.
+The Debian packages install the same payload as the per-architecture tarballs.
+Check both archives’ payload manifests, the Debian control fields and removal,
+the user install and uninstall, and the live GUI library bindings. To replay the
+matrix from the combined artifact, use the dry run's numeric ID in
+`gh workflow run linux-runtime.yml --ref main -f package_run=RUN_ID -f from_release=true -f shared_fixture_run=RUN_ID`.
+This verifies the release manifest before distributing its packages to the native runners.
+The shared fixture artifact from the dry run supplies the encoded parity inputs.
 
 The v0.1.0 Mac packages require macOS 15 on Apple Silicon and Intel. The
 [Apple Silicon rehearsal](https://github.com/golgeek/visualsubforge/actions/runs/44842483191/artifacts/14683081140)
@@ -348,7 +352,7 @@ video retained and null video/audio outputs observed three wraps in two seconds
 for both the candidate and render-only control; that environment does not
 reproduce the Linux PulseAudio case or clear its failure.
 
-`Linux preview package` is a manually dispatched Ubuntu 24.04 amd64 workflow.
+The historical Ubuntu 24.04 amd64 preview workflow recorded the following checks.
 It builds pinned libplacebo and the patched mpv candidate, then production GUI
 and CLI binaries. The `.deb` installs private media binaries/libraries in
 `/usr/lib/visualsubforge`; `/usr/bin/visualsubforge` and `/usr/bin/vsf` launch

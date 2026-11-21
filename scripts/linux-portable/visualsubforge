@@ -1,0 +1,31 @@
+#!/bin/sh
+set -efu
+bin=$(dirname "$(readlink -f "$0")")
+table="$bin/../share/doc/visualsubforge/runtime-packages.tsv"
+names=$(cut -f1 "$table")
+# The assembler accepts only single-word SONAMEs. Globbing is disabled.
+# shellcheck disable=SC2086
+if missing=$("$bin/check-runtime" $names); then
+    exec "$bin/visualsubforge.real" "$@"
+else
+    status=$?
+    [ "$status" -eq 1 ] || exit "$status"
+fi
+# shellcheck source=/dev/null
+. /etc/os-release
+case "$ID:${VERSION_ID:-}" in
+    ubuntu:22.*|debian:12) column=2; command='sudo apt install' ;;
+    ubuntu:*|debian:*) column=3; command='sudo apt install' ;;
+    fedora:*) column=4; command='sudo dnf install' ;;
+    arch:*) column=5; command='sudo pacman -S' ;;
+    *) printf 'VisualSubForge requires the following libraries:\n%s\n' "$missing" >&2; exit 78 ;;
+esac
+awk -v missing="$missing" -v column="$column" -v command="$command" '
+    BEGIN { n = split(missing, names, "\n"); for (i = 1; i <= n; i++) required[names[i]] = 1 }
+    $1 in required {
+        printf "VisualSubForge requires %s (package %s)\n", $1, $column
+        if (!seen[$column]++) command = command " " $column
+    }
+    END { print command }
+' "$table" >&2
+exit 78

@@ -1,53 +1,43 @@
 name: Linux packaged playback diagnostics
 on:
+  workflow_dispatch:
+    inputs:
+      package_run:
+        description: Package run containing both Linux architectures
+        type: string
+        required: true
+      architecture:
+        description: Run both architectures for acceptance, or one for install diagnostics
+        type: choice
+        options: [both, amd64, arm64]
+        default: both
+      from_release:
+        description: Test the Linux packages and media in the combined release artifact
+        type: boolean
+        default: false
+      shared_fixture_run:
+        description: Optional earlier shared-codec-fixtures artifact
+        type: string
+        default: ''
   workflow_call:
     inputs:
       package_run:
         type: string
         required: true
-      null_sink:
-        type: string
-        default: ready-default
-  workflow_dispatch:
-    inputs:
-      package_run:
-        description: Linux preview package run containing the candidate and fixtures
-        type: string
-        required: true
-      test_ubuntu_26:
-        description: Check the installed GUI under Weston on Ubuntu 26.04
-        type: boolean
-        default: false
-      reference_run:
-        description: Optional Ubuntu-FFmpeg package run for synthetic decode parity
-        type: string
-        default: ''
-      shared_fixture_run:
-        description: Reuse the checksummed shared-codec-fixtures artifact from an earlier run
-        type: string
-        default: ''
-      windows_package_run:
-        description: Windows package or release run at current main (required with reference_run)
-        type: string
-        default: ''
-      null_sink:
-        description: PulseAudio sink control; changes device setup, not application assertions
-        type: choice
-        options: [default, no-rewinds, ready-default]
-        default: default
 permissions:
   contents: read
   actions: read
 jobs:
   shared-fixtures:
-    if: inputs.reference_run != '' && inputs.shared_fixture_run == ''
+    needs: platforms
+    if: inputs.shared_fixture_run == '' && (inputs.architecture == 'both' || !inputs.architecture)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: preview-acceptance-fixtures
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/fixtures
       - name: Encode the synthetic media once for all decoders
@@ -63,180 +53,136 @@ jobs:
           path: ${{ runner.temp }}/packets
           if-no-files-found: error
           retention-days: 90
-  windows-parity:
-    needs: shared-fixtures
-    if: ${{ !cancelled() && inputs.reference_run != '' && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
-    runs-on: windows-2022
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Identify the Windows package built from current main
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_RUN: ${{ inputs.windows_package_run }}
-        shell: bash
-        run: |
-          [[ "$PACKAGE_RUN" =~ ^[0-9]+$ ]]
-          main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
-          built=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" --jq '. | select(.conclusion=="success" and (.name=="Windows preview package" or .name=="Test release")) | .head_sha')
-          test "$main" = "$built"
-          echo "MAIN_COMMIT=$main" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: windows-unsigned-x64
-          run-id: ${{ inputs.windows_package_run }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/windows
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: shared-codec-fixtures
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.shared_fixture_run || github.run_id }}
-          path: ${{ runner.temp }}/packets
-      - name: Decode the verified files with the main Windows package
-        run: |
-          $PSNativeCommandUseErrorActionPreference = $true
-          $r = $env:RUNNER_TEMP
-          Expand-Archive "$r/windows/*_x64_windows.zip" "$r/windows"
-          $receipt = Get-Content -Raw "$r/windows/VisualSubForge/native-runtime.json" | ConvertFrom-Json
-          if ($receipt.commit -ne $env:MAIN_COMMIT) { throw "Windows package receipt differs from main" }
-          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
-          python tests/release/codec-parity.py observe --bundle "$r/windows/VisualSubForge" --packets "$r/packets" --diagnostics target/debug --output "$r/observations"
-      - name: Record the Windows decode environment
-        run: |
-          $PSNativeCommandUseErrorActionPreference = $true
-          $r = $env:RUNNER_TEMP
-          $bundle = "$r/windows/VisualSubForge"
-          $flags = foreach ($t in [System.Runtime.Intrinsics.X86.Avx].Assembly.GetTypes()) {
-            if ($t.Namespace -eq 'System.Runtime.Intrinsics.X86' -and !$t.IsNested) {
-              $p = $t.GetProperty('IsSupported', [Reflection.BindingFlags]'Public,Static,DeclaredOnly')
-              if ($p -and $p.GetValue($null)) { $t.Name }
-            }
-          }
-          $receipt = Get-Content -Raw "$bundle/native-runtime.json" | ConvertFrom-Json
-          $codec = $receipt.files | Where-Object path -like 'avcodec-*.dll'
-          @{
-            ffmpeg = @(& "$bundle/ffmpeg.exe" -version)
-            cpu = @(Get-CimInstance Win32_Processor | Select-Object Name, Manufacturer)
-            cpu_intrinsics = @($flags | Sort-Object)
-            avcodec_imports = $codec.platform_imports
-            ucrtbase = (Get-Item "$env:SystemRoot/System32/ucrtbase.dll").VersionInfo.FileVersion
-          } | ConvertTo-Json -Depth 5 | Set-Content "$r/observations/environment.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ !cancelled() }}
-        with:
-          name: windows-shared-codec-observations
-          path: ${{ runner.temp }}/observations
-          if-no-files-found: error
-          retention-days: 90
-  playback:
-    needs: [shared-fixtures, windows-parity]
-    if: ${{ !cancelled() }}
+  platforms:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.images.outputs.matrix }}
+      package_run: ${{ inputs.from_release && github.run_id || inputs.package_run }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: version
+        if: inputs.from_release
+        run: echo "version=$(python3 scripts/release_version.py)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.from_release
         with:
-          name: linux-preview-amd64
+          name: VisualSubForge-v${{ steps.version.outputs.version }}
           run-id: ${{ inputs.package_run }}
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/candidate
+          path: downloads
+      - name: Stage verified release downloads for native runners
+        if: inputs.from_release
+        working-directory: downloads
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          sha256sum --strict -c SHA256SUMS
+          for arch in amd64 arm64; do
+            case "$arch" in amd64) tar_arch=x86_64 ;; arm64) tar_arch=aarch64 ;; esac
+            dest="../installables/$arch"
+            mkdir -p "$dest"
+            for asset in "VisualSubForge_${VERSION}_${arch}.deb" "VisualSubForge_${VERSION}_${tar_arch}_linux.tar.gz"; do
+              awk -v name="$asset" '$2 == name { print; n++ } END { if (n != 1) exit 1 }' SHA256SUMS >> "$dest/SHA256SUMS"
+              mv "$asset" "$dest/"
+            done
+          done
+          media="VisualSubForge-${VERSION}-test-media.zip"
+          awk -v name="$media" '$2 == name { n++ } END { if (n != 1) exit 1 }' SHA256SUMS
+          unzip -q "$media" -d ../fixtures
+          (cd ../fixtures && sha256sum --strict -c SHA256SUMS)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.from_release
+        with:
+          name: linux-installables-amd64
+          path: installables/amd64
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.from_release
+        with:
+          name: linux-installables-arm64
+          path: installables/arm64
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.from_release
+        with:
+          name: preview-acceptance-fixtures
+          path: fixtures
+          if-no-files-found: error
+          compression-level: 0
+      - id: images
+        env:
+          ARCH: ${{ inputs.architecture || 'both' }}
+        shell: python
+        run: |
+          import json, os
+          from pathlib import Path
+          rows = []
+          for distro, digests in json.loads(Path('tests/release/linux-images.json').read_text()).items():
+              for arch, digest in digests.items():
+                  if os.environ['ARCH'] not in ('both', arch):
+                      continue
+                  for fmt in (['tar', 'deb'] if distro.startswith(('ubuntu:', 'debian:')) else ['tar']):
+                      rows.append({'image': distro + '@' + digest, 'id': distro.replace(':', '-'),
+                                   'arch': arch, 'format': fmt,
+                                   'runner': 'ubuntu-24.04-arm' if arch == 'arm64' else 'ubuntu-24.04',
+                                   'trials': 10 if distro in ('ubuntu:24.04', 'ubuntu:26.04') else 1})
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              print('matrix=' + json.dumps({'include': rows}), file=out)
+  install:
+    name: ${{ matrix.id }} ${{ matrix.arch }} ${{ matrix.format }}
+    needs: platforms
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: linux-installables-${{ matrix.arch }}
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
+          path: candidate
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: preview-acceptance-fixtures
-          run-id: ${{ inputs.package_run }}
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/fixtures
-      - name: Verify downloaded bytes and install the actual candidate
-        id: install
+          run-id: ${{ needs.platforms.outputs.package_run }}
+          path: fixtures
+      - name: Verify downloads and install on the pinned distribution
         env:
-          PACKAGE_RUN: ${{ inputs.package_run }}
-          NULL_SINK: ${{ inputs.null_sink }}
+          BASE_IMAGE: ${{ matrix.image }}
+          FORMAT: ${{ matrix.format }}
         run: |
-          (cd "$RUNNER_TEMP/candidate" && sha256sum --check SHA256SUMS)
-          (cd "$RUNNER_TEMP/fixtures" && sha256sum --check SHA256SUMS)
-          mkdir -p "$RUNNER_TEMP/install-context" "$RUNNER_TEMP/evidence"
-          deb=("$RUNNER_TEMP"/candidate/*.deb)
-          test "${#deb[@]}" -eq 1
-          cp "${deb[0]}" "$RUNNER_TEMP/install-context/preview.deb"
-          cp tests/release/linux-install.Dockerfile "$RUNNER_TEMP/install-context/Dockerfile"
-          docker build --pull -t vsf-preview-install "$RUNNER_TEMP/install-context"
-          docker build -t vsf-preview-gui -f tests/release/linux-gui.Dockerfile tests/release
-          docker image inspect vsf-preview-gui > "$RUNNER_TEMP/evidence/gui-image.json"
-          python3 - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          root = Path(os.environ['RUNNER_TEMP'])
-          binary = root / 'install-context/preview.deb'
-          context = {'package_run': os.environ['PACKAGE_RUN'], 'diagnostic_commit': os.environ['GITHUB_SHA'],
-                     'deb_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
-                     'null_sink': os.environ['NULL_SINK'],
-                     'scope': 'Ten fresh containers; unchanged production smoke assertions; virtual display/null audio'}
-          (root / 'evidence/context.json').write_text(json.dumps(context, indent=2) + '\n')
-          PY
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: inputs.reference_run != ''
-        with:
-          name: linux-preview-amd64
-          run-id: ${{ inputs.reference_run }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/reference
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: inputs.reference_run != ''
-        with:
-          name: shared-codec-fixtures
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.shared_fixture_run || github.run_id }}
-          path: ${{ runner.temp }}/packets
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: inputs.reference_run != ''
-        with:
-          name: windows-shared-codec-observations
-          path: ${{ runner.temp }}/windows-observed
-      - name: Compare native decoders, waveform bins, cuts and subtitles
-        if: inputs.reference_run != ''
-        run: |
-          (cd "$RUNNER_TEMP/reference" && sha256sum -c SHA256SUMS)
-          # The hosted runner is separate from the clean install containers.
-          # Both extracted packages need their own declared desktop runtimes.
-          sudo apt-get update
-          sudo apt-get satisfy -y --no-install-recommends \
-            "$(dpkg-deb -f "$RUNNER_TEMP"/reference/*.deb Depends)" \
-            "$(dpkg-deb -f "$RUNNER_TEMP"/candidate/*.deb Depends)"
-          dpkg-deb -x "$RUNNER_TEMP"/reference/*.deb "$RUNNER_TEMP/before"
-          dpkg-deb -x "$RUNNER_TEMP"/candidate/*.deb "$RUNNER_TEMP/after"
-          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
-          bundle="$RUNNER_TEMP/after/usr/lib/visualsubforge"
-          {
-            "$bundle/ffmpeg" -version
-            lscpu
-            ldd "$bundle/lib/libavcodec.so.62"
-            dpkg-query -W libc6
-          } > "$RUNNER_TEMP/evidence/decode-environment.txt"
-          python3 tests/release/codec-parity.py observe \
-            --before "$RUNNER_TEMP/before/usr/lib/visualsubforge" --bundle "$RUNNER_TEMP/after/usr/lib/visualsubforge" \
-            --fixtures "$RUNNER_TEMP/fixtures" --diagnostics target/debug --output "$RUNNER_TEMP/evidence/parity" \
-            --packets "$RUNNER_TEMP/packets" --windows "$RUNNER_TEMP/windows-observed/observations.json"
-      - name: Repeat unchanged playback assertions in ten fresh containers
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+          (cd candidate && sha256sum -c SHA256SUMS)
+          (cd fixtures && sha256sum -c SHA256SUMS)
+          mkdir -p matrix-context/tests/release evidence unpacked
+          tar -xzf candidate/*_linux.tar.gz -C unpacked
+          python3 tests/release/linux-runtime-receipt.py unpacked/* candidate/*.deb
+          cp -r candidate matrix-context/
+          cp tests/release/linux-matrix-install.sh matrix-context/tests/release/
+          docker pull "$BASE_IMAGE"
+          docker image inspect "$BASE_IMAGE" > evidence/base-image.json
+          docker build --build-arg BASE_IMAGE --build-arg FORMAT \
+            -f tests/release/linux-matrix.Dockerfile -t vsf-matrix matrix-context
+      - name: Offline CLI, native GUI, library bindings and removal
         env:
-          NULL_SINK: ${{ inputs.null_sink }}
+          FORMAT: ${{ matrix.format }}
+          TRIALS: ${{ matrix.trials }}
+          VSF_GUI_ENVIRONMENT: ${{ matrix.image }}
         run: |
           failed=0
-          for trial in $(seq 1 10); do
-            evidence="$RUNNER_TEMP/evidence/trial-$trial"
-            mkdir -m 777 "$evidence"
-            if ! docker run --rm --network none \
-              --env "VSF_NULL_SINK=$NULL_SINK" --env VSF_LIBRARY_AUDIT=1 \
-              -v "$PWD/tests/release/linux_library_bindings.py:/linux_library_bindings.py:ro" \
-              -v "$PWD/tests/release/packaged-gui.py:/check-gui.py:ro" \
-              -v "$PWD/tests/release/linux-gui.sh:/gui.sh:ro" \
-              -v "$RUNNER_TEMP/fixtures:/fixtures:ro" \
-              -v "$evidence:/evidence" vsf-preview-gui \
-              timeout --signal=TERM --kill-after=10s 180s \
-              xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh \
-              > "$evidence/container.log" 2>&1; then
+          for n in $(seq 1 "$TRIALS"); do
+            evidence="$PWD/evidence/trial-$n"
+            mkdir "$evidence"
+            if ! docker run --rm --network none -e VSF_GUI_ENVIRONMENT -e VSF_FULL_TRIAL="$((n == 1))" \
+              -v "$PWD/fixtures:/fixtures:ro" -v "$PWD/tests/release:/tests:ro" \
+              -v "$evidence:/evidence" vsf-matrix timeout --kill-after=10s 240s \
+              bash /tests/linux-matrix-trial.sh "$FORMAT" > "$evidence/container.log" 2>&1; then
+              tail -60 "$evidence/container.log"
               failed=1
             fi
           done
@@ -244,35 +190,101 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: linux-playback-diagnostics
-          path: ${{ runner.temp }}/evidence
-          if-no-files-found: error
-          retention-days: 14
+          name: matrix-${{ matrix.id }}-${{ matrix.arch }}-${{ matrix.format }}
+          path: evidence/
+  observe-amd64:
+    needs: [platforms, shared-fixtures]
+    if: ${{ !cancelled() && (inputs.architecture == 'both' || !inputs.architecture) && needs.platforms.result == 'success' && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: shared-codec-fixtures
+          run-id: ${{ inputs.shared_fixture_run || github.run_id }}
+          github-token: ${{ github.token }}
+          path: packets
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: linux-installables-amd64
+          run-id: ${{ needs.platforms.outputs.package_run }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Observe the installed media tools on native amd64
+        run: |
+          (cd candidate && sha256sum -c SHA256SUMS)
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ./candidate/*.deb
+          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          python3 tests/release/codec-parity.py observe --bundle /usr/lib/visualsubforge/bin --packets packets \
+            --diagnostics target/debug --output observations --save-pcm
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: amd64-observations
+          path: observations/
+  observe-arm64:
+    needs: [platforms, observe-amd64]
+    if: ${{ !cancelled() && needs.observe-amd64.result == 'success' }}
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: shared-codec-fixtures
+          run-id: ${{ inputs.shared_fixture_run || github.run_id }}
+          github-token: ${{ github.token }}
+          path: packets
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: linux-installables-arm64
+          run-id: ${{ needs.platforms.outputs.package_run }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: amd64-observations
+          path: reference
+      - name: Observe the installed media tools on native arm64
+        run: |
+          (cd candidate && sha256sum -c SHA256SUMS)
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ./candidate/*.deb
+          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          python3 tests/release/codec-parity.py observe --bundle /usr/lib/visualsubforge/bin --packets packets \
+            --diagnostics target/debug --output observations --save-pcm --reference-observations reference/observations.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: arm64-observations
+          path: observations/
   ubuntu-26-desktop:
-    if: inputs.test_ubuntu_26
+    needs: platforms
     strategy:
       fail-fast: false
       matrix:
         backend: [wayland, x11]
-    runs-on: ubuntu-26.04
+        arch: ${{ fromJSON(inputs.architecture == 'amd64' && '["amd64"]' || inputs.architecture == 'arm64' && '["arm64"]' || '["amd64","arm64"]') }}
+    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-26.04' || 'ubuntu-26.04-arm' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: linux-preview-amd64
-          run-id: ${{ inputs.package_run }}
+          name: linux-installables-${{ matrix.arch }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/candidate
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: preview-acceptance-fixtures
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/fixtures
       - name: Install the same deb and exercise GTK under Weston
         env:
           GDK_BACKEND: ${{ matrix.backend }}
+          VSF_GUI_BIN: /usr/bin/visualsubforge
           VSF_FIXTURES: ${{ runner.temp }}/fixtures
           VSF_EVIDENCE: ${{ runner.temp }}/evidence
           VSF_NULL_SINK: ready-default
@@ -292,5 +304,5 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: linux-26.04-${{ matrix.backend }}-evidence
+          name: linux-26.04-${{ matrix.arch }}-${{ matrix.backend }}-evidence
           path: ${{ runner.temp }}/evidence
