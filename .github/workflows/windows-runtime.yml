@@ -117,6 +117,20 @@ jobs:
           Expand-Archive "$root/reference/*_x64_windows.zip" "$root/reference"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
           python tests/release/windows-codec-parity.py --before "$root/reference/VisualSubForge" --after "$root/install-check/Installed Preview" --diagnostics target/debug --fixtures "$root/fixtures" --output "$root/codec-parity"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.shared_fixture_run != ''
+        with:
+          name: windows-native-build-evidence-x64
+          run-id: ${{ inputs.reference_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/main-build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.shared_fixture_run != ''
+        with:
+          name: windows-native-build-evidence-x64
+          run-id: ${{ inputs.package_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/candidate-build
       - name: Compare both Windows packages on the saved files
         if: inputs.shared_fixture_run != ''
         env:
@@ -134,6 +148,7 @@ jobs:
           $app = "$r/candidate/VisualSubForge"
           if ($main -ne $reference -or (Get-Content -Raw "$ref/native-runtime.json" | ConvertFrom-Json).commit -ne $main) { throw "Wrong main package" }
           if ((Get-Content -Raw "$app/native-runtime.json" | ConvertFrom-Json).commit -ne $candidate) { throw "Wrong candidate package" }
+          python tests/release/windows-ffmpeg-receipts.py --main-build "$r/main-build" --main-package "$ref" --candidate-build "$r/candidate-build" --candidate-package "$app" --output "$r/paired/receipts"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
           python tests/release/codec-parity.py observe --bundle "$ref" --packets "$r/packets" --diagnostics target/debug --output "$r/paired/main"
           python tests/release/codec-parity.py observe --bundle "$app" --packets "$r/packets" --diagnostics target/debug --output "$r/paired/candidate" --windows "$r/paired/main/observations.json"
