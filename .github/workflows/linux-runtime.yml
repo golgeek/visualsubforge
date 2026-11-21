@@ -78,7 +78,7 @@ jobs:
         run: |
           [[ "$PACKAGE_RUN" =~ ^[0-9]+$ ]]
           main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
-          built=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" --jq '. | select(.head_branch=="main" and .conclusion=="success") | .head_sha')
+          built=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" --jq '. | select(.conclusion=="success" and (.name=="Windows preview package" or .name=="Test release")) | .head_sha')
           test "$main" = "$built"
           echo "MAIN_COMMIT=$main" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
