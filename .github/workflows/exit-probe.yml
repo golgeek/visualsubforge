@@ -11,12 +11,15 @@ jobs:
       - name: Failing test followed by successful lint
         run: |
           python -c "import sys; sys.exit(3)"
+      - name: Successful lint
+        run: |
           python -c "print('lint ran')"
   archives:
     runs-on: windows-2022
     steps:
       - name: Archive and checksum
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           New-Item -ItemType Directory sources
           Set-Content sources/example.txt fixture
           tar -czf application.tar.gz -C missing .
