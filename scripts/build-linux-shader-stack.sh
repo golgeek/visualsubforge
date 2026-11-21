@@ -13,7 +13,7 @@ source_package() {
     mkdir "source-archives/$name" "source/$name"
     (cd "source-archives/$name" && apt-get source --download-only --only-source "$name=$version")
     # apt authenticates the source package against the distro source index.
-    tar -xf "source-archives/$name/$name"_*.orig.tar.* --strip-components=1 -C "source/$name"
+    tar -xf "source-archives/$name/$name"_*.orig.tar.gz --strip-components=1 -C "source/$name"
 }
 source_package shaderc 2023.8-1build1
 source_package glslang 14.0.0-2

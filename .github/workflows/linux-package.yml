@@ -71,6 +71,8 @@ jobs:
           rustup show
           rustc -vV | grep -Fx "host: $BUILD_TARGET"
           python --version
+          python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))' > /etc/ld.so.conf.d/ci-python.conf
+          ldconfig
       - name: Check packaging controls
         run: python -m unittest discover -s tests/release -p 'test_*.py'
       - name: Build native SDKs, GUI and CLI through Make
