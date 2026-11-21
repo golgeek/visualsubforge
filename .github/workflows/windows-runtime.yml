@@ -10,6 +10,10 @@ on:
         description: Optional pre-removal package run containing windows-unsigned-x64 for decoded parity
         type: string
         default: ''
+      shared_fixture_run:
+        description: Reuse saved VP8/VP9 MKVs for a same-runner comparison with reference_run
+        type: string
+        default: ''
       fixture_run:
         description: Linux package run containing preview-acceptance-fixtures
         type: string
@@ -98,14 +102,42 @@ jobs:
           run-id: ${{ inputs.reference_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/reference
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.shared_fixture_run != ''
+        with:
+          name: shared-codec-fixtures
+          run-id: ${{ inputs.shared_fixture_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/packets
       - name: Compare packaged decoders and analysis with the pre-removal build
-        if: inputs.reference_run != ''
+        if: inputs.reference_run != '' && inputs.shared_fixture_run == ''
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           $root = $env:RUNNER_TEMP
           Expand-Archive "$root/reference/*_x64_windows.zip" "$root/reference"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
           python tests/release/windows-codec-parity.py --before "$root/reference/VisualSubForge" --after "$root/install-check/Installed Preview" --diagnostics target/debug --fixtures "$root/fixtures" --output "$root/codec-parity"
+      - name: Compare both Windows packages on the saved files
+        if: inputs.shared_fixture_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFERENCE_RUN: ${{ inputs.reference_run }}
+          PACKAGE_RUN: ${{ inputs.package_run }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $r = $env:RUNNER_TEMP
+          Expand-Archive "$r/reference/*_x64_windows.zip" "$r/reference"
+          $main = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha
+          $reference = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:REFERENCE_RUN" --jq .head_sha
+          $candidate = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:PACKAGE_RUN" --jq .head_sha
+          $ref = "$r/reference/VisualSubForge"
+          $app = "$r/candidate/VisualSubForge"
+          if ($main -ne $reference -or (Get-Content -Raw "$ref/native-runtime.json" | ConvertFrom-Json).commit -ne $main) { throw "Wrong main package" }
+          if ((Get-Content -Raw "$app/native-runtime.json" | ConvertFrom-Json).commit -ne $candidate) { throw "Wrong candidate package" }
+          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          python tests/release/codec-parity.py observe --bundle "$ref" --packets "$r/packets" --diagnostics target/debug --output "$r/paired/main"
+          python tests/release/codec-parity.py observe --bundle "$app" --packets "$r/packets" --diagnostics target/debug --output "$r/paired/candidate" --windows "$r/paired/main/observations.json"
+          @{ main_commit = $main; candidate_commit = $candidate; runner = $env:RUNNER_NAME } | ConvertTo-Json | Set-Content "$r/paired/packages.json"
       - name: Checksum the encoded parity inputs
         if: ${{ !cancelled() && inputs.reference_run != '' }}
         shell: python
@@ -122,6 +154,7 @@ jobs:
         with:
           name: windows-installed-candidate-evidence
           path: |
+            ${{ runner.temp }}/paired/
             ${{ runner.temp }}/codec-parity/**/*.mkv
             ${{ runner.temp }}/codec-parity/SHA256SUMS
             ${{ runner.temp }}/codec-parity/*.json
