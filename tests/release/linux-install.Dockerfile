@@ -7,6 +7,12 @@ COPY preview.deb /tmp/preview.deb
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends /tmp/preview.deb python3 \
     && dpkg-deb -f /tmp/preview.deb Depends | tr ',' '\n' | awk '{print $1}' | xargs apt-cache policy > /tmp/dependency-policy.txt \
+    && dpkg-deb -f /tmp/preview.deb Depends | tr ',' '\n' | awk '{print $1}' | cut -d: -f1 > /tmp/declared-depends.txt \
+    && ldd /usr/lib/visualsubforge/ffmpeg > /tmp/ffmpeg-libraries.txt \
+    && for provider in libva.so.2:libva2 libva-drm.so.2:libva-drm2 libva-x11.so.2:libva-x11-2; do \
+         grep -Fx "${provider#*:}" /tmp/declared-depends.txt || exit 1; \
+         awk -v lib="${provider%:*}" '$1 == lib && $2 == "=>" && $3 ~ /^\// { found = 1 } END { exit !found }' /tmp/ffmpeg-libraries.txt || exit 1; \
+       done \
     && cat /tmp/dependency-policy.txt \
     && rm /tmp/preview.deb \
     && ldd /usr/lib/visualsubforge/visualsubforge > /tmp/gui-libraries.txt \

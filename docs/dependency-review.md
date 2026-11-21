@@ -135,7 +135,7 @@ identify the matching release inventories after publication.
 ## Linux media runtime
 
 Linux and Windows build FFmpeg 8.1.2 with the same core configure options in
-`build/ffmpeg-options.txt`. The shared FFmpeg libraries use LGPL-3.0-or-later.
+`scripts/configure-ffmpeg.sh`. The shared FFmpeg libraries use LGPL-3.0-or-later.
 Linux enables VA-API for the player's `hwdec=auto-copy` path. FFmpeg opens a
 DRM render node or an X11 display. The required loaders are libva.so.2,
 libva-drm.so.2 and libva-x11.so.2. GTK still owns presentation under both

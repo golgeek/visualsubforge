@@ -24,13 +24,7 @@ cd "$output/build"
 # cover AV1 and compressed inputs. VP8, VP9 and Opus use built-in decoders. Whisper/GGML is
 # deliberately absent: VSF has no speech-recognition operation and that runtime
 # has an independently reproduced unload hazard.
-options=(
-  "--prefix=$(cygpath -m "$output/sdk")" --cc=clang --cxx=clang++
-)
-while IFS= read -r option; do options+=("$option"); done < "$recipe_root/build/ffmpeg-options.txt"
-options+=(--enable-schannel --enable-dxva2 --enable-d3d11va)
-printf '%s\n' "${options[@]}" > "$output/configure-options.txt"
-"$output/source/configure" "${options[@]}" > "$output/configure.log" 2>&1
+sh "$recipe_root/scripts/configure-ffmpeg.sh" windows "$output" "$(cygpath -m "$output/sdk")"
 make -j "$jobs" > "$output/build.log" 2>&1
 make install > "$output/install.log" 2>&1
 cp config.h config_components.h ffbuild/config.log "$output/"

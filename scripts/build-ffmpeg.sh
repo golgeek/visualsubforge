@@ -35,15 +35,8 @@ dpkg-source -x bzip2-inputs/*.dsc bzip2
 make -C bzip2 -j "$jobs" CFLAGS='-O2 -fPIC -fvisibility=hidden -D_FILE_OFFSET_BITS=64' libbz2.a
 cp bzip2/libbz2.a bzip2-lib/
 tar -czf bzip2-source.tar.gz bzip2-inputs
-set -- "--prefix=$output/sdk"
-while IFS= read -r option; do set -- "$@" "$option"; done < "$recipe/build/ffmpeg-options.txt"
-case $(uname -s) in
-    Linux) set -- "$@" --enable-vaapi --enable-xlib --disable-outdev=xv "--extra-ldflags=-L$output/bzip2-lib -Wl,--exclude-libs,libdav1d.a:libbz2.a" ;;
-    *) echo 'Unsupported FFmpeg build platform' >&2; exit 2 ;;
-esac
-printf '%s\n' "$@" > configure-options.txt
 cd build
-"$output/source/configure" "$@" > ../configure.log 2>&1 || { tail -70 ../configure.log >&2; exit 1; }
+sh "$recipe/scripts/configure-ffmpeg.sh" linux "$output" "$output/sdk"
 make -j "$jobs" > ../build.log 2>&1 || { tail -70 ../build.log >&2; exit 1; }
 make install > ../install.log 2>&1
 cp config.h config_components.h ffbuild/config.log ..

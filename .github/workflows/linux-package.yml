@@ -51,7 +51,7 @@ jobs:
       - name: Archive matching native dependency sources
         run: |
           mkdir "$RUNNER_TEMP/package/recipes"
-          cp scripts/build-ffmpeg.sh scripts/build-linux-dovi.sh build/ffmpeg-options.txt \
+          cp scripts/build-ffmpeg.sh scripts/build-linux-dovi.sh scripts/configure-ffmpeg.sh \
             "$VSF_FFMPEG_BUILD/configure-options.txt" "$VSF_FFMPEG_BUILD/config.h" "$VSF_FFMPEG_BUILD/config_components.h" \
             "$RUNNER_TEMP/package/recipes/"
           tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" recipes distro-sources bzip2-source.tar.gz mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json ffmpeg-source.tar.xz dav1d-source.tar.xz libdovi-source.tar.gz

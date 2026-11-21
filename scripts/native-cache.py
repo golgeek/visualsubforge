@@ -109,7 +109,7 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
                       'tests/native/angle/manifest.json', 'scripts/native-stage.sh', *SUPPORT], host)
     private = {}
     if system == 'linux':
-        private['ffmpeg'] = add('ffmpeg', ['build/ffmpeg.mk', 'build/ffmpeg-options.txt',
+        private['ffmpeg'] = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh',
                                 'scripts/build-ffmpeg.sh', *COMMON_FILES], toolchain,
                                 {'packages': packages(['libva', 'libva-drm', 'libva-x11', 'x11', 'xext', 'xv', 'zlib', 'liblzma']),
                                  'bzip2': probe('dpkg-query', '-W', '-f=${source:Version}', 'libbz2-dev')})
@@ -121,7 +121,7 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
         dependency_key = add('placebo', ['build/placebo.mk', 'scripts/build-placebo.py', *COMMON_FILES, *SUPPORT],
                              toolchain, {**packages(placebo_names), **private})
     else:
-        dependency_key = add('ffmpeg', ['build/ffmpeg.mk', 'build/ffmpeg-options.txt', 'scripts/build-ffmpeg-windows.sh',
+        dependency_key = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh', 'scripts/build-ffmpeg-windows.sh',
                                         'scripts/native-stage.sh', 'tests/native/ffmpeg-windows'], toolchain,
                              {'msys2': probe('pacman', '-Q', *FFMPEG_PACKAGES)})
     mpv_names = MPV_COMMON + (['libplacebo', 'libva-win32'] if system == 'windows' else AV + MPV_UNIX)

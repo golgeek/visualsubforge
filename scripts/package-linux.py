@@ -40,7 +40,6 @@ def family(name):
     return name.split(".so", 1)[0]
 
 
-
 def capture(*command, env=None):
     return subprocess.check_output(list(map(str, command)), text=True, env=env).strip()
 
