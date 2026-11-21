@@ -1,0 +1,112 @@
+name: Packaged macOS decoder comparison
+on:
+  workflow_call:
+    inputs:
+      parity_baseline_run:
+        type: string
+        required: true
+      parity_media_run:
+        type: string
+        required: true
+      parity_packets_run:
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  decoder-parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-15, package: macos-unsigned-aarch64 }
+          - { runner: macos-15-intel, package: macos-unsigned-x86_64 }
+          - { runner: windows-2022, package: windows-preview-x64 }
+          - { runner: ubuntu-24.04, package: linux-installables-amd64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ matrix.package }}
+          run-id: ${{ inputs.parity_baseline_run }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: preview-acceptance-fixtures
+          run-id: ${{ inputs.parity_media_run }}
+          github-token: ${{ github.token }}
+          path: fixtures
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: runner.os == 'macOS'
+        with:
+          name: ${{ matrix.package }}
+          path: candidate
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: runner.os == 'macOS'
+        with:
+          name: shared-codec-fixtures
+          run-id: ${{ inputs.parity_packets_run }}
+          github-token: ${{ github.token }}
+          path: packets
+      - name: Verify downloaded inputs
+        shell: bash
+        run: |
+          python - <<'PYTHON'
+          import runpy, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          check = runpy.run_path('scripts/release-assets.py')['verified']
+          for name in ('fixtures', 'baseline'):
+              check(Path(name))
+          PYTHON
+      - name: Compare the two native Mac apps
+        if: runner.os == 'macOS'
+        run: |
+          (cd candidate && shasum -a 256 -c SHA256SUMS)
+          for dir in baseline candidate; do
+            ditto -x -k "$dir/"*.zip "$dir/app"
+          done
+          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          python tests/release/codec-parity.py observe --macos-before "$PWD/baseline/app/VisualSubForge.app/Contents/MacOS" \
+            --bundle "$PWD/candidate/app/VisualSubForge.app/Contents/MacOS" --packets packets \
+            --diagnostics target/debug --output results --fixtures fixtures --save-pcm
+          for lib in libEGL libGLESv2; do
+            path="app/VisualSubForge.app/Contents/Frameworks/$lib.dylib"
+            cmp "baseline/$path" "candidate/$path"
+            shasum -a 256 "baseline/$path" "candidate/$path" >> results/angle-sha256.txt
+          done
+      - name: Decode MP4s with the packaged Windows FFmpeg
+        shell: pwsh
+        if: runner.os == 'Windows'
+        run: |
+          Expand-Archive (Get-Item baseline/*_windows.zip) baseline/app
+          New-Item -ItemType Directory results
+          python tests/release/mp4-aac-parity.py decode --bundle baseline/app/VisualSubForge --fixtures fixtures --output results/mp4-aac.json
+      - name: Decode MP4s with the installed Linux FFmpeg
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ./baseline/*.deb
+          mkdir results
+          python tests/release/mp4-aac-parity.py decode --bundle /usr/lib/visualsubforge/bin --fixtures fixtures --output results/mp4-aac.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: decoder-parity-${{ matrix.runner }}
+          path: results/
+  compare:
+    needs: decoder-parity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: decoder-parity-*
+          path: observations
+      - run: python3 tests/release/mp4-aac-parity.py compare observations

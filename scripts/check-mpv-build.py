@@ -123,27 +123,32 @@ def main():
             receipt["source_archive_sha256"] = digest(output / "source.tar.gz")
             options = ["-Dlibmpv=true", "-Dtests=true", "-Dmanpage-build=disabled",
                        "-Dvapoursynth=disabled"]
-            linux_package = os.environ.get("VSF_NATIVE_PLATFORM") == "linux"
-            if linux_package:
+            package_platform = os.environ.get("VSF_NATIVE_PLATFORM")
+            if package_platform == "linux":
                 # auto-copy enumerates libavcodec devices and creates them via
                 # av_hwdevice_ctx_create. GTK owns display and presentation.
                 options += ["-Dauto_features=disabled", "-Dlua=disabled", "-Dgl=enabled", "-Dplain-gl=enabled",
                             "-Degl=enabled", "-Dlibavdevice=enabled",
                             "-Dalsa=enabled", "-Dpulse=enabled", "-Dlcms2=enabled", "-Dzlib=enabled"]
+            if package_platform == "macos":
+                options += ["-Dauto_features=disabled", "-Dlua=disabled", "-Dgl=enabled",
+                            "-Dplain-gl=enabled", "-Dgl-cocoa=enabled", "-Dcoreaudio=enabled",
+                            "-Dlibavdevice=enabled", "-Dlcms2=enabled", "-Dzlib=enabled"]
             if platform.system() == "Darwin":
                 options += ["-Dcocoa=enabled", "-Dswift-build=enabled", "-Dmacos-media-player=disabled"]
             run(["meson", "setup", build, checkout, *options])
             run(["meson", "compile", "-C", build, "-j", args.jobs,
                  "mpv:executable", "mpv:shared_library"])
-            if linux_package:
+            if package_platform in ("linux", "macos"):
                 methods = capture([str(build / "mpv"), "--no-config", "--hwdec=help"])
                 receipt["hardware_decoders"] = methods.splitlines()
                 switches = capture([str(build / "mpv"), "--no-config", "--list-options"])
                 if any(line.split()[:1] == ["--load-scripts"] for line in switches.splitlines()):
-                    raise ValueError("The Linux media SDK unexpectedly includes a script engine")
+                    raise ValueError(f"The {package_platform} media SDK unexpectedly includes a script engine")
                 receipt["script_engines"] = []
-                if "h264-vaapi-copy" not in methods:
-                    raise ValueError("mpv did not enumerate FFmpeg's H.264 VA-API copy decoder")
+                decoder = "h264-vaapi-copy" if package_platform == "linux" else "h264-videotoolbox-copy"
+                if decoder not in methods:
+                    raise ValueError(f"mpv did not enumerate FFmpeg's {decoder} decoder")
             run(["meson", "test", "-C", build, "--print-errorlogs", "-j", args.jobs])
         info = build / "meson-info"
         for name in ["compilers", "machines", "dependencies", "buildoptions", "tests"]:

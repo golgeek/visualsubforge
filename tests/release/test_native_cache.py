@@ -83,6 +83,15 @@ class NativeCacheTests(unittest.TestCase):
                                             cwd=self.root, env=env, capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_deployment_change_preserves_the_pinned_angle_sdk(self):
+        def selection(version):
+            return cache.select(self.root, 'macos', self.probe, lambda names: {},
+                                {'MACOSX_DEPLOYMENT_TARGET': version})
+        old, current = selection('14.0'), selection('15.0')
+        self.assertEqual(old['angle'], current['angle'])
+        for name in ('ffmpeg', 'placebo', 'mpv'):
+            self.assertNotEqual(old[name]['key'], current[name]['key'])
+
     def test_dependency_and_recipe_changes_invalidate_only_consumers(self):
         baseline = self.keys(self.select())
         self.versions['libass'] = '2'

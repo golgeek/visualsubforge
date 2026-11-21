@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 import struct
 import subprocess
+import sys
 
 from codec_parity_audio import compare_platform_audio
 from codec_parity_edit import edited_srt
@@ -238,18 +239,36 @@ def compare(args):
         raise ValueError(f'Unexpected packaged FFmpeg: {version}')
     results = {'manifest_sha256': digest((args.packets / 'SHA256SUMS').read_bytes()), 'codecs': {}}
     differences = []
-    if args.before:
+    baseline = args.before or args.macos_before
+    if baseline:
         media = {label: release_media(bundle, args.fixtures) for label, bundle in
-                 [('before', args.before), ('after', args.bundle)]}
+                 [('before', baseline), ('after', args.bundle)]}
         (args.output / 'release-media.json').write_text(json.dumps(media, indent=2) + '\n')
-        if media['before'] != media['after']:
-            differences.append('release media streams')
+        for name, streams in media['before'].items():
+            for old_stream, new_stream in zip(streams, media['after'][name], strict=True):
+                # The separate MP4 gate checks the complete prefix, tail,
+                # sample counts, frame hashes and PTS on the same files.
+                if args.macos_before and old_stream['codec'] == new_stream['codec'] == 'aac':
+                    continue
+                if old_stream != new_stream:
+                    differences.append(f'{name} {old_stream["codec"]} decoded stream')
+        if args.macos_before:
+            run([sys.executable, Path(__file__).with_name('mp4-aac-parity.py'), 'decode',
+                 '--bundle', args.bundle, '--before', baseline, '--fixtures', args.fixtures,
+                 '--output', args.output / 'mp4-aac.json'])
     for codec in ('vp8', 'vp9'):
         candidate = package_observation(args.bundle, args.packets, codec, args.diagnostics, args.output / codec / 'after',
                                         save_pcm=args.save_pcm or bool(args.windows) or os.name == 'nt')
         results['codecs'][codec] = candidate
         if candidate['cuts'] != [2.0] or candidate['timestamps']['format']['start_time'] != '0.000000':
             differences.append(f'{codec} candidate cut or container origin')
+        if args.macos_before:
+            old = package_observation(args.macos_before, args.packets, codec, args.diagnostics,
+                                      args.output / codec / 'before', save_pcm=True)
+            (args.output / f'{codec}-mac-before.json').write_text(json.dumps(old, indent=2) + '\n')
+            for field in old:
+                if old[field] != candidate[field]:
+                    differences.append(f'{codec} macOS reference {field}')
         if args.before:
             fixture = args.packets / codec / 'cut.mkv'
             old = package_observation(args.before, args.packets, codec, args.diagnostics, args.output / codec / 'before')
@@ -283,7 +302,9 @@ def main():
     observe_parser = modes.add_parser('observe')
     for name in ('bundle', 'packets', 'diagnostics', 'output'):
         observe_parser.add_argument('--' + name, type=lambda value: Path(value).resolve(), required=True)
-    observe_parser.add_argument('--before', type=Path, help='Former Ubuntu package')
+    references = observe_parser.add_mutually_exclusive_group()
+    references.add_argument('--macos-before', type=Path, help='Former macOS package, with AAC end-padding check')
+    references.add_argument('--before', type=Path, help='Former Ubuntu package')
     observe_parser.add_argument('--fixtures', type=Path, help='Original unencoded release pack for the Ubuntu comparison')
     observe_parser.add_argument('--save-pcm', action='store_true')
     observe_parser.add_argument('--windows', '--reference-observations', type=Path, help='Exact Windows package observations')
@@ -291,8 +312,8 @@ def main():
     if args.mode == 'encode':
         encode(args.ffmpeg, args.fixtures, args.output)
     else:
-        if bool(args.before) != bool(args.fixtures):
-            parser.error('--before and --fixtures must be used together')
+        if bool(args.before or args.macos_before) != bool(args.fixtures):
+            parser.error('a baseline package and --fixtures must be used together')
         compare(args)
 
 

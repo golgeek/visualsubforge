@@ -12,6 +12,9 @@ on:
       - 'build/mpv.mk'
       - 'build/placebo.mk'
       - 'scripts/native-cache.py'
+      - 'scripts/native-env.sh'
+      - 'scripts/native-build-paths.py'
+      - 'scripts/macos-ffmpeg-receipt.py'
       - 'scripts/build-ffmpeg*.sh'
       - 'scripts/configure-ffmpeg.sh'
       - 'scripts/build-linux-dovi.sh'
@@ -53,9 +56,15 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
-      - run: brew install mpv pkg-config
-      - run: |
+      - run: brew install libass libplacebo little-cms2 xz nasm pkg-config
+      - name: Build the shared FFmpeg for the mpv recipe tests
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '15.0'
+        run: |
           python -m pip install --only-binary=:all: -r tests/native/build-requirements.txt
+          sh scripts/build-ffmpeg.sh "$RUNNER_TEMP/ffmpeg" 3
+          echo "PKG_CONFIG_PATH=$RUNNER_TEMP/ffmpeg/sdk/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=15.0" >> "$GITHUB_ENV"
       - run: git clone https://github.com/mpv-player/mpv.git "$RUNNER_TEMP/mpv-upstream"
       - run: python scripts/check-mpv-build.py --source "$RUNNER_TEMP/mpv-upstream" --output "$RUNNER_TEMP/native-${{ matrix.variant }}" --variant "${{ matrix.variant }}"
       # Raw Meson testlog.json includes inherited environment; do not upload it.
@@ -93,7 +102,7 @@ jobs:
       - name: Compile the macOS ANGLE adapter against pinned headers
         if: runner.os == 'macOS'
         run: |
-          python scripts/prepare-angle-headers.py --cache-archive "$RUNNER_TEMP/angle-include.tar.gz" --output "$RUNNER_TEMP/angle-headers"
+          python scripts/prepare-angle-headers.py --archive "$RUNNER_TEMP/angle-include.tar.gz" --output "$RUNNER_TEMP/angle-headers"
           clang++ -std=c++17 -fobjc-arc -DVSF_USE_ANGLE -fsyntax-only -I"$RUNNER_TEMP/angle-headers/include" -I"$RUNNER_TEMP/mpv-headers/source/include" crates/media-player/native/player.mm
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         if: runner.os == 'Windows'

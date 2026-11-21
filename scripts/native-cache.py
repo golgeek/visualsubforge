@@ -88,7 +88,7 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
         host.update(xcode=probe('xcodebuild', '-version'),
                     sdk=probe('xcrun', '--sdk', 'macosx', '--show-sdk-version'),
                     sdk_build=probe('xcrun', '--sdk', 'macosx', '--show-sdk-build-version'),
-                    deployment_target=env.get('MACOSX_DEPLOYMENT_TARGET', '14.0'))
+                    deployment_target=env.get('MACOSX_DEPLOYMENT_TARGET', '15.0'))
     compiler = 'clang' if system == 'windows' else env.get('CC', 'cc')
     cxx = 'clang++' if system == 'windows' else env.get('CXX', 'c++')
     toolchain = {**host, 'cc_command': compiler, 'cxx_command': cxx,
@@ -106,8 +106,14 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
 
     if system == 'macos':
         add('angle', ['build/angle.mk', 'scripts/build-angle-macos.py', 'scripts/gclient_sources.py',
-                      'tests/native/angle/manifest.json', 'scripts/native-stage.sh', *SUPPORT], host)
+                      'tests/native/angle/manifest.json', 'scripts/native-stage.sh', *SUPPORT],
+            {**host, 'deployment_target': '14.0'})
     private = {}
+    if system == 'macos':
+        private['ffmpeg'] = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh',
+                                'scripts/build-ffmpeg.sh', 'scripts/macos-ffmpeg-receipt.py', 'scripts/native_evidence.py',
+                                *COMMON_FILES], toolchain,
+                                {'packages': packages(['liblzma']), 'assembler': probe('nasm', '-v') if platform.machine() == 'x86_64' else None})
     if system == 'linux':
         private['ffmpeg'] = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh',
                                 'scripts/build-ffmpeg.sh', *COMMON_FILES], toolchain,

@@ -572,6 +572,10 @@ cached in separate per-library prefixes without moving their embedded paths.
 `scripts/native-cache.py` records explicit recipe/toolchain and selected dependency
 inputs; mpv includes its private libplacebo/FFmpeg key. ANGLE's CI cache uses its
 own key rather than the path manifest or an inventory of all installed packages.
+On macOS, FFmpeg and its static dav1d decoder form one private SDK. libplacebo
+and mpv link against that SDK. The packager checks every FFmpeg load command
+against the SDK before relocation and records the final loader-relative target.
+Hosted builds also enforce the macOS 15.0 ceiling across the assembled bundle.
 Failed stages retain evidence. Packaging uses a new directory and publishes only
 after the platform assembler succeeds, retaining the previous completed package.
 The preview workflows call the same `make app` prerequisites and consume a

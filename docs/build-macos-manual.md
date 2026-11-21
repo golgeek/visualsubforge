@@ -1,6 +1,8 @@
 # Manual macOS native build recipes
 
-For normal local testing, use [the one-command build](build-macos.md).
+For local testing and release packages, use [the one-command build](build-macos.md),
+which builds FFmpeg 8.1.2 with the private media SDK. The manual experiments
+below reproduce the earlier Homebrew FFmpeg setup.
 This reference documents the individual Apple Silicon development stages: native libraries,
 Rust/Svelte application, and launch with the selected audio runtime. It is not a
 redistributable package. Audio/content acceptance remains open in the

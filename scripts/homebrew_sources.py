@@ -198,6 +198,8 @@ def collect(records, cellar, output):
             raise ValueError(f'Native input changed before inventory: {source}')
         relative = source.relative_to(cellar)
         name, version = relative.parts[:2]
+        if name == 'ffmpeg' or name.startswith('ffmpeg@'):
+            raise ValueError(f'Homebrew FFmpeg is outside the macOS runtime inventory: {source}')
         group = groups.setdefault((name, version), {'keg': cellar / name / version, 'files': []})
         group['files'].append({'bundled_path': item.get('file'), 'used_by': item.get('used_by'),
                                'keg_path': Path(*relative.parts[2:]).as_posix(),
