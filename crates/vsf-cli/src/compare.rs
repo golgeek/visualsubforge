@@ -14,6 +14,16 @@ pub fn run(args: Compare, cancel: &Cancellation) -> Result<u8, (u8, String)> {
             Ok(())
         }
     };
+    let resolve = |path: &std::path::Path| {
+        vsf_application::new_output::resolve(path).map_err(|e| (5, e.to_string()))
+    };
+    let package_path = args.package.as_deref().map(resolve).transpose()?;
+    let html_path = args.html.as_deref().map(resolve).transpose()?;
+    if let (Some(a), Some(b)) = (&package_path, &html_path)
+        && vsf_application::new_output::equivalent_name(a, b)
+    {
+        return Err((2, "Choose distinct package and HTML output names".into()));
+    }
     let read = |p: &std::path::Path| {
         let bytes = subtitle_file::read(p).map_err(|e| (5, e))?;
         let parsed = subtitle_file::parse_document(&bytes, p.extension().and_then(|s| s.to_str()))
@@ -64,11 +74,12 @@ pub fn run(args: Compare, cancel: &Cancellation) -> Result<u8, (u8, String)> {
         options: result.options.clone(),
         threads: vec![],
     });
-    if let (Some(path), Some(package)) = (args.package, &package) {
-        crate::review::publish(&path, package, cancel)?;
-    }
-    if let Some(path) = args.html {
-        let output = vsf_application::new_output::resolve(&path).map_err(|e| (5, e.to_string()))?;
+    let prepared_package = package_path
+        .as_ref()
+        .zip(package.as_ref())
+        .map(|(path, package)| crate::review::prepare_package(path, package, cancel))
+        .transpose()?;
+    let prepared_html = if let Some(output) = html_path {
         let date = vsf_application::review_package::report_date(
             (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64,
             args.utc_offset,
@@ -100,9 +111,33 @@ pub fn run(args: Compare, cancel: &Cancellation) -> Result<u8, (u8, String)> {
             &extra,
         );
         vsf_application::review_package::check_report_size(html.len()).map_err(|e| (2, e))?;
-        vsf_application::atomic_file::prepare_with_checkpoint(&output, html.as_bytes(), checkpoint)
-            .and_then(|p| p.commit_new())
-            .map_err(|e| (if cancel.is_cancelled() { 130 } else { 5 }, e))?;
+        Some(
+            vsf_application::atomic_file::prepare_with_checkpoint(
+                &output,
+                html.as_bytes(),
+                checkpoint,
+            )
+            .map_err(|e| (if cancel.is_cancelled() { 130 } else { 5 }, e))?,
+        )
+    } else {
+        None
+    };
+    checkpoint().map_err(|e| (130, e))?;
+    if let Some(file) = prepared_package {
+        file.commit_new().map_err(|e| (5, e))?;
+    }
+    if let Some(file) = prepared_html {
+        // Each commit is no-clobber. A concurrent writer can still win the
+        // second name; unlinking the first could delete someone else's file.
+        file.commit_new().map_err(|e| {
+            (
+                5,
+                match package_path {
+                    Some(path) => format!("{e}. Package published at {}", path.display()),
+                    None => e,
+                },
+            )
+        })?;
     }
     let mut stdout = io::stdout().lock();
     if args.json {

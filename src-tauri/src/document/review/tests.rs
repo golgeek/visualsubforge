@@ -98,6 +98,28 @@ fn independent_reference_context_worker_protection_and_history() {
     assert_eq!(snapshot(&d).revision, before.revision);
 }
 #[test]
+fn start_review_rejects_incompatible_copy_before_adoption() {
+    let (dir, d, original, _) = fixture();
+    attach(&d, &original);
+    let before = snapshot(&d);
+    let identity = key(&d);
+    let copy = dir.path().join("working.reviewed.ass");
+    let result = d.review_action(ReviewAction::Start {
+        key: identity,
+        path: copy.to_string_lossy().into(),
+        discard: false,
+    });
+    assert!(result.is_err());
+    assert!(!copy.exists());
+    assert_eq!(snapshot(&d).path, before.path);
+    assert_eq!(key(&d), identity);
+    assert_eq!(
+        snapshot(&d).review.unwrap().path,
+        before.review.unwrap().path
+    );
+}
+
+#[test]
 fn start_copy_and_recovery_keep_original_without_disk() {
     let (dir, d, original, working) = fixture();
     attach(&d, &original);

@@ -613,13 +613,16 @@ impl Documents {
             }
             let output = vsf_application::new_output::resolve(Path::new(&path))
                 .map_err(|e| e.to_string())?;
+            let parsed = original.reference.copy_target();
+            parsed
+                .source
+                .validate_save_extension(output.extension().and_then(|s| s.to_str()))?;
             for p in protected {
                 vsf_application::new_output::protect_source(&output, &p)
                     .map_err(|e| e.to_string())?;
             }
             original.origin.protect(&output)?;
             let prepared = vsf_application::atomic_file::prepare(&output, &saved)?;
-            let parsed = original.reference.copy_target();
             let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
             store.check_review_key(key)?;
             if store.checkpoint_key() != checkpoint || store.loaded_mut()?.saved_bytes != saved {

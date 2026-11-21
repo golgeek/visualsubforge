@@ -109,3 +109,52 @@ fn show_uses_singular_for_one_change_and_one_thread() {
         Some("Round 1 · 1 change · 1 thread")
     );
 }
+
+fn compare_outputs(dir: &Path, package: &str, html: &str) -> i32 {
+    fs::write(
+        dir.join("a.srt"),
+        "1\n00:00:00,000 --> 00:00:01,000\nHello\n",
+    )
+    .unwrap();
+    Command::new(env!("CARGO_BIN_EXE_vsf"))
+        .current_dir(dir)
+        .args([
+            "compare",
+            "a.srt",
+            "a.srt",
+            "--package",
+            package,
+            "--html",
+            html,
+            "--embed-package",
+        ])
+        .output()
+        .unwrap()
+        .status
+        .code()
+        .unwrap()
+}
+
+#[test]
+fn compare_outputs_existing_html_allows_corrected_retry() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    fs::write(root.join("existing.html"), "existing").unwrap();
+    assert_eq!(compare_outputs(root, "new.vsfreview", "existing.html"), 5);
+    assert_eq!(fs::read(root.join("existing.html")).unwrap(), b"existing");
+    assert!(!root.join("new.vsfreview").exists());
+    assert_eq!(compare_outputs(root, "new.vsfreview", "fresh.html"), 0);
+    for name in ["new.vsfreview", "fresh.html"] {
+        assert_eq!(review_file::read(&root.join(name)).unwrap().round, 1);
+    }
+}
+
+#[test]
+fn compare_outputs_refuses_colliding_names() {
+    let dir = tempfile::tempdir().unwrap();
+    for alias in ["./same.html", "SAME.HTML"] {
+        assert_eq!(compare_outputs(dir.path(), "same.html", alias), 2);
+        assert!(!dir.path().join("same.html").exists());
+        assert!(!dir.path().join(alias).exists());
+    }
+}

@@ -11,7 +11,12 @@ vsf compare original.srt revised.srt --json --html comparison.html
 Inputs use the existing bounded UTF-8 SRT, WebVTT, ASS and SSA parsers. Exit 0
 means compared, including files with changes; 2 means invalid input/comparison
 limit, 5 means IO failure, 130 means cancellation. HTML publication is atomic to
-a new path. CLI HTML is readable only by default. Add `--embed-package` to include both complete files. `--tolerance-ms`, `--ignore-tags`, `--ignore-line-breaks` and
+a new path. When both package and HTML are requested, compare checks both paths
+and stages both files before publishing the package followed by the report.
+An existing destination exits 5 and leaves both paths untouched. Colliding new
+names exit 2, including case and Unicode normalization variants on all hosts.
+If another writer claims the HTML path during publication, compare exits 5 and
+reports the path of the package it already published. CLI HTML is readable only by default. Add `--embed-package` to include both complete files. `--tolerance-ms`, `--ignore-tags`, `--ignore-line-breaks` and
 `--include-unchanged` control comparison/reporting. Whitespace-only differences
 are ignored by default. Tolerance defaults to the original format's tick (1 ms
 SRT/WebVTT, 10 ms ASS/SSA). Both endpoints must be within tolerance.
@@ -94,7 +99,7 @@ and wording from that service are not reused.
 
 Review → Start Review writes a separate `<stem>.reviewed.<ext>` file from saved
 content and opens Changes without changing the layout preset. Normal Save then
-writes that copy. Save/Discard/Cancel protects unsaved work first. Compare with
+writes that copy. The copy must use an extension compatible with the source format. Save/Discard/Cancel protects unsaved work first. Compare with
 Original attaches a file to the ordinary working document; Compare Files asks for
 original then revised and works from an empty workspace. If the original has a
 newer modification time, Swap/Keep/Cancel makes the direction explicit.
