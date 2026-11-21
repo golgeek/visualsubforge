@@ -118,7 +118,15 @@ if [[ $format == deb ]]; then
     diff -u /matrix/before.txt /matrix/after.txt
 fi
 printf '%s\n' "${tools[@]}" > /matrix/test-tools.txt
-"${install[@]}" "${tools[@]}"
+if [[ $ID == arch ]]; then
+    # The runtime-only transaction and probes above have already passed.
+    # Arch's rolling mirrors can split a base package (e.g. OpenSSL) between
+    # image builds. Update installed packages with the GUI test dependencies.
+    pacman -Q > /matrix/runtime-installed.txt
+    pacman -Su --noconfirm --needed "${tools[@]}"
+else
+    "${install[@]}" "${tools[@]}"
+fi
 case "$ID" in
     debian|ubuntu) dpkg-query -W > /matrix/packages.txt ;;
     fedora) rpm -qa | sort > /matrix/packages.txt ;;
