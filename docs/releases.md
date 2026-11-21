@@ -23,6 +23,9 @@ The v0.1.0 Mac packages require macOS 15 on Apple Silicon and Intel. The
 bundles FFmpeg tools and libraries built for macOS 15.0. The package records
 that minimum in its Info.plist.
 
+The [v0.1.0 rehearsal evidence](https://github.com/golgeek/visualsubforge/pull/38)
+records the candidate commit, workflow runs and independently verified download checksums.
+
 After publication, the [v0.1.0 source revision](https://github.com/golgeek/visualsubforge/commit/v0.1.0)
 and [asset checksums](https://github.com/golgeek/visualsubforge/releases/download/v0.1.0/SHA256SUMS)
 identify the files available from the release page.
