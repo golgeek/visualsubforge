@@ -162,8 +162,12 @@ includes the first Opus packet’s 7 ms pre-skip in its reported container
 origin (−0.007 s). FFmpeg 8.1.2 reports a zero origin. VSF measures cuts and
 waveforms relative to that origin. The synthetic cut moves from 2.007 to
 2.000 seconds, and each 8 kHz waveform loses 56 leading samples. The parity
-check compares decoded frame contents and timestamps, aligned audio samples,
-subtitle output and PR #39’s Windows 8.1.2 observations.
+check compares decoded frame contents and timestamps, aligned audio samples
+and subtitle output. PR #39 did not retain its encoded Matroska files. Repeated
+libopus encodes can produce different output, so the comparison with Windows
+uses a single retained artifact with SHA-256 hashes for every fixture. The
+current main Windows package and the Linux candidate must give identical
+decoded frames, both audio streams, waveforms, start times, cuts and SRTs.
 
 Arch WebKitGTK links libavif, which loads the system dav1d. Linux links its
 own dav1d statically into libavcodec with hidden symbols. The SDK build checks

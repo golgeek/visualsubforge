@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import struct
 import subprocess
@@ -15,6 +16,10 @@ def run(command, env=None):
     if result.returncode:
         raise ValueError(f'{command}: exit {result.returncode}: {result.stderr.decode(errors="replace")[-3000:]}')
     return result.stdout
+
+
+def tool(directory, name):
+    return directory / (name + '.exe' if os.name == 'nt' else name)
 
 
 def digest(data):
@@ -31,7 +36,7 @@ def release_media(bundle, fixtures):
     results = {}
     for name, codecs in expected.items():
         fixture = fixtures / name
-        streams = json.loads(run([bundle / 'ffprobe', '-v', 'error', '-show_entries',
+        streams = json.loads(run([tool(bundle, 'ffprobe'), '-v', 'error', '-show_entries',
                                   'stream=index,codec_name,codec_type', '-of', 'json', fixture]))['streams']
         if [s['codec_name'] for s in streams] != codecs:
             raise ValueError(f'{name}: expected {codecs}, found {streams}')
@@ -39,7 +44,7 @@ def release_media(bundle, fixtures):
         for stream in streams:
             options = (['-c:v', 'rawvideo', '-fps_mode', 'passthrough'] if stream['codec_type'] == 'video'
                        else ['-c:a', 'pcm_s16le'])
-            value = run([bundle / 'ffmpeg', '-v', 'error', '-nostdin', '-threads', '1', '-i', fixture,
+            value = run([tool(bundle, 'ffmpeg'), '-v', 'error', '-nostdin', '-threads', '1', '-i', fixture,
                          '-map', f"0:{stream['index']}", *options, '-threads', '1',
                          '-f', 'hash', '-hash', 'sha256', '-']).decode().strip()
             if not value.startswith('SHA256=') or value[7:] == digest(b''):
@@ -51,17 +56,18 @@ def release_media(bundle, fixtures):
 
 def observe(bundle, fixture, diagnostics):
     env = {k: v for k, v in os.environ.items() if not k.startswith(('LD_', 'DYLD_', 'VSF_'))}
-    env.update(PATH=f'{bundle}:/usr/bin:/bin', VSF_FFMPEG=str(bundle / 'ffmpeg'),
-               VSF_FFPROBE=str(bundle / 'ffprobe'))
+    system_dirs = [str(Path(os.environ['SystemRoot']) / 'System32')] if os.name == 'nt' else ['/usr/bin', '/bin']
+    env.update(PATH=os.pathsep.join([str(bundle), *system_dirs]), VSF_FFMPEG=str(tool(bundle, 'ffmpeg')),
+               VSF_FFPROBE=str(tool(bundle, 'ffprobe')))
     observed = {}
     for stream, fmt in [('v:0', 'rawvideo'), ('a:0', 's16le'), ('a:1', 's16le')]:
         timing = ['-fps_mode', 'passthrough'] if stream == 'v:0' else []
-        data = run([bundle / 'ffmpeg', '-nostdin', '-i', fixture, '-map', '0:' + stream,
+        data = run([tool(bundle, 'ffmpeg'), '-nostdin', '-i', fixture, '-map', '0:' + stream,
                     '-threads', '1', *timing, '-f', fmt, '-'], env)
         if not data:
             raise ValueError(f'No decoded data for {stream}')
         observed[stream] = digest(data)
-    framehash = run([bundle / 'ffmpeg', '-v', 'error', '-nostdin', '-copyts', '-i', fixture,
+    framehash = run([tool(bundle, 'ffmpeg'), '-v', 'error', '-nostdin', '-copyts', '-i', fixture,
                      '-map', '0:v:0', '-threads', '1', '-c:v', 'rawvideo', '-fps_mode', 'passthrough',
                      '-enc_time_base', '1:1000000', '-f', 'framehash', '-hash', 'sha256', '-'], env).decode()
     if '#tb 0: 1/1000000' not in framehash:
@@ -74,9 +80,9 @@ def observe(bundle, fixture, diagnostics):
     if not frames:
         raise ValueError('Missing decoded video frames')
     observed['frames'] = frames
-    observed['waveform'] = [json.loads(run([diagnostics / 'media-analysis', fixture, track], env))
+    observed['waveform'] = [json.loads(run([tool(diagnostics, 'media-analysis'), fixture, track], env))
                             for track in ('0', '1')]
-    observed['cuts'] = json.loads(run([diagnostics / 'examples/scene-scan', fixture], env))['cuts']
+    observed['cuts'] = json.loads(run([tool(diagnostics / 'examples', 'scene-scan'), fixture], env))['cuts']
     return observed
 
 
@@ -84,7 +90,7 @@ def waveform_samples(bundle, fixture, waveform):
     # Reproduce the actual production bins before comparing the PCM on a
     # common clock. Keep any difference other than an initial silence visible.
     origin = waveform['container_origin_seconds']
-    pcm = run([bundle / 'ffmpeg', '-v', 'error', '-nostdin', '-threads', '2', '-copyts', '-i', fixture,
+    pcm = run([tool(bundle, 'ffmpeg'), '-v', 'error', '-nostdin', '-threads', '2', '-copyts', '-i', fixture,
                '-map', f"0:{waveform['audio_stream_index']}", '-vn', '-sn', '-dn', '-ac', '1',
                '-filter_threads', '1', '-af', f'asetpts=PTS-({origin})/TB,aresample=8000:async=1:first_pts=0',
                '-ar', '8000', '-threads', '1', '-f', 'f32le', 'pipe:1'])
@@ -117,44 +123,17 @@ def waveform_alignment(before, after, fixture, results):
 
 def subtitles(bundle, fixtures, media, output):
     results = {}
-    cli = bundle / 'vsf'
+    cli = tool(bundle, 'vsf')
     results['edited'] = edited_srt(cli, fixtures, output)
     for name in ('offset', 'speed-ads'):
         target = output / f'{name}.srt'
         report = json.loads(run([cli, 'resync', '--source-video', media / 'source.mkv',
             '--source-subtitles', fixtures / 'resync/source.srt', '--target-video', media / f'{name}.mkv',
             '--output', target, '--report', target.with_suffix('.json'), '--json']))
-        if report['status'] != 'complete' or target.read_text() != (fixtures / f'resync/{name}.expected.srt').read_text():
+        if report['status'] != 'complete' or target.read_text(encoding='utf-8') != (fixtures / f'resync/{name}.expected.srt').read_text(encoding='utf-8'):
             raise ValueError(f'Resynchronized text or timings differ for {name}')
         results[name] = digest(target.read_bytes())
     return results
-
-
-def compare_pr39(bundle, diagnostics, reference, output):
-    for codec in ('vp8', 'vp9'):
-        work = reference / codec
-        evidence = json.loads((work / 'windows.json').read_text())
-        for name, checksum in evidence['files'].items():
-            path = (reference if name == f'{codec}.mkv' else work) / name
-            if digest(path.read_bytes()) != checksum:
-                raise ValueError(f'PR 39 packet checksum differs: {name}')
-        fixture = reference / f'{codec}.mkv'
-        expected = evidence['recorded']['identical']
-        actual = observe(bundle, fixture, diagnostics)
-        # PR 39 recorded the default rawvideo output cadence. The regular
-        # Linux parity check also compares each individual presentation frame.
-        legacy_video = run([bundle / 'ffmpeg', '-nostdin', '-i', fixture, '-map', '0:v:0',
-                            '-threads', '1', '-f', 'rawvideo', '-'])
-        out = output / f'windows-{codec}'
-        out.mkdir()
-        srts = subtitles(bundle, reference / 'inputs', work, out)
-        historical = {'v:0': digest(legacy_video), 'a:0': actual['a:0'], 'a:1': actual['a:1'],
-                      'waveform': actual['waveform'], 'cuts': actual['cuts'],
-                      'resync_srt_sha256': {k: srts[k] for k in ('offset', 'speed-ads')}}
-        (out / 'observations.json').write_text(json.dumps({'windows': evidence, 'linux': historical,
-            'linux_edited_srt_sha256': srts['edited'], 'decoded_frames': actual['frames']}, indent=2) + '\n')
-        if historical != expected or srts['edited'] != evidence['edited_srt_sha256']:
-            raise ValueError(f'Linux results differ from the Windows PR 39 reference for {codec}')
 
 
 def ubuntu_timing_matches(report):
@@ -177,55 +156,118 @@ def ubuntu_timing_matches(report):
     return True
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('before', 'after', 'diagnostics', 'fixtures', 'output'):
-        parser.add_argument('--' + name, type=Path, required=True)
-    parser.add_argument('--pr39', type=Path, help='Verified Windows reference packets for the Ubuntu timing comparison')
-    args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=False)
-    media = {label: release_media(bundle.resolve(), args.fixtures) for label, bundle in
-             [('before', args.before), ('after', args.after)]}
-    (args.output / 'release-media.json').write_text(json.dumps(media, indent=2) + '\n')
-    differences = []
-    if media['before'] != media['after']:
-        differences.append('release media streams')
+def encode(ffmpeg, fixtures, output):
+    output.mkdir(parents=True, exist_ok=False)
     for codec, encoder in [('vp8', 'libvpx'), ('vp9', 'libvpx-vp9')]:
-        work = args.output / codec
+        work = output / codec
         work.mkdir()
         fixture = work / 'cut.mkv'
-        run([args.before / 'ffmpeg', '-nostdin', '-i', args.fixtures / 'vfr-offset.mkv',
+        run([ffmpeg, '-nostdin', '-i', fixtures / 'vfr-offset.mkv',
              '-map', '0:v', '-map', '0:a', '-vf', "drawbox=color=white:t=fill:enable='gte(t,2)'",
              '-fps_mode', 'passthrough', '-threads', '1', '-c:v', encoder, '-c:a', 'libopus', fixture])
         for name in ('source', 'offset', 'speed-ads'):
-            run([args.before / 'ffmpeg', '-nostdin', '-i', args.fixtures / f'resync/{name}.mkv',
+            run([ffmpeg, '-nostdin', '-i', fixtures / f'resync/{name}.mkv',
                  '-fps_mode', 'passthrough', '-threads', '1', '-c:v', encoder, work / f'{name}.mkv'])
-        results = {}
-        for label, bundle in [('before', args.before.resolve()), ('after', args.after.resolve())]:
-            out = work / label
-            out.mkdir()
-            observed = observe(bundle, fixture, args.diagnostics.resolve())
-            observed['subtitles'] = subtitles(bundle, args.fixtures, work, out)
-            results[label] = observed
-        timestamps = {label: json.loads(run([bundle / 'ffprobe', '-v', 'error', '-show_entries',
-                      'format=start_time,duration:stream=index,codec_name,start_time,time_base',
-                      '-of', 'json', fixture])) for label, bundle in [('before', args.before), ('after', args.after)]}
-        report = {'fixture_sha256': digest(fixture.read_bytes()), 'observations': results, 'timestamps': timestamps,
-                  'ffmpeg_versions': [run([folder / 'ffmpeg', '-version']).decode().splitlines()[0]
-                                      for folder in (args.before, args.after)]}
-        report['waveform_alignment'] = waveform_alignment(args.before, args.after, fixture, results)
-        (args.output / f'{codec}.json').write_text(json.dumps(report, indent=2) + '\n')
-        if args.pr39 and ubuntu_timing_matches(report):
-            continue
-        for label, result in results.items():
-            if result['cuts'] != [2.0]:
-                differences.append(f"{codec} {label} cut {result['cuts']} (expected [2.0])")
-        if results['before'] != results['after']:
-            differences.append(f'{codec} decoded bytes, analysis or SRTs')
-    if args.pr39:
-        compare_pr39(args.after.resolve(), args.diagnostics.resolve(), args.pr39, args.output)
+    for name in ('plugins', 'subtitles'):
+        shutil.copytree(fixtures / name, output / 'inputs' / name)
+    resync = output / 'inputs/resync'
+    resync.mkdir()
+    for name in ('source.srt', 'offset.expected.srt', 'speed-ads.expected.srt'):
+        shutil.copy2(fixtures / 'resync' / name, resync / name)
+    (output / 'SHA256SUMS').write_text(''.join(
+        f'{digest(p.read_bytes())}  {p.relative_to(output).as_posix()}\n'
+        for p in sorted(output.rglob('*')) if p.is_file()), encoding='utf-8')
+
+
+def verify_packets(packets):
+    manifest = packets / 'SHA256SUMS'
+    expected = {p.relative_to(packets).as_posix() for p in packets.rglob('*') if p.is_file() and p != manifest}
+    seen = set()
+    for line in manifest.read_text(encoding='utf-8').splitlines():
+        sha, name = line.split('  ', 1)
+        if name not in expected or name in seen or digest((packets / name).read_bytes()) != sha:
+            raise ValueError(f'Invalid shared fixture checksum: {name}')
+        seen.add(name)
+    if seen != expected:
+        raise ValueError('Incomplete shared fixture manifest')
+
+
+def timestamps(bundle, fixture):
+    return json.loads(run([tool(bundle, 'ffprobe'), '-v', 'error', '-show_entries',
+        'format=start_time,duration:stream=index,codec_name,start_time,time_base', '-of', 'json', fixture]))
+
+
+def package_observation(bundle, packets, codec, diagnostics, output):
+    fixture = packets / codec / 'cut.mkv'
+    output.mkdir(parents=True)
+    observed = observe(bundle, fixture, diagnostics)
+    observed['subtitles'] = subtitles(bundle, packets / 'inputs', fixture.parent, output)
+    observed['timestamps'] = timestamps(bundle, fixture)
+    return observed
+
+
+def compare(args):
+    verify_packets(args.packets)
+    args.output.mkdir(parents=True, exist_ok=False)
+    version = run([tool(args.bundle, 'ffmpeg'), '-version']).decode().splitlines()[0]
+    if not version.startswith('ffmpeg version 8.1.2 '):
+        raise ValueError(f'Unexpected packaged FFmpeg: {version}')
+    results = {'manifest_sha256': digest((args.packets / 'SHA256SUMS').read_bytes()), 'codecs': {}}
+    differences = []
+    if args.before:
+        media = {label: release_media(bundle, args.fixtures) for label, bundle in
+                 [('before', args.before), ('after', args.bundle)]}
+        (args.output / 'release-media.json').write_text(json.dumps(media, indent=2) + '\n')
+        if media['before'] != media['after']:
+            differences.append('release media streams')
+    for codec in ('vp8', 'vp9'):
+        candidate = package_observation(args.bundle, args.packets, codec, args.diagnostics, args.output / codec / 'after')
+        results['codecs'][codec] = candidate
+        if candidate['cuts'] != [2.0] or candidate['timestamps']['format']['start_time'] != '0.000000':
+            differences.append(f'{codec} candidate cut or container origin')
+        if args.before:
+            fixture = args.packets / codec / 'cut.mkv'
+            old = package_observation(args.before, args.packets, codec, args.diagnostics, args.output / codec / 'before')
+            # The historical gate records probe metadata separately. Its 7 ms
+            # exception never applies to the Windows/Linux comparison below.
+            previous = {k: v for k, v in old.items() if k != 'timestamps'}
+            current = {k: v for k, v in candidate.items() if k != 'timestamps'}
+            pair = {'before': previous, 'after': current}
+            report = {'fixture_sha256': digest(fixture.read_bytes()), 'observations': pair,
+                      'timestamps': {'before': old['timestamps'], 'after': candidate['timestamps']},
+                      'ffmpeg_versions': [run([tool(args.before, 'ffmpeg'), '-version']).decode().splitlines()[0], version],
+                      'waveform_alignment': waveform_alignment(args.before, args.bundle, fixture, pair)}
+            (args.output / f'{codec}.json').write_text(json.dumps(report, indent=2) + '\n')
+            if previous != current and not ubuntu_timing_matches(report):
+                differences.append(f'{codec} Ubuntu reference')
+    (args.output / 'observations.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
+    if args.windows:
+        windows = json.loads(args.windows.read_text(encoding='utf-8'))
+        if results != windows:
+            differences.append('Windows/Linux shared-file observations')
     if differences:
         raise ValueError('Parity differences: ' + ', '.join(differences))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    modes = parser.add_subparsers(dest='mode', required=True)
+    generate = modes.add_parser('encode')
+    for name in ('ffmpeg', 'fixtures', 'output'):
+        generate.add_argument('--' + name, type=Path, required=True)
+    observe_parser = modes.add_parser('observe')
+    for name in ('bundle', 'packets', 'diagnostics', 'output'):
+        observe_parser.add_argument('--' + name, type=lambda value: Path(value).resolve(), required=True)
+    observe_parser.add_argument('--before', type=Path, help='Former Ubuntu package')
+    observe_parser.add_argument('--fixtures', type=Path, help='Original unencoded release pack for the Ubuntu comparison')
+    observe_parser.add_argument('--windows', type=Path, help='Exact Windows package observations')
+    args = parser.parse_args()
+    if args.mode == 'encode':
+        encode(args.ffmpeg, args.fixtures, args.output)
+    else:
+        if bool(args.before) != bool(args.fixtures):
+            parser.error('--before and --fixtures must be used together')
+        compare(args)
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ from pathlib import Path
 import runpy
 import unittest
 
-matches = runpy.run_path(str(Path(__file__).with_name('posix-codec-parity.py')))['ubuntu_timing_matches']
+matches = runpy.run_path(str(Path(__file__).with_name('codec-parity.py')))['ubuntu_timing_matches']
 
 
 class UbuntuTiming(unittest.TestCase):

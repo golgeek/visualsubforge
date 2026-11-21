@@ -106,11 +106,24 @@ jobs:
           Expand-Archive "$root/reference/*_x64_windows.zip" "$root/reference"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
           python tests/release/windows-codec-parity.py --before "$root/reference/VisualSubForge" --after "$root/install-check/Installed Preview" --diagnostics target/debug --fixtures "$root/fixtures" --output "$root/codec-parity"
+      - name: Checksum the encoded parity inputs
+        if: ${{ !cancelled() && inputs.reference_run != '' }}
+        shell: python
+        run: |
+          import hashlib, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'codec-parity'
+          if root.is_dir():
+              (root / 'SHA256SUMS').write_text(''.join(
+                  f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(root).as_posix()}\n'
+                  for p in sorted(root.rglob('*.mkv'))), encoding='utf-8')
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: windows-installed-candidate-evidence
           path: |
+            ${{ runner.temp }}/codec-parity/**/*.mkv
+            ${{ runner.temp }}/codec-parity/SHA256SUMS
             ${{ runner.temp }}/codec-parity/*.json
             ${{ runner.temp }}/codec-parity/*/*.log
             ${{ runner.temp }}/context.json

@@ -22,6 +22,10 @@ on:
         description: Optional Ubuntu-FFmpeg package run for synthetic decode parity
         type: string
         default: ''
+      windows_package_run:
+        description: Windows package or release run at current main (required with reference_run)
+        type: string
+        default: ''
       null_sink:
         description: PulseAudio sink control; changes device setup, not application assertions
         type: choice
@@ -31,55 +35,75 @@ permissions:
   contents: read
   actions: read
 jobs:
-  pr39-packets:
+  shared-fixtures:
     if: inputs.reference_run != ''
-    runs-on: windows-2022
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: windows-unsigned-x64
-          run-id: 44833324666
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/encoder
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
           name: preview-acceptance-fixtures
-          run-id: 43650131492
+          run-id: ${{ inputs.package_run }}
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/original
+          path: ${{ runner.temp }}/fixtures
+      - name: Encode the synthetic media once for all decoders
+        run: |
+          (cd "$RUNNER_TEMP/fixtures" && sha256sum -c SHA256SUMS)
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 tests/release/codec-parity.py encode --ffmpeg /usr/bin/ffmpeg \
+            --fixtures "$RUNNER_TEMP/fixtures" --output "$RUNNER_TEMP/packets"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: shared-codec-fixtures
+          path: ${{ runner.temp }}/packets
+          if-no-files-found: error
+          retention-days: 90
+  windows-parity:
+    needs: shared-fixtures
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Identify the Windows package built from current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_RUN: ${{ inputs.windows_package_run }}
+        shell: bash
+        run: |
+          [[ "$PACKAGE_RUN" =~ ^[0-9]+$ ]]
+          main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          built=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" --jq '. | select(.head_branch=="main" and .conclusion=="success") | .head_sha')
+          test "$main" = "$built"
+          echo "MAIN_COMMIT=$main" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: windows-installed-candidate-evidence
-          run-id: 44839538621
+          name: windows-unsigned-x64
+          run-id: ${{ inputs.windows_package_run }}
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/recorded
-      - name: Recreate PR 39 media with its original checked inputs and encoder
+          path: ${{ runner.temp }}/windows
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: shared-codec-fixtures
+          path: ${{ runner.temp }}/packets
+      - name: Decode the verified files with the main Windows package
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           $r = $env:RUNNER_TEMP
-          Expand-Archive "$r/encoder/*_x64_windows.zip" "$r/encoder"
+          Expand-Archive "$r/windows/*_x64_windows.zip" "$r/windows"
+          $receipt = Get-Content -Raw "$r/windows/VisualSubForge/native-runtime.json" | ConvertFrom-Json
+          if ($receipt.commit -ne $env:MAIN_COMMIT) { throw "Windows package receipt differs from main" }
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
-          python tests/release/windows-codec-parity.py --before "$r/encoder/VisualSubForge" --recreate-pr39 "$r/recorded" --fixtures "$r/original" --diagnostics target/debug --output "$r/packets"
-          New-Item -Type Directory "$r/packets/inputs/resync" -Force | Out-Null
-          Copy-Item "$r/original/resync/*.srt" "$r/packets/inputs/resync/"
-          Copy-Item "$r/original/plugins","$r/original/subtitles" "$r/packets/inputs/" -Recurse
+          python tests/release/codec-parity.py observe --bundle "$r/windows/VisualSubForge" --packets "$r/packets" --diagnostics target/debug --output "$r/observations"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: pr39-windows-observations
-          path: ${{ runner.temp }}/packets/*/observations.json
-          if-no-files-found: warn
-          retention-days: 14
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: pr39-parity-packets
-          path: ${{ runner.temp }}/packets
+          name: windows-shared-codec-observations
+          path: ${{ runner.temp }}/observations
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
   playback:
-    needs: pr39-packets
+    needs: [shared-fixtures, windows-parity]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -132,10 +156,15 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/reference
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: inputs.reference_run != '' && needs.pr39-packets.result == 'success'
+        if: inputs.reference_run != ''
         with:
-          name: pr39-parity-packets
-          path: ${{ runner.temp }}/pr39
+          name: shared-codec-fixtures
+          path: ${{ runner.temp }}/packets
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.reference_run != ''
+        with:
+          name: windows-shared-codec-observations
+          path: ${{ runner.temp }}/windows-observed
       - name: Compare native decoders, waveform bins, cuts and subtitles
         if: inputs.reference_run != ''
         run: |
@@ -149,10 +178,10 @@ jobs:
           dpkg-deb -x "$RUNNER_TEMP"/reference/*.deb "$RUNNER_TEMP/before"
           dpkg-deb -x "$RUNNER_TEMP"/candidate/*.deb "$RUNNER_TEMP/after"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
-          python3 tests/release/posix-codec-parity.py \
-            --before "$RUNNER_TEMP/before/usr/lib/visualsubforge" --after "$RUNNER_TEMP/after/usr/lib/visualsubforge" \
+          python3 tests/release/codec-parity.py observe \
+            --before "$RUNNER_TEMP/before/usr/lib/visualsubforge" --bundle "$RUNNER_TEMP/after/usr/lib/visualsubforge" \
             --fixtures "$RUNNER_TEMP/fixtures" --diagnostics target/debug --output "$RUNNER_TEMP/evidence/parity" \
-            --pr39 "$RUNNER_TEMP/pr39"
+            --packets "$RUNNER_TEMP/packets" --windows "$RUNNER_TEMP/windows-observed/observations.json"
       - name: Repeat unchanged playback assertions in ten fresh containers
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
