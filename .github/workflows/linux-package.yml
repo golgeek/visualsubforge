@@ -66,6 +66,8 @@ jobs:
           python-version: '3.14.7'
       - name: Verify the native toolchains
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "BUILD_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           rustup show
           rustc -vV | grep -Fx "host: $BUILD_TARGET"
           python --version
@@ -100,11 +102,11 @@ jobs:
         with:
           name: linux-preview-${{ matrix.arch }}
           path: |
-            ${{ runner.temp }}/package/*.deb
-            ${{ runner.temp }}/package/*_linux.tar.gz
-            ${{ runner.temp }}/package/native-sources.tar.gz
-            ${{ runner.temp }}/package/application-sources.tar.gz
-            ${{ runner.temp }}/package/SHA256SUMS
+            ${{ env.BUILD_TEMP }}/package/*.deb
+            ${{ env.BUILD_TEMP }}/package/*_linux.tar.gz
+            ${{ env.BUILD_TEMP }}/package/native-sources.tar.gz
+            ${{ env.BUILD_TEMP }}/package/application-sources.tar.gz
+            ${{ env.BUILD_TEMP }}/package/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
       - name: Stage the runtime matrix inputs
@@ -116,7 +118,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux-installables-${{ matrix.arch }}
-          path: ${{ runner.temp }}/installables
+          path: ${{ env.BUILD_TEMP }}/installables
           if-no-files-found: error
           compression-level: 0
       # Do not upload raw Meson test logs, which contain inherited environments.
@@ -127,7 +129,7 @@ jobs:
           path: |
             target/native/linux/cache-inputs.json
             target/native/linux/build-paths.json
-            ${{ runner.temp }}/package/assembly-receipt.json
+            ${{ env.BUILD_TEMP }}/package/assembly-receipt.json
             ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
             ${{ env.VSF_PLACEBO_BUILD }}/commands.log
             ${{ env.VSF_MPV_BUILD }}/build-receipt.json
