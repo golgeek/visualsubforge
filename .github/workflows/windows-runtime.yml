@@ -72,6 +72,7 @@ jobs:
           (root / 'context.json').write_text(json.dumps(context, indent=2) + '\n')
       - name: Unpack the assembled reference beside its installer
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           Expand-Archive "$env:RUNNER_TEMP/candidate/VisualSubForge_$(python scripts/release_version.py)_x64_windows.zip" "$env:RUNNER_TEMP/candidate"
           Copy-Item "$env:RUNNER_TEMP/candidate/VisualSubForge/native-runtime.json" "$env:RUNNER_TEMP/candidate/assembly-receipt.json"
       # The original unload hazard modifies libc++'s process-wide terminate
