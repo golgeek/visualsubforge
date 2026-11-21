@@ -138,6 +138,10 @@ def main():
             if linux_package:
                 methods = capture([str(build / "mpv"), "--no-config", "--hwdec=help"])
                 receipt["hardware_decoders"] = methods.splitlines()
+                switches = capture([str(build / "mpv"), "--no-config", "--list-options"])
+                if any(line.split()[:1] == ["--load-scripts"] for line in switches.splitlines()):
+                    raise ValueError("The Linux media SDK unexpectedly includes a script engine")
+                receipt["script_engines"] = []
                 if "h264-vaapi-copy" not in methods:
                     raise ValueError("mpv did not enumerate FFmpeg's H.264 VA-API copy decoder")
             run(["meson", "test", "-C", build, "--print-errorlogs", "-j", args.jobs])
