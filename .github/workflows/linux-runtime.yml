@@ -6,6 +6,10 @@ on:
         description: Package run containing both Linux architectures
         type: string
         required: true
+      from_release:
+        description: Test the Linux packages and media in the combined release artifact
+        type: boolean
+        default: false
       shared_fixture_run:
         description: Optional earlier shared-codec-fixtures artifact
         type: string
@@ -20,6 +24,7 @@ permissions:
   actions: read
 jobs:
   shared-fixtures:
+    needs: platforms
     if: inputs.shared_fixture_run == ''
     runs-on: ubuntu-24.04
     steps:
@@ -27,7 +32,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: preview-acceptance-fixtures
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/fixtures
       - name: Encode the synthetic media once for all decoders
@@ -47,8 +52,60 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.images.outputs.matrix }}
+      package_run: ${{ inputs.from_release && github.run_id || inputs.package_run }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: version
+        if: inputs.from_release
+        run: echo "version=$(python3 scripts/release_version.py)" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.from_release
+        with:
+          name: VisualSubForge-v${{ steps.version.outputs.version }}
+          run-id: ${{ inputs.package_run }}
+          github-token: ${{ github.token }}
+          path: downloads
+      - name: Stage verified release downloads for native runners
+        if: inputs.from_release
+        working-directory: downloads
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          sha256sum --strict -c SHA256SUMS
+          for arch in amd64 arm64; do
+            case "$arch" in amd64) tar_arch=x86_64 ;; arm64) tar_arch=aarch64 ;; esac
+            dest="../installables/$arch"
+            mkdir -p "$dest"
+            for asset in "VisualSubForge_${VERSION}_${arch}.deb" "VisualSubForge_${VERSION}_${tar_arch}_linux.tar.gz"; do
+              awk -v name="$asset" '$2 == name { print; n++ } END { if (n != 1) exit 1 }' SHA256SUMS >> "$dest/SHA256SUMS"
+              mv "$asset" "$dest/"
+            done
+          done
+          media="VisualSubForge-${VERSION}-test-media.zip"
+          awk -v name="$media" '$2 == name { n++ } END { if (n != 1) exit 1 }' SHA256SUMS
+          unzip -q "$media" -d ../fixtures
+          (cd ../fixtures && sha256sum --strict -c SHA256SUMS)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.from_release
+        with:
+          name: linux-installables-amd64
+          path: installables/amd64
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.from_release
+        with:
+          name: linux-installables-arm64
+          path: installables/arm64
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.from_release
+        with:
+          name: preview-acceptance-fixtures
+          path: fixtures
+          if-no-files-found: error
+          compression-level: 0
       - id: images
         shell: python
         run: |
@@ -77,13 +134,13 @@ jobs:
         with:
           name: linux-installables-${{ matrix.arch }}
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           path: candidate
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: preview-acceptance-fixtures
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           path: fixtures
       - name: Verify downloads and install on the pinned distribution
         env:
@@ -116,8 +173,8 @@ jobs:
           name: matrix-${{ matrix.id }}-${{ matrix.arch }}-${{ matrix.format }}
           path: evidence/
   observe-amd64:
-    needs: shared-fixtures
-    if: ${{ !cancelled() && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
+    needs: [platforms, shared-fixtures]
+    if: ${{ !cancelled() && needs.platforms.result == 'success' && (needs.shared-fixtures.result == 'success' || inputs.shared_fixture_run != '') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -130,7 +187,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: linux-installables-amd64
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: candidate
       - name: Observe the installed media tools on native amd64
@@ -147,8 +204,8 @@ jobs:
           name: amd64-observations
           path: observations/
   observe-arm64:
-    needs: observe-amd64
-
+    needs: [platforms, observe-amd64]
+    if: ${{ !cancelled() && needs.observe-amd64.result == 'success' }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -161,7 +218,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: linux-installables-arm64
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: candidate
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -182,6 +239,7 @@ jobs:
           name: arm64-observations
           path: observations/
   ubuntu-26-desktop:
+    needs: platforms
     strategy:
       fail-fast: false
       matrix:
@@ -194,13 +252,13 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: linux-installables-${{ matrix.arch }}
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/candidate
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: preview-acceptance-fixtures
-          run-id: ${{ inputs.package_run }}
+          run-id: ${{ needs.platforms.outputs.package_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/fixtures
       - name: Install the same deb and exercise GTK under Weston

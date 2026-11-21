@@ -20,7 +20,11 @@ The workspace version in `Cargo.toml` drives packaging. After changing it, run
 
 The Debian packages install the same payload as the per-architecture tarballs.
 Check both archives’ payload manifests, the Debian control fields and removal,
-the user install and uninstall, and the live GUI library bindings.
+the user install and uninstall, and the live GUI library bindings. To replay the
+matrix from the combined artifact, use the dry run's numeric ID in
+`gh workflow run linux-runtime.yml --ref main -f package_run=RUN_ID -f from_release=true -f shared_fixture_run=RUN_ID`.
+This verifies the release manifest before distributing its packages to the native runners.
+The shared fixture artifact from the dry run supplies the encoded parity inputs.
 
 The v0.1.0 Mac packages require macOS 15 on Apple Silicon and Intel. The
 [Apple Silicon rehearsal](https://github.com/golgeek/visualsubforge/actions/runs/44842483191/artifacts/14683081140)
