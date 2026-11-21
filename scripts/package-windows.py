@@ -63,6 +63,9 @@ def resolve_graph(roots, directories, inspect=inspect_pe):
         name = queue.pop()
         imports[name] = inspect(graph[name])
         for dependency in imports[name]:
+            if dependency.startswith(("libx264", "libvpx", "libopus")):
+                errors.append(f"Unexpected fixture codec library: {name} -> {dependency}")
+                continue
             if any(part in dependency for part in ("ggml", "whisper", "msys-2.0", "cygwin")):
                 errors.append(f"Unexpected runtime dependency: {name} -> {dependency}")
                 continue

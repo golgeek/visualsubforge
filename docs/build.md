@@ -94,8 +94,7 @@ pacman -S --needed git make diffutils patch curl tar lzip \
   mingw-w64-clang-x86_64-nasm mingw-w64-clang-x86_64-libplacebo \
   mingw-w64-clang-x86_64-libass mingw-w64-clang-x86_64-luajit \
   mingw-w64-clang-x86_64-libjpeg-turbo mingw-w64-clang-x86_64-lcms2 \
-  mingw-w64-clang-x86_64-dav1d mingw-w64-clang-x86_64-opus \
-  mingw-w64-clang-x86_64-libvpx mingw-w64-clang-x86_64-libx264 \
+  mingw-w64-clang-x86_64-dav1d \
   mingw-w64-clang-x86_64-zlib mingw-w64-clang-x86_64-bzip2 mingw-w64-clang-x86_64-xz
 ```
 
