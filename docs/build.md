@@ -69,7 +69,7 @@ Enable `deb-src` alongside `deb` in `/etc/apt/sources.list.d/ubuntu.sources`
 sudo apt-get update
 sudo apt-get install -y build-essential git python3-venv pkg-config patchelf ffmpeg \
   libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-  libepoxy-dev nasm curl zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libass-dev libspirv-cross-c-shared-dev \
+  libepoxy-dev nasm curl zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libxv-dev libass-dev libspirv-cross-c-shared-dev \
   liblcms2-dev libshaderc-dev libvulkan-dev libxxhash-dev libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
 nvm install && nvm use
 make build

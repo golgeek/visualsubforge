@@ -38,7 +38,7 @@ tar -czf bzip2-source.tar.gz bzip2-inputs
 set -- "--prefix=$output/sdk"
 while IFS= read -r option; do set -- "$@" "$option"; done < "$recipe/build/ffmpeg-options.txt"
 case $(uname -s) in
-    Linux) set -- "$@" --enable-vaapi "--extra-ldflags=-L$output/bzip2-lib -Wl,--exclude-libs,libdav1d.a:libbz2.a" ;;
+    Linux) set -- "$@" --enable-vaapi --enable-xlib --disable-outdev=xv "--extra-ldflags=-L$output/bzip2-lib -Wl,--exclude-libs,libdav1d.a:libbz2.a" ;;
     *) echo 'Unsupported FFmpeg build platform' >&2; exit 2 ;;
 esac
 printf '%s\n' "$@" > configure-options.txt
@@ -55,6 +55,8 @@ if grep -E 'NEEDED.*libdav1d' ../avcodec-dynamic.txt || grep -E ' dav1d_' ../avc
 fi
 grep -qx '#define CONFIG_LIBDAV1D_DECODER 1' config_components.h
 grep -qx '#define CONFIG_BZLIB 1' config.h
+grep -qx '#define HAVE_VAAPI_DRM 1' config.h
+grep -qx '#define HAVE_VAAPI_X11 1' config.h
 for lib in "$output"/sdk/lib/*.so; do
     readelf -d "$lib" > dynamic.txt
     nm -D "$lib" > symbols.txt

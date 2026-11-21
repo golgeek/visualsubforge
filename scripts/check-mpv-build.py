@@ -123,15 +123,23 @@ def main():
             receipt["source_archive_sha256"] = digest(output / "source.tar.gz")
             options = ["-Dlibmpv=true", "-Dtests=true", "-Dmanpage-build=disabled",
                        "-Dvapoursynth=disabled"]
-            if platform.system() == "Linux" and os.environ.get("VSF_NATIVE_PLATFORM") == "linux":
+            linux_package = os.environ.get("VSF_NATIVE_PLATFORM") == "linux"
+            if linux_package:
+                # auto-copy enumerates libavcodec devices and creates them via
+                # av_hwdevice_ctx_create. GTK owns display and presentation.
                 options += ["-Dauto_features=disabled", "-Dlua=disabled", "-Dgl=enabled", "-Dplain-gl=enabled",
-                            "-Degl=enabled", "-Ddrm=enabled", "-Dvaapi=enabled", "-Dvaapi-drm=enabled",
+                            "-Degl=enabled",
                             "-Dalsa=enabled", "-Dpulse=enabled", "-Dlcms2=enabled", "-Dzlib=enabled"]
             if platform.system() == "Darwin":
                 options += ["-Dcocoa=enabled", "-Dswift-build=enabled", "-Dmacos-media-player=disabled"]
             run(["meson", "setup", build, checkout, *options])
             run(["meson", "compile", "-C", build, "-j", args.jobs,
                  "mpv:executable", "mpv:shared_library"])
+            if linux_package:
+                methods = capture([str(build / "mpv"), "--no-config", "--hwdec=help"])
+                receipt["hardware_decoders"] = methods.splitlines()
+                if "h264-vaapi-copy" not in methods:
+                    raise ValueError("mpv did not enumerate FFmpeg's H.264 VA-API copy decoder")
             run(["meson", "test", "-C", build, "--print-errorlogs", "-j", args.jobs])
         info = build / "meson-info"
         for name in ["compilers", "machines", "dependencies", "buildoptions", "tests"]:
