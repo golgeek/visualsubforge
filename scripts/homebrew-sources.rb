@@ -15,7 +15,13 @@ records = ARGV.map do |path|
   keg = Keg.for(recipe)
   raise "Unexpected installed recipe: #{recipe}" unless recipe == keg/".brew/#{keg.name}.rb"
 
-  formula = Formulary.from_path(recipe)
+  # The Intel runner still has the Homebrew API that accepts recipe paths
+  # in factory. Current Homebrew has a dedicated path entry point.
+  formula = if Formulary.respond_to?(:from_path)
+    Formulary.from_path(recipe)
+  else
+    Formulary.factory(recipe)
+  end
   patches = formula.stable.patches.map do |patch|
     record = { type: patch.class.name, strip: patch.strip.to_s }
     if patch.is_a?(ExternalPatch)
