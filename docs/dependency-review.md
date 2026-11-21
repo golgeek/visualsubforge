@@ -157,6 +157,14 @@ and Windows FFmpeg builds exclude libzvbi and external GPL encoders.
 | shaderc | Apache-2.0 | Distribution library, glslang and SPIRV-Tools build inputs |
 | SPIRV-Cross | Apache-2.0 | Distribution shared C library and matching source |
 
+On identical VP8/VP9 Matroska packets, the former Ubuntu FFmpeg 6.1.1
+includes the first Opus packet’s 7 ms pre-skip in its reported container
+origin (−0.007 s). FFmpeg 8.1.2 reports a zero origin. VSF measures cuts and
+waveforms relative to that origin. The synthetic cut moves from 2.007 to
+2.000 seconds, and each 8 kHz waveform loses 56 leading samples. The parity
+check compares decoded frame contents and timestamps, aligned audio samples,
+subtitle output and PR #39’s Windows 8.1.2 observations.
+
 Arch WebKitGTK links libavif, which loads the system dav1d. Linux links its
 own dav1d statically into libavcodec with hidden symbols. The SDK build checks
 the decoder configuration, dynamic dependencies and dynamic symbols before

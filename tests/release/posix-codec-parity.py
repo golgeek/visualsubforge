@@ -7,6 +7,8 @@ from pathlib import Path
 import struct
 import subprocess
 
+from codec_parity_edit import edited_srt
+
 
 def run(command, env=None):
     result = subprocess.run(command, env=env, capture_output=True, timeout=240)
@@ -116,14 +118,7 @@ def waveform_alignment(before, after, fixture, results):
 def subtitles(bundle, fixtures, media, output):
     results = {}
     cli = bundle / 'vsf'
-    options = ['--subtitles', fixtures / 'subtitles/fansub.srt',
-               '--package', fixtures / 'plugins/trim-trailing/manifest.json', '--json']
-    review = json.loads(run([cli, 'plugin', 'preview', *options]))
-    target = output / 'edited.srt'
-    run([cli, 'plugin', 'apply', *options, '--accept', review['reviewId'], '--output', target])
-    if target.read_bytes() == (fixtures / 'subtitles/fansub.srt').read_bytes():
-        raise ValueError('The edit fixture did not exercise a subtitle change')
-    results['edited'] = digest(target.read_bytes())
+    results['edited'] = edited_srt(cli, fixtures, output)
     for name in ('offset', 'speed-ads'):
         target = output / f'{name}.srt'
         report = json.loads(run([cli, 'resync', '--source-video', media / 'source.mkv',
@@ -135,10 +130,58 @@ def subtitles(bundle, fixtures, media, output):
     return results
 
 
+def compare_pr39(bundle, diagnostics, reference, output):
+    for codec in ('vp8', 'vp9'):
+        work = reference / codec
+        evidence = json.loads((work / 'windows.json').read_text())
+        for name, checksum in evidence['files'].items():
+            path = (reference if name == f'{codec}.mkv' else work) / name
+            if digest(path.read_bytes()) != checksum:
+                raise ValueError(f'PR 39 packet checksum differs: {name}')
+        fixture = reference / f'{codec}.mkv'
+        expected = evidence['recorded']['identical']
+        actual = observe(bundle, fixture, diagnostics)
+        # PR 39 recorded the default rawvideo output cadence. The regular
+        # Linux parity check also compares each individual presentation frame.
+        legacy_video = run([bundle / 'ffmpeg', '-nostdin', '-i', fixture, '-map', '0:v:0',
+                            '-threads', '1', '-f', 'rawvideo', '-'])
+        out = output / f'windows-{codec}'
+        out.mkdir()
+        srts = subtitles(bundle, reference / 'inputs', work, out)
+        historical = {'v:0': digest(legacy_video), 'a:0': actual['a:0'], 'a:1': actual['a:1'],
+                      'waveform': actual['waveform'], 'cuts': actual['cuts'],
+                      'resync_srt_sha256': {k: srts[k] for k in ('offset', 'speed-ads')}}
+        (out / 'observations.json').write_text(json.dumps({'windows': evidence, 'linux': historical,
+            'linux_edited_srt_sha256': srts['edited'], 'decoded_frames': actual['frames']}, indent=2) + '\n')
+        if historical != expected or srts['edited'] != evidence['edited_srt_sha256']:
+            raise ValueError(f'Linux results differ from the Windows PR 39 reference for {codec}')
+
+
+def ubuntu_timing_matches(report):
+    before, after = (report['observations'][key] for key in ('before', 'after'))
+    old, new = report['ffmpeg_versions']
+    # This exception applies only to the measured 7 ms Matroska Opus pre-skip.
+    # Frame hashes and absolute frame PTS are part of the strict comparison.
+    if not (old.startswith('ffmpeg version 6.1.1') and new.startswith('ffmpeg version 8.1.2')
+            and before['cuts'] == [2.007] and after['cuts'] == [2.0]):
+        return False
+    if {k: v for k, v in before.items() if k not in ('cuts', 'waveform')} != {
+            k: v for k, v in after.items() if k not in ('cuts', 'waveform')}:
+        return False
+    for left, right, samples in zip(before['waveform'], after['waveform'], report['waveform_alignment'], strict=True):
+        if not (left['container_origin_seconds'] == -0.007 and right['container_origin_seconds'] == 0
+                and left['sample_count'] == right['sample_count'] + 56 and samples['offset_samples'] == 56
+                and samples['first_samples_silent'] and samples['aligned_samples_identical']
+                and all(left[k] == right[k] for k in ('samples_per_peak', 'sample_rate', 'audio_stream_index'))):
+            return False
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('before', 'after', 'diagnostics', 'fixtures', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--pr39', type=Path, help='Verified Windows reference packets for the Ubuntu timing comparison')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     media = {label: release_media(bundle.resolve(), args.fixtures) for label, bundle in
@@ -172,11 +215,15 @@ def main():
                                       for folder in (args.before, args.after)]}
         report['waveform_alignment'] = waveform_alignment(args.before, args.after, fixture, results)
         (args.output / f'{codec}.json').write_text(json.dumps(report, indent=2) + '\n')
+        if args.pr39 and ubuntu_timing_matches(report):
+            continue
         for label, result in results.items():
             if result['cuts'] != [2.0]:
                 differences.append(f"{codec} {label} cut {result['cuts']} (expected [2.0])")
         if results['before'] != results['after']:
             differences.append(f'{codec} decoded bytes, analysis or SRTs')
+    if args.pr39:
+        compare_pr39(args.after.resolve(), args.diagnostics.resolve(), args.pr39, args.output)
     if differences:
         raise ValueError('Parity differences: ' + ', '.join(differences))
 

@@ -31,7 +31,49 @@ permissions:
   contents: read
   actions: read
 jobs:
+  pr39-packets:
+    if: inputs.reference_run != ''
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: windows-unsigned-x64
+          run-id: 44833324666
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/encoder
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: preview-acceptance-fixtures
+          run-id: 43650131492
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/original
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: windows-installed-candidate-evidence
+          run-id: 44839538621
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/recorded
+      - name: Recreate PR 39 media with its original checked inputs and encoder
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $r = $env:RUNNER_TEMP
+          Expand-Archive "$r/encoder/*_x64_windows.zip" "$r/encoder"
+          cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          python tests/release/windows-codec-parity.py --before "$r/encoder/VisualSubForge" --recreate-pr39 "$r/recorded" --fixtures "$r/original" --diagnostics target/debug --output "$r/packets"
+          New-Item -Type Directory "$r/packets/inputs/resync" -Force | Out-Null
+          Copy-Item "$r/original/resync/*.srt" "$r/packets/inputs/resync/"
+          Copy-Item "$r/original/plugins","$r/original/subtitles" "$r/packets/inputs/" -Recurse
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pr39-parity-packets
+          path: ${{ runner.temp }}/packets
+          if-no-files-found: error
+          retention-days: 14
   playback:
+    needs: pr39-packets
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -82,6 +124,11 @@ jobs:
           run-id: ${{ inputs.reference_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/reference
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.reference_run != '' && needs.pr39-packets.result == 'success'
+        with:
+          name: pr39-parity-packets
+          path: ${{ runner.temp }}/pr39
       - name: Compare native decoders, waveform bins, cuts and subtitles
         if: inputs.reference_run != ''
         run: |
@@ -97,7 +144,8 @@ jobs:
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
           python3 tests/release/posix-codec-parity.py \
             --before "$RUNNER_TEMP/before/usr/lib/visualsubforge" --after "$RUNNER_TEMP/after/usr/lib/visualsubforge" \
-            --fixtures "$RUNNER_TEMP/fixtures" --diagnostics target/debug --output "$RUNNER_TEMP/evidence/parity"
+            --fixtures "$RUNNER_TEMP/fixtures" --diagnostics target/debug --output "$RUNNER_TEMP/evidence/parity" \
+            --pr39 "$RUNNER_TEMP/pr39"
       - name: Repeat unchanged playback assertions in ten fresh containers
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
