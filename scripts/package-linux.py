@@ -3,9 +3,9 @@
 
 GTK/WebKit, libc and display/audio drivers stay with the OS. Their package
 dependencies are resolved by apt; media libraries outside that runtime closure
-are copied privately. This is a validation artifact until release gates pass.
+are copied privately.
 """
-from release_version import release_version
+from release_version import release_version, source_inventory_reference
 
 import argparse
 import json
@@ -24,11 +24,6 @@ PLATFORM_LIBRARIES = (
     "libGL.so.1", "libEGL.so.1", "libpulse.so.0", "libasound.so.2",
     "libc.so.6", "libstdc++.so.6", "libgcc_s.so.1",
 )
-
-
-# Noble WebKit pulls these in transitively; Resolute WebKit uses different
-# SONAMEs. Private media binaries still need their original XML and ICU ABIs.
-PRIVATE_MEDIA_ABIS = {"libxml2.so.2", "libicuuc.so.74", "libicudata.so.74"}
 
 
 def capture(*command, env=None):
@@ -102,7 +97,7 @@ def collect_distro_sources(packages, destination, notices):
 
 def assemble(args):
     if capture("dpkg", "--print-architecture") != "amd64":
-        raise ValueError("The initial Linux preview targets Ubuntu 24.04 amd64")
+        raise ValueError("The Linux package targets Ubuntu 24.04 amd64")
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=False)
     tree = root / "root"
@@ -126,6 +121,7 @@ def assemble(args):
     roots = {getattr(args, name).resolve(strict=True): Path(name)
              for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe")}
     destinations = dict(roots)
+    linked_platform_files = set()
     queue = list(roots)
     while queue:
         original = queue.pop()
@@ -134,7 +130,8 @@ def assemble(args):
         resolved = dependencies(original, build_env)
         for name in capture("patchelf", "--print-needed", original).splitlines():
             dependency = resolved[name]
-            if dependency in platform and name not in PRIVATE_MEDIA_ABIS:
+            if dependency in platform:
+                linked_platform_files.add(dependency)
                 continue
             relative = Path("lib") / name
             if dependency in destinations:
@@ -145,6 +142,9 @@ def assemble(args):
                 raise ValueError(f"Conflicting library basename: {name}")
             destinations[dependency] = relative
             queue.append(dependency)
+    for library in sorted(linked_platform_files):
+        owner = package_owner(library)
+        platform_packages[owner["package"]] = owner["version"]
     records, distro = [], {}
     custom_dirs = [path.resolve(strict=True) for path in args.library_dir]
     for original, relative in destinations.items():
@@ -223,8 +223,8 @@ def assemble(args):
                "platform_dependencies": depends, "native_sources": source_records,
                "application_inventory_sha256": application_inventory,
                "ubuntu_build_inputs_sha256": digest(embedded_sources / "inventory.json"),
-               "redistribution": "Pending complete Rust/frontend/native license review",
-               "validation": "Assembly and ELF closure only; not installation/GPU/audio acceptance"}
+               "redistribution": source_inventory_reference(release_version(), "linux-amd64"),
+               "validation": "Assembly verified ELF dependencies and recorded file checksums."}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
     artifact = root / f"VisualSubForge_{release_version()}_amd64_ubuntu24.04.deb"
     subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(tree), str(artifact)], check=True)

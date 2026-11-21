@@ -14,6 +14,12 @@ def release_version(root=ROOT):
     return workspace['workspace']['package']['version']
 
 
+def source_inventory_reference(version, target):
+    prefix = f"VisualSubForge_{version}_{target}"
+    return (f"See {prefix}_native-sources.tar.gz, {prefix}_application-sources.tar.gz "
+            "and docs/dependency-review.md.")
+
+
 def check(root=ROOT):
     version = release_version(root)
     package = json.loads((root / 'package.json').read_text())

@@ -15,9 +15,9 @@ The three platform package workflows own assembly, source capture and native
 checks. The release workflow calls them for one commit, verifies their checksum
 manifests and stages the public downloads. The Mac package workflow owns signing
 on main. Windows version resources identify the GUI, CLI/plugin runner and
-installer as VSF. FFmpeg and ffprobe retain their upstream identity. The Ubuntu
-package also owns the XML and ICU ABIs linked by its private 24.04 media
-libraries. Each desktop supplies its own GTK, WebKit and driver stack.
+installer as VSF. FFmpeg and ffprobe retain their upstream identity. Ubuntu supplies GTK, WebKit, XML, ICU and the driver stack. For every
+direct link from a shipped ELF file into this platform closure, the assembler
+declares the owning Ubuntu package and its minimum version in Debian Depends.
 
 The GTK timer services libmpv render updates on the GTK main thread. It tracks a
 pending frame until GTK paints it or the surface becomes unmapped, at which point
@@ -34,7 +34,8 @@ The webview uses the typed client and its existing CSP. The notice occupies a
 layout row outside the native video surface.
 
 The desktop service reads and atomically writes consent through the preferences
-writer. A separate bounded `update-check-v1.json` records attempts and the last
+writer. Settings and the startup notice use the same consent command. General
+preference saves preserve stored consent and layout under the writer lock. A separate bounded `update-check-v1.json` records attempts and the last
 dismissed version. An OS file lock shared across app processes reserves the 24-hour interval before the
 request, including failed attempts. Disk operations use blocking workers. A
 manual request cancels a previous request. The exit gate cancels in-flight work,

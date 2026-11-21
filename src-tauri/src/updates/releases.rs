@@ -27,7 +27,7 @@ pub fn newest(bytes: &[u8], current: &Version) -> Result<Option<Version>, super:
 }
 
 pub fn due(enabled: Option<bool>, last: Option<u64>, now: u64) -> bool {
-    enabled == Some(true) && last.is_none_or(|last| now.saturating_sub(last) >= DAY)
+    enabled == Some(true) && last.is_none_or(|last| now < last || now - last >= DAY)
 }
 
 #[cfg(test)]
@@ -68,7 +68,8 @@ mod tests {
         assert!(!due(None, None, 0));
         assert!(!due(Some(false), None, 0));
         assert!(due(Some(true), None, 0));
-        assert!(!due(Some(true), Some(100), 99));
+        assert!(due(Some(true), Some(100), 99));
+        assert!(!due(Some(true), Some(99), 100));
         assert!(!due(Some(true), Some(100), 100 + DAY - 1));
         assert!(due(Some(true), Some(100), 100 + DAY));
     }

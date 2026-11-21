@@ -134,34 +134,21 @@ identify the matching release inventories after publication.
 
 ## Ubuntu media runtime compatibility
 
-The 24.04 FFmpeg libraries, libbluray and other private media libraries require
-the libxml2.so.2 ABI. Ubuntu 26.04 supplies libxml2.so.16 and ICU 78. The
-package therefore carries the existing 24.04 libxml2 and its two ICU 74
-libraries privately under the application's library directory. The package
-assembler captures their exact Ubuntu sources, copyright notices and hashes
-with the rest of the media runtime. GTK, WebKit and the drivers still come
-from the installed OS.
+Ubuntu 24.04 supplies libxml2 and ICU through the desktop runtime. Its package
+manager owns their updates. The assembler records a versioned Depends entry
+for the package owning each platform SONAME directly linked by a shipped ELF
+file. Several media libraries, including FFmpeg, directly require libxml2.so.2.
+This expands the earlier 13 declared dependencies to cover packages already
+installed by that same Noble desktop closure. The native inventory and source
+archive cover the libraries distributed inside the package.
 
-| Build input reviewed | Package version in the compatibility check | License evidence |
-| --- | --- | --- |
-| libxml2 | 2.9.14+dfsg-1.3ubuntu3.10 | Ubuntu copyright file, including the upstream MIT terms and per-file notices |
-| ICU (libicuuc, libicudata) | 74.2-1ubuntu3.1 | Ubuntu libicu74 copyright file, including Unicode terms and Debian packaging notices |
-
-The v0.1.0 package supports Ubuntu 24.04 amd64 only. On Ubuntu 26.04, apt
-installed the original 24.04 build but could not supply libxml2.so.2. Adding
-the three private libraries allowed offline CLI resync and ordinary VFR GUI
-playback under Wayland and XWayland in the isolated 26.04 test environment.
-
-Opening a synthetic DASH manifest in the GUI exposed a mixed binding. The
-loader mapped both XML ABIs, but private libavformat.so.60 resolved 20 XML
-symbols, including xmlDocGetRootElement, against system libxml2.so.16.1.2.
-WebKitGTK resolved 49 XML symbols against that same system library. The media
-libraries need ABI 2. The diagnostic workflow retains the installed-GUI check
-on hosted 26.04 for both display backends and records the consumer, provider
-and symbols. A separate Ubuntu 26.04 build and source inventory are a v0.1.1
-item. Both hosted GUIs rendered and played the DASH fixture, then failed
-the binding audit. See the [Wayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44841406565/artifacts/14681650584)
-and [XWayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44841406565/artifacts/14681306546).
+Ubuntu 26.04 supplies libxml2.so.16. Apt refuses to install the Noble package
+there. An earlier experiment bundled ABI 2 and ICU 74. On both hosted display
+backends, the GUI played synthetic DASH but FFmpeg resolved 20 XML symbols to
+ABI 16. WebKitGTK resolved 49 symbols there. The binding checker is retained
+for a separate Ubuntu 26.04 package, planned for v0.1.1.
+[Wayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44864147238/artifacts/14691117526)
+and [XWayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44864147238/artifacts/14690629953).
 
 ## Desktop update check dependencies
 

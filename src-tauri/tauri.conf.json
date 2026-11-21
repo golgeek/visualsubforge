@@ -52,7 +52,7 @@
     "copyright": "Copyright VisualSubForge contributors",
     "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
     "macOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "15.0"
     }
   }
 }

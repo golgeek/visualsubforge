@@ -18,6 +18,10 @@ The workspace version in `Cargo.toml` drives packaging. After changing it, run
 4. Owner: with main still at that commit, dispatch `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=false`. The workflow checks the existing tag before building and again before creating a draft. Only the draft job can write release assets.
 5. Review the draft and verify its actual downloads again. Signing and notarization produce fresh bytes. Publish as a pre-release with `gh release edit v0.1.0 --draft=false --prerelease --latest=false`. The owner can then apply for Windows signing.
 
+The Ubuntu 24.04 amd64 package declares the system libraries required by its
+media runtime. Apt refuses the install on 26.04 because its archive lacks
+the required libxml2 ABI. A separate 26.04 package is planned.
+
 The v0.1.0 Mac packages require macOS 15 on Apple Silicon and Intel. The
 [Apple Silicon rehearsal](https://github.com/golgeek/visualsubforge/actions/runs/44842483191/artifacts/14683081140)
 bundles FFmpeg tools and libraries built for macOS 15.0. The package records

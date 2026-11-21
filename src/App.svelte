@@ -1457,6 +1457,7 @@
     bind:confirmation
   />
   <WorkspaceDialogs
+    {updates}
     {quality}
     {dialogs}
     {subtitles}
