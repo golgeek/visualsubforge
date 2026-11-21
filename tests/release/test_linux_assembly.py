@@ -52,6 +52,7 @@ class RuntimeProviders(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "libasound"):
                 PACKAGER.write_runtime_packages(Path(directory) / "providers.tsv", files, {"libc.so.6": "/lib/libc.so.6"})
 
+    @unittest.skipUnless(os.name == "posix", "The Linux launcher executes POSIX shell programs")
     def test_launcher_passes_every_checked_soname_and_preserves_app_arguments(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

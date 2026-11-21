@@ -73,9 +73,7 @@ if (( ${#missing_packages[@]} )); then
     test ! -e /matrix/started-too-soon
     diff -u /matrix/expected-launcher.txt /matrix/missing-runtime.txt
     mv "$probe_root/bin/saved-app" "$probe_root/bin/visualsubforge.real"
-    "${install[@]}" "${missing_packages[@]}"
 fi
-"$probe_root/bin/check-runtime" "${names[@]}"
 if [[ $format == deb ]]; then
     control=$(mktemp -d)
     dpkg-deb --control "${deb[0]}" "$control"
@@ -83,12 +81,25 @@ if [[ $format == deb ]]; then
     depends=$(dpkg-deb -f "${deb[0]}" Depends)
     echo "$depends" > /matrix/depends.txt
     dpkg-deb --fsys-tarfile "${deb[0]}" | tar -t | sort > /matrix/deb-entries.txt
-    while IFS= read -r entry; do if [[ -e /$entry || -L /$entry ]]; then echo "$entry"; fi; done < /matrix/deb-entries.txt > /matrix/before.txt
+    # Exercise apt's dependency solver on the pristine image. After removal,
+    # its dependencies remain. Use that filesystem as the baseline for an
+    # install/remove comparison with exactly the same runtime packages.
+    "${install[@]}" "${deb[0]}"
+    dpkg-query -W > /matrix/runtime-installed.txt
+    apt-get remove -y visualsubforge
+    while IFS= read -r entry; do
+        if [[ -e /$entry || -L /$entry ]]; then
+            [[ -d /$entry && ! -L /$entry ]] || { echo "Package file survived removal: $entry" >&2; exit 1; }
+            echo "$entry"
+        fi
+    done < /matrix/deb-entries.txt > /matrix/before.txt
     "${install[@]}" "${deb[0]}"
     root=/usr/lib/visualsubforge
 else
+    if (( ${#missing_packages[@]} )); then "${install[@]}" "${missing_packages[@]}"; fi
     root=$probe_root
 fi
+"$root/bin/check-runtime" "${names[@]}"
 # Exercise the actual packaged binaries before installing any GUI test tools.
 "$root/bin/ffmpeg" -version > /matrix/ffmpeg-version.txt
 "$root/bin/vsf" --version > /matrix/vsf-version.txt
