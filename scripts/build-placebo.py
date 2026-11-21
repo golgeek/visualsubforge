@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 from native_evidence import digest
 from source_archive import archive_source
@@ -53,6 +54,12 @@ def main():
                 if selected.returncode == 0:
                     include = Path(selected.stdout.strip()).resolve(strict=True)
                     test_includes.append("-I" + str(include))
+            vulkan_headers = source / "3rdparty/Vulkan-Headers/include"
+            if platform.system() == "Linux":
+                # The FFmpeg interop tests include hwcontext_vulkan.h through
+                # libplacebo's public headers. Use the same pinned declarations
+                # as the library itself on the older build distribution.
+                test_includes.append("-I" + str(vulkan_headers.resolve(strict=True)))
             header_options = [f"-Dc_args={json.dumps(test_includes)}",
                               f"-Dcpp_args={json.dumps(test_includes)}"] if test_includes else []
             # The Mac adapter renders exclusively through ANGLE/OpenGL. Do not
@@ -82,6 +89,9 @@ def main():
             receipt["tests"] = [{key: test[key] for key in ("name", "result", "returncode")}
                                 for test in tests]
             run("meson", "install", "-C", build)
+            if platform.system() == "Linux":
+                # mpv includes the same interop header when compiling its video output.
+                shutil.copytree(vulkan_headers, sdk / "include", dirs_exist_ok=True)
             libraries = [path for path in (sdk / "lib").iterdir()
                          if path.is_file() and not path.is_symlink()
                          and (path.name.endswith(".dylib") or ".so" in path.name)]
