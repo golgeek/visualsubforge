@@ -21,7 +21,6 @@
   let {
     review,
     reviewChange = null,
-    onrevert,
     editing,
     shortcuts,
     fixes,
@@ -40,7 +39,6 @@
   }: {
     review?: ReviewSession;
     reviewChange?: ReviewChange | null;
-    onrevert?: (change: ReviewChange) => void;
     editing: CueEditing;
     shortcuts?: ShortcutPreferences;
     fixes: CueFixes;
@@ -64,12 +62,14 @@
     };
   } = $props();
   let qualityHeight = $state(0);
+  const removals = $derived(review?.selectedRemovals ?? []);
   let originalHeight = $state(0);
   $effect(() => {
     if (qualityHeight > 0)
       onmeasure(
         'metrics',
-        qualityHeight + (reviewChange ? originalHeight + 3 : 0),
+        qualityHeight +
+          (reviewChange || removals.length ? originalHeight + 3 : 0),
       );
   });
   const status = $derived(media.status);
@@ -344,21 +344,20 @@
           >{/if}
       </aside>{/if}
   </div>
-  {#if reviewChange}<div
+  {#if reviewChange || removals.length}<div
       class="original"
       aria-label="Original"
       use:measurePaneControl={(height) => (originalHeight = height)}
     >
-      <header>
-        {#if reviewChange.kind !== 'unchanged'}<strong>Original</strong><button
-            disabled={busy || confirming || draftDirty}
-            onclick={() => onrevert?.(reviewChange!)}>Revert</button
-          >{/if}
-      </header>
-      {#if reviewChange.kind !== 'unchanged'}<div class="original-diff">
-          <ChangeDetail change={reviewChange} />
-        </div>{/if}
-      {#if review}{#key review.rowId(reviewChange)}<CommentThreads
+      {#each removals as removed (review?.rowId(removed))}
+        <ChangeDetail change={removed} {review} editor />
+      {/each}
+      {#if reviewChange && reviewChange.kind !== 'unchanged'}<ChangeDetail
+          change={reviewChange}
+          {review}
+          editor
+        />{/if}
+      {#if review && reviewChange}{#key review.rowId(reviewChange)}<CommentThreads
             {review}
             change={reviewChange}
             projection
@@ -436,12 +435,6 @@
     flex: 1;
   }
 
-  .original header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex: none;
-  }
   .original {
     overflow: auto;
     max-height: min(12rem, 22vh);

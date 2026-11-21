@@ -284,7 +284,7 @@
       ),
     ),
   );
-  const review = disposeWithComponent(
+  const review: ReviewSession = disposeWithComponent(
     new ReviewSession(
       subtitles,
       workspace,
@@ -299,6 +299,14 @@
     new CueTableView({
       cues: () => doc.cues,
       columns: () => layout.columns,
+      attached: () => review.attached,
+      reviewFilter: () => review.tableFilter,
+      reviewIds: () =>
+        review.attached && review.tableFilter !== 'all'
+          ? review.tableFilter === 'changed'
+            ? review.index.changed
+            : review.index.threaded
+          : undefined,
       styled: () => subtitles.styled,
       issues: () => quality.issues,
       position: () =>
@@ -1169,10 +1177,7 @@
       >
         <div class="slot slot-cues" style={layout.panelStyle('cues')}>
           <CueTable
-            reviewChanges={review.projection}
-            commentedIds={review.projection
-              .filter((c) => review.threads(c, true).length)
-              .flatMap((c) => c.revised.map((q) => q.cue_id))}
+            {review}
             ghosts={reviewGhosts}
             {subtitles}
             {quality}
@@ -1296,7 +1301,6 @@
       <CueEditor
         {review}
         reviewChange={review.selectedChange}
-        onrevert={(key) => void review.revert(key)}
         shortcuts={preferences.preferences.shortcuts}
         editing={cueEditing}
         fixes={cueFixes}
@@ -1369,6 +1373,7 @@
   {#if workspaceModal.identity === 'columns'}<ColumnChooser
       {layout}
       styled={subtitles.styled}
+      review={review.attached}
       onclose={() => workspaceModal.close()}
     />{/if}
   {#if workspaceModal.identity === 'arrange'}

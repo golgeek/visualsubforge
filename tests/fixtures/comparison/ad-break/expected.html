@@ -1,1 +1,1130 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Subtitle comparison</title><style>body{font:16px system-ui;max-width:72rem;margin:2rem auto;padding:1rem;color:#17212b;background:#fff}article{border-top:1px solid #aaa;padding:1rem 0}pre,.diff{white-space:pre-wrap;overflow-wrap:anywhere}del{background:#ffe0e0}ins{background:#d9f5dc}small{display:block}</style></head><body><h1>Subtitle comparison</h1><p>original.srt → revised.srt · fixture</p><p>4 changes · text 0.0% · timing 50.0% · total 50.0% · 0 added cues</p><pre>{&quot;tolerance_ms&quot;:1,&quot;ignore_tags&quot;:false,&quot;ignore_line_breaks&quot;:false,&quot;ignore_whitespace&quot;:true}</pre><details><summary>Shifted 4 cues by +30.000 s (00:00:38.000 – 00:00:45.500)</summary><article id="change-065d62ae6ff8e9deb12b5cf3ecb0f857b03bab1c220602816d883d6a094610c3"><h2>Timing</h2><div class="diff">Line 4</div><small>Original #5: 00:00:08.000–00:00:09.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Revised #5: 00:00:38.000–00:00:39.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Δ in +30000 ms · out +30000 ms · characters +0 · CPS +0.00 · RS +0.00</small></article><article id="change-04bd1f775a8f16a529c011fee7570feb3146ee8a9ffd9c357f61111ffcaff99c"><h2>Timing</h2><div class="diff">Line 5</div><small>Original #6: 00:00:10.000–00:00:11.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Revised #6: 00:00:40.000–00:00:41.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Δ in +30000 ms · out +30000 ms · characters +0 · CPS +0.00 · RS +0.00</small></article><article id="change-b5caf3e2e829833f5839523230ffe7e2c8e964c8aabebd6f8ab4b322e6014381"><h2>Timing</h2><div class="diff">Line 6</div><small>Original #7: 00:00:12.000–00:00:13.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Revised #7: 00:00:42.000–00:00:43.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Δ in +30000 ms · out +30000 ms · characters +0 · CPS +0.00 · RS +0.00</small></article><article id="change-e77bef91039abff401cbfd6437015747ee2678b936f41fb162afbd897de12f41"><h2>Timing</h2><div class="diff">Line 7</div><small>Original #8: 00:00:14.000–00:00:15.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Revised #8: 00:00:44.000–00:00:45.500 · 6 characters · CPS 4.00 · RS 6.00 · style  · actor </small><small>Δ in +30000 ms · out +30000 ms · characters +0 · CPS +0.00 · RS +0.00</small></article></details></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Subtitle comparison</title><style>/* ---- Tokens. Light by default; dark values are the app's dark tokens. ---- */
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --raised: #f1f3f6;
+  --line: #dde1e7;
+  --line-strong: #c5cdd8;
+  --text: #171b22;
+  --muted: #5a6372;
+  --faint: #8a929e;
+  --accent: #b4500f;
+  --del-bg: #fde2e4;
+  --del-fg: #8e1b26;
+  --del-line: #c8323f;
+  --ins-bg: #d6f3e6;
+  --ins-fg: #0d5a38;
+  --k-text: #c2418f;
+  --k-ok: #e07a2e;
+  --k-timing: #d9a21b;
+  --k-added: #2e9e6a;
+  --k-removed: #d64550;
+  --k-split: #8a6be0;
+  --k-style: #3a8fb7;
+  --k-all: #e4e8ee;
+  --chip-text: #fbe3f1;
+  --chip-text-fg: #8f2a68;
+  --chip-timing: #fdf1cf;
+  --chip-timing-fg: #7a5600;
+  --chip-added: #d6f3e6;
+  --chip-added-fg: #0d5a38;
+  --chip-removed: #fde2e4;
+  --chip-removed-fg: #8e1b26;
+  --chip-split: #ece6fb;
+  --chip-split-fg: #5b3fb0;
+  --chip-style: #dcedf5;
+  --chip-style-fg: #1d5a78;
+  --chip-unchanged: #eceff3;
+  --chip-unchanged-fg: #5a6372;
+  --rs-good: #1d7a4c;
+  --rs-meh: #8a6100;
+  --rs-ok: #b0560f;
+  --rs-bad: #b4232f;
+  --open: #2457b8;
+  --open-bg: #dfeafa;
+  --open-pill: #f4f7fc;
+  --open-line: #cfd8e6;
+  --resolved: #1d6b43;
+  --resolved-bg: #e3f4ea;
+  --resolved-pill: #f2f9f5;
+  --resolved-line: #cfe5d8;
+  --a0: #2f6fb3;
+  --a1: #7a4cb0;
+  --a2: #1d7a4c;
+  --a3: #b4500f;
+  --a4: #a1356b;
+  --a5: #3d6b7a;
+  --font-ui:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1115;
+    --panel: #151a20;
+    --raised: #1c222a;
+    --line: #262d37;
+    --line-strong: #36404c;
+    --text: #e4e8ee;
+    --muted: #8a94a3;
+    --faint: #5e6876;
+    --accent: #ff9a5c;
+    --del-bg: rgba(240, 97, 109, 0.18);
+    --del-fg: #ffb3b9;
+    --del-line: #f0616d;
+    --ins-bg: rgba(63, 199, 154, 0.18);
+    --ins-fg: #9be8c9;
+    --k-text: #f08ac8;
+    --k-ok: #ff8c4a;
+    --k-timing: #f2c14e;
+    --k-added: #3fc79a;
+    --k-removed: #f0616d;
+    --k-split: #b49cff;
+    --k-style: #6cc0e6;
+    --k-all: #2b333e;
+    --chip-text: rgba(240, 138, 200, 0.16);
+    --chip-text-fg: #f6a8d6;
+    --chip-timing: rgba(242, 193, 78, 0.16);
+    --chip-timing-fg: #f2c14e;
+    --chip-added: rgba(63, 199, 154, 0.16);
+    --chip-added-fg: #6fdcb5;
+    --chip-removed: rgba(240, 97, 109, 0.16);
+    --chip-removed-fg: #ff9aa3;
+    --chip-split: rgba(180, 156, 255, 0.16);
+    --chip-split-fg: #c8b8ff;
+    --chip-style: rgba(108, 192, 230, 0.16);
+    --chip-style-fg: #8fd0ee;
+    --chip-unchanged: #1c222a;
+    --chip-unchanged-fg: #8a94a3;
+    --rs-good: #3fc79a;
+    --rs-meh: #f2c14e;
+    --rs-ok: #ff9a5c;
+    --rs-bad: #f0616d;
+    --open: #8fb4f0;
+    --open-bg: rgba(76, 127, 230, 0.2);
+    --open-pill: rgba(76, 127, 230, 0.1);
+    --open-line: rgba(76, 127, 230, 0.4);
+    --resolved: #6fdcb5;
+    --resolved-bg: rgba(63, 199, 154, 0.18);
+    --resolved-pill: rgba(63, 199, 154, 0.08);
+    --resolved-line: rgba(63, 199, 154, 0.35);
+    --a0: #8fb4f0;
+    --a1: #c8a6f5;
+    --a2: #6fdcb5;
+    --a3: #ffb27f;
+    --a4: #f39ac4;
+    --a5: #8fc7d6;
+  }
+}
+
+/* ---- Page ---- */
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--bg);
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--font-ui);
+  -webkit-text-size-adjust: 100%;
+}
+a {
+  color: var(--accent);
+}
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: -1px;
+  border: 0;
+  padding: 0;
+}
+.mono,
+.tc,
+.num,
+.n,
+.count,
+.metrics,
+.delta,
+.axis,
+.yaxis {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.eyebrow {
+  font: 500 12px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chips li {
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+}
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- Summary tiles ---- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0;
+}
+.tiles div {
+  background: var(--panel);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+.tiles dt {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.tiles dd {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Cards and charts ---- */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+}
+.card-head p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.chart {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: 160px 12px 16px;
+  column-gap: 8px;
+}
+.yaxis {
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1;
+}
+.chart svg {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  height: 160px;
+  display: block;
+  overflow: visible;
+}
+.chart svg .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.chart svg .base {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.chart svg .all {
+  fill: var(--k-all);
+}
+.chart svg a:hover .all,
+.chart svg a:focus .all {
+  fill: var(--line-strong);
+}
+.chart svg a:focus {
+  outline: none;
+}
+.chart svg a:focus-visible .all {
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.k-text {
+  fill: var(--k-text);
+}
+.k-timing {
+  fill: var(--k-timing);
+}
+.k-added {
+  fill: var(--k-added);
+}
+.k-removed {
+  fill: var(--k-removed);
+}
+.k-split {
+  fill: var(--k-split);
+}
+.k-style {
+  fill: var(--k-style);
+}
+.pins {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--buckets), minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+}
+.pin {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--open);
+  display: block;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.kind,
+.status,
+.sw {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.axis {
+  grid-column: 2;
+  grid-row: 3;
+  position: relative;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+.axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.axis span:first-child {
+  transform: none;
+}
+.axis span.end {
+  right: 0;
+  transform: none;
+}
+.axis span.end ~ span,
+.axis span:nth-last-child(2) {
+  visibility: visible;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.sw {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+  flex: none;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.sw.k-text {
+  background: var(--k-text);
+}
+.sw.k-timing {
+  background: var(--k-timing);
+}
+.sw.k-added {
+  background: var(--k-added);
+}
+.sw.k-removed {
+  background: var(--k-removed);
+}
+.sw.k-split {
+  background: var(--k-split);
+}
+.sw.k-style {
+  background: var(--k-style);
+}
+.sw.k-all {
+  background: var(--k-all);
+  outline: 1px solid var(--line-strong);
+  outline-offset: -1px;
+}
+.sw.pin {
+  border-radius: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--open);
+}
+
+/* ---- Filter bar (no script: checkboxes + :has()) ---- */
+.bands {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+.band,
+.bands-head {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.bands-head,
+.bar-l,
+.bar-r {
+  color: var(--muted);
+}
+.bands-head span:nth-child(2) {
+  text-align: right;
+}
+.bar-l,
+.bar-r {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.bar-l {
+  justify-content: flex-end;
+}
+.b {
+  height: 12px;
+  border-radius: 2px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.b.orig,
+.b.rs-none {
+  background: var(--line-strong);
+}
+.b.rs-good {
+  background: var(--k-added);
+}
+.b.rs-meh {
+  background: var(--k-timing);
+}
+.b.rs-ok {
+  background: var(--k-ok);
+}
+.b.rs-bad {
+  background: var(--k-removed);
+}
+.band-change {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
+.filters {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.filters h2 {
+  margin-right: 10px;
+}
+.toggle {
+  font: 500 12.5px var(--font-ui);
+  border-radius: 999px;
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  user-select: none;
+}
+.toggle .count {
+  font-size: 11px;
+  opacity: 0.75;
+}
+input:checked + .toggle {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+input:focus-visible + .toggle,
+input:focus-visible + .disc,
+input:focus-visible + .shift-head {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.toggle .when-on {
+  display: none;
+}
+#f-expand:checked + .toggle .when-on {
+  display: inline;
+}
+#f-expand:checked + .toggle .when-off {
+  display: none;
+}
+.sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line-strong);
+  margin: 0 4px;
+}
+.total {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* A change is hidden when every kind it belongs to is switched off. */
+body:has(#f-text:not(:checked)) .change.k-text:not(.k-timing),
+body:has(#f-timing:not(:checked)) .change.k-timing:not(.k-text),
+body:has(#f-text:not(:checked)):has(#f-timing:not(:checked))
+  .change.k-text.k-timing,
+body:has(#f-timing:not(:checked)) .shift,
+body:has(#f-added:not(:checked)) .change.k-added,
+body:has(#f-removed:not(:checked)) .change.k-removed,
+body:has(#f-split:not(:checked)) .change.k-split,
+body:has(#f-style:not(:checked)) .change.k-style,
+body:has(#f-unchanged:not(:checked)) .change.k-unchanged,
+body:has(#f-open:checked) .change:not(.has-open),
+body:has(#f-open:checked) .shift:not(:has(.has-open)) {
+  display: none;
+}
+
+/* ---- Change rows ---- */
+.cols,
+.change {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) 170px;
+  gap: 0 18px;
+}
+.cols {
+  padding: 10px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.change {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  align-items: start;
+  scroll-margin-top: 72px;
+}
+.change:target {
+  background: linear-gradient(90deg, var(--open-pill), transparent);
+  box-shadow: inset 3px 0 var(--accent);
+  padding-left: 8px;
+  margin-left: -8px;
+}
+.meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.num {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}
+.num:hover {
+  text-decoration: underline;
+}
+.delta {
+  font-size: 11px;
+  color: var(--chip-timing-fg);
+}
+.kind {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.kind.k-text {
+  background: var(--chip-text);
+  color: var(--chip-text-fg);
+}
+.kind.k-timing {
+  background: var(--chip-timing);
+  color: var(--chip-timing-fg);
+}
+.kind.k-added {
+  background: var(--chip-added);
+  color: var(--chip-added-fg);
+}
+.kind.k-removed {
+  background: var(--chip-removed);
+  color: var(--chip-removed-fg);
+}
+.kind.k-split {
+  background: var(--chip-split);
+  color: var(--chip-split-fg);
+}
+.kind.k-style {
+  background: var(--chip-style);
+  color: var(--chip-style-fg);
+}
+.kind.k-unchanged {
+  background: var(--chip-unchanged);
+  color: var(--chip-unchanged-fg);
+}
+.side {
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.side.orig {
+  color: var(--muted);
+}
+.k-unchanged .side {
+  color: var(--faint);
+}
+.side .none {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--faint);
+}
+.times {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.cue {
+  display: flex;
+  gap: 8px;
+}
+.cue + .cue {
+  margin-top: 4px;
+}
+.cn {
+  font: 500 11px var(--font-mono);
+  color: var(--faint);
+  padding-top: 3px;
+  flex: none;
+  min-width: 24px;
+}
+.tx {
+  min-width: 0;
+}
+/* Diff. Colour is never the only signal: removed text is struck through. */
+del,
+ins {
+  border-radius: 3px;
+  padding: 0 2px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+del {
+  background: var(--del-bg);
+  color: var(--del-fg);
+  text-decoration: line-through;
+  text-decoration-color: var(--del-line);
+  text-decoration-thickness: 1.5px;
+}
+ins {
+  background: var(--ins-bg);
+  color: var(--ins-fg);
+  text-decoration: none;
+  font-weight: 600;
+}
+.br {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+.tc ins,
+.tc del {
+  font-weight: 500;
+}
+.rs {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rs-good {
+  color: var(--rs-good);
+  font-weight: 600;
+}
+.rs-meh {
+  color: var(--rs-meh);
+  font-weight: 600;
+}
+.rs-ok {
+  color: var(--rs-ok);
+  font-weight: 600;
+}
+.rs-bad {
+  color: var(--rs-bad);
+  font-weight: 600;
+}
+.metrics {
+  font-size: 11px;
+}
+
+/* ---- Threads: collapsed by default; Expand all inverts each toggle. ---- */
+.threads {
+  grid-column: 2/5;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.thread {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.disc {
+  font: 500 12.5px var(--font-ui);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--open-line);
+  background: var(--open-pill);
+  color: var(--open);
+  cursor: pointer;
+  user-select: none;
+}
+.disc svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+.resolved .disc {
+  border-color: var(--resolved-line);
+  background: var(--resolved-pill);
+  color: var(--resolved);
+}
+.status {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 1px 6px;
+  background: var(--open-bg);
+}
+.resolved .status {
+  background: var(--resolved-bg);
+}
+.people {
+  color: var(--muted);
+  font-weight: 400;
+}
+.chev {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg) scale(0.6);
+  opacity: 0.75;
+  transition: transform 120ms;
+}
+.thread-body {
+  display: none;
+  align-self: stretch;
+  margin: 0;
+  padding: 10px 14px;
+  list-style: none;
+  background: var(--raised);
+  border-radius: 10px;
+  flex-direction: column;
+  gap: 8px;
+}
+body:not(:has(#f-expand:checked)) .tt:checked ~ .thread-body,
+body:has(#f-expand:checked) .tt:not(:checked) ~ .thread-body {
+  display: flex;
+}
+body:not(:has(#f-expand:checked)) .tt:checked + .disc .chev,
+body:has(#f-expand:checked) .tt:not(:checked) + .disc .chev {
+  transform: translateY(2px) rotate(225deg) scale(0.6);
+}
+.thread-body li {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.thread-body p {
+  margin: 1px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.who {
+  font-size: 12px;
+  font-weight: 600;
+}
+.a0 {
+  color: var(--a0);
+}
+.a1 {
+  color: var(--a1);
+}
+.a2 {
+  color: var(--a2);
+}
+.a3 {
+  color: var(--a3);
+}
+.a4 {
+  color: var(--a4);
+}
+.a5 {
+  color: var(--a5);
+}
+time {
+  font-size: 12px;
+  color: var(--muted);
+}
+.event {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ---- Shift blocks: one row, expandable to the member cues ---- */
+.shift {
+  border-top: 1px solid var(--line);
+}
+.shift-head {
+  display: grid;
+  grid-template-columns: 16px auto auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0;
+  cursor: pointer;
+  font-size: 14px;
+}
+.shift-head .chev {
+  color: var(--muted);
+}
+.shift-head .tc {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.shift-body {
+  display: none;
+  border-left: 2px solid var(--k-timing);
+  margin-left: 6px;
+  padding-left: 12px;
+}
+.sb:checked ~ .shift-body {
+  display: block;
+}
+.sb:checked + .shift-head .chev {
+  transform: translateY(2px) rotate(225deg) scale(0.6);
+}
+
+/* ---- Detached ---- */
+.detached {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.detached-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.detached-card .was {
+  font: 12px var(--font-mono);
+  color: var(--muted);
+}
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.pair .label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+footer p {
+  margin: 0;
+}
+
+/* ---- Narrow windows ---- */
+@media (max-width: 760px) {
+  .page {
+    padding: 24px 16px 48px;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  .cols {
+    display: none;
+  }
+  .change {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .side.orig::before,
+  .side.rev::before {
+    display: block;
+    font: 600 10.5px var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--faint);
+  }
+  .side.orig::before {
+    content: 'Original';
+  }
+  .side.rev::before {
+    content: 'Revised';
+  }
+  .threads {
+    grid-column: 1;
+  }
+  .band,
+  .bands-head {
+    grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .total {
+    margin-left: 0;
+    width: 100%;
+  }
+  .filters {
+    position: static;
+  }
+  .sep {
+    display: none;
+  }
+  .shift-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+}
+
+/* ---- Print: everything visible, no controls ---- */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #fff;
+  }
+  .page {
+    max-width: none;
+    padding: 0;
+    gap: 18px;
+  }
+  .filters {
+    display: none;
+  }
+  .change,
+  .shift {
+    display: grid !important;
+    break-inside: avoid;
+  }
+  .shift {
+    display: block !important;
+  }
+  .change.k-unchanged {
+    display: none !important;
+  }
+  .thread-body,
+  .shift-body {
+    display: flex !important;
+  }
+  .shift-body {
+    display: block !important;
+  }
+  .chev {
+    display: none;
+  }
+  .card,
+  .tiles {
+    break-inside: avoid;
+  }
+  .cols {
+    break-after: avoid;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+.empty {
+  text-align: center;
+}
+.disc {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.people,
+.who,
+.pair {
+  overflow-wrap: anywhere;
+}
+.shift:has(:target) .shift-body {
+  display: block;
+}
+
+@page {
+  margin: 12mm;
+}
+.shift-head {
+  display: flex;
+  flex-wrap: wrap;
+}
+.shift-head .tc {
+  margin-inline-start: auto;
+}
+@media print {
+  .page {
+    display: block;
+  }
+  .page > * {
+    margin-bottom: 12px;
+  }
+  .shift {
+    break-inside: auto;
+  }
+}
+
+@media print {
+  .tiles {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .tiles div {
+    padding: 8px;
+  }
+  .tiles dd {
+    font-size: 18px;
+  }
+  .times {
+    white-space: normal;
+  }
+  .tc {
+    white-space: nowrap;
+  }
+}
+</style></head><body><main class="page"><header><span class="eyebrow">VisualSubForge · comparison report</span><h1>original.srt → revised.srt</h1><p class="sub">Exported fixture · 8 original cues</p><ul class="chips" aria-label="Comparison options"><li>Timing tolerance 1 ms</li><li>Tags compared</li><li>Line breaks compared</li><li>Whitespace ignored</li></ul></header><dl class="tiles" aria-label="Summary"><div><dt>changed cues of 8</dt><dd>4</dd></div><div><dt>text changed</dt><dd>0.0%</dd></div><div><dt>timing changed</dt><dd>50.0%</dd></div><div><dt>cues in the outer reading-speed bands (by cue duration)</dt><dd>+0</dd></div></dl><section class="card"><div class="card-head"><h2>Where the changes are</h2><p>Each bar is 10 seconds. Grey is every cue, colour is changed cues by kind. Select a bar to go to its first change.</p></div><div class="chart" style="--buckets:5"><div class="yaxis"><span>5</span><span>0</span></div><svg viewBox="0 0 50 100" preserveAspectRatio="none" role="group" aria-label="Changed cues over time"><g><title>00:00–00:10 · 0 of 4 cues changed</title><rect class="all" x="1" y="20.00" width="8" height="80.00"/></g><g><title>00:10–00:20 · 0 of 0 cues changed</title><rect class="all" x="11" y="100.00" width="8" height="0.00"/></g><g><title>00:20–00:30 · 0 of 0 cues changed</title><rect class="all" x="21" y="100.00" width="8" height="0.00"/></g><a href="#change-065d62ae6ff8e9deb12b5cf3ecb0f857b03bab1c220602816d883d6a094610c3"><title>00:30–00:40 · 1 of 1 cues changed · Line 4</title><rect class="all" x="31" y="80.00" width="8" height="20.00"/><rect class="k-timing" x="31" y="80.00" width="8" height="20.00"/></a><a href="#change-04bd1f775a8f16a529c011fee7570feb3146ee8a9ffd9c357f61111ffcaff99c"><title>00:40–00:50 · 3 of 3 cues changed · Line 5</title><rect class="all" x="41" y="40.00" width="8" height="60.00"/><rect class="k-timing" x="41" y="40.00" width="8" height="60.00"/></a></svg><div class="pins"><span></span><span></span><span></span><span></span><span></span></div><div class="axis"><span>00:00</span><span class="end">00:50</span></div></div><ul class="legend"><li><span class="sw k-all"></span>All cues</li><li><span class="sw k-added"></span>Added</li><li><span class="sw k-removed"></span>Removed</li><li><span class="sw k-split"></span>Split or merged</li><li><span class="sw k-text"></span>Text</li><li><span class="sw k-style"></span>Style</li><li><span class="sw k-timing"></span>Timing</li><li><span class="sw pin"></span>Open thread</li></ul></section><section class="card"><div class="card-head"><h2>Reading speed, before and after</h2><p>Cues per band, by cue duration.</p></div><div class="bands"><div class="bands-head"><span></span><span>Original · 8 cues</span><span>Revised · 8 cues</span></div><div class="band"><span>TOO SLOW</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-bad" style="width:0.0%"></i>0</span></div><div class="band"><span>Slow, acceptable</span><span class="bar-l">8<i class="b orig" style="width:100.0%"></i></span><span class="bar-r"><i class="b rs-ok" style="width:100.0%"></i>8</span></div><div class="band"><span>A bit slow</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-meh" style="width:0.0%"></i>0</span></div><div class="band"><span>Good (slow side)</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-good" style="width:0.0%"></i>0</span></div><div class="band"><span>Perfect</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-good" style="width:0.0%"></i>0</span></div><div class="band"><span>Good (fast side)</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-good" style="width:0.0%"></i>0</span></div><div class="band"><span>A bit fast</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-meh" style="width:0.0%"></i>0</span></div><div class="band"><span>Fast, acceptable</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-ok" style="width:0.0%"></i>0</span></div><div class="band"><span>TOO FAST</span><span class="bar-l">0<i class="b orig" style="width:0.0%"></i></span><span class="bar-r"><i class="b rs-bad" style="width:0.0%"></i>0</span></div></div></section><nav class="filters" aria-label="Filter changes"><h2>Changes</h2><input type="checkbox" class="vh" id="f-timing" checked><label class="toggle" for="f-timing"><span class="sw k-timing"></span>Timing<span class="count">4</span></label><input type="checkbox" class="vh" id="f-open"><label class="toggle" for="f-open">Only with open threads</label><input type="checkbox" class="vh" id="f-expand"><label class="toggle" for="f-expand"><span class="when-off">Expand all comments</span><span class="when-on">Collapse all comments</span></label></nav><section id="changes" aria-label="Cue changes"><div class="cols"><span>Cue</span><span>Original</span><span>Revised</span><span>Reading speed</span></div><div class="shift k-timing"><input type="checkbox" class="vh sb" id="b-1"><label class="shift-head" for="b-1"><span class="chev"></span><span class="kind k-timing">Timing</span><span>Shifted 4 cues by <strong>+30.000 s</strong></span><span class="tc">00:00:38,000 → 00:00:45,500</span></label><div class="shift-body"><article class="change k-timing" id="change-065d62ae6ff8e9deb12b5cf3ecb0f857b03bab1c220602816d883d6a094610c3"><div class="meta"><a class="num" href="#change-065d62ae6ff8e9deb12b5cf3ecb0f857b03bab1c220602816d883d6a094610c3">#5</a><span class="kind k-timing">Timing</span><span class="delta">in +30.000 s</span><span class="delta">out +30.000 s</span></div><div class="side orig"><span class="times"><span class="tc">00:00:08,000</span> → <span class="tc">00:00:09,500</span></span>Line 4</div><div class="side rev"><span class="times"><span class="tc"><ins>00:00:38,000</ins></span> → <span class="tc"><ins>00:00:39,500</ins></span></span>Line 4</div><div class="rs"><span class="metrics">6.0 RS · 4.0 cps · 6 chars</span></div></article>
+<article class="change k-timing" id="change-04bd1f775a8f16a529c011fee7570feb3146ee8a9ffd9c357f61111ffcaff99c"><div class="meta"><a class="num" href="#change-04bd1f775a8f16a529c011fee7570feb3146ee8a9ffd9c357f61111ffcaff99c">#6</a><span class="kind k-timing">Timing</span><span class="delta">in +30.000 s</span><span class="delta">out +30.000 s</span></div><div class="side orig"><span class="times"><span class="tc">00:00:10,000</span> → <span class="tc">00:00:11,500</span></span>Line 5</div><div class="side rev"><span class="times"><span class="tc"><ins>00:00:40,000</ins></span> → <span class="tc"><ins>00:00:41,500</ins></span></span>Line 5</div><div class="rs"><span class="metrics">6.0 RS · 4.0 cps · 6 chars</span></div></article>
+<article class="change k-timing" id="change-b5caf3e2e829833f5839523230ffe7e2c8e964c8aabebd6f8ab4b322e6014381"><div class="meta"><a class="num" href="#change-b5caf3e2e829833f5839523230ffe7e2c8e964c8aabebd6f8ab4b322e6014381">#7</a><span class="kind k-timing">Timing</span><span class="delta">in +30.000 s</span><span class="delta">out +30.000 s</span></div><div class="side orig"><span class="times"><span class="tc">00:00:12,000</span> → <span class="tc">00:00:13,500</span></span>Line 6</div><div class="side rev"><span class="times"><span class="tc"><ins>00:00:42,000</ins></span> → <span class="tc"><ins>00:00:43,500</ins></span></span>Line 6</div><div class="rs"><span class="metrics">6.0 RS · 4.0 cps · 6 chars</span></div></article>
+<article class="change k-timing" id="change-e77bef91039abff401cbfd6437015747ee2678b936f41fb162afbd897de12f41"><div class="meta"><a class="num" href="#change-e77bef91039abff401cbfd6437015747ee2678b936f41fb162afbd897de12f41">#8</a><span class="kind k-timing">Timing</span><span class="delta">in +30.000 s</span><span class="delta">out +30.000 s</span></div><div class="side orig"><span class="times"><span class="tc">00:00:14,000</span> → <span class="tc">00:00:15,500</span></span>Line 7</div><div class="side rev"><span class="times"><span class="tc"><ins>00:00:44,000</ins></span> → <span class="tc"><ins>00:00:45,500</ins></span></span>Line 7</div><div class="rs"><span class="metrics">6.0 RS · 4.0 cps · 6 chars</span></div></article>
+</div></div></section></main></body></html>

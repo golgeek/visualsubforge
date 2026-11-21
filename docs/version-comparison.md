@@ -80,7 +80,7 @@ can remain visible in an included unchanged row. Source text is never interprete
 ## Reports and discussion
 
 HTML has inline CSS, no required script or external requests, escaped names/text,
-visible line breaks, metrics and both timings. Change element IDs derive from
+a linked timeline overview, two-column word differences and before/after reading-speed bands by cue duration. Both sides use the quality rating for each cue’s own duration. Statistics uses an overlap-adjusted interval. Timing changes show the affected endpoints and nonzero deltas. Checkboxes control kinds, unchanged rows, open threads and discussion expansion. Print expands discussions and shift blocks. CLI dates use UTC unless you pass an offset in minutes with `--utc-offset`. Change element IDs derive from
 keys. The writer accepts explicit trusted extension sections for the head, each
 change element ID (including the occurrence suffix for duplicates) and the end, which carry escaped discussions and optional inert review data. See [review packages](review-packages.md).
 
@@ -102,7 +102,7 @@ newer modification time, Swap/Keep/Cancel makes the direction explicit.
 The immutable original is separate from the translation reference; both may be
 attached at once. Attach, options and End Review change context rather than
 subtitle history. Original and copied-source paths are protected from Save As and
-conversion output, including deleted paths. No Mark Reviewed state is stored.
+conversion output, including deleted paths. Checked marks last for the current review session.
 The Changes tab pages at most 200 groups (100 by default). The cue/timeline projection has separate allowances of 200 changed and 200 unchanged groups so a removed cue can still draw its ghost in a wide view.
 
 Comparison captures run on one worker with no queue, a cooperative ten-second
@@ -120,7 +120,12 @@ is 528 MiB including the version 8 thread budget and metadata. Version 5 project
 ## Reviewing in context
 
 Changes offers text, timing, additions, removals, split/merge and style filters.
-Counts describe the current comparison; there is no stored reviewed state.
+The cue list has All cues, Changed only and With threads filters. Original is a
+movable, resizable column while a review is attached. A removal marks the next
+surviving cue. Its tooltip shows the removed text. Select that row to check or revert individual removals in the editor. Trailing removals remain available in Changes. Checked marks
+track individual change occurrences. Changing or removing a checked change
+clears its mark. Export shows unchecked changes and can take you to the first
+one. Marks stay outside subtitle Undo, projects and review packages.
 F6 / Shift+F6 navigate changes in the active filter. Selecting a row selects its
 revised cue(s), frames the time range and shows the original text/timing line.
 Removed rows navigate by their original time. Without media, numeric timing

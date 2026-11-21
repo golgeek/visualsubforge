@@ -1,6 +1,9 @@
 //! Deterministic, bounded subtitle comparison. Immutable captures only; no IO.
 mod alignment;
+mod overview;
+pub use overview::{Overview, kind_index, overview};
 mod report;
+pub(crate) use report::{change_ids, timecode};
 mod words;
 use crate::{Result, quality::metrics, subtitle_markup::Projection};
 pub use report::{ExtraSections, ReportOptions, escape_html, html};
@@ -97,6 +100,12 @@ pub struct CueSnapshot {
     pub cps: metrics::Rate,
     pub reading_speed: metrics::Rate,
 }
+impl CueSnapshot {
+    pub fn duration_rating(&self) -> Option<metrics::Rating> {
+        self.reading_speed.value()?;
+        metrics::rates(self.characters, self.end_ms - self.start_ms, false).2
+    }
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Change {
@@ -108,6 +117,25 @@ pub struct Change {
     pub text_changed: bool,
     pub timing_changed: bool,
     pub style_changed: bool,
+}
+impl Change {
+    pub fn band_change(&self) -> Option<String> {
+        fn labels(cues: &[CueSnapshot]) -> String {
+            cues.iter()
+                .map(|cue| {
+                    cue.duration_rating()
+                        .map_or("Not rated", metrics::Rating::label)
+                })
+                .collect::<Vec<_>>()
+                .join(" / ")
+        }
+        if self.original.is_empty() || self.revised.is_empty() {
+            return None;
+        }
+        let before = labels(&self.original);
+        let after = labels(&self.revised);
+        (before != after).then(|| format!("{before} → {after}"))
+    }
 }
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]

@@ -17,6 +17,7 @@ import { matchesShortcut } from '../../../src/lib/workspace/action-registry';
 import { chooseCommand } from '../command-discovery';
 const host = document.querySelector<HTMLElement>('#test')!;
 let doc: DocumentSnapshot = structuredClone(emptyDocument);
+let storedLayout = structuredClone(defaultPreferences.layout);
 let media = { ...emptyStatus, available: true };
 let newer = false;
 let exported = false;
@@ -112,7 +113,9 @@ const blockRow = {
   lastCue: 3,
 };
 function displayed(expanded: readonly number[], filter: string | null) {
-  const filtered = rows.filter((c) => !filter || c.kind === filter);
+  const filtered = rows.filter(
+    (c) => c.kind !== 'unchanged' && (!filter || c.kind === filter),
+  );
   return blockMode && !expanded.includes(0)
     ? filtered.filter((c) => c.key !== 'change2' && c.key !== 'change3')
     : filtered;
@@ -143,6 +146,38 @@ function reply(): ReviewReply {
     newerOriginal: null,
   };
 }
+function presentation(): NonNullable<ReviewReply['presentation']> {
+  const entries = rows.map((c, index) => ({
+    key: c.key,
+    index,
+    occurrence: 0,
+    kind: c.kind,
+    sourceIndex: (c.revised[0] ?? c.original[0])!.source_index,
+    revised: c.revised.map((q) => q.cue_id),
+    nextCue:
+      c.kind === 'removed'
+        ? (rows.slice(index + 1).find((r) => r.revised.length)?.revised[0]
+            ?.cue_id ?? null)
+        : null,
+    hasThreads: !!discussion && c.key === commentedKey,
+    open: c.key === commentedKey && discussionPage().open > 0,
+    block: blockMode && index < 3 ? 0 : null,
+    shiftMs: blockMode && index < 3 ? 400 : null,
+  }));
+  return {
+    rows: entries.filter((row) => row.kind !== 'unchanged' || row.hasThreads),
+    overview: {
+      width_ms: 10000,
+      buckets: [
+        {
+          total: entries.length,
+          kinds: [0, 0, 0, entries.length - 1, 0, 1],
+          first: 0,
+        },
+      ],
+    },
+  };
+}
 function loaded(path: string) {
   doc = {
     ...emptyDocument,
@@ -151,7 +186,7 @@ function loaded(path: string) {
     path,
     cues: Array.from({ length: 201 }, (_, i) => ({
       id: i + 1,
-      startMs: 1000 + i * 3000,
+      startMs: (i === 0 ? 1240 : 1000) + i * 3000,
       endMs: 3000 + i * 3000,
       text: 'Revised',
     })),
@@ -185,12 +220,17 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return args.handler;
         case 'plugin:event|unlisten':
         case 'update_menu':
+          return;
         case 'layout_save':
+          storedLayout = structuredClone(args.layout as typeof storedLayout);
           return;
         case 'preferences_save':
           return 2;
         case 'preferences_get':
-          return structuredClone(defaultPreferences);
+          return structuredClone({
+            ...defaultPreferences,
+            layout: storedLayout,
+          });
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
@@ -372,6 +412,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             const filtered = displayed(a.expanded ?? [], a.filter);
             return {
               ...captured,
+              presentation: a.presentation ? presentation() : undefined,
               blocks:
                 blockMode && a.offset === 0 && filtered[0]?.key === 'change1'
                   ? [blockRow]
@@ -381,6 +422,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               matched: filtered.length,
             };
           }
+          if (a.kind === 'projectRemovals')
+            return { ...reply(), rows: a.indices.map((i) => rows[i]!) };
           if (a.kind === 'projection')
             return {
               ...reply(),
@@ -469,7 +512,7 @@ async function until(fn: () => boolean) {
   await tick();
 }
 async function run() {
-  const app = mount(App, { target: host });
+  let app = mount(App, { target: host });
   try {
     await until(
       () => !!button('New subtitles') && !button('New subtitles').disabled,
@@ -491,6 +534,34 @@ async function run() {
       'Frame option disabled',
     );
     passed('No-media review shows numeric timing and disables frame tolerance');
+    const segment = (label: string) =>
+      [
+        ...host.querySelectorAll<HTMLButtonElement>(
+          '[aria-label="Review cues"] button',
+        ),
+      ].find((b) => b.textContent?.includes(label))!;
+    await until(
+      () =>
+        !!host.querySelector(
+          '[data-cue-id="1"] [data-cell="start"][title*="+0.240 s"]',
+        ),
+    );
+    assert(
+      !!host.querySelector('[data-column="original"]'),
+      'New review shows Original',
+    );
+    segment('With threads').click();
+    await until(() => !host.querySelector('[data-cue-id]'));
+    segment('Changed only').click();
+    await until(() => !!host.querySelector('[data-cue-id]'));
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Next table change"]')!
+      .click();
+    await until(() => !!host.querySelector('[aria-label="Original"]'));
+    segment('All cues').click();
+    passed(
+      'Table filters, changed-time tooltip, Original column and change stepper',
+    );
     button('Next page').click();
     await until(
       () =>
@@ -531,7 +602,7 @@ async function run() {
         host.querySelectorAll('[aria-label="Changes"] article').length === 1,
     );
     assert(
-      host.textContent?.includes('Change 201 of 201'),
+      host.textContent?.includes('Stop 201 of 201'),
       'Navigation publishes absolute position',
     );
     passed(
@@ -575,18 +646,43 @@ async function run() {
         !button('Revert')?.disabled,
     );
     passed('Next Change navigates in a subtitles-only review');
+    const done = host.querySelector<HTMLInputElement>(
+      'input[aria-label="Checked change"]',
+    )!;
+    done.click();
+    await tick();
     await chooseCommand(host, 'exportComparisonReport');
-    await until(() => !!button('Continue to Save'));
+    await until(
+      () =>
+        host
+          .querySelector('dialog[open]')
+          ?.textContent?.includes(`You checked 1 of ${rows.length}`) ?? false,
+    );
+    button(`Review the ${rows.length - 1} unchecked`).click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        segment('Changed only').getAttribute('aria-pressed') === 'true',
+    );
+    await until(
+      () =>
+        host
+          .querySelector(`[data-cue-id="${rows[1]!.revised[0]!.cue_id}"]`)
+          ?.getAttribute('aria-pressed') === 'true',
+    );
+    passed('Export check returns to the first unchecked change without saving');
+    await chooseCommand(host, 'exportComparisonReport');
+    await until(() => !!button('Export anyway'));
     host
       .querySelector<HTMLInputElement>('dialog[open] input[type="checkbox"]')!
       .click();
     await tick();
     assert(
-      !button('Continue to Save').disabled &&
+      !button('Export anyway').disabled &&
         !host.querySelector('dialog[open] input[maxlength]'),
       'Readable only needs no exporter name',
     );
-    button('Continue to Save').click();
+    button('Export anyway').click();
     await until(() => exported);
     passed('Comparison report export works with no media');
     await chooseCommand(host, 'endReview');
@@ -696,8 +792,24 @@ async function run() {
     blockMode = true;
     rows = Array.from({ length: 201 }, (_, i) => change(i + 1));
     for (const c of rows.slice(0, 3)) c.kind = 'timing';
+    // Publish the replacement fixture as a new comparison capture.
+    const oldEpoch = epoch;
+    host
+      .querySelector<HTMLInputElement>(
+        '[aria-label="Changes"] details input[type="checkbox"]',
+      )!
+      .click();
+    await until(
+      () =>
+        epoch > oldEpoch &&
+        host.textContent?.includes('0/201 checked') === true,
+    );
     button('Timing').click();
-    await until(() => !!button('Expand'));
+    await until(
+      () =>
+        !!button('Expand') &&
+        host.querySelectorAll('[aria-label="Changes"] article').length === 1,
+    );
     assert(
       [
         ...host.querySelectorAll('section[aria-label="Changes"] article span'),
@@ -726,7 +838,7 @@ async function run() {
         host.querySelectorAll('[aria-label="Changes"] article').length === 3,
     );
     button('Next Change').click();
-    await until(() => host.textContent?.includes('Change 2 of 3') ?? false);
+    await until(() => host.textContent?.includes('Stop 2 of 3') ?? false);
     assert(
       !!button('Shifted 3 cues by +0.400 s (00:00:01,400 – 00:00:09,400)'),
       'Block label uses the revised timeline',
@@ -736,7 +848,7 @@ async function run() {
     button('All').click();
     await until(() => host.textContent?.includes('of 199') ?? false);
     button('Next Change').click();
-    await until(() => host.textContent?.includes('Change 2 of 199') ?? false);
+    await until(() => host.textContent?.includes('Stop 2 of 199') ?? false);
     host.querySelector<HTMLElement>('[data-cue-id="9"]')!.click();
     await until(
       () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
@@ -744,8 +856,14 @@ async function run() {
     await until(
       () => !!host.querySelector('[data-cue-id="9"][aria-pressed="true"]'),
     );
+    await until(
+      () =>
+        host
+          .querySelector('.stepper')
+          ?.textContent?.includes('Stop 7 of 199') ?? false,
+    );
     button('Previous Change').click();
-    await until(() => host.textContent?.includes('Change 6 of 199') ?? false);
+    await until(() => host.textContent?.includes('Stop 6 of 199') ?? false);
     passed(
       'Block selection, collapsed paging, expanded navigation and Previous Change after selecting another cue',
     );
@@ -761,7 +879,7 @@ async function run() {
       await until(
         () =>
           !!pane() &&
-          !!pane()!.querySelector('.original-diff') === changed &&
+          !!pane()!.querySelector('.compare') === changed &&
           !!host.querySelector(`[data-cue-id="${cueId}"][aria-pressed="true"]`),
       );
       const control = (name: string) =>
@@ -898,7 +1016,7 @@ async function run() {
       await chooseCommand(host, id);
     };
     await exchangeCommand('exportReviewPackage');
-    await until(() => !!button('Continue to Save'));
+    await until(() => !!button('Export anyway'));
     assert(
       host
         .querySelector('dialog[open]')
@@ -969,6 +1087,110 @@ async function run() {
     await until(() => imports.includes('open') && doc.path === null);
     passed(
       'Export disclosure, new and same package opens, different-version choices and one-step Undo',
+    );
+    await until(
+      () => !!host.querySelector('[aria-label="Resize Original column"]'),
+    );
+    host
+      .querySelector('[aria-label="Resize Original column"]')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+      );
+    await until(
+      () =>
+        storedLayout[storedLayout.active].columns.items.find(
+          (c) => c.id === 'original',
+        )?.width === 248,
+    );
+    await unmount(app);
+    app = mount(App, { target: host });
+    await until(
+      () => !!host.querySelector('.column-heading[data-column="original"]'),
+    );
+    assert(
+      host
+        .querySelector('.column-heading[data-column="original"]')!
+        .getBoundingClientRect().width === 248,
+      'Original width survives restart',
+    );
+    passed('Original column persists across workspace restart');
+    await unmount(app);
+    const removed = {
+      ...change(1),
+      key: 'removed',
+      kind: 'removed' as const,
+      revised: [],
+      words: [{ kind: 'removed' as const, text: 'Original' }],
+    };
+    const successor: ReviewChange = {
+      ...change(3),
+      kind: 'unchanged',
+      text_changed: false,
+      original: [cue(4, 'Revised')],
+      words: [{ kind: 'equal', text: 'Revised' }],
+    };
+    rows = [
+      removed,
+      successor,
+      { ...change(4), original: [cue(5, 'Original')] },
+    ];
+    blockMode = false;
+    discussion = null;
+    app = mount(App, { target: host });
+    const selector = 'input[aria-label="Checked removed cue 1"]';
+    await until(() => !!host.querySelector(selector));
+    host.querySelector<HTMLElement>('[data-cue-id="3"]')!.click();
+    const removedBox = () =>
+      [...host.querySelectorAll('[aria-label="Original"] .compare')].find(
+        (el) =>
+          el.querySelector('[data-kind="removed"]') ||
+          el.querySelector('header')?.textContent?.includes('Removed'),
+      );
+    await until(() => removedBox()?.textContent?.includes('Original') ?? false);
+    assert(
+      host
+        .querySelector('[data-cue-id="3"] .removed-tag')
+        ?.getAttribute('title')
+        ?.includes('#1 Original'),
+      'Tooltip includes removed text',
+    );
+    host.querySelector<HTMLInputElement>(selector)!.click();
+    await until(
+      () => !!removedBox()?.querySelector<HTMLInputElement>('input:checked'),
+    );
+    assert(
+      !!removedBox()?.querySelector('button')?.textContent?.includes('Revert'),
+      'Removed cue has Revert',
+    );
+    await chooseCommand(host, 'exportComparisonReport');
+    await until(
+      () =>
+        host
+          .querySelector('dialog[open]')
+          ?.textContent?.includes('You checked 1 of 2') ?? false,
+    );
+    assert(
+      host.querySelector('dialog[open] li')?.textContent?.includes('#4 · Text'),
+      'Unchecked change uses revised number',
+    );
+    [...host.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
+      .find((b) => b.textContent?.trim() === 'Cancel')!
+      .click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    removedBox()!.querySelector<HTMLInputElement>('input')!.click();
+    await chooseCommand(host, 'exportComparisonReport');
+    await until(
+      () =>
+        host
+          .querySelector('dialog[open] li')
+          ?.textContent?.includes('was #1') ?? false,
+    );
+    passed(
+      'Selecting the successor exposes removed text, independent checks and Revert; export tracks the marked removal and revised cue numbers',
     );
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =

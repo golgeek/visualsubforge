@@ -1,4 +1,5 @@
 //! Native menus/dialogs route to the same frontend operation dispatcher as buttons.
+pub(crate) mod region;
 mod shortcuts;
 use serde::{Deserialize, Serialize};
 pub(crate) use shortcuts::with_shortcuts;

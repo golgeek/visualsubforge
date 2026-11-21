@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '../ui/date-format';
   import type { Recovery } from './recovery.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
   let {
@@ -38,7 +39,7 @@
         <div class="identity" title={entry.sourcePath ?? label}>
           <span class="label">{label}</span>
           {#if entry.capturedMs !== null}
-            <time>{new Date(entry.capturedMs).toLocaleString()}</time>
+            <time>{formatDateTime(entry.capturedMs)}</time>
           {/if}
           {#if entry.error}<span>{entry.error}</span>{/if}
         </div>

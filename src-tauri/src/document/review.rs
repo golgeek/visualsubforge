@@ -5,6 +5,7 @@ mod discussion;
 mod exchange;
 use exchange::{ImportChoice, Inspection, OutputKind, PackageLink};
 mod operations;
+mod presentation;
 use crate::ipc_number::SafeU64;
 use discussion::{CommentEdit, Discussion, DiscussionPage, ThreadIndex};
 use std::{
@@ -148,7 +149,12 @@ pub enum ReviewAction {
         key: ReviewKey,
         path: String,
         include_unchanged: bool,
-        date: String,
+        #[serde(default)]
+        utc_offset_minutes: i16,
+    },
+    ProjectRemovals {
+        key: ReviewKey,
+        indices: Vec<u32>,
     },
     Projection {
         key: ReviewKey,
@@ -187,6 +193,8 @@ pub enum ReviewAction {
     },
     Query {
         #[serde(default)]
+        presentation: bool,
+        #[serde(default)]
         expanded: Vec<u32>,
         key: ReviewKey,
         offset: u32,
@@ -197,6 +205,8 @@ pub enum ReviewAction {
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewReply {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    presentation: Option<presentation::Presentation>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     blocks: Vec<BlockRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -360,6 +370,7 @@ impl Store {
         let key = self.review_key()?;
         let context = self.review_summary();
         let mut reply = ReviewReply {
+            presentation: None,
             blocks: Vec::new(),
             discussion: None,
             thread_id: None,
@@ -486,7 +497,7 @@ impl Documents {
             key,
             path,
             include_unchanged,
-            date,
+            utc_offset_minutes,
         } = &action
         {
             return self.publish_review(
@@ -494,7 +505,7 @@ impl Documents {
                 Path::new(path),
                 output.unwrap_or(OutputKind::Readable),
                 author,
-                date,
+                *utc_offset_minutes,
                 *include_unchanged,
             );
         }
@@ -613,6 +624,7 @@ impl Documents {
         let mut document = None;
         let (mut offset, mut limit, mut filter) = (0, 100, None);
         let mut expanded = Vec::new();
+        let mut include_presentation = false;
         match action {
             ReviewAction::Attach { .. } | ReviewAction::Inspect { .. } => unreachable!(),
             ReviewAction::Status => {}
@@ -646,6 +658,22 @@ impl Documents {
                 store.revert_review(key, change_key.as_deref(), source_index, filter, None)?;
                 document = Some(store.snapshot());
                 store.invalidate_checks();
+            }
+            ReviewAction::ProjectRemovals { key, indices } => {
+                if indices.len() > 200 {
+                    return Err("Too many projected removals".into());
+                }
+                let mut reply = store.review_reply(None, 0, 0, None)?;
+                let result = store.comparison(key)?;
+                for index in indices {
+                    let change = result
+                        .changes
+                        .get(index as usize)
+                        .filter(|c| c.kind == engine::Kind::Removed)
+                        .ok_or("Invalid removal in comparison projection")?;
+                    reply.rows.push(change.clone());
+                }
+                return Ok(reply);
             }
             ReviewAction::Projection {
                 key,
@@ -689,6 +717,7 @@ impl Documents {
                 document = Some(store.snapshot());
             }
             ReviewAction::Query {
+                presentation,
                 expanded: requested,
                 key,
                 offset: o,
@@ -696,6 +725,7 @@ impl Documents {
                 filter: f,
             } => {
                 store.check_review_key(key)?;
+                include_presentation = presentation;
                 expanded = requested;
                 if !(1..=200).contains(&l) {
                     return Err("Comparison pages require 1–200 rows".into());
@@ -781,7 +811,20 @@ impl Documents {
                 }
             }
         }
-        store.review_page(document, offset, limit, filter, &expanded)
+        let mut reply = store.review_page(document, offset, limit, filter, &expanded)?;
+        if include_presentation
+            && reply.statistics.is_some()
+            && let Some(job) = &store.review.job
+            && let (Some(result), Some(index), Some(loaded)) =
+                (&job.result, &job.threads, &store.loaded)
+        {
+            reply.presentation = Some(presentation::build(
+                result,
+                index,
+                &loaded.review.discussion,
+            )?);
+        }
+        Ok(reply)
     }
     pub(crate) fn shutdown_review(&self) -> Result<()> {
         let job = {

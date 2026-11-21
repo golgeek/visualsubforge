@@ -16,6 +16,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             document::recovery_status,
             document::recovery_discard,
             desktop::choose_file,
+            desktop::region::system_region,
             desktop::update_menu,
             preferences::preferences_get,
             preferences::preferences_save,

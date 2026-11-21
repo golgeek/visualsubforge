@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '../ui/date-format';
   import type { ReviewSession } from './review-session.svelte';
   import type { ReviewChange, ReviewThread, CommentEdit } from '../client';
   let {
@@ -74,7 +75,7 @@
     <strong>{resolved(t) ? 'Resolved' : 'Open'}</strong>
     {#each t.messages as m (m.id)}
       <p>
-        <b>{m.author}</b> · <time>{new Date(m.at_ms!).toLocaleString()}</time>
+        <b>{m.author}</b> · <time>{formatDateTime(m.at_ms!)}</time>
       </p>
       <p class="message">
         {m.type === 'comment'

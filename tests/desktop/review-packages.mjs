@@ -104,7 +104,7 @@ export async function exchangeRoundTrip({
     ),
   );
   await browser.saveScreenshot(join(root, 'reviewer-export.png'));
-  await press('Continue to Save', 'dialog[open]');
+  await press('Export anyway', 'dialog[open]');
   const pkg = await until('round one', async () => {
     try {
       return JSON.parse(await readFile(join(root, 'round1.vsfreview'), 'utf8'));
@@ -227,13 +227,19 @@ export async function exchangeRoundTrip({
   );
   await browser.saveScreenshot(join(root, 'author-detached.png'));
   await menu('exportComparisonReport');
-  await press('Continue to Save', 'dialog[open]');
+  await press(
+    (await compared()).statistics.changes
+      ? 'Export anyway'
+      : 'Continue to Save',
+    'dialog[open]',
+  );
   await until('round two', async () => (await status()).review.round === 2);
   const reader = await chromium.launch();
   try {
     const page = await reader.newPage();
     await page.goto(pathToFileURL(report).href);
     assert.equal(await page.locator('#vsf-review-package').count(), 1);
+    await page.locator('label[for=f-expand]').click();
     assert(
       (await page.locator('body').innerText()).includes(
         '<script> Check this change',

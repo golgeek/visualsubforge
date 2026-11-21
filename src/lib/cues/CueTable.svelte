@@ -6,6 +6,14 @@
   import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
   import type { WorkspaceLayout } from '../layout/workspace-layout.svelte';
+  import DiffText from '../review/DiffText.svelte';
+  import type { ReviewSession } from '../review/review-session.svelte';
+  import {
+    checkKey,
+    cueWords,
+    signedDelta,
+    type TableFilter,
+  } from '../review/presentation';
   import type { ReviewChange } from '../client';
   import type { QualityMetric } from '../client';
   import { formatTime } from '../timeline/timeline';
@@ -22,8 +30,7 @@
   import type { SelectionMode } from './cue-selection';
   import type { CueTableView } from './cue-table-view.svelte';
   let {
-    reviewChanges = [],
-    commentedIds = [],
+    review,
     ghosts = [],
     subtitles,
     quality,
@@ -34,8 +41,7 @@
     actions,
     controls,
   }: {
-    commentedIds?: number[];
-    reviewChanges?: ReviewChange[];
+    review: ReviewSession;
     ghosts?: TimingGhost[];
     subtitles: DocumentSession;
     quality: QualitySession;
@@ -60,20 +66,55 @@
   } = $props();
   const changes = $derived(
     new Map(
-      reviewChanges.flatMap((c) =>
-        c.revised.map((cue) => [cue.cue_id, c.kind] as const),
+      review.projection.flatMap((c) =>
+        c.revised.map((cue) => [cue.cue_id, c] as const),
       ),
     ),
   );
+  const glyph = {
+    text: 'T',
+    timing: '◷',
+    text_and_timing: '±',
+    added: '+',
+    removed: '−',
+    split: '⑂',
+    merged: '⑃',
+    style: 'S',
+    unchanged: '',
+  };
+  const filters: [TableFilter, string][] = [
+    ['all', 'All cues'],
+    ['changed', 'Changed only'],
+    ['threads', 'With threads'],
+  ];
+  function oldTime(
+    c: ReviewChange | undefined,
+    id: 'start' | 'end',
+    current: number,
+  ) {
+    if (!c?.timing_changed || !c.original.length) return null;
+    const old =
+      id === 'start'
+        ? Math.min(...c.original.map((q) => q.start_ms))
+        : Math.max(...c.original.map((q) => q.end_ms));
+    return old === current ? null : { old, delta: signedDelta(current - old) };
+  }
   const deltas = $derived(
     new Map(ghosts.map((ghost) => [ghost.id, timingDelta(ghost)])),
   );
   const doc = $derived(subtitles.snapshot);
   const columns = $derived(tableView.visibleColumns);
+  const checkWidth = $derived.by(() => {
+    let count = 1;
+    for (const rows of review.index.removals.values())
+      count = Math.max(count, rows.length + 1);
+    return 24 * Math.min(count, 4);
+  });
   const minimumWidth = $derived(
     columns.reduce(
       (sum, c) => sum + c.width,
-      20 + Math.max(0, columns.length - 1) * 6,
+      (review.attached ? 50 + checkWidth : 20) +
+        Math.max(0, columns.length - 1) * 6,
     ),
   );
   const activeIds = $derived(tableView.activeIds);
@@ -192,9 +233,27 @@
   });
 </script>
 
+{#snippet removalMarker(rows: import('../review/presentation').ReviewRow[])}
+  {#if rows.length}<b
+      class="removed-tag"
+      title={rows
+        .map(
+          (r) =>
+            'Removed before this cue: #' +
+            (r.sourceIndex + 1) +
+            ' ' +
+            (review.removalDetails
+              .get(checkKey(r))
+              ?.original.map((q) => q.text)
+              .join(' / ') ?? ''),
+        )
+        .join('\n')}>−{rows.length}</b
+    >{/if}
+{/snippet}
 <div
   class="cue-table"
-  style:--column-grid={`${doc.review?.path ? '22px ' : ''}${columnGrid(columns)}`}
+  style:--check-width={`${checkWidth}px`}
+  style:--column-grid={`${doc.review?.path ? '22px ' : ''}${columnGrid(columns)}${review.attached ? ' var(--check-width)' : ''}`}
   style:--columns-min={`${minimumWidth}px`}
   style:--row-height={`${tableView.rowHeight}px`}
 >
@@ -226,6 +285,38 @@
     >
     {@render controls?.()}
   </div>
+  {#if review.attached}
+    <div class="review-controls">
+      <div class="segmented" role="group" aria-label="Review cues">
+        {#each filters as [value, label] (value)}<button
+            aria-pressed={review.tableFilter === value}
+            onclick={() => review.setTableFilter(value)}
+            >{label}
+            <small
+              >{value === 'all'
+                ? doc.cues.length
+                : review.summary
+                  ? value === 'changed'
+                    ? review.index.changed.size
+                    : review.index.threaded.size
+                  : '…'}</small
+            ></button
+          >{/each}
+      </div>
+      <div class="stepper">
+        <button
+          aria-label="Previous table change"
+          onclick={() => void review.navigate(false)}>‹</button
+        >
+        <span>Stop {review.position || '—'} of {review.stopCount}</span>
+        <button
+          aria-label="Next table change"
+          onclick={() => void review.navigate(true)}>›</button
+        >
+      </div>
+      <span>{review.checked.size}/{review.progress.total} checked</span>
+    </div>
+  {/if}
   {#if quality.error || quality.projectionError}<div
       class="check-error"
       role="alert"
@@ -275,6 +366,7 @@
             ></button>{/if}
         </div>
       {/each}
+      {#if review.attached}<span aria-label="Checked">✓</span>{/if}
     </div>
   </div>
   <div
@@ -307,104 +399,188 @@
             {@const item = row.cue}
             {@const metric = quality.metrics.get(String(item.id))}
             {@const issue = quality.issues.get(String(item.id))}
-            <button
-              class="cue-row"
-              class:selected={subtitles.selectedIds.has(item.id)}
-              class:active={activeIds.includes(item.id)}
-              aria-current={activeIds.includes(item.id) ? 'time' : undefined}
-              aria-pressed={subtitles.selectedIds.has(item.id)}
-              data-cue-id={item.id}
-              aria-disabled={workspace.busy}
-              oncontextmenu={(e) => {
-                e.preventDefault();
-                void actions.openCueMenu(e.clientX, e.clientY, item.id, false);
-              }}
-              onclick={(e) =>
-                void actions.selectCue(
-                  item.id,
-                  e.shiftKey
-                    ? e.ctrlKey || e.metaKey
-                      ? 'addRange'
-                      : 'range'
-                    : e.ctrlKey || e.metaKey
-                      ? 'toggle'
-                      : 'replace',
-                )}
-              onkeydown={(e) => actions.cueSelectionKey(e, item.id)}
-              ondblclick={() => void actions.focusText()}
-            >
-              {#if doc.review?.path}<span
-                  class="change-marker"
-                  aria-label={changes.has(item.id)
-                    ? `Change: ${changes.get(item.id)}`
-                    : 'Unchanged'}
-                  title={changes.get(item.id)}
-                  >{changes.has(item.id)
-                    ? {
-                        text: 'T',
-                        timing: '◷',
-                        text_and_timing: '±',
-                        added: '+',
-                        removed: '−',
-                        split: '⑂',
-                        merged: '⑃',
-                        style: 'S',
-                        unchanged: '',
-                      }[changes.get(item.id)!]
-                    : ''}{#if commentedIds.includes(item.id)}<span
-                      aria-label="Commented cue"
-                      title="Review comments">▤</span
-                    >{/if}</span
-                >{/if}
-              {#each columns as column (column.id)}
-                {#if column.id === 'issue'}<span
-                    class="issue"
-                    class:violation={issue === 'violation'}
-                    class:advisory={issue === 'advisory'}
-                    aria-label={issue === 'violation'
-                      ? 'Error'
-                      : issue === 'advisory'
-                        ? 'Warning'
-                        : quality.issueIndexComplete
-                          ? 'No reported issue'
-                          : 'Issues not yet available'}
-                    >{issue === 'violation'
-                      ? '!'
-                      : issue === 'advisory'
-                        ? '•'
-                        : quality.issueIndexComplete
-                          ? ''
-                          : '…'}</span
-                  >
-                {:else if column.id === 'cps'}<span class="cps" data-cell="cps"
-                    ><span>{cell(row, column.id, metric)}</span><Meter
-                      label="CPS"
-                      value={metric?.data.cps.status === 'finite'
-                        ? metric.data.cps.value
-                        : null}
-                      maximum={Math.max(
-                        40,
-                        metric?.data.cps.status === 'finite'
-                          ? (metric.data.cps.value ?? 0)
-                          : 0,
-                      )}
-                    /></span
-                  >
-                {:else}<span
-                    class:cue-text={column.id === 'text'}
-                    data-cell={column.id}
-                    >{cell(
-                      row,
-                      column.id,
-                      metric,
-                    )}{#if column.id === 'text' && deltas.has(row.cue.id)}<small
-                        class="timing-delta"
-                        data-preview-cue={row.cue.id}
-                        >{deltas.get(row.cue.id)}</small
-                      >{/if}</span
+            {@const change = changes.get(item.id)}
+            {@const summary = review.index.byCue.get(item.id)}
+            {@const kind = summary?.kind ?? change?.kind ?? 'unchanged'}
+            {@const removed = review.index.removals.get(item.id) ?? []}
+            {@const part =
+              change?.revised.findIndex((q) => q.cue_id === item.id) ?? 0}
+            <div class="row-wrap">
+              <button
+                class="cue-row"
+                data-kind={kind}
+                class:removed-before={removed.length > 0}
+                class:selected={subtitles.selectedIds.has(item.id)}
+                class:active={activeIds.includes(item.id)}
+                aria-current={activeIds.includes(item.id) ? 'time' : undefined}
+                aria-pressed={subtitles.selectedIds.has(item.id)}
+                data-cue-id={item.id}
+                aria-disabled={workspace.busy}
+                oncontextmenu={(e) => {
+                  e.preventDefault();
+                  void actions.openCueMenu(
+                    e.clientX,
+                    e.clientY,
+                    item.id,
+                    false,
+                  );
+                }}
+                onclick={(e) =>
+                  void actions.selectCue(
+                    item.id,
+                    e.shiftKey
+                      ? e.ctrlKey || e.metaKey
+                        ? 'addRange'
+                        : 'range'
+                      : e.ctrlKey || e.metaKey
+                        ? 'toggle'
+                        : 'replace',
+                  )}
+                onkeydown={(e) => actions.cueSelectionKey(e, item.id)}
+                ondblclick={() => void actions.focusText()}
+              >
+                {#if doc.review?.path}<span
+                    class="change-marker"
+                    class:bracket={summary?.block != null}
+                    aria-label={kind === 'unchanged'
+                      ? 'Unchanged'
+                      : `Change: ${kind}`}
+                    title={summary?.shiftMs != null
+                      ? `Shift block: ${signedDelta(summary.shiftMs)}`
+                      : kind}
+                    >{glyph[
+                      kind
+                    ]}{#if summary?.hasThreads || (change && review.threads(change, true).length)}
+                      <i
+                        class="thread-dot"
+                        class:resolved={summary && !summary.open}
+                        aria-label="Commented cue"
+                        title={summary?.open
+                          ? 'Open thread'
+                          : 'Resolved thread'}
+                      ></i>
+                    {/if}</span
                   >{/if}
-              {/each}
-            </button>
+                {#each columns as column (column.id)}
+                  {#if column.id === 'issue'}<span
+                      class="issue"
+                      class:violation={issue === 'violation'}
+                      class:advisory={issue === 'advisory'}
+                      aria-label={issue === 'violation'
+                        ? 'Error'
+                        : issue === 'advisory'
+                          ? 'Warning'
+                          : quality.issueIndexComplete
+                            ? 'No reported issue'
+                            : 'Issues not yet available'}
+                      >{issue === 'violation'
+                        ? '!'
+                        : issue === 'advisory'
+                          ? '•'
+                          : quality.issueIndexComplete
+                            ? ''
+                            : '…'}</span
+                    >
+                  {:else if column.id === 'original'}<span
+                      data-cell="original"
+                      class:bracket={kind === 'split' || kind === 'merged'}
+                    >
+                      {@render removalMarker(removed)}
+                      {#if kind === 'added'}<b class="added-chip">Added</b>
+                      {:else if change && part > 0}<small
+                          >↳ split from #{(change.original[0]?.source_index ??
+                            0) + 1}</small
+                        >
+                      {:else if change}<DiffText
+                          words={change.words}
+                          side="original"
+                          singleLine
+                        />
+                      {:else if kind === 'unchanged'}{item.text.replaceAll(
+                          '\n',
+                          ' ↵ ',
+                        )}{/if}
+                    </span>
+                  {:else if column.id === 'start' || column.id === 'end'}
+                    {@const old = oldTime(
+                      change,
+                      column.id,
+                      column.id === 'start' ? item.startMs : item.endMs,
+                    )}
+                    <span
+                      data-cell={column.id}
+                      class:tinted={old}
+                      title={old
+                        ? `Was ${formatTime(old.old)} · ${old.delta}`
+                        : undefined}
+                    >
+                      {cell(row, column.id, metric)}
+                      {#if old && tableView.columns.density === 'comfortable'}<small
+                          class="prior"
+                          >{formatTime(old.old)} · {old.delta}</small
+                        >{/if}
+                    </span>
+                  {:else if column.id === 'cps'}<span
+                      class="cps"
+                      data-cell="cps"
+                      ><span>{cell(row, column.id, metric)}</span><Meter
+                        label="CPS"
+                        value={metric?.data.cps.status === 'finite'
+                          ? metric.data.cps.value
+                          : null}
+                        maximum={Math.max(
+                          40,
+                          metric?.data.cps.status === 'finite'
+                            ? (metric.data.cps.value ?? 0)
+                            : 0,
+                        )}
+                      /></span
+                    >
+                  {:else}<span
+                      class:cue-text={column.id === 'text'}
+                      data-cell={column.id}
+                      >{#if column.id === 'text' && !columns.some((c) => c.id === 'original')}{@render removalMarker(
+                          removed,
+                        )}{/if}{#if column.id === 'text' && change && review.attached}<DiffText
+                          words={cueWords(change, 'revised', part)}
+                          side="revised"
+                          singleLine
+                        />{:else}{cell(
+                          row,
+                          column.id,
+                          metric,
+                        )}{/if}{#if column.id === 'text' && deltas.has(row.cue.id)}<small
+                          class="timing-delta"
+                          data-preview-cue={row.cue.id}
+                          >{deltas.get(row.cue.id)}</small
+                        >{/if}</span
+                    >{/if}
+                {/each}
+              </button>
+              <div class="checks">
+                {#each removed as removal (checkKey(removal))}
+                  <input
+                    type="checkbox"
+                    aria-label={`Checked removed cue ${removal.sourceIndex + 1}`}
+                    title={`Removed · was #${removal.sourceIndex + 1}`}
+                    checked={review.checked.has(checkKey(removal))}
+                    onchange={() => review.toggleCheck(removal)}
+                  />
+                {/each}
+                {#if summary && kind !== 'unchanged' && summary.revised[0] === item.id && (summary.block == null || summary.index === summary.block)}
+                  <input
+                    type="checkbox"
+                    aria-label={`Checked cue ${row.index + 1}`}
+                    checked={summary.block == null
+                      ? review.checked.has(checkKey(summary))
+                      : review.index.blocks
+                          .get(summary.block)
+                          ?.every((r) => review.checked.has(checkKey(r)))}
+                    onchange={() => review.toggleCheck(summary, true)}
+                  />
+                {/if}
+              </div>
+            </div>
           {/each}
         </div>
       </div>{/if}
@@ -412,6 +588,132 @@
 </div>
 
 <style>
+  .review-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 3px 8px;
+    background: var(--surface-panel);
+    font-size: 11px;
+  }
+  .segmented,
+  .stepper {
+    display: inline-flex;
+    align-items: center;
+  }
+  .segmented {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .segmented button,
+  .stepper button {
+    padding: 1px 6px;
+  }
+  .segmented button {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .segmented button + button {
+    border-left: 1px solid var(--line-strong);
+  }
+  .segmented [aria-pressed='true'] {
+    background: var(--selection);
+    box-shadow: inset 0 -2px var(--accent);
+  }
+  .stepper {
+    gap: 4px;
+    font-family: var(--font-mono);
+  }
+  .row-wrap {
+    position: relative;
+  }
+  .checks {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    max-width: var(--check-width);
+    overflow-x: auto;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+  }
+  .checks input {
+    margin: 0;
+    flex: none;
+  }
+  .removed-before {
+    border-top: 2px solid var(--kind-removed);
+  }
+  .removed-tag,
+  .added-chip {
+    border-radius: 4px;
+    padding: 0 4px;
+    margin-right: 3px;
+    font-size: 10px;
+  }
+  .removed-tag {
+    background: var(--kind-removed-soft);
+    color: var(--kind-removed);
+  }
+  .added-chip {
+    background: var(--kind-added-soft);
+    color: var(--kind-added);
+  }
+  .cue-row[data-kind='added'] {
+    box-shadow: inset 3px 0 var(--kind-added);
+  }
+  .thread-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--thread-open);
+  }
+  .thread-dot.resolved {
+    background: transparent;
+    border: 1px solid var(--thread-resolved);
+  }
+  [data-cell='original'] {
+    color: var(--text-muted);
+  }
+  .bracket {
+    border-inline-start: 2px solid var(--kind-group);
+    padding-left: 3px;
+  }
+  .change-marker.bracket {
+    border-color: var(--kind-timing);
+  }
+  .change-marker {
+    color: var(--kind-text);
+  }
+  [data-kind='timing'] .change-marker,
+  .tinted {
+    color: var(--kind-timing);
+  }
+  [data-kind='added'] .change-marker {
+    color: var(--kind-added);
+  }
+  [data-kind='split'] .change-marker,
+  [data-kind='merged'] .change-marker {
+    color: var(--kind-group);
+  }
+  [data-kind='style'] .change-marker {
+    color: var(--kind-style);
+  }
+  .tinted {
+    background: var(--kind-timing-soft);
+  }
+  .prior {
+    display: block;
+    font-size: 9px;
+    line-height: 1;
+  }
+
   .timing-delta {
     margin-left: 8px;
     color: var(--accent);
