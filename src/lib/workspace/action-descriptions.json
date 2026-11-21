@@ -928,5 +928,15 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 591
+  },
+  "checkUpdates": {
+    "label": "Check for Updates\u2026",
+    "group": "Help",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["version", "new release"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 592
   }
 }

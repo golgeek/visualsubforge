@@ -107,7 +107,7 @@
       id: 'advanced',
       label: 'Advanced',
       keywords:
-        'counting units utf16 source rendered speed calculation coverage',
+        'updates version automatic GitHub counting units utf16 source rendered speed calculation coverage',
     },
   ] as const;
   type Page = (typeof pages)[number]['id'];
@@ -284,6 +284,24 @@
             onexport={() => void transfer('timing', false)}
           />
         </div>
+        <section hidden={!shown('advanced')}>
+          <h3>Version updates</h3>
+          <label
+            ><input
+              type="checkbox"
+              {disabled}
+              checked={draft.automaticUpdates === true}
+              onchange={(event) => {
+                draft.automaticUpdates = event.currentTarget.checked;
+                void session.changed();
+              }}
+            /> Check for new versions automatically</label
+          >
+          <p>
+            GitHub sees your IP address when VSF checks. Updates are never
+            downloaded or installed.
+          </p>
+        </section>
         <div
           hidden={!(shown('quality') || shown('language') || shown('advanced'))}
         >

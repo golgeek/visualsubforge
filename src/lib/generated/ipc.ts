@@ -50,6 +50,14 @@ export const commands = {
   systemRegion: () => __TAURI_INVOKE<string | null>('system_region'),
   updateMenu: (state: visualsubforge_desktop_MenuState) =>
     __TAURI_INVOKE<null>('update_menu', { state }),
+  updateCheck: (manual: boolean) =>
+    __TAURI_INVOKE<visualsubforge_updates_Outcome>('update_check', { manual }),
+  updateConsent: (enabled: boolean) =>
+    __TAURI_INVOKE<null>('update_consent', { enabled }),
+  updateDismiss: (version: string) =>
+    __TAURI_INVOKE<null>('update_dismiss', { version }),
+  updateOpen: (version: string) =>
+    __TAURI_INVOKE<null>('update_open', { version }),
   preferencesGet: () =>
     __TAURI_INVOKE<visualsubforge_preferences_Preferences_Serialize>(
       'preferences_get',
@@ -1722,6 +1730,15 @@ export type vsf_application_quality_statistics_Extreme = {
   relatedCueId: string | null;
 };
 
+export type visualsubforge_updates_Failure =
+  | 'connection'
+  | 'timeout'
+  | 'rateLimit'
+  | 'unavailable'
+  | 'tooLarge'
+  | 'invalid'
+  | 'storage';
+
 export type visualsubforge_desktop_FileChoice =
   | 'workspace'
   | 'extractSubtitles'
@@ -2234,6 +2251,12 @@ export type visualsubforge_project_Options_Serialize = {
   quality: vsf_application_quality_profile_Profile_Serialize | null;
 };
 
+export type visualsubforge_updates_Outcome =
+  | { kind: 'quiet' }
+  | { kind: 'current' }
+  | { kind: 'available'; version: string }
+  | { kind: 'failed'; reason: visualsubforge_updates_Failure };
+
 export type visualsubforge_document_review_exchange_OutputKind =
   'package' | 'report' | 'readable';
 
@@ -2388,6 +2411,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
   appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   reviewName?: string;
+  automaticUpdates?: boolean | null;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -2403,6 +2427,7 @@ export type visualsubforge_preferences_Preferences_Serialize = {
   appearance: visualsubforge_preferences_appearance_Appearance;
   shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
   reviewName: string;
+  automaticUpdates: boolean | null;
   autoScanScenes: boolean;
   sceneDetail: media_analysis_scenes_Detail;
   timing: visualsubforge_timing_preset_Settings;
@@ -3802,6 +3827,7 @@ export type visualsubforge_language_tools_Words = {
 export type visualsubforge_desktop_WorkspaceAction =
   | 'commandPalette'
   | 'shortcutSheet'
+  | 'checkUpdates'
   | 'themeSystem'
   | 'themeDark'
   | 'themeLight'

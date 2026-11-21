@@ -613,6 +613,7 @@ export async function exportTimingPreset(
 
 export const defaultPreferences: Preferences = {
   reviewName: '',
+  automaticUpdates: null,
   version: 6,
   appearance: { theme: 'dark', density: 'compact', customTitleBar: false },
   shortcuts: shortcutPreset('current'),
@@ -625,6 +626,14 @@ export const defaultPreferences: Preferences = {
   zoomWaveformToCue: true,
   personalWords: { englishUs: [], french: [] },
 };
+export type UpdateOutcome = Awaited<ReturnType<typeof commands.updateCheck>>;
+export const checkUpdates = (manual: boolean) => commands.updateCheck(manual);
+export const setUpdateConsent = (enabled: boolean) =>
+  commands.updateConsent(enabled);
+export const dismissUpdate = (version: string) =>
+  commands.updateDismiss(version);
+export const openUpdate = (version: string) => commands.updateOpen(version);
+
 export async function saveLayout(layout: Preferences['layout']): Promise<void> {
   await commands.layoutSave(layout);
 }

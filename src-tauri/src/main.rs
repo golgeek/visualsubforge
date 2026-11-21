@@ -79,6 +79,7 @@ mod subtitle_preview;
 mod text_review;
 mod timing_preset;
 mod timing_review;
+mod updates;
 mod waveform;
 mod workflow_trace;
 use std::sync::atomic::Ordering;
@@ -128,6 +129,7 @@ fn main() {
             app.manage(scenes::Scenes::default());
             app.manage(resync::Resync::default());
             app.manage(extraction::Extraction::default());
+            app.manage(updates::Updates::default());
             desktop::install(app)?;
             #[cfg(target_os = "windows")]
             {
@@ -224,6 +226,7 @@ fn main() {
                         let _ = desktop::WorkspaceAction::Quit.emit(app);
                         return;
                     }
+                    app.state::<updates::Updates>().shutdown();
                     if !media.available() || media.shutdown_complete() {
                         return;
                     }

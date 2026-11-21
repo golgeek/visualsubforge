@@ -65,6 +65,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         action?: DocumentAction | MediaAction;
         handler?: number;
         event?: string;
+        enabled?: boolean;
+        version?: string;
+        manual?: boolean;
         kind?: string;
         id?: string;
       },
@@ -80,9 +83,37 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'plugin:event|unlisten':
         case 'update_menu':
           return;
+        case 'update_consent':
+          sessionStorage.setItem(
+            'update-consent',
+            JSON.stringify(args.enabled),
+          );
+          return;
+        case 'update_dismiss':
+        case 'update_open':
+          host.dataset[
+            command === 'update_open' ? 'openedVersion' : 'dismissedVersion'
+          ] = args.version;
+          return;
+        case 'update_check':
+          host.dataset.updateChecks = String(
+            Number(host.dataset.updateChecks ?? 0) + 1,
+          );
+          if (!args.manual) return { kind: 'available', version: '0.2.0' };
+          switch (new URLSearchParams(location.search).get('answer')) {
+            case 'failed':
+              return { kind: 'failed', reason: 'rateLimit' };
+            case 'newer':
+              return { kind: 'available', version: '0.2.0' };
+            default:
+              return { kind: 'current' };
+          }
         case 'preferences_get':
           return {
             ...structuredClone(defaultPreferences),
+            automaticUpdates: JSON.parse(
+              sessionStorage.getItem('update-consent') ?? 'null',
+            ),
             appearance: {
               ...defaultPreferences.appearance,
               theme:

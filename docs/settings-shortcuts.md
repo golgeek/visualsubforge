@@ -109,3 +109,20 @@ launchers. macOS registers Help for system menu search. Windows/Linux menus use
 the same registry and checked-state projection. View's Theme and Density choices
 use the same confirmed preference save path as Settings. Unsupported operations,
 including WebVTT conversion, are not offered as working menu actions.
+
+## Version updates
+
+On first launch you can enable automatic checks, decline them, or choose
+**Ask next launch**. Change the choice under **Settings → Advanced → Version
+updates**. Automatic checks run a few seconds after startup, at most once in 24
+hours. **Help → Check for Updates…** and the Command Palette work with either
+setting. GitHub receives your IP address and the VSF version. VSF sends no file,
+project, machine identifier or credentials. A newer release offers **View
+release**, which opens the default browser. **Not now** dismisses that version
+until a manual check or a newer version.
+
+For packaged-build diagnostics, `VSF_UPDATE_DIAGNOSTICS=1` prints a single
+stderr line when a live request starts. `VSF_UPDATE_TEST_FIXTURE` selects a
+local JSON release list and `VSF_UPDATE_TEST_VERSION` overrides the comparison
+version for that process. Neither setting accepts a server address. The ordinary
+request always targets the public GitHub release list.

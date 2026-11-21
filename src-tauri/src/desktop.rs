@@ -18,6 +18,7 @@ use tauri_specta::Event;
 pub enum WorkspaceAction {
     CommandPalette,
     ShortcutSheet,
+    CheckUpdates,
     ThemeSystem,
     ThemeDark,
     ThemeLight,

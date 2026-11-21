@@ -24,6 +24,25 @@ pending frame until GTK paints it or the surface becomes unmapped, at which poin
 it acknowledges a skipped frame. GTK can discard a queued draw during
 close/reopen or occlusion. The mpv control worker remains independent of painting.
 
+## Desktop update checks
+
+The first application network request is an optional Rust-owned query to the
+public GitHub releases API. Startup reads preferences locally. A non-modal
+footer asks for consent, and the display owner schedules a delayed check only
+after automatic checks have been enabled. Help can request a check explicitly.
+The webview uses the typed client and its existing CSP. The notice occupies a
+layout row outside the native video surface.
+
+The desktop service reads and atomically writes consent through the preferences
+writer. A separate bounded `update-check-v1.json` records attempts and the last
+dismissed version. An OS file lock shared across app processes reserves the 24-hour interval before the
+request, including failed attempts. Disk operations use blocking workers. A
+manual request cancels a previous request. The exit gate cancels in-flight work,
+and the display owner discards obsolete replies. No lock spans network IO.
+Rust fetches at most 1 MiB over HTTPS, rejects redirects, compares semver
+precedence, and constructs the browser destination from its fixed repository
+and a parsed version. The app never installs a release.
+
 ## Code map and dependencies
 
 ```mermaid
