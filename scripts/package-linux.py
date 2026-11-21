@@ -26,7 +26,7 @@ ld-linux-x86-64.so.2 ld-linux-aarch64.so.1 libc.so.6 libm.so.6 libdl.so.2 libpth
 libstdc++.so.6 libgcc_s.so.1 libatomic.so.1 libwebkit2gtk-4.1.so.0
 libjavascriptcoregtk-4.1.so.0 libsoup-3.0.so.0 libgtk-3.so.0 libgdk-3.so.0
 libglib-2.0.so.0 libgobject-2.0.so.0 libgio-2.0.so.0 libgdk_pixbuf-2.0.so.0
-libcairo.so.2 libdbus-1.so.3 libpango-1.0.so.0 libpangocairo-1.0.so.0
+libcairo.so.2 libcairo-gobject.so.2 libdbus-1.so.3 libpango-1.0.so.0 libpangocairo-1.0.so.0
 libepoxy.so.0 libGL.so.1 libEGL.so.1 libvulkan.so.1 libgbm.so.1 libdrm.so.2
 libva.so.2 libva-drm.so.2 libva-x11.so.2 libva-wayland.so.2 libX11.so.6 libXext.so.6 libxcb.so.1 libwayland-client.so.0
 libpulse.so.0 libasound.so.2 libfreetype.so.6 libfribidi.so.0 libharfbuzz.so.0
@@ -154,6 +154,7 @@ def assemble(args):
     system_families = {family(path.name) for path in platform} | {family(name) for name in PLATFORM_LIBRARIES}
     system_links = {}
     linked_platform_files = set()
+    rejected = set()
     queue = list(destinations)
     while queue:
         original = queue.pop()
@@ -169,9 +170,11 @@ def assemble(args):
                 system_links[name] = str(dependency)
                 continue
             if family(name) in system_families:
-                raise ValueError(f"Bundled family overlaps system runtime: {name}")
+                rejected.add(f"Bundled family overlaps system runtime: {original.name}: {name} -> {dependency}")
+                continue
             if not any(dependency.is_relative_to(path) for path in custom_dirs):
-                raise ValueError(f"Unreviewed system library: {original}: {name} -> {dependency}")
+                rejected.add(f"Unreviewed system library: {original.name}: {name} -> {dependency}")
+                continue
             relative = Path("lib") / name
             if dependency in destinations:
                 if destinations[dependency] != relative:
@@ -181,6 +184,8 @@ def assemble(args):
                 raise ValueError(f"Conflicting library basename: {name}")
             destinations[dependency] = relative
             queue.append(dependency)
+    if rejected:
+        raise ValueError("\n".join(sorted(rejected)))
     if getattr(args, "build_paths", None):
         required_va = {"libva.so.2", "libva-drm.so.2", "libva-x11.so.2"}
         if missing := required_va - system_links.keys():
