@@ -1,4 +1,5 @@
 import { mount, unmount, tick } from 'svelte';
+import { UpdateSession } from '../../../src/lib/updates/update-session.svelte';
 import SettingsDialog from '../../../src/lib/settings/SettingsDialog.svelte';
 import ActionBrowser from '../../../src/lib/workspace/ActionBrowser.svelte';
 import {
@@ -151,6 +152,12 @@ async function open() {
   app = mount(SettingsDialog, {
     target: host,
     props: {
+      updates: new UpdateSession(
+        (enabled) => {
+          current.automaticUpdates = enabled;
+        },
+        () => current.automaticUpdates === true,
+      ),
       preferences: structuredClone(current),
       timing: current.timing,
       onapply: (value) => applied.push(value),

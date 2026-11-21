@@ -12,6 +12,7 @@
   import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Preferences } from '../client';
   import type { TimingSettings } from '../timing/magnetic-timing';
+  import type { UpdateSession } from '../updates/update-session.svelte';
   let {
     dialogs,
     quality,
@@ -21,6 +22,7 @@
     qualityContext,
     sceneState,
     preferences,
+    updates,
     timingSettings,
   }: {
     dialogs: WorkspaceDialogsState;
@@ -31,6 +33,7 @@
     qualityContext: number;
     sceneState: { qualityKey: string };
     preferences: Preferences;
+    updates: UpdateSession;
     timingSettings: TimingSettings;
   } = $props();
   const workspaceModal = $derived(dialogs.modal);
@@ -91,6 +94,7 @@
 {/if}
 {#if workspaceModal.identity === 'settings'}
   <SettingsDialog
+    {updates}
     {preferences}
     timing={timingSettings}
     checks={quality}

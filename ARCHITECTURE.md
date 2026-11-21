@@ -34,7 +34,8 @@ The webview uses the typed client and its existing CSP. The notice occupies a
 layout row outside the native video surface.
 
 The desktop service reads and atomically writes consent through the preferences
-writer. A separate bounded `update-check-v1.json` records attempts and the last
+writer. Settings and the startup notice use the same consent command. General
+preference saves preserve stored consent and layout under the writer lock. A separate bounded `update-check-v1.json` records attempts and the last
 dismissed version. An OS file lock shared across app processes reserves the 24-hour interval before the
 request, including failed attempts. Disk operations use blocking workers. A
 manual request cancels a previous request. The exit gate cancels in-flight work,

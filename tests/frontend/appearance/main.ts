@@ -1,4 +1,5 @@
 import { mount, tick, unmount } from 'svelte';
+import { UpdateSession } from '../../../src/lib/updates/update-session.svelte';
 import SettingsDialog from '../../../src/lib/settings/SettingsDialog.svelte';
 import { Appearance } from '../../../src/lib/ui/appearance';
 import { defaultPreferences, type Preferences } from '../../../src/lib/client';
@@ -103,6 +104,12 @@ function open() {
   return mount(SettingsDialog, {
     target: host,
     props: {
+      updates: new UpdateSession(
+        (enabled) => {
+          saved.automaticUpdates = enabled;
+        },
+        () => saved.automaticUpdates === true,
+      ),
       preferences: structuredClone(saved),
       timing: saved.timing,
       onapply: (value) => owner.apply(value.appearance),

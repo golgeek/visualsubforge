@@ -60,3 +60,32 @@ test('manual check after declining, including rate limiting and a newer release'
     await expect(page.getByText(expected!, { exact: true })).toBeVisible();
   }
 });
+
+test('Settings saves automatic update consent across reloads', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/start-screen/?preview');
+  await page.getByRole('button', { name: "Don't check" }).click();
+  for (const enabled of [true, false, true]) {
+    await page.keyboard.press('Control+k');
+    await page
+      .getByRole('textbox', { name: 'Search actions or cues' })
+      .fill('Settings');
+    await page
+      .getByRole('button', { name: /Settings/ })
+      .first()
+      .click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Advanced' }).click();
+    const checkbox = dialog.getByRole('checkbox', {
+      name: 'Check for new versions automatically',
+    });
+    await expect(checkbox).toBeChecked({ checked: !enabled });
+    await checkbox.setChecked(enabled);
+    await expect(checkbox).toBeChecked({ checked: enabled });
+    await page.reload();
+    await expect(
+      page.getByRole('button', { name: 'New subtitles' }),
+    ).toBeEnabled();
+  }
+});

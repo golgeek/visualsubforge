@@ -22,14 +22,17 @@
     type Preferences,
   } from '../client';
   import type { TimingSettings } from '../timing/magnetic-timing';
+  import type { UpdateSession } from '../updates/update-session.svelte';
   let {
     preferences,
+    updates,
     timing,
     checks,
     onapply,
     onclose,
   }: {
     preferences: Preferences;
+    updates: UpdateSession;
     timing: TimingSettings;
     checks?: QualitySession;
     onapply: (value: Preferences) => void;
@@ -289,14 +292,17 @@
           <label
             ><input
               type="checkbox"
-              {disabled}
-              checked={draft.automaticUpdates === true}
+              disabled={disabled || updates.saving}
+              checked={preferences.automaticUpdates === true}
               onchange={(event) => {
-                draft.automaticUpdates = event.currentTarget.checked;
-                void session.changed();
+                const enabled = event.currentTarget.checked;
+                event.currentTarget.checked =
+                  preferences.automaticUpdates === true;
+                void updates.consent(enabled);
               }}
             /> Check for new versions automatically</label
           >
+          {#if updates.error}<p role="alert">{updates.error}</p>{/if}
           <p>
             GitHub sees your IP address when VSF checks. Updates are never
             downloaded or installed.

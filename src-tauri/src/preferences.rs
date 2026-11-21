@@ -217,6 +217,16 @@ pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
     .await
     .map_err(|e| e.to_string())?
 }
+fn save_general_preferences(path: &Path, preferences: Preferences) -> Result<()> {
+    update(path, |current| {
+        *current = Preferences {
+            layout: current.layout.clone(),
+            automatic_updates: current.automatic_updates,
+            ..preferences
+        };
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn preferences_save(
@@ -237,11 +247,7 @@ pub async fn preferences_save(
                 preferences.personal_words.clone(),
                 || {
                     crate::desktop::with_shortcuts(&app, &shortcuts, || {
-                        update(&path, |current| {
-                            let layout = current.layout.clone();
-                            *current = preferences;
-                            current.layout = layout;
-                        })
+                        save_general_preferences(&path, preferences)
                     })
                 },
             )?;
@@ -266,6 +272,24 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn general_saves_preserve_stored_consent_even_with_a_stale_draft() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        for consent in [None, Some(false), Some(true)] {
+            update(&path, |value| value.automatic_updates = consent).unwrap();
+            let stale = Preferences {
+                automatic_updates: Some(consent != Some(true)),
+                show_quality_metrics: true,
+                ..Preferences::default()
+            };
+            save_general_preferences(&path, stale).unwrap();
+            let stored = read(&path).unwrap();
+            assert_eq!(stored.automatic_updates, consent);
+            assert!(stored.show_quality_metrics);
+        }
+    }
+
     #[test]
     fn old_preview_defaults_upgrade_without_writing_or_changing_custom_heights() {
         let dir = tempfile::tempdir().unwrap();
