@@ -62,11 +62,20 @@ endif
 .PHONY: native
 native: $(NATIVE)
 
-app: $(NATIVE)
+NPM_STAMP := node_modules/.vsf-npm-stamp
+$(NPM_STAMP): package.json package-lock.json .nvmrc $(wildcard .npmrc)
+	npm ci
+	touch "$@"
+
+ifeq ($(CI),true)
+.PHONY: force-npm-ci
+$(NPM_STAMP): force-npm-ci
+endif
+
+app: $(NATIVE) $(NPM_STAMP)
 	@mkdir -p "$(OUT)"
 	@case "$(PLATFORM)" in macos) runtime=("$(MPV)/build/libmpv.2.dylib");; linux) runtime=("$(MPV)/build/libmpv.so");; windows) runtime=("$(MPV)/build/"*mpv*.dll);; esac; \
 	  test "$${#runtime[@]}" = 1 && $(PYTHON) scripts/native-preflight.py --feature $(if $(filter macos,$(PLATFORM)),macos-angle,media-prototype) --mpv-runtime "$${runtime[0]}" --mpv-build-receipt "$(MPV)/build-receipt.json" --output "$(OUT)/preflight-$$(date +%s)-$$$$.json"
-	npm ci
 	npm run tauri -- build $(TAURI_PROFILE) $(BUNDLE) --features $(FEATURES) -- --locked
 	cargo build --locked $(CARGO_PROFILE) -p vsf-cli --features bundled-tools
 

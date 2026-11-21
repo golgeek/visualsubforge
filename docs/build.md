@@ -38,7 +38,7 @@ Linux installation prompts for sudo; never run the build itself as root.
   without whitespace, as required by the native Make target paths.
 
 The build installs pinned Meson/Ninja into a private virtual environment and
-runs `npm ci`. OS development packages are installed once, explicitly below.
+runs `npm ci` when the local install stamp is missing or a Node/npm input changes. CI installs dependencies on every build. OS development packages are installed once, explicitly below.
 
 ## macOS setup
 
@@ -132,8 +132,7 @@ remove the affected cache directory to rebuild a damaged cache.
 One build per platform is admitted at a time, including separate Make processes.
 Failed stages keep their logs and are moved aside on retry. Failed packaging
 leaves the last completed app intact. A successful replacement retains the previous
-package next to it, as `package.previous-*`; you can delete old packages/caches
-when no build or app is using them. After a forced kill, check that all build
+package next to it as `package.previous-*` and removes older backups. A locked backup is reported and cleanup is retried on the next successful package build. After a forced kill, check that all build
 processes stopped before removing `target/native/<platform>/build.lock`.
 
 `make build JOBS=3` limits native compilation parallelism (1–16 jobs). `make -j` does not run

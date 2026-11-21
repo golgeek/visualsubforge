@@ -56,6 +56,42 @@ class NativeMakeTests(unittest.TestCase):
         previous, = self.root.glob('*.previous-*')
         self.assertEqual((previous / 'old').read_text(), 'working')
 
+    def test_three_publishes_retain_only_immediate_predecessor(self):
+        for version in ('one', 'two', 'three'):
+            self.run_script('native-publish.sh', 'bash', '-c',
+                            'mkdir "$1"; echo "$2" > "$1/version"', '_', '{output}', version)
+        previous, = self.root.glob('*.previous-*')
+        self.assertEqual((previous / 'version').read_text(), 'two\n')
+        self.assertEqual((self.output / 'version').read_text(), 'three\n')
+
+    def test_failed_final_rename_restores_working_package(self):
+        self.output.mkdir()
+        (self.output / 'version').write_text('working')
+        move = self.root / 'mv'
+        move.write_text('#!/bin/sh\ncase "$1" in *.pending-*) exit 1;; esac\nexec "$REAL_MV" "$@"\n')
+        move.chmod(0o755)
+        result = subprocess.run(['bash', str(ROOT / 'scripts/native-publish.sh'), str(self.output),
+                                 'mkdir', '{output}'], capture_output=True,
+                                env={**os.environ, 'REAL_MV': shutil.which('mv'),
+                                     'PATH': str(self.root) + os.pathsep + os.environ['PATH']})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.output / 'version').read_text(), 'working')
+        self.assertFalse(list(self.root.glob('*.previous-*')))
+
+    def test_cleanup_failure_keeps_successful_package(self):
+        self.output.mkdir()
+        self.run_script('native-publish.sh', 'mkdir', '{output}')
+        # Model a locked Windows backup without depending on host permissions.
+        deny_remove = self.root / 'rm'
+        deny_remove.write_text('#!/bin/sh\nexit 1\n')
+        deny_remove.chmod(0o755)
+        result = subprocess.run(['bash', str(ROOT / 'scripts/native-publish.sh'), str(self.output),
+                                 'mkdir', '-p', '{output}/latest'], check=True,
+                                capture_output=True, text=True,
+                                env={**os.environ, 'PATH': str(self.root) + os.pathsep + os.environ['PATH']})
+        self.assertTrue((self.output / 'latest').is_dir())
+        self.assertIn('Could not remove old package:', result.stderr)
+
     def test_success_without_output_cannot_replace_app(self):
         self.output.mkdir()
         (self.output / 'old').touch()
