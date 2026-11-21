@@ -62,8 +62,7 @@ ordinary OS runtimes; disconnect networking after installation. On Linux use
 `sudo apt install ./<candidate>.deb`; on Windows use the installer; on macOS copy
 the notarized app into Applications. Record security prompts and every extra step.
 
-The current Mac candidates require macOS 14 on Apple Silicon and macOS 15 on
-Intel. Ubuntu candidates target 24.04 x64. Windows x64 candidates are built on
+The v0.1.0 packages require macOS 15 on both Apple Silicon and Intel. Ubuntu candidates target 24.04 x64. Windows x64 candidates are built on
 Server 2022; clean Windows 10/11 behavior remains to be established. A newer-OS
 pass does not establish the oldest-version gate.
 

@@ -113,12 +113,21 @@ including xxhash. Only reviewed permissive LLVM/Rust toolchain-only archives and
 the redundant binary copies are omitted. The inventory records verified and
 published byte counts. Custom FFmpeg’s original tarball, complete patch set and
 build script reproduce the prepared tree.
+For the same pre-codec dependency graph, the compressed Windows native source
+archive fell from 5,453,074,371 to 1,121,934,500 bytes. The collector verified
+5,074,755,903 MSYS2 source bytes and 255,770,192 binary bytes and published
+1,019,856,994 source bytes. [Baseline](https://github.com/golgeek/visualsubforge/actions/runs/44833324666)
+and [reduced archive](https://github.com/golgeek/visualsubforge/actions/runs/44839371808/artifacts/14683150757).
+
 For the codec-reduced Windows inventory from run 44834011693, the same rule
 selects 936,060,726 bytes (49 of 90 archives) from 5,050,856,851 verified
 source bytes and omits 253,173,405 bytes of binary-package copies. The release
 collector splits oversized source archives into numbered parts.
 The macOS collector uses per-formula sources and the Linux collector uses Debian
 source packages and audited build inputs. Neither uses this MSYS2 toolchain graph.
+The [v0.1.0 source revision](https://github.com/golgeek/visualsubforge/commit/v0.1.0)
+and [published SHA256SUMS](https://github.com/golgeek/visualsubforge/releases/download/v0.1.0/SHA256SUMS)
+identify the matching release inventories after publication.
 
 ## Ubuntu media runtime compatibility
 
