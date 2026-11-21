@@ -8,6 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 
+from codec_parity_audio import compare_platform_audio
 from codec_parity_edit import edited_srt
 
 
@@ -54,7 +55,7 @@ def release_media(bundle, fixtures):
     return results
 
 
-def observe(bundle, fixture, diagnostics):
+def observe(bundle, fixture, diagnostics, pcm_output=None):
     env = {k: v for k, v in os.environ.items() if not k.startswith(('LD_', 'DYLD_', 'VSF_'))}
     system_dirs = [str(Path(os.environ['SystemRoot']) / 'System32')] if os.name == 'nt' else ['/usr/bin', '/bin']
     env.update(PATH=os.pathsep.join([str(bundle), *system_dirs]), VSF_FFMPEG=str(tool(bundle, 'ffmpeg')),
@@ -67,6 +68,12 @@ def observe(bundle, fixture, diagnostics):
         if not data:
             raise ValueError(f'No decoded data for {stream}')
         observed[stream] = digest(data)
+        if pcm_output and stream.startswith('a:'):
+            track = stream.split(':')[1]
+            (pcm_output / f'track-{track}-native.s16le').write_bytes(data)
+            native = run([tool(bundle, 'ffmpeg'), '-nostdin', '-i', fixture, '-map', '0:' + stream,
+                          '-threads', '1', '-c:a', 'pcm_f32le', '-f', 'f32le', '-'], env)
+            (pcm_output / f'track-{track}-native.f32le').write_bytes(native)
     framehash = run([tool(bundle, 'ffmpeg'), '-v', 'error', '-nostdin', '-copyts', '-i', fixture,
                      '-map', '0:v:0', '-threads', '1', '-c:v', 'rawvideo', '-fps_mode', 'passthrough',
                      '-enc_time_base', '1:1000000', '-f', 'framehash', '-hash', 'sha256', '-'], env).decode()
@@ -82,6 +89,9 @@ def observe(bundle, fixture, diagnostics):
     observed['frames'] = frames
     observed['waveform'] = [json.loads(run([tool(diagnostics, 'media-analysis'), fixture, track], env))
                             for track in ('0', '1')]
+    if pcm_output:
+        for track, wave in enumerate(observed['waveform']):
+            (pcm_output / f'track-{track}-8k.f32le').write_bytes(waveform_samples(bundle, fixture, wave))
     observed['cuts'] = json.loads(run([tool(diagnostics / 'examples', 'scene-scan'), fixture], env))['cuts']
     return observed
 
@@ -197,10 +207,10 @@ def timestamps(bundle, fixture):
         'format=start_time,duration:stream=index,codec_name,start_time,time_base', '-of', 'json', fixture]))
 
 
-def package_observation(bundle, packets, codec, diagnostics, output):
+def package_observation(bundle, packets, codec, diagnostics, output, *, save_pcm=False):
     fixture = packets / codec / 'cut.mkv'
     output.mkdir(parents=True)
-    observed = observe(bundle, fixture, diagnostics)
+    observed = observe(bundle, fixture, diagnostics, output if save_pcm else None)
     observed['subtitles'] = subtitles(bundle, packets / 'inputs', fixture.parent, output)
     observed['timestamps'] = timestamps(bundle, fixture)
     return observed
@@ -235,7 +245,8 @@ def compare(args):
         if media['before'] != media['after']:
             differences.append('release media streams')
     for codec in ('vp8', 'vp9'):
-        candidate = package_observation(args.bundle, args.packets, codec, args.diagnostics, args.output / codec / 'after')
+        candidate = package_observation(args.bundle, args.packets, codec, args.diagnostics, args.output / codec / 'after',
+                                        save_pcm=bool(args.windows) or os.name == 'nt')
         results['codecs'][codec] = candidate
         if candidate['cuts'] != [2.0] or candidate['timestamps']['format']['start_time'] != '0.000000':
             differences.append(f'{codec} candidate cut or container origin')
@@ -256,9 +267,9 @@ def compare(args):
                 differences.append(f'{codec} Ubuntu reference')
     (args.output / 'observations.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
     if args.windows:
-        windows = json.loads(args.windows.read_text(encoding='utf-8'))
-        if results != windows:
-            differences.append('Windows/Linux shared-file observations')
+        audio = compare_platform_audio(args.windows, args.output / 'observations.json')
+        (args.output / 'cross-platform-audio.json').write_text(json.dumps(audio, indent=2) + '\n')
+        differences.extend(audio['failures'])
     if differences:
         raise ValueError('Parity differences: ' + ', '.join(differences))
 

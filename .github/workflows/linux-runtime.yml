@@ -102,6 +102,26 @@ jobs:
           if ($receipt.commit -ne $env:MAIN_COMMIT) { throw "Windows package receipt differs from main" }
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
           python tests/release/codec-parity.py observe --bundle "$r/windows/VisualSubForge" --packets "$r/packets" --diagnostics target/debug --output "$r/observations"
+      - name: Record the Windows decode environment
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $r = $env:RUNNER_TEMP
+          $bundle = "$r/windows/VisualSubForge"
+          $flags = foreach ($t in [System.Runtime.Intrinsics.X86.Avx].Assembly.GetTypes()) {
+            if ($t.Namespace -eq 'System.Runtime.Intrinsics.X86' -and !$t.IsNested) {
+              $p = $t.GetProperty('IsSupported', [Reflection.BindingFlags]'Public,Static,DeclaredOnly')
+              if ($p -and $p.GetValue($null)) { $t.Name }
+            }
+          }
+          $receipt = Get-Content -Raw "$bundle/native-runtime.json" | ConvertFrom-Json
+          $codec = $receipt.files | Where-Object path -like 'avcodec-*.dll'
+          @{
+            ffmpeg = @(& "$bundle/ffmpeg.exe" -version)
+            cpu = @(Get-CimInstance Win32_Processor | Select-Object Name, Manufacturer)
+            cpu_intrinsics = @($flags | Sort-Object)
+            avcodec_imports = $codec.platform_imports
+            ucrtbase = (Get-Item "$env:SystemRoot/System32/ucrtbase.dll").VersionInfo.FileVersion
+          } | ConvertTo-Json -Depth 5 | Set-Content "$r/observations/environment.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
@@ -187,6 +207,13 @@ jobs:
           dpkg-deb -x "$RUNNER_TEMP"/reference/*.deb "$RUNNER_TEMP/before"
           dpkg-deb -x "$RUNNER_TEMP"/candidate/*.deb "$RUNNER_TEMP/after"
           cargo build --locked -p media-analysis --bin media-analysis --example scene-scan
+          bundle="$RUNNER_TEMP/after/usr/lib/visualsubforge"
+          {
+            "$bundle/ffmpeg" -version
+            lscpu
+            ldd "$bundle/lib/libavcodec.so.62"
+            dpkg-query -W libc6
+          } > "$RUNNER_TEMP/evidence/decode-environment.txt"
           python3 tests/release/codec-parity.py observe \
             --before "$RUNNER_TEMP/before/usr/lib/visualsubforge" --bundle "$RUNNER_TEMP/after/usr/lib/visualsubforge" \
             --fixtures "$RUNNER_TEMP/fixtures" --diagnostics target/debug --output "$RUNNER_TEMP/evidence/parity" \
