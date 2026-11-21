@@ -11,7 +11,7 @@ import urllib.parse
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from homebrew_sources import (HARFBUZZ_TEST_FONT, capture_resource, fetch, matching_recipe, verify_legacy_receipt,
+from homebrew_sources import (DAV1D_TEST_MEDIA, HARFBUZZ_TEST_FONT, capture_resource, fetch, matching_recipe, verify_legacy_receipt,
                               verify_source_identity, without_bottle_metadata)
 from macos_sources import check_custom_file
 from native_evidence import digest, verified_headers
@@ -73,6 +73,21 @@ class HomebrewSources(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'Unsafe Homebrew'):
                         matching_recipe(formula, root)
                     self.assertEqual(query.call_count, 1)
+
+    def test_dav1d_test_media_only_is_excluded_before_fetch(self):
+        media = dict(DAV1D_TEST_MEDIA, test_only=True)
+        with tempfile.TemporaryDirectory() as tmp, patch('homebrew_sources.fetch') as fetch:
+            output = Path(tmp) / 'raw-media'
+            record = capture_resource(media, output, formula_name='dav1d')
+            fetch.assert_not_called()
+            self.assertFalse(output.exists())
+            self.assertEqual(record['formula_sha256'], media['checksum'])
+            self.assertEqual(record['url'], media['url'])
+            fetch.side_effect = ValueError('Normal capture required')
+            for name, resource in [('another-formula', media), ('dav1d', dict(media, test_only=False)),
+                                   ('dav1d', dict(media, checksum='a' * 64))]:
+                with self.assertRaisesRegex(ValueError, 'Normal capture required'):
+                    capture_resource(resource, Path(tmp) / str(fetch.call_count), formula_name=name)
 
     def test_reviewed_raw_font_is_retained_without_treating_it_as_a_tar(self):
         resource = dict(HARFBUZZ_TEST_FONT, name='homebrew-test-ttf')

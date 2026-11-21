@@ -33,7 +33,7 @@ records = ARGV.map do |path|
   end
   { name: formula.name, version: formula.pkg_version.to_s, stable_version: formula.stable.version.to_s,
     license: formula.license,
-    stable: resource_record(formula.stable), resources: formula.resources.map { |r| resource_record(r) },
+    stable: resource_record(formula.stable), resources: formula.resources.map { |r| resource_record(r).merge(test_only: r.respond_to?(:test?) && r.test?) },
     patches: patches }
 end
 puts JSON.generate(records)
