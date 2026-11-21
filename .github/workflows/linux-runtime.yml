@@ -131,6 +131,7 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               print('matrix=' + json.dumps({'include': rows}), file=out)
   install:
+    name: ${{ matrix.id }} ${{ matrix.arch }} ${{ matrix.format }}
     needs: platforms
     strategy:
       fail-fast: false
@@ -161,9 +162,10 @@ jobs:
           mkdir -p matrix-context/tests/release evidence
           cp -r candidate matrix-context/
           cp tests/release/linux-matrix-install.sh matrix-context/tests/release/
-          docker build --pull --build-arg BASE_IMAGE --build-arg FORMAT \
-            -f tests/release/linux-matrix.Dockerfile -t vsf-matrix matrix-context
+          docker pull "$BASE_IMAGE"
           docker image inspect "$BASE_IMAGE" > evidence/base-image.json
+          docker build --build-arg BASE_IMAGE --build-arg FORMAT \
+            -f tests/release/linux-matrix.Dockerfile -t vsf-matrix matrix-context
       - name: Offline CLI, native GUI, library bindings and removal
         env:
           FORMAT: ${{ matrix.format }}
