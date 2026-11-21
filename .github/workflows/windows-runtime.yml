@@ -80,7 +80,9 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: retained-mp4-${{ matrix.os }}
-          path: mp4-aac.json
+          path: |
+            mp4-aac.json
+            *.mp4.s16le
   installed:
     if: inputs.aac_linux_run == ''
     runs-on: windows-2022

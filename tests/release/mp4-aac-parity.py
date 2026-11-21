@@ -43,6 +43,7 @@ def verify(bin_dir, fixtures, output, before):
         with fixture.open('rb') as stream:
             source_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
         row = report[name] = {'file_sha256': source_hash, 'candidate': new}
+        (output.parent / (name + '.s16le')).write_bytes(pcm)
         if new['samples'] != 576512:
             failures.append(f'{name}: 8.1.2 returned {new["samples"]} samples')
         if before:
