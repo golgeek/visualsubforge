@@ -18,7 +18,17 @@ source_package() {
 source_package shaderc 2023.8-1build1
 source_package glslang 14.0.0-2
 source_package spirv-tools '2023.6~rc1-2'
-source_package spirv-headers '1.6.1+1.3.275.0+git20240228-1'
+# The SPIRV-Tools buildinfo names the SDK 1.3.275 grammar. The later Noble
+# headers add operands its generator cannot handle. Ubuntu retains this source
+# publication after it leaves the live apt index.
+headers=spirv-headers_1.6.1+1.3.275.0.orig.tar.gz
+mkdir source-archives/spirv-headers source/spirv-headers
+curl --fail --location --retry 3 \
+    "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/spirv-headers/1.6.1+1.3.275.0-1/$headers" \
+    -o "source-archives/spirv-headers/$headers"
+printf '%s  %s\n' f0b76cd40a8cf0203fc6c180950e14cd10ea1980a092fcb362a6102607396840 \
+    "source-archives/spirv-headers/$headers" | sha256sum -c -
+tar -xf "source-archives/spirv-headers/$headers" --strip-components=1 -C source/spirv-headers
 source_package spirv-cross '2021.01.15+1.3.239.0-1build1'
 source_package libunibreak 5.1-2build1
 source_package libass '1:0.17.1-2build1'
