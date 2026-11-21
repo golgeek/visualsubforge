@@ -71,9 +71,11 @@ the tarball or Debian package from `target/native/linux/release/package/`.
 Make builds checksum-pinned FFmpeg 8.1.2 and dav1d 1.5.5 before libplacebo
 and mpv. It builds libdovi 3.4.0 with its locked Rust dependencies and cargo-c.
 The SDK compiles a private bzip2 archive from the matching Ubuntu source
-package for use by FFmpeg. The distribution FFmpeg command generates independent test inputs. The
-packager takes both shipped tools from the private SDK and downloads matching
-source packages for redistributed distribution libraries. GTK/WebKit and display/audio drivers remain OS dependencies.
+package for FFmpeg. A separate distribution FFmpeg generates the synthetic
+test media. Both shipped tools come from the private SDK. The native source
+archive includes the shader and text sources, the FFmpeg and dav1d releases,
+and the source for headers embedded in libplacebo. The host supplies GTK,
+WebKitGTK and the display and audio drivers.
 The receipt lists each ELF's required libraries. Its libva loaders are startup
 dependencies even when libmpv falls back to software decoding. Run the
 installed app from a graphical desktop with a working desktop portal.

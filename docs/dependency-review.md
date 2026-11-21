@@ -172,13 +172,19 @@ own dav1d statically into libavcodec with hidden symbols. The SDK build checks
 the decoder configuration, dynamic dependencies and dynamic symbols before
 packaging. FFmpeg itself stays shared for relinking.
 
-The explicit system SONAME allowlist in `scripts/package-linux.py` covers
-libc and compiler runtimes, GTK/WebKitGTK and their application-facing APIs,
-font shaping, color management, compression, display, GPU and sound APIs.
-The assembly receipt records the direct system SONAMEs actually used. The
-distribution owns their transitive dependencies, including WebKitGTK's XML
-and JPEG providers. mpv disables its JPEG writer and scripts. Linux does not
-ship a separate JPEG library or Lua runtime.
+The Linux packager accepts the following direct system dependencies. Each
+architecture's assembly receipt records which SONAMEs its binaries use.
+
+| System interface | Allowed SONAMEs |
+| --- | --- |
+| Runtime and architecture loader | `ld-linux-x86-64.so.2`, `ld-linux-aarch64.so.1`, `libc.so.6`, `libm.so.6`, `libdl.so.2`, `libpthread.so.0`, `librt.so.1`, `libstdc++.so.6`, `libgcc_s.so.1`, `libatomic.so.1` |
+| WebKitGTK, GTK and GLib | `libwebkit2gtk-4.1.so.0`, `libjavascriptcoregtk-4.1.so.0`, `libsoup-3.0.so.0`, `libgtk-3.so.0`, `libgdk-3.so.0`, `libglib-2.0.so.0`, `libgobject-2.0.so.0`, `libgio-2.0.so.0`, `libgdk_pixbuf-2.0.so.0`, `libcairo.so.2`, `libdbus-1.so.3`, `libpango-1.0.so.0`, `libpangocairo-1.0.so.0` |
+| GPU and hardware video | `libepoxy.so.0`, `libGL.so.1`, `libEGL.so.1`, `libvulkan.so.1`, `libgbm.so.1`, `libdrm.so.2`, `libva.so.2`, `libva-drm.so.2`, `libva-x11.so.2`, `libva-wayland.so.2` |
+| Window system and sound | `libX11.so.6`, `libXext.so.6`, `libxcb.so.1`, `libwayland-client.so.0`, `libpulse.so.0`, `libasound.so.2` |
+| Fonts, compression and color | `libfreetype.so.6`, `libfribidi.so.0`, `libharfbuzz.so.0`, `libfontconfig.so.1`, `libz.so.1`, `liblzma.so.5`, `liblcms2.so.2` |
+
+The distribution owns the transitive dependencies of these libraries, including
+WebKitGTK's XML and JPEG providers. mpv disables its JPEG writer and scripts.
 
 ## Desktop update check dependencies
 
