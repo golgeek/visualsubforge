@@ -5,7 +5,7 @@ This copies inputs without changing them, resolves every linked non-system
 library, rejects ambiguous SDKs, and replaces load paths inside the copy. It
 does not establish redistribution rights or clean-machine/device acceptance.
 """
-from release_version import release_version
+from release_version import release_version, source_inventory_reference
 
 import argparse
 import hashlib
@@ -105,7 +105,7 @@ def assemble(args):
     directories = [path.resolve(strict=True) for path in args.library_dir]
     architecture = output("lipo", "-archs", main).split()
     if len(architecture) != 1:
-        raise ValueError("This preview packager expects one architecture per artifact")
+        raise ValueError("The macOS packager expects one architecture per artifact")
     edges, destinations, ids, targets = {}, dict(roots), {}, {}
     minimums = [{"arm64": "14.0", "x86_64": "15.0"}[architecture[0]],
                 info.get("LSMinimumSystemVersion", "14.0")]
@@ -184,10 +184,11 @@ def assemble(args):
         native_inventory = collect(records, args.homebrew_cellar, args.mpv_build, args.angle_sdk,
                                    args.angle_receipt, args.native_sources, resources,
                                    placebo=getattr(args, "placebo_build", None))
+    target = "macos-aarch64" if architecture[0] == "arm64" else "macos-x86_64"
     manifest = {"schema": 1, "version": version, "architecture": architecture[0],
                 "minimum_macos": info["LSMinimumSystemVersion"],
-                "signature": "ad-hoc; Developer ID signing and notarization pending",
-                "redistribution_inventory": "pending", "files": records,
+                "signature": "Assembly used an ad-hoc signature. The release signing workflow records Developer ID signing and notarization.",
+                "redistribution_inventory": source_inventory_reference(version, target), "files": records,
                 "application_inventory_sha256": application_inventory,
                 "native_inventory_sha256": native_inventory}
     (resources / "native-runtime.json").write_text(json.dumps(manifest, indent=2) + "\n")

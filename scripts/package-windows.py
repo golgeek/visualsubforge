@@ -5,7 +5,7 @@ The Windows API set and an explicit list of OS DLLs remain platform components.
 Compiler runtimes must be bundled or statically linked; finding a DLL somewhere
 on a development machine never makes it an operating-system dependency.
 """
-from release_version import release_version
+from release_version import release_version, source_inventory_reference
 
 import argparse
 import json
@@ -120,7 +120,7 @@ def main():
                "files": records, "ggml_policy": "No Whisper/GGML imports allowed, including delay imports",
                "application_inventory_sha256": application_inventory,
                "scope": "Static PE graph only; runtime loading and installation are separate checks",
-               "redistribution": "Full source/license inventory still required before release"}
+               "redistribution": source_inventory_reference(release_version(), "windows-x64")}
     (bundle / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
     # Tauri's NSIS backend installs private resources beside the main binary and
     # installs WebView2 when absent. The GUI is supplied by its normal build path.
