@@ -2772,9 +2772,10 @@ export type visualsubforge_document_review_ReviewAction =
       forward: boolean;
       filter: vsf_application_comparison_Kind | null;
     }
-  | { kind: 'inspect'; original: string; revised: string }
+  | { kind: 'inspect'; original: string; revised: string | null }
   | {
       kind: 'attach';
+      discard?: boolean;
       key: visualsubforge_document_review_ReviewKey;
       path: string;
     }
@@ -2784,7 +2785,11 @@ export type visualsubforge_document_review_ReviewAction =
       path: string;
       discard: boolean;
     }
-  | { kind: 'detach'; key: visualsubforge_document_review_ReviewKey }
+  | {
+      kind: 'detach';
+      discard?: boolean;
+      key: visualsubforge_document_review_ReviewKey;
+    }
   | {
       kind: 'options';
       key: visualsubforge_document_review_ReviewKey;
@@ -2881,6 +2886,7 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
   total: number;
   position: number | null;
   error: string | null;
+  sameOriginal: boolean | null;
   newerOriginal: boolean | null;
 };
 
@@ -2901,6 +2907,7 @@ export type visualsubforge_document_review_ReviewReply_Serialize = {
   total: number;
   position?: number | null;
   error: string | null;
+  sameOriginal?: boolean | null;
   newerOriginal: boolean | null;
 };
 
@@ -2909,6 +2916,7 @@ export type visualsubforge_document_review_ReviewSummary =
   | visualsubforge_document_review_ReviewSummary_Deserialize;
 
 export type visualsubforge_document_review_ReviewSummary_Deserialize = {
+  hasDiscussion: boolean;
   round: number | null;
   epoch: number;
   dirty: boolean;
@@ -2917,6 +2925,7 @@ export type visualsubforge_document_review_ReviewSummary_Deserialize = {
 };
 
 export type visualsubforge_document_review_ReviewSummary_Serialize = {
+  hasDiscussion?: boolean;
   round?: number | null;
   epoch: number;
   dirty: boolean;

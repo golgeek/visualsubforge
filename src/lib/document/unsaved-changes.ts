@@ -7,7 +7,10 @@ export class UnsavedChanges {
   constructor(
     private workspace: Workspace,
     private subtitles: DocumentSession,
-    private decision: WorkspaceDecision<'save' | 'discard' | 'cancel'>,
+    private decision: WorkspaceDecision<
+      'save' | 'discard' | 'cancel',
+      'review'
+    >,
     private show: () => void,
   ) {}
   save = async (as: boolean) => {
@@ -15,19 +18,27 @@ export class UnsavedChanges {
     if (saved) this.workspace.notice = 'Subtitles saved';
     return saved;
   };
-  protect = async (saveContext: () => Promise<boolean>): Promise<boolean> => {
+  protect = async (
+    saveContext: () => Promise<boolean>,
+    review = false,
+  ): Promise<boolean> => {
     if (!this.alive) return false;
     if (
+      !review &&
       !this.subtitles.snapshot.dirty &&
       !this.subtitles.dirty &&
       !this.subtitles.snapshot.translation?.dirty &&
       !this.subtitles.snapshot.review?.dirty
     )
       return true;
-    const choice = await this.decision.ask(this.show);
+    const choice = await this.decision.ask(() => {
+      if (review) this.decision.payload = 'review';
+      this.show();
+    });
     if (!this.alive || choice === 'cancel') return false;
     if (choice === 'save')
-      return this.subtitles.snapshot.translation?.dirty ||
+      return review ||
+        this.subtitles.snapshot.translation?.dirty ||
         this.subtitles.snapshot.review?.dirty
         ? saveContext()
         : this.save(false);

@@ -685,7 +685,28 @@ async function run() {
     button('Export anyway').click();
     await until(() => exported);
     passed('Comparison report export works with no media');
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
     await chooseCommand(host, 'endReview');
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Cancel').click();
+    await until(
+      () =>
+        !host.querySelector('dialog[open]') &&
+        host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    assert(doc.review?.path, 'Cancel keeps the attached review');
+    await until(
+      () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    );
+    await chooseCommand(host, 'endReview');
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Discard changes').click();
     await until(() => !doc.review?.path);
     assert(doc.canUndo, 'End Review preserves history');
     passed('End Review preserves subtitle history');
@@ -706,6 +727,10 @@ async function run() {
     await chooseCommand(host, 'compareOriginal');
     await until(() => !!button('Swap'));
     button('Keep').click();
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Discard changes').click();
     await until(() => doc.review?.path === '/original.srt');
     passed('Newer-original prompt supports keeping the current direction');
     held = new Promise<void>((resolve) => (release = resolve));
