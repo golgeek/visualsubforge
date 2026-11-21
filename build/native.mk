@@ -28,8 +28,9 @@ BUNDLE := --no-bundle
 ifeq ($(PLATFORM),macos)
 FEATURES := macos-angle,bundled-tools
 BUNDLE := --bundles app
+$(ANGLE)/.complete: export MACOSX_DEPLOYMENT_TARGET := 14.0
 export VSF_ANGLE_SDK := $(abspath $(ANGLE)/sdk)
-export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
+export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(abspath $(FFMPEG)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
 NATIVE := $(ANGLE)/.complete $(MPV)/.complete
 else ifeq ($(PLATFORM),linux)
 export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(abspath $(FFMPEG)/sdk/lib/pkgconfig):$(abspath $(DOVI)/sdk/lib/pkgconfig):$(abspath $(SHADERS)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
@@ -54,7 +55,7 @@ build-install: build install
 
 include build/mpv.mk
 ifeq ($(PLATFORM),macos)
-include build/angle.mk build/placebo.mk
+include build/angle.mk build/ffmpeg.mk build/placebo.mk
 else ifeq ($(PLATFORM),linux)
 include build/ffmpeg.mk build/linux-shaders.mk build/placebo.mk
 else
@@ -83,7 +84,7 @@ app: $(NATIVE) $(NPM_STAMP)
 
 ifeq ($(PLATFORM),macos)
 package: app
-	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-macos.py --app "$(TARGET)/bundle/macos/VisualSubForge.app" --vsf "$(TARGET)/vsf" --ffmpeg "$$(command -v ffmpeg)" --ffprobe "$$(command -v ffprobe)" --library-dir "$(MPV)/build" --library-dir "$(ANGLE)/sdk/out/Metal" --library-dir "$(PLACEBO)/sdk/lib" --output '{output}/VisualSubForge.app'
+	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-macos.py --app "$(TARGET)/bundle/macos/VisualSubForge.app" --vsf "$(TARGET)/vsf" --ffmpeg-sdk "$(FFMPEG)/sdk" --ffmpeg "$(FFMPEG)/sdk/bin/ffmpeg" --ffprobe "$(FFMPEG)/sdk/bin/ffprobe" --library-dir "$(FFMPEG)/sdk/lib" --library-dir "$(MPV)/build" --library-dir "$(ANGLE)/sdk/out/Metal" --library-dir "$(PLACEBO)/sdk/lib" --output '{output}/VisualSubForge.app'
 else ifeq ($(PLATFORM),linux)
 package: app
 	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-linux.py --visualsubforge "$(TARGET)/visualsubforge" --vsf "$(TARGET)/vsf" --build-paths "target/native/linux/build-paths.json" --output '{output}'

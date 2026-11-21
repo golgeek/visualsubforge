@@ -78,10 +78,10 @@ inline int disable_scripts(mpv_handle *core) {
     // initialize: otherwise LuaJIT can execute unsigned code inside the signed
     // macOS app. Keep this list aligned with our pinned mpv scripting.c.
     const int load = mpv_set_option_string(core, "load-scripts", "no");
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     // Pinned mpv exposes load-scripts only if Lua, JavaScript or C plugins
-    // were compiled in. The packaged Linux build omits all three. Other
-    // Linux builds with scripting still require every built-in switch below.
+    // were compiled in. The packaged Linux and macOS builds omit all three.
+    // Builds with scripting still require every built-in switch below.
     if (load == MPV_ERROR_OPTION_NOT_FOUND) return 0;
 #endif
     if (load < 0) return load;

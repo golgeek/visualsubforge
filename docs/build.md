@@ -46,17 +46,24 @@ Select full Xcode (not just Command Line Tools), complete its first-launch setup
 and install [Homebrew](https://brew.sh/). Then:
 
 ```sh
-xcodebuild -downloadComponent MetalToolchain
-brew install mpv pkg-config xxhash python
+brew install libass little-cms2 shaderc xxhash xz nasm pkg-config python
 nvm install && nvm use
 make build
 ```
 
-Xcode supplies Make and the compiler. Homebrew supplies media build dependencies;
-VSF builds its pinned mpv, libplacebo and ANGLE/Metal privately. The finished app
-bundles its dylibs and is ad-hoc signed; it needs no Homebrew or DYLD settings to
-launch. Its actual minimum macOS version depends on the libraries installed on
-your build machine and is recorded in the assembly receipt.
+Make builds FFmpeg 8.1.2 and dav1d from verified upstream archives, then builds
+libplacebo and mpv against that SDK. Library discovery is limited to the selected
+SDKs, macOS system libraries and the prerequisite Homebrew formulae. You can
+keep an existing Homebrew FFmpeg installation. The packaged app carries its
+own media tools and libraries.
+
+ANGLE keeps its own recorded deployment target and is rebuilt only when ANGLE
+itself is updated. Reuse the matching SDK selected by `make paths` across
+worktrees. A first-time source build of ANGLE requires Xcode’s Metal toolchain.
+The release workflows restore the pinned SDK for each architecture. FFmpeg, dav1d, libplacebo and mpv are compiled for macOS 15.0.
+Hosted packages reject a Mach-O that needs a newer system. A local build records
+the actual floors of its installed dependencies. The assembly receipt lists
+every FFmpeg library edge and its resolved source and destination.
 
 ## Native Linux setup
 

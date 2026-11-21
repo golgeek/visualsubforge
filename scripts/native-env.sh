@@ -22,22 +22,24 @@ case "$(uname -s)" in
         platform=macos
         command -v brew >/dev/null || fail 'Homebrew is required'
         xcodebuild -version >/dev/null
-        xcrun metal --version >/dev/null || fail 'Install Metal tools: xcodebuild -downloadComponent MetalToolchain'
         SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
         export SDKROOT
-        export MACOSX_DEPLOYMENT_TARGET=14.0
-        for formula in mpv pkg-config xxhash; do
-            brew list --versions "$formula" >/dev/null || fail "Install native dependencies: brew install mpv pkg-config xxhash"
-        done
+        export MACOSX_DEPLOYMENT_TARGET=15.0
+        # Select only the media inputs we actually link. Never search the
+        # global Homebrew pkg-config directory (it may contain another FFmpeg).
         prefix=$(brew --prefix)
-        packages=$(brew deps --installed --union mpv xxhash)
-        export PKG_CONFIG_PATH=""
-        for formula in $packages mpv xxhash; do
+        formulae=(libass little-cms2 shaderc xxhash xz)
+        packages=$(brew deps --union "${formulae[@]}")
+        os_major=$(sw_vers -productVersion | cut -d. -f1)
+        PKG_CONFIG_LIBDIR="$(brew --repository)/Library/Homebrew/os/mac/pkgconfig/$os_major"
+        for formula in $packages "${formulae[@]}"; do
             for directory in "$prefix/opt/$formula/lib/pkgconfig" "$prefix/opt/$formula/share/pkgconfig"; do
-                if [[ -d "$directory" ]]; then PKG_CONFIG_PATH="$directory:$PKG_CONFIG_PATH"; fi
+                if [[ -d "$directory" ]]; then PKG_CONFIG_LIBDIR="$directory${PKG_CONFIG_LIBDIR:+:$PKG_CONFIG_LIBDIR}"; fi
             done
         done
-        PKG_CONFIG_PATH="$PKG_CONFIG_PATH$prefix/lib/pkgconfig"
+        export PKG_CONFIG_LIBDIR PKG_CONFIG_PATH=""
+        pkg-config --exists libass lcms2 shaderc libxxhash liblzma || fail 'Missing macOS build prerequisites'
+        if pkg-config --exists libavcodec; then fail 'An external FFmpeg is visible in the macOS build search path'; fi
         ;;
     Linux)
         platform=linux

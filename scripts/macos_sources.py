@@ -19,7 +19,7 @@ def check_custom_file(path, checksum, receipt):
         raise ValueError(f'Custom binary differs from its build receipt: {path}')
 
 
-def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources, placebo=None):
+def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources, placebo=None, ffmpeg=None):
     cellar, mpv, angle_sdk = (path.resolve(strict=True) for path in [cellar, mpv, angle_sdk])
     output.mkdir(parents=True, exist_ok=False)
     receipts = {'mpv': json.loads((mpv / 'build-receipt.json').read_text()),
@@ -31,6 +31,11 @@ def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources, p
         receipts['libplacebo'] = json.loads((placebo / 'build-receipt.json').read_text())
         if receipts['libplacebo']['status'] != 'passed':
             raise ValueError('libplacebo requires a successful build receipt')
+    if ffmpeg:
+        ffmpeg = ffmpeg.resolve(strict=True)
+        receipts['ffmpeg'] = json.loads((ffmpeg / 'build-receipt.json').read_text())
+        if receipts['ffmpeg']['status'] != 'passed':
+            raise ValueError('FFmpeg requires a successful build receipt')
     bindings = []
     for item in records:
         original = Path(item['source']).resolve(strict=True)
@@ -38,6 +43,8 @@ def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources, p
             raise ValueError(f'Native input changed before source capture: {original}')
         if original.is_relative_to(cellar):
             origin = 'homebrew'
+        elif ffmpeg and original.is_relative_to(ffmpeg / 'sdk'):
+            origin = 'ffmpeg'
         elif original.is_relative_to(mpv / 'build'):
             origin = 'mpv'
         elif original.is_relative_to(angle_sdk / 'out/Metal'):
@@ -80,6 +87,24 @@ def collect(records, cellar, mpv, angle_sdk, angle_receipt, output, resources, p
             raise ValueError(f'No custom source notices: {name}')
         inventory['custom'][name] = {'source_sha256': digest(archive), 'notices': notices,
                                     'build_receipt_sha256': digest(receipt_file)}
+    if ffmpeg:
+        # dav1d is compiled into libavcodec. Its source and notices accompany
+        # FFmpeg even though it has no separate runtime dylib.
+        archives = {Path(item['path']).name: item['sha256'] for item in receipts['ffmpeg']['sources']}
+        if set(archives) != {'ffmpeg.tar.xz', 'dav1d.tar.xz'}:
+            raise ValueError('Missing FFmpeg or dav1d source archive')
+        for name in ('ffmpeg', 'dav1d'):
+            archive = ffmpeg / (name + '.tar.xz')
+            if digest(archive) != archives[archive.name]:
+                raise ValueError(f'Source archive changed: {archive}')
+            shutil.copy2(archive, custom / archive.name)
+            notices = source_notices(archive, output / 'notices' / name)
+            if not notices:
+                raise ValueError(f'No source notices for {name}')
+            inventory['custom'][name] = {'source_sha256': digest(archive), 'notices': notices,
+                                         'build_receipt_sha256': digest(ffmpeg / 'build-receipt.json')}
+        for name in ('build-receipt.json', 'configure-options.txt', 'config.h', 'config_components.h'):
+            shutil.copy2(ffmpeg / name, custom / ('ffmpeg-' + name))
     shutil.copy2(angle_sdk / 'source.tar.gz.json', custom / 'angle-source.json')
     shutil.copy2(angle_sdk / 'dependency-revisions.txt', custom / 'angle-dependency-revisions.txt')
     # Bundle only notices, not all corresponding source payloads.

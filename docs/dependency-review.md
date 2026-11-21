@@ -134,7 +134,7 @@ identify the matching release inventories after publication.
 
 ## Linux media runtime
 
-Linux and Windows build FFmpeg 8.1.2 with the same core configure options in
+Linux, Windows and macOS build FFmpeg 8.1.2 with the same core configure options in
 `scripts/configure-ffmpeg.sh`. The shared FFmpeg libraries use LGPL-3.0-or-later.
 Linux enables VA-API for the player's `hwdec=auto-copy` path. FFmpeg opens a
 DRM render node or an X11 display. The required loaders are libva.so.2,
@@ -193,6 +193,26 @@ table, including the Debian and Ubuntu t64 alternatives.
 
 The distribution owns the transitive dependencies of these libraries, including
 WebKitGTK's XML and JPEG providers. mpv disables its JPEG writer and scripts.
+
+## macOS media runtime
+
+The Apple Silicon and Intel packages use the same FFmpeg 8.1.2 and dav1d
+source archives as Linux. FFmpeg links dav1d statically. The macOS SDK supplies zlib and bzip2, and
+Homebrew xz supplies liblzma. VideoToolbox supplies hardware
+decode for mpv’s auto-copy mode. AudioToolbox supplies native codec integration.
+The media runtime opens local files and uses no TLS provider. Rust owns the
+network update check. mpv uses CoreAudio, the app’s OpenGL render context and
+libass. Its scripting engines and JPEG image writer are disabled.
+
+For the retained 12-second MP4 fixtures, FFmpeg 9 trims AAC end padding and
+8.1.2 retains the final 512 samples at 48 kHz. Require the common 576,000
+signed-16 samples to match exactly on each Mac and all four 8.1.2 packages
+to emit 576,512 samples. Duration, video timestamps, cuts and SRTs stay exact.
+
+Each native-source archive includes the verified FFmpeg and dav1d sources,
+their notices, the configure options and a binary build receipt. The Homebrew
+inventory covers the formulae that supply remaining libraries and embedded
+headers. Packaging checks every FFmpeg link against the private SDK.
 
 ## Desktop update check dependencies
 

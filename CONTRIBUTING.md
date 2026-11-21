@@ -36,8 +36,8 @@ Compilation alone does not validate native playback. The media prototype must pr
 ## Commands and toolchains
 
 For an end-to-end native build and launch on the current Apple Silicon Mac, use
-[Build and run VSF](docs/build-macos.md). It connects the mpv/ANGLE builds to the
-application and selects the intended runtime explicitly. Audio candidates remain
+[Build and run VSF](docs/build-macos.md). It builds FFmpeg, dav1d, libplacebo and mpv for the app and selects the pinned
+ANGLE SDK. Audio candidates remain
 experimental until the [native adoption gates](docs/native-runtime.md#remaining-adoption-gates) pass.
 
 Run all commands from the repository root. Rust 1.98.1 (including rustfmt and Clippy) is selected by `rust-toolchain.toml`. Node 24.21.0 and its bundled npm 11.19.0 are pinned by `.nvmrc` and `package.json`. Commit both `Cargo.lock` and `package-lock.json`; use locked commands below rather than updating dependencies during routine setup.

@@ -18,6 +18,15 @@ on:
         type: choice
         options: [both, aarch64, x86_64]
         default: both
+      parity_baseline_run:
+        description: Optional release rehearsal containing the former Mac, Windows and Linux packages
+        type: string
+      parity_media_run:
+        description: Run containing the retained preview-acceptance-fixtures used for the comparison
+        type: string
+      parity_packets_run:
+        description: Run containing the retained shared-codec-fixtures
+        type: string
       sign:
         description: Sign and notarize the validation package (does not publish a release)
         type: boolean
@@ -33,7 +42,28 @@ concurrency:
   group: macos-preview-${{ github.ref }}-${{ inputs.architecture }}
   cancel-in-progress: false
 jobs:
+  cli-fixtures:
+    if: ${{ inputs.unsigned_run_id == '' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Encode the synthetic resync inputs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python scripts/resync-fixtures.py
+          cd tests/fixtures/generated/resync
+          sha256sum source.mkv offset.mkv speed-ads.mkv > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-resync-inputs
+          path: |
+            tests/fixtures/generated/resync/*.mkv
+            tests/fixtures/generated/resync/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
   package:
+    needs: cli-fixtures
     name: Native package (${{ matrix.arch }})
     if: ${{ inputs.unsigned_run_id == '' }}
     strategy:
@@ -43,7 +73,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     env:
-      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -59,8 +89,11 @@ jobs:
           xcodebuild -version
           xcrun --sdk macosx --show-sdk-version
           rustup show
-          brew install mpv pkg-config xxhash
-          if ! xcrun --find metal; then xcodebuild -downloadComponent MetalToolchain; fi
+          brew install libass little-cms2 shaderc xxhash xz nasm pkg-config
+          if brew list --formula | grep -E '^ffmpeg(@.*)?$'; then
+            echo 'The release runner has a Homebrew FFmpeg installed' >&2
+            exit 1
+          fi
       - name: Check packaging controls before the native build
         run: python -m unittest discover -s tests/release -p 'test_*.py'
       - name: Select Make toolchains and cache paths
@@ -75,19 +108,10 @@ jobs:
             ${{ env.VSF_ANGLE_BUILD }}/sdk
             ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
             ${{ env.VSF_ANGLE_BUILD }}/.complete
+          fail-on-cache-miss: true
           key: make-angle-${{ matrix.os }}-${{ matrix.arch }}-${{ env.VSF_ANGLE_KEY }}
       - name: Build native SDKs, GUI and CLI through Make
         run: make app JOBS=3 PYTHON=python
-      # Preserve a completed SDK even if later compilation/packaging fails.
-      - name: Save the completed ANGLE SDK
-        if: ${{ !cancelled() && steps.angle-cache.outputs.cache-hit != 'true' && hashFiles(format('{0}/.complete', env.VSF_ANGLE_BUILD)) != '' }}
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ${{ env.VSF_ANGLE_BUILD }}/sdk
-            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
-            ${{ env.VSF_ANGLE_BUILD }}/.complete
-          key: ${{ steps.angle-cache.outputs.cache-primary-key }}
       - name: Capture matching Rust/frontend sources and notices
         run: python scripts/application-sources.py --target ${{ matrix.arch }}-apple-darwin --features visualsubforge/macos-angle,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
       - name: Assemble and audit the private dependency bundle
@@ -97,7 +121,9 @@ jobs:
           python scripts/package-macos.py \
             --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
             --vsf "$CARGO_TARGET_DIR/release/vsf" \
-            --ffmpeg "$(command -v ffmpeg)" --ffprobe "$(command -v ffprobe)" \
+            --ffmpeg-sdk "$VSF_FFMPEG_BUILD/sdk" --release-floors \
+            --ffmpeg "$VSF_FFMPEG_BUILD/sdk/bin/ffmpeg" --ffprobe "$VSF_FFMPEG_BUILD/sdk/bin/ffprobe" \
+            --library-dir "$VSF_FFMPEG_BUILD/sdk/lib" \
             --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_ANGLE_BUILD/sdk/out/Metal" \
             --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" --placebo-build "$VSF_PLACEBO_BUILD" \
             --application-sources "$RUNNER_TEMP/application-sources" \
@@ -105,15 +131,19 @@ jobs:
             --mpv-build "$VSF_MPV_BUILD" --angle-sdk "$VSF_ANGLE_BUILD/sdk" \
             --angle-receipt "$VSF_ANGLE_BUILD/build-receipt.json" \
             --output "$RUNNER_TEMP/package/VisualSubForge.app"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: macos-resync-inputs
+          path: tests/fixtures/generated/resync
       - name: Exercise relocated packaged tools and failed-install behavior
         run: |
-          python scripts/resync-fixtures.py
+          (cd tests/fixtures/generated/resync && shasum -a 256 -c SHA256SUMS)
           python tests/release/packaged-cli.py --bundle "$RUNNER_TEMP/package/VisualSubForge.app" --bin Contents/MacOS --output "$RUNNER_TEMP/packaged-cli-check"
       - name: Archive the unsigned validation artifact
         run: |
           mkdir -p "$RUNNER_TEMP/artifacts"
           c++ -std=c++17 -Wall -Wextra -Werror -fobjc-arc \
-            -I"$(pkg-config --variable=includedir mpv)" tests/release/macos-player-init.mm \
+            -I"$VSF_MPV_BUILD/prepared/source/include" tests/release/macos-player-init.mm \
             -L"$RUNNER_TEMP/package/VisualSubForge.app/Contents/Frameworks" -lmpv.2 \
             -framework AppKit -Wl,-rpath,@executable_path/VisualSubForge.app/Contents/Frameworks \
             -o "$RUNNER_TEMP/artifacts/macos-player-init"
@@ -142,12 +172,22 @@ jobs:
             target/native/macos/build-paths.json
             ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
             ${{ env.VSF_ANGLE_BUILD }}/sdk/dependency-revisions.txt
+            ${{ env.VSF_FFMPEG_BUILD }}/configure-options.txt
+            ${{ env.VSF_FFMPEG_BUILD }}/build-receipt.json
             ${{ env.VSF_MPV_BUILD }}/build-receipt.json
             ${{ env.VSF_MPV_BUILD }}/commands.log
             ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
             ${{ env.VSF_PLACEBO_BUILD }}/commands.log
             ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
           retention-days: 14
+  decoder-parity:
+    needs: package
+    if: inputs.parity_baseline_run != ''
+    uses: ./.github/workflows/macos-decoder-parity.yml
+    with:
+      parity_baseline_run: ${{ inputs.parity_baseline_run }}
+      parity_media_run: ${{ inputs.parity_media_run }}
+      parity_packets_run: ${{ inputs.parity_packets_run }}
   sign:
     name: Sign and notarize (${{ matrix.arch }})
     needs: package

@@ -33,13 +33,13 @@ class MacOSAssembly(unittest.TestCase):
             library_source = root / "library.c"
             library_source.write_text("int answer(void) { return 42; }\n")
             library = root / "libanswer.dylib"
-            subprocess.run(["xcrun", "clang", "-dynamiclib", str(library_source),
+            subprocess.run(["xcrun", "clang", "-mmacosx-version-min=15.0", "-dynamiclib", str(library_source),
                             "-install_name", str(library), "-o", str(library)], check=True)
             program_source = root / "program.c"
             program_source.write_text('#include <stdio.h>\nextern int answer(void);\n'
                                       'int main(void) { printf("%d\\n", answer()); return 0; }\n')
             main = executables / "visualsubforge"
-            subprocess.run(["xcrun", "clang", str(program_source), str(library),
+            subprocess.run(["xcrun", "clang", "-mmacosx-version-min=15.0", str(program_source), str(library),
                             "-Wl,-no_adhoc_codesign", "-o", str(main)], check=True)
             # ARM linkers insert ad-hoc signatures, which masked the failure
             # seen with Intel's unsigned ffmpeg. Link an unsigned fixture on
@@ -48,14 +48,15 @@ class MacOSAssembly(unittest.TestCase):
             unsigned = subprocess.run(["codesign", "--display", str(main)], capture_output=True)
             self.assertNotEqual(unsigned.returncode, 0, "Fixture must be unsigned before assembly")
             tools = {}
+            (root / "sdk/bin").mkdir(parents=True)
             for name in ["vsf", "ffmpeg", "ffprobe"]:
-                tools[name] = root / name
+                tools[name] = (root if name == "vsf" else root / "sdk/bin") / name
                 shutil.copy2(main, tools[name])
             inputs = [main, library, *tools.values(), source / "Contents/Info.plist"]
             before = {path: PACKAGER.digest(path) for path in inputs}
             destination = root / "Relocated App.app"
             PACKAGER.assemble(argparse.Namespace(app=source, output=destination,
-                                                 library_dir=[], **tools))
+                                                 library_dir=[], release_floors=True, ffmpeg_sdk=root / "sdk", **tools))
 
             subprocess.run(["codesign", "--verify", "--deep", "--strict",
                             str(destination)], check=True)
@@ -68,6 +69,31 @@ class MacOSAssembly(unittest.TestCase):
             receipt = json.loads((root / "assembly-receipt.json").read_text())
             for relative, expected in receipt["bundle_files_sha256"].items():
                 self.assertEqual(PACKAGER.digest(destination / relative), expected, relative)
+
+            # A developer can inspect their local dependency floor. The exact
+            # same dependency graph must fail the hosted release gate.
+            subprocess.run(["xcrun", "clang", "-dynamiclib", "-mmacosx-version-min=15.1",
+                            str(library_source), "-install_name", str(library), "-o", str(library)], check=True)
+            (root / "release-attempt").mkdir()
+            with self.assertRaisesRegex(ValueError, "deployment target"):
+                PACKAGER.assemble(argparse.Namespace(app=source, output=root / "release-attempt/Test.app",
+                    library_dir=[], release_floors=True, ffmpeg_sdk=root / "sdk", **tools))
+            (root / "developer").mkdir()
+            PACKAGER.assemble(argparse.Namespace(app=source, output=root / "developer/Test.app",
+                library_dir=[], release_floors=False, ffmpeg_sdk=root / "sdk", **tools))
+            local = json.loads((root / "developer/assembly-receipt.json").read_text())
+            self.assertEqual(local["minimum_macos"], "15.1")
+
+            # Test both modes against an actual foreign avcodec load command.
+            subprocess.run(["xcrun", "clang", "-dynamiclib", "-mmacosx-version-min=15.0",
+                            str(library_source), "-install_name", str(library), "-o", str(library)], check=True)
+            foreign = root / "libavcodec.66.dylib"
+            shutil.copy2(library, foreign)
+            subprocess.run(["install_name_tool", "-change", str(library), str(foreign), str(main)], check=True)
+            for release in (False, True):
+                with self.assertRaisesRegex(ValueError, "outside the selected SDK"):
+                    PACKAGER.assemble(argparse.Namespace(app=source, output=root / "release-attempt/Test.app",
+                        library_dir=[], release_floors=release, ffmpeg_sdk=root / "sdk", **tools))
 
 
 if __name__ == "__main__":

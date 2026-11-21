@@ -69,7 +69,7 @@ def digest(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
-def minimum_macos(path, architecture):
+def minimum_macos(path, architecture, *, require_build_version=True):
     commands = output("otool", "-arch", architecture, "-l", path)
     for command in commands.split("Load command ")[1:]:
         if re.search(r"cmd LC_BUILD_VERSION\b", command):
@@ -78,13 +78,33 @@ def minimum_macos(path, architecture):
             if not re.search(r"platform (?:1|MACOS|macos)\s", command):
                 raise ValueError(f"Non-macOS build target: {path}")
             match = re.search(r"minos ([\d.]+)", command)
-        elif re.search(r"cmd LC_VERSION_MIN_MACOSX\b", command):
+        elif not require_build_version and re.search(r"cmd LC_VERSION_MIN_MACOSX\b", command):
             match = re.search(r"version ([\d.]+)", command)
         else:
             continue
         if match:
             return match[1]
     raise ValueError(f"Missing macOS deployment target: {path}")
+
+
+FFMPEG_LIBRARY = re.compile(r"lib(?:av(?:codec|device|filter|format|util|resample)|sw(?:resample|scale)|postproc)(?:\.[0-9]+)*\.dylib$")
+MACHO_MAGICS = {bytes.fromhex(value) for value in (
+    "feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
+
+
+def version_number(value):
+    parts = tuple(map(int, value.split(".")))
+    return parts + (0,) * (3 - len(parts))
+
+
+def verify_source_tree(source, roots):
+    # Tauri may start copying additional helpers or frameworks in the future.
+    # All executable images must participate in the same dependency and floor audit.
+    for path in source.rglob("*"):
+        if path.is_file() and path.resolve() not in roots:
+            with path.open("rb") as stream:
+                if stream.read(4) in MACHO_MAGICS:
+                    raise ValueError(f"Unaccounted Mach-O in input application: {path}")
 
 
 def assemble(args):
@@ -102,25 +122,56 @@ def assemble(args):
     for name in ["vsf", "ffmpeg", "ffprobe"]:
         path = getattr(args, name).resolve(strict=True)
         roots[path] = Path("Contents/MacOS") / name
+    ffmpeg_sdk = args.ffmpeg_sdk.resolve(strict=True)
+    for name in ("ffmpeg", "ffprobe"):
+        if (getattr(args, name).resolve(strict=True).parent != ffmpeg_sdk / "bin"
+                or getattr(args, name).name != name):
+            raise ValueError(f"{name} is outside the selected FFmpeg SDK")
+    verify_source_tree(source, roots)
     directories = [path.resolve(strict=True) for path in args.library_dir]
     architecture = output("lipo", "-archs", main).split()
     if len(architecture) != 1 or architecture[0] not in ("arm64", "x86_64"):
         raise ValueError("The macOS packager expects one arm64 or x86_64 architecture per artifact")
     edges, destinations, ids, targets = {}, dict(roots), {}, {}
     minimums = ["15.0", info.get("LSMinimumSystemVersion", "15.0")]
+    ffmpeg_links = []
+    slice_targets = {}
+    if args.release_floors and version_number(minimums[-1]) > (15, 0, 0):
+        raise ValueError(f"Input app requires macOS {minimums[-1]}")
     queue = list(roots)
     while queue:
         original = queue.pop()
-        if architecture[0] not in output("lipo", "-archs", original).split():
+        slices = output("lipo", "-archs", original).split()
+        if architecture[0] not in slices:
             raise ValueError(f"Architecture mismatch: {original}")
-        targets[original] = minimum_macos(original, architecture[0])
-        minimums.append(targets[original])
+        built_here = (original in roots or original.is_relative_to(ffmpeg_sdk)
+                      or original.name.startswith(("libmpv.", "libplacebo.")))
+        deployment = {cpu: minimum_macos(original, cpu, require_build_version=args.release_floors)
+                      for cpu in slices}
+        slice_targets[original] = deployment
+        targets[original] = deployment[architecture[0]]
+        minimums.extend(deployment.values())
+        for cpu, floor in deployment.items():
+            if args.release_floors and (version_number(floor) > (15, 0, 0)
+                                        or (built_here and version_number(floor) != (15, 0, 0))):
+                raise ValueError(f"Invalid macOS release deployment target {floor} for {cpu}: {original}")
         ids[original] = install_id(original)
         edges[original] = {}
         for name in linked_libraries(original):
+            av_library = FFMPEG_LIBRARY.fullmatch(Path(name).name)
+            if av_library and system_library(name):
+                raise ValueError(f"FFmpeg dependency outside the selected SDK: {original} -> {name}")
             if system_library(name) or name == ids[original]:
                 continue
             library = resolve_library(name, original, main, directories)
+            if re.search(r"/Cellar/ffmpeg(?:@[^/]+)?/", library.as_posix()):
+                raise ValueError(f"Homebrew FFmpeg dependency: {original} -> {name} -> {library}")
+            if av_library or FFMPEG_LIBRARY.fullmatch(library.name):
+                if not library.is_relative_to(ffmpeg_sdk / "lib"):
+                    raise ValueError(f"FFmpeg dependency outside the selected SDK: {original} -> {name} -> {library}")
+                ffmpeg_links.append({"file": str(destinations[original]), "load_command": name,
+                                     "resolved_source": str(library),
+                                     "bundled_target": "Contents/Frameworks/" + library.name})
             edges[original][name] = library
             if library not in destinations:
                 relative = Path("Contents/Frameworks") / library.name
@@ -159,13 +210,21 @@ def assemble(args):
             if not dependency.is_relative_to(destination):
                 raise ValueError(f"Dependency escapes app: {dependency}")
         records.append({"file": str(relative), "source": str(original),
+                        "slice_minimum_macos": slice_targets[original],
                         "minimum_macos": targets[original],
                         "source_sha256": digest(original)})
+    for link in ffmpeg_links:
+        consumer = destination / link["file"]
+        dependency = destination / link["bundled_target"]
+        relocated = "@loader_path/" + os.path.relpath(dependency, consumer.parent)
+        if relocated not in linked_libraries(consumer) or not dependency.is_file():
+            raise ValueError(f"Incorrect packaged FFmpeg link: {consumer} -> {relocated}")
+        link["bundled_load_command"] = relocated
     version = release_version()
     numeric_version = re.split("[-+]", version, maxsplit=1)[0]
     info.update(CFBundleShortVersionString=numeric_version, CFBundleVersion=numeric_version,
                 VSFReleaseVersion=version,
-                LSMinimumSystemVersion=max(minimums, key=lambda value: tuple(map(int, value.split(".")))))
+                LSMinimumSystemVersion=max(minimums, key=version_number))
     with (destination / "Contents/Info.plist").open("wb") as stream:
         plistlib.dump(info, stream)
     resources = destination / "Contents/Resources"
@@ -182,10 +241,10 @@ def assemble(args):
         from macos_sources import collect
         native_inventory = collect(records, args.homebrew_cellar, args.mpv_build, args.angle_sdk,
                                    args.angle_receipt, args.native_sources, resources,
-                                   placebo=getattr(args, "placebo_build", None))
+                                   placebo=getattr(args, "placebo_build", None), ffmpeg=ffmpeg_sdk.parent)
     target = "macos-aarch64" if architecture[0] == "arm64" else "macos-x86_64"
     manifest = {"schema": 1, "version": version, "architecture": architecture[0],
-                "minimum_macos": info["LSMinimumSystemVersion"],
+                "minimum_macos": info["LSMinimumSystemVersion"], "ffmpeg_links": ffmpeg_links,
                 "signature": "Assembly used an ad-hoc signature. The release signing workflow records Developer ID signing and notarization.",
                 "redistribution_inventory": source_inventory_reference(version, target), "files": records,
                 "application_inventory_sha256": application_inventory,
@@ -219,6 +278,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--vsf", type=Path, required=True)
+    parser.add_argument("--release-floors", action="store_true", help="Require compatibility with macOS 15.0")
+    parser.add_argument("--ffmpeg-sdk", type=Path, required=True)
     parser.add_argument("--ffmpeg", type=Path, required=True)
     parser.add_argument("--ffprobe", type=Path, required=True)
     parser.add_argument("--library-dir", type=Path, action="append", default=[])
