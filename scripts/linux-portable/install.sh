@@ -66,7 +66,8 @@ else
     mkdir -p "$parent"
     stage=$(mktemp -d "$parent/.visualsubforge.XXXXXXXX")
     trap 'rm -rf -- "$stage"' EXIT
-    cp -a -- "$src/." "$stage/"
+    cp -R --preserve=mode,timestamps -- "$src/." "$stage/"
+    verify_tree "$stage" || die "Staged package checksum or file list differs"
     chmod 755 "$stage"
     mv -Tn -- "$stage" "$app"
     [ ! -d "$stage" ] || die "Another installation appeared at $app"
