@@ -18,6 +18,34 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def release_media(bundle, fixtures):
+    # Hash in FFmpeg so a complete decoded 4K stream never resides in Python.
+    expected = {
+        'h264-1080p.mp4': ['h264', 'aac'], 'hevc-4k.mp4': ['hevc', 'aac'],
+        'cfr-offset.mkv': ['ffv1', 'pcm_s16le', 'pcm_s16le'],
+        'vfr-offset.mkv': ['ffv1', 'pcm_s16le', 'pcm_s16le'],
+    }
+    results = {}
+    for name, codecs in expected.items():
+        fixture = fixtures / name
+        streams = json.loads(run([bundle / 'ffprobe', '-v', 'error', '-show_entries',
+                                  'stream=index,codec_name,codec_type', '-of', 'json', fixture]))['streams']
+        if [s['codec_name'] for s in streams] != codecs:
+            raise ValueError(f'{name}: expected {codecs}, found {streams}')
+        hashes = []
+        for stream in streams:
+            options = (['-c:v', 'rawvideo', '-fps_mode', 'passthrough'] if stream['codec_type'] == 'video'
+                       else ['-c:a', 'pcm_s16le'])
+            value = run([bundle / 'ffmpeg', '-v', 'error', '-nostdin', '-threads', '1', '-i', fixture,
+                         '-map', f"0:{stream['index']}", *options, '-threads', '1',
+                         '-f', 'hash', '-hash', 'sha256', '-']).decode().strip()
+            if not value.startswith('SHA256=') or value[7:] == digest(b''):
+                raise ValueError(f'{name}: empty or missing decoded hash: {value}')
+            hashes.append({'codec': stream['codec_name'], 'sha256': value[7:]})
+        results[name] = hashes
+    return results
+
+
 def observe(bundle, fixture, diagnostics):
     env = {k: v for k, v in os.environ.items() if not k.startswith(('LD_', 'DYLD_', 'VSF_'))}
     env.update(PATH=f'{bundle}:/usr/bin:/bin', VSF_FFMPEG=str(bundle / 'ffmpeg'),
@@ -65,6 +93,12 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
+    media = {label: release_media(bundle.resolve(), args.fixtures) for label, bundle in
+             [('before', args.before), ('after', args.after)]}
+    (args.output / 'release-media.json').write_text(json.dumps(media, indent=2) + '\n')
+    differences = []
+    if media['before'] != media['after']:
+        differences.append('release media streams')
     for codec, encoder in [('vp8', 'libvpx'), ('vp9', 'libvpx-vp9')]:
         work = args.output / codec
         work.mkdir()
@@ -87,7 +121,9 @@ def main():
                                       for folder in (args.before, args.after)]}
         (args.output / f'{codec}.json').write_text(json.dumps(report, indent=2) + '\n')
         if results['before'] != results['after']:
-            raise ValueError(f'Decoded bytes, analysis or SRTs differ for {codec}')
+            differences.append(f'{codec} decoded bytes, analysis or SRTs')
+    if differences:
+        raise ValueError('Parity differences: ' + ', '.join(differences))
 
 
 if __name__ == '__main__':
