@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import struct
 import subprocess
 
 
@@ -52,15 +53,64 @@ def observe(bundle, fixture, diagnostics):
                VSF_FFPROBE=str(bundle / 'ffprobe'))
     observed = {}
     for stream, fmt in [('v:0', 'rawvideo'), ('a:0', 's16le'), ('a:1', 's16le')]:
+        timing = ['-fps_mode', 'passthrough'] if stream == 'v:0' else []
         data = run([bundle / 'ffmpeg', '-nostdin', '-i', fixture, '-map', '0:' + stream,
-                    '-threads', '1', '-f', fmt, '-'], env)
+                    '-threads', '1', *timing, '-f', fmt, '-'], env)
         if not data:
             raise ValueError(f'No decoded data for {stream}')
         observed[stream] = digest(data)
+    framehash = run([bundle / 'ffmpeg', '-v', 'error', '-nostdin', '-copyts', '-i', fixture,
+                     '-map', '0:v:0', '-threads', '1', '-c:v', 'rawvideo', '-fps_mode', 'passthrough',
+                     '-enc_time_base', '1:1000000', '-f', 'framehash', '-hash', 'sha256', '-'], env).decode()
+    if '#tb 0: 1/1000000' not in framehash:
+        raise ValueError('Missing decoded frame timestamp scale')
+    frames = []
+    for line in framehash.splitlines():
+        if line and not line.startswith('#'):
+            _, _, pts, _, size, checksum = [part.strip() for part in line.split(',')]
+            frames.append({'pts_us': int(pts), 'bytes': int(size), 'sha256': checksum})
+    if not frames:
+        raise ValueError('Missing decoded video frames')
+    observed['frames'] = frames
     observed['waveform'] = [json.loads(run([diagnostics / 'media-analysis', fixture, track], env))
                             for track in ('0', '1')]
     observed['cuts'] = json.loads(run([diagnostics / 'examples/scene-scan', fixture], env))['cuts']
     return observed
+
+
+def waveform_samples(bundle, fixture, waveform):
+    # Reproduce the actual production bins before comparing the PCM on a
+    # common clock. Keep any difference other than an initial silence visible.
+    origin = waveform['container_origin_seconds']
+    pcm = run([bundle / 'ffmpeg', '-v', 'error', '-nostdin', '-threads', '2', '-copyts', '-i', fixture,
+               '-map', f"0:{waveform['audio_stream_index']}", '-vn', '-sn', '-dn', '-ac', '1',
+               '-filter_threads', '1', '-af', f'asetpts=PTS-({origin})/TB,aresample=8000:async=1:first_pts=0',
+               '-ar', '8000', '-threads', '1', '-f', 'f32le', 'pipe:1'])
+    samples = [v for v, in struct.iter_unpack('<f', pcm)]
+    size = waveform['samples_per_peak']
+    peaks = [(min(samples[i:i+size]), max(samples[i:i+size])) for i in range(0, len(samples), size)]
+    reported = [(p['min'], p['max']) for p in waveform['peaks']]
+    if len(samples) != waveform['sample_count'] or len(peaks) != len(reported) or any(
+            a != struct.unpack('<ff', struct.pack('<ff', *b)) for a, b in zip(peaks, reported)):
+        raise ValueError('Decoded PCM does not reproduce production waveform bins')
+    return pcm
+
+
+def waveform_alignment(before, after, fixture, results):
+    evidence = []
+    for left, right in zip(results['before']['waveform'], results['after']['waveform'], strict=True):
+        first = waveform_samples(before, fixture, left)
+        second = waveform_samples(after, fixture, right)
+        delta = (right['container_origin_seconds'] - left['container_origin_seconds']) * 8000
+        shift = round(delta)
+        if abs(delta - shift) > 0.000001:
+            raise ValueError(f'Nonintegral sample offset: {delta}')
+        early, late = (first, second) if shift >= 0 else (second, first)
+        leading = early[:abs(shift)*4]
+        evidence.append({'before_sha256': digest(first), 'after_sha256': digest(second),
+                         'offset_samples': shift, 'first_samples_silent': not any(leading),
+                         'aligned_samples_identical': early[len(leading):] == late})
+    return evidence
 
 
 def subtitles(bundle, fixtures, media, output):
@@ -120,6 +170,7 @@ def main():
         report = {'fixture_sha256': digest(fixture.read_bytes()), 'observations': results, 'timestamps': timestamps,
                   'ffmpeg_versions': [run([folder / 'ffmpeg', '-version']).decode().splitlines()[0]
                                       for folder in (args.before, args.after)]}
+        report['waveform_alignment'] = waveform_alignment(args.before, args.after, fixture, results)
         (args.output / f'{codec}.json').write_text(json.dumps(report, indent=2) + '\n')
         for label, result in results.items():
             if result['cuts'] != [2.0]:
