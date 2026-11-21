@@ -132,23 +132,39 @@ The [v0.1.0 source revision](https://github.com/golgeek/visualsubforge/commit/v0
 and [published SHA256SUMS](https://github.com/golgeek/visualsubforge/releases/download/v0.1.0/SHA256SUMS)
 identify the matching release inventories after publication.
 
-## Ubuntu media runtime compatibility
+## Linux media runtime
 
-Ubuntu 24.04 supplies libxml2 and ICU through the desktop runtime. Its package
-manager owns their updates. The assembler records a versioned Depends entry
-for the package owning each platform SONAME directly linked by a shipped ELF
-file. Several media libraries, including FFmpeg, directly require libxml2.so.2.
-This expands the earlier 13 declared dependencies to cover packages already
-installed by that same Noble desktop closure. The native inventory and source
-archive cover the libraries distributed inside the package.
+Linux and Windows build FFmpeg 8.1.2 with the same core configure options in
+`build/ffmpeg-options.txt`. The shared FFmpeg libraries use LGPL-3.0-or-later.
+Linux enables VA-API for the player's `hwdec=auto-copy` path. Windows uses D3D11VA,
+DXVA2 and Schannel. Linux media comes from local files. The Rust HTTPS update
+check is independent of FFmpeg. DVB teletext tracks are unsupported. The Linux
+and Windows FFmpeg builds exclude libzvbi and external GPL encoders.
 
-Ubuntu 26.04 supplies libxml2.so.16. Apt refuses to install the Noble package
-there. An earlier experiment bundled ABI 2 and ICU 74. On both hosted display
-backends, the GUI played synthetic DASH but FFmpeg resolved 20 XML symbols to
-ABI 16. WebKitGTK resolved 49 symbols there. The binding checker is retained
-for a separate Ubuntu 26.04 package, planned for v0.1.1.
-[Wayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44864147238/artifacts/14691117526)
-and [XWayland trace](https://github.com/golgeek/visualsubforge/actions/runs/44864147238/artifacts/14690629953).
+| Bundled component | Licence | Inputs |
+| --- | --- | --- |
+| mpv | GPL-2.0-or-later | Pinned source and repository patches |
+| FFmpeg libraries, ffmpeg and ffprobe | LGPL-3.0-or-later | Upstream 8.1.2 release |
+| dav1d | BSD-2-Clause | Upstream 1.5.5, hidden PIC archive inside libavcodec |
+| libplacebo | LGPL-2.1-or-later | Pinned source including submodules |
+| libdovi | MIT | 3.4.0 source and locked Rust crates |
+| libass | ISC | Distribution library and matching source |
+| libunibreak | zlib | Distribution library and matching source |
+| shaderc | Apache-2.0 | Distribution library, glslang and SPIRV-Tools build inputs |
+| SPIRV-Cross | Apache-2.0 | Distribution shared C library and matching source |
+
+Arch WebKitGTK links libavif, which loads the system dav1d. Linux links its
+own dav1d statically into libavcodec with hidden symbols. The SDK build checks
+the decoder configuration, dynamic dependencies and dynamic symbols before
+packaging. FFmpeg itself stays shared for relinking.
+
+The explicit system SONAME allowlist in `scripts/package-linux.py` covers
+libc and compiler runtimes, GTK/WebKitGTK and their application-facing APIs,
+font shaping, color management, compression, display, GPU and sound APIs.
+The assembly receipt records the direct system SONAMEs actually used. The
+distribution owns their transitive dependencies, including WebKitGTK's XML
+and JPEG providers. mpv disables its JPEG writer and scripts. Linux does not
+ship a separate JPEG library or Lua runtime.
 
 ## Desktop update check dependencies
 

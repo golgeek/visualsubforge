@@ -114,7 +114,7 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
                                 packages(['libva', 'zlib', 'liblzma']))
         private['dovi'] = add('dovi', ['build/ffmpeg.mk', 'scripts/build-linux-dovi.sh',
                               'scripts/native-stage.sh'], toolchain,
-                              {'rust': probe('rustc', '-vV'), 'cargo-c': probe('cargo', 'cinstall', '--version')})
+                              {'rust': probe('rustc', '-vV'), 'cargo': probe('cargo', '-V')})
     if system != 'windows':
         placebo_names = PLACEBO_COMMON + (['vulkan'] if system == 'linux' else [])
         dependency_key = add('placebo', ['build/placebo.mk', 'scripts/build-placebo.py', *COMMON_FILES, *SUPPORT],

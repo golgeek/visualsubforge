@@ -65,8 +65,8 @@ finally:
 PY
   kill -0 "$silent_pid"
 fi
-xml_args=()
-if [[ -n ${VSF_XML_FIXTURE:-} ]]; then xml_args+=(--xml-fixture "$VSF_XML_FIXTURE"); fi
+audit_args=()
+if [[ ${VSF_LIBRARY_AUDIT:-0} == 1 ]]; then audit_args+=(--library-audit); fi
 python3 "${VSF_GUI_CHECK:-/check-gui.py}" --executable /usr/lib/visualsubforge/visualsubforge \
-  --fixture "${VSF_FIXTURES:-/fixtures}/vfr-offset.mkv" --output "$evidence"/gui "${xml_args[@]}" \
+  --fixture "${VSF_FIXTURES:-/fixtures}/vfr-offset.mkv" --output "$evidence"/gui "${audit_args[@]}" \
   --environment "${VSF_GUI_ENVIRONMENT:-Ubuntu 24.04 offline container with Xvfb and Mesa}, PulseAudio ${VSF_NULL_SINK:-default} null sink"
