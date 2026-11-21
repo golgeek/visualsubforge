@@ -167,7 +167,30 @@ and subtitle output. PR #39 did not retain its encoded Matroska files. Repeated
 libopus encodes can produce different output, so the comparison with Windows
 uses a single retained artifact with SHA-256 hashes for every fixture. The
 current main Windows package and the Linux candidate must give identical
-decoded frames, both audio streams, waveforms, start times, cuts and SRTs.
+video frames and timestamps, stream and container timing, cuts, sample counts,
+and edited and resynchronized SRTs.
+
+Floating-point Opus decoding can round differently across compilers, maths
+libraries and CPU implementations. On these shared fixtures, the maximum
+absolute per-sample difference is 2 signed 16-bit units (2/32768 of full
+scale). Float PCM is compared in the same units before and after conversion
+to 8 kHz. Each production waveform minimum and maximum must agree within
+0.0001 of full scale. These bounds apply only to cross-platform audio.
+
+The first difference is already present at the native 48 kHz decoder output (`-f f32le` with no resampling). The first integer difference is one unit on each track. Both encoded fixtures produced the measurements below. Indices are zero-based within each mono output. Float values are in full-scale units. The last column scales float differences by 32,768 for comparison with signed 16-bit PCM.
+
+| Mono PCM output | Track | First differing sample | Windows value | Linux value | Differing / total | Max difference in 16-bit units |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 48 kHz float | 0 | 47,808 | -1.93796296e-07 | -1.93796211e-07 | 6,694 / 180,000 | 0.00390625 |
+| 48 kHz float | 1 | 95,935 | 0.00275840331 | 0.00275840308 | 9,465 / 192,000 | 0.0029296875 |
+| 48 kHz signed 16-bit | 0 | 55,805 | -525 | -524 | 1 / 180,000 | 1 |
+| 48 kHz signed 16-bit | 1 | 96,791 | -12042 | -12041 | 1 / 192,000 | 1 |
+| 8 kHz float | 0 | 9,960 | 4.50203867e-11 | 4.50203798e-11 | 1,136 / 32,008 | 0.00390625 |
+| 8 kHz float | 1 | 15,982 | -0.00102281081 | -0.0010228107 | 1,497 / 32,000 | 0.001953125 |
+
+The maximum waveform peak error was 5.96046448e-8 on track 0 (19 of 401 bins differed) and 2.98023224e-8 on track 1 (30 of 400). The limit is 1e-4. All counts, the 70 video frames and their timestamps per codec, stream timing, zero container start, 2.000-second cut and every edited and resynchronized SRT matched exactly. The separate Ubuntu 6.1.1 check passed with its original 56-sample Opus pre-skip alignment.
+
+Windows used MSYS2 Clang 23.1.5 and Microsoft UCRT (`api-ms-win-crt-math-l1-1-0.dll`, `ucrtbase.dll` 10.0.20348.5756) on an AMD EPYC 7763. Its reported intrinsics included SSE through SSE4.2, AVX, AVX2, FMA, BMI1 and BMI2. Linux used GCC 13.3.0 and glibc `libm.so.6` (Ubuntu 2.39-0ubuntu8.12) on an Intel Xeon 6975P-C with SSE through SSE4.2, AVX, AVX2, FMA, BMI1/2 and AVX-512 including F, DQ, BW, VL and VNNI. The artifacts contain the complete reported feature lists. The run locates the divergence before conversion. It does not isolate a particular compiler, maths function or CPU instruction. [Verification run](https://github.com/golgeek/visualsubforge/actions/runs/44941014612) · [Windows PCM and environment](https://github.com/golgeek/visualsubforge/actions/runs/44941014612/artifacts/14722021004) · [Linux PCM, environment and comparison](https://github.com/golgeek/visualsubforge/actions/runs/44941014612/artifacts/14722230703)
 
 Arch WebKitGTK links libavif, which loads the system dav1d. Linux links its
 own dav1d statically into libavcodec with hidden symbols. The SDK build checks
