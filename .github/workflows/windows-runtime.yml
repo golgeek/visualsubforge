@@ -6,6 +6,10 @@ on:
         description: Windows package run containing windows-preview-x64
         type: string
         required: true
+      aac_linux_run:
+        description: Replay retained MP4s on this Linux package and the selected Windows package
+        type: string
+        default: ''
       reference_run:
         description: Optional pre-removal package run containing windows-unsigned-x64 for decoded parity
         type: string
@@ -22,7 +26,63 @@ permissions:
   contents: read
   actions: read
 jobs:
+  mp4-replay:
+    if: inputs.aac_linux_run != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, package: linux-installables-amd64 }
+          - { os: windows-2022, package: windows-preview-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ matrix.package }}
+          run-id: ${{ runner.os == 'Windows' && inputs.package_run || inputs.aac_linux_run }}
+          path: package
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: preview-acceptance-fixtures
+          run-id: ${{ inputs.fixture_run }}
+          path: fixtures
+          github-token: ${{ github.token }}
+      - name: Verify both manifests and pin the two encoded MP4s
+        shell: python
+        run: |
+          import runpy, sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          api = runpy.run_path('scripts/release-assets.py')
+          api['verified'](Path('package'))
+          media = api['verified'](Path('fixtures'))
+          assert api['digest'](media['h264-1080p.mp4']) == 'e134667134ed8b4a93eea79d3a13dd438f17f8301a79ce4bb253c9920a14b129'
+          assert api['digest'](media['hevc-4k.mp4']) == '466cd8f760a4c3efa12978da998267d38bf5bce3698d53145700263543e67b96'
+      - name: Replay on native Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Expand-Archive (Get-Item package/*_windows.zip) package/app
+          python tests/release/mp4-aac-parity.py decode --bundle package/app/VisualSubForge --fixtures fixtures --output mp4-aac.json
+      - name: Replay on native Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ./package/*.deb
+          python tests/release/mp4-aac-parity.py decode --bundle /usr/lib/visualsubforge/bin --fixtures fixtures --output mp4-aac.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !cancelled() }}
+        with:
+          name: retained-mp4-${{ matrix.os }}
+          path: mp4-aac.json
   installed:
+    if: inputs.aac_linux_run == ''
     runs-on: windows-2022
     timeout-minutes: 35
     env:
