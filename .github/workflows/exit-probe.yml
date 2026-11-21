@@ -1,0 +1,24 @@
+name: Windows failure-path controls
+on:
+  push:
+    branches: [codex/scratch-windows-exits]
+permissions:
+  contents: read
+jobs:
+  commands:
+    runs-on: windows-2022
+    steps:
+      - name: Failing test followed by successful lint
+        run: |
+          python -c "import sys; sys.exit(3)"
+          python -c "print('lint ran')"
+  archives:
+    runs-on: windows-2022
+    steps:
+      - name: Archive and checksum
+        run: |
+          New-Item -ItemType Directory sources
+          Set-Content sources/example.txt fixture
+          tar -czf application.tar.gz -C missing .
+          tar -czf native.tar.gz -C sources .
+          Get-FileHash *.tar.gz
