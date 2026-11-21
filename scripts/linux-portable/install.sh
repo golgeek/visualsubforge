@@ -41,10 +41,15 @@ verify_tree() (
         sha256sum --strict --quiet -c FILES.sha256 &&
         [ "$(find . -type f ! -path ./FILES.sha256 ! -path ./.install-dirs -exec printf 'x%.0s' {} + | wc -c)" -eq "$(wc -l < FILES.sha256)" ]
 )
+same_manifest() {
+    source_hash=$(sha256sum < "$src/FILES.sha256") || return 1
+    installed_hash=$(sha256sum < "$app/FILES.sha256") || return 1
+    [ "$source_hash" = "$installed_hash" ]
+}
 if [ "$mode" = uninstall ]; then
     if [ -e "$app" ] || [ -L "$app" ]; then
         if [ -L "$app" ] || [ ! -f "$app/.install-dirs" ] || ! verify_tree "$app"; then die "Unrecognized or modified installation at $app"; fi
-        cmp -s "$src/FILES.sha256" "$app/FILES.sha256" || die "Use the uninstall.sh installed in $app"
+        same_manifest || die "Use the uninstall.sh installed in $app"
     fi
     for file in $files; do
         if [ -L "$prefix/$file" ]; then rm -- "$prefix/$file"; fi
@@ -69,7 +74,7 @@ fi
 
 verify_tree "$src" || die "Package checksum or file list differs"
 if [ -e "$app" ] || [ -L "$app" ]; then
-    if [ -L "$app" ] || [ ! -f "$app/.install-dirs" ] || ! verify_tree "$app" || ! cmp -s "$src/FILES.sha256" "$app/FILES.sha256"; then
+    if [ -L "$app" ] || [ ! -f "$app/.install-dirs" ] || ! verify_tree "$app" || ! same_manifest; then
         die "Refusing to overwrite $app; uninstall the existing version first"
     fi
 else

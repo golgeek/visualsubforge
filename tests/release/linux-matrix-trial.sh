@@ -15,7 +15,8 @@ if [[ $format == tar ]]; then
     installed=/home/preview/.local/opt/visualsubforge
     find "$installed" -printf '%p %T@\n' | sort > /evidence/first-install.txt
     "${run[@]}" "$root/install.sh"
-    find "$installed" -printf '%p %T@\n' | sort | cmp /evidence/first-install.txt -
+    find "$installed" -printf '%p %T@\n' | sort > /evidence/second-install.txt
+    [[ $(sha256sum < /evidence/first-install.txt) == "$(sha256sum < /evidence/second-install.txt)" ]]
 else
     export VSF_GUI_BIN=/usr/bin/visualsubforge
     installed=$root

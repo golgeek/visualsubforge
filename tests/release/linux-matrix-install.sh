@@ -71,7 +71,7 @@ if (( ${#missing_packages[@]} )); then
     cat /matrix/missing-runtime.txt
     test "$status" = 78
     test ! -e /matrix/started-too-soon
-    diff -u /matrix/expected-launcher.txt /matrix/missing-runtime.txt
+    [[ $(sha256sum < /matrix/expected-launcher.txt) == "$(sha256sum < /matrix/missing-runtime.txt)" ]]
     mv "$probe_root/bin/saved-app" "$probe_root/bin/visualsubforge.real"
 fi
 if [[ $format == deb ]]; then
@@ -97,6 +97,13 @@ if [[ $format == deb ]]; then
     root=/usr/lib/visualsubforge
 else
     if (( ${#missing_packages[@]} )); then "${install[@]}" "${missing_packages[@]}"; fi
+    # Exercise the offline installer before test utilities can supply tools
+    # that are absent on the distro's minimal runtime.
+    mkdir /matrix/portable-home
+    HOME=/matrix/portable-home "$probe_root/install.sh"
+    HOME=/matrix/portable-home "$probe_root/install.sh"
+    HOME=/matrix/portable-home /matrix/portable-home/.local/opt/visualsubforge/uninstall.sh
+    rmdir /matrix/portable-home
     root=$probe_root
 fi
 "$root/bin/check-runtime" "${names[@]}"
