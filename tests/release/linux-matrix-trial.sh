@@ -9,11 +9,13 @@ chown preview:preview /evidence
 run=(runuser -u preview --)
 if [[ $format == tar ]]; then
     "${run[@]}" "$root/install.sh"
+    export VSF_GUI_BIN=/home/preview/.local/bin/visualsubforge
     installed=/home/preview/.local/opt/visualsubforge
     find "$installed" -printf '%p %T@\n' | sort > /evidence/first-install.txt
     "${run[@]}" "$root/install.sh"
     find "$installed" -printf '%p %T@\n' | sort | cmp /evidence/first-install.txt -
 else
+    export VSF_GUI_BIN=/usr/bin/visualsubforge
     installed=$root
 fi
 (cd "$installed" && sha256sum --quiet --strict -c FILES.sha256)
@@ -21,7 +23,6 @@ if [[ ${VSF_FULL_TRIAL:-1} == 1 ]]; then
     "${run[@]}" python3 /tests/packaged-cli.py --bundle "$installed" --bin bin --fixtures /fixtures/resync --output /evidence/cli
     rm -rf -- '/evidence/cli/Relocated VSF Preview'
 fi
-export VSF_GUI_BIN="$installed/bin/visualsubforge.real"
 "${run[@]}" xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /tests/linux-gui.sh
 if [[ $format == tar ]]; then
     "${run[@]}" "$installed/uninstall.sh"

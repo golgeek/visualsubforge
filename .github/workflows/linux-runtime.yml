@@ -271,6 +271,7 @@ jobs:
       - name: Install the same deb and exercise GTK under Weston
         env:
           GDK_BACKEND: ${{ matrix.backend }}
+          VSF_GUI_BIN: /usr/bin/visualsubforge
           VSF_FIXTURES: ${{ runner.temp }}/fixtures
           VSF_EVIDENCE: ${{ runner.temp }}/evidence
           VSF_NULL_SINK: ready-default
