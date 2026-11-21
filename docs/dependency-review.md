@@ -152,10 +152,10 @@ and Windows FFmpeg builds exclude libzvbi and external GPL encoders.
 | bzip2 | bzip2 licence | Hidden PIC archive from matching Ubuntu source. Fedora and Ubuntu use different SONAMEs. |
 | libplacebo | LGPL-2.1-or-later | Pinned source including submodules |
 | libdovi | MIT | 3.4.0 source and locked Rust crates |
-| libass | ISC | Distribution library and matching source |
-| libunibreak | zlib | Distribution library and matching source |
-| shaderc | Apache-2.0 | Distribution library, glslang and SPIRV-Tools build inputs |
-| SPIRV-Cross | Apache-2.0 | Distribution shared C library and matching source |
+| libass | ISC | Compiled from the retained Ubuntu source |
+| libunibreak | zlib | Compiled from the retained Ubuntu source |
+| shaderc | Apache-2.0 | Compiled with retained glslang, SPIRV-Tools and SPIRV-Headers sources |
+| SPIRV-Cross | Apache-2.0 | Shared C library compiled from retained Ubuntu source |
 
 Ubuntu FFmpeg 6.1.1 includes the 7 ms Matroska Opus pre-skip in the container
 origin. FFmpeg 8.1.2 reports zero, moving the test cut from 2.007 to 2.000 s

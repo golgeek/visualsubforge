@@ -165,3 +165,13 @@ app build, so packaging and failure-evidence steps use the selected SDKs and
 Cargo target directory. `scripts/native-build-paths.py github <manifest>` exports
 only the validated per-library paths/keys and Cargo path to GitHub Actions; it does
 not build or select dependencies.
+
+
+### Portable Linux packages
+
+The Linux package workflow builds natively on separate amd64 and arm64 runners
+inside their pinned Ubuntu 22.04 containers. Enable Jammy source indexes for
+the matching system packages and the Noble source-only index for the private
+shader and text libraries. The build installs binary development packages from
+Jammy. Run `make build` in this environment with the pinned Node, Rust and
+Python tools. The tarball and thin Debian package contain the same payload.

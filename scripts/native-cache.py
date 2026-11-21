@@ -113,6 +113,8 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
                                 'scripts/build-ffmpeg.sh', *COMMON_FILES], toolchain,
                                 {'packages': packages(['libva', 'libva-drm', 'libva-x11', 'x11', 'xext', 'xv', 'zlib', 'liblzma']),
                                  'bzip2': probe('dpkg-query', '-W', '-f=${source:Version}', 'libbz2-dev')})
+        private['shaders'] = add('shaders', ['build/linux-shaders.mk', 'scripts/build-linux-shader-stack.sh', 'scripts/native-stage.sh'],
+                                 toolchain, packages(['freetype2', 'fribidi', 'fontconfig', 'harfbuzz']))
         private['dovi'] = add('dovi', ['build/ffmpeg.mk', 'scripts/build-linux-dovi.sh',
                               'scripts/native-stage.sh'], toolchain,
                               {'rust': probe('rustc', '-vV'), 'cargo': probe('cargo', '-V')})

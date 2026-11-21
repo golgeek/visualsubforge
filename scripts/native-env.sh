@@ -43,9 +43,12 @@ case "$(uname -s)" in
         platform=linux
         # shellcheck source=/dev/null
         . /etc/os-release
-        [[ "$ID:$VERSION_ID:$(uname -m)" == ubuntu:24.04:x86_64 ]] || fail 'The native Linux package currently requires Ubuntu 24.04 amd64'
+        case "$ID:$VERSION_ID:$(uname -m)" in
+            ubuntu:22.04:x86_64|ubuntu:22.04:aarch64) ;;
+            *) fail 'Build the portable Linux package natively in Ubuntu 22.04';;
+        esac
         for tool in patchelf nasm; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
-        pkg-config --exists gtk+-3.0 epoxy libva libass || fail 'Missing native development packages'
+        pkg-config --exists gtk+-3.0 epoxy libva || fail 'Missing native development packages'
         ;;
     MINGW*|MSYS*)
         platform=windows

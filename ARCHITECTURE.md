@@ -15,8 +15,9 @@ The three platform package workflows own assembly, source capture and native
 checks. The release workflow calls them for one commit, verifies their checksum
 manifests and stages the public downloads. The Mac package workflow owns signing
 on main. Windows version resources identify the GUI, CLI/plugin runner and
-installer as VSF. FFmpeg and ffprobe retain their upstream identity. Linux builds dav1d, FFmpeg, libdovi,
-libplacebo and mpv into private SDKs. The package assembler classifies each
+installer as VSF. FFmpeg and ffprobe retain their upstream identity. Linux natively builds its private media SDKs on Ubuntu 22.04 for each architecture.
+One payload supplies both the portable archive and the Debian package. The launcher
+checks WebKitGTK, GTK and the linked VA-API loaders before starting the GUI. The package assembler classifies each
 direct ELF dependency against the system SONAME allowlist and copies private
 media libraries with per-file origin-relative runpaths. GTK, WebKitGTK and
 driver libraries retain their distribution-managed dependencies. The loader

@@ -64,13 +64,13 @@ def main():
         if trace:
             from linux_library_bindings import audit
             with (Path(trace.name) / f'loader.{process.pid}').open(errors='replace') as lines:
-                audit(lines, mapped, executable.parent / 'lib', args.output / 'library-bindings.json')
+                audit(lines, mapped, executable.parent.parent / 'lib', args.output / 'library-bindings.json')
         if process.returncode != 0 or 'VSF GPU SMOKE: PASS' not in log or 'VSF GPU SMOKE: FAIL' in log:
             raise ValueError(f'Packaged native smoke failed (exit {process.returncode}); inspect stderr.log')
         if hashlib.sha256(fixture.read_bytes()).hexdigest() != evidence['fixture_sha256']:
             raise ValueError('Native smoke changed its input fixture')
         if sys.platform.startswith('linux'):
-            private = executable.parent / 'lib'
+            private = executable.parent.parent / 'lib'
             mpv = [Path(path) for path in mapped if Path(path).name.startswith('libmpv.so')]
             if len(mpv) != 1 or not mpv[0].is_relative_to(private):
                 raise ValueError(f'GUI did not load exactly the packaged mpv: {mpv}')

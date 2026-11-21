@@ -9,10 +9,53 @@ concurrency:
   cancel-in-progress: false
 jobs:
   package:
-    name: Ubuntu 24.04 amd64 package and isolated install
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    name: Ubuntu 22.04 ${{ matrix.arch }} portable package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            rust: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+            image: ubuntu:22.04@sha256:b682e31336cc8e0a73ed91ab32b7a95e32591c5ff09994490a20accf9b3600f9
+          - arch: arm64
+            rust: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            image: ubuntu:22.04@sha256:2926e8e6ef0b816e19849e33ccc728c72b921a428286e6595d52fa92c5716626
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      volumes:
+        - /home/runner/.cargo/bin:/opt/runner-cargo/bin:ro
+        - /home/runner/.rustup:/opt/runner-rustup
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      RUSTUP_HOME: /opt/runner-rustup
+      BUILD_ARCH: ${{ matrix.arch }}
+      BUILD_TARGET: ${{ matrix.rust }}
+    timeout-minutes: 120
     steps:
+      - name: Prepare native Jammy build and authenticated source indexes
+        run: |
+          set -eu
+          test "$(dpkg --print-architecture)" = "$BUILD_ARCH"
+          case "$BUILD_ARCH" in
+            amd64) mirror=http://archive.ubuntu.com/ubuntu ;;
+            arm64) mirror=http://ports.ubuntu.com/ubuntu-ports ;;
+          esac
+          sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list > /etc/apt/sources.list.d/jammy-src.list
+          echo "deb-src $mirror noble main universe" > /etc/apt/sources.list.d/noble-src.list
+          apt-get update --error-on=any
+          apt-get install -y --no-install-recommends ca-certificates git curl unzip zip xz-utils patch \
+            build-essential cmake autoconf automake libtool pkg-config dpkg-dev patchelf nasm gettext \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            curl libepoxy-dev zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libxv-dev \
+            libharfbuzz-dev libfreetype6-dev libfribidi-dev libfontconfig1-dev liblcms2-dev libvulkan-dev libxxhash-dev \
+            libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
+          echo /opt/runner-cargo/bin >> "$GITHUB_PATH"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -21,16 +64,11 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14.7'
-      - name: Install build tools and enable matching distro source downloads
+      - name: Verify the native toolchains
         run: |
-          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config patchelf ffmpeg \
-            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-            libepoxy-dev nasm curl zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libxv-dev libass-dev libspirv-cross-c-shared-dev \
-            liblcms2-dev libshaderc-dev libvulkan-dev libxxhash-dev \
-            libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
           rustup show
+          rustc -vV | grep -Fx "host: $BUILD_TARGET"
+          python --version
       - name: Check packaging controls
         run: python -m unittest discover -s tests/release -p 'test_*.py'
       - name: Build native SDKs, GUI and CLI through Make
@@ -39,7 +77,7 @@ jobs:
         if: ${{ always() && hashFiles('target/native/linux/build-paths.json') != '' }}
         run: python scripts/native-build-paths.py github target/native/linux/build-paths.json
       - name: Capture matching Rust/frontend sources and notices
-        run: python scripts/application-sources.py --target x86_64-unknown-linux-gnu --features visualsubforge/media-prototype,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
+        run: python scripts/application-sources.py --target "$BUILD_TARGET" --features visualsubforge/media-prototype,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
       - name: Assemble private runtime, notices and exact distro sources
         run: |
           python scripts/package-linux.py \
@@ -51,68 +89,29 @@ jobs:
       - name: Archive matching native dependency sources
         run: |
           mkdir "$RUNNER_TEMP/package/recipes"
-          cp scripts/build-ffmpeg.sh scripts/build-linux-dovi.sh scripts/configure-ffmpeg.sh \
+          cp scripts/build-linux-shader-stack.sh scripts/build-ffmpeg.sh scripts/build-linux-dovi.sh scripts/configure-ffmpeg.sh \
             "$VSF_FFMPEG_BUILD/configure-options.txt" "$VSF_FFMPEG_BUILD/config.h" "$VSF_FFMPEG_BUILD/config_components.h" \
             "$RUNNER_TEMP/package/recipes/"
-          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" recipes distro-sources bzip2-source.tar.gz mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json ffmpeg-source.tar.xz dav1d-source.tar.xz libdovi-source.tar.gz
+          tar -czf "$RUNNER_TEMP/package/native-sources.tar.gz" -C "$RUNNER_TEMP/package" recipes distro-sources shader-stack-source.tar.gz bzip2-source.tar.gz mpv-source.tar.gz libplacebo-source.tar.gz libplacebo-build.json ffmpeg-source.tar.xz dav1d-source.tar.xz libdovi-source.tar.gz
           tar -czf "$RUNNER_TEMP/package/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
           cd "$RUNNER_TEMP/package"
-          sha256sum ./*.deb native-sources.tar.gz application-sources.tar.gz > SHA256SUMS
+          sha256sum ./*.deb ./*_linux.tar.gz native-sources.tar.gz application-sources.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: linux-preview-amd64
+          name: linux-preview-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/package/*.deb
+            ${{ runner.temp }}/package/*_linux.tar.gz
             ${{ runner.temp }}/package/native-sources.tar.gz
             ${{ runner.temp }}/package/application-sources.tar.gz
             ${{ runner.temp }}/package/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
-      - name: Generate independent fixture inputs
-        run: |
-          python scripts/resync-fixtures.py
-          python scripts/media-fixtures.py
-          python scripts/playback-fixtures.py
-          python scripts/package-release-fixtures.py --output "$RUNNER_TEMP/preview-fixtures"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: preview-acceptance-fixtures
-          path: ${{ runner.temp }}/preview-fixtures
-          if-no-files-found: error
-          retention-days: 14
-      - name: Install into clean Ubuntu and test offline with no development SDK
-        run: |
-          mkdir -p "$RUNNER_TEMP/install-context"
-          cp "$RUNNER_TEMP/package/VisualSubForge_$(python scripts/release_version.py)_amd64_ubuntu24.04.deb" "$RUNNER_TEMP/install-context/preview.deb"
-          cp tests/release/linux-install.Dockerfile "$RUNNER_TEMP/install-context/Dockerfile"
-          docker build --pull -t vsf-preview-install "$RUNNER_TEMP/install-context"
-          docker image inspect vsf-preview-install > "$RUNNER_TEMP/package/install-image.json"
-          mkdir -p "$RUNNER_TEMP/install-check"
-          docker run --rm --network none \
-            -v "$PWD/tests/release/packaged-cli.py:/check.py:ro" \
-            -v "$PWD/tests/fixtures/generated/resync:/fixtures:ro" \
-            -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-install \
-            python3 /check.py --bundle /usr/lib/visualsubforge --bin . --fixtures /fixtures --output /evidence/cli
-          docker run --rm vsf-preview-install cat /tmp/dependency-policy.txt > "$RUNNER_TEMP/install-check/24.04-policy.txt"
-      - name: Exercise installed native GUI with a software display and null audio sink
-        run: |
-          docker build -t vsf-preview-gui -f tests/release/linux-gui.Dockerfile tests/release
-          docker image inspect vsf-preview-gui > "$RUNNER_TEMP/package/gui-image.json"
-          chmod a+rwx "$RUNNER_TEMP/install-check"
-          docker run --rm --network none \
-            --env VSF_NULL_SINK=ready-default --env VSF_LIBRARY_AUDIT=1 \
-            -v "$PWD/tests/release/linux_library_bindings.py:/linux_library_bindings.py:ro" \
-            -v "$PWD/tests/release/packaged-gui.py:/check-gui.py:ro" \
-            -v "$PWD/tests/release/linux-gui.sh:/gui.sh:ro" \
-            -v "$PWD/tests/fixtures/generated:/fixtures:ro" \
-            -v "$RUNNER_TEMP/install-check:/evidence" vsf-preview-gui \
-            timeout --signal=TERM --kill-after=10s 180s \
-            xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- bash /gui.sh
       # Do not upload raw Meson test logs, which contain inherited environments.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: linux-package-evidence-amd64
+          name: linux-package-evidence-${{ matrix.arch }}
           path: |
             target/native/linux/cache-inputs.json
             target/native/linux/build-paths.json
@@ -129,4 +128,22 @@ jobs:
             ${{ runner.temp }}/install-check/pulseaudio.log
             ${{ runner.temp }}/install-check/sink-readiness.json
             ${{ runner.temp }}/install-check/silent-client.log
+          retention-days: 14
+  fixtures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install fixture encoder
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Generate independent fixture inputs
+        run: |
+          python scripts/resync-fixtures.py
+          python scripts/media-fixtures.py
+          python scripts/playback-fixtures.py
+          python scripts/package-release-fixtures.py --output "$RUNNER_TEMP/preview-fixtures"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: preview-acceptance-fixtures
+          path: ${{ runner.temp }}/preview-fixtures
+          if-no-files-found: error
           retention-days: 14

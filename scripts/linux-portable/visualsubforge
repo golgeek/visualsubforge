@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+bin=$(dirname "$(readlink -f "$0")")
+if ! "$bin/check-runtime"; then
+    # shellcheck source=/dev/null
+    . /etc/os-release
+    case ${ID:-} in
+        debian|ubuntu)
+            gtk=libgtk-3-0
+            case "$ID:${VERSION_ID:-}" in ubuntu:24.*|ubuntu:26.*|debian:13) gtk=libgtk-3-0t64 ;; esac
+            command="sudo apt install libwebkit2gtk-4.1-0 $gtk libva2 libva-drm2 libva-x11-2" ;;
+        fedora) command='sudo dnf install webkit2gtk4.1 gtk3 libva' ;;
+        arch) command='sudo pacman -S webkit2gtk-4.1 gtk3 libva' ;;
+        *) command='Install WebKitGTK 4.1, GTK 3 and the VA-API core, DRM and X11 libraries.' ;;
+    esac
+    printf '%s\n' "$command" >&2
+    exit 1
+fi
+exec "$bin/visualsubforge.real" "$@"

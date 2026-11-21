@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 LIBRARIES = {'macos': ('ANGLE', 'PLACEBO', 'MPV'),
-             'linux': ('FFMPEG', 'DOVI', 'PLACEBO', 'MPV'), 'windows': ('FFMPEG', 'MPV', 'MPV_SDK')}
+             'linux': ('FFMPEG', 'DOVI', 'SHADERS', 'PLACEBO', 'MPV'), 'windows': ('FFMPEG', 'MPV', 'MPV_SDK')}
 PATH_FIELDS = {'CARGO_TARGET_DIR'} | {f'VSF_{name}_BUILD' for names in LIBRARIES.values() for name in names}
 KEY_FIELDS = {f'VSF_{name}_KEY' for names in LIBRARIES.values() for name in names}
 

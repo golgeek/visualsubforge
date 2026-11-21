@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble an Ubuntu 24.04 amd64 .deb with private media tools and libraries.
+"""Assemble matching Linux tarball and Debian packages from a single native tree.
 
 GTK/WebKit, libc and display/audio drivers stay with the OS. Their package
 dependencies are resolved by apt. Every shipped ELF directly links only the
@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tarfile
 from native_evidence import digest, verified_headers
 from ubuntu_native_sources import collect as collect_ubuntu_inputs
 
@@ -22,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # Direct DT_NEEDED boundary of shipped ELF files. System libraries manage
 # their own transitive dependencies (including the distribution's JPEG/XML).
 PLATFORM_LIBRARIES = frozenset("""
-ld-linux-x86-64.so.2 libc.so.6 libm.so.6 libdl.so.2 libpthread.so.0 librt.so.1
+ld-linux-x86-64.so.2 ld-linux-aarch64.so.1 libc.so.6 libm.so.6 libdl.so.2 libpthread.so.0 librt.so.1
 libstdc++.so.6 libgcc_s.so.1 libatomic.so.1 libwebkit2gtk-4.1.so.0
 libjavascriptcoregtk-4.1.so.0 libsoup-3.0.so.0 libgtk-3.so.0 libgdk-3.so.0
 libglib-2.0.so.0 libgobject-2.0.so.0 libgio-2.0.so.0 libgdk_pixbuf-2.0.so.0
@@ -79,15 +80,16 @@ def package_owner(path):
     raise ValueError(f"No installed package owns {path}")
 
 
-def platform_runtime(env):
+def platform_runtime(env, architecture):
     cache = capture("/usr/sbin/ldconfig", "-p")
     paths, packages = set(), {}
+    machine = {"amd64": "x86-64", "arm64": "AArch64"}[architecture]
     # Detect collisions with libraries that WebKit or drivers already require.
     for name in ("libwebkit2gtk-4.1.so.0", "libepoxy.so.0", "libpulse.so.0", "libasound.so.2"):
-        matches = re.findall(r"^\s*" + re.escape(name) + r" \(libc6,x86-64[^)]*\) => (.+)$", cache, re.M)
+        matches = re.findall(r"^\s*" + re.escape(name) + rf" \(libc6,{machine}[^)]*\) => (.+)$", cache, re.M)
         resolved = {Path(path).resolve(strict=True) for path in matches}
         if len(resolved) != 1:
-            raise ValueError(f"Expected one amd64 platform library: {name}: {resolved}")
+            raise ValueError(f"Expected one {architecture} platform library: {name}: {resolved}")
         library = resolved.pop()
         paths.add(library)
         paths.update(dependencies(library, env).values())
@@ -111,8 +113,11 @@ def collect_distro_sources(packages, destination, notices):
 
 
 def assemble(args):
-    if capture("dpkg", "--print-architecture") != "amd64":
-        raise ValueError("The Linux package targets Ubuntu 24.04 amd64")
+    arch = capture("dpkg", "--print-architecture")
+    supported = {"amd64": ("x86_64", "Advanced Micro Devices X86-64"), "arm64": ("aarch64", "AArch64")}
+    if arch not in supported:
+        raise ValueError(f"Unsupported Linux architecture: {arch}")
+    portable_arch, elf_machine = supported[arch]
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=False)
     tree = root / "root"
@@ -120,7 +125,8 @@ def assemble(args):
     private.mkdir(parents=True)
     libraries = private / "lib"
     libraries.mkdir()
-    doc = tree / "usr/share/doc/visualsubforge"
+    (private / "bin").mkdir()
+    doc = private / "share/doc/visualsubforge"
     notices = doc / "third-party"
     notices.mkdir(parents=True)
     application_inventory = None
@@ -131,9 +137,9 @@ def assemble(args):
         shutil.copy2(application / "application-inventory.json", doc / "application-inventory.json")
     env = {key: value for key, value in os.environ.items() if not key.startswith(("LD_", "DYLD_"))}
     env["LC_ALL"] = "C"
-    platform, platform_packages = platform_runtime(env)
+    platform, platform_packages = platform_runtime(env, arch)
     build_env = {**env, "LD_LIBRARY_PATH": ":".join(str(p.resolve(strict=True)) for p in args.library_dir)}
-    roots = {getattr(args, name).resolve(strict=True): Path(name)
+    roots = {getattr(args, name).resolve(strict=True): Path("bin") / ("visualsubforge.real" if name == "visualsubforge" else name)
              for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe")}
     destinations = dict(roots)
     custom_dirs = [path.resolve(strict=True) for path in args.library_dir]
@@ -149,8 +155,8 @@ def assemble(args):
     queue = list(destinations)
     while queue:
         original = queue.pop()
-        if "Advanced Micro Devices X86-64" not in capture("readelf", "-h", original, env=env):
-            raise ValueError(f"Not an amd64 ELF binary: {original}")
+        if elf_machine not in capture("readelf", "-h", original, env=env):
+            raise ValueError(f"Unexpected ELF machine for {arch}: {original}")
         resolved = dependencies(original, build_env)
         for name in capture("patchelf", "--print-needed", original).splitlines():
             dependency = resolved[name]
@@ -195,7 +201,7 @@ def assemble(args):
         copied = private / relative
         shutil.copy2(original, copied)
         copied.chmod(0o755)
-        subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/lib" if relative.parent == Path(".") else "$ORIGIN", str(copied)], check=True)
+        subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/../lib" if relative.parent == Path("bin") else "$ORIGIN", str(copied)], check=True)
         record = {"path": str(relative), "source": str(original), "source_sha256": digest(original), "sha256": digest(copied),
                   "needed": capture("patchelf", "--print-needed", copied).splitlines()}
         if original not in roots and not any(original.is_relative_to(path) for path in custom_dirs):
@@ -248,42 +254,58 @@ def assemble(args):
                 copied.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, copied)
     shutil.copy2(ROOT / "LICENSE", doc / "copyright")
-    for name in ("visualsubforge", "vsf"):
-        wrapper = tree / "usr/bin" / name
-        wrapper.parent.mkdir(parents=True, exist_ok=True)
-        wrapper.write_text(f'#!/bin/sh\nexec /usr/lib/visualsubforge/{name} "$@"\n')
-        wrapper.chmod(0o755)
-    desktop = tree / "usr/share/applications/visualsubforge.desktop"
+    portable_scripts = ROOT / "scripts/linux-portable"
+    for name in ("install.sh", "uninstall.sh"):
+        shutil.copy2(portable_scripts / name, private / name)
+    shutil.copy2(portable_scripts / "visualsubforge", private / "bin/visualsubforge")
+    subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", str(portable_scripts / "check-runtime.c"),
+                    "-ldl", "-o", str(private / "bin/check-runtime")], check=True)
+    desktop = private / "share/applications/visualsubforge.desktop"
     desktop.parent.mkdir(parents=True)
     desktop.write_text("[Desktop Entry]\nType=Application\nName=VisualSubForge\nExec=visualsubforge\nIcon=visualsubforge\nCategories=AudioVideo;Video;\nTerminal=false\n")
-    icon = tree / "usr/share/icons/hicolor/512x512/apps/visualsubforge.png"
+    icon = private / "share/icons/hicolor/512x512/apps/visualsubforge.png"
     icon.parent.mkdir(parents=True)
     shutil.copy2(ROOT / "src-tauri/icons/icon.png", icon)
-    depends = [f"{name} (>= {version})" for name, version in sorted(platform_packages.items())]
-    depends += ["xdg-desktop-portal", "xdg-desktop-portal-gtk", "fonts-dejavu-core"]
+    for relative in [Path("bin/visualsubforge"), Path("bin/vsf"), desktop.relative_to(private), icon.relative_to(private)]:
+        link = tree / "usr" / relative
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(os.path.relpath(private / relative, link.parent))
+    package_names = {name.split(":")[0] for name in platform_packages}
+    alternatives = {
+        "libasound2": "libasound2t64 | libasound2", "libgtk-3-0": "libgtk-3-0t64 | libgtk-3-0",
+        "libglib2.0-0": "libglib2.0-0t64 | libglib2.0-0", "libc6": "libc6 (>= 2.35)",
+    }
+    depends = sorted({alternatives.get(name.removesuffix("t64"), name) for name in package_names})
     control = tree / "DEBIAN/control"
     control.parent.mkdir()
     debian_version = release_version().replace("-", "~", 1)
-    control.write_text(f"Package: visualsubforge\nVersion: {debian_version}\nArchitecture: amd64\n"
+    control.write_text(f"Package: visualsubforge\nVersion: {debian_version}\nArchitecture: {arch}\n"
                        "Maintainer: VisualSubForge contributors <noreply@github.com>\n"
                        "Section: video\nPriority: optional\n" + "Depends: " + ", ".join(depends) + "\n"
-                       "Description: VisualSubForge subtitle editor and resync CLI (test release)\n This test release supports Ubuntu 24.04 amd64.\n")
-    receipt = {"schema": 1, "version": release_version(), "architecture": "amd64", "os": "Ubuntu 24.04",
+                       "Description: VisualSubForge subtitle editor and resync CLI (test release)\n Native subtitle editor with private media tools.\n")
+    receipt = {"schema": 1, "version": release_version(), "architecture": arch, "os": "Linux",
                "commit": capture("git", "-C", ROOT, "rev-parse", "HEAD"),
                "files": records, "header_inputs": header_inputs, "system_libraries": system_links,
                "platform_dependencies": depends, "native_sources": source_records,
                "application_inventory_sha256": application_inventory,
                "ubuntu_build_inputs_sha256": digest(embedded_sources / "inventory.json"),
-               "redistribution": source_inventory_reference(release_version(), "linux-amd64"),
+               "redistribution": source_inventory_reference(release_version(), "linux-" + arch),
                "validation": "Assembly verified ELF dependencies and recorded file checksums."}
     (doc / "native-runtime.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    artifact = root / f"VisualSubForge_{release_version()}_amd64_ubuntu24.04.deb"
+    manifest = private / "FILES.sha256"
+    contents = sorted(p for p in private.rglob("*") if p.is_file())
+    manifest.write_text("".join(f"{digest(p)}  {p.relative_to(private)}\n" for p in contents))
+    tarball = root / f"VisualSubForge_{release_version()}_{portable_arch}_linux.tar.gz"
+    with tarfile.open(tarball, "w:gz", dereference=False) as archive:
+        archive.add(private, arcname=tarball.name.removesuffix(".tar.gz"))
+    receipt["tarball"] = {"file": tarball.name, "sha256": digest(tarball)}
+    artifact = root / f"VisualSubForge_{release_version()}_{arch}.deb"
     subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(tree), str(artifact)], check=True)
     receipt["artifact"] = {"file": artifact.name, "sha256": digest(artifact)}
     (root / "assembly-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     source_files = [path for path in (root / "distro-sources").rglob("*") if path.is_file()]
     source_files += list(root.glob("*-source.tar.*"))
-    (root / "SHA256SUMS").write_text("".join(f"{digest(path)}  {path.relative_to(root)}\n" for path in [artifact, *sorted(source_files)]))
+    (root / "SHA256SUMS").write_text("".join(f"{digest(path)}  {path.relative_to(root)}\n" for path in [artifact, tarball, *sorted(source_files)]))
 
 
 def use_build_paths(args):
@@ -292,12 +314,14 @@ def use_build_paths(args):
     placebo = Path(paths["VSF_PLACEBO_BUILD"])
     ffmpeg = Path(paths["VSF_FFMPEG_BUILD"])
     dovi = Path(paths["VSF_DOVI_BUILD"])
+    shaders = Path(paths["VSF_SHADERS_BUILD"])
     args.ffmpeg = ffmpeg / "sdk/bin/ffmpeg"
     args.ffprobe = ffmpeg / "sdk/bin/ffprobe"
-    args.library_dir = [mpv / "build", *(p / "sdk/lib" for p in (placebo, ffmpeg, dovi))]
-    args.spirv_cross = Path(capture("pkg-config", "--variable=libdir", "spirv-cross-c-shared")) / "libspirv-cross-c-shared.so"
+    args.library_dir = [mpv / "build", *(p / "sdk/lib" for p in (placebo, ffmpeg, dovi, shaders))]
+    args.spirv_cross = (shaders / "sdk/lib") / "libspirv-cross-c-shared.so"
     args.placebo_build = placebo
     components = [
+        ("shader-stack", shaders / "shader-stack-source.tar.gz", shaders / "source"),
         ("mpv", mpv / "source.tar.gz", mpv / "prepared/source"),
         ("libplacebo", placebo / "source.tar.gz", placebo / "source"),
         ("libdovi", dovi / "source.tar.gz", dovi / "source/dolby_vision"),
