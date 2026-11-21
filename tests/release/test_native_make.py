@@ -136,7 +136,7 @@ class NativeMakeTests(unittest.TestCase):
                 with self.subTest(platform=platform, profile=profile):
                     env = {**os.environ, 'PATH': str(self.root) + os.pathsep + os.environ['PATH'],
                            **{f'VSF_{lib}_BUILD': f'target/native/test-no-sdk/{lib}'
-                              for lib in ('ANGLE', 'PLACEBO', 'MPV', 'FFMPEG', 'MPV_SDK')},
+                              for lib in ('ANGLE', 'PLACEBO', 'MPV', 'FFMPEG', 'DOVI', 'MPV_SDK')},
                            'VSF_NATIVE_PLATFORM': platform, 'VSF_NATIVE_PROFILE': profile,
                            'VSF_NATIVE_PYTHON': 'python3', 'VSF_NATIVE_JOBS': '2',
                            'CARGO_TARGET_DIR': 'target/native/test-target'}

@@ -6,6 +6,7 @@ ANGLE := $(VSF_ANGLE_BUILD)
 PLACEBO := $(VSF_PLACEBO_BUILD)
 MPV := $(VSF_MPV_BUILD)
 FFMPEG := $(VSF_FFMPEG_BUILD)
+DOVI := $(VSF_DOVI_BUILD)
 MPV_SDK := $(VSF_MPV_SDK_BUILD)
 UPSTREAM := $(VSF_MPV_BUILD)-upstream
 PLATFORM := $(VSF_NATIVE_PLATFORM)
@@ -30,8 +31,8 @@ export VSF_ANGLE_SDK := $(abspath $(ANGLE)/sdk)
 export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
 NATIVE := $(ANGLE)/.complete $(MPV)/.complete
 else ifeq ($(PLATFORM),linux)
-export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
-export LD_LIBRARY_PATH := $(abspath $(MPV)/build):$(abspath $(PLACEBO)/sdk/lib)
+export PKG_CONFIG_PATH := $(abspath $(MPV)/build/meson-uninstalled):$(abspath $(PLACEBO)/sdk/lib/pkgconfig):$(abspath $(FFMPEG)/sdk/lib/pkgconfig):$(abspath $(DOVI)/sdk/lib/pkgconfig):$(PKG_CONFIG_PATH)
+export LD_LIBRARY_PATH := $(abspath $(MPV)/build):$(abspath $(PLACEBO)/sdk/lib):$(abspath $(FFMPEG)/sdk/lib):$(abspath $(DOVI)/sdk/lib)
 NATIVE := $(MPV)/.complete
 else ifeq ($(PLATFORM),windows)
 export VSF_MPV_SDK := $(shell cygpath -m '$(abspath $(MPV_SDK))')
@@ -54,7 +55,7 @@ include build/mpv.mk
 ifeq ($(PLATFORM),macos)
 include build/angle.mk build/placebo.mk
 else ifeq ($(PLATFORM),linux)
-include build/placebo.mk
+include build/ffmpeg.mk build/placebo.mk
 else
 include build/ffmpeg.mk build/mpv-sdk.mk
 endif
@@ -84,7 +85,7 @@ package: app
 	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-macos.py --app "$(TARGET)/bundle/macos/VisualSubForge.app" --vsf "$(TARGET)/vsf" --ffmpeg "$$(command -v ffmpeg)" --ffprobe "$$(command -v ffprobe)" --library-dir "$(MPV)/build" --library-dir "$(ANGLE)/sdk/out/Metal" --library-dir "$(PLACEBO)/sdk/lib" --output '{output}/VisualSubForge.app'
 else ifeq ($(PLATFORM),linux)
 package: app
-	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-linux.py --visualsubforge "$(TARGET)/visualsubforge" --vsf "$(TARGET)/vsf" --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe --library-dir "$(MPV)/build" --library-dir "$(PLACEBO)/sdk/lib" --native-source "mpv=$(MPV)/source.tar.gz" --native-source "libplacebo=$(PLACEBO)/source.tar.gz" --native-notices "mpv=$(MPV)/prepared/source" --native-notices "libplacebo=$(PLACEBO)/source" --placebo-build "$(PLACEBO)" --output '{output}'
+	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-linux.py --visualsubforge "$(TARGET)/visualsubforge" --vsf "$(TARGET)/vsf" --build-paths "target/native/linux/build-paths.json" --output '{output}'
 else
 package: app
 	$(PUBLISH) "$(OUT)/package" $(PYTHON) scripts/package-windows.py --visualsubforge "$(TARGET)/visualsubforge.exe" --vsf "$(TARGET)/vsf.exe" --ffmpeg "$(FFMPEG)/sdk/bin/ffmpeg.exe" --ffprobe "$(FFMPEG)/sdk/bin/ffprobe.exe" --library-dir "$(MPV)/build" --library-dir "$(FFMPEG)/sdk/bin" --library-dir "$$(cygpath -m /clang64/bin)" --output '{output}'

@@ -69,17 +69,22 @@ Enable `deb-src` alongside `deb` in `/etc/apt/sources.list.d/ubuntu.sources`
 sudo apt-get update
 sudo apt-get install -y build-essential git python3-venv pkg-config patchelf ffmpeg \
   libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-  libepoxy-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev \
-  libswresample-dev libswscale-dev libass-dev liblua5.2-dev liblcms2-dev libshaderc-dev \
-  libvulkan-dev libxxhash-dev libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
+  libepoxy-dev nasm curl zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libxv-dev libass-dev libspirv-cross-c-shared-dev \
+  liblcms2-dev libshaderc-dev libvulkan-dev libxxhash-dev libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
 nvm install && nvm use
 make build
 make install
 ```
 
-The assembler downloads matching distribution source packages and bundles media
-libraries privately. GTK/WebKit and display/audio drivers remain OS dependencies.
-Run the installed app from a graphical desktop with a working desktop portal.
+Make builds checksum-pinned FFmpeg 8.1.2 and dav1d 1.5.5 before libplacebo
+and mpv. It builds libdovi 3.4.0 with its locked Rust dependencies and cargo-c.
+The SDK compiles a private bzip2 archive from the matching Ubuntu source
+package for use by FFmpeg. The distribution FFmpeg command generates independent test inputs. The
+packager takes both shipped tools from the private SDK and downloads matching
+source packages for redistributed distribution libraries. GTK/WebKit and display/audio drivers remain OS dependencies.
+The receipt lists each ELF's required libraries. Its libva loaders are startup
+dependencies even when libmpv falls back to software decoding. Run the
+installed app from a graphical desktop with a working desktop portal.
 
 ## Windows x64 setup
 

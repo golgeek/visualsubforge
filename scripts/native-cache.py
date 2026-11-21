@@ -107,12 +107,21 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
     if system == 'macos':
         add('angle', ['build/angle.mk', 'scripts/build-angle-macos.py', 'scripts/gclient_sources.py',
                       'tests/native/angle/manifest.json', 'scripts/native-stage.sh', *SUPPORT], host)
+    private = {}
+    if system == 'linux':
+        private['ffmpeg'] = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh',
+                                'scripts/build-ffmpeg.sh', *COMMON_FILES], toolchain,
+                                {'packages': packages(['libva', 'libva-drm', 'libva-x11', 'x11', 'xext', 'xv', 'zlib', 'liblzma']),
+                                 'bzip2': probe('dpkg-query', '-W', '-f=${source:Version}', 'libbz2-dev')})
+        private['dovi'] = add('dovi', ['build/ffmpeg.mk', 'scripts/build-linux-dovi.sh',
+                              'scripts/native-stage.sh'], toolchain,
+                              {'rust': probe('rustc', '-vV'), 'cargo': probe('cargo', '-V')})
     if system != 'windows':
         placebo_names = PLACEBO_COMMON + (['vulkan'] if system == 'linux' else [])
         dependency_key = add('placebo', ['build/placebo.mk', 'scripts/build-placebo.py', *COMMON_FILES, *SUPPORT],
-                             toolchain, packages(placebo_names))
+                             toolchain, {**packages(placebo_names), **private})
     else:
-        dependency_key = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/build-ffmpeg-windows.sh',
+        dependency_key = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh', 'scripts/build-ffmpeg-windows.sh',
                                         'scripts/native-stage.sh', 'tests/native/ffmpeg-windows'], toolchain,
                              {'msys2': probe('pacman', '-Q', *FFMPEG_PACKAGES)})
     mpv_names = MPV_COMMON + (['libplacebo', 'libva-win32'] if system == 'windows' else AV + MPV_UNIX)

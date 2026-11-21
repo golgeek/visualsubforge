@@ -58,6 +58,7 @@ def main():
     shutil.copy2(ffmpeg / 'ffmpeg-8.1.2.tar.xz', custom)
     shutil.copytree(ROOT / 'tests/native/ffmpeg-windows', custom / 'ffmpeg-patches')
     shutil.copy2(ROOT / 'scripts/build-ffmpeg-windows.sh', custom)
+    shutil.copy2(ROOT / 'scripts/configure-ffmpeg.sh', custom)
     for name in ['configure-options.txt', 'build-packages.txt', 'config.h', 'config_components.h',
                  'ffmpeg-version.txt', 'decoders.txt', 'filters.txt']:
         shutil.copy2(ffmpeg / name, custom)

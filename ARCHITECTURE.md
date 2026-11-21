@@ -15,9 +15,12 @@ The three platform package workflows own assembly, source capture and native
 checks. The release workflow calls them for one commit, verifies their checksum
 manifests and stages the public downloads. The Mac package workflow owns signing
 on main. Windows version resources identify the GUI, CLI/plugin runner and
-installer as VSF. FFmpeg and ffprobe retain their upstream identity. Ubuntu supplies GTK, WebKit, XML, ICU and the driver stack. For every
-direct link from a shipped ELF file into this platform closure, the assembler
-declares the owning Ubuntu package and its minimum version in Debian Depends.
+installer as VSF. FFmpeg and ffprobe retain their upstream identity. Linux builds dav1d, FFmpeg, libdovi,
+libplacebo and mpv into private SDKs. The package assembler classifies each
+direct ELF dependency against the system SONAME allowlist and copies private
+media libraries with per-file origin-relative runpaths. GTK, WebKitGTK and
+driver libraries retain their distribution-managed dependencies. The loader
+audit observes bindings and mapped files in the running GUI process.
 
 The GTK timer services libmpv render updates on the GTK main thread. It tracks a
 pending frame until GTK paints it or the surface becomes unmapped, at which point

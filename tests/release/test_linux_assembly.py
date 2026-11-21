@@ -61,6 +61,16 @@ class LinuxAssembly(unittest.TestCase):
             def no_sources(packages, destination, notices):
                 self.assertEqual(packages, {})
                 destination.mkdir()
+            # Even a resolved dependency must have a reviewed provider. Exercise
+            # both failure paths with the same real SDK library and RUNPATH.
+            for name, system, search, error in (
+                ("unreviewed", platform, [], "Unreviewed system library"),
+                ("overlap", platform | {root / "system/libanswer.so.2"}, [sdk], "overlaps system runtime"),
+            ):
+                with self.subTest(name=name), patch.object(PACKAGER, "platform_runtime", return_value=(system, {})):
+                    trial = argparse.Namespace(**{**vars(args), "library_dir": search, "output": root / name})
+                    with self.assertRaisesRegex(ValueError, error):
+                        PACKAGER.assemble(trial)
             with patch.object(PACKAGER, "platform_runtime", return_value=(platform, {})), \
                     patch.object(PACKAGER, "collect_distro_sources", side_effect=no_sources):
                 PACKAGER.assemble(args)
