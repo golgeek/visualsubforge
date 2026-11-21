@@ -68,7 +68,17 @@ def main():
         'SubtitlesFile=subtitles\\fansub.srt\nFocusedTimeMs=1250\n'
         'WAVDisplayerPositionStartMs=0\nWAVDisplayerPositionStopMs=12000\n'
         'Dictionary=French\n', encoding='utf-8')
-    shutil.copy2(ROOT / 'docs/preview-acceptance.md', output / 'README.md')
+    # A portable subtitle-only project can be opened after ZIP extraction,
+    # which changes modification times used to identify saved media.
+    (output / 'sample.vsfproject').write_text(json.dumps({
+        'version': 2, 'subtitlePath': 'playback.srt', 'subtitleFormat': 'srt',
+        'positionSeconds': 0, 'options': {
+            'waveformStart': 0, 'waveformSpan': 12, 'followPlayback': True,
+            'followSubtitle': False, 'showScenes': True,
+        },
+    }, indent=2) + '\n', encoding='utf-8')
+    shutil.copy2(ROOT / 'docs/testing-v0.1.md', output / 'README.md')
+    shutil.copy2(ROOT / 'docs/preview-acceptance.md', output / 'preview-acceptance.md')
     shutil.copy2(ROOT / 'LICENSE', output / 'LICENSE')
     recipes = output / 'recipes'
     recipes.mkdir()

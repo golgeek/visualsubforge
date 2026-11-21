@@ -125,6 +125,9 @@ source bytes and omits 253,173,405 bytes of binary-package copies. The release
 collector splits oversized source archives into numbered parts.
 The macOS collector uses per-formula sources and the Linux collector uses Debian
 source packages and audited build inputs. Neither uses this MSYS2 toolchain graph.
+The [v0.1.0 rehearsal evidence](https://github.com/golgeek/visualsubforge/pull/38)
+records the candidate commit, workflow runs and independently verified download checksums.
+
 The [v0.1.0 source revision](https://github.com/golgeek/visualsubforge/commit/v0.1.0)
 and [published SHA256SUMS](https://github.com/golgeek/visualsubforge/releases/download/v0.1.0/SHA256SUMS)
 identify the matching release inventories after publication.
