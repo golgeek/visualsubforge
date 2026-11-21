@@ -60,8 +60,6 @@ def observe(bundle, fixture, diagnostics):
     observed['waveform'] = [json.loads(run([diagnostics / 'media-analysis', fixture, track], env))
                             for track in ('0', '1')]
     observed['cuts'] = json.loads(run([diagnostics / 'examples/scene-scan', fixture], env))['cuts']
-    if observed['cuts'] != [2.0]:
-        raise ValueError(f"Expected a single 2.000-second cut: {observed['cuts']}")
     return observed
 
 
@@ -116,10 +114,16 @@ def main():
             observed = observe(bundle, fixture, args.diagnostics.resolve())
             observed['subtitles'] = subtitles(bundle, args.fixtures, work, out)
             results[label] = observed
-        report = {'fixture_sha256': digest(fixture.read_bytes()), 'observations': results,
+        timestamps = {label: json.loads(run([bundle / 'ffprobe', '-v', 'error', '-show_entries',
+                      'format=start_time,duration:stream=index,codec_name,start_time,time_base',
+                      '-of', 'json', fixture])) for label, bundle in [('before', args.before), ('after', args.after)]}
+        report = {'fixture_sha256': digest(fixture.read_bytes()), 'observations': results, 'timestamps': timestamps,
                   'ffmpeg_versions': [run([folder / 'ffmpeg', '-version']).decode().splitlines()[0]
                                       for folder in (args.before, args.after)]}
         (args.output / f'{codec}.json').write_text(json.dumps(report, indent=2) + '\n')
+        for label, result in results.items():
+            if result['cuts'] != [2.0]:
+                differences.append(f"{codec} {label} cut {result['cuts']} (expected [2.0])")
         if results['before'] != results['after']:
             differences.append(f'{codec} decoded bytes, analysis or SRTs')
     if differences:

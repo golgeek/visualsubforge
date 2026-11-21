@@ -49,6 +49,7 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/fixtures
       - name: Verify downloaded bytes and install the actual candidate
+        id: install
         env:
           PACKAGE_RUN: ${{ inputs.package_run }}
           NULL_SINK: ${{ inputs.null_sink }}
@@ -98,6 +99,7 @@ jobs:
             --before "$RUNNER_TEMP/before/usr/lib/visualsubforge" --after "$RUNNER_TEMP/after/usr/lib/visualsubforge" \
             --fixtures "$RUNNER_TEMP/fixtures" --diagnostics target/debug --output "$RUNNER_TEMP/evidence/parity"
       - name: Repeat unchanged playback assertions in ten fresh containers
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           NULL_SINK: ${{ inputs.null_sink }}
         run: |
