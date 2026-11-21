@@ -138,6 +138,11 @@ def assemble(args):
     build_env = {**env, "LD_LIBRARY_PATH": ":".join(str(p.resolve(strict=True)) for p in args.library_dir)}
     roots = {getattr(args, name).resolve(strict=True): Path("bin") / ("visualsubforge.real" if name == "visualsubforge" else name)
              for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe")}
+    portable_scripts = ROOT / "scripts/linux-portable"
+    probe = root / "check-runtime"
+    subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", str(portable_scripts / "check-runtime.c"),
+                    "-ldl", "-o", str(probe)], check=True)
+    roots[probe] = Path("bin/check-runtime")
     destinations = dict(roots)
     custom_dirs = [path.resolve(strict=True) for path in args.library_dir]
     if getattr(args, "spirv_cross", None):
@@ -201,6 +206,11 @@ def assemble(args):
         subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/../lib" if relative.parent == Path("bin") else "$ORIGIN", str(copied)], check=True)
         record = {"path": str(relative), "source": str(original), "source_sha256": digest(original), "sha256": digest(copied),
                   "needed": capture("patchelf", "--print-needed", copied).splitlines()}
+        versions = sorted({tuple(map(int, v.split("."))) for v in
+                           re.findall(r"Name: GLIBC_([0-9.]+)", capture("readelf", "-V", copied))})
+        if versions and versions[-1] > (2, 35):
+            raise ValueError(f"ELF needs a glibc newer than 2.35: {relative}: {versions[-1]}")
+        record["glibc_versions"] = [".".join(map(str, v)) for v in versions]
         records.append(record)
     # Audit the copied graph with no build-time library overrides. RUNPATH is
     # attached to each library, since executable RUNPATH is not transitive.
@@ -244,12 +254,9 @@ def assemble(args):
                 copied.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, copied)
     shutil.copy2(ROOT / "LICENSE", doc / "copyright")
-    portable_scripts = ROOT / "scripts/linux-portable"
     for name in ("install.sh", "uninstall.sh"):
         shutil.copy2(portable_scripts / name, private / name)
     shutil.copy2(portable_scripts / "visualsubforge", private / "bin/visualsubforge")
-    subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", str(portable_scripts / "check-runtime.c"),
-                    "-ldl", "-o", str(private / "bin/check-runtime")], check=True)
     desktop = private / "share/applications/visualsubforge.desktop"
     desktop.parent.mkdir(parents=True)
     desktop.write_text("[Desktop Entry]\nType=Application\nName=VisualSubForge\nExec=visualsubforge\nIcon=visualsubforge\nCategories=AudioVideo;Video;\nTerminal=false\n")
