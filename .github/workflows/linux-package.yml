@@ -91,6 +91,23 @@ jobs:
             --build-paths target/native/linux/build-paths.json \
             --application-sources "$RUNNER_TEMP/application-sources" \
             --output "$RUNNER_TEMP/package"
+      - name: Compare contents and permissions from the two actual packages
+        run: |
+          mkdir -p "$RUNNER_TEMP/unpacked/"{tar,deb}
+          cd "$RUNNER_TEMP/package"
+          tar -xzf ./*_linux.tar.gz -C "$RUNNER_TEMP/unpacked/tar"
+          dpkg-deb -x ./*.deb "$RUNNER_TEMP/unpacked/deb"
+          tar_roots=("$RUNNER_TEMP/unpacked/tar/"*)
+          test "${#tar_roots[@]}" -eq 1
+          deb_root="$RUNNER_TEMP/unpacked/deb/usr/lib/visualsubforge"
+          diff --no-dereference -qr "${tar_roots[0]}" "$deb_root"
+          for kind in tar deb; do
+            if [[ "$kind" == tar ]]; then root=${tar_roots[0]}; else root=$deb_root; fi
+            (cd "$root" && sha256sum --strict --quiet -c FILES.sha256)
+            (cd "$root" && find . -printf '%P\t%y\t%m\t%l\n' | LC_ALL=C sort) > "$RUNNER_TEMP/unpacked/$kind.tsv"
+          done
+          cmp "$RUNNER_TEMP/unpacked/tar.tsv" "$RUNNER_TEMP/unpacked/deb.tsv"
+          cp "$RUNNER_TEMP/unpacked/deb.tsv" payload-files.tsv
       # Retain exact candidate bytes even if a later runtime assertion fails.
       - name: Archive matching native dependency sources
         run: |
@@ -138,6 +155,7 @@ jobs:
             target/native/linux/cache-inputs.json
             target/native/linux/build-paths.json
             ${{ env.BUILD_TEMP }}/package/assembly-receipt.json
+            ${{ env.BUILD_TEMP }}/package/payload-files.tsv
             ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
             ${{ env.VSF_PLACEBO_BUILD }}/commands.log
             ${{ env.VSF_MPV_BUILD }}/build-receipt.json
