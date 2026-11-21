@@ -27,7 +27,7 @@ linked feature contracts, test instructions and remaining gates.
 
 The [0.1.0 test release and downloads](https://github.com/golgeek/visualsubforge/releases/tag/v0.1.0)
 target Apple Silicon and Intel Macs on macOS 15+, Windows x64 and
-Ubuntu amd64. Check the release notes for tested Ubuntu versions and Windows
+Linux amd64 and arm64. Check the release notes for tested distributions and Windows
 installation prompts. Follow the [15-minute tester guide](docs/testing-v0.1.md)
 with the synthetic media pack, then [send a test report](https://github.com/golgeek/visualsubforge/issues/new?template=test-report.yml).
 

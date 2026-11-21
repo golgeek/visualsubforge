@@ -34,10 +34,13 @@ def collect(inputs, output, signed):
     output.mkdir(parents=True, exist_ok=False)
     windows = verified(inputs / 'windows-preview-x64')
     setup, = [path for name, path in windows.items() if name.endswith('-setup.exe')]
-    linux = verified(inputs / 'linux-preview-amd64')
-    assets = [setup, windows[f'VisualSubForge_{version}_x64_windows.zip'],
-              linux[f'VisualSubForge_{version}_amd64_ubuntu24.04.deb']]
-    inventories = {'windows-x64': windows, 'linux-amd64': linux}
+    assets = [setup, windows[f'VisualSubForge_{version}_x64_windows.zip']]
+    inventories = {'windows-x64': windows}
+    for deb_arch, arch in [('amd64', 'x86_64'), ('arm64', 'aarch64')]:
+        linux = verified(inputs / f'linux-preview-{deb_arch}')
+        inventories[f'linux-{deb_arch}'] = linux
+        assets.extend([linux[f'VisualSubForge_{version}_{deb_arch}.deb'],
+                       linux[f'VisualSubForge_{version}_{arch}_linux.tar.gz']])
     for arch in ['aarch64', 'x86_64']:
         unsigned = verified(inputs / f'macos-unsigned-{arch}')
         inventories[f'macos-{arch}'] = unsigned

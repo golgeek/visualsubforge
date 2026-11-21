@@ -11,7 +11,15 @@ Open the [v0.1.0 test release](https://github.com/golgeek/visualsubforge/release
 | Apple Silicon Mac, macOS 15 or newer | Unzip **VisualSubForge_0.1.0_aarch64_macos.zip**, drag the app to Applications and open it. |
 | Intel Mac, macOS 15 or newer | Use **VisualSubForge_0.1.0_x86_64_macos.zip** and the same steps. |
 | Windows x64 | Run **VisualSubForge_0.1.0_x64-setup.exe**. This early build is unsigned. If SmartScreen shows “Windows protected your PC”, choose **More info → Run anyway** after verifying the download. A later version will be signed. For a portable installation, extract the entire Windows ZIP and open **visualsubforge.exe**. Both use WebView2. Record your Windows version. |
-| Ubuntu 24.04 amd64 | In your download folder run `sudo apt install ./VisualSubForge_0.1.0_amd64_ubuntu24.04.deb`, then open VisualSubForge from Applications. Ubuntu 26.04 cannot install this package. A separate 26.04 package is planned. |
+| Ubuntu 22.04, 24.04 or 26.04 and Debian 12 or 13 | Run `sudo apt install ./VisualSubForge_0.1.0_amd64.deb` on amd64 or use `VisualSubForge_0.1.0_arm64.deb` on arm64. Remove with `sudo apt remove visualsubforge`. |
+| Fedora 45 (amd64 or arm64), Arch Linux (amd64), or a per-user Linux install | Download `VisualSubForge_0.1.0_x86_64_linux.tar.gz` or `VisualSubForge_0.1.0_aarch64_linux.tar.gz`. Extract it, enter the extracted directory and run `./install.sh`. Open VisualSubForge from Applications. |
+
+The portable installation lives in `~/.local/opt/visualsubforge`. Use
+`~/.local/opt/visualsubforge/uninstall.sh` to remove it. For all users run
+`./install.sh --system` and later `/opt/visualsubforge/uninstall.sh --system`.
+The launcher prints the distribution package command if its GTK or VA-API
+libraries are missing. Fedora uses `sudo dnf install webkit2gtk4.1 gtk3 libva`;
+Arch uses `sudo pacman -S webkit2gtk-4.1 gtk3 libva`.
 
 ## The test
 

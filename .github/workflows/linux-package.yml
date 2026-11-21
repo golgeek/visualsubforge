@@ -107,6 +107,18 @@ jobs:
             ${{ runner.temp }}/package/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
+      - name: Stage the runtime matrix inputs
+        run: |
+          mkdir "$RUNNER_TEMP/installables"
+          cd "$RUNNER_TEMP/package"
+          cp ./*.deb ./*_linux.tar.gz "$RUNNER_TEMP/installables/"
+          grep -E '(\.deb|_linux\.tar\.gz)$' SHA256SUMS > "$RUNNER_TEMP/installables/SHA256SUMS"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-installables-${{ matrix.arch }}
+          path: ${{ runner.temp }}/installables
+          if-no-files-found: error
+          compression-level: 0
       # Do not upload raw Meson test logs, which contain inherited environments.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
@@ -116,18 +128,10 @@ jobs:
             target/native/linux/cache-inputs.json
             target/native/linux/build-paths.json
             ${{ runner.temp }}/package/assembly-receipt.json
-            ${{ runner.temp }}/package/install-image.json
-            ${{ runner.temp }}/package/gui-image.json
             ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
             ${{ env.VSF_PLACEBO_BUILD }}/commands.log
             ${{ env.VSF_MPV_BUILD }}/build-receipt.json
             ${{ env.VSF_MPV_BUILD }}/commands.log
-            ${{ runner.temp }}/install-check/cli*/packaged-cli-check.json
-            ${{ runner.temp }}/install-check/gui/*
-            ${{ runner.temp }}/install-check/*.txt
-            ${{ runner.temp }}/install-check/pulseaudio.log
-            ${{ runner.temp }}/install-check/sink-readiness.json
-            ${{ runner.temp }}/install-check/silent-client.log
           retention-days: 14
   fixtures:
     runs-on: ubuntu-24.04

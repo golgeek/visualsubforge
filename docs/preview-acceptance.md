@@ -4,7 +4,7 @@ For v0.1.0, use the package for your platform, matching source archives,
 `VisualSubForge-0.1.0-test-media.zip` and `SHA256SUMS` from the
 [test release](https://github.com/golgeek/visualsubforge/releases/tag/v0.1.0).
 Before publication, the release rehearsal provides those files in one Actions artifact.
-On Ubuntu 24.04 amd64 install with `sudo apt install ./VisualSubForge_0.1.0_amd64_ubuntu24.04.deb`.
+Install the architecture-matched Linux tarball or Debian package using the [tester guide](testing-v0.1.md).
 
 ## Earlier preview candidates
 
@@ -69,7 +69,7 @@ ordinary OS runtimes; disconnect networking after installation. On Linux use
 `sudo apt install ./<candidate>.deb`; on Windows use the installer; on macOS copy
 the notarized app into Applications. Record security prompts and every extra step.
 
-The v0.1.0 packages require macOS 15 on both Apple Silicon and Intel. Ubuntu candidates target 24.04 x64. Windows x64 candidates are built on
+The v0.1.0 packages require macOS 15 on both Apple Silicon and Intel. Linux candidates target amd64 and arm64. Windows x64 candidates are built on
 Server 2022; clean Windows 10/11 behavior remains to be established. A newer-OS
 pass does not establish the oldest-version gate.
 

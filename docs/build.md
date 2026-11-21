@@ -18,7 +18,7 @@ handles release signing. Native media retains its [experimental limits](native-r
 | --- | --- | --- |
 | macOS, Apple Silicon or Intel | `target/native/macos/release/package/VisualSubForge.app` | `~/Applications/VisualSubForge.app` |
 | Windows x64 | `target/native/windows/release/package/VisualSubForge/visualsubforge.exe` | `%LOCALAPPDATA%\Programs\VisualSubForge`, with a Start menu shortcut |
-| Ubuntu 24.04 amd64 | `target/native/linux/release/package/*.deb` | System package, through `sudo apt-get install` |
+| Linux amd64 and arm64 | `target/native/linux/release/package/` | Portable tarball with user installer and a thin Debian package |
 
 Open the `.app` or `.exe` directly, or launch VSF from the desktop after installing.
 Quit an existing VSF instance before replacing its installation. On macOS and
@@ -58,23 +58,15 @@ bundles its dylibs and is ad-hoc signed; it needs no Homebrew or DYLD settings t
 launch. Its actual minimum macOS version depends on the libraries installed on
 your build machine and is recorded in the assembly receipt.
 
-## Ubuntu 24.04 amd64 setup
+## Native Linux setup
 
-The initial Linux Make recipe follows the maintained Ubuntu package assembler;
-other distributions and ARM64 are not yet covered by this entry point.
-Enable `deb-src` alongside `deb` in `/etc/apt/sources.list.d/ubuntu.sources`
-(the `Types:` line must contain both), then:
-
-```sh
-sudo apt-get update
-sudo apt-get install -y build-essential git python3-venv pkg-config patchelf ffmpeg \
-  libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-  libepoxy-dev nasm curl zlib1g-dev libbz2-dev liblzma-dev libva-dev libdrm-dev libxv-dev libass-dev libspirv-cross-c-shared-dev \
-  liblcms2-dev libshaderc-dev libvulkan-dev libxxhash-dev libpulse-dev libasound2-dev libegl1-mesa-dev libgl1-mesa-dev
-nvm install && nvm use
-make build
-make install
-```
+Build in the Ubuntu 22.04 container for the host architecture. The two
+digest pins and the apt package list are in
+[`linux-package.yml`](../.github/workflows/linux-package.yml). Enable Jammy
+source indexes for bzip2 and other matching system inputs. Add the Noble
+**source-only** index for the pinned shader and text sources. Select the
+project's Node, Rust and Python toolchains and run `make build`, then install
+the tarball or Debian package from `target/native/linux/release/package/`.
 
 Make builds checksum-pinned FFmpeg 8.1.2 and dav1d 1.5.5 before libplacebo
 and mpv. It builds libdovi 3.4.0 with its locked Rust dependencies and cargo-c.
@@ -165,13 +157,3 @@ app build, so packaging and failure-evidence steps use the selected SDKs and
 Cargo target directory. `scripts/native-build-paths.py github <manifest>` exports
 only the validated per-library paths/keys and Cargo path to GitHub Actions; it does
 not build or select dependencies.
-
-
-### Portable Linux packages
-
-The Linux package workflow builds natively on separate amd64 and arm64 runners
-inside their pinned Ubuntu 22.04 containers. Enable Jammy source indexes for
-the matching system packages and the Noble source-only index for the private
-shader and text libraries. The build installs binary development packages from
-Jammy. Run `make build` in this environment with the pinned Node, Rust and
-Python tools. The tarball and thin Debian package contain the same payload.
