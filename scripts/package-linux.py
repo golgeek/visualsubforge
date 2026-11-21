@@ -2,8 +2,8 @@
 """Assemble an Ubuntu 24.04 amd64 .deb with private media tools and libraries.
 
 GTK/WebKit, libc and display/audio drivers stay with the OS. Their package
-dependencies are resolved by apt; media libraries outside that runtime closure
-are copied privately.
+dependencies are resolved by apt. Every shipped ELF directly links only the
+listed system SONAMEs and the private media libraries.
 """
 from release_version import release_version, source_inventory_reference
 
@@ -28,9 +28,9 @@ libjavascriptcoregtk-4.1.so.0 libsoup-3.0.so.0 libgtk-3.so.0 libgdk-3.so.0
 libglib-2.0.so.0 libgobject-2.0.so.0 libgio-2.0.so.0 libgdk_pixbuf-2.0.so.0
 libcairo.so.2 libdbus-1.so.3 libpango-1.0.so.0 libpangocairo-1.0.so.0
 libepoxy.so.0 libGL.so.1 libEGL.so.1 libvulkan.so.1 libgbm.so.1 libdrm.so.2
-libva.so.2 libva-drm.so.2 libX11.so.6 libxcb.so.1 libwayland-client.so.0
+libva.so.2 libva-drm.so.2 libva-x11.so.2 libva-wayland.so.2 libX11.so.6 libxcb.so.1 libwayland-client.so.0
 libpulse.so.0 libasound.so.2 libfreetype.so.6 libfribidi.so.0 libharfbuzz.so.0
-libfontconfig.so.1 libz.so.1 libbz2.so.1.0 liblzma.so.5 liblcms2.so.2
+libfontconfig.so.1 libz.so.1 liblzma.so.5 liblcms2.so.2
 """.split())
 DISTRO_BUNDLED = {"libass.so.9", "libunibreak.so.5", "libshaderc.so.1",
                   "libspirv-cross-c-shared.so.0"}
@@ -174,6 +174,10 @@ def assemble(args):
                 raise ValueError(f"Conflicting library basename: {name}")
             destinations[dependency] = relative
             queue.append(dependency)
+    if getattr(args, "build_paths", None):
+        required_va = {"libva.so.2", "libva-drm.so.2"}
+        if missing := required_va - system_links.keys():
+            raise ValueError(f"Media SDK is missing required VA-API loader links: {sorted(missing)}")
     for library in sorted(linked_platform_files):
         owner = package_owner(library)
         platform_packages[owner["package"]] = owner["version"]
@@ -183,7 +187,8 @@ def assemble(args):
         shutil.copy2(original, copied)
         copied.chmod(0o755)
         subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/lib" if relative.parent == Path(".") else "$ORIGIN", str(copied)], check=True)
-        record = {"path": str(relative), "source": str(original), "source_sha256": digest(original), "sha256": digest(copied)}
+        record = {"path": str(relative), "source": str(original), "source_sha256": digest(original), "sha256": digest(copied),
+                  "needed": capture("patchelf", "--print-needed", copied).splitlines()}
         if original not in roots and not any(original.is_relative_to(path) for path in custom_dirs):
             owner = package_owner(original)
             record["distro"] = owner
@@ -272,17 +277,37 @@ def assemble(args):
     (root / "SHA256SUMS").write_text("".join(f"{digest(path)}  {path.relative_to(root)}\n" for path in [artifact, *sorted(source_files)]))
 
 
+def use_build_paths(args):
+    paths = json.loads(args.build_paths.read_text())
+    mpv = Path(paths["VSF_MPV_BUILD"])
+    placebo = Path(paths["VSF_PLACEBO_BUILD"])
+    ffmpeg = Path(paths["VSF_FFMPEG_BUILD"])
+    dovi = Path(paths["VSF_DOVI_BUILD"])
+    args.ffmpeg = ffmpeg / "sdk/bin/ffmpeg"
+    args.ffprobe = ffmpeg / "sdk/bin/ffprobe"
+    args.library_dir = [mpv / "build", *(p / "sdk/lib" for p in (placebo, ffmpeg, dovi))]
+    args.spirv_cross = Path(capture("pkg-config", "--variable=libdir", "spirv-cross-c-shared")) / "libspirv-cross-c-shared.so"
+    args.placebo_build = placebo
+    components = [
+        ("mpv", mpv / "source.tar.gz", mpv / "prepared/source"),
+        ("libplacebo", placebo / "source.tar.gz", placebo / "source"),
+        ("libdovi", dovi / "source.tar.gz", dovi / "source/dolby_vision"),
+        ("bzip2", ffmpeg / "bzip2-source.tar.gz", ffmpeg / "bzip2"),
+        ("ffmpeg", ffmpeg / "ffmpeg.tar.xz", ffmpeg / "source"),
+        ("dav1d", ffmpeg / "dav1d.tar.xz", ffmpeg / "dav1d"),
+    ]
+    args.native_source = [f"{name}={archive}" for name, archive, _ in components]
+    args.native_notices = [f"{name}={directory}" for name, _, directory in components]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("visualsubforge", "vsf", "ffmpeg", "ffprobe", "output"):
+    for name in ("visualsubforge", "vsf", "build-paths", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--library-dir", type=Path, action="append", default=[])
-    parser.add_argument("--native-source", action="append", default=[], help="name=source.tar.gz")
-    parser.add_argument("--native-notices", action="append", default=[], help="name=source-directory")
     parser.add_argument("--application-sources", type=Path)
-    parser.add_argument("--spirv-cross", type=Path)
-    parser.add_argument("--placebo-build", type=Path)
     try:
-        assemble(parser.parse_args())
+        args = parser.parse_args()
+        use_build_paths(args)
+        assemble(args)
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Linux packaging failed: {error}\n")

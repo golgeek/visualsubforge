@@ -146,6 +146,7 @@ and Windows FFmpeg builds exclude libzvbi and external GPL encoders.
 | mpv | GPL-2.0-or-later | Pinned source and repository patches |
 | FFmpeg libraries, ffmpeg and ffprobe | LGPL-3.0-or-later | Upstream 8.1.2 release |
 | dav1d | BSD-2-Clause | Upstream 1.5.5, hidden PIC archive inside libavcodec |
+| bzip2 | bzip2 licence | Hidden PIC archive from matching Ubuntu source. Fedora and Ubuntu use different SONAMEs. |
 | libplacebo | LGPL-2.1-or-later | Pinned source including submodules |
 | libdovi | MIT | 3.4.0 source and locked Rust crates |
 | libass | ISC | Distribution library and matching source |

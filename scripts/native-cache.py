@@ -111,7 +111,8 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
     if system == 'linux':
         private['ffmpeg'] = add('ffmpeg', ['build/ffmpeg.mk', 'build/ffmpeg-options.txt',
                                 'scripts/build-ffmpeg.sh', *COMMON_FILES], toolchain,
-                                packages(['libva', 'zlib', 'liblzma']))
+                                {'packages': packages(['libva', 'zlib', 'liblzma']),
+                                 'bzip2': probe('dpkg-query', '-W', '-f=${source:Version}', 'libbz2-dev')})
         private['dovi'] = add('dovi', ['build/ffmpeg.mk', 'scripts/build-linux-dovi.sh',
                               'scripts/native-stage.sh'], toolchain,
                               {'rust': probe('rustc', '-vV'), 'cargo': probe('cargo', '-V')})

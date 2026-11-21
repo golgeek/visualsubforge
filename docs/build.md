@@ -78,10 +78,13 @@ make install
 
 Make builds checksum-pinned FFmpeg 8.1.2 and dav1d 1.5.5 before libplacebo
 and mpv. It builds libdovi 3.4.0 with its locked Rust dependencies and cargo-c.
-The distribution FFmpeg command generates independent test inputs. The
+The SDK compiles a private bzip2 archive from the matching Ubuntu source
+package for use by FFmpeg. The distribution FFmpeg command generates independent test inputs. The
 packager takes both shipped tools from the private SDK and downloads matching
 source packages for redistributed distribution libraries. GTK/WebKit and display/audio drivers remain OS dependencies.
-Run the installed app from a graphical desktop with a working desktop portal.
+The receipt lists each ELF's required libraries. Its libva loaders are startup
+dependencies even when libmpv falls back to software decoding. Run the
+installed app from a graphical desktop with a working desktop portal.
 
 ## Windows x64 setup
 

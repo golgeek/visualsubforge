@@ -26,10 +26,19 @@ meson setup dav1d-build dav1d --prefix="$output/sdk" --libdir=lib --buildtype=re
 meson compile -C dav1d-build -j "$jobs"
 meson install -C dav1d-build
 export PKG_CONFIG_PATH="$output/sdk/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+# Fedora uses libbz2.so.1 and Ubuntu uses libbz2.so.1.0. Preserve FFmpeg's
+# bzip2 support using the distribution's matching, PIC-compiled source.
+mkdir bzip2-inputs bzip2-lib
+bzversion=$(dpkg-query -W '-f=${source:Version}' libbz2-dev)
+(cd bzip2-inputs && apt-get source --download-only --only-source "bzip2=$bzversion")
+dpkg-source -x bzip2-inputs/*.dsc bzip2
+make -C bzip2 -j "$jobs" CFLAGS='-O2 -fPIC -fvisibility=hidden -D_FILE_OFFSET_BITS=64' libbz2.a
+cp bzip2/libbz2.a bzip2-lib/
+tar -czf bzip2-source.tar.gz bzip2-inputs
 set -- "--prefix=$output/sdk"
 while IFS= read -r option; do set -- "$@" "$option"; done < "$recipe/build/ffmpeg-options.txt"
 case $(uname -s) in
-    Linux) set -- "$@" --enable-vaapi --extra-ldflags=-Wl,--exclude-libs,libdav1d.a ;;
+    Linux) set -- "$@" --enable-vaapi "--extra-ldflags=-L$output/bzip2-lib -Wl,--exclude-libs,libdav1d.a:libbz2.a" ;;
     *) echo 'Unsupported FFmpeg build platform' >&2; exit 2 ;;
 esac
 printf '%s\n' "$@" > configure-options.txt
@@ -45,5 +54,14 @@ if grep -E 'NEEDED.*libdav1d' ../avcodec-dynamic.txt || grep -E ' dav1d_' ../avc
     exit 1
 fi
 grep -qx '#define CONFIG_LIBDAV1D_DECODER 1' config_components.h
+grep -qx '#define CONFIG_BZLIB 1' config.h
+for lib in "$output"/sdk/lib/*.so; do
+    readelf -d "$lib" > dynamic.txt
+    nm -D "$lib" > symbols.txt
+    if grep -E 'NEEDED.*libbz2' dynamic.txt || grep -E ' BZ2_' symbols.txt; then
+        echo "Shared bzip2 dependency or visible bzip2 symbol in $lib" >&2
+        exit 1
+    fi
+done
 LD_LIBRARY_PATH="$output/sdk/lib" "$output/sdk/bin/ffmpeg" -version > ../ffmpeg-version.txt
 LD_LIBRARY_PATH="$output/sdk/lib" "$output/sdk/bin/ffmpeg" -decoders > ../decoders.txt
