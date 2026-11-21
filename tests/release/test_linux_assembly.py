@@ -107,8 +107,9 @@ class LinuxAssembly(unittest.TestCase):
             (installed / "my file").unlink()
             subprocess.run([installed / "uninstall.sh"], env=install_env, check=True)
             self.assertFalse(installed.exists())
-            self.assertFalse(any(p.is_file() or p.is_symlink() for p in home.rglob("*")))
+            self.assertEqual(list(home.iterdir()), [])
             unrelated = home / ".local/bin/visualsubforge"
+            unrelated.parent.mkdir(parents=True)
             unrelated.write_text("existing program")
             blocked = subprocess.run([distribution / "install.sh"], env=install_env, capture_output=True)
             self.assertNotEqual(blocked.returncode, 0)
