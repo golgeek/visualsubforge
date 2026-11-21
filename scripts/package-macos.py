@@ -104,11 +104,10 @@ def assemble(args):
         roots[path] = Path("Contents/MacOS") / name
     directories = [path.resolve(strict=True) for path in args.library_dir]
     architecture = output("lipo", "-archs", main).split()
-    if len(architecture) != 1:
-        raise ValueError("The macOS packager expects one architecture per artifact")
+    if len(architecture) != 1 or architecture[0] not in ("arm64", "x86_64"):
+        raise ValueError("The macOS packager expects one arm64 or x86_64 architecture per artifact")
     edges, destinations, ids, targets = {}, dict(roots), {}, {}
-    minimums = [{"arm64": "14.0", "x86_64": "15.0"}[architecture[0]],
-                info.get("LSMinimumSystemVersion", "14.0")]
+    minimums = ["15.0", info.get("LSMinimumSystemVersion", "15.0")]
     queue = list(roots)
     while queue:
         original = queue.pop()
