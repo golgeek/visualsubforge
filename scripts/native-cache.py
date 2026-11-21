@@ -113,14 +113,17 @@ def select(root, system, probe=command, packages=pkg_inputs, environ=None):
                                 'scripts/build-ffmpeg.sh', *COMMON_FILES], toolchain,
                                 {'packages': packages(['libva', 'libva-drm', 'libva-x11', 'x11', 'xext', 'xv', 'zlib', 'liblzma']),
                                  'bzip2': probe('dpkg-query', '-W', '-f=${source:Version}', 'libbz2-dev')})
-        private['shaders'] = add('shaders', ['build/linux-shaders.mk', 'scripts/build-linux-shader-stack.sh', 'scripts/native-stage.sh'],
+        private['shaders'] = add('shaders', ['build/linux-shaders.mk', 'build/linux-private-cxx.map', 'scripts/build-linux-shader-stack.sh', 'scripts/native-stage.sh'],
                                  toolchain, packages(['freetype2', 'fribidi', 'fontconfig', 'harfbuzz']))
         private['dovi'] = add('dovi', ['build/ffmpeg.mk', 'scripts/build-linux-dovi.sh',
                               'scripts/native-stage.sh'], toolchain,
                               {'rust': probe('rustc', '-vV'), 'cargo': probe('cargo', '-V')})
     if system != 'windows':
         placebo_names = PLACEBO_COMMON + (['vulkan'] if system == 'linux' else [])
-        dependency_key = add('placebo', ['build/placebo.mk', 'scripts/build-placebo.py', *COMMON_FILES, *SUPPORT],
+        placebo_inputs = ['build/placebo.mk', 'scripts/build-placebo.py', *COMMON_FILES, *SUPPORT]
+        if system == 'linux':
+            placebo_inputs.append('build/linux-private-cxx.map')
+        dependency_key = add('placebo', placebo_inputs,
                              toolchain, {**packages(placebo_names), **private})
     else:
         dependency_key = add('ffmpeg', ['build/ffmpeg.mk', 'scripts/configure-ffmpeg.sh', 'scripts/build-ffmpeg-windows.sh',

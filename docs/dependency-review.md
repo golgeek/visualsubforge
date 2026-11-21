@@ -170,7 +170,10 @@ already present in native-rate float output.
 Arch WebKitGTK links libavif, which loads the system dav1d. Linux links its
 own dav1d statically into libavcodec with hidden symbols. The SDK build checks
 the decoder configuration, dynamic dependencies and dynamic symbols before
-packaging. FFmpeg itself stays shared for relinking.
+packaging. FFmpeg itself stays shared for relinking. The Linux versions of
+libplacebo and shaderc keep their C++ implementation symbols local. Their C
+APIs remain exported. This prevents Mesa's LLVM and Z3 from binding to private
+copies of C++ standard-library templates.
 
 The Linux packager accepts the following direct system dependencies. Each
 architecture's assembly receipt records which SONAMEs its binaries use.

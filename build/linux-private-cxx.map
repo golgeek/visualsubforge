@@ -1,0 +1,5 @@
+/* libplacebo and shaderc expose C interfaces. Keep C++ implementation
+   symbols, including weak standard-library template instantiations, local. */
+{
+    local: _Z*;
+};

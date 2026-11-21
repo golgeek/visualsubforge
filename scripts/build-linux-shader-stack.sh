@@ -2,6 +2,7 @@
 # Build the private text and shader libraries on Jammy. Only source indexes
 # from Noble are needed; all compilers and system libraries come from Jammy.
 set -eu
+recipe=$(cd "$(dirname "$0")/.." && pwd)
 mkdir "$1"
 root=$(cd "$1" && pwd)
 jobs=${2:-3}
@@ -45,13 +46,22 @@ for dep in spirv-tools spirv-headers glslang; do
     rmdir "$third/$dep" 2>/dev/null || test ! -e "$third/$dep"
     ln -s "$root/source/$dep" "$third/$dep"
 done
+# Apply the export rule only to shaderc's public C library. Its C++ build
+# tools retain their upstream linkage.
+cat >> source/shaderc/libshaderc/CMakeLists.txt <<'CMAKE'
+target_link_options(shaderc_shared PRIVATE "LINKER:--version-script=${VSF_CXX_MAP}")
+CMAKE
 cmake -G Ninja -S source/shaderc -B build-shaderc -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
+    -DVSF_CXX_MAP="$recipe/build/linux-private-cxx.map" \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSHADERC_SKIP_TESTS=ON \
     -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
     -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--exclude-libs,ALL
 cmake --build build-shaderc --parallel "$jobs"
 cmake --install build-shaderc
+nm -D --defined-only "$prefix/lib/libshaderc_shared.so" > shaderc-exports.txt
+grep -q ' T shaderc_compiler_initialize$' shaderc-exports.txt
+if grep -q ' _Z' shaderc-exports.txt; then echo 'shaderc exported C++ implementation symbols' >&2; exit 1; fi
 cmake -G Ninja -S source/spirv-cross -B build-cross -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
     -DSPIRV_CROSS_SHARED=ON -DSPIRV_CROSS_STATIC=OFF -DSPIRV_CROSS_CLI=OFF -DSPIRV_CROSS_ENABLE_TESTS=OFF

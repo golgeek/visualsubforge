@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 format=$1
+# The host Actions uploader reads the synthetic reports as another UID.
+trap 'chmod -R a+rX /evidence' EXIT
 root=$(cat /matrix/root)
 export VSF_EVIDENCE=/evidence VSF_FIXTURES=/fixtures VSF_GUI_CHECK=/tests/packaged-gui.py
 export VSF_NULL_SINK=ready-default VSF_LIBRARY_AUDIT=1 VSF_GUI_ENVIRONMENT
@@ -17,6 +19,9 @@ if [[ $format == tar ]]; then
 else
     export VSF_GUI_BIN=/usr/bin/visualsubforge
     installed=$root
+    while IFS= read -r entry; do if [[ -e /$entry || -L /$entry ]]; then echo "$entry"; fi; done < /matrix/deb-entries.txt > /evidence/before-trial.txt
+    apt-get install -y --no-install-recommends /tmp/package/*.deb
+    dpkg-query -W > /evidence/packages.txt
 fi
 (cd "$installed" && sha256sum --quiet --strict -c FILES.sha256)
 if [[ ${VSF_FULL_TRIAL:-1} == 1 ]]; then
@@ -33,5 +38,5 @@ if [[ $format == tar ]]; then
 else
     apt-get remove -y visualsubforge
     while IFS= read -r entry; do if [[ -e /$entry || -L /$entry ]]; then echo "$entry"; fi; done < /matrix/deb-entries.txt > /evidence/after.txt
-    diff -u /matrix/before.txt /evidence/after.txt > /evidence/removal.diff
+    diff -u /evidence/before-trial.txt /evidence/after.txt | tee /evidence/removal.diff
 fi

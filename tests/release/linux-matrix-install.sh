@@ -57,6 +57,11 @@ fi
 "$root/bin/check-runtime"
 for file in "$root/bin/"{visualsubforge.real,vsf,ffmpeg,ffprobe}; do ldd "$file"; done > /matrix/ldd.txt
 if grep -F 'not found' /matrix/ldd.txt; then exit 1; fi
+if [[ $format == deb ]]; then
+    apt-get remove -y visualsubforge
+    while IFS= read -r entry; do if [[ -e /$entry || -L /$entry ]]; then echo "$entry"; fi; done < /matrix/deb-entries.txt > /matrix/after.txt
+    diff -u /matrix/before.txt /matrix/after.txt
+fi
 printf '%s\n' "${tools[@]}" > /matrix/test-tools.txt
 "${install[@]}" "${tools[@]}"
 case "$ID" in

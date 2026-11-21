@@ -67,8 +67,11 @@ def main():
             # Linux retains its existing Vulkan support and upstream tests.
             backend_options = ["-Dvulkan=disabled"] if platform.system() == "Darwin" else []
             if platform.system() == "Linux":
+                export_map = Path(__file__).resolve().parents[1] / "build/linux-private-cxx.map"
+                elf_link_options = json.dumps(["-Wl,--version-script=" + str(export_map)])
                 backend_options = ["-Dvulkan=enabled", "-Dshaderc=enabled", "-Dlibdovi=enabled",
-                                   "-Dglslang=disabled", "-Dunwind=disabled"]
+                                   "-Dglslang=disabled", "-Dunwind=disabled",
+                                   "-Dc_link_args=" + elf_link_options, "-Dcpp_link_args=" + elf_link_options]
             run("meson", "setup", build, source, "--buildtype=release", "--wrap-mode=nodownload",
                 f"--prefix={sdk}", "--libdir=lib", "-Ddefault_library=shared",
                 "-Ddemos=false", "-Dtests=true", "-Dopengl=enabled", *backend_options, *header_options)
@@ -97,6 +100,13 @@ def main():
                          and (path.name.endswith(".dylib") or ".so" in path.name)]
             if len(libraries) != 1 or not libraries[0].name.startswith("libplacebo."):
                 raise ValueError(f"Expected one installed shared libplacebo: {libraries}")
+            if platform.system() == "Linux":
+                symbols = subprocess.check_output(["nm", "-D", "--defined-only", libraries[0]], text=True)
+                exports = {line.split()[-1] for line in symbols.splitlines() if line.strip()}
+                if not {"memcpy_layout", "pl_gpu_finish"} <= exports:
+                    raise ValueError("Missing libplacebo C API exports")
+                if any(name.startswith("_Z") for name in exports):
+                    raise ValueError("libplacebo exported C++ implementation symbols")
             receipt["binaries"] = [{"path": str(path), "sha256": digest(path)} for path in libraries]
             receipt["status"] = "passed"
     finally:
