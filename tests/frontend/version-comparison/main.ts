@@ -499,9 +499,14 @@ function passed(m: string) {
   li.textContent = 'PASS: ' + m;
   document.querySelector('#checks')!.append(li);
 }
-function button(text: string, within: Element = host) {
-  return [...within.querySelectorAll<HTMLButtonElement>('button')].find(
+function button(text: string) {
+  return [...host.querySelectorAll<HTMLButtonElement>('button')].find(
     (b) => b.textContent?.trim() === text,
+  )!;
+}
+function timingFilter() {
+  return host.querySelector<HTMLButtonElement>(
+    '[aria-label="Change filters"] button[aria-label="Timing"]',
   )!;
 }
 async function until(fn: () => boolean) {
@@ -611,7 +616,7 @@ async function run() {
       'Next Change crosses a page boundary and shows its absolute position',
     );
     passed('Changes are paged in bounded 100-row pages');
-    button('Timing', host.querySelector('[aria-label="Changes"]')!).click();
+    timingFilter().click();
     await until(
       () =>
         host.querySelectorAll('[aria-label="Changes"] article').length === 1 &&
@@ -748,7 +753,7 @@ async function run() {
     await until(() => doc.review?.path === '/original.srt');
     passed('Newer-original prompt supports keeping the current direction');
     held = new Promise<void>((resolve) => (release = resolve));
-    button('Timing', host.querySelector('[aria-label="Changes"]')!).click();
+    timingFilter().click();
     await until(() => starts > 0);
     button('All').click();
     held = null;
@@ -760,7 +765,7 @@ async function run() {
     passed('Latest filter wins after a delayed comparison reply');
     held = new Promise<void>((resolve) => (release = resolve));
     const beforeHeld = starts;
-    button('Timing', host.querySelector('[aria-label="Changes"]')!).click();
+    timingFilter().click();
     await until(() => starts > beforeHeld);
     const editor = host.querySelector<HTMLTextAreaElement>(
       '[aria-label="Subtitle text"]',
@@ -843,7 +848,7 @@ async function run() {
         epoch > oldEpoch &&
         host.textContent?.includes('0/201 checked') === true,
     );
-    button('Timing', host.querySelector('[aria-label="Changes"]')!).click();
+    timingFilter().click();
     await until(
       () =>
         !!button('Expand') &&
