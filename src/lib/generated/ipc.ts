@@ -1488,6 +1488,11 @@ export type vsf_application_quality_timing_fix_Effect = {
   limit: number;
 };
 
+export type vsf_application_quality_timing_fix_effects_EffectSegment = {
+  text: string;
+  warning: boolean;
+};
+
 export type vsf_application_quality_timing_fix_Endpoints = {
   startMs: number | null;
   endMs: number | null;
@@ -1714,6 +1719,7 @@ export type visualsubforge_timing_review_FixView_Deserialize = {
   phase: visualsubforge_timing_review_Phase;
   error: string | null;
   selectionError: string | null;
+  selectionConflicts: number[];
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   before: vsf_application_quality_timing_fix_review_Counts;
   after: vsf_application_quality_timing_fix_review_Counts;
@@ -1721,6 +1727,7 @@ export type visualsubforge_timing_review_FixView_Deserialize = {
   changed: number;
   manualCount: number;
   trades: number;
+  withoutTradesToggles: number[];
   offset: number;
   rows: vsf_application_quality_timing_fix_review_Row[];
   manual: vsf_application_quality_timing_fix_review_ManualRow[];
@@ -1734,6 +1741,7 @@ export type visualsubforge_timing_review_FixView_Serialize = {
   phase: visualsubforge_timing_review_Phase;
   error: string | null;
   selectionError: string | null;
+  selectionConflicts: number[];
   coverage: vsf_application_quality_scene_SceneCoverage | null;
   before: vsf_application_quality_timing_fix_review_Counts;
   after: vsf_application_quality_timing_fix_review_Counts;
@@ -1741,6 +1749,7 @@ export type visualsubforge_timing_review_FixView_Serialize = {
   changed: number;
   manualCount: number;
   trades: number;
+  withoutTradesToggles: number[];
   offset: number;
   rows: vsf_application_quality_timing_fix_review_Row[];
   manual: vsf_application_quality_timing_fix_review_ManualRow[];
@@ -2032,7 +2041,10 @@ export type media_analysis_subtitle_tracks_Listing = {
 
 export type vsf_application_quality_timing_fix_Manual = {
   index: number;
-  reason: string;
+  lead: string;
+  facts: string[];
+  blockingCue: number | null;
+  budgetText: string | null;
   rules: vsf_application_quality_check_Rule[];
   budget: vsf_application_quality_timing_fix_Budget | null;
 };
@@ -2936,7 +2948,9 @@ export type vsf_application_quality_timing_fix_review_Row = {
   selected: boolean;
   unit: vsf_application_quality_timing_fix_Unit;
   delta: string;
-  metricEffect: string;
+  needs: string | null;
+  startMoved: boolean;
+  timecodes: string[];
   ghosts: vsf_application_quality_timing_fix_review_Ghost[];
 };
 
@@ -3563,6 +3577,9 @@ export type vsf_application_quality_statistics_UnavailableCounts = {
 };
 
 export type vsf_application_quality_timing_fix_Unit = {
+  dependsOn: number[];
+  effectsText: vsf_application_quality_timing_fix_effects_EffectSegment[];
+  cutTimecodes: string[];
   index: number;
   endpoints: vsf_application_quality_timing_fix_Change[];
   fixed: vsf_application_quality_check_Rule[];

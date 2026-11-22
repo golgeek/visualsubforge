@@ -11,7 +11,9 @@ pub struct Row {
     pub selected: bool,
     pub unit: Unit,
     pub delta: String,
-    pub metric_effect: String,
+    pub needs: Option<String>,
+    pub start_moved: bool,
+    pub timecodes: Vec<String>,
     pub ghosts: Vec<Ghost>,
 }
 #[derive(Clone, Debug, Serialize)]
@@ -64,6 +66,7 @@ pub struct Review {
     pub after: Counts,
     pub selected: u32,
     pub trades: u32,
+    pub without_trades_toggles: Vec<u32>,
     pub plan: timing_selection::Plan,
 }
 impl Proposal {
@@ -73,35 +76,16 @@ impl Proposal {
         omit_trades: bool,
         mut checkpoint: impl FnMut() -> Result<()>,
     ) -> Result<Review> {
-        let toggles: HashSet<_> = toggled.iter().copied().collect();
-        if toggles.len() != toggled.len()
-            || self
-                .units
-                .iter()
-                .filter(|u| toggles.contains(&u.index))
-                .count()
-                != toggles.len()
-        {
-            return Err(Error::Invalid(
-                "Unknown or repeated checkbox identity".into(),
-            ));
-        }
-        let mut selected = Vec::new();
+        let (selected, plan) = self.review_selection(toggled, omit_trades, &mut checkpoint)?;
+        let chosen: HashSet<_> = selected.iter().copied().collect();
         let mut changes = Vec::new();
         let mut trades = 0;
         for u in &self.units {
             checkpoint()?;
-            let checked = (!(u.partial || omit_trades && u.trade_off)) ^ toggles.contains(&u.index);
-            if checked {
-                selected.push(u.index);
-                trades += u32::from(u.trade_off);
-            }
-            let mut indices = vec![u.index];
+            let checked = chosen.contains(&u.index);
+            trades += u32::from(checked && u.trade_off);
             let mut deltas = Vec::new();
             for c in &u.endpoints {
-                if c.index != u.index {
-                    indices.push(c.index);
-                }
                 for (label, old, new) in [
                     ("start", c.before.start_ms, c.after.start_ms),
                     ("end", c.before.end_ms, c.after.end_ms),
@@ -112,45 +96,58 @@ impl Proposal {
                         } else {
                             String::new()
                         };
-                        deltas.push(format!("{prefix}{label} {:+} ms", new as i64 - old as i64));
+                        deltas.push(format!(
+                            "{prefix}{label} {}{} ms",
+                            if new < old { "−" } else { "+" },
+                            new.abs_diff(old)
+                        ));
                     }
                 }
             }
             let i = u.index as usize;
-            let mut metrics = Vec::new();
-            for e in &u.effects {
-                let name = if e.rule == Rule::CpsHigh { "CPS" } else { "RS" };
-                let show = |n: Option<f64>| {
-                    n.map_or_else(|| "unavailable".to_string(), |n| format!("{n:.1}"))
-                };
-                metrics.push(format!("{name} {} → {}", show(e.before), show(e.after)));
-            }
-            if metrics.is_empty() {
-                for c in &u.endpoints {
-                    metrics.push(format!(
-                        "Duration {} → {} ms",
-                        c.before.end_ms - c.before.start_ms,
-                        c.after.end_ms - c.after.start_ms
-                    ));
-                }
-            }
             changes.push(Row {
                 cue_id: self.before.metrics[i].cue_id.clone(),
                 cue_index: u.index,
-                cue_label: indices
-                    .iter()
-                    .map(|v| (v + 1).to_string())
-                    .collect::<Vec<_>>()
-                    .join("→"),
+                cue_label: u.label(),
                 selected: checked,
                 unit: u.clone(),
                 delta: deltas.join(", "),
-                metric_effect: metrics.join(" · "),
+                needs: (!u.depends_on.is_empty()).then(|| {
+                    format!(
+                        "needs {} {}",
+                        if u.depends_on.len() == 1 {
+                            "cue"
+                        } else {
+                            "cues"
+                        },
+                        u.depends_on
+                            .iter()
+                            .map(|id| (id + 1).to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }),
+                start_moved: u
+                    .endpoints
+                    .iter()
+                    .any(|point| point.before.start_ms != point.after.start_ms),
+                timecodes: u
+                    .endpoints
+                    .iter()
+                    .map(|point| {
+                        format!(
+                            "Start {} → {} · End {} → {}",
+                            manual::timecode(point.before.start_ms),
+                            manual::timecode(point.after.start_ms),
+                            manual::timecode(point.before.end_ms),
+                            manual::timecode(point.after.end_ms)
+                        )
+                    })
+                    .chain(u.cut_timecodes.iter().map(|time| format!("Cut {time}")))
+                    .collect(),
                 ghosts: Vec::new(),
             });
         }
-        let plan = self.select(&selected, &mut checkpoint)?;
-        let chosen: HashSet<_> = selected.iter().copied().collect();
         for row in &mut changes {
             if row.selected {
                 row.ghosts = row
@@ -199,22 +196,11 @@ impl Proposal {
         {
             checkpoint()?;
             let m = &report.metrics[i];
-            let mut detail = originals
-                .get(&i)
-                .map(|r| (*r).clone())
-                .unwrap_or_else(|| Manual {
-                    index: i as u32,
-                    reason: "The change for this finding is unticked.".into(),
-                    rules: vec![],
-                    budget: None,
-                });
-            if let Some(old) = &detail.budget {
-                detail.reason = detail
-                    .reason
-                    .trim_end_matches(&old.description())
-                    .trim_end()
-                    .to_owned();
-            }
+            let mut detail = originals.get(&i).map(|r| (*r).clone()).unwrap_or_else(|| {
+                let mut row = Manual::new(i, vec![], None);
+                row.lead = "The change for this cue is unticked.".into();
+                row
+            });
             detail.rules = rules;
             if detail
                 .rules
@@ -238,16 +224,30 @@ impl Proposal {
             } else {
                 detail.budget = None;
             }
-            if let Some(b) = &detail.budget {
-                detail.reason = format!("{} {}", detail.reason, b.description())
-                    .trim()
-                    .to_owned();
-            }
+            detail.budget_text = detail.budget.as_ref().map(Budget::description);
             manual.push(ManualRow {
                 cue_id: m.cue_id.clone(),
                 cue_number: i as u32 + 1,
                 detail,
             });
+        }
+        // Encode the current selection with every trade and its dependents
+        // removed. A bulk click preserves unrelated manual checkbox choices.
+        let mut without_trades_toggles = Vec::new();
+        if trades > 0 {
+            let mut retained = HashSet::new();
+            for unit in &self.units {
+                if !unit.trade_off && unit.depends_on.iter().all(|id| retained.contains(id)) {
+                    if chosen.contains(&unit.index) {
+                        retained.insert(unit.index);
+                        if unit.partial {
+                            without_trades_toggles.push(unit.index);
+                        }
+                    } else if !unit.partial {
+                        without_trades_toggles.push(unit.index);
+                    }
+                }
+            }
         }
         Ok(Review {
             changes,
@@ -256,6 +256,7 @@ impl Proposal {
             after: Counts::new(report, &self.scope),
             selected: selected.len() as u32,
             trades,
+            without_trades_toggles,
             plan,
         })
     }

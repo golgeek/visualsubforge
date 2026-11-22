@@ -371,7 +371,10 @@ async function run() {
         cueNumber: i + 1,
         detail: {
           index: i,
-          reason: 'Would violate minimum duration',
+          lead: 'Would violate minimum duration.',
+          facts: [],
+          blockingCue: null,
+          budgetText: null,
           rules: [],
           budget: null,
         },

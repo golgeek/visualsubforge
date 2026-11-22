@@ -139,3 +139,5 @@ schema 2 adds scene coverage: the CLI returns incomplete coverage for nonzero
 scene buffers because it supplies no scene data. See [scene quality](scene-quality.md)
 for exact commands, retained evidence and the Mac OpenGL runtime scope. New
 Windows/Linux feature execution and physical GPU/audio acceptance are unverified.
+
+With attached video, an incomplete or unavailable scene scan blocks every timing change. Finish the scan before applying repairs. With no video, only Shot changes is disabled.

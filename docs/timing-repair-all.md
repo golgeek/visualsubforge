@@ -63,3 +63,6 @@ inputs. The default selections match in 79 comparisons. Seven differences fix
 independent findings, seven pair endpoints to preserve another rule, and six
 use a smaller trim. Run `cargo test --locked -p vsf-application --test timing_parity`
 and the `timing_fix` unit tests to check the frozen results, objective and invariants.
+
+With attached video, an incomplete or unavailable scene scan blocks every timing change. Finish the scan before applying repairs. With no video, only Shot changes is disabled.
+A second run can offer further partial improvements after the first accepted pass.

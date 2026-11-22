@@ -1,10 +1,10 @@
 //! One immutable, format-aware timing review. Candidate generation is local;
 //! publication and acceptance always check the resulting subtitle document.
-pub mod review;
 mod dependencies;
 mod effects;
 mod manual;
 mod precision;
+pub mod review;
 pub use effects::EffectSegment;
 mod search;
 use super::{
@@ -79,7 +79,9 @@ pub struct Request {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Endpoints {
+    #[cfg_attr(feature="specta",specta(type=f64))]
     pub start_ms: u64,
+    #[cfg_attr(feature="specta",specta(type=f64))]
     pub end_ms: u64,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -167,6 +169,7 @@ impl Unit {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Budget {
+    #[cfg_attr(feature="specta",specta(type=f64))]
     pub effective_ms: u64,
     pub max_counted: Option<u32>,
     pub shorten_by: Option<u32>,
@@ -187,7 +190,9 @@ pub struct Manual {
     pub budget: Option<Budget>,
 }
 
-pub fn is_timing_finding(rule: Rule)->bool {family(rule,Families::default())}
+pub fn is_timing_finding(rule: Rule) -> bool {
+    family(rule, Families::default())
+}
 
 fn family(rule: Rule, f: Families) -> bool {
     match rule {
@@ -865,7 +870,7 @@ impl PlanningInputs<'_> {
             .filter(|u| u.partial)
             .map(|u| u.index as usize)
             .collect();
-        let unresolved=unresolved_by_cue(after,document,scope,&positions,request.families);
+        let unresolved = unresolved_by_cue(after, document, scope, &positions, request.families);
         let mut manual = Vec::new();
         for (index, rules) in unresolved
             .into_iter()

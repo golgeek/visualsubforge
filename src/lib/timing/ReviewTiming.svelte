@@ -11,7 +11,6 @@
   import type { WorkspaceView } from '../workspace/workspace-view.svelte';
   import { TimingFixSession } from './timing-fix-session.svelte';
   import { timingGhosts, type TimingPreview } from './review-preview';
-  import { formatTime } from '../timeline/timeline';
   let {
     view,
     subtitles,
@@ -48,7 +47,6 @@
   };
   const familyKeys = ['gaps', 'speed', 'shots'] as const;
   let toggled = $state<number[]>([]);
-  let touchedTrades = $state<number[]>([]);
   let omitTrades = $state(false);
   let selectionKey = $state('');
   let openRows = $state<number[]>([]);
@@ -124,24 +122,18 @@
   function prepareSelection() {
     if (selectionKey !== semantic) {
       toggled = [];
-      touchedTrades = [];
       omitTrades = false;
       selectionKey = semantic;
     }
   }
-  function toggle(index: number, trade: boolean) {
+  function toggle(index: number) {
     prepareSelection();
-    if (trade && !touchedTrades.includes(index))
-      touchedTrades = [...touchedTrades, index];
-    toggled = toggled.includes(index)
-      ? toggled.filter((v) => v !== index)
-      : [...toggled, index];
+    toggled = [...toggled, index];
   }
   function untickTrades() {
     prepareSelection();
     omitTrades = true;
-    toggled = toggled.filter((i) => !touchedTrades.includes(i));
-    touchedTrades = [];
+    toggled = [...(result?.withoutTradesToggles ?? [])];
   }
   function setPolicy(patch: Partial<TimingFixOptions>) {
     onoptions({ ...options, ...patch });
@@ -165,7 +157,6 @@
     onpreview(null);
     onbusy(false);
   });
-  const time = (n: number | null) => (n === null ? '—' : formatTime(n));
   const chip = (rule: string) =>
     rule === 'gap' || rule === 'overlap'
       ? 'Gap'
@@ -258,11 +249,14 @@
           >
         </label>{/each}
     </div>
+    {#if blocked}<p class="scan-reason">
+        Finish the scene scan to apply timing changes.
+      </p>{/if}
     {#if subtitles.dirty}<p>Waiting for the cue edit to commit.</p>
       {#if lastManual?.key === documentKey}{#each lastManual.rows as r (r.cueId)}<div
             class="manual"
           >
-            <span>{r.cueNumber}</span><span>{r.detail.reason}</span><button
+            <span>{r.cueNumber}</span><span>{r.detail.lead}</span><button
               onmousedown={(e) => e.preventDefault()}
               onclick={() => onnavigate(r.cueId)}>Edit</button
             >
@@ -286,13 +280,22 @@
       </div>
       {#if result.selectionError}<p role="alert">
           {result.selectionError}
-        </p>{/if}
+        </p>{/if}{#if result.selectionError || toggled.length || omitTrades}<button
+          onclick={() => {
+            prepareSelection();
+            toggled = [];
+            omitTrades = false;
+          }}>Restore default selection</button
+        >{/if}
       <div class="heading">
         <strong>Changes</strong><span class="number">{result.total}</span
         >{#if result.trades}<button data-variant="quiet" onclick={untickTrades}
             >Untick trade-offs ({result.trades})</button
           >{/if}
       </div>
+      {#if !result.total}<p>
+          No changes for the ticked rules in this scope.
+        </p>{/if}
       {#each result.rows as row (row.cueIndex)}
         <div class="change">
           <input
@@ -300,7 +303,7 @@
             aria-label={'Include cue ' + row.cueLabel}
             checked={row.selected}
             disabled={session.accepting}
-            onchange={() => toggle(row.cueIndex, row.unit.tradeOff)}
+            onchange={() => toggle(row.cueIndex)}
           />
           <button
             class="cue"
@@ -321,24 +324,19 @@
                 class="chip">{name}</span
               >{/each}
             {#if row.unit.partial}<span class="chip">Partial</span>{/if}
-            {#if row.unit.endpoints.some((e) => e.before.startMs !== e.after.startMs)}<span
-                class="chip moved">Start moved</span
-              >{/if}
+            {#if row.startMoved}<span class="chip moved">Start moved</span>{/if}
             {#if row.unit.tradeOff}<span class="chip trade">Trade-off</span
-              >{/if}<span class="number">{row.delta}</span>
+              >{/if}<span class="number">{row.delta}</span>{#if row.needs}
+              <small>{row.needs}</small>{/if}
           </button>
           <small class="effect number"
-            >{row.metricEffect}
-            {#if row.unit.tradeOff}{#each row.unit.effects as effect (effect.index + '-' + effect.rule)}{#if effect.after !== null && effect.after >= effect.limit}<span
-                    class="warning"
-                  >
-                    · {effect.rule === 'cps_high' ? 'CPS' : 'RS'} limit {effect.limit}</span
-                  >{/if}{/each}{/if}
-          </small>
+            >{#each row.unit.effectsText as effect, index (index)}{#if index}
+                ·
+              {/if}<span class:warning={effect.warning}>{effect.text}</span
+              >{/each}</small
+          >
           {#if openRows.includes(row.cueIndex)}<small class="times number"
-              >{#each row.unit.endpoints as e (e.index)}<span
-                  >Start {time(e.before.startMs)} → {time(e.after.startMs)} · End
-                  {time(e.before.endMs)} → {time(e.after.endMs)}</span
+              >{#each row.timecodes as line (line)}<span>{line}</span
                 >{/each}</small
             >{/if}
         </div>
@@ -366,14 +364,11 @@
           {#each manualPage?.manual ?? [] as r (r.cueId)}<div class="manual">
               <span class="number">{r.cueNumber}</span>
               <div>
-                {r.detail.reason}
-                {#if r.detail.budget?.atPartial}<small
-                    >At the unticked timing {time(r.detail.budget.at.startMs)} → {time(
-                      r.detail.budget.at.endMs,
-                    )}.</small
-                  >{/if}
-                {#if r.detail.budget?.estimate}<small
-                    >Estimated counted length with overlap-aware reading.</small
+                <span>{r.detail.lead}</span>
+                {#each r.detail.facts as fact (fact)}<small>{fact}</small
+                  >{/each}
+                {#if r.detail.budgetText}<small class="budget"
+                    >{r.detail.budgetText}</small
                   >{/if}
               </div>
               <button onclick={() => onnavigate(r.cueId)}>Edit</button>
@@ -537,7 +532,7 @@
     grid-column: 3;
   }
   .times {
-    grid-column: 2/-1;
+    grid-column: 3/-1;
   }
   .times span,
   small {

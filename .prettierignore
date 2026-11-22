@@ -17,3 +17,6 @@ tests/fixtures/comparison/*/expected.html
 
 # Exact output of the Rust timing parity capture.
 crates/vsf-application/tests/fixtures/timing-parity/legacy.json
+
+# Exact Rust review projection for the browser episode.
+tests/frontend/scene-quality/timing-episode.json

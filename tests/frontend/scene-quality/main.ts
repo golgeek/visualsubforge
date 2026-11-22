@@ -1,3 +1,4 @@
+import episode from './timing-episode.json';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
@@ -14,6 +15,8 @@ import {
 } from '../../../src/lib/client';
 import { timingFixView as sample } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
+const episodeTrial = new URLSearchParams(location.search).has('episode');
+const incompleteTrial = new URLSearchParams(location.search).has('incomplete');
 const policyTrial = new URLSearchParams(location.search).has('policy');
 const host = document.querySelector('#test')!;
 const heading = document.querySelector('#result')!;
@@ -30,6 +33,7 @@ let doc: DocumentSnapshot = {
     { id: 3, startMs: 8000, endMs: 10000, text: '{\\k20}Timed' },
   ],
 };
+if (episodeTrial) doc.cues = structuredClone(episode.cues);
 const original = structuredClone(doc);
 let activeScope: number[] | null = null;
 let view: TimingFixView = structuredClone(sample);
@@ -147,6 +151,49 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           starts++;
           const input = args.input!;
           activeScope = input.scope ?? null;
+          if (episodeTrial) {
+            const { options } = input;
+            const toggled = input.toggled ?? [];
+            let key: keyof typeof episode.views;
+            if (incompleteTrial) key = 'incomplete';
+            else if (toggled.length === 2) key = 'retick';
+            else if (toggled.length === 1) key = 'untick';
+            else if (options.sceneEdges === 'nearest') key = 'nearest';
+            else if (options.startToleranceMs === 300) key = 'starts';
+            else if (options.priority === 'spacing') key = 'spacing';
+            else key = 'default';
+            const snapshot = structuredClone(
+              episode.views[key],
+            ) as unknown as Pick<
+              TimingFixView,
+              | 'rows'
+              | 'before'
+              | 'after'
+              | 'manual'
+              | 'changed'
+              | 'coverage'
+              | 'selectionError'
+              | 'selectionConflicts'
+              | 'trades'
+            >;
+            if (
+              (key === 'untick' && toggled.join(',') !== '2') ||
+              (key === 'retick' && toggled.join(',') !== '2,3')
+            )
+              throw new Error(
+                'Missing engine snapshot for checkbox actions ' +
+                  toggled.join(','),
+              );
+            view = {
+              ...structuredClone(sample),
+              ...snapshot,
+              id: starts,
+              phase: 'reviewing',
+              total: snapshot.rows.length,
+              manualCount: snapshot.manual.length,
+            };
+            return starts;
+          }
           if (policyTrial) {
             host.setAttribute('data-timing-request', JSON.stringify(input));
             view = structuredClone(sample);
@@ -238,7 +285,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(doc);
         }
         case 'quality_read':
-          if (policyTrial)
+          if (policyTrial || episodeTrial)
             return {
               ...emptyQuality(args),
               findingsCount: 3,
@@ -390,7 +437,10 @@ async function run() {
         cueNumber: i + 1,
         detail: {
           index: i,
-          reason: 'Would violate minimum duration',
+          lead: 'Would violate minimum duration.',
+          facts: [],
+          blockingCue: null,
+          budgetText: null,
           rules: [],
           budget: null,
         },
@@ -447,8 +497,8 @@ async function run() {
     await unmount(app);
   }
 }
-if (policyTrial) {
-  void until(() => host.querySelectorAll('.cue-row').length === 3).then(() =>
-    chooseCommand(host, 'fixAllTiming'),
-  );
+if (policyTrial || episodeTrial) {
+  void until(
+    () => host.querySelectorAll('.cue-row').length === doc.cues.length,
+  ).then(() => chooseCommand(host, 'fixAllTiming'));
 } else void run();

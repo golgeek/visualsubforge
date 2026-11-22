@@ -361,7 +361,7 @@ export const fixGapsSample = {
       cueId: '1',
       cueIndex: 0,
       cueLabel: '1',
-      delta: 'end -30 ms',
+      delta: 'end −30 ms',
       ghosts: [
         {
           after: {
@@ -375,9 +375,15 @@ export const fixGapsSample = {
           cueId: '1',
         },
       ],
-      metricEffect: 'CPS 5.0 → 5.2 · RS 10.0 → 10.6',
+      needs: null,
       selected: true,
+      startMoved: false,
+      timecodes: [
+        'Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,000 → 00:00:01,970',
+      ],
       unit: {
+        cutTimecodes: [],
+        dependsOn: [],
         effects: [
           {
             after: 5.154639175257732,
@@ -392,6 +398,20 @@ export const fixGapsSample = {
             index: 0,
             limit: 35,
             rule: 'rs_high',
+          },
+        ],
+        effectsText: [
+          {
+            text: 'gap 50 → 80 ms',
+            warning: false,
+          },
+          {
+            text: 'CPS 5.0 → 5.2',
+            warning: false,
+          },
+          {
+            text: 'RS 10.0 → 10.6',
+            warning: false,
           },
         ],
         endpoints: [
@@ -417,7 +437,7 @@ export const fixGapsSample = {
       cueId: '2',
       cueIndex: 1,
       cueLabel: '2',
-      delta: 'end -30 ms',
+      delta: 'end −30 ms',
       ghosts: [
         {
           after: {
@@ -431,9 +451,15 @@ export const fixGapsSample = {
           cueId: '2',
         },
       ],
-      metricEffect: 'CPS 6.0 → 6.2 · RS 12.0 → 12.8',
+      needs: 'needs cue 1',
       selected: true,
+      startMoved: false,
+      timecodes: [
+        'Start 00:00:02,050 → 00:00:02,050 · End 00:00:03,050 → 00:00:03,020',
+      ],
       unit: {
+        cutTimecodes: [],
+        dependsOn: [0],
         effects: [
           {
             after: 6.185567010309279,
@@ -448,6 +474,20 @@ export const fixGapsSample = {
             index: 1,
             limit: 35,
             rule: 'rs_high',
+          },
+        ],
+        effectsText: [
+          {
+            text: 'gap 50 → 80 ms',
+            warning: false,
+          },
+          {
+            text: 'CPS 6.0 → 6.2',
+            warning: false,
+          },
+          {
+            text: 'RS 12.0 → 12.8',
+            warning: false,
           },
         ],
         endpoints: [
@@ -470,9 +510,11 @@ export const fixGapsSample = {
       },
     },
   ],
+  selectionConflicts: [],
   selectionError: null,
   total: 2,
   trades: 0,
+  withoutTradesToggles: [],
 } satisfies TimingFixView;
 export const fixSpeedSample = {
   after: {
@@ -502,6 +544,7 @@ export const fixSpeedSample = {
       cueId: '3',
       cueNumber: 3,
       detail: {
+        blockingCue: null,
         budget: {
           at: {
             endMs: 14400,
@@ -513,9 +556,11 @@ export const fixSpeedSample = {
           maxCounted: null,
           shortenBy: null,
         },
+        budgetText:
+          'A text budget is unavailable within the 500 ms reading allowance.',
+        facts: [],
         index: 2,
-        reason:
-          'timing-sensitive markup or an event effect requires manual review A text budget is unavailable while reading time is within the 500 ms allowance.',
+        lead: 'Timed markup or an event effect needs manual timing.',
         rules: ['duration_short', 'cps_high', 'speed_unavailable'],
       },
     },
@@ -585,9 +630,15 @@ export const fixSpeedSample = {
           cueId: '1',
         },
       ],
-      metricEffect: 'CPS 50.0 → 9.4 · RS unavailable → 12.3',
+      needs: null,
       selected: true,
+      startMoved: false,
+      timecodes: [
+        'Start 00:00:01,000 → 00:00:01,000 · End 00:00:01,400 → 00:00:03,130',
+      ],
       unit: {
+        cutTimecodes: [],
+        dependsOn: [],
         effects: [
           {
             after: 9.389671361502348,
@@ -602,6 +653,20 @@ export const fixSpeedSample = {
             index: 0,
             limit: 35,
             rule: 'rs_high',
+          },
+        ],
+        effectsText: [
+          {
+            text: 'duration 400 → 2130 ms',
+            warning: false,
+          },
+          {
+            text: 'CPS 50.0 → 9.4',
+            warning: false,
+          },
+          {
+            text: 'RS — → 12.3',
+            warning: false,
           },
         ],
         endpoints: [
@@ -627,7 +692,7 @@ export const fixSpeedSample = {
       cueId: '2',
       cueIndex: 1,
       cueLabel: '2',
-      delta: 'end -6130 ms',
+      delta: 'end −6130 ms',
       ghosts: [
         {
           after: {
@@ -641,9 +706,15 @@ export const fixSpeedSample = {
           cueId: '2',
         },
       ],
-      metricEffect: 'CPS 1.2 → 5.3 · RS 1.3 → 7.3',
+      needs: 'needs cue 1',
       selected: true,
+      startMoved: false,
+      timecodes: [
+        'Start 00:00:05,000 → 00:00:05,000 · End 00:00:13,000 → 00:00:06,870',
+      ],
       unit: {
+        cutTimecodes: [],
+        dependsOn: [0],
         effects: [
           {
             after: 5.347593582887701,
@@ -658,6 +729,20 @@ export const fixSpeedSample = {
             index: 1,
             limit: 35,
             rule: 'rs_high',
+          },
+        ],
+        effectsText: [
+          {
+            text: 'duration 8000 → 1870 ms',
+            warning: false,
+          },
+          {
+            text: 'CPS 1.2 → 5.3',
+            warning: false,
+          },
+          {
+            text: 'RS 1.3 → 7.3',
+            warning: false,
           },
         ],
         endpoints: [
@@ -680,9 +765,11 @@ export const fixSpeedSample = {
       },
     },
   ],
+  selectionConflicts: [],
   selectionError: null,
   total: 2,
   trades: 0,
+  withoutTradesToggles: [],
 } satisfies TimingFixView;
 export const styleForm = {
   fields: [
@@ -2368,10 +2455,12 @@ export const timingFixView = {
       cueId: '3',
       cueNumber: 3,
       detail: {
+        blockingCue: null,
         budget: null,
+        budgetText: null,
+        facts: [],
         index: 2,
-        reason:
-          'timing-sensitive markup or an event effect requires manual review',
+        lead: 'Timed markup or an event effect needs manual timing.',
         rules: ['scene_start'],
       },
     },
@@ -2441,10 +2530,23 @@ export const timingFixView = {
           cueId: '1',
         },
       ],
-      metricEffect: 'Duration 2000 → 1870 ms',
+      needs: null,
       selected: true,
+      startMoved: true,
+      timecodes: [
+        'Start 00:00:01,000 → 00:00:01,130 · End 00:00:03,000 → 00:00:03,000',
+        'Cut 00:00:01,000',
+      ],
       unit: {
+        cutTimecodes: ['00:00:01,000'],
+        dependsOn: [],
         effects: [],
+        effectsText: [
+          {
+            text: 'starts 0 → 130 ms after the cut',
+            warning: false,
+          },
+        ],
         endpoints: [
           {
             after: {
@@ -2468,7 +2570,7 @@ export const timingFixView = {
       cueId: '2',
       cueIndex: 1,
       cueLabel: '2',
-      delta: 'start +80 ms, end -180 ms',
+      delta: 'start +80 ms, end −180 ms',
       ghosts: [
         {
           after: {
@@ -2482,10 +2584,28 @@ export const timingFixView = {
           cueId: '2',
         },
       ],
-      metricEffect: 'Duration 2000 → 1740 ms',
+      needs: 'needs cue 1',
       selected: true,
+      startMoved: true,
+      timecodes: [
+        'Start 00:00:04,050 → 00:00:04,130 · End 00:00:06,050 → 00:00:05,870',
+        'Cut 00:00:04,000',
+        'Cut 00:00:06,000',
+      ],
       unit: {
+        cutTimecodes: ['00:00:04,000', '00:00:06,000'],
+        dependsOn: [0],
         effects: [],
+        effectsText: [
+          {
+            text: 'starts 50 → 130 ms after the cut',
+            warning: false,
+          },
+          {
+            text: 'ends 50 ms after → 130 ms before the cut',
+            warning: false,
+          },
+        ],
         endpoints: [
           {
             after: {
@@ -2506,9 +2626,11 @@ export const timingFixView = {
       },
     },
   ],
+  selectionConflicts: [],
   selectionError: null,
   total: 2,
   trades: 0,
+  withoutTradesToggles: [],
 } satisfies TimingFixView;
 export const batchTimingView = {
   alignedMs: null,

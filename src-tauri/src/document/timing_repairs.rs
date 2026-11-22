@@ -422,6 +422,7 @@ impl Documents {
             phase: phase(job, closed),
             error: job.error.clone(),
             selection_error: None,
+            selection_conflicts: Vec::new(),
             coverage: None,
             before: Default::default(),
             after: Default::default(),
@@ -429,6 +430,7 @@ impl Documents {
             changed: 0,
             manual_count: 0,
             trades: 0,
+            without_trades_toggles: Vec::new(),
             offset,
             rows: vec![],
             manual: vec![],
@@ -438,11 +440,26 @@ impl Documents {
             view.before = review.before;
             view.after = review.after;
             view.selection_error = review.plan.error.clone();
+            view.selection_conflicts = review.plan.selection_conflicts.clone();
             view.total = review.changes.len() as u32;
             view.changed = review.selected;
             view.trades = review.trades;
+            view.without_trades_toggles = review.without_trades_toggles.clone();
             view.manual_count = review.manual.len() as u32;
+            let visible = |r: &&vsf_application::quality::timing_fix::review::Row| {
+                preview.is_none_or(|ids| {
+                    r.unit.endpoints.iter().any(|e| {
+                        review
+                            .plan
+                            .cue_id_at(e.index as usize)
+                            .is_some_and(|id| ids.contains(&id))
+                    })
+                })
+            };
             let count = match section {
+                Section::Changes if preview.is_some() => {
+                    review.changes.iter().filter(visible).count() as u32
+                }
                 Section::Changes => view.total,
                 Section::Manual => view.manual_count,
             };
@@ -452,16 +469,7 @@ impl Documents {
                     view.rows = review
                         .changes
                         .iter()
-                        .filter(|r| {
-                            preview.is_none_or(|ids| {
-                                r.unit.endpoints.iter().any(|e| {
-                                    review
-                                        .plan
-                                        .cue_id_at(e.index as usize)
-                                        .is_some_and(|id| ids.contains(&id))
-                                })
-                            })
-                        })
+                        .filter(visible)
                         .skip(view.offset as usize)
                         .take(limit as usize)
                         .cloned()
