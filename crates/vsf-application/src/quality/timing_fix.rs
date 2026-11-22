@@ -285,6 +285,12 @@ fn retime(document: &Document, units: &[Unit], selected: &HashSet<u32>) -> Resul
     Ok(Edit::Retime { timings })
 }
 
+fn needs_text_budget(rules: &[Rule]) -> bool {
+    rules
+        .iter()
+        .any(|rule| matches!(rule, Rule::CpsHigh | Rule::RsHigh))
+}
+
 fn budget(
     row: &super::CueMetrics,
     at: Endpoints,
@@ -868,9 +874,7 @@ impl PlanningInputs<'_> {
                     },
                     metric.effective_duration_ms as u64,
                 ));
-            let budget = rules
-                .iter()
-                .any(|r| matches!(r, Rule::CpsHigh | Rule::RsHigh | Rule::SpeedUnavailable))
+            let budget = needs_text_budget(&rules)
                 .then(|| budget(metric, at, effective, partial, context.profile));
             let next = metric
                 .next_cue_id

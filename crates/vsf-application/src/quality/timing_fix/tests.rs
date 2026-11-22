@@ -82,6 +82,42 @@ fn residual_budget_respects_inclusive_cps_exclusive_rs_and_allowance() {
     assert_eq!(budget(&m, at, 500, false, &p).max_counted, None);
 }
 #[test]
+fn manual_text_budget_requires_a_remaining_high_rate() {
+    let mut profile = Profile::default().custom("half-second".into(), "Half second".into());
+    profile.rules.duration.minimum_ms = 500;
+    for (text, high_cps) in [("Hi.", false), ("Too much text for half a second.", true)] {
+        let document = doc(&[(0, 500, text), (580, 2500, "Next")]);
+        let request = Request {
+            scope: Some(vec![CueId(1)]),
+            ..Request::default()
+        };
+        let proposal = propose(
+            document,
+            (&profile).into(),
+            &Scenes::NoMedia,
+            request,
+            || Ok(()),
+        )
+        .unwrap();
+        let [row] = proposal.manual() else {
+            panic!("one manual cue expected")
+        };
+        assert!(row.rules.contains(&Rule::SpeedUnavailable));
+        assert_eq!(row.rules.contains(&Rule::CpsHigh), high_cps);
+        if high_cps {
+            assert_eq!(row.budget.as_ref().unwrap().effective_ms, 500);
+            assert_eq!(
+                row.budget_text.as_deref(),
+                Some("A text budget is unavailable within the 500 ms reading allowance.")
+            );
+        } else {
+            assert_eq!(row.rules, [Rule::SpeedUnavailable]);
+            assert!(row.budget.is_none());
+            assert!(row.budget_text.is_none());
+        }
+    }
+}
+#[test]
 fn partial_is_unchecked_and_budget_records_its_endpoint() {
     let d = doc(&[
         (0, 1000, "123456789012345678901234567890"),
