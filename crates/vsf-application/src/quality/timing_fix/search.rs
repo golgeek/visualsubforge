@@ -5,21 +5,40 @@ use super::*;
 use crate::quality::{CueMetrics, Profile};
 use metrics::ReadingPrior;
 
-const RULES: [Rule; 12] = [
-    Rule::DurationShort,
-    Rule::DurationLong,
-    Rule::CpsLow,
-    Rule::CpsHigh,
-    Rule::RsLow,
-    Rule::RsHigh,
-    Rule::SpeedUnavailable,
-    Rule::SpeedUnavailable,
-    Rule::Overlap,
-    Rule::Gap,
-    Rule::SceneStart,
-    Rule::SceneEnd,
-];
-type Violations = [u64; 12];
+#[derive(Clone, Copy, Default)]
+struct Violations {
+    too_short: u64,
+    too_long: u64,
+    cps_low: u64,
+    cps_high: u64,
+    rs_low: u64,
+    rs_high: u64,
+    cps_unavailable: u64,
+    rs_unavailable: u64,
+    overlap: u64,
+    gap: u64,
+    scene_start: u64,
+    scene_end: u64,
+}
+impl Violations {
+    fn entries(self) -> [(Rule, u64); 12] {
+        // Each unavailable metric counts independently in the local objective.
+        [
+            (Rule::DurationShort, self.too_short),
+            (Rule::DurationLong, self.too_long),
+            (Rule::CpsLow, self.cps_low),
+            (Rule::CpsHigh, self.cps_high),
+            (Rule::RsLow, self.rs_low),
+            (Rule::RsHigh, self.rs_high),
+            (Rule::SpeedUnavailable, self.cps_unavailable),
+            (Rule::SpeedUnavailable, self.rs_unavailable),
+            (Rule::Overlap, self.overlap),
+            (Rule::Gap, self.gap),
+            (Rule::SceneStart, self.scene_start),
+            (Rule::SceneEnd, self.scene_end),
+        ]
+    }
+}
 #[derive(Clone, Copy)]
 struct Bounds {
     actual_min: u64,
@@ -29,24 +48,37 @@ struct Bounds {
     rs: bool,
 }
 impl Bounds {
-    fn new(m: &CueMetrics, p: &Profile) -> Self {
-        let d = &p.rules.duration;
-        let s = &p.rules.speed;
-        let a = u64::from(m.characters) * 1000;
-        let speed = if s.enabled && !m.empty {
+    fn new(metric: &CueMetrics, profile: &Profile) -> Self {
+        let duration = &profile.rules.duration;
+        let speed_rules = &profile.rules.speed;
+        let characters_ms = u64::from(metric.characters) * 1000;
+        // Integer division is deliberate: CPS is inclusive, RS excludes equality after its 500 ms allowance.
+        let speed = if speed_rules.enabled && !metric.empty {
             [
-                s.minimum_cps.map(|x| a / u64::from(x)),
-                s.maximum_cps.map(|x| a.div_ceil(x.into())),
-                s.minimum_rs.map(|x| 500 + a / u64::from(x)),
-                s.maximum_rs_exclusive.map(|x| 501 + a / u64::from(x)),
+                speed_rules
+                    .minimum_cps
+                    .map(|rate| characters_ms / u64::from(rate)),
+                speed_rules
+                    .maximum_cps
+                    .map(|rate| characters_ms.div_ceil(rate.into())),
+                speed_rules
+                    .minimum_rs
+                    .map(|rate| 500 + characters_ms / u64::from(rate)),
+                speed_rules
+                    .maximum_rs_exclusive
+                    .map(|rate| 501 + characters_ms / u64::from(rate)),
             ]
         } else {
             [None; 4]
         };
         Self {
-            actual_min: if d.enabled { d.minimum_ms.into() } else { 1 },
-            actual_max: if d.enabled {
-                d.maximum_ms.into()
+            actual_min: if duration.enabled {
+                duration.minimum_ms.into()
+            } else {
+                1
+            },
+            actual_max: if duration.enabled {
+                duration.maximum_ms.into()
             } else {
                 Milliseconds::MAX
             },
@@ -95,59 +127,62 @@ pub(super) struct Search<'a> {
 }
 
 fn violations(
-    p: Endpoints,
-    d: u64,
+    timing: Endpoints,
+    effective_ms: u64,
     next: Option<u64>,
     bounds: Bounds,
     profile: &Profile,
     windows: &Windows,
 ) -> Violations {
-    let duration = p.end_ms - p.start_ms;
-    let mut v = [0; 12];
-    v[0] = bounds.actual_min.saturating_sub(duration);
-    v[1] = duration.saturating_sub(bounds.actual_max);
-    for (i, b) in bounds.speed.iter().enumerate() {
-        if let Some(b) = b
-            && d > if i < 2 { 0 } else { 500 }
-        {
-            v[2 + i] = if i % 2 == 0 {
-                d.saturating_sub(*b)
-            } else {
-                b.saturating_sub(d)
-            };
-        }
+    let duration = timing.end_ms - timing.start_ms;
+    let [min_cps, max_cps, min_rs, max_rs] = bounds.speed;
+    let below_rate = |bound: Option<u64>, allowance| {
+        bound
+            .filter(|_| effective_ms > allowance)
+            .map_or(0, |bound| effective_ms.saturating_sub(bound))
+    };
+    let above_rate = |bound: Option<u64>, allowance| {
+        bound
+            .filter(|_| effective_ms > allowance)
+            .map_or(0, |bound| bound.saturating_sub(effective_ms))
+    };
+    let next = next.filter(|_| profile.rules.gaps);
+    Violations {
+        too_short: bounds.actual_min.saturating_sub(duration),
+        too_long: duration.saturating_sub(bounds.actual_max),
+        cps_low: below_rate(min_cps, 0),
+        cps_high: above_rate(max_cps, 0),
+        rs_low: below_rate(min_rs, 500),
+        rs_high: above_rate(max_rs, 500),
+        cps_unavailable: u64::from(bounds.cps && effective_ms == 0),
+        rs_unavailable: u64::from(bounds.rs && effective_ms <= 500),
+        overlap: next.map_or(0, |start| timing.end_ms.saturating_sub(start)),
+        gap: next
+            .filter(|&start| timing.end_ms <= start)
+            .map_or(0, |start| {
+                (timing.end_ms + u64::from(profile.timing.cue_gap_ms)).saturating_sub(start)
+            }),
+        scene_start: u64::from(windows.containing(timing.start_ms).is_some()),
+        scene_end: u64::from(windows.containing(timing.end_ms).is_some()),
     }
-    v[6] = u64::from(bounds.cps && d == 0);
-    v[7] = u64::from(bounds.rs && d <= 500);
-    if profile.rules.gaps
-        && let Some(next) = next
-    {
-        v[8] = p.end_ms.saturating_sub(next);
-        if p.end_ms <= next {
-            v[9] = (p.end_ms + u64::from(profile.timing.cue_gap_ms)).saturating_sub(next);
-        }
-    }
-    v[10] = u64::from(windows.containing(p.start_ms).is_some());
-    v[11] = u64::from(windows.containing(p.end_ms).is_some());
-    v
 }
 
 impl Search<'_> {
-    fn score(&self, t: Trial, bounds: [Bounds; 2]) -> Score {
+    fn score(&self, trial: Trial, bounds: [Bounds; 2]) -> Score {
         let profile = self.context.profile;
-        let cur = t.current;
-        let floor = metrics::reading_floor(profile.speed_basis, cur.start_ms, self.prior);
-        let effective = cur.end_ms.saturating_sub(floor);
-        let a = violations(
-            cur,
+        let current = trial.current;
+        let floor = metrics::reading_floor(profile.speed_basis, current.start_ms, self.prior);
+        let effective = current.end_ms.saturating_sub(floor);
+        let severity = violations(
+            current,
             effective,
-            t.next.map(|n| n.start_ms),
+            trial.next.map(|timing| timing.start_ms),
             bounds[0],
             profile,
             self.windows,
         );
         let mut score = Score {
-            severity: [a, [0; 12]],
+            severity: [severity, Violations::default()],
             effective: [effective, 0],
             previous_gap: 0,
         };
@@ -155,22 +190,28 @@ impl Search<'_> {
             && profile.rules.gaps
         {
             score.previous_gap =
-                (prior.end + u64::from(profile.timing.cue_gap_ms)).saturating_sub(cur.start_ms);
+                (prior.end + u64::from(profile.timing.cue_gap_ms)).saturating_sub(current.start_ms);
         }
-        if let Some(next) = t.next {
+        if let Some(next) = trial.next {
             let prior = ReadingPrior {
-                start: floor.min(cur.end_ms),
-                end: cur.end_ms,
+                start: floor.min(current.end_ms),
+                end: current.end_ms,
                 count: self.before.metrics[self.index].characters,
             };
-            let d = next.end_ms.saturating_sub(metrics::reading_floor(
+            let next_effective = next.end_ms.saturating_sub(metrics::reading_floor(
                 profile.speed_basis,
                 next.start_ms,
                 Some(prior),
             ));
-            score.severity[1] =
-                violations(next, d, self.following, bounds[1], profile, self.windows);
-            score.effective[1] = d;
+            score.severity[1] = violations(
+                next,
+                next_effective,
+                self.following,
+                bounds[1],
+                profile,
+                self.windows,
+            );
+            score.effective[1] = next_effective;
         }
         score
     }
@@ -199,41 +240,52 @@ impl Search<'_> {
         result
     }
     fn rank(&self, base: Score, score: Score) -> Option<([i16; 4], u64, bool)> {
-        let f = self.request.families;
+        let families = self.request.families;
         let mut fixed = [0; 4];
         let mut reduction = 0;
         let mut trade = false;
         if score.previous_gap > base.previous_gap {
             return None;
         }
-        if f.gaps && base.previous_gap > 0 && score.previous_gap == 0 {
+        if families.gaps && base.previous_gap > 0 && score.previous_gap == 0 {
             fixed[2] += 1;
         }
-        for (b, s) in base.severity.iter().zip(score.severity) {
-            for k in 0..12 {
-                if s[k] > b[k] {
-                    if matches!(k, 3 | 5)
+        for (original, candidate) in base.severity.iter().zip(score.severity) {
+            for ((rule, before), (_, after)) in
+                original.entries().into_iter().zip(candidate.entries())
+            {
+                if after > before {
+                    if matches!(rule, Rule::CpsHigh | Rule::RsHigh)
                         && self.request.options.priority == Priority::Spacing
-                        && f.speed
-                        && (f.gaps || f.shots)
+                        && families.speed
+                        && (families.gaps || families.shots)
                     {
                         trade = true;
                     } else {
                         return None;
                     }
                 }
-                if !family(RULES[k], f) {
+                if !family(rule, families) {
                     continue;
                 }
-                let group = match k {
-                    0..2 => 0,
-                    2..8 => 1,
-                    8..10 => 2,
-                    _ => 3,
+                let group = match rule {
+                    Rule::DurationShort | Rule::DurationLong => 0,
+                    Rule::Gap | Rule::Overlap => 2,
+                    Rule::SceneStart | Rule::SceneEnd => 3,
+                    _ => 1,
                 };
-                fixed[group] += i16::from(b[k] > 0 && s[k] == 0) - i16::from(b[k] == 0 && s[k] > 0);
-                if k < 6 {
-                    reduction += b[k].saturating_sub(s[k]);
+                fixed[group] +=
+                    i16::from(before > 0 && after == 0) - i16::from(before == 0 && after > 0);
+                if matches!(
+                    rule,
+                    Rule::DurationShort
+                        | Rule::DurationLong
+                        | Rule::CpsHigh
+                        | Rule::CpsLow
+                        | Rule::RsHigh
+                        | Rule::RsLow
+                ) {
+                    reduction += before.saturating_sub(after);
                 }
             }
         }
@@ -246,25 +298,25 @@ impl Search<'_> {
         Some((fixed, reduction, trade))
     }
     pub(super) fn choose(&self) -> Option<(Unit, u64)> {
-        let p = self.context.profile;
-        let i = self.index;
-        let orig = self.points[i];
-        let next = self.next.map(|j| self.points[j]);
-        let b = Bounds::new(&self.before.metrics[i], p);
-        let nb = self
-            .next
-            .map_or(b, |j| Bounds::new(&self.before.metrics[j], p));
+        let profile = self.context.profile;
+        let index = self.index;
+        let original = self.points[index];
+        let next = self.next.map(|next_index| self.points[next_index]);
+        let bounds = Bounds::new(&self.before.metrics[index], profile);
+        let next_bounds = self.next.map_or(bounds, |next_index| {
+            Bounds::new(&self.before.metrics[next_index], profile)
+        });
         let base = self.score(
             Trial {
-                current: orig,
+                current: original,
                 next,
             },
-            [b, nb],
+            [bounds, next_bounds],
         );
         let tolerance = u64::from(self.request.options.start_tolerance_ms);
-        let gap = u64::from(p.timing.cue_gap_ms);
-        let start_window = self.windows.containing(orig.start_ms);
-        let end_window = self.windows.containing(orig.end_ms);
+        let gap = u64::from(profile.timing.cue_gap_ms);
+        let start_window = self.windows.containing(original.start_ms);
+        let end_window = self.windows.containing(original.end_ms);
         let inward_start = start_window
             .filter(|_| self.request.families.shots)
             .map(|w| w.1 as u64);
@@ -273,26 +325,36 @@ impl Search<'_> {
         } else {
             0
         };
-        let mut starts = vec![orig.start_ms];
+        let mut starts = vec![original.start_ms];
         if !self.locked && (tolerance > 0 || inward_start.is_some()) {
             let mut raw = vec![
-                orig.start_ms,
-                orig.start_ms.saturating_sub(tolerance),
-                orig.start_ms + tolerance,
+                original.start_ms,
+                original.start_ms.saturating_sub(tolerance),
+                original.start_ms + tolerance,
                 earliest_start,
             ];
+            // Intersect candidate ends with each duration boundary to find the least start movement.
             let mut end_limits = vec![
-                Some(orig.end_ms),
-                next.and_then(|n| n.start_ms.checked_sub(gap)),
-                next.and_then(|n| (n.start_ms + tolerance).checked_sub(gap)),
+                Some(original.end_ms),
+                next.and_then(|neighbour| neighbour.start_ms.checked_sub(gap)),
+                next.and_then(|neighbour| (neighbour.start_ms + tolerance).checked_sub(gap)),
             ];
-            if let Some(n) = next
+            if let Some(neighbour) = next
                 && self.can_delay
             {
-                end_limits.extend(nb.durations().map(|d| n.end_ms.checked_sub(d + gap)));
+                // Project the following cue’s duration through the required gap.
+                end_limits.extend(
+                    next_bounds
+                        .durations()
+                        .map(|duration| neighbour.end_ms.checked_sub(duration + gap)),
+                );
             }
             for end in end_limits.into_iter().flatten() {
-                raw.extend(b.durations().filter_map(|d| end.checked_sub(d)));
+                raw.extend(
+                    bounds
+                        .durations()
+                        .filter_map(|duration| end.checked_sub(duration)),
+                );
             }
             starts.extend(self.grid(&raw));
         }
@@ -300,175 +362,195 @@ impl Search<'_> {
         starts.dedup();
         let mut best = None;
         let mut best_key = None;
-        for s in starts {
-            if s != orig.start_ms
-                && (self.windows.containing(s).is_some()
-                    || (s.abs_diff(orig.start_ms) > tolerance && Some(s) != inward_start)
-                    || (s < orig.start_ms && s < earliest_start)
+        for start_ms in starts {
+            if start_ms != original.start_ms
+                && (self.windows.containing(start_ms).is_some()
+                    || (start_ms.abs_diff(original.start_ms) > tolerance
+                        && Some(start_ms) != inward_start)
+                    || (start_ms < original.start_ms && start_ms < earliest_start)
                     || (start_window.is_some()
                         && self.request.options.scene_edges == SceneEdges::Inward
-                        && s < orig.start_ms))
+                        && start_ms < original.start_ms))
             {
                 continue;
             }
-            let floor = metrics::reading_floor(p.speed_basis, s, self.prior);
+            let floor = metrics::reading_floor(profile.speed_basis, start_ms, self.prior);
             let mut raw = vec![
-                orig.end_ms,
-                s + self.context.format.time_step_ms(),
-                s + b.actual_min,
-                s + b.actual_max,
+                original.end_ms,
+                start_ms + self.context.format.time_step_ms(),
+                start_ms + bounds.actual_min,
+                start_ms + bounds.actual_max,
             ];
-            raw.extend(b.speed.into_iter().flatten().map(|d| floor + d));
-            if b.cps {
+            raw.extend(
+                bounds
+                    .speed
+                    .into_iter()
+                    .flatten()
+                    .map(|duration| floor + duration),
+            );
+            if bounds.cps {
                 raw.push(floor + 1);
             }
-            if b.rs {
+            if bounds.rs {
                 raw.push(floor + 501);
             }
-            if let Some(n) = next {
-                raw.push(n.start_ms.saturating_sub(gap));
-                if p.speed_basis == SpeedBasis::VssOverlapV1 && orig.end_ms > n.start_ms {
-                    raw.push(n.start_ms);
-                    raw.extend(nb.durations().filter_map(|d| n.end_ms.checked_sub(d)));
+            if let Some(neighbour) = next {
+                raw.push(neighbour.start_ms.saturating_sub(gap));
+                if profile.speed_basis == SpeedBasis::VssOverlapV1
+                    && original.end_ms > neighbour.start_ms
+                {
+                    raw.push(neighbour.start_ms);
+                    raw.extend(
+                        next_bounds
+                            .durations()
+                            .filter_map(|duration| neighbour.end_ms.checked_sub(duration)),
+                    );
                 }
                 if self.can_delay && tolerance > 0 {
-                    raw.push((n.start_ms + tolerance).saturating_sub(gap));
-                    raw.extend(nb.durations().filter_map(|d| n.end_ms.checked_sub(d + gap)));
+                    raw.push((neighbour.start_ms + tolerance).saturating_sub(gap));
+                    raw.extend(
+                        next_bounds
+                            .durations()
+                            .filter_map(|duration| neighbour.end_ms.checked_sub(duration + gap)),
+                    );
                 }
             }
             let mut ends = self.grid(&raw);
-            if !ends.contains(&orig.end_ms) {
-                ends.push(orig.end_ms);
+            if !ends.contains(&original.end_ms) {
+                ends.push(original.end_ms);
             }
-            for e in ends {
-                if e <= s
-                    || e != orig.end_ms
-                        && (self.windows.containing(e).is_some()
+            for end_ms in ends {
+                if end_ms <= start_ms
+                    || end_ms != original.end_ms
+                        && (self.windows.containing(end_ms).is_some()
                             || end_window.is_some()
                                 && self.request.families.shots
                                 && self.request.options.scene_edges == SceneEdges::Inward
-                                && e > orig.end_ms)
+                                && end_ms > original.end_ms)
                 {
                     continue;
                 }
-                let current = Endpoints {
-                    start_ms: s,
-                    end_ms: e,
-                };
-                let mut delays = vec![next.map_or(0, |n| n.start_ms)];
-                if let Some(n) = next
+                let current = Endpoints { start_ms, end_ms };
+                let mut delays = vec![next.map_or(0, |neighbour| neighbour.start_ms)];
+                if let Some(neighbour) = next
                     && self.can_delay
                     && tolerance > 0
                 {
-                    delays.extend(self.grid(&[e + gap, n.start_ms + tolerance]));
+                    delays.extend(self.grid(&[end_ms + gap, neighbour.start_ms + tolerance]));
                     delays.sort_unstable();
                     delays.dedup();
                 }
                 for start in delays {
-                    if let Some(n) = next
-                        && (start < n.start_ms
-                            || start - n.start_ms > tolerance
-                            || start >= n.end_ms
-                            || start != n.start_ms
+                    if let Some(neighbour) = next
+                        && (start < neighbour.start_ms
+                            || start - neighbour.start_ms > tolerance
+                            || start >= neighbour.end_ms
+                            || start != neighbour.start_ms
                                 && (self.windows.containing(start).is_some()
                                     || self.following.is_some_and(|f| start >= f))
-                            || s >= start
-                            || (e > orig.end_ms && e + gap > start)
-                            || (e as i64 - start as i64)
-                                > (orig.end_ms as i64 - n.start_ms as i64).max(-(gap as i64)))
+                            || start_ms >= start
+                            || (end_ms > original.end_ms && end_ms + gap > start)
+                            || (end_ms as i64 - start as i64)
+                                > (original.end_ms as i64 - neighbour.start_ms as i64)
+                                    .max(-(gap as i64)))
                     {
                         continue;
                     }
-                    let t = Trial {
+                    let trial = Trial {
                         current,
-                        next: next.map(|n| Endpoints {
+                        next: next.map(|neighbour| Endpoints {
                             start_ms: start,
-                            ..n
+                            ..neighbour
                         }),
                     };
-                    let sc = self.score(t, [b, nb]);
-                    let Some((fixed, reduction, trade)) = self.rank(base, sc) else {
+                    let score = self.score(trial, [bounds, next_bounds]);
+                    let Some((fixed, reduction, trade)) = self.rank(base, score) else {
                         continue;
                     };
                     let partial = fixed == [0; 4];
                     if fixed < [0; 4] || partial && reduction == 0 {
                         continue;
                     }
-                    let start_move =
-                        s.abs_diff(orig.start_ms) + next.map_or(0, |n| start - n.start_ms);
+                    let start_move = start_ms.abs_diff(original.start_ms)
+                        + next.map_or(0, |neighbour| start - neighbour.start_ms);
                     let key = (
                         fixed,
                         if partial { reduction } else { 0 },
                         std::cmp::Reverse((
                             start_move,
-                            e.abs_diff(orig.end_ms),
-                            e - s,
-                            s,
-                            e,
+                            end_ms.abs_diff(original.end_ms),
+                            end_ms - start_ms,
+                            start_ms,
+                            end_ms,
                             start,
                         )),
                     );
                     if best_key.is_none_or(|old| key > old) {
                         best_key = Some(key);
-                        best = Some((t, sc, partial, trade));
+                        best = Some((trial, score, partial, trade));
                     }
                 }
             }
         }
-        let (t, score, partial, trade_off) = best?;
+        let (trial, score, partial, trade_off) = best?;
         let mut endpoints = vec![];
         let mut fixed = vec![];
         let mut effects = vec![];
         if self.request.families.gaps && base.previous_gap > 0 && score.previous_gap == 0 {
             fixed.push(Rule::Gap);
         }
-        for (n, (idx, from, to)) in [
-            (Some(i), Some(orig), Some(t.current)),
-            (self.next, next, t.next),
+        for (neighbour, (cue_index, from, to)) in [
+            (Some(index), Some(original), Some(trial.current)),
+            (self.next, next, trial.next),
         ]
         .into_iter()
         .enumerate()
         {
-            let (Some(idx), Some(from), Some(to)) = (idx, from, to) else {
+            let (Some(cue_index), Some(from), Some(to)) = (cue_index, from, to) else {
                 continue;
             };
             if from != to {
                 endpoints.push(Change {
-                    index: idx as u32,
+                    index: cue_index as u32,
                     before: from,
                     after: to,
                 });
             }
-            for (k, &rule) in RULES.iter().enumerate() {
-                if base.severity[n][k] > 0
-                    && score.severity[n][k] == 0
+            for ((rule, initial), (_, planned)) in base.severity[neighbour]
+                .entries()
+                .into_iter()
+                .zip(score.severity[neighbour].entries())
+            {
+                if initial > 0
+                    && planned == 0
                     && family(rule, self.request.families)
                     && !fixed.contains(&rule)
                 {
                     fixed.push(rule);
                 }
             }
-            let m = &self.before.metrics[idx];
-            let speed = &p.rules.speed;
+            let metric = &self.before.metrics[cue_index];
+            let speed = &profile.rules.speed;
             for (allowance, limit, rule) in [
                 (0, speed.maximum_cps, Rule::CpsHigh),
                 (500, speed.maximum_rs_exclusive, Rule::RsHigh),
             ] {
                 if speed.enabled
-                    && !m.empty
+                    && !metric.empty
                     && let Some(limit) = limit
-                    && base.effective[n] != score.effective[n]
+                    && base.effective[neighbour] != score.effective[neighbour]
                 {
-                    let rate = |d: u64| {
-                        d.checked_sub(allowance)
-                            .filter(|d| *d > 0)
-                            .map(|d| f64::from(m.characters) * 1000. / d as f64)
+                    let rate = |duration: u64| {
+                        duration
+                            .checked_sub(allowance)
+                            .filter(|duration| *duration > 0)
+                            .map(|duration| f64::from(metric.characters) * 1000. / duration as f64)
                     };
                     effects.push(Effect {
-                        index: idx as u32,
+                        index: cue_index as u32,
                         rule,
-                        before: rate(base.effective[n]),
-                        after: rate(score.effective[n]),
+                        before: rate(base.effective[neighbour]),
+                        after: rate(score.effective[neighbour]),
                         limit,
                     });
                 }
@@ -483,15 +565,15 @@ impl Search<'_> {
             let pair = if base.previous_gap > score.previous_gap {
                 self.prior.map(|prior| {
                     (
-                        orig.start_ms as i64 - prior.end as i64,
-                        t.current.start_ms as i64 - prior.end as i64,
+                        original.start_ms as i64 - prior.end as i64,
+                        trial.current.start_ms as i64 - prior.end as i64,
                     )
                 })
             } else {
-                next.zip(t.next).map(|(old, new)| {
+                next.zip(trial.next).map(|(old, new)| {
                     (
-                        old.start_ms as i64 - orig.end_ms as i64,
-                        new.start_ms as i64 - t.current.end_ms as i64,
+                        old.start_ms as i64 - original.end_ms as i64,
+                        new.start_ms as i64 - trial.current.end_ms as i64,
                     )
                 })
             };
@@ -518,7 +600,7 @@ impl Search<'_> {
                     && before != after
                     && self.windows.containing(before).is_some()
                     && let Some((segment, timecode)) =
-                        effects::shot(label, before, after, self.scenes, p)
+                        effects::shot(label, before, after, self.scenes, profile)
                 {
                     effects_text.push(segment);
                     if !cut_timecodes.contains(&timecode) {
@@ -542,14 +624,14 @@ impl Search<'_> {
         effects_text.extend(
             effects
                 .iter()
-                .filter_map(|effect| effects::speed(effect, i as u32)),
+                .filter_map(|effect| effects::speed(effect, index as u32)),
         );
         Some((
             Unit {
                 depends_on: Vec::new(),
                 effects_text,
                 cut_timecodes,
-                index: i as u32,
+                index: index as u32,
                 endpoints,
                 partial,
                 trade_off,

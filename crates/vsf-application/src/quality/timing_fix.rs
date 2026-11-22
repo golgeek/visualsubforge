@@ -483,6 +483,317 @@ fn selection_geometry(
     Ok(Vec::new())
 }
 
+struct PlanningInputs<'a> {
+    document: &'a Document,
+    before: &'a Report,
+    context: Evaluation<'a>,
+    scenes: &'a Scenes,
+    request: &'a Request,
+    scope: &'a HashSet<CueId>,
+    windows: &'a Windows,
+}
+struct Walk {
+    units: Vec<Unit>,
+    partial_d: HashMap<usize, (Endpoints, u64)>,
+    blocked: Vec<Option<&'static str>>,
+}
+struct Retained {
+    after: Report,
+    withheld: HashMap<usize, u32>,
+    #[cfg(test)]
+    evaluations: usize,
+}
+fn targets(document: &Document, before: &Report, families: Families) -> HashSet<CueId> {
+    let mut targets = HashSet::new();
+    for finding in &before.findings {
+        if family(finding.rule, families) {
+            targets.insert(document.cues()[finding.cue_index as usize].id());
+            if let Some(id) = finding.related_cue_id.as_ref().and_then(|s| s.parse().ok()) {
+                targets.insert(CueId(id));
+            }
+        }
+    }
+    targets
+}
+impl PlanningInputs<'_> {
+    fn walk(
+        &self,
+        order: &[usize],
+        groups: &[usize],
+        ambiguous: &[bool],
+        checkpoint: &mut impl FnMut() -> Result<()>,
+    ) -> Result<Walk> {
+        let Self {
+            document,
+            before,
+            context,
+            scenes,
+            request,
+            scope,
+            windows,
+        } = *self;
+        let targets = targets(document, before, request.families);
+        let mut points = endpoints(document);
+        let mut units = Vec::new();
+        let mut partial_timings = HashMap::new();
+        let mut prior = None;
+        let mut frontier = 0;
+        let mut locked = false;
+        let mut provenance = dependencies::Provenance::new(points.len());
+        let blocked = |index: usize| {
+            if !scope.contains(&document.cues()[index].id()) {
+                Some("Outside the selected scope.")
+            } else if matches!(
+                windows.coverage(),
+                SceneCoverage::Unavailable | SceneCoverage::Partial
+            ) {
+                Some("Finish the scene scan to fix this cue.")
+            } else if ambiguous[groups[index]] {
+                Some("Equal starts or nested cues need manual timing.")
+            } else if crate::subtitle_markup::retiming_is_ambiguous(
+                &document.cues()[index],
+                context.format,
+            ) {
+                Some("Timed markup or an event effect needs manual timing.")
+            } else {
+                None
+            }
+        };
+        let blocked_reasons: Vec<_> = (0..points.len()).map(blocked).collect();
+        for (position, &index) in order.iter().enumerate() {
+            checkpoint()?;
+            let next = order.get(position + 1).copied();
+            let mut lock_next = false;
+            if targets.contains(&document.cues()[index].id()) && blocked_reasons[index].is_none() {
+                let search = search::Search {
+                    index,
+                    next,
+                    following: order
+                        .get(position + 2)
+                        .map(|&neighbour| points[neighbour].start_ms),
+                    prior,
+                    frontier,
+                    locked,
+                    can_delay: next.is_some_and(|neighbour| blocked_reasons[neighbour].is_none()),
+                    context,
+                    request,
+                    before,
+                    points: &points,
+                    windows,
+                    scenes,
+                };
+                if let Some((mut unit, effective)) = search.choose() {
+                    unit.depends_on =
+                        provenance.prerequisites(index, next, order.get(position + 2).copied());
+                    if unit.partial {
+                        let at = unit
+                            .endpoints
+                            .iter()
+                            .find(|endpoint| endpoint.index as usize == index)
+                            .map_or(points[index], |endpoint| endpoint.after);
+                        partial_timings.insert(index, (at, effective));
+                    } else {
+                        provenance.applied(&unit);
+                        for change in &unit.endpoints {
+                            points[change.index as usize] = change.after;
+                        }
+                        lock_next = unit
+                            .endpoints
+                            .iter()
+                            .any(|change| Some(change.index as usize) == next);
+                    }
+                    units.push(unit);
+                }
+            }
+            locked = lock_next;
+            let planned = points[index];
+            provenance.advance(
+                index,
+                planned.end_ms >= frontier,
+                context.profile.speed_basis == SpeedBasis::VssOverlapV1
+                    && prior.is_some_and(|previous: metrics::ReadingPrior| {
+                        previous.end > planned.start_ms
+                    }),
+            );
+            let floor =
+                metrics::reading_floor(context.profile.speed_basis, planned.start_ms, prior);
+            prior = Some(metrics::ReadingPrior {
+                start: floor.min(planned.end_ms),
+                end: planned.end_ms,
+                count: before.metrics[index].characters,
+            });
+            frontier = frontier.max(planned.end_ms);
+        }
+        Ok(Walk {
+            units,
+            partial_d: partial_timings,
+            blocked: blocked_reasons,
+        })
+    }
+    fn retain_safe(
+        &self,
+        units: &mut Vec<Unit>,
+        groups: &[usize],
+        checkpoint: &mut impl FnMut() -> Result<()>,
+    ) -> Result<Retained> {
+        let Self {
+            document,
+            before,
+            context,
+            scenes,
+            ..
+        } = *self;
+        let evaluate =
+            |units: &[Unit], checkpoint: &mut dyn FnMut() -> Result<()>| -> Result<Report> {
+                let chosen = units
+                    .iter()
+                    .filter(|u| !u.partial)
+                    .map(|u| u.index)
+                    .collect();
+                let edit = retime(document, units, &chosen)?;
+                let plan = timing_selection::prepare_shift(
+                    document,
+                    edit,
+                    Selection::default(),
+                    &mut *checkpoint,
+                )?;
+                evaluate_with_scenes(&plan.candidate, context, scenes, |_, _| checkpoint())
+            };
+        let mut withheld = HashMap::new();
+        let mut evaluations = 1;
+        let after = loop {
+            let candidate = evaluate(units, checkpoint)?;
+            evaluations += 1;
+            let chosen = units
+                .iter()
+                .filter(|unit| !unit.partial)
+                .map(|unit| unit.index)
+                .collect();
+            let unsafe_cues = unsafe_indices(before, &candidate, units, &chosen);
+            if unsafe_cues.is_empty() {
+                break candidate;
+            }
+            let count = units.len();
+            dependencies::withhold(units, groups, &unsafe_cues, &mut withheld);
+            // The contract caps full checks at three. The original has already
+            // been evaluated and remains available if a second chain is unsafe.
+            if units.len() == count || evaluations >= 3 {
+                let root = *unsafe_cues.iter().min().expect("unsafe set is nonempty") as u32;
+                for unit in units.drain(..) {
+                    withheld.insert(unit.index as usize, root);
+                }
+                break before.clone();
+            }
+        };
+        Ok(Retained {
+            after,
+            withheld,
+            #[cfg(test)]
+            evaluations,
+        })
+    }
+    fn manual_rows(
+        &self,
+        walk: &Walk,
+        retained: &Retained,
+        checkpoint: &mut impl FnMut() -> Result<()>,
+    ) -> Result<Vec<Manual>> {
+        let Self {
+            document,
+            request,
+            scope,
+            windows,
+            context,
+            ..
+        } = *self;
+        let Retained {
+            after, withheld, ..
+        } = retained;
+        let positions: HashMap<_, _> = document
+            .cues()
+            .iter()
+            .enumerate()
+            .map(|(index, c)| (c.id(), index))
+            .collect();
+        let partial_units: HashSet<_> = walk
+            .units
+            .iter()
+            .filter(|u| u.partial)
+            .map(|u| u.index as usize)
+            .collect();
+        let mut unresolved = vec![Vec::new(); document.cues().len()];
+        for finding in &after.findings {
+            if family(finding.rule, request.families) {
+                let index = finding.cue_index as usize;
+                let dest = if scope.contains(&document.cues()[index].id()) {
+                    Some(index)
+                } else {
+                    finding
+                        .related_cue_id
+                        .as_ref()
+                        .and_then(|s| s.parse().ok())
+                        .and_then(|id| scope.contains(&CueId(id)).then_some(id))
+                        .and_then(|id| positions.get(&CueId(id)).copied())
+                };
+                if let Some(destination) = dest {
+                    unresolved[destination].push(finding.rule);
+                }
+            }
+        }
+        let mut manual = Vec::new();
+        for (index, rules) in unresolved
+            .into_iter()
+            .enumerate()
+            .filter(|(_, r)| !r.is_empty())
+        {
+            checkpoint()?;
+            let metric = &after.metrics[index];
+            let partial = partial_units.contains(&index);
+            let (at, effective) = walk
+                .partial_d
+                .get(&index)
+                .copied()
+                .filter(|_| partial)
+                .unwrap_or((
+                    Endpoints {
+                        start_ms: metric.start_ms as u64,
+                        end_ms: metric.end_ms as u64,
+                    },
+                    metric.effective_duration_ms as u64,
+                ));
+            let budget = rules
+                .iter()
+                .any(|r| matches!(r, Rule::CpsHigh | Rule::RsHigh | Rule::SpeedUnavailable))
+                .then(|| budget(metric, at, effective, partial, context.profile));
+            let next = metric
+                .next_cue_id
+                .as_ref()
+                .and_then(|id| id.parse().ok())
+                .and_then(|id| positions.get(&CueId(id)))
+                .map(|&index| {
+                    (
+                        index as u32,
+                        after.metrics[index].start_ms as u64,
+                        scope.contains(&document.cues()[index].id()),
+                    )
+                });
+            let mut row = Manual::new(index, rules, budget);
+            row.explain(&manual::ReasonContext {
+                blocked: walk.blocked[index],
+                withheld: withheld.get(&index).copied(),
+                next,
+                at,
+                metric,
+                profile: context.profile,
+                windows,
+                tolerance: request.options.start_tolerance_ms,
+            });
+            manual.push(row);
+        }
+        Ok(manual)
+    }
+}
+
 pub fn propose(
     document: Document,
     context: Evaluation<'_>,
@@ -508,216 +819,23 @@ pub fn propose(
     let mut order: Vec<_> = (0..document.cues().len()).collect();
     order.sort_by_key(|&i| (document.cues()[i].start(), i));
     let (groups, ambiguous) = gap::overlap_groups(&document, &order, &mut checkpoint)?;
-    let mut targets = HashSet::new();
-    for f in &before.findings {
-        if family(f.rule, request.families) {
-            targets.insert(document.cues()[f.cue_index as usize].id());
-            if let Some(id) = f.related_cue_id.as_ref().and_then(|s| s.parse().ok()) {
-                targets.insert(CueId(id));
-            }
-        }
-    }
-    let mut points = endpoints(&document);
-    let mut units = Vec::new();
-    let mut partial_d = HashMap::new();
-    let mut prior = None;
-    let mut frontier = 0;
-    let mut locked = false;
-    let mut provenance = dependencies::Provenance::new(points.len());
-    let blocked = |i: usize| {
-        if !scope.contains(&document.cues()[i].id()) {
-            Some("Outside the selected scope.")
-        } else if matches!(
-            windows.coverage(),
-            SceneCoverage::Unavailable | SceneCoverage::Partial
-        ) {
-            Some("Finish the scene scan to fix this cue.")
-        } else if ambiguous[groups[i]] {
-            Some("Equal starts or nested cues need manual timing.")
-        } else if crate::subtitle_markup::retiming_is_ambiguous(&document.cues()[i], context.format)
-        {
-            Some("Timed markup or an event effect needs manual timing.")
-        } else {
-            None
-        }
+    let inputs = PlanningInputs {
+        document: &document,
+        before: &before,
+        context,
+        scenes,
+        request: &request,
+        scope: &scope,
+        windows: &windows,
     };
-    let movable: Vec<_> = (0..points.len()).map(blocked).collect();
-    for (pos, &i) in order.iter().enumerate() {
-        checkpoint()?;
-        let next = order.get(pos + 1).copied();
-        let mut lock_next = false;
-        if targets.contains(&document.cues()[i].id()) && movable[i].is_none() {
-            let search = search::Search {
-                index: i,
-                next,
-                following: order.get(pos + 2).map(|&j| points[j].start_ms),
-                prior,
-                frontier,
-                locked,
-                can_delay: next.is_some_and(|j| movable[j].is_none()),
-                context,
-                request: &request,
-                before: &before,
-                points: &points,
-                windows: &windows,
-                scenes,
-            };
-            if let Some((mut unit, effective)) = search.choose() {
-                unit.depends_on = provenance.prerequisites(i, next, order.get(pos + 2).copied());
-                if unit.partial {
-                    let at = unit
-                        .endpoints
-                        .iter()
-                        .find(|e| e.index as usize == i)
-                        .map_or(points[i], |e| e.after);
-                    partial_d.insert(i, (at, effective));
-                } else {
-                    provenance.applied(&unit);
-                    for c in &unit.endpoints {
-                        points[c.index as usize] = c.after;
-                    }
-                    lock_next = unit
-                        .endpoints
-                        .iter()
-                        .any(|c| Some(c.index as usize) == next);
-                }
-                units.push(unit);
-            }
-        }
-        locked = lock_next;
-        let p = points[i];
-        provenance.advance(
-            i,
-            p.end_ms >= frontier,
-            context.profile.speed_basis == SpeedBasis::VssOverlapV1
-                && prior.is_some_and(|previous: metrics::ReadingPrior| previous.end > p.start_ms),
-        );
-        let floor = metrics::reading_floor(context.profile.speed_basis, p.start_ms, prior);
-        prior = Some(metrics::ReadingPrior {
-            start: floor.min(p.end_ms),
-            end: p.end_ms,
-            count: before.metrics[i].characters,
-        });
-        frontier = frontier.max(p.end_ms);
-    }
-    let evaluate = |units: &[Unit], checkpoint: &mut dyn FnMut() -> Result<()>| -> Result<Report> {
-        let chosen = units
-            .iter()
-            .filter(|u| !u.partial)
-            .map(|u| u.index)
-            .collect();
-        let edit = retime(&document, units, &chosen)?;
-        let plan = timing_selection::prepare_shift(
-            &document,
-            edit,
-            Selection::default(),
-            &mut *checkpoint,
-        )?;
-        evaluate_with_scenes(&plan.candidate, context, scenes, |_, _| checkpoint())
-    };
-    let mut withheld = HashMap::new();
-    let mut evaluations = 1;
-    let after = loop {
-        let candidate = evaluate(&units, &mut checkpoint)?;
-        evaluations += 1;
-        let chosen = units
-            .iter()
-            .filter(|unit| !unit.partial)
-            .map(|unit| unit.index)
-            .collect();
-        let unsafe_cues = unsafe_indices(&before, &candidate, &units, &chosen);
-        if unsafe_cues.is_empty() {
-            break candidate;
-        }
-        let count = units.len();
-        dependencies::withhold(&mut units, &groups, &unsafe_cues, &mut withheld);
-        // The contract caps full checks at three. The original has already
-        // been evaluated and remains available if a second chain is unsafe.
-        if units.len() == count || evaluations >= 3 {
-            let root = *unsafe_cues.iter().min().expect("unsafe set is nonempty") as u32;
-            for unit in units.drain(..) {
-                withheld.insert(unit.index as usize, root);
-            }
-            break before.clone();
-        }
-    };
-    let positions: HashMap<_, _> = document
-        .cues()
-        .iter()
-        .enumerate()
-        .map(|(i, c)| (c.id(), i))
-        .collect();
-    let partial_units: HashSet<_> = units
-        .iter()
-        .filter(|u| u.partial)
-        .map(|u| u.index as usize)
-        .collect();
-    let mut unresolved = vec![Vec::new(); document.cues().len()];
-    for f in &after.findings {
-        if family(f.rule, request.families) {
-            let i = f.cue_index as usize;
-            let dest = if scope.contains(&document.cues()[i].id()) {
-                Some(i)
-            } else {
-                f.related_cue_id
-                    .as_ref()
-                    .and_then(|s| s.parse().ok())
-                    .and_then(|id| scope.contains(&CueId(id)).then_some(id))
-                    .and_then(|id| positions.get(&CueId(id)).copied())
-            };
-            if let Some(j) = dest {
-                unresolved[j].push(f.rule);
-            }
-        }
-    }
-    let mut manual = Vec::new();
-    for (i, rules) in unresolved
-        .into_iter()
-        .enumerate()
-        .filter(|(_, r)| !r.is_empty())
-    {
-        checkpoint()?;
-        let m = &after.metrics[i];
-        let partial = partial_units.contains(&i);
-        let (at, d) = partial_d.get(&i).copied().filter(|_| partial).unwrap_or((
-            Endpoints {
-                start_ms: m.start_ms as u64,
-                end_ms: m.end_ms as u64,
-            },
-            m.effective_duration_ms as u64,
-        ));
-        let budget = rules
-            .iter()
-            .any(|r| matches!(r, Rule::CpsHigh | Rule::RsHigh | Rule::SpeedUnavailable))
-            .then(|| budget(m, at, d, partial, context.profile));
-        let next = m
-            .next_cue_id
-            .as_ref()
-            .and_then(|id| id.parse().ok())
-            .and_then(|id| positions.get(&CueId(id)))
-            .map(|&index| {
-                (
-                    index as u32,
-                    after.metrics[index].start_ms as u64,
-                    scope.contains(&document.cues()[index].id()),
-                )
-            });
-        let mut row = Manual::new(i, rules, budget);
-        row.explain(&manual::ReasonContext {
-            blocked: movable[i],
-            withheld: withheld.get(&i).copied(),
-            next,
-            at,
-            metric: m,
-            profile: context.profile,
-            windows: &windows,
-            tolerance: request.options.start_tolerance_ms,
-        });
-        manual.push(row);
-    }
+    let mut walk = inputs.walk(&order, &groups, &ambiguous, &mut checkpoint)?;
+    let retained = inputs.retain_safe(&mut walk.units, &groups, &mut checkpoint)?;
+    let manual = inputs.manual_rows(&walk, &retained, &mut checkpoint)?;
+    let units = walk.units;
+    let after = retained.after;
     Ok(Proposal {
         #[cfg(test)]
-        evaluations,
+        evaluations: retained.evaluations,
         document,
         before,
         after,
