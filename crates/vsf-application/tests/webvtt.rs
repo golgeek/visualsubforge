@@ -394,7 +394,10 @@ fn quality_timing_repairs_skip_absolute_markers_but_allow_literal_ass_text() {
             .unwrap();
             assert_eq!(plan.default_units().len(), usize::from(!timed));
             if timed {
-                assert!(plan.manual()[0].reason.contains("markup"));
+                assert_eq!(
+                    plan.manual()[0].lead,
+                    "Timed markup or an event effect needs manual timing."
+                );
             }
         }
     }

@@ -242,9 +242,8 @@ fn assert_manual(d: &Document, format: Format) {
             family,
         );
         assert!(
-            plan.manual()
-                .iter()
-                .any(|m| m.index == 0 && m.reason.contains("markup"))
+            plan.manual().iter().any(|m| m.index == 0
+                && m.lead == "Timed markup or an event effect needs manual timing.")
         );
         assert!(
             plan.units()
