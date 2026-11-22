@@ -148,6 +148,11 @@ fn manual_causes_have_a_single_lead_and_at_most_two_facts() {
                  rules: Vec<Rule>,
                  budget: Option<Budget>,
                  lead: &str| {
+        if rules == [Rule::Gap] && lead.starts_with("Gap not fixed") {
+            let mut overlap = Manual::new(0, vec![Rule::Overlap], budget.clone());
+            overlap.explain(context);
+            assert_eq!(overlap.lead, lead.replacen("Gap", "Overlap", 1));
+        }
         let mut row = Manual::new(0, rules, budget);
         row.explain(context);
         assert_eq!(row.lead, lead);

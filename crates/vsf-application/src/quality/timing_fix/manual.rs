@@ -85,6 +85,11 @@ impl Manual {
             .iter()
             .any(|r| matches!(r, Rule::Gap | Rule::Overlap));
         if gap && cap < at.end_ms {
+            let spacing = if self.rules.contains(&Rule::Overlap) {
+                "Overlap"
+            } else {
+                "Gap"
+            };
             let duration = cap.saturating_sub(context.metric.reading_start_ms as u64);
             let (cps, rs, _) =
                 metrics::rates(context.metric.characters, duration, context.metric.empty);
@@ -116,21 +121,23 @@ impl Manual {
             }
             let minimum = profile.rules.duration.minimum_ms;
             if !rates.is_empty() {
-                self.lead = "Gap not fixed: this cue would become too fast.".into();
+                self.lead = format!("{spacing} not fixed: this cue would become too fast.");
                 self.facts.push(format!("{}.", rates.join(", ")));
                 let delay = at.end_ms - cap;
                 self.facts.push(format!("Cue {number} starts at {time}. Delaying it needs {delay} ms of start moves (now {}).",context.tolerance));
             } else if profile.rules.duration.enabled
                 && cap.saturating_sub(at.start_ms) < minimum.into()
             {
-                self.lead =
-                    format!("Gap not fixed: this cue would fall below the {minimum} ms minimum.");
+                self.lead = format!(
+                    "{spacing} not fixed: this cue would fall below the {minimum} ms minimum."
+                );
                 self.facts.push(format!(
                     "The latest end before cue {number} is {}.",
                     timecode(cap)
                 ));
             } else if let Some((left, right)) = context.windows.containing(cap) {
-                self.lead = "Gap not fixed: the end would land inside a shot-change window.".into();
+                self.lead =
+                    format!("{spacing} not fixed: the end would land inside a shot-change window.");
                 self.facts.push(format!(
                     "The window runs from {} to {}.",
                     timecode(left.max(0) as u64),
