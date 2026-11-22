@@ -146,7 +146,9 @@ jobs:
             -I"$VSF_MPV_BUILD/prepared/source/include" tests/release/macos-player-init.mm \
             -L"$RUNNER_TEMP/package/VisualSubForge.app/Contents/Frameworks" -lmpv.2 \
             -framework AppKit -Wl,-rpath,@executable_path/VisualSubForge.app/Contents/Frameworks \
-            -o "$RUNNER_TEMP/artifacts/macos-player-init"
+            -o "$RUNNER_TEMP/package/macos-player-init"
+          "$RUNNER_TEMP/package/macos-player-init"
+          mv "$RUNNER_TEMP/package/macos-player-init" "$RUNNER_TEMP/artifacts/macos-player-init"
           version=$(python scripts/release_version.py)
           ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_${version}_${{ matrix.arch }}_macos-unsigned.zip"
           cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
