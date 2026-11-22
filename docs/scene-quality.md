@@ -26,59 +26,9 @@ analysis and partial/running scans are not passing scene results. Completed
 Standard and Reduced scans can supply checks; both remain heuristic, and Reduced
 can miss cuts. A completed empty scan is different from unavailable data.
 
-## Review and acceptance
+## Reviewing shot changes
 
-**Snap to shot changes…** opens the dock and automatically creates an immutable
-preview for the whole file, list selection or filter. Starts move inward to the
-right edge of their exclusion window; ends move inward to the left edge. No cue
-is extended or shifted. Text, tags, IDs and document order are preserved. The
-dock shows both endpoints, duration, CPS/RS, total before/after findings and
-specific skip reasons in pages of 100 rows (IPC maximum 200).
-
-Nested/equal-start overlap groups, nonpositive intervals, enabled duration-limit
-failures and ambiguous markup are skipped. Karaoke, transforms, move/fade effects
-and unknown/incomplete tags require manual timing review; static supported tags
-remain byte-identical. Individual cues over 64 KiB also require manual review.
-The shared source-mapping parser is used by both text tools and timing repairs.
-For ASS/SSA, inward edges must lie on the 10 ms source grid; expanded exclusion
-windows retain exactly the representable safe points. Event metadata is preserved
-and nonempty event effects require manual review. See the current
-[ASS/SSA integration and acceptance scope](ass-ssa-documents.md).
-
-Individual changes can be unchecked; each new subset is revalidated before Apply.
-The entire proposed document is checked for new or worsened duration, speed,
-overlap, gap and scene findings, including effects on unchanged overlapping cues.
-Unsafe overlap groups are withheld and the retained document is checked again.
-Existing unrelated findings are reported; acceptance does not claim universal
-compliance. Loading a profile never authorizes automatic edits.
-
-Accept applies every safe row across all pages as one Rust history transaction.
-One Undo/Redo restores the full batch. Saving remains separate; atomic-save,
-external-change, recovery and resynchronization Save As protections remain active.
-Scene repair requires current completed scene data; missing data cannot be
-acknowledged away. An unchanged or all-skipped proposal cannot create history.
-
-## Ownership and bounds
-
-Pure scene inputs, checks and proposals live in `vsf-application::quality::scene`.
-No native media, filesystem, Tauri or frontend types enter that module. Accepted
-state/history remains in Rust. The frontend owns only transient review, navigation
-and draft state; `DocumentSession` serializes acceptance with other edits.
-
-Quality reads capture media/scene/document context off the UI thread. Scene
-replacement invalidates checker results even without a subtitle revision change.
-Proposal reads/acceptance recheck the document revision, profile epoch, media
-session and scene generation/readiness. Lock order is media selection, scenes,
-then document. Scene scan/restore inputs must match the selected media path.
-
-Scene and [duration review](duration-repairs.md) now share one timing-proposal
-owner, global IDs and purpose guards. It has one worker, no pending queue and a
-ten-second deadline.
-Cancellation is cooperative throughout checks and proposals; shutdown joins
-outside the document mutex. It joins the existing independently bounded quality,
-gap and text workers (at most four CPU workers). All work is bounded by 100,000
-cues/cuts/findings and 16 MiB of subtitle text. These are ceilings, not measured
-responsiveness claims at every ceiling.
+**Snap to shot changes…** opens the shot preset. The review applies the active profile’s exclusion windows and protects other timing rules. [Review workflow and coverage](timing-repair-all.md)
 
 ## Headless reports
 
@@ -92,7 +42,7 @@ buffers zero. This is an explicit coverage change from the previous checker.
 The desktop uses `evaluate_with_scenes`; headless callers can supply the same
 bounded, immutable scene input directly through the shared Rust API.
 
-## Recorded validation
+## Historical validation
 
 Development Mac arm64, Rust 1.98.1, Node 24.21.0/npm 11.19.0, FFmpeg 9.0.2.
 The full Rust workspace passes 236 tests, excluding empty harnesses; 39 frontend

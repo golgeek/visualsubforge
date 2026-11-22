@@ -1,4 +1,4 @@
-import type { QualityMetric, QualityRule, GapView } from '../client';
+import type { QualityMetric, QualityRule, TimingFixView } from '../client';
 export const qualityRules: { id: QualityRule; label: string }[] = [
   { id: 'empty', label: 'Empty cue' },
   { id: 'duration_short', label: 'Too short' },
@@ -21,7 +21,7 @@ export const qualityRules: { id: QualityRule; label: string }[] = [
   { id: 'language_coverage', label: 'Language coverage' },
 ];
 export function sceneCoverage(
-  coverage: GapView['coverage'] | undefined,
+  coverage: TimingFixView['coverage'] | undefined,
 ): string {
   switch (coverage) {
     case 'checked':

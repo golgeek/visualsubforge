@@ -18,7 +18,7 @@ export async function lifecycle(
     chooseFile: async () => null,
     documentAction: async () => snapshot,
     resyncAccept: async () => snapshot,
-    gapAccept: async () => snapshot,
+    timingFixAccept: async () => snapshot,
   });
   await subtitles.command({ kind: 'status' });
   let media = 0,

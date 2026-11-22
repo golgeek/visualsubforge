@@ -128,7 +128,7 @@ async function fixture(mode: string) {
     chooseFile: async () => {
       throw new Error('Unexpected chooser');
     },
-    gapAccept: async () => current,
+    timingFixAccept: async () => current,
     resyncAccept: async () => current,
   });
   await session.command({ kind: 'status' });

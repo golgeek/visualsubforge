@@ -341,12 +341,12 @@ when its ID eventually arrives. Disposal suppresses late UI updates and follow-u
 commands; it cannot undo a mutation already accepted by Rust. Acceptance flows
 that reconcile a lost reply fetch authoritative state before continuing.
 
-Gap, scene, duration and batch timing share `TimingRepairSession` for
+Fix and Shift share `TimingRepairSession` for
 start/read/page/cancel/accept ordering and disposal. Live dock inputs debounce
 250 ms and compare semantic keys so unrelated playback updates cannot starve
 admission. Pure read-only admission retries stop after three attempts; mutations
 are never retried. The capture is reactive and accepted snapshots remain immutable.
-Coverage eligibility stays in feature wrappers. Gap alone permits no-media
+Coverage eligibility stays in the session adapter. Fix permits no-media
 acceptance, with an explicit note beside Apply; missing attached-media scene
 coverage remains protected. Completed plans poll for Rust-owned invalidation.
 
@@ -459,19 +459,19 @@ desktop callers are responsible for dispatching them correctly.
 Document jobs capture immutable inputs under the owner lock, then evaluate
 outside it. Revision/context checks protect result publication and acceptance.
 Explicit review services use bounded admission rather than unbounded queues;
-scene/duration/batch share one timing worker, and text/style/font/conversion share
+Fix, batch and selected-cue repair share one timing worker, and text/style/font/conversion share
 another. Waveform and scene analysis each allow one active request and one
 replaceable pending request. Replacement cancels obsolete work before reuse.
 
 Scene capture and guarded document work have different lock lifetimes. During
-gap, timing, statistics and plugin start, `Media::with_context` holds media selection
+timing, statistics and plugin start, `Media::with_context` holds media selection
 while `capture_quality` copies scene data. That scene guard is released before
 acquiring the document lock.
 
 For protected reads and acceptance where supported, callers nest
 `Media::with_context`, `Scenes::with_quality_current` and the document operation:
 **media selection → scenes → document** remain locked together. This covers
-[gap](src-tauri/src/gap_review.rs), [timing](src-tauri/src/timing_review.rs),
+[timing](src-tauri/src/timing_review.rs),
 [statistics](src-tauri/src/statistics.rs), [plugin review](src-tauri/src/plugin_review.rs)
 and [quality checks](src-tauri/src/quality_check.rs). Quality reads first capture
 scene data, then reacquire and validate the scene guard before document access.
@@ -826,4 +826,4 @@ units, comparing grid-aligned candidates using the selected families and
 priority. A unit can include the following cue’s delayed start. Whole-document
 checking covers coupled reading starts, including cues outside the scope.
 The same capture validates a selection before returning one domain retime edit.
-The desktop and cue editor still use their existing planners at this stage.
+ReviewDock presents the saved policy, family ticks, Rust counts, changes and manual work in Timing → Fix. Timing → Shift retains batch operations. The Fix operation replaces the dedicated gap worker and the scene and duration operations. The selected-cue editor still composes the earlier planners.

@@ -39,6 +39,7 @@ pub(crate) fn preview_ids(ids: Option<Vec<SafeU64>>) -> Result<Option<HashSet<Cu
     })
     .transpose()
 }
+#[cfg(test)]
 pub(crate) fn visible(ids: Option<&HashSet<CueId>>, id: &str) -> bool {
     ids.is_none_or(|ids| id.parse().ok().is_some_and(|id| ids.contains(&CueId(id))))
 }

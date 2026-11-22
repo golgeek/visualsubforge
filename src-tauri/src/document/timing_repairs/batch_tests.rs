@@ -77,8 +77,8 @@ fn batch_owner_pages_history_kind_guards_and_atomic_failures() {
     let view = ready(&docs, id);
     assert_eq!(view.phase, Phase::Reviewing, "{:?}", view.error);
     assert_eq!((view.total, view.changed), (3, 3));
-    assert!(docs.scene_repair_accept(id).is_err());
-    assert!(docs.duration_repair_view(id, 0, 100).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    assert!(docs.timing_fix_view(id, 0, 100).is_err());
     assert!(docs.batch_timing_view(id, 0, 201).is_err());
     assert_eq!(
         docs.batch_timing_view(id, 1, 1).unwrap().rows[0].cue_index,

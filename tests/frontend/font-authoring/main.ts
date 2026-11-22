@@ -125,7 +125,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 const subtitles = new DocumentSession({
   chooseFile: async () => null,
   resyncAccept: async () => doc,
-  gapAccept: async () => doc,
+  timingFixAccept: async () => doc,
   documentAction: async (action) => {
     if (action.kind === 'undo')
       doc = { ...before, revision: doc.revision + 1, canRedo: true };
@@ -163,7 +163,7 @@ async function lifecycle() {
     chooseFile: async () => null,
     documentAction: async () => snapshot,
     resyncAccept: async () => snapshot,
-    gapAccept: async () => snapshot,
+    timingFixAccept: async () => snapshot,
     fontAccept: () =>
       new Promise((resolve) => {
         releaseAccept = resolve;

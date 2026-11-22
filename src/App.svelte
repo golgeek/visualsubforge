@@ -1231,6 +1231,15 @@
             style={layout.panelStyle('review')}
           >
             <ReviewDock
+              options={preferences.preferences.timingRepair}
+              onoptions={(o) => {
+                void preferences.saveRepair(o).catch((e) => {
+                  workspace.notice =
+                    'Timing policy applies for this session. Could not save: ' +
+                    String(e);
+                });
+              }}
+              issueCount={quality.view?.findingsCount ?? 0}
               {view}
               {subtitles}
               {tableView}
@@ -1264,6 +1273,7 @@
             >
               {#snippet issues()}
                 <ProblemsPanel
+                  onfixtiming={() => void dialogs.openTimingReview('all')}
                   session={quality}
                   documentLoaded={doc.loaded}
                   disabled={workspace.busy || workspace.confirming}

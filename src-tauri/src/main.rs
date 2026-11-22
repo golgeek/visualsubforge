@@ -15,7 +15,6 @@ mod extended_playback;
 mod extraction;
 mod file_lease;
 mod font_review;
-mod gap_review;
 mod ipc;
 mod ipc_number;
 mod language_tools;

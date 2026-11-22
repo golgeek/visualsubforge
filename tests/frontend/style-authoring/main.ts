@@ -111,7 +111,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 const subtitles = new DocumentSession({
   chooseFile: async () => null,
   resyncAccept: async () => doc,
-  gapAccept: async () => doc,
+  timingFixAccept: async () => doc,
   documentAction: async (action) => {
     if (action.kind === 'undo')
       doc = { ...before, revision: doc.revision + 1, canRedo: true };

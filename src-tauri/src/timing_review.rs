@@ -3,101 +3,111 @@
 use crate::{
     document::{Documents, Snapshot},
     ipc_number::SafeU64,
-    quality_check::{Key, Metric},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use vsf_application::quality::{
-    Profile,
-    scene::{SceneCoverage, Skip},
+    scene::SceneCoverage,
+    timing_fix::{
+        self, Families, Options,
+        review::{Counts, ManualRow, Row},
+    },
 };
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Phase {
+    Preparing,
+    Reviewing,
+    Cancelling,
+    Cancelled,
+    Stale,
+    Failed,
+    Accepted,
+    Closed,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Purpose {
-    Scene,
-    Duration,
+    Fix,
     Batch,
     CueFixes,
 }
-
-pub(crate) use crate::gap_review::Phase;
-#[derive(Serialize, specta::Type)]
+#[derive(Clone, Copy, Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Row {
-    pub cue_id: String,
-    pub cue_index: u32,
-    pub selected: bool,
-    pub new_start_ms: Option<SafeU64>,
-    pub new_end_ms: Option<SafeU64>,
-    pub skipped: Option<Skip>,
-    pub explanation: Option<String>,
-    pub before: Metric,
-    pub after: Metric,
+pub(crate) enum Section {
+    Changes,
+    Manual,
+}
+#[derive(Clone, Default, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Input {
+    pub families: Families,
+    pub options: Options,
+    pub scope: Option<Vec<SafeU64>>,
+    #[serde(default)]
+    pub toggled: Vec<u32>,
+    #[serde(default)]
+    pub omit_trades: bool,
+}
+#[cfg(test)]
+impl Input {
+    pub(crate) fn preset(gaps: bool, speed: bool, shots: bool) -> Self {
+        Self {
+            families: Families { gaps, speed, shots },
+            ..Self::default()
+        }
+    }
+}
+impl Input {
+    pub fn domain(&self) -> Result<timing_fix::Request, String> {
+        if self.scope.as_ref().is_some_and(|s| s.len() > 100000) || self.toggled.len() > 100000 {
+            return Err("Timing review exceeds 100,000 cues".into());
+        }
+        self.options.validate().map_err(|e| e.to_string())?;
+        Ok(timing_fix::Request {
+            families: self.families,
+            options: self.options,
+            scope: self.scope.as_ref().map(|ids| {
+                ids.iter()
+                    .map(|id| subtitle_core::CueId(id.get()))
+                    .collect()
+            }),
+        })
+    }
 }
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SceneRepairView {
-    pub id: SafeU64,
-    pub key: Key,
-    pub session: SafeU64,
-    pub phase: Phase,
-    pub profile: Profile,
+pub(crate) struct FixView {
+    pub key: crate::quality_check::Key,
+    pub profile: vsf_application::quality::Profile,
     pub profile_hash: String,
+    pub id: SafeU64,
+    pub phase: Phase,
     pub error: Option<String>,
     pub selection_error: Option<String>,
     pub coverage: Option<SceneCoverage>,
+    pub before: Counts,
+    pub after: Counts,
     pub total: u32,
     pub changed: u32,
-    pub skipped: u32,
-    pub before_findings: u32,
-    pub after_findings: u32,
+    pub manual_count: u32,
+    pub trades: u32,
     pub offset: u32,
     pub rows: Vec<Row>,
-}
-#[derive(Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct DurationRow {
-    pub cue_id: String,
-    pub cue_index: u32,
-    pub selected: bool,
-    pub new_end_ms: Option<SafeU64>,
-    pub skipped: Option<vsf_application::quality::duration::Skip>,
-    pub explanation: Option<String>,
-    pub before: Metric,
-    pub after: Metric,
-}
-#[derive(Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct DurationRepairView {
-    pub id: SafeU64,
-    pub selected_cue_id: Option<String>,
-    pub key: Key,
-    pub session: SafeU64,
-    pub phase: Phase,
-    pub profile: Profile,
-    pub profile_hash: String,
-    pub error: Option<String>,
-    pub selection_error: Option<String>,
-    pub coverage: Option<SceneCoverage>,
-    pub total: u32,
-    pub changed: u32,
-    pub skipped: u32,
-    pub before_findings: u32,
-    pub after_findings: u32,
-    pub offset: u32,
-    pub rows: Vec<DurationRow>,
+    pub manual: Vec<ManualRow>,
 }
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn scene_repair_start(
+pub(crate) async fn timing_fix_start(
     app: tauri::AppHandle,
     session: SafeU64,
     generation: SafeU64,
     revision: SafeU64,
-    selection: Option<crate::review_selection::Selection>,
+    input: Input,
 ) -> Result<SafeU64, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let selection = selection.map(|s| s.domain()).transpose()?;
+        input.domain()?;
         app.state::<crate::media::Media>()
             .with_context(session.get(), |path| {
                 let scenes = app
@@ -105,12 +115,7 @@ pub(crate) async fn scene_repair_start(
                     .capture_quality(session.get(), path.is_some())?;
                 Ok(app
                     .state::<Documents>()
-                    .scene_repair_start_selected(
-                        generation.get(),
-                        revision.get(),
-                        scenes,
-                        selection,
-                    )?
+                    .timing_fix_start(generation.get(), revision.get(), scenes, input)?
                     .try_into()?)
             })
     })
@@ -144,17 +149,24 @@ pub(crate) fn with_current<T>(
 }
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn scene_repair_view(
+pub(crate) async fn timing_fix_view(
     app: tauri::AppHandle,
     id: SafeU64,
     offset: u32,
     limit: u32,
+    section: Section,
     preview_ids: Option<Vec<SafeU64>>,
-) -> Result<SceneRepairView, String> {
+) -> Result<FixView, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let preview_ids = crate::review_selection::preview_ids(preview_ids)?;
-        with_current(&app, id.get(), Purpose::Scene, |documents| {
-            documents.scene_repair_view_for_cues(id.get(), offset, limit, preview_ids.as_ref())
+        with_current(&app, id.get(), Purpose::Fix, |documents| {
+            documents.timing_fix_view_for_cues(
+                id.get(),
+                offset,
+                limit,
+                section,
+                preview_ids.as_ref(),
+            )
         })
     })
     .await
@@ -162,13 +174,13 @@ pub(crate) async fn scene_repair_view(
 }
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn scene_repair_accept(
+pub(crate) async fn timing_fix_accept(
     app: tauri::AppHandle,
     id: SafeU64,
 ) -> Result<Snapshot, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        with_current(&app, id.get(), Purpose::Scene, |documents| {
-            documents.scene_repair_accept(id.get())
+        with_current(&app, id.get(), Purpose::Fix, |documents| {
+            documents.timing_repair_accept(id.get(), Purpose::Fix)
         })
     })
     .await
@@ -176,94 +188,10 @@ pub(crate) async fn scene_repair_accept(
 }
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn scene_repair_cancel(app: tauri::AppHandle, id: SafeU64) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Documents>().scene_repair_cancel(id.get())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn duration_repair_start(
-    app: tauri::AppHandle,
-    session: SafeU64,
-    generation: SafeU64,
-    revision: SafeU64,
-    selected_cue_id: Option<String>,
-    selection: Option<crate::review_selection::Selection>,
-) -> Result<SafeU64, String> {
-    let scope = match selected_cue_id {
-        Some(id) => vsf_application::quality::duration::Scope::Cue(subtitle_core::CueId(
-            id.parse()
-                .map_err(|_| "Selected cue identity must be a decimal integer")?,
-        )),
-        None => vsf_application::quality::duration::Scope::Document,
-    };
-    tauri::async_runtime::spawn_blocking(move || {
-        let selection = selection.map(|s| s.domain()).transpose()?;
-        app.state::<crate::media::Media>()
-            .with_context(session.get(), |path| {
-                let scenes = app
-                    .state::<crate::scenes::Scenes>()
-                    .capture_quality(session.get(), path.is_some())?;
-                Ok(app
-                    .state::<Documents>()
-                    .duration_repair_start_selected(
-                        generation.get(),
-                        revision.get(),
-                        scenes,
-                        scope,
-                        selection,
-                    )?
-                    .try_into()?)
-            })
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn duration_repair_view(
-    app: tauri::AppHandle,
-    id: SafeU64,
-    offset: u32,
-    limit: u32,
-    preview_ids: Option<Vec<SafeU64>>,
-) -> Result<DurationRepairView, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let preview_ids = crate::review_selection::preview_ids(preview_ids)?;
-        with_current(&app, id.get(), Purpose::Duration, |documents| {
-            documents.duration_repair_view_for_cues(id.get(), offset, limit, preview_ids.as_ref())
-        })
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn duration_repair_accept(
-    app: tauri::AppHandle,
-    id: SafeU64,
-) -> Result<Snapshot, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        with_current(&app, id.get(), Purpose::Duration, |documents| {
-            documents.duration_repair_accept(id.get())
-        })
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn duration_repair_cancel(
-    app: tauri::AppHandle,
-    id: SafeU64,
-) -> Result<(), String> {
+pub(crate) async fn timing_fix_cancel(app: tauri::AppHandle, id: SafeU64) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<Documents>()
-            .timing_repair_cancel(id.get(), Purpose::Duration)
+            .timing_repair_cancel(id.get(), Purpose::Fix)
     })
     .await
     .map_err(|e| e.to_string())?

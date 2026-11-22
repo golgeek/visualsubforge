@@ -1,12 +1,13 @@
+import { defaultPreferences } from '../../../src/lib/client';
 import { tick } from 'svelte';
-import { GapSession } from '../../../src/lib/timing/gap-session.svelte';
+import { TimingFixSession } from '../../../src/lib/timing/timing-fix-session.svelte';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
 import {
   emptyDocument,
-  type GapView,
+  type TimingFixView,
   type ReviewSelection,
 } from '../../../src/lib/client';
-import { gapView as sample } from '../ipc-contract-samples';
+import { fixGapsSample as sample } from '../ipc-contract-samples';
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
 function assert(value: unknown, message: string) {
@@ -39,7 +40,7 @@ let mutations = 0;
 const subtitles = new DocumentSession({
   chooseFile: async () => null,
   documentAction: async () => structuredClone(snapshot),
-  gapAccept: async () => {
+  timingFixAccept: async () => {
     mutations++;
     return snapshot;
   },
@@ -60,25 +61,42 @@ const cancelled: number[] = [];
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- Fake server storage is never observed by the component.
 const plans = new Map<
   number,
-  { view: GapView; subset: ReviewSelection | null }
+  { view: TimingFixView; subset: ReviewSelection | null }
 >();
-let session: GapSession;
+let session: TimingFixSession;
 let destroy = () => {};
 async function run() {
   try {
     await subtitles.command({ kind: 'status' });
     destroy = $effect.root(() => {
-      session = new GapSession(
+      session = new TimingFixSession(
         subtitles,
         () => 0,
+        () => ({
+          scope: selection.scope,
+          families: { gaps: true, speed: false, shots: false },
+          options: defaultPreferences.timingRepair,
+          toggled: [],
+          omitTrades: false,
+        }),
         {
-          gapStart: async (_media, doc, subset = null) => {
+          enabled: () => {
+            void heartbeat;
+            return enabled;
+          },
+          selection: () => selection,
+          context: () => context,
+          previewIds: () => ids,
+        },
+        {
+          timingFixStart: async (_media, doc) => {
+            const subset = selection;
             const id = ++starts;
             if (failures) {
               failures--;
               throw new Error('Injected admission failure');
             }
-            const view: GapView = structuredClone(sample);
+            const view: TimingFixView = structuredClone(sample);
             view.id = id;
             view.key.generation = doc.generation;
             view.key.revision = doc.revision;
@@ -90,7 +108,13 @@ async function run() {
             plans.set(id, { view, subset });
             return held ?? id;
           },
-          gapView: async (id, offset = 0, limit = 100, projection) => {
+          timingFixView: async (
+            id,
+            offset = 0,
+            limit = 100,
+            _section,
+            projection,
+          ) => {
             assert(limit <= 200, 'Unbounded preview read');
             const plan = plans.get(id)!;
             return {
@@ -104,21 +128,12 @@ async function run() {
                 .slice(offset, offset + limit),
             };
           },
-          gapCancel: async (id) => {
+          timingFixCancel: async (id) => {
             cancelled.push(id);
             const plan = plans.get(id);
             if (plan && plan.view.phase !== 'stale')
               plan.view.phase = 'cancelled';
           },
-        },
-        {
-          enabled: () => {
-            void heartbeat;
-            return enabled;
-          },
-          selection: () => selection,
-          context: () => context,
-          previewIds: () => ids,
         },
       );
       return () => session.dispose();

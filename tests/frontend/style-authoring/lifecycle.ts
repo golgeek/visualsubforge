@@ -20,7 +20,7 @@ export async function lifecycle(
     chooseFile: async () => null,
     documentAction: async () => snapshot,
     resyncAccept: async () => snapshot,
-    gapAccept: async () => snapshot,
+    timingFixAccept: async () => snapshot,
     styleAccept: () =>
       new Promise((resolve) => {
         releaseAccept = resolve;

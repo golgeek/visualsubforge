@@ -1,12 +1,9 @@
 import type {
   DocumentSnapshot,
-  GapView,
-  SceneRepairView,
-  DurationRepairView,
+  TimingFixView,
   BatchTimingView,
 } from '../client';
-export type TimingView =
-  GapView | SceneRepairView | DurationRepairView | BatchTimingView;
+export type TimingView = TimingFixView | BatchTimingView;
 export interface TimingGhost {
   id: number;
   startMs: number;
@@ -21,22 +18,38 @@ export interface TimingPreview {
 /** Projection of Rust-calculated values, never an accepted document edit. */
 export function timingGhosts(view: TimingView): TimingGhost[] {
   if (view.phase !== 'reviewing' || view.selectionError) return [];
-  return view.rows.flatMap((row) => {
-    if (!row.selected) return [];
-    const oldStartMs =
-      'oldStartMs' in row ? row.oldStartMs : row.before.data.startMs;
-    const oldEndMs = 'oldEndMs' in row ? row.oldEndMs : row.before.data.endMs;
-    if (oldStartMs === null || oldEndMs === null) return [];
-    return [
-      {
-        id: Number(row.cueId),
-        oldStartMs,
-        oldEndMs,
-        startMs: ('newStartMs' in row ? row.newStartMs : null) ?? oldStartMs,
-        endMs: row.newEndMs ?? oldEndMs,
-      },
-    ];
-  });
+  if ('manualCount' in view) {
+    const ghosts = new Map<number, TimingGhost>();
+    for (const row of view.rows)
+      if (row.selected)
+        for (const g of row.ghosts) {
+          if (
+            g.after.startMs === null ||
+            g.after.endMs === null ||
+            g.before.startMs === null ||
+            g.before.endMs === null
+          )
+            continue;
+          const id = Number(g.cueId);
+          ghosts.set(id, {
+            id,
+            startMs: g.after.startMs,
+            endMs: g.after.endMs,
+            oldStartMs: g.before.startMs,
+            oldEndMs: g.before.endMs,
+          });
+        }
+    return [...ghosts.values()].slice(0, 200);
+  }
+  return view.rows
+    .filter((row) => row.selected)
+    .map((row) => ({
+      id: Number(row.cueId),
+      startMs: row.newStartMs,
+      endMs: row.newEndMs,
+      oldStartMs: row.oldStartMs,
+      oldEndMs: row.oldEndMs,
+    }));
 }
 export function timingDelta(ghost: TimingGhost): string {
   const signed = (n: number) => `${n > 0 ? '+' : ''}${n} ms`;

@@ -32,6 +32,7 @@ pub enum WorkspaceAction {
     LayoutBigPicture,
     Problems,
     Statistics,
+    FixAllTiming,
     FixGaps,
     FixReadingSpeed,
     SnapShots,

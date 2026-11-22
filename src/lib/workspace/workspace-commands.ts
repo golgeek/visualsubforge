@@ -232,6 +232,9 @@ export class WorkspaceCommands {
       case 'replace':
         await dialogs.openText(id);
         break;
+      case 'fixAllTiming':
+        await dialogs.openTimingReview('all');
+        return;
       case 'fixGaps':
         await dialogs.openTimingReview('gap');
         break;

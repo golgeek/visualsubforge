@@ -162,6 +162,7 @@ export function unavailable(id: ActionId, state: ActionContext): string | null {
         : state.webvtt
           ? 'WebVTT export is not available'
           : null;
+    case 'fixAllTiming':
     case 'fixGaps':
     case 'fixReadingSpeed':
     case 'shiftCues':

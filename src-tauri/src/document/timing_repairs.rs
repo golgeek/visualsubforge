@@ -5,7 +5,7 @@ use crate::batch_timing::{BatchRow, BatchView};
 use crate::{
     quality_check::Key,
     scenes::{SceneCapture, SceneKey},
-    timing_review::{DurationRepairView, DurationRow, Phase, Purpose, Row, SceneRepairView},
+    timing_review::{FixView, Input, Phase, Purpose, Section},
 };
 use std::collections::HashSet;
 use std::{
@@ -14,36 +14,35 @@ use std::{
     time::{Duration, Instant},
 };
 use vsf_application::batch_timing as batch;
-use vsf_application::quality::{self as engine, Profile, duration::Scope, timing_selection};
+use vsf_application::quality::{self as engine, Profile, timing_fix, timing_selection};
 
 #[derive(Clone)]
 enum Operation {
-    Scene,
-    Duration(Scope),
+    Fix(Input),
     Batch(batch::Request),
     CueFixes(CueId),
 }
 impl Operation {
     fn purpose(&self) -> Purpose {
         match self {
-            Self::Scene => Purpose::Scene,
-            Self::Duration(_) => Purpose::Duration,
+            Self::Fix(_) => Purpose::Fix,
             Self::Batch(_) => Purpose::Batch,
             Self::CueFixes(_) => Purpose::CueFixes,
         }
     }
 }
 enum Proposal {
-    Scene(engine::scene::Proposal),
-    Duration(engine::duration::Proposal),
+    Fix(
+        Box<timing_fix::review::Review>,
+        engine::scene::SceneCoverage,
+    ),
     Batch(batch::Proposal),
     CueFixes(engine::cue_fixes::Proposal),
 }
 impl Proposal {
     fn edit(&self, document: &subtitle_core::Document) -> engine::Result<Edit> {
         match self {
-            Self::Scene(p) => p.edit(document),
-            Self::Duration(p) => p.edit(document),
+            Self::Fix(review, _) => review.plan.edit(document),
             Self::Batch(p) => p.edit(document),
             Self::CueFixes(p) => p.edit(document),
         }
@@ -59,40 +58,16 @@ impl Proposal {
         &self,
         document: &subtitle_core::Document,
         selection: timing_selection::Selection,
-        context: engine::Evaluation<'_>,
-        scenes: &engine::scene::Scenes,
+
         checkpoint: impl FnMut() -> engine::Result<()>,
     ) -> engine::Result<timing_selection::Plan> {
         match self {
             Self::Batch(p) => {
                 timing_selection::prepare_shift(document, p.edit(document)?, selection, checkpoint)
             }
-            Self::Scene(p) => timing_selection::prepare_repair(
-                document,
-                p.before(),
-                if p.changed() == 0 {
-                    Edit::Retime { timings: vec![] }
-                } else {
-                    p.edit(document)?
-                },
-                selection,
-                context,
-                scenes,
-                checkpoint,
-            ),
-            Self::Duration(p) => timing_selection::prepare_repair(
-                document,
-                p.before(),
-                if p.changed() == 0 {
-                    Edit::Retime { timings: vec![] }
-                } else {
-                    p.edit(document)?
-                },
-                selection,
-                context,
-                scenes,
-                checkpoint,
-            ),
+            Self::Fix(..) => Err(engine::Error::Invalid(
+                "Fix units have already been selected".into(),
+            )),
             Self::CueFixes(_) => Err(engine::Error::Invalid(
                 "Cue fixes are not a timing selection".into(),
             )),
@@ -216,49 +191,37 @@ impl State {
     }
 }
 impl Documents {
-    #[cfg(test)]
-    pub(crate) fn scene_repair_start(
+    pub(crate) fn initialize_timing_options(
         &self,
-        generation: u64,
-        revision: u64,
-        scenes: SceneCapture,
-    ) -> Result<u64> {
-        self.scene_repair_start_selected(generation, revision, scenes, None)
+        stored: timing_fix::Options,
+    ) -> Result<timing_fix::Options> {
+        Ok(*self
+            .0
+            .lock()
+            .map_err(|_| "Document state unavailable")?
+            .timing_options
+            .get_or_insert(stored))
     }
-    pub(crate) fn scene_repair_start_selected(
-        &self,
-        generation: u64,
-        revision: u64,
-        scenes: SceneCapture,
-        selection: Option<timing_selection::Selection>,
-    ) -> Result<u64> {
-        self.timing_repair_start(generation, revision, scenes, Operation::Scene, selection)
+    pub(crate) fn set_timing_options(&self, value: timing_fix::Options) -> Result<()> {
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        store.timing_options = Some(value);
+        if let Some(job) = &mut store.timing_repairs.job
+            && matches!(&job.operation,Operation::Fix(input) if input.options!=value)
+        {
+            job.stale = true;
+            job.cancel();
+        }
+        Ok(())
     }
-    #[cfg(test)]
-    pub(crate) fn duration_repair_start(
+
+    pub(crate) fn timing_fix_start(
         &self,
         generation: u64,
         revision: u64,
         scenes: SceneCapture,
-        scope: Scope,
+        input: Input,
     ) -> Result<u64> {
-        self.duration_repair_start_selected(generation, revision, scenes, scope, None)
-    }
-    pub(crate) fn duration_repair_start_selected(
-        &self,
-        generation: u64,
-        revision: u64,
-        scenes: SceneCapture,
-        scope: Scope,
-        selection: Option<timing_selection::Selection>,
-    ) -> Result<u64> {
-        self.timing_repair_start(
-            generation,
-            revision,
-            scenes,
-            Operation::Duration(scope),
-            selection,
-        )
+        self.timing_repair_start(generation, revision, scenes, Operation::Fix(input), None)
     }
     #[cfg(test)]
     pub(crate) fn batch_timing_start(
@@ -339,6 +302,13 @@ impl Documents {
         if !key.loaded || key.generation.get() != generation || key.revision.get() != revision {
             return Err("Subtitles changed before timing preview; try again".into());
         }
+        if let Operation::Fix(input) = &operation
+            && store
+                .timing_options
+                .is_some_and(|saved| input.options != saved)
+        {
+            return Err("Timing policy changed before preview; try again".into());
+        }
         // Reject busy admission before cloning another document snapshot.
         store.timing_repairs.ensure_idle()?;
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
@@ -381,29 +351,26 @@ impl Documents {
                         batch::propose(document, format, request, &mut checkpoint)
                             .map(Proposal::Batch)
                     }
-                    Operation::Scene => engine::scene::propose_for_format(
-                        document,
-                        format,
-                        context,
-                        &scenes.data,
-                        &mut checkpoint,
-                    )
-                    .map(Proposal::Scene),
-                    Operation::Duration(scope) => engine::duration::propose_for_format(
-                        document,
-                        format,
-                        context,
-                        &scenes.data,
-                        scope,
-                        &mut checkpoint,
-                    )
-                    .map(Proposal::Duration),
+                    Operation::Fix(input) => {
+                        let request = input.domain()?;
+                        timing_fix::propose(
+                            document,
+                            context,
+                            &scenes.data,
+                            request,
+                            &mut checkpoint,
+                        )
+                        .and_then(|p| {
+                            p.review(&input.toggled, input.omit_trades, &mut checkpoint)
+                                .map(|r| Proposal::Fix(Box::new(r), p.before().scene_coverage))
+                        })
+                    }
                 }
                 .map_err(|e| e.to_string())?;
                 let selection = if let (Some(selection), Some(original)) = (selection, original) {
                     Some(
                         proposal
-                            .select(&original, selection, context, &scenes.data, checkpoint)
+                            .select(&original, selection, checkpoint)
                             .map_err(|e| e.to_string())?,
                     )
                 } else {
@@ -415,10 +382,6 @@ impl Documents {
                 })
             })
     }
-    #[cfg(test)]
-    pub(crate) fn scene_repair_context(&self, id: u64) -> Result<SceneKey> {
-        self.timing_repair_context(id, Purpose::Scene)
-    }
     pub(crate) fn timing_repair_context(&self, id: u64, purpose: Purpose) -> Result<SceneKey> {
         let store = self.0.lock().map_err(|_| "Document state unavailable")?;
         Ok(store
@@ -429,24 +392,16 @@ impl Documents {
             .ok_or("Timing proposal was replaced or has a different kind")?
             .scenes)
     }
-    #[cfg(test)]
-    pub(crate) fn scene_repair_view(
+    pub(crate) fn timing_fix_view_for_cues(
         &self,
         id: u64,
         offset: u32,
         limit: u32,
-    ) -> Result<SceneRepairView> {
-        self.scene_repair_view_for_cues(id, offset, limit, None)
-    }
-    pub(crate) fn scene_repair_view_for_cues(
-        &self,
-        id: u64,
-        offset: u32,
-        limit: u32,
+        section: Section,
         preview: Option<&HashSet<CueId>>,
-    ) -> Result<SceneRepairView> {
+    ) -> Result<FixView> {
         if limit > 200 {
-            return Err("Scene pages are limited to 200 rows".into());
+            return Err("Timing review pages are limited to 200 rows".into());
         }
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
@@ -456,42 +411,78 @@ impl Documents {
             .timing_repairs
             .job
             .as_mut()
-            .filter(|j| j.id == id)
-            .ok_or("Scene proposal was replaced")?;
+            .filter(|j| j.id == id && j.operation.purpose() == Purpose::Fix)
+            .ok_or("Timing proposal was replaced or has a different kind")?;
         job.refresh();
-        project(job, closed, offset, limit, preview)
+        let mut view = FixView {
+            key: job.key,
+            id: job.id.try_into()?,
+            profile: job.profile.clone(),
+            profile_hash: job.hash.clone(),
+            phase: phase(job, closed),
+            error: job.error.clone(),
+            selection_error: None,
+            coverage: None,
+            before: Default::default(),
+            after: Default::default(),
+            total: 0,
+            changed: 0,
+            manual_count: 0,
+            trades: 0,
+            offset,
+            rows: vec![],
+            manual: vec![],
+        };
+        if let Some(Proposal::Fix(review, coverage)) = &job.proposal {
+            view.coverage = Some(*coverage);
+            view.before = review.before;
+            view.after = review.after;
+            view.selection_error = review.plan.error.clone();
+            view.total = review.changes.len() as u32;
+            view.changed = review.selected;
+            view.trades = review.trades;
+            view.manual_count = review.manual.len() as u32;
+            let count = match section {
+                Section::Changes => view.total,
+                Section::Manual => view.manual_count,
+            };
+            view.offset = offset.min(count.saturating_sub(1) / limit.max(1) * limit.max(1));
+            match section {
+                Section::Changes => {
+                    view.rows = review
+                        .changes
+                        .iter()
+                        .filter(|r| {
+                            preview.is_none_or(|ids| {
+                                r.unit.endpoints.iter().any(|e| {
+                                    review
+                                        .plan
+                                        .cue_id_at(e.index as usize)
+                                        .is_some_and(|id| ids.contains(&id))
+                                })
+                            })
+                        })
+                        .skip(view.offset as usize)
+                        .take(limit as usize)
+                        .cloned()
+                        .collect()
+                }
+                Section::Manual => {
+                    view.manual = review
+                        .manual
+                        .iter()
+                        .skip(view.offset as usize)
+                        .take(limit as usize)
+                        .cloned()
+                        .collect()
+                }
+            }
+        }
+        Ok(view)
     }
     #[cfg(test)]
-    pub(crate) fn duration_repair_view(
-        &self,
-        id: u64,
-        offset: u32,
-        limit: u32,
-    ) -> Result<DurationRepairView> {
-        self.duration_repair_view_for_cues(id, offset, limit, None)
-    }
-    pub(crate) fn duration_repair_view_for_cues(
-        &self,
-        id: u64,
-        offset: u32,
-        limit: u32,
-        preview: Option<&HashSet<CueId>>,
-    ) -> Result<DurationRepairView> {
-        if limit > 200 {
-            return Err("Duration pages are limited to 200 rows".into());
-        }
-        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
-        let key = store.quality_key()?;
-        store.timing_repairs.invalidate(key);
-        let closed = store.timing_repairs.closed;
-        let job = store
-            .timing_repairs
-            .job
-            .as_mut()
-            .filter(|j| j.id == id)
-            .ok_or("Timing proposal was replaced")?;
-        job.refresh();
-        project_duration(job, closed, offset, limit, preview)
+    pub(crate) fn timing_fix_view(&self, id: u64, offset: u32, limit: u32) -> Result<FixView> {
+        self.timing_fix_view_for_cues(id, offset, limit, Section::Changes, None)
     }
     #[cfg(test)]
     pub(crate) fn batch_timing_view(&self, id: u64, offset: u32, limit: u32) -> Result<BatchView> {
@@ -572,9 +563,6 @@ impl Documents {
     pub(crate) fn batch_timing_accept(&self, id: u64) -> Result<Snapshot> {
         self.timing_repair_accept(id, Purpose::Batch)
     }
-    pub(crate) fn scene_repair_cancel(&self, id: u64) -> Result<()> {
-        self.timing_repair_cancel(id, Purpose::Scene)
-    }
     pub(crate) fn timing_repair_cancel(&self, id: u64, purpose: Purpose) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         if let Some(job) = store.timing_repairs.job.as_mut().filter(|j| j.id == id) {
@@ -586,13 +574,7 @@ impl Documents {
         Ok(())
     }
     /// Called while media selection and scene state remain locked and current.
-    pub(crate) fn scene_repair_accept(&self, id: u64) -> Result<Snapshot> {
-        self.timing_repair_accept(id, Purpose::Scene)
-    }
-    pub(crate) fn duration_repair_accept(&self, id: u64) -> Result<Snapshot> {
-        self.timing_repair_accept(id, Purpose::Duration)
-    }
-    fn timing_repair_accept(&self, id: u64, purpose: Purpose) -> Result<Snapshot> {
+    pub(crate) fn timing_repair_accept(&self, id: u64, purpose: Purpose) -> Result<Snapshot> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
         store.timing_repairs.invalidate(key);
@@ -687,189 +669,60 @@ fn phase(job: &Job, closed: bool) -> Phase {
         Phase::Preparing
     }
 }
-fn project(
-    job: &Job,
-    closed: bool,
-    offset: u32,
-    limit: u32,
-    preview: Option<&HashSet<CueId>>,
-) -> Result<SceneRepairView> {
-    if job.operation.purpose() != Purpose::Scene {
-        return Err("Timing proposal has a different kind".into());
-    }
-    let phase = phase(job, closed);
-    let mut view = SceneRepairView {
-        id: job.id.try_into()?,
-        key: job.key,
-        session: job.scenes.session.try_into()?,
-        phase,
-        profile: job.profile.clone(),
-        profile_hash: job.hash.clone(),
-        error: job.error.clone(),
-        selection_error: job.selection.as_ref().and_then(|s| s.error.clone()),
-        coverage: None,
-        total: 0,
-        changed: 0,
-        skipped: 0,
-        before_findings: 0,
-        after_findings: 0,
-        offset,
-        rows: vec![],
-    };
-    if let Some(Proposal::Scene(p)) = &job.proposal {
-        view.coverage = Some(p.coverage());
-        let rows: Vec<_> = p
-            .rows()
-            .iter()
-            .filter(|row| {
-                job.selection
-                    .as_ref()
-                    .is_none_or(|s| s.in_scope_at(row.cue_index))
-                    && crate::review_selection::visible(
-                        preview,
-                        &p.before().metrics[row.cue_index].cue_id,
-                    )
-            })
-            .collect();
-        let after = job
-            .selection
-            .as_ref()
-            .map_or(p.after(), |s| s.after(p.after()));
-        view.total = rows.len() as u32;
-        view.changed = job.selection.as_ref().map_or(p.changed(), |s| s.changed) as u32;
-        view.skipped = rows.iter().filter(|row| row.skipped.is_some()).count() as u32;
-        view.before_findings = p.before().findings.len() as u32;
-        view.after_findings = after.findings.len() as u32;
-        view.offset = offset.min(view.total.saturating_sub(1) / limit.max(1) * limit.max(1));
-        for row in rows
-            .into_iter()
-            .skip(view.offset as usize)
-            .take(limit as usize)
-        {
-            view.rows.push(Row {
-                cue_id: p.before().metrics[row.cue_index].cue_id.clone(),
-                cue_index: row.cue_index as u32,
-                selected: job
-                    .selection
-                    .as_ref()
-                    .is_none_or(|s| s.selected_at(row.cue_index)),
-                new_start_ms: row.new_start.map(|e| e.get().try_into()).transpose()?,
-                new_end_ms: row.new_end.map(|e| e.get().try_into()).transpose()?,
-                skipped: row.skipped,
-                explanation: row.skipped.map(|s| s.explanation().into()),
-                before: (&p.before().metrics[row.cue_index]).into(),
-                after: (&after.metrics[row.cue_index]).into(),
-            });
-        }
-    }
-    Ok(view)
-}
-
-fn project_duration(
-    job: &Job,
-    closed: bool,
-    offset: u32,
-    limit: u32,
-    preview: Option<&HashSet<CueId>>,
-) -> Result<DurationRepairView> {
-    if job.operation.purpose() != Purpose::Duration {
-        return Err("Timing proposal has a different kind".into());
-    }
-    let phase = phase(job, closed);
-    let mut view = DurationRepairView {
-        selected_cue_id: match &job.operation {
-            Operation::Duration(Scope::Cue(id)) => Some(id.0.to_string()),
-            _ => None,
-        },
-        id: job.id.try_into()?,
-        key: job.key,
-        session: job.scenes.session.try_into()?,
-        phase,
-        profile: job.profile.clone(),
-        profile_hash: job.hash.clone(),
-        error: job.error.clone(),
-        selection_error: job.selection.as_ref().and_then(|s| s.error.clone()),
-        coverage: None,
-        total: 0,
-        changed: 0,
-        skipped: 0,
-        before_findings: 0,
-        after_findings: 0,
-        offset,
-        rows: vec![],
-    };
-    if let Some(Proposal::Duration(p)) = &job.proposal {
-        view.coverage = Some(p.coverage());
-        let rows: Vec<_> = p
-            .rows()
-            .iter()
-            .filter(|row| {
-                job.selection
-                    .as_ref()
-                    .is_none_or(|s| s.in_scope_at(row.cue_index))
-                    && crate::review_selection::visible(
-                        preview,
-                        &p.before().metrics[row.cue_index].cue_id,
-                    )
-            })
-            .collect();
-        let after = job
-            .selection
-            .as_ref()
-            .map_or(p.after(), |s| s.after(p.after()));
-        view.total = rows.len() as u32;
-        view.changed = job.selection.as_ref().map_or(p.changed(), |s| s.changed) as u32;
-        view.skipped = rows.iter().filter(|row| row.skipped.is_some()).count() as u32;
-        view.before_findings = p.before().findings.len() as u32;
-        view.after_findings = after.findings.len() as u32;
-        view.offset = offset.min(view.total.saturating_sub(1) / limit.max(1) * limit.max(1));
-        for row in rows
-            .into_iter()
-            .skip(view.offset as usize)
-            .take(limit as usize)
-        {
-            view.rows.push(DurationRow {
-                cue_id: p.before().metrics[row.cue_index].cue_id.clone(),
-                cue_index: row.cue_index as u32,
-                selected: job
-                    .selection
-                    .as_ref()
-                    .is_none_or(|s| s.selected_at(row.cue_index)),
-                new_end_ms: row.new_end.map(|e| e.get().try_into()).transpose()?,
-                skipped: row.skipped,
-                explanation: row.skipped.map(|s| s.explanation().into()),
-                before: (&p.before().metrics[row.cue_index]).into(),
-                after: (&after.metrics[row.cue_index]).into(),
-            });
-        }
-    }
-    Ok(view)
-}
-
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 pub(crate) fn ipc_sample() -> serde_json::Value {
     let (_directory, docs, scenes) = tests::fixture();
     let id = tests::start(&docs, &scenes);
-    serde_json::to_value(tests::ready(&docs, id)).unwrap()
-}
-
-#[cfg(test)]
-mod duration_tests;
-#[cfg(test)]
-pub(crate) fn duration_ipc_sample() -> serde_json::Value {
-    let (_directory, docs, scenes) = duration_tests::fixture();
-    let id = duration_tests::start(&docs, &scenes, Scope::Document);
-    serde_json::to_value(duration_tests::ready(&docs, id)).unwrap()
+    let mut view = tests::ready(&docs, id);
+    view.manual = docs
+        .timing_fix_view_for_cues(id, 0, 100, Section::Manual, None)
+        .unwrap()
+        .manual;
+    serde_json::to_value(view).unwrap()
 }
 
 #[cfg(test)]
 mod batch_tests;
+#[cfg(test)]
+mod duration_tests;
+#[cfg(test)]
+mod gap_tests;
 
 #[cfg(test)]
 pub(crate) fn batch_ipc_sample() -> serde_json::Value {
     let (_dir, docs, scenes) = tests::fixture();
     let id = batch_tests::start(&docs, &scenes, 123);
     serde_json::to_value(batch_tests::ready(&docs, id)).unwrap()
+}
+
+#[cfg(test)]
+pub(crate) fn preset_samples() -> Vec<(&'static str, &'static str, serde_json::Value)> {
+    let (_tmp, docs) = gap_tests::fixture();
+    let id = gap_tests::start(&docs);
+    let mut gaps = gap_tests::ready(&docs, id);
+    gaps.manual = docs
+        .timing_fix_view_for_cues(id, 0, 100, Section::Manual, None)
+        .unwrap()
+        .manual;
+    let (_tmp, docs, scenes) = duration_tests::fixture();
+    let id = duration_tests::start(&docs, &scenes, None);
+    let mut speed = duration_tests::ready(&docs, id);
+    speed.manual = docs
+        .timing_fix_view_for_cues(id, 0, 100, Section::Manual, None)
+        .unwrap()
+        .manual;
+    vec![
+        (
+            "fixGapsSample",
+            "TimingFixView",
+            serde_json::to_value(&gaps).unwrap(),
+        ),
+        (
+            "fixSpeedSample",
+            "TimingFixView",
+            serde_json::to_value(speed).unwrap(),
+        ),
+    ]
 }

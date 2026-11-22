@@ -15,7 +15,7 @@ export async function lifecycle(
     chooseFile: async () => null,
     documentAction: async () => snapshot,
     resyncAccept: async () => snapshot,
-    gapAccept: async () => snapshot,
+    timingFixAccept: async () => snapshot,
     textAccept: () =>
       new Promise((resolve) => {
         releaseAccept = resolve;

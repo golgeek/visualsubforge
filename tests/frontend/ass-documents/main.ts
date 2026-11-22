@@ -470,7 +470,7 @@ async function run() {
               release = resolve;
             }),
       resyncAccept: async () => original,
-      gapAccept: async () => original,
+      timingFixAccept: async () => original,
     });
     await owner.command({ kind: 'status' });
     owner.style = 'Default';

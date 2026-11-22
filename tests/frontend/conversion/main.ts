@@ -185,7 +185,7 @@ const subtitles = new DocumentSession({
   resyncAccept: async () => {
     throw new Error('Export cannot adopt a document');
   },
-  gapAccept: async () => {
+  timingFixAccept: async () => {
     throw new Error('Export cannot adopt a document');
   },
   documentAction: async (action) => {
@@ -249,7 +249,7 @@ async function harness() {
     resyncAccept: async () => {
       throw new Error('Unexpected adoption');
     },
-    gapAccept: async () => {
+    timingFixAccept: async () => {
       throw new Error('Unexpected adoption');
     },
   });

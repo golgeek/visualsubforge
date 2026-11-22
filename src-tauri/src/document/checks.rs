@@ -207,7 +207,6 @@ impl Store {
         if let Ok(key) = self.quality_key() {
             self.checks.synchronize(key);
             self.statistics.invalidate(key);
-            self.gaps.invalidate(key);
             self.timing_repairs.invalidate(key);
             self.texts.invalidate(key);
             self.plugins.invalidate(key);
@@ -388,7 +387,6 @@ impl Documents {
         };
         drop(worker); // joins outside the document lock
         self.shutdown_statistics()?;
-        self.shutdown_gaps()?;
         self.shutdown_timing_repairs()?;
         self.shutdown_texts()?;
         self.shutdown_translation()?;
@@ -457,6 +455,7 @@ fn project_view(
         language_coverage: None,
         error: checks.error.clone(),
         findings_count: 0,
+        timing_findings_count: 0,
         rule_cues: vec![],
         affected_cues: 0,
         filtered_count: 0,
@@ -483,6 +482,11 @@ fn project_view(
     view.scene_coverage = Some(report.scene_coverage);
     view.language_coverage = Some(report.language_coverage.clone());
     view.findings_count = report.findings.len() as u32;
+    view.timing_findings_count = report
+        .findings
+        .iter()
+        .filter(|f| engine::timing_fix::is_timing_finding(f.rule))
+        .count() as u32;
     view.affected_cues = report.affected_cues;
     let filtered: Vec<_> = report
         .findings

@@ -1,11 +1,9 @@
-import { SceneRepairSession } from '../../../src/lib/timing/scene-repair-session.svelte';
+import { TimingFixSession } from '../../../src/lib/timing/timing-fix-session.svelte';
+import { defaultPreferences } from '../../../src/lib/client';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
-import type {
-  SceneRepairView,
-  DocumentSnapshot,
-} from '../../../src/lib/client';
+import type { TimingFixView, DocumentSnapshot } from '../../../src/lib/client';
 export async function lifecycle(
-  sample: SceneRepairView,
+  sample: TimingFixView,
   original: DocumentSnapshot,
   passed: (message: string) => void,
 ) {
@@ -21,22 +19,33 @@ export async function lifecycle(
     resyncAccept: async () => {
       throw new Error('Unused');
     },
-    gapAccept: async () => snapshot,
-    sceneRepairAccept: async () => accepting ?? snapshot,
+    timingFixAccept: async () => accepting ?? snapshot,
   });
   await subtitles.command({ kind: 'status' });
   let media = 0;
   let next = structuredClone(sample);
-  let readRelease!: (v: SceneRepairView) => void;
-  let held: Promise<SceneRepairView> | null = null;
+  let readRelease!: (v: TimingFixView) => void;
+  let held: Promise<TimingFixView> | null = null;
   const cancelled: number[] = [];
-  const session = new SceneRepairSession(subtitles, () => media, {
-    sceneRepairStart: async () => sample.id,
-    sceneRepairView: async () => held ?? next,
-    sceneRepairCancel: async (id) => {
-      cancelled.push(id);
+  const session = new TimingFixSession(
+    subtitles,
+    () => media,
+    () => ({
+      options: defaultPreferences.timingRepair,
+      families: { gaps: true, speed: true, shots: true },
+      scope: null,
+      toggled: [],
+      omitTrades: false,
+    }),
+    undefined,
+    {
+      timingFixStart: async () => sample.id,
+      timingFixView: async () => held ?? next,
+      timingFixCancel: async (id) => {
+        cancelled.push(id);
+      },
     },
-  });
+  );
   await session.start();
   assert(session.canAccept, 'Ready proposal not acceptable');
   held = new Promise((resolve) => {

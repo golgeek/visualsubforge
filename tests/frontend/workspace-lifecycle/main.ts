@@ -105,7 +105,7 @@ async function documentCases() {
   let picker: ReturnType<typeof deferred<string | null>> | null = null;
   let choosing = false;
   const model = new DocumentSession({
-    gapAccept: async () => {
+    timingFixAccept: async () => {
       throw new Error('Gap acceptance is not used in this fixture');
     },
     resyncAccept: async () => {
@@ -242,7 +242,7 @@ async function documentCases() {
   passed('document disposal rejects late projection updates and new commands');
 
   const saveModel = new DocumentSession({
-    gapAccept: async () => {
+    timingFixAccept: async () => {
       throw new Error('Gap acceptance is not used in this fixture');
     },
     resyncAccept: async () => {
@@ -422,7 +422,7 @@ async function projectFixture(hold: string | null = null) {
   let mediaPath = '';
   let current = status();
   const subtitles = new DocumentSession({
-    gapAccept: async () => {
+    timingFixAccept: async () => {
       throw new Error('Gap acceptance is not used in this fixture');
     },
     resyncAccept: async () => {
@@ -646,7 +646,7 @@ async function translationCases() {
     resyncAccept: async () => {
       throw new Error('unused');
     },
-    gapAccept: async () => {
+    timingFixAccept: async () => {
       throw new Error('unused');
     },
     translationAction: async (action): Promise<TranslationReply> => {
@@ -779,7 +779,7 @@ async function referenceQueryCases() {
     resyncAccept: async () => {
       throw new Error('unused');
     },
-    gapAccept: async () => {
+    timingFixAccept: async () => {
       throw new Error('unused');
     },
   });

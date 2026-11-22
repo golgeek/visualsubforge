@@ -12,6 +12,7 @@
   import { qualityRules, sceneCoverage } from './quality-display';
   let {
     session,
+    onfixtiming,
     documentLoaded = true,
     disabled,
     pending,
@@ -21,6 +22,7 @@
     onlanguage,
   }: {
     session: QualitySession;
+    onfixtiming?: () => void;
     documentLoaded?: boolean;
     disabled: boolean;
     pending: boolean;
@@ -81,6 +83,10 @@
                   ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
                   : 'Open subtitles to check'}</span
     >
+    {#if onfixtiming && view?.timingFindingsCount}<button
+        {disabled}
+        onclick={onfixtiming}>Fix timing issues…</button
+      >{/if}
     <button
       onclick={() => session.restart()}
       disabled={disabled || !documentLoaded}>Check again</button

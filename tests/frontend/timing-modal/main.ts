@@ -11,9 +11,9 @@ import {
   type WorkspaceAction,
 } from '../../../src/lib/client';
 import {
-  gapView,
-  sceneRepairView,
-  durationRepairView,
+  fixGapsSample,
+  timingFixView,
+  fixSpeedSample,
   batchTimingView,
 } from '../ipc-contract-samples';
 
@@ -66,8 +66,8 @@ const variants = [
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
-    prefix: 'gap',
-    sample: gapView,
+    prefix: 'timing_fix',
+    sample: fixGapsSample,
   },
   {
     name: 'scene',
@@ -75,8 +75,8 @@ const variants = [
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
-    prefix: 'scene_repair',
-    sample: sceneRepairView,
+    prefix: 'timing_fix',
+    sample: timingFixView,
   },
   {
     name: 'duration',
@@ -84,8 +84,8 @@ const variants = [
     close: 'Cancel',
     preview: 'Preview changes',
     accept: 'Apply changes',
-    prefix: 'duration_repair',
-    sample: durationRepairView,
+    prefix: 'timing_fix',
+    sample: fixSpeedSample,
   },
   {
     name: 'batch',

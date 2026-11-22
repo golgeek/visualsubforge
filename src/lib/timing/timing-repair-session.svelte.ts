@@ -1,12 +1,12 @@
 import { untrack } from 'svelte';
 import type {
-  SceneRepairView,
+  TimingFixView,
   DocumentSnapshot,
   ReviewSelection,
 } from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
-type Review = Pick<SceneRepairView, 'phase' | 'changed' | 'error'> &
-  Partial<Pick<SceneRepairView, 'coverage' | 'selectionError'>>;
+type Review = Pick<TimingFixView, 'phase' | 'changed' | 'error'> &
+  Partial<Pick<TimingFixView, 'coverage' | 'selectionError'>>;
 interface Client<V, S> {
   start(
     session: number,

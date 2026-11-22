@@ -93,7 +93,7 @@ async function fixture() {
     chooseFile: async () => {
       throw new Error('Unexpected picker');
     },
-    gapAccept: async () => current,
+    timingFixAccept: async () => current,
     resyncAccept: async () => current,
   });
   await session.command({ kind: 'status' });
@@ -347,7 +347,7 @@ async function fixesRecovery() {
         throw new Error('Lost reply');
       },
       chooseFile: async () => null,
-      gapAccept: async () => initial,
+      timingFixAccept: async () => initial,
       resyncAccept: async () => initial,
     });
     await session.command({ kind: 'status' });

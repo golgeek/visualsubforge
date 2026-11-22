@@ -27,20 +27,23 @@ pub(super) fn fixture() -> (tempfile::TempDir, Documents, Scenes) {
     scenes.test_completed(7, vec![3., 7.], false);
     (directory, docs, scenes)
 }
-pub(super) fn start(docs: &Documents, scenes: &Scenes, scope: Scope) -> u64 {
+pub(super) fn start(docs: &Documents, scenes: &Scenes, scope: Option<u64>) -> u64 {
     let d = docs.apply(Action::Status, 0, 0).unwrap();
-    docs.duration_repair_start(
+    docs.timing_fix_start(
         d.generation,
         d.revision,
         scenes.capture_quality(7, true).unwrap(),
-        scope,
+        Input {
+            scope: scope.map(|n: u64| vec![n.try_into().unwrap()]),
+            ..Input::preset(false, true, false)
+        },
     )
     .unwrap()
 }
-pub(super) fn ready(docs: &Documents, id: u64) -> DurationRepairView {
+pub(super) fn ready(docs: &Documents, id: u64) -> FixView {
     let end = Instant::now() + Duration::from_secs(5);
     loop {
-        let v = docs.duration_repair_view(id, 0, 100).unwrap();
+        let v = docs.timing_fix_view(id, 0, 100).unwrap();
         if v.phase == Phase::Reviewing {
             return v;
         }
@@ -60,18 +63,14 @@ fn duration_preview_accepts_one_atomic_end_only_batch_and_preserves_exact_srt() 
     let (dir, docs, scenes) = fixture();
     let source = fs::read(dir.path().join("source.srt")).unwrap();
     let before = value(&docs);
-    let id = start(&docs, &scenes, Scope::Document);
+    let id = start(&docs, &scenes, None);
     let v = ready(&docs, id);
-    assert_eq!((v.total, v.changed, v.skipped), (3, 2, 1));
-    assert_eq!((v.before_findings, v.after_findings), (9, 3));
-    assert_eq!(v.selected_cue_id, None);
+    assert_eq!((v.total, v.changed, v.manual_count), (2, 2, 1));
+    assert_eq!((v.before.total, v.after.total), (9, 3));
     assert_eq!(value(&docs), before);
-    assert_eq!(
-        docs.duration_repair_view(id, 1, 1).unwrap().rows[0].cue_index,
-        1
-    );
-    assert!(docs.duration_repair_view(id, 0, 201).is_err());
-    let accepted = docs.duration_repair_accept(id).unwrap();
+    assert_eq!(docs.timing_fix_view(id, 1, 1).unwrap().rows[0].cue_index, 1);
+    assert!(docs.timing_fix_view(id, 0, 201).is_err());
+    let accepted = docs.timing_repair_accept(id, Purpose::Fix).unwrap();
     assert_eq!(accepted.revision, 1);
     assert_eq!(
         accepted.cues.iter().map(|c| c.end_ms).collect::<Vec<_>>(),
@@ -82,7 +81,7 @@ fn duration_preview_accepts_one_atomic_end_only_batch_and_preserves_exact_srt() 
         assert_eq!(c.text, before["cues"][i]["text"]);
         assert_eq!(c.start_ms, before["cues"][i]["startMs"]);
     }
-    assert!(docs.duration_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     let undo = docs.apply(Action::Undo, 1, 1).unwrap();
     assert_eq!(serde_json::to_value(undo.cues).unwrap(), before["cues"]);
     assert!(!undo.can_undo && !undo.dirty);
@@ -124,32 +123,36 @@ fn duration_preview_accepts_one_atomic_end_only_batch_and_preserves_exact_srt() 
 #[test]
 fn selected_scope_and_wrong_kind_cannot_apply_or_cancel_another_tool() {
     let (_dir, docs, scenes) = fixture();
-    let id = start(&docs, &scenes, Scope::Cue(CueId(2)));
+    let id = start(&docs, &scenes, Some(2));
     let v = ready(&docs, id);
-    assert_eq!(v.selected_cue_id.as_deref(), Some("2"));
+    assert_eq!(v.rows[0].cue_id, "2");
     assert_eq!((v.total, v.changed), (1, 1));
-    assert!(docs.scene_repair_view(id, 0, 100).is_err());
-    assert!(docs.scene_repair_accept(id).is_err());
-    assert!(docs.scene_repair_cancel(id).is_err());
-    assert!(docs.timing_repair_context(id, Purpose::Scene).is_err());
+    assert!(docs.batch_timing_view(id, 0, 100).is_err());
+    assert!(docs.batch_timing_accept(id).is_err());
+    assert!(docs.timing_repair_cancel(id, Purpose::Batch).is_err());
     assert_eq!(
-        docs.duration_repair_view(id, 0, 100).unwrap().phase,
+        docs.timing_fix_view(id, 0, 100).unwrap().phase,
         Phase::Reviewing
     );
-    let accepted = docs.duration_repair_accept(id).unwrap();
+    let accepted = docs.timing_repair_accept(id, Purpose::Fix).unwrap();
     assert_eq!(
         accepted.cues.iter().map(|c| c.end_ms).collect::<Vec<_>>(),
         [1400, 6870, 14400]
     );
-    let old = start(&docs, &scenes, Scope::Document);
+    let old = start(&docs, &scenes, None);
     ready(&docs, old);
     let scene = docs
-        .scene_repair_start(1, 1, scenes.capture_quality(7, true).unwrap())
+        .timing_fix_start(
+            1,
+            1,
+            scenes.capture_quality(7, true).unwrap(),
+            Input::preset(false, false, true),
+        )
         .unwrap();
     super::tests::ready(&docs, scene);
-    assert!(docs.duration_repair_view(old, 0, 100).is_err());
-    assert!(docs.duration_repair_accept(scene).is_err());
-    assert!(docs.timing_repair_cancel(scene, Purpose::Duration).is_err());
+    assert!(docs.timing_fix_view(old, 0, 100).is_err());
+    assert!(docs.batch_timing_accept(scene).is_err());
+    assert!(docs.timing_repair_cancel(scene, Purpose::Batch).is_err());
 }
 #[test]
 fn duration_failure_save_and_protected_recovery_resync_state_remain_unchanged() {
@@ -160,9 +163,13 @@ fn duration_failure_save_and_protected_recovery_resync_state_remain_unchanged() 
         d.recovered = true;
         d.resynced = true;
     }
-    let id = start(&docs, &scenes, Scope::Document);
+    let id = start(&docs, &scenes, None);
     ready(&docs, id);
-    assert!(docs.duration_repair_accept(id).unwrap().requires_save_as);
+    assert!(
+        docs.timing_repair_accept(id, Purpose::Fix)
+            .unwrap()
+            .requires_save_as
+    );
     let before = value(&docs);
     assert!(
         docs.apply(
@@ -181,26 +188,26 @@ fn duration_failure_save_and_protected_recovery_resync_state_remain_unchanged() 
 #[test]
 fn document_profile_scene_and_history_guards_reject_duration_previews() {
     let (_dir, docs, scenes) = fixture();
-    let id = start(&docs, &scenes, Scope::Document);
+    let id = start(&docs, &scenes, None);
     ready(&docs, id);
-    let key = docs.timing_repair_context(id, Purpose::Duration).unwrap();
+    let key = docs.timing_repair_context(id, Purpose::Fix).unwrap();
     scenes.test_completed(7, vec![4.], true);
     assert!(
         scenes
-            .with_quality_current(key, || docs.duration_repair_accept(id))
+            .with_quality_current(key, || docs.timing_repair_accept(id, Purpose::Fix))
             .is_err()
     );
     assert_eq!(value(&docs)["revision"], 0);
-    docs.timing_repair_cancel(id, Purpose::Duration).unwrap();
-    let id = start(&docs, &scenes, Scope::Document);
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
+    let id = start(&docs, &scenes, None);
     ready(&docs, id);
     docs.reset_quality().unwrap();
-    assert!(docs.duration_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     assert_eq!(
-        docs.duration_repair_view(id, 0, 100).unwrap().phase,
+        docs.timing_fix_view(id, 0, 100).unwrap().phase,
         Phase::Stale
     );
-    let id = start(&docs, &scenes, Scope::Document);
+    let id = start(&docs, &scenes, None);
     ready(&docs, id);
     docs.apply(
         Action::Edit {
@@ -214,11 +221,11 @@ fn document_profile_scene_and_history_guards_reject_duration_previews() {
     )
     .unwrap();
     docs.apply(Action::Undo, 1, 1).unwrap();
-    assert!(docs.duration_repair_accept(id).is_err());
-    let id = start(&docs, &scenes, Scope::Document);
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    let id = start(&docs, &scenes, None);
     ready(&docs, id);
     docs.apply(Action::Close { discard: true }, 1, 2).unwrap();
-    assert!(docs.duration_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
 }
 #[test]
 fn shared_worker_has_no_cross_tool_queue_and_late_cancel_cannot_affect_retry() {
@@ -233,7 +240,7 @@ fn shared_worker_has_no_cross_tool_queue_and_late_cancel_cannot_affect_retry() {
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
-                Operation::Duration(Scope::Document),
+                Operation::Fix(Input::preset(false, true, false)),
                 p,
                 move |cancel| {
                     send.send(cancel).unwrap();
@@ -245,32 +252,37 @@ fn shared_worker_has_no_cross_tool_queue_and_late_cancel_cannot_affect_retry() {
     };
     let token = recv.recv_timeout(Duration::from_secs(5)).unwrap();
     assert!(
-        docs.scene_repair_start(1, 0, scenes.capture_quality(7, true).unwrap())
-            .is_err()
-    );
-    assert!(
-        docs.duration_repair_start(
+        docs.timing_fix_start(
             1,
             0,
             scenes.capture_quality(7, true).unwrap(),
-            Scope::Document
+            Input::preset(false, false, true)
         )
         .is_err()
     );
-    docs.timing_repair_cancel(id, Purpose::Duration).unwrap();
+    assert!(
+        docs.timing_fix_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            Input::preset(false, true, false)
+        )
+        .is_err()
+    );
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
     assert!(token.load(Ordering::Relaxed));
     release.send(()).unwrap();
     let end = Instant::now() + Duration::from_secs(5);
-    while docs.duration_repair_view(id, 0, 100).unwrap().phase == Phase::Cancelling {
+    while docs.timing_fix_view(id, 0, 100).unwrap().phase == Phase::Cancelling {
         assert!(Instant::now() < end);
         std::thread::yield_now();
     }
-    assert!(docs.duration_repair_accept(id).is_err());
-    let next = start(&docs, &scenes, Scope::Document);
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    let next = start(&docs, &scenes, None);
     ready(&docs, next);
-    docs.timing_repair_cancel(id, Purpose::Duration).unwrap();
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
     assert_eq!(
-        docs.duration_repair_view(next, 0, 100).unwrap().phase,
+        docs.timing_fix_view(next, 0, 100).unwrap().phase,
         Phase::Reviewing
     );
     docs.shutdown_quality().unwrap();
@@ -280,29 +292,30 @@ fn shared_worker_has_no_cross_tool_queue_and_late_cancel_cannot_affect_retry() {
 fn missing_scene_data_and_missing_cue_never_publish_an_acceptable_plan() {
     let (_dir, docs, scenes) = fixture();
     let id = docs
-        .duration_repair_start(
+        .timing_fix_start(
             1,
             0,
             scenes.capture_quality(0, false).unwrap(),
-            Scope::Document,
+            Input::preset(false, true, false),
         )
         .unwrap();
     let v = ready(&docs, id);
-    assert_eq!(v.changed, 0);
+    assert_eq!(v.changed, 2);
     assert_eq!(v.coverage, Some(engine::scene::SceneCoverage::NoMedia));
-    assert!(docs.duration_repair_accept(id).is_err());
-    let id = start(&docs, &scenes, Scope::Cue(CueId(99)));
+    docs.timing_repair_accept(id, Purpose::Fix).unwrap();
+    docs.apply(Action::Undo, 1, 1).unwrap();
+    let id = start(&docs, &scenes, Some(99));
     let end = Instant::now() + Duration::from_secs(5);
     loop {
-        let v = docs.duration_repair_view(id, 0, 100).unwrap();
+        let v = docs.timing_fix_view(id, 0, 100).unwrap();
         if v.phase == Phase::Failed {
-            assert!(v.error.unwrap().contains("Selected cue"));
+            assert!(v.error.unwrap().contains("unknown"));
             break;
         }
         assert!(Instant::now() < end);
         std::thread::yield_now();
     }
-    assert!(docs.duration_repair_accept(id).is_err());
-    let id = start(&docs, &scenes, Scope::Document);
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    let id = start(&docs, &scenes, None);
     assert_eq!(ready(&docs, id).changed, 2);
 }
