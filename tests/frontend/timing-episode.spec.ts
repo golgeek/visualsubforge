@@ -56,14 +56,12 @@ for (const theme of ['dark', 'light'])
       expect(
         await reason.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
       ).toBe(true);
-      const duration = dock
-        .locator('.change')
-        .filter({
-          has: page.getByRole('checkbox', {
-            name: 'Include cue 3',
-            exact: true,
-          }),
-        });
+      const duration = dock.locator('.change').filter({
+        has: page.getByRole('checkbox', {
+          name: 'Include cue 3',
+          exact: true,
+        }),
+      });
       expect(await duration.locator('.effect').textContent()).toBe(
         'duration 500 → 800 ms · CPS 6.0 → 3.8 · RS — → 10.0',
       );

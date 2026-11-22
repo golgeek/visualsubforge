@@ -374,11 +374,13 @@
               {#if row.replaces}<small>{row.replaces}</small>{/if}
               {#if row.offReason}<small>{row.offReason}</small>{/if}
             </button>
+            <!-- eslint-disable svelte/no-useless-mustaches -- A literal interpolation preserves both spaces across Svelte whitespace trimming. -->
             <small class="effect number"
               >{#each row.unit.effectsText as effect, index (index)}{#if index}{' · '}{/if}<span
                   class:warning={effect.warning}>{effect.text}</span
                 >{/each}</small
             >
+            <!-- eslint-enable svelte/no-useless-mustaches -->
             {#if openRows.includes(row.cueIndex)}<small class="times number"
                 >{#each row.timecodes as line (line)}<span>{line}</span
                   >{/each}</small
