@@ -184,7 +184,7 @@ pub(crate) fn write(path: &Path, value: &Preferences) -> Result<()> {
     }
     fs::create_dir_all(path.parent().ok_or("Settings path has no parent")?)
         .map_err(|e| e.to_string())?;
-    crate::atomic_file::write(path, &bytes)
+    crate::atomic_file::write_private(path, &bytes)
 }
 // All production preference writes use this read/modify/write lock. Document
 // operations acquire their document lock first; layout saves never acquire it.

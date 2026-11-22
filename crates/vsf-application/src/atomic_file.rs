@@ -35,9 +35,29 @@ pub fn write(path: &Path, bytes: &[u8]) -> Result<()> {
     prepare(path, bytes)?.commit()
 }
 pub fn prepare(path: &Path, bytes: &[u8]) -> Result<Prepared> {
+    prepare_bytes(path, bytes, NewFile::Output)
+}
+
+/// Application bookkeeping can contain document text and local paths.
+pub fn prepare_private(path: &Path, bytes: &[u8]) -> Result<Prepared> {
+    prepare_bytes(path, bytes, NewFile::Private)
+}
+
+pub fn write_private(path: &Path, bytes: &[u8]) -> Result<()> {
+    prepare_private(path, bytes)?.commit()
+}
+
+#[derive(Clone, Copy)]
+enum NewFile {
+    Output,
+    Private,
+}
+
+fn prepare_bytes(path: &Path, bytes: &[u8], creation: NewFile) -> Result<Prepared> {
     prepare_with_io(
         path,
         bytes,
+        creation,
         |file, bytes| file.write_all(bytes),
         |file| file.sync_all(),
     )
@@ -55,6 +75,7 @@ pub fn prepare_with_checkpoint(
     let prepared = prepare_with_io(
         path,
         bytes,
+        NewFile::Output,
         |file, bytes| {
             for chunk in bytes.chunks(64 * 1024) {
                 checkpoint().map_err(std::io::Error::other)?;
@@ -73,18 +94,26 @@ pub fn prepare_with_checkpoint(
 fn prepare_with_io(
     path: &Path,
     bytes: &[u8],
+    creation: NewFile,
     write: impl FnOnce(&mut fs::File, &[u8]) -> std::io::Result<()>,
     sync: impl FnOnce(&fs::File) -> std::io::Result<()>,
 ) -> Result<Prepared> {
     let parent = path.parent().ok_or("Save path has no parent directory")?;
-    let mut temp = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|e| format!("Cannot create temporary document file: {e}"))?;
-    if let Ok(metadata) = fs::metadata(path) {
-        if !metadata.is_file() {
-            return Err("Save destination must be a regular file".into());
+    let permissions = match fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() => Some(metadata.permissions()),
+        Ok(_) => return Err("Save destination must be a regular file".into()),
+        #[cfg(unix)]
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+            return Err(format!("Cannot inspect save destination: {error}"));
         }
+        Err(_) => None,
+    };
+    let new_output = permissions.is_none() && matches!(creation, NewFile::Output);
+    let mut temp = sibling_tempfile(parent, new_output)
+        .map_err(|e| format!("Cannot create temporary document file: {e}"))?;
+    if let Some(permissions) = permissions {
         temp.as_file()
-            .set_permissions(metadata.permissions())
+            .set_permissions(permissions)
             .map_err(|e| e.to_string())?;
     }
     write(temp.as_file_mut(), bytes)
@@ -96,9 +125,45 @@ fn prepare_with_io(
     })
 }
 
+fn sibling_tempfile(parent: &Path, new_output: bool) -> std::io::Result<tempfile::NamedTempFile> {
+    #[cfg(unix)]
+    if new_output {
+        use std::os::unix::fs::PermissionsExt;
+        // Pass the mode to open(2). The kernel applies the umask atomically.
+        return tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o666))
+            .tempfile_in(parent);
+    }
+    #[cfg(not(unix))]
+    let _ = new_output;
+    tempfile::NamedTempFile::new_in(parent)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn new_outputs_follow_normal_creation_and_overwrites_preserve_the_existing_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let control = dir.path().join("ordinary");
+        fs::File::create_new(&control).unwrap();
+        let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o7777;
+        let path = dir.path().join("published");
+        prepare(&path, b"first").unwrap().commit_new().unwrap();
+        assert_eq!(mode(&path), mode(&control));
+        let save_as = dir.path().join("save-as");
+        write(&save_as, b"new").unwrap();
+        assert_eq!(mode(&save_as), mode(&control));
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+        write(&path, b"replacement").unwrap();
+        assert_eq!(mode(&path), 0o640);
+        let private = dir.path().join("snapshot.json");
+        write_private(&private, b"draft").unwrap();
+        assert_eq!(mode(&private) & 0o077, 0);
+    }
 
     #[test]
     fn cancellation_at_each_write_checkpoint_removes_only_owned_temporary() {
@@ -156,6 +221,7 @@ mod tests {
                 let result = prepare_with_io(
                     &target,
                     b"replacement",
+                    NewFile::Output,
                     |file, bytes| {
                         if fail_write {
                             file.write_all(&bytes[..3])?;
