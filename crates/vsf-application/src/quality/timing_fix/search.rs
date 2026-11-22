@@ -6,7 +6,7 @@ use crate::quality::{CueMetrics, Profile};
 use metrics::ReadingPrior;
 
 #[derive(Clone, Copy, Default)]
-struct Violations {
+pub(super) struct Violations {
     too_short: u64,
     too_long: u64,
     cps_low: u64,
@@ -21,7 +21,7 @@ struct Violations {
     scene_end: u64,
 }
 impl Violations {
-    fn entries(self) -> [(Rule, u64); 12] {
+    pub(super) fn entries(self) -> [(Rule, u64); 12] {
         // Each unavailable metric counts independently in the local objective.
         [
             (Rule::DurationShort, self.too_short),
@@ -40,7 +40,7 @@ impl Violations {
     }
 }
 #[derive(Clone, Copy)]
-struct Bounds {
+pub(super) struct Bounds {
     actual_min: u64,
     actual_max: u64,
     speed: [Option<u64>; 4],
@@ -48,7 +48,7 @@ struct Bounds {
     rs: bool,
 }
 impl Bounds {
-    fn new(metric: &CueMetrics, profile: &Profile) -> Self {
+    pub(super) fn new(metric: &CueMetrics, profile: &Profile) -> Self {
         let duration = &profile.rules.duration;
         let speed_rules = &profile.rules.speed;
         let characters_ms = u64::from(metric.characters) * 1000;
@@ -127,7 +127,7 @@ pub(super) struct Search<'a> {
     pub scenes: &'a Scenes,
 }
 
-fn violations(
+pub(super) fn violations(
     timing: Endpoints,
     effective_ms: u64,
     next: Option<u64>,

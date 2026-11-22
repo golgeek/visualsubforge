@@ -3,6 +3,7 @@
 mod dependencies;
 mod effects;
 mod manual;
+mod precision;
 pub use effects::EffectSegment;
 mod search;
 use super::{
@@ -870,6 +871,7 @@ pub fn propose(
         windows: &windows,
     };
     let mut walk = inputs.walk(&order, &groups, &ambiguous, &mut checkpoint)?;
+    precision::refine(&inputs, &order, &mut walk.units, &mut checkpoint)?;
     let mut retained = inputs.retain_safe(&mut walk.units, &groups, &mut checkpoint)?;
     dependencies::link_alternatives(&mut walk.units);
     dependencies::withhold_incompatible_partials(
