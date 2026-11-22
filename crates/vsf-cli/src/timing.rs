@@ -63,6 +63,14 @@ pub fn run(args: FixTiming, cancel: &AtomicBool) -> Result<u8> {
     } else if let Some(ref path) = written {
         writeln!(out, "Wrote {}", path.display()).map_err(io_error)?;
     } else {
+        if report.withheld_all {
+            writeln!(
+                out,
+                "{}",
+                vsf_application::quality::timing_fix::WITHHELD_ALL_MESSAGE
+            )
+            .map_err(io_error)?;
+        }
         let coverage = match report.coverage {
             SceneCoverage::Checked => "complete",
             SceneCoverage::Reduced => "reduced (can miss cuts)",

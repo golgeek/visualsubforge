@@ -459,6 +459,7 @@ fn headless_review_matches_real_desktop_owner_pages() {
     )
     .unwrap();
     let r = headless.report();
+    assert_eq!(desktop.withheld_all, r.withheld_all);
     for (desktop_row, file_row) in desktop.rows.iter().zip(&r.changes) {
         assert_eq!(desktop_row.unit.depends_on, file_row.unit.depends_on);
         assert_eq!(

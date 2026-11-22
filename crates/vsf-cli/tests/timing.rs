@@ -71,6 +71,7 @@ fn preview_hash_scope_accept_and_new_file_guards() {
     let original = fs::read(&ex.source).unwrap();
     let first = ex.review(&[]);
     assert_eq!(first["schemaVersion"], 1);
+    assert_eq!(first["withheldAll"], false);
     assert_eq!(first, ex.review(&[]));
     assert_eq!(first["coverage"], "checked");
     for row in first["changes"].as_array().unwrap() {
@@ -215,7 +216,7 @@ fn complete_scene_input_uses_the_full_file_budget_and_empty_preview_returns_zero
 }
 
 #[test]
-fn spacing_review_names_the_repair_trade_dependency_and_partial_alternative() {
+fn episode_names_the_overlap_and_keeps_independent_repairs_separate() {
     // Construct SRT from the same synthetic cues as the Rust-generated dock review.
     let episode: Value = serde_json::from_str(include_str!(
         "../../../tests/frontend/scene-quality/timing-episode.json"
@@ -263,12 +264,62 @@ fn spacing_review_names_the_repair_trade_dependency_and_partial_alternative() {
         "Trade-off",
         "gap 20 → 80 ms · CPS 38.7 → 40.3 (limit 20)",
         "cue 5 CPS",
-        "needs cue 3",
-        "replaces the change to cue 10",
-        "conflicts with cue 8 partial",
         "Cue 1 needs manual work. Too fast: cue 2 starts at 00:00:02,520.",
         "Shorten by 30 counted characters (maximum 28).",
     ] {
         assert!(text.contains(phrase), "missing {phrase} in {text}");
+    }
+    for spurious in [
+        "needs cue 3",
+        "replaces the change to cue 10",
+        "conflicts with cue 8 partial",
+    ] {
+        assert!(!text.contains(spurious), "{text}");
+    }
+    let default = ex.run(&["--scenes", ex.cuts.to_str().unwrap()]);
+    assert_eq!(default.status.code(), Some(1));
+    assert!(
+        String::from_utf8(default.stdout).unwrap().contains(
+            "Cue 4 needs manual work. Overlap not fixed: this cue would become too fast."
+        )
+    );
+}
+
+#[test]
+fn unknown_profile_and_unreadable_existing_profile_have_distinct_errors() {
+    let ex = Example::new();
+    let run = |profile: &str| {
+        Command::new(env!("CARGO_BIN_EXE_vsf"))
+            .current_dir(ex.dir.path())
+            .args([
+                "fix",
+                "timing",
+                "--subtitles",
+                ex.source.to_str().unwrap(),
+                "--profile",
+                profile,
+                "--without-scenes",
+            ])
+            .output()
+            .unwrap()
+    };
+    let missing = run("nope");
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(
+        String::from_utf8(missing.stderr)
+            .unwrap()
+            .contains("Unknown profile ID or file: nope")
+    );
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink("missing-target", ex.dir.path().join("existing-profile"))
+            .unwrap();
+        let unreadable = run("existing-profile");
+        assert_eq!(unreadable.status.code(), Some(5));
+        assert!(
+            String::from_utf8(unreadable.stderr)
+                .unwrap()
+                .contains("Cannot read existing-profile")
+        );
     }
 }

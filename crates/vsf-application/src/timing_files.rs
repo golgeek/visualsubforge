@@ -97,6 +97,7 @@ pub struct Report {
     pub options: Options,
     pub cues: Vec<u32>,
     pub coverage: SceneCoverage,
+    pub withheld_all: bool,
     pub before: Counts,
     pub after: Counts,
     pub changes: Vec<ChangeRow>,
@@ -155,11 +156,16 @@ pub fn preview(mut request: Request<'_>, cancel: &AtomicBool) -> Result<Prepared
     let (profile, profile_file_sha256) = if let Some(p) = Profile::builtin(request.profile) {
         (p, None)
     } else {
-        let file = CapturedFile::read(
-            Path::new(request.profile),
-            quality::MAX_PROFILE_BYTES,
-            &budget,
-        )?;
+        let path = Path::new(request.profile);
+        // A dangling link is an existing path whose target cannot be read.
+        if let Err(error) = std::fs::symlink_metadata(path) {
+            return Err(if error.kind() == std::io::ErrorKind::NotFound {
+                invalid(format!("Unknown profile ID or file: {}", request.profile))
+            } else {
+                Error::Io(format!("Cannot read {}: {error}", path.display()))
+            });
+        }
+        let file = CapturedFile::read(path, quality::MAX_PROFILE_BYTES, &budget)?;
         let p = quality::parse_profile(&file.bytes).map_err(evaluation)?;
         let hash = file.identity.sha256.clone();
         inputs.push(file.identity);
@@ -245,6 +251,7 @@ pub fn preview(mut request: Request<'_>, cancel: &AtomicBool) -> Result<Prepared
         options: request.options,
         cues: request.cues,
         coverage,
+        withheld_all: review.withheld_all,
         before: review.before,
         after: review.after,
         changes: review.changes.into_iter().map(ChangeRow::from).collect(),

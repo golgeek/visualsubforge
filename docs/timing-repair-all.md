@@ -120,8 +120,9 @@ its rules, and the numeric `budget` and formatted `budgetText` when available.
 
 Rust computes
 the SHA-256 review ID over the compact serialized report in schema field order
-with `reviewId` empty. Decimal metrics use the Rust JSON serializer. Preview
-writes nothing. Apply recomputes the report, matches the ID, verifies the source
+with `reviewId` empty. Decimal metrics use the Rust JSON serializer. The schema-1 `withheldAll` flag identifies a preview whose safety
+check withheld the entire candidate after three evaluations. The human preview
+prints the reason above its rows. Preview writes nothing. Apply recomputes the report, matches the ID, verifies the source
 files again and atomically publishes a new same-format file. Existing paths,
 including symlinks, and aliases of inputs are refused. With zero selected changes
 the output preserves the original bytes.
