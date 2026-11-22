@@ -39,13 +39,14 @@ metrics are labelled separately.
 
 “Fix N” applies an immutable Rust plan as one Undo step. It combines available
 reflow, deterministic language replacements and timing repairs for this cue,
-without splitting or changing neighboring cues. Each retained candidate must
-reduce selected issues without adding or worsening whole-document findings.
-Spelling alternatives, ambiguous markup, impossible timing constraints and
-unavailable required scene coverage remain manual. At most 200 deterministic
-language replacements are considered per preparation; excess findings remain
-listed. Text and duration may be repaired together because changing line breaks
-can affect the active counting policy. No missing-media acknowledgment is inferred.
+without splitting or changing neighboring cues. Fix N runs the same timing engine as the dock with all three families ticked,
+Current cue scope and the saved priority, start tolerance and shot-edge policy.
+A text correction that changes counted length can be validated together with
+its timing adjustment. The planner checks neighbours when validating the result.
+A spacing trade-off follows the selected priority. With no video, shot checks
+are unavailable. An incomplete attached-video scan blocks timing changes.
+Ambiguous markup and spelling choices remain manual. Preparation considers up
+to 200 deterministic language replacements. [Timing policy](timing-repair-all.md)
 
 Preparation shares the existing timing-review worker, has no pending queue and a
 ten-second deadline. Changing document/profile/media/scenes/selection or entering

@@ -2,8 +2,6 @@
 //! Only this outer adapter reads/writes files; desktop callers use workers.
 mod check;
 pub mod cue_fixes;
-pub mod duration;
-pub mod gap;
 pub mod metrics;
 pub mod profile;
 pub mod scene;

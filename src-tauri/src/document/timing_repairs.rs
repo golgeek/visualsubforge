@@ -204,9 +204,10 @@ impl Documents {
     }
     pub(crate) fn set_timing_options(&self, value: timing_fix::Options) -> Result<()> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
-        store.timing_options = Some(value);
+        let previous = store.timing_options.replace(value).unwrap_or_default();
         if let Some(job) = &mut store.timing_repairs.job
-            && matches!(&job.operation,Operation::Fix(input) if input.options!=value)
+            && (matches!(&job.operation,Operation::Fix(input) if input.options!=value)
+                || matches!(job.operation, Operation::CueFixes(_)) && previous != value)
         {
             job.stale = true;
             job.cancel();
@@ -317,6 +318,7 @@ impl Documents {
         let profile = store.quality.context().profile;
         let captured = profile.clone();
         let lexicon = store.quality.lexicon();
+        let options = store.timing_options.unwrap_or_default();
         store
             .timing_repairs
             .launch(key, scenes.key, operation.clone(), profile, move |cancel| {
@@ -344,6 +346,7 @@ impl Documents {
                         context,
                         &scenes.data,
                         cue,
+                        options,
                         &mut checkpoint,
                     )
                     .map(Proposal::CueFixes),

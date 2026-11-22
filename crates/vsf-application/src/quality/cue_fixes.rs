@@ -1,7 +1,7 @@
 //! Conservative, selected-cue repairs composed into one immutable candidate.
 //! No split, inferred spelling choice, media IO or accepted history lives here.
 use super::{
-    Error, Evaluation, Finding, Report, Result, Rule, duration, evaluate_with_scenes, gap, scene,
+    Error, Evaluation, Finding, Report, Result, Rule, evaluate_with_scenes, scene, timing_fix,
     timing_validation,
 };
 use crate::text::{self, Operation};
@@ -54,27 +54,20 @@ fn belongs(finding: &Finding, id: CueId) -> bool {
     let id = id.0.to_string();
     finding.cue_id == id || finding.related_cue_id.as_deref() == Some(id.as_str())
 }
-fn issue_count(report: &Report, id: CueId) -> u32 {
-    let mut fast = false;
-    let mut slow = false;
-    report
-        .findings
-        .iter()
-        .filter(|f| belongs(f, id))
-        .filter(|f| match f.rule {
+fn issue_counts(report: &Report, id: CueId) -> HashMap<Rule, u32> {
+    let mut counts = HashMap::new();
+    for finding in report.findings.iter().filter(|f| belongs(f, id)) {
+        match finding.rule {
             Rule::CpsHigh | Rule::RsHigh => {
-                let first = !fast;
-                fast = true;
-                first
+                counts.insert(Rule::CpsHigh, 1);
             }
             Rule::CpsLow | Rule::RsLow => {
-                let first = !slow;
-                slow = true;
-                first
+                counts.insert(Rule::CpsLow, 1);
             }
-            _ => true,
-        })
-        .count() as u32
+            rule => *counts.entry(rule).or_default() += 1,
+        }
+    }
+    counts
 }
 fn selected_edit(document: &Document, id: CueId, edit: Edit) -> Result<Document> {
     let original = document
@@ -149,18 +142,41 @@ fn safe(before: &Report, after: &Report) -> bool {
     true
 }
 
+fn scoped_timing(
+    document: &Document,
+    context: Evaluation<'_>,
+    scenes: &scene::Scenes,
+    id: CueId,
+    options: timing_fix::Options,
+    checkpoint: &mut impl FnMut() -> Result<()>,
+) -> Result<Document> {
+    let request = timing_fix::Request {
+        scope: Some(vec![id]),
+        options,
+        ..Default::default()
+    };
+    let proposal =
+        timing_fix::propose(document.clone(), context, scenes, request, &mut *checkpoint)?;
+    let selection = proposal.select(&proposal.default_units(), checkpoint)?;
+    if let Some(error) = selection.error {
+        return Err(Error::Invalid(error));
+    }
+    Ok(selection.candidate)
+}
+
 pub fn propose(
     document: Document,
     context: Evaluation<'_>,
     scenes: &scene::Scenes,
     id: CueId,
+    options: timing_fix::Options,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
     if !document.cues().iter().any(|cue| cue.id() == id) {
         return Err(Error::Invalid("Selected cue no longer exists".into()));
     }
     let mut report = evaluate_with_scenes(&document, context, scenes, |_, _| checkpoint())?;
-    let original_count = issue_count(&report, id);
+    let original = issue_counts(&report, id);
     let mut candidate = document.clone();
     // Existing deterministic operations choose the first safe repair. Spelling
     // alternatives need human choice; only supplied unambiguous replacements run.
@@ -188,53 +204,21 @@ pub fn propose(
     corrections.sort_by_key(|(start, _)| std::cmp::Reverse(*start));
     // Bound repeated full-document validation. Excess findings remain manual.
     corrections.truncate(200);
-    let mut operations: Vec<Option<Operation>> = corrections
+    let operations = corrections
         .into_iter()
-        .map(|(_, operation)| Some(operation))
-        .collect();
-    operations.push(Some(Operation::Reflow));
-    operations.extend([None, None, None]);
-    let text_count = operations.len() - 3;
-    for (index, operation) in operations.into_iter().enumerate() {
+        .map(|(_, op)| op)
+        .chain([Operation::Reflow]);
+    for operation in operations {
         checkpoint()?;
-        let text_operation = operation.is_some();
-        let proposed = match operation {
-            Some(operation) => text::propose_for_format(
-                candidate.clone(),
-                context.format,
-                context,
-                &operation,
-                &mut checkpoint,
-            )
-            .and_then(|plan| plan.edit(&candidate, None)),
-            None if index == text_count => duration::propose_for_format(
-                candidate.clone(),
-                context.format,
-                context,
-                scenes,
-                duration::Scope::Cue(id),
-                &mut checkpoint,
-            )
-            .and_then(|plan| plan.edit(&candidate)),
-            None if index == text_count + 1 => scene::propose_for_format(
-                candidate.clone(),
-                context.format,
-                context,
-                scenes,
-                &mut checkpoint,
-            )
-            .and_then(|plan| plan.edit(&candidate)),
-            None => gap::propose_for_format(
-                candidate.clone(),
-                context.format,
-                context,
-                scenes,
-                &mut checkpoint,
-            )
-            // Never silently acknowledge missing media/scene coverage.
-            .and_then(|plan| plan.edit(&candidate, false)),
-        };
-        let edit = match proposed {
+        let edit = match text::propose_for_format(
+            candidate.clone(),
+            context.format,
+            context,
+            &operation,
+            &mut checkpoint,
+        )
+        .and_then(|p| p.edit(&candidate, None))
+        {
             Ok(edit) => edit,
             Err(Error::Invalid(_)) => continue,
             Err(error) => return Err(error),
@@ -243,37 +227,37 @@ pub fn propose(
         if next == candidate {
             continue;
         }
-        if text_operation {
-            // Reflow changes the source-counting metric in legacy profiles.
-            // Validate its coupled duration adjustment as one candidate instead
-            // of rejecting a temporary speed increase before timing is repaired.
-            match duration::propose_for_format(
-                next.clone(),
-                context.format,
-                context,
-                scenes,
-                duration::Scope::Cue(id),
-                &mut checkpoint,
-            )
-            .and_then(|plan| plan.edit(&next))
-            {
-                Ok(edit) => next = selected_edit(&next, id, edit)?,
-                Err(Error::Invalid(_)) => {}
-                Err(error) => return Err(error),
-            }
+        let mut next_report = evaluate_with_scenes(&next, context, scenes, |_, _| checkpoint())?;
+        // A reflow can temporarily increase counted length. Validate a coupled
+        // retime before deciding whether this text operation is safe.
+        if !safe(&report, &next_report) {
+            next = scoped_timing(&next, context, scenes, id, options, &mut checkpoint)?;
+            next_report = evaluate_with_scenes(&next, context, scenes, |_, _| checkpoint())?;
         }
-        let next_report = evaluate_with_scenes(&next, context, scenes, |_, _| checkpoint())?;
-        if issue_count(&next_report, id) < issue_count(&report, id) && safe(&report, &next_report) {
+        if safe(&report, &next_report)
+            && issue_counts(&next_report, id).values().sum::<u32>()
+                < issue_counts(&report, id).values().sum()
+        {
             candidate = next;
             report = next_report;
         }
     }
-    let remaining = issue_count(&report, id);
+    let timed = scoped_timing(&candidate, context, scenes, id, options, &mut checkpoint)?;
+    if timed != candidate {
+        candidate = timed;
+        report = evaluate_with_scenes(&candidate, context, scenes, |_, _| checkpoint())?;
+    }
+    let left = issue_counts(&report, id);
+    let remaining = left.values().sum();
+    let fixed = original
+        .iter()
+        .map(|(rule, count)| count.saturating_sub(*left.get(rule).unwrap_or(&0)))
+        .sum();
     Ok(Proposal {
         before: document,
         after: candidate,
         cue_id: id,
-        fixed: original_count - remaining,
+        fixed,
         remaining,
     })
 }

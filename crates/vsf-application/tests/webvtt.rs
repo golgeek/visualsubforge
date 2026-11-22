@@ -334,7 +334,10 @@ fn shifts_preserve_milliseconds_and_refuse_absolute_markers_or_reordering() {
 
 #[test]
 fn quality_timing_repairs_skip_absolute_markers_but_allow_literal_ass_text() {
-    use quality::{duration, gap, scene};
+    use quality::{
+        scene,
+        timing_fix::{self, Families, Request},
+    };
     let mut profile =
         quality::Profile::default().custom("webvtt-repairs".into(), "WebVTT repairs".into());
     profile.rules.speed.enabled = false;
@@ -349,52 +352,50 @@ fn quality_timing_repairs_skip_absolute_markers_but_allow_literal_ass_text() {
         let p = parsed(&format!(
             "WEBVTT\n\n00:01.001 --> 00:09.999\n{text}\n\n00:10.001 --> 00:12.999\nsecond"
         ));
-        let gaps = gap::propose_for_format(
-            p.document.clone(),
-            Format::WebVtt,
-            &profile,
-            &scene::Scenes::NoMedia,
-            || Ok(()),
-        )
-        .unwrap();
-        let duration = duration::propose_for_format(
-            p.document,
-            Format::WebVtt,
-            &profile,
-            &scene::Scenes::NoMedia,
-            duration::Scope::Document,
-            || Ok(()),
-        )
-        .unwrap();
-        if timed {
-            assert_eq!(gaps.rows()[0].skipped, Some(gap::Skip::MarkupNeedsReview));
-            assert_eq!(
-                duration.rows()[0].skipped,
-                Some(duration::Skip::MarkupNeedsReview)
-            );
-            assert_eq!((gaps.changed(), duration.changed()), (0, 0));
-        } else {
-            assert_eq!((gaps.changed(), duration.changed()), (1, 1));
-        }
-        let mut scene_profile = profile.clone();
-        scene_profile.timing.scene_before_ms = 120;
-        scene_profile.timing.scene_after_ms = 120;
-        let scenes = scene::propose_for_format(
-            one(text).document,
-            Format::WebVtt,
-            &scene_profile,
-            &scene::Scenes::Complete(vec![Milliseconds::new(5000).unwrap()]),
-            || Ok(()),
-        )
-        .unwrap();
-        if timed {
-            assert_eq!(
-                scenes.rows()[0].skipped,
-                Some(scene::Skip::MarkupNeedsReview)
-            );
-            assert_eq!(scenes.changed(), 0);
-        } else {
-            assert_eq!(scenes.changed(), 1);
+        for families in [
+            Families {
+                gaps: true,
+                speed: false,
+                shots: false,
+            },
+            Families {
+                gaps: false,
+                speed: true,
+                shots: false,
+            },
+            Families {
+                gaps: false,
+                speed: false,
+                shots: true,
+            },
+        ] {
+            let mut profile = profile.clone();
+            let (document, scenes) = if families.shots {
+                profile.timing.scene_before_ms = 120;
+                profile.timing.scene_after_ms = 120;
+                (
+                    one(text).document,
+                    scene::Scenes::Complete(vec![Milliseconds::new(5000).unwrap()]),
+                )
+            } else {
+                (p.document.clone(), scene::Scenes::NoMedia)
+            };
+            let context = quality::Evaluation::from(&profile).with_format(Format::WebVtt);
+            let plan = timing_fix::propose(
+                document,
+                context,
+                &scenes,
+                Request {
+                    families,
+                    ..Default::default()
+                },
+                || Ok(()),
+            )
+            .unwrap();
+            assert_eq!(plan.default_units().len(), usize::from(!timed));
+            if timed {
+                assert!(plan.manual()[0].reason.contains("markup"));
+            }
         }
     }
 }

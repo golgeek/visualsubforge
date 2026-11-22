@@ -2,7 +2,7 @@
 //! mutex through the document transaction: media selection -> scenes -> document.
 use super::*;
 use subtitle_core::Milliseconds;
-use vsf_application::quality::gap::Scenes as GapScenes;
+use vsf_application::quality::scene::Scenes as QualityScenes;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct SceneKey {
@@ -15,7 +15,7 @@ pub(crate) struct SceneKey {
 }
 pub(crate) struct SceneCapture {
     pub key: SceneKey,
-    pub data: GapScenes,
+    pub data: QualityScenes,
 }
 impl Job {
     fn quality_key(&self, session: u64, attached: bool) -> SceneKey {
@@ -49,11 +49,11 @@ impl Scenes {
         let job = self.job.lock().map_err(|_| "Scene state unavailable")?;
         let key = job.quality_key(session, attached);
         let data = if !attached {
-            GapScenes::NoMedia
+            QualityScenes::NoMedia
         } else if key.partial {
-            GapScenes::Partial
+            QualityScenes::Partial
         } else if !key.ready {
-            GapScenes::Unavailable
+            QualityScenes::Unavailable
         } else {
             if job.cuts.len() > 100_000 || job.cuts.windows(2).any(|p| p[0] >= p[1]) {
                 return Err("Timing preview requires bounded ordered scene timestamps".into());
@@ -69,9 +69,9 @@ impl Scenes {
             // Different sub-millisecond cuts may round to the same domain point.
             cuts.dedup();
             if matches!(job.analysis_version, 2 | 4) {
-                GapScenes::Reduced(cuts)
+                QualityScenes::Reduced(cuts)
             } else {
-                GapScenes::Complete(cuts)
+                QualityScenes::Complete(cuts)
             }
         };
         Ok(SceneCapture { key, data })
@@ -101,7 +101,7 @@ mod tests {
             true,
         );
         let capture = scenes.capture_quality(7, true).unwrap();
-        let GapScenes::Reduced(cuts) = capture.data else {
+        let QualityScenes::Reduced(cuts) = capture.data else {
             panic!("reduced coverage lost")
         };
         assert_eq!(
@@ -111,11 +111,11 @@ mod tests {
         scenes.test_completed(7, vec![], false);
         assert!(scenes.with_quality_current(capture.key, || Ok(())).is_err());
         assert!(
-            matches!(scenes.capture_quality(7,true).unwrap().data,GapScenes::Complete(c) if c.is_empty())
+            matches!(scenes.capture_quality(7,true).unwrap().data,QualityScenes::Complete(c) if c.is_empty())
         );
         assert!(matches!(
             scenes.capture_quality(8, true).unwrap().data,
-            GapScenes::Unavailable
+            QualityScenes::Unavailable
         ));
     }
     #[test]
@@ -123,11 +123,11 @@ mod tests {
         let scenes = Scenes::default();
         assert!(matches!(
             scenes.capture_quality(0, false).unwrap().data,
-            GapScenes::NoMedia
+            QualityScenes::NoMedia
         ));
         assert!(matches!(
             scenes.capture_quality(7, true).unwrap().data,
-            GapScenes::Unavailable
+            QualityScenes::Unavailable
         ));
         {
             let mut job = scenes.job.lock().unwrap();
@@ -142,7 +142,7 @@ mod tests {
             job.cuts = vec![1.0001, 1.0002, 1.2346];
         }
         let capture = scenes.capture_quality(7, true).unwrap();
-        let GapScenes::Complete(cuts) = capture.data else {
+        let QualityScenes::Complete(cuts) = capture.data else {
             panic!("completed scene data absent")
         };
         assert_eq!(
@@ -154,13 +154,13 @@ mod tests {
         assert!(scenes.with_quality_current(capture.key, || Ok(())).is_err());
         assert!(matches!(
             scenes.capture_quality(7, true).unwrap().data,
-            GapScenes::Partial
+            QualityScenes::Partial
         ));
         scenes.job.lock().unwrap().running = false;
         scenes.job.lock().unwrap().partial = true;
         assert!(matches!(
             scenes.capture_quality(7, true).unwrap().data,
-            GapScenes::Partial
+            QualityScenes::Partial
         ));
         scenes.invalidate();
         assert!(scenes.with_quality_current(capture.key, || Ok(())).is_err());

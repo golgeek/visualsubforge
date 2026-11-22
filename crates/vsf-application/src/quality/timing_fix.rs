@@ -8,7 +8,7 @@ pub mod review;
 pub use effects::EffectSegment;
 mod search;
 use super::{
-    Error, Evaluation, Report, Result, Rule, evaluate_with_scenes, gap, metrics,
+    Error, Evaluation, Report, Result, Rule, evaluate_with_scenes, metrics,
     profile::SpeedBasis,
     scene::{SceneCoverage, Scenes, Windows},
     timing_selection::{self, Selection},
@@ -935,6 +935,33 @@ impl PlanningInputs<'_> {
     }
 }
 
+fn overlap_groups(
+    document: &Document,
+    order: &[usize],
+    checkpoint: &mut impl FnMut() -> Result<()>,
+) -> Result<(Vec<usize>, Vec<bool>)> {
+    let cues = document.cues();
+    let mut groups = vec![0; cues.len()];
+    let mut ambiguous = Vec::new();
+    let mut frontier = 0;
+    let mut last_start = None;
+    for &i in order {
+        checkpoint()?;
+        let cue = &cues[i];
+        if ambiguous.is_empty() || cue.start().get() >= frontier {
+            ambiguous.push(false);
+            frontier = cue.end().get();
+        } else {
+            let group = ambiguous.last_mut().expect("a current group exists");
+            *group |= cue.end().get() <= frontier || last_start == Some(cue.start());
+            frontier = frontier.max(cue.end().get());
+        }
+        groups[i] = ambiguous.len() - 1;
+        last_start = Some(cue.start());
+    }
+    Ok((groups, ambiguous))
+}
+
 pub fn propose(
     document: Document,
     context: Evaluation<'_>,
@@ -970,7 +997,7 @@ fn propose_with_limit(
     };
     let mut order: Vec<_> = (0..document.cues().len()).collect();
     order.sort_by_key(|&i| (document.cues()[i].start(), i));
-    let (groups, ambiguous) = gap::overlap_groups(&document, &order, &mut checkpoint)?;
+    let (groups, ambiguous) = overlap_groups(&document, &order, &mut checkpoint)?;
     let inputs = PlanningInputs {
         document: &document,
         before: &before,
