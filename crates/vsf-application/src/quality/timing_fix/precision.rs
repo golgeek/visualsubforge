@@ -58,11 +58,11 @@ impl Neighbourhood<'_> {
                     return None;
                 }
                 let next_start = self.next.map(|_| points[self.position + 1].start_ms);
-                if let Some(next) = self.next {
+                if let Some((next, next_start)) = self.next.zip(next_start) {
                     let old_gap = self.inputs.document.cues()[next].start().get() as i64
                         - original.end().get() as i64;
-                    let gap = next_start.unwrap() as i64 - current.end_ms as i64;
-                    if (current.start_ms, index) > (next_start.unwrap(), next)
+                    let gap = next_start as i64 - current.end_ms as i64;
+                    if (current.start_ms, index) > (next_start, next)
                         || gap < old_gap.min(self.inputs.context.profile.timing.cue_gap_ms.into())
                         || (gap < 0 && current.end_ms > original.end().get())
                     {
@@ -112,23 +112,23 @@ impl Neighbourhood<'_> {
             .state(original)
             .expect("original geometry is admissible")
             .0;
-        let mut planned = original.to_vec();
-        let mut claims = vec![0u16; self.writers.len()];
-        for (bit, &writer) in self.writers.iter().enumerate() {
-            let before = self.state(&planned);
-            let mut candidate = planned.clone();
-            self.apply(writer, &mut candidate);
-            if let (Some((before, _)), Some((after, _))) = (before, self.state(&candidate)) {
-                for (k, (&(rule, old), &(_, new))) in before.iter().zip(&after).enumerate() {
-                    if old > 0 && new == 0 && self.units[writer].fixed.contains(&rule) {
-                        claims[bit] |= 1 << k;
-                    }
-                }
-            }
-            if !self.units[writer].partial {
-                planned = candidate;
-            }
-        }
+        let claims: Vec<u16> = self
+            .writers
+            .iter()
+            .map(|&writer| {
+                baseline
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (rule, _))| {
+                        self.units[writer].claims.iter().any(|claim| {
+                            claim.index == index
+                                && claim.rule == *rule
+                                && (claim.related.is_none() || claim.related == self.next)
+                        })
+                    })
+                    .fold(0, |mask, (k, _)| mask | 1 << k)
+            })
+            .collect();
         let mut points = original.to_vec();
         for mask in 1..1usize << self.writers.len() {
             points.copy_from_slice(original);
@@ -148,10 +148,8 @@ impl Neighbourhood<'_> {
                         .iter()
                         .filter(|e| e.index as usize == index && e.after > e.before)
                     {
-                        if let Some(rate) = e.after {
-                            let slot = usize::from(e.rule == Rule::RsHigh);
-                            ceilings[slot] = ceilings[slot].max(rate);
-                        }
+                        let slot = usize::from(e.rule == Rule::RsHigh);
+                        ceilings[slot] = ceilings[slot].max(e.after.unwrap_or_default());
                     }
                 }
             }
@@ -247,8 +245,13 @@ pub(super) fn refine(
         // Bound both reading-chain traversal and subset enumeration. Dense
         // ambiguous neighbourhoods keep their existing conservative links.
         if pos - first > 24 {
-            for &writer in &written[cue] {
-                keep.extend(&candidates[writer]);
+            // On entering a long component, preserve links for its entire
+            // prefix once. Later members can read any earlier reading floor.
+            let start = if pos - first == 25 { first } else { pos };
+            for &index in &order[start..=pos] {
+                for &writer in &written[index] {
+                    keep.extend(&candidates[writer]);
+                }
             }
             continue;
         }

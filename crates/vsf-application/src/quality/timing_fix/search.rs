@@ -114,6 +114,7 @@ pub(super) struct Search<'a> {
     pub index: usize,
     pub next: Option<usize>,
     pub following: Option<u64>,
+    pub previous: Option<usize>,
     pub remaining_order: &'a [usize],
     pub prior: Option<ReadingPrior>,
     pub frontier: u64,
@@ -563,17 +564,26 @@ impl Search<'_> {
         let mut endpoints = vec![];
         let mut fixed = vec![];
         let mut effects = vec![];
-        if self.request.families.gaps && base.previous_gap > 0 && score.previous_gap == 0 {
-            fixed.push(
-                if self
-                    .prior
-                    .is_some_and(|prior| original.start_ms < prior.end)
-                {
-                    Rule::Overlap
-                } else {
-                    Rule::Gap
-                },
-            );
+        let mut claims = Vec::new();
+        if self.request.families.gaps
+            && base.previous_gap > 0
+            && score.previous_gap == 0
+            && let Some(previous) = self.previous
+        {
+            let rule = if self
+                .prior
+                .is_some_and(|prior| original.start_ms < prior.end)
+            {
+                Rule::Overlap
+            } else {
+                Rule::Gap
+            };
+            claims.push(Claim {
+                index: previous,
+                rule,
+                related: Some(index),
+            });
+            fixed.push(rule);
         }
         for (neighbour, (cue_index, from, to)) in [
             (Some(index), Some(original), Some(trial.current)),
@@ -600,9 +610,23 @@ impl Search<'_> {
                 if initial > 0
                     && planned == 0
                     && family(rule, self.request.families)
-                    && !fixed.contains(&rule)
+                    && !(rule == Rule::SpeedUnavailable
+                        && (score.severity[neighbour].cps_unavailable > 0
+                            || score.severity[neighbour].rs_unavailable > 0))
                 {
-                    fixed.push(rule);
+                    let related = if matches!(rule, Rule::Gap | Rule::Overlap) {
+                        self.remaining_order.get(neighbour + 1).copied()
+                    } else {
+                        None
+                    };
+                    claims.push(Claim {
+                        index: cue_index,
+                        rule,
+                        related,
+                    });
+                    if !fixed.contains(&rule) {
+                        fixed.push(rule);
+                    }
                 }
             }
             let metric = &self.before.metrics[cue_index];
@@ -704,6 +728,7 @@ impl Search<'_> {
         );
         Some((
             Unit {
+                claims,
                 depends_on: Vec::new(),
                 conflicts_with: Vec::new(),
                 effects_text,

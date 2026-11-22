@@ -129,7 +129,12 @@ impl Trial {
         }
         intervals
     }
-    pub(super) fn check(&self, proposal: &Proposal, selected: &[u32], candidate: &Document) {
+    pub(super) fn check(
+        &self,
+        proposal: &Proposal,
+        selected: &[u32],
+        candidate: &Document,
+    ) -> Report {
         let old = self.document.cues();
         let new = candidate.cues();
         let order = |cues: &[Cue]| {
@@ -232,12 +237,15 @@ impl Trial {
                 );
             }
         }
+        report
     }
 }
 #[derive(Default)]
 struct Precision {
     edges: usize,
     unnecessary: usize,
+    safety_only_edges: usize,
+    safety_only_conflicts: usize,
     conflicts: usize,
     compatible: usize,
     other_rows_lost: Vec<usize>,
@@ -246,8 +254,10 @@ struct Precision {
 impl Precision {
     fn measure(&mut self, trial: &Trial, proposal: &Proposal) {
         let defaults = proposal.default_units();
-        let valid = |choices: &[u32]| {
-            let plan = proposal.select(choices, || Ok(())).unwrap();
+        let valid = |choices: &[u32], claims: bool| {
+            let plan = proposal
+                .validate_selection(choices, claims, || Ok(()))
+                .unwrap();
             if plan.error.is_some() {
                 return false;
             }
@@ -267,7 +277,10 @@ impl Precision {
                 if count > 0 && unit.depends_on.iter().all(|id| defaults.contains(id)) {
                     let mut together = defaults.clone();
                     together.push(unit.index);
-                    if valid(&together) {
+                    if valid(&together, false) {
+                        self.safety_only_conflicts += count;
+                    }
+                    if valid(&together, true) {
                         self.compatible += count;
                     }
                 }
@@ -276,23 +289,23 @@ impl Precision {
                 self.other_rows_lost.push(defaults.len() - remaining - 1);
                 for parent in &unit.depends_on {
                     self.edges += 1;
-                    if *removable.entry(*parent).or_insert_with(|| {
-                        valid(
-                            &defaults
-                                .iter()
-                                .copied()
-                                .filter(|id| id != parent)
-                                .collect::<Vec<_>>(),
-                        )
-                    }) {
-                        self.unnecessary += 1;
-                    }
+                    let &(safe, honest) = &*removable.entry(*parent).or_insert_with(|| {
+                        let selection: Vec<_> =
+                            defaults.iter().copied().filter(|id| id != parent).collect();
+                        (valid(&selection, false), valid(&selection, true))
+                    });
+                    self.unnecessary += usize::from(honest);
+                    self.safety_only_edges += usize::from(safe);
                 }
             }
         }
     }
 
     fn report(&mut self) {
+        eprintln!(
+            "safety_only_unnecessary={} safety_only_compatible={}",
+            self.safety_only_edges, self.safety_only_conflicts
+        );
         self.other_rows_lost.sort_unstable();
         let counts = &self.other_rows_lost;
         if counts.is_empty() {
@@ -411,7 +424,23 @@ fn independent_selection_oracle() {
                     eprintln!("case {case}, actions {toggles:?}, rejected {selected:?}");
                 }
             } else {
-                trial.check(&proposal, &selected, &plan.candidate);
+                let final_report = trial.check(&proposal, &selected, &plan.candidate);
+                for claim in proposal
+                    .units
+                    .iter()
+                    .filter(|unit| selected.contains(&unit.index))
+                    .flat_map(|unit| &unit.claims)
+                {
+                    assert!(
+                        !final_report.findings.iter().any(|f| f.rule == claim.rule
+                            && f.cue_index as usize == claim.index
+                            && f.related_cue_id.as_deref()
+                                == claim
+                                    .related
+                                    .map(|i| proposal.before.metrics[i].cue_id.as_str())),
+                        "a selected row overclaimed in case {case}"
+                    );
+                }
             }
         }
     }
@@ -421,6 +450,16 @@ fn independent_selection_oracle() {
     );
     if let Some(mut metric) = precision {
         metric.report();
+        if cases >= 400 {
+            assert!(
+                metric.unnecessary * 10 <= metric.edges,
+                "too many unnecessary dependencies"
+            );
+            assert!(
+                metric.compatible * 10 <= metric.conflicts,
+                "too many compatible conflicts"
+            );
+        }
     }
     assert_eq!(rejected, 0, "a closure-respecting selection was rejected");
 }

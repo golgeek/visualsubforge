@@ -103,6 +103,8 @@ pub struct Effect {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Unit {
+    #[serde(skip)]
+    claims: Vec<Claim>,
     pub depends_on: Vec<u32>,
     pub conflicts_with: Vec<u32>,
     pub effects_text: Vec<EffectSegment>,
@@ -114,6 +116,38 @@ pub struct Unit {
     pub effects: Vec<Effect>,
     pub trade_off: bool,
 }
+/// An index refers to the immutable captured document throughout a review.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct Claim {
+    index: usize,
+    rule: Rule,
+    related: Option<usize>,
+}
+
+fn unkept_claims(after: &Report, units: &[Unit], selected: &HashSet<u32>) -> HashSet<usize> {
+    let remaining: HashSet<_> = after
+        .findings
+        .iter()
+        .map(|finding| {
+            (
+                finding.cue_index as usize,
+                finding.rule,
+                finding.related_cue_id.as_deref(),
+            )
+        })
+        .collect();
+    units
+        .iter()
+        .filter(|unit| selected.contains(&unit.index))
+        .flat_map(|unit| &unit.claims)
+        .filter(|claim| {
+            let related = claim.related.map(|i| after.metrics[i].cue_id.as_str());
+            remaining.contains(&(claim.index, claim.rule, related))
+        })
+        .map(|claim| claim.index)
+        .collect()
+}
+
 impl Unit {
     pub fn label(&self) -> String {
         std::iter::once(self.index)
@@ -357,6 +391,14 @@ impl Proposal {
         selected: &[u32],
         mut checkpoint: impl FnMut() -> Result<()>,
     ) -> Result<timing_selection::Plan> {
+        self.validate_selection(selected, true, &mut checkpoint)
+    }
+    fn validate_selection(
+        &self,
+        selected: &[u32],
+        verify_claims: bool,
+        mut checkpoint: impl FnMut() -> Result<()>,
+    ) -> Result<timing_selection::Plan> {
         let chosen: HashSet<_> = selected.iter().copied().collect();
         if chosen.len() != selected.len()
             || self
@@ -392,6 +434,9 @@ impl Proposal {
             &mut checkpoint,
         )?;
         affected.extend(geometry);
+        if verify_claims {
+            affected.extend(unkept_claims(&after, &self.units, &chosen));
+        }
         if !affected.is_empty() {
             // A timing finding can belong to an unchanged reader or either
             // side of a gap. Resolve those neighbours back to review units.
@@ -582,6 +627,7 @@ impl PlanningInputs<'_> {
                     index,
                     next,
                     remaining_order: &order[position..],
+                    previous: position.checked_sub(1).map(|p| order[p]),
                     following: order
                         .get(position + 2)
                         .map(|&neighbour| points[neighbour].start_ms),
@@ -700,7 +746,8 @@ impl PlanningInputs<'_> {
                 .filter(|unit| !unit.partial)
                 .map(|unit| unit.index)
                 .collect();
-            let unsafe_cues = unsafe_indices(before, &candidate, units, &chosen);
+            let mut unsafe_cues = unsafe_indices(before, &candidate, units, &chosen);
+            unsafe_cues.extend(unkept_claims(&candidate, units, &chosen));
             if unsafe_cues.is_empty() {
                 break candidate;
             }

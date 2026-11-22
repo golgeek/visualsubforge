@@ -205,3 +205,7 @@ remain unverified; full ASS/SSA documents/styles remain separate.
 
 The unified engine's independent selection oracle uses seed `0x035f2026`.
 Run `VSF_TIMING_ORACLE_CASES=20000 cargo test --release --locked -p vsf-application --lib independent_selection_oracle -- --nocapture` to exercise larger samples.
+Set `FUZZ_DEPS=1` to measure dependency and conflict precision and the number
+of other rows lost on an untick. The acceptance metric verifies every claimed
+fix against the final report. The test also prints the safety-only counts for
+comparison. Set `VSF_TIMING_ORACLE_MAX_CUES` to vary the document size.
