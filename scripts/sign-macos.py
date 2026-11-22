@@ -231,7 +231,8 @@ def sign(args):
                 notarize(image, receipt["image"], "image-notarization-log.json")
                 run(["xcrun", "stapler", "staple", image])
                 run(["xcrun", "stapler", "validate", image])
-                requirement = (f"anchor apple generic and certificate leaf[subject.OU] = {json.dumps(team)} "
+                # codesign treats a requirement without the leading "=" as a filename.
+                requirement = (f"=anchor apple generic and certificate leaf[subject.OU] = {json.dumps(team)} "
                                f"and certificate leaf[subject.CN] = {json.dumps(identity)}")
                 run(["codesign", "--verify", "--strict", "-R", requirement, image])
                 run(["spctl", "--assess", "--type", "open", "--context", "context:primary-signature", image])
