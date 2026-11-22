@@ -255,21 +255,62 @@ fn unsafe_indices(
     selected: &HashSet<u32>,
 ) -> HashSet<usize> {
     let old = timing_validation::timing_findings(before);
-    let trades: HashSet<_> = units
+    let mut rates = HashMap::<(u32, Rule), f64>::new();
+    if units
         .iter()
-        .filter(|u| u.trade_off && selected.contains(&u.index))
-        .flat_map(|u| {
-            u.effects
-                .iter()
-                .filter(|e| matches!(e.rule, Rule::CpsHigh | Rule::RsHigh) && e.after > e.before)
-                .map(|e| (e.index, e.rule))
-        })
-        .collect();
+        .any(|u| u.trade_off && selected.contains(&u.index))
+    {
+        // A coupled subset can lose the spacing benefit or change an untouched
+        // neighbour's reading start. Authorize only what the review showed.
+        let remaining: HashSet<_> = after
+            .findings
+            .iter()
+            .map(|f| (f.cue_id.as_str(), f.related_cue_id.as_deref(), f.rule))
+            .collect();
+        let mut resolved = HashSet::new();
+        for f in &before.findings {
+            if matches!(
+                f.rule,
+                Rule::Gap | Rule::Overlap | Rule::SceneStart | Rule::SceneEnd
+            ) && !remaining.contains(&(f.cue_id.as_str(), f.related_cue_id.as_deref(), f.rule))
+            {
+                resolved.insert((f.cue_id.as_str(), f.rule));
+                if let Some(id) = f.related_cue_id.as_deref() {
+                    resolved.insert((id, f.rule));
+                }
+            }
+        }
+        for unit in units
+            .iter()
+            .filter(|u| u.trade_off && selected.contains(&u.index))
+        {
+            let retained = unit.endpoints.iter().any(|e| {
+                unit.fixed.iter().any(|r| {
+                    resolved.contains(&(before.metrics[e.index as usize].cue_id.as_str(), *r))
+                })
+            });
+            if !retained {
+                continue;
+            }
+            for e in &unit.effects {
+                if matches!(e.rule, Rule::CpsHigh | Rule::RsHigh)
+                    && e.after > e.before
+                    && let Some(limit) = e.after
+                {
+                    let ceiling = rates.entry((e.index, e.rule)).or_insert(limit);
+                    *ceiling = ceiling.max(limit);
+                }
+            }
+        }
+    }
     after
         .findings
         .iter()
         .filter(|f| {
-            timing_validation::worsened(f, &old) && !trades.contains(&(f.cue_index, f.rule))
+            timing_validation::worsened(f, &old)
+                && !rates
+                    .get(&(f.cue_index, f.rule))
+                    .is_some_and(|limit| f.measured.is_some_and(|rate| rate <= *limit))
         })
         .map(|f| f.cue_index as usize)
         .collect()

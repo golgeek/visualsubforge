@@ -278,3 +278,121 @@ fn generated_documents_keep_all_pairs_safe_in_both_modes() {
         }
     }
 }
+
+#[test]
+fn revalidation_only_allows_the_reviewed_rate_for_a_retained_spacing_fix() {
+    let p = profile();
+    let d = doc(&[(0, 1000, "12345678901234567890"), (1000, 3000, "Next")]);
+    let request = Request {
+        options: Options {
+            priority: Priority::Spacing,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let proposal = propose(d, (&p).into(), &Scenes::NoMedia, request, || Ok(())).unwrap();
+    let chosen = proposal.default_units().into_iter().collect();
+    let check = |end, next| {
+        let candidate = doc(&[(0, end, "12345678901234567890"), (next, 3000, "Next")]);
+        let report = evaluate_with_scenes(&candidate, &p, &Scenes::NoMedia, |_, _| Ok(())).unwrap();
+        unsafe_indices(proposal.before(), &report, proposal.units(), &chosen)
+    };
+    assert!(check(920, 1000).is_empty());
+    assert!(check(900, 1000).contains(&0)); // beyond the displayed CPS
+    assert!(check(920, 950).contains(&0)); // still has a gap finding
+}
+
+#[test]
+fn independent_checker_ranks_current_cue_assignments_for_both_priorities() {
+    let original = doc(&[(100, 300, "1234"), (320, 560, "aa"), (650, 850, "bb")]);
+    let mut p = profile();
+    p.timing.cue_gap_ms = 40;
+    p.timing.scene_before_ms = 10;
+    p.timing.scene_after_ms = 10;
+    p.rules.duration.minimum_ms = 120;
+    p.rules.duration.maximum_ms = 300;
+    p.rules.speed.minimum_cps = None;
+    p.rules.speed.maximum_cps = Some(20);
+    let context = Evaluation::from(&p).with_format(Format::Ass);
+    for cut in [100, 300, 600] {
+        let scenes = Scenes::Complete(vec![ms(cut)]);
+        let baseline = evaluate_with_scenes(&original, context, &scenes, |_, _| Ok(())).unwrap();
+        let old = timing_validation::timing_findings(&baseline);
+        for priority in [Priority::ReadingSpeed, Priority::Spacing] {
+            for edges in [SceneEdges::Inward, SceneEdges::Nearest] {
+                let options = Options {
+                    priority,
+                    start_tolerance_ms: 30,
+                    scene_edges: edges,
+                };
+                let request = Request {
+                    scope: Some(vec![CueId(1)]),
+                    options,
+                    ..Default::default()
+                };
+                let plan = propose(original.clone(), context, &scenes, request, || Ok(())).unwrap();
+                let checked = plan.select(&plan.default_units(), || Ok(())).unwrap();
+                assert!(checked.error.is_none());
+                let mut best = None;
+                for s in (70..=130u64).step_by(10) {
+                    for e in (s + 120..=s + 300).step_by(10) {
+                        if (e > 300 && e + 40 > 320)
+                            || (s != 100 && (cut - 10 < s && s < cut + 10))
+                            || (e != 300 && cut - 10 < e && e < cut + 10)
+                            || (edges == SceneEdges::Inward
+                                && ((cut == 100 && s < 100) || (cut == 300 && e > 300)))
+                        {
+                            continue;
+                        }
+                        let candidate = doc(&[(s, e, "1234"), (320, 560, "aa"), (650, 850, "bb")]);
+                        let result =
+                            evaluate_with_scenes(&candidate, context, &scenes, |_, _| Ok(()))
+                                .unwrap();
+                        let counts = |r: &Report| {
+                            let mut c = [0i32; 4];
+                            for finding in &r.findings {
+                                let group = match finding.rule {
+                                    Rule::DurationShort | Rule::DurationLong => 0,
+                                    Rule::CpsHigh
+                                    | Rule::CpsLow
+                                    | Rule::RsHigh
+                                    | Rule::RsLow
+                                    | Rule::SpeedUnavailable => 1,
+                                    Rule::Gap | Rule::Overlap => 2,
+                                    Rule::SceneStart | Rule::SceneEnd => 3,
+                                    _ => continue,
+                                };
+                                c[group] += 1;
+                            }
+                            c
+                        };
+                        let before = counts(&baseline);
+                        let left = counts(&result);
+                        let spacing_wins = priority == Priority::Spacing
+                            && (left[2] < before[2] || left[3] < before[3]);
+                        if result.findings.iter().any(|f| {
+                            timing_validation::worsened(f, &old)
+                                && !(spacing_wins && matches!(f.rule, Rule::CpsHigh | Rule::RsHigh))
+                        }) {
+                            continue;
+                        }
+                        let ranked = if priority == Priority::Spacing {
+                            [left[0], left[2], left[3], left[1]]
+                        } else {
+                            left
+                        };
+                        let key = (ranked, s.abs_diff(100), e.abs_diff(300), e - s, s, e);
+                        best = Some(best.map_or(key, |k| std::cmp::min(k, key)));
+                    }
+                }
+                let (_, _, _, _, s, e) = best.unwrap();
+                let cue = &checked.candidate.cues()[0];
+                assert_eq!(
+                    (cue.start().get(), cue.end().get()),
+                    (s, e),
+                    "{priority:?}, {edges:?}, cut {cut}"
+                );
+            }
+        }
+    }
+}
