@@ -25,10 +25,6 @@ on:
         type: choice
         options: [both, aarch64, x86_64]
         default: both
-      finder_screenshot:
-        description: Capture the mounted image in light Finder on the hosted Apple Silicon runner
-        type: boolean
-        default: false
       parity_baseline_run:
         description: Optional release rehearsal containing the former Mac, Windows and Linux packages
         type: string
@@ -184,32 +180,6 @@ jobs:
         with:
           name: macos-unsigned-${{ matrix.arch }}
           path: ${{ runner.temp }}/artifacts/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Capture the light Finder window
-        if: github.event_name == 'workflow_dispatch' && inputs.finder_screenshot && matrix.arch == 'aarch64' && !inputs.sign
-        run: |
-          mount="$RUNNER_TEMP/finder/VisualSubForge"
-          mkdir -p "$mount"
-          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount" "$RUNNER_TEMP"/artifacts/*.dmg
-          trap 'hdiutil detach "$mount"' EXIT
-          if [[ "$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)" == Dark ]]; then
-            osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to false'
-          fi
-          open "$mount"
-          for _ in {1..20}; do
-            window=$(osascript -e 'tell application "Finder" to get id of first Finder window whose name is "VisualSubForge"' 2>/dev/null || true)
-            if [[ "$window" =~ ^[0-9]+$ ]]; then break; fi
-            sleep 1
-          done
-          test -n "$window"
-          sleep 2
-          screencapture -x -o -l "$window" "$RUNNER_TEMP/finder-light.png"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name == 'workflow_dispatch' && inputs.finder_screenshot && matrix.arch == 'aarch64' && !inputs.sign
-        with:
-          name: finder-light
-          path: ${{ runner.temp }}/finder-light.png
           if-no-files-found: error
           retention-days: 14
       # Meson's raw logs include the inherited environment. Upload only the

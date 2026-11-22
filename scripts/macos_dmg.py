@@ -105,7 +105,9 @@ def verify(image, app, signed=False):
                     subprocess.run([*command, volume / APP], check=True)
             return result
         finally:
-            subprocess.run(["hdiutil", "detach", volume], check=True)
+            if subprocess.run(["hdiutil", "detach", volume]).returncode:
+                # Finder or Spotlight can briefly hold a read-only volume open.
+                subprocess.run(["hdiutil", "detach", "-force", volume], check=True)
 
 
 if __name__ == "__main__":

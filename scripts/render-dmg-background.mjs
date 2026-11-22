@@ -17,7 +17,7 @@ try {
   for (const scale of [1, 2]) {
     const page = await browser.newPage({
       deviceScaleFactor: scale,
-      viewport: { width: 640, height: 400 },
+      viewport: { width: 640, height: 480 },
     });
     await page.setContent(
       `<style>@font-face {font-family:'Inter Variable';font-weight:100 900;src:url(data:font/woff2;base64,${font}) format('woff2')} body{margin:0}</style>${svg}`,

@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import runpy
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -12,10 +13,14 @@ import macos_dmg as dmg
 
 
 class WindowSettings(unittest.TestCase):
+    def test_retina_background_dimensions(self):
+        for name, size in (("background.png", (640, 480)), ("background@2x.png", (1280, 960))):
+            self.assertEqual(struct.unpack(">II", (dmg.ASSETS / name).read_bytes()[16:24]), size)
+
     def test_layout(self):
         paths = {"app": "/package/VisualSubForge.app", "icon": str(dmg.ICON), "background": "/tmp/background.tiff"}
         layout = runpy.run_path(str(dmg.ASSETS / "settings.py"), init_globals={"defines": paths})
-        self.assertEqual(layout["window_rect"][1], (640, 400))
+        self.assertEqual(layout["window_rect"][1], (640, 428))
         self.assertEqual(layout["icon_locations"], {dmg.APP: (176, 186), "Applications": (464, 186)})
         self.assertEqual((layout["icon_size"], layout["text_size"], layout["label_pos"]), (128, 13, "bottom"))
         self.assertEqual(layout["format"], "UDZO")
