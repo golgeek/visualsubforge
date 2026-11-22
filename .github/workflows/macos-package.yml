@@ -1,338 +1,46 @@
-name: macOS preview packages
+name: Finder calibration on hosted macOS
 on:
-  pull_request:
-    paths:
-      - .github/workflows/macos-package.yml
-      - scripts/macos_dmg.py
-      - scripts/sign-macos.py
-      - src-tauri/dmg/**
-      - src-tauri/icons/icon.icns
-  workflow_call:
-    inputs:
-      architecture:
-        type: string
-        default: both
-      sign:
-        type: boolean
-        default: false
-      unsigned_run_id:
-        type: string
-        default: ''
   workflow_dispatch:
     inputs:
-      architecture:
-        description: Architecture to build
-        type: choice
-        options: [both, aarch64, x86_64]
-        default: both
-      finder_screenshot:
-        description: Capture the mounted image in light Finder on the hosted Apple Silicon runner
-        type: boolean
-        default: false
-      parity_baseline_run:
-        description: Optional release rehearsal containing the former Mac, Windows and Linux packages
-        type: string
-      parity_media_run:
-        description: Run containing the retained preview-acceptance-fixtures used for the comparison
-        type: string
-      parity_packets_run:
-        description: Run containing the retained shared-codec-fixtures
-        type: string
-      sign:
-        description: Sign and notarize the validation package (does not publish a release)
-        type: boolean
-        default: true
       unsigned_run_id:
-        description: Reuse this workflow's successful main-branch package jobs for a signing-only retry (empty builds packages)
+        description: Prior unsigned package containing the real app for calibration
+        required: true
         type: string
-        default: ''
 permissions:
-  contents: read
   actions: read
-concurrency:
-  group: macos-preview-${{ github.ref }}-${{ inputs.architecture }}
-  cancel-in-progress: false
+  contents: read
 jobs:
-  cli-fixtures:
-    if: ${{ inputs.unsigned_run_id == '' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Encode the synthetic resync inputs
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
-          python scripts/resync-fixtures.py
-          cd tests/fixtures/generated/resync
-          sha256sum source.mkv offset.mkv speed-ads.mkv > SHA256SUMS
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: macos-resync-inputs
-          path: |
-            tests/fixtures/generated/resync/*.mkv
-            tests/fixtures/generated/resync/SHA256SUMS
-          if-no-files-found: error
-          retention-days: 14
-  package:
-    needs: cli-fixtures
-    name: Native package (${{ matrix.arch }})
-    if: ${{ inputs.unsigned_run_id == '' }}
+  capture:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.architecture == 'aarch64' && '[{"os":"macos-15","arch":"aarch64"}]' || inputs.architecture == 'x86_64' && '[{"os":"macos-15-intel","arch":"x86_64"}]' || '[{"os":"macos-15","arch":"aarch64"},{"os":"macos-15-intel","arch":"x86_64"}]') }}
+        include:
+          - { os: macos-15, arch: aarch64 }
+          - { os: macos-15-intel, arch: x86_64 }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    env:
-      MACOSX_DEPLOYMENT_TARGET: '15.0'
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.14.7'
-      - name: Install application and native build prerequisites
-        run: |
-          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          xcodebuild -version
-          xcrun --sdk macosx --show-sdk-version
-          rustup show
-          brew install libass little-cms2 shaderc xxhash xz nasm pkg-config
-          if brew list --formula | grep -E '^ffmpeg(@.*)?$'; then
-            echo 'The release runner has a Homebrew FFmpeg installed' >&2
-            exit 1
-          fi
-      - name: Check packaging controls before the native build
-        run: python -m unittest discover -s tests/release -p 'test_*.py'
-      - name: Select Make toolchains and cache paths
-        run: |
-          make paths JOBS=3 PYTHON=python
-          python scripts/native-build-paths.py github target/native/macos/build-paths.json
-      - name: Restore the ANGLE SDK selected by Make
-        id: angle-cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ${{ env.VSF_ANGLE_BUILD }}/sdk
-            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
-            ${{ env.VSF_ANGLE_BUILD }}/.complete
-          fail-on-cache-miss: true
-          key: make-angle-${{ matrix.os }}-${{ matrix.arch }}-${{ env.VSF_ANGLE_KEY }}
-      - name: Build native SDKs, GUI and CLI through Make
-        run: make app JOBS=3 PYTHON=python
-      - name: Capture matching Rust/frontend sources and notices
-        run: python scripts/application-sources.py --target ${{ matrix.arch }}-apple-darwin --features visualsubforge/macos-angle,visualsubforge/bundled-tools,vsf-cli/bundled-tools --output "$RUNNER_TEMP/application-sources"
-      - name: Assemble and audit the private dependency bundle
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python scripts/package-macos.py \
-            --app "$CARGO_TARGET_DIR/release/bundle/macos/VisualSubForge.app" \
-            --vsf "$CARGO_TARGET_DIR/release/vsf" \
-            --ffmpeg-sdk "$VSF_FFMPEG_BUILD/sdk" --release-floors \
-            --ffmpeg "$VSF_FFMPEG_BUILD/sdk/bin/ffmpeg" --ffprobe "$VSF_FFMPEG_BUILD/sdk/bin/ffprobe" \
-            --library-dir "$VSF_FFMPEG_BUILD/sdk/lib" \
-            --library-dir "$VSF_MPV_BUILD/build" --library-dir "$VSF_ANGLE_BUILD/sdk/out/Metal" \
-            --library-dir "$VSF_PLACEBO_BUILD/sdk/lib" --placebo-build "$VSF_PLACEBO_BUILD" \
-            --application-sources "$RUNNER_TEMP/application-sources" \
-            --native-sources "$RUNNER_TEMP/native-sources" --homebrew-cellar "$(brew --cellar)" \
-            --mpv-build "$VSF_MPV_BUILD" --angle-sdk "$VSF_ANGLE_BUILD/sdk" \
-            --angle-receipt "$VSF_ANGLE_BUILD/build-receipt.json" \
-            --output "$RUNNER_TEMP/package/VisualSubForge.app"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: macos-resync-inputs
-          path: tests/fixtures/generated/resync
-      - name: Exercise relocated packaged tools and failed-install behavior
-        run: |
-          (cd tests/fixtures/generated/resync && shasum -a 256 -c SHA256SUMS)
-          python tests/release/packaged-cli.py --bundle "$RUNNER_TEMP/package/VisualSubForge.app" --bin Contents/MacOS --output "$RUNNER_TEMP/packaged-cli-check"
-      - name: Install pinned disk image tools
-        run: |
-          python -m venv "$RUNNER_TEMP/dmg-venv"
-          "$RUNNER_TEMP/dmg-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r src-tauri/dmg/requirements.txt
-      - name: Build and verify the unsigned disk image
-        run: |
-          mkdir -p "$RUNNER_TEMP/artifacts"
-          version=$(python scripts/release_version.py)
-          image="$RUNNER_TEMP/artifacts/VisualSubForge_${version}_${{ matrix.arch }}_macos-unsigned.dmg"
-          app="$RUNNER_TEMP/package/VisualSubForge.app"
-          "$RUNNER_TEMP/dmg-venv/bin/python" scripts/macos_dmg.py build "$app" "$image"
-          "$RUNNER_TEMP/dmg-venv/bin/python" scripts/macos_dmg.py verify "$app" "$image"
-      - name: Archive the unsigned validation artifact
-        run: |
-          mkdir -p "$RUNNER_TEMP/artifacts"
-          c++ -std=c++17 -Wall -Wextra -Werror -fobjc-arc \
-            -I"$VSF_MPV_BUILD/prepared/source/include" tests/release/macos-player-init.mm \
-            -L"$RUNNER_TEMP/package/VisualSubForge.app/Contents/Frameworks" -lmpv.2 \
-            -framework AppKit -Wl,-rpath,@executable_path/VisualSubForge.app/Contents/Frameworks \
-            -o "$RUNNER_TEMP/package/macos-player-init"
-          "$RUNNER_TEMP/package/macos-player-init"
-          mv "$RUNNER_TEMP/package/macos-player-init" "$RUNNER_TEMP/artifacts/macos-player-init"
-          version=$(python scripts/release_version.py)
-          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/package/VisualSubForge.app" "$RUNNER_TEMP/artifacts/VisualSubForge_${version}_${{ matrix.arch }}_macos-unsigned.zip"
-          cp "$RUNNER_TEMP/package/VisualSubForge.app/Contents/Resources/native-runtime.json" "$RUNNER_TEMP/artifacts/native-runtime.json"
-          cp "$RUNNER_TEMP/package/assembly-receipt.json" "$RUNNER_TEMP/artifacts/assembly-receipt.json"
-          tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
-          tar -czf "$RUNNER_TEMP/artifacts/native-sources.tar.gz" -C "$RUNNER_TEMP/native-sources" .
-          cd "$RUNNER_TEMP/artifacts"
-          shasum -a 256 ./*.zip ./*.dmg application-sources.tar.gz native-sources.tar.gz macos-player-init > SHA256SUMS
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: macos-unsigned-${{ matrix.arch }}
-          path: ${{ runner.temp }}/artifacts/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Capture the light Finder window
-        if: github.event_name == 'workflow_dispatch' && inputs.finder_screenshot && matrix.arch == 'aarch64' && !inputs.sign
-        run: |
-          mount="$RUNNER_TEMP/finder/VisualSubForge"
-          mkdir -p "$mount"
-          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount" "$RUNNER_TEMP"/artifacts/*.dmg
-          trap 'hdiutil detach "$mount"' EXIT
-          if [[ "$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)" == Dark ]]; then
-            osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to false'
-          fi
-          open "$mount"
-          for _ in {1..20}; do
-            window=$(osascript -e 'tell application "Finder" to get id of first Finder window whose name is "VisualSubForge"' 2>/dev/null || true)
-            if [[ "$window" =~ ^[0-9]+$ ]]; then break; fi
-            sleep 1
-          done
-          test -n "$window"
-          sleep 2
-          screencapture -x -o -l "$window" "$RUNNER_TEMP/finder-light.png"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name == 'workflow_dispatch' && inputs.finder_screenshot && matrix.arch == 'aarch64' && !inputs.sign
-        with:
-          name: finder-light
-          path: ${{ runner.temp }}/finder-light.png
-          if-no-files-found: error
-          retention-days: 14
-      # Meson's raw logs include the inherited environment. Upload only the
-      # sanitized receipt/commands and the explicitly scoped CLI check.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ !cancelled() }}
-        with:
-          name: macos-package-evidence-${{ matrix.arch }}
-          path: |
-            target/native/macos/cache-inputs.json
-            target/native/macos/build-paths.json
-            ${{ env.VSF_ANGLE_BUILD }}/build-receipt.json
-            ${{ env.VSF_ANGLE_BUILD }}/sdk/dependency-revisions.txt
-            ${{ env.VSF_FFMPEG_BUILD }}/configure-options.txt
-            ${{ env.VSF_FFMPEG_BUILD }}/build-receipt.json
-            ${{ env.VSF_MPV_BUILD }}/build-receipt.json
-            ${{ env.VSF_MPV_BUILD }}/commands.log
-            ${{ env.VSF_PLACEBO_BUILD }}/build-receipt.json
-            ${{ env.VSF_PLACEBO_BUILD }}/commands.log
-            ${{ runner.temp }}/packaged-cli-check/packaged-cli-check.json
-          retention-days: 14
-  decoder-parity:
-    needs: package
-    if: inputs.parity_baseline_run != ''
-    uses: ./.github/workflows/macos-decoder-parity.yml
-    with:
-      parity_baseline_run: ${{ inputs.parity_baseline_run }}
-      parity_media_run: ${{ inputs.parity_media_run }}
-      parity_packets_run: ${{ inputs.parity_packets_run }}
-  sign:
-    name: Sign and notarize (${{ matrix.arch }})
-    needs: package
-    if: ${{ !cancelled() && inputs.sign && github.ref == 'refs/heads/main' && (needs.package.result == 'success' || (needs.package.result == 'skipped' && inputs.unsigned_run_id != '')) }}
-    runs-on: ${{ matrix.arch == 'aarch64' && 'macos-15' || 'macos-15-intel' }}
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: ${{ fromJSON(inputs.architecture == 'both' && '["aarch64","x86_64"]' || inputs.architecture == 'aarch64' && '["aarch64"]' || '["x86_64"]') }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.14.7'
-      - name: Validate the selected package run
-        id: package-source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VSF_PACKAGE_RUN: ${{ inputs.unsigned_run_id || github.run_id }}
-          VSF_PACKAGE_ARCH: ${{ matrix.arch }}
-        run: |
-          python - <<'PY'
-          import json, os, subprocess
-          run = os.environ['VSF_PACKAGE_RUN']
-          if not run.isdigit():
-              raise SystemExit('Package run must be a numeric Actions run ID')
-          endpoint = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run}"
-          def get(path):
-              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
-          source = get(endpoint)
-          standalone = source['path'] == '.github/workflows/macos-package.yml'
-          release = (source['path'] == '.github/workflows/release.yml'
-                     and run == os.environ['GITHUB_RUN_ID'] and source['head_sha'] == os.environ['GITHUB_SHA'])
-          if source['head_branch'] != 'main' or not (standalone or release):
-              raise SystemExit('Only this workflow\'s main-branch packages may be signed')
-          expected = f"Native package ({os.environ['VSF_PACKAGE_ARCH']})"
-          jobs = get(endpoint + '/jobs?per_page=100')['jobs']
-          if not any(job['name'].split(' / ')[-1] == expected and job['conclusion'] == 'success' for job in jobs):
-              raise SystemExit('The selected architecture has no successful package job')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f"run={run}\ncommit={source['head_sha']}\n")
-          print(f"Using package run {run} at {source['head_sha']}")
-          PY
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: macos-unsigned-${{ matrix.arch }}
           path: ${{ runner.temp }}/unsigned
           github-token: ${{ github.token }}
-          run-id: ${{ steps.package-source.outputs.run }}
-      - name: Expand the assembled app
+          run-id: ${{ inputs.unsigned_run_id }}
+      - name: Measure and capture the real Finder window
         run: |
-          archive=$(find "$RUNNER_TEMP/unsigned" -name '*_macos-unsigned.zip' -type f)
-          test -f "$archive"
-          ditto -x -k "$archive" "$RUNNER_TEMP/signing-input"
-      - name: Bind application sources to the selected package commit
-        env:
-          VSF_PACKAGE_COMMIT: ${{ steps.package-source.outputs.commit }}
-        run: |
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          path = Path(os.environ['RUNNER_TEMP']) / 'signing-input/VisualSubForge.app/Contents/Resources/application-inventory.json'
-          inventory = json.loads(path.read_text())
-          if inventory['commit'] != os.environ['VSF_PACKAGE_COMMIT'] or inventory['tracked_changes']:
-              raise SystemExit('Application source inventory differs from the selected package commit')
-          PY
-      - name: Install pinned disk image tools
-        run: |
+          cd "$RUNNER_TEMP/unsigned"
+          shasum -a 256 -c SHA256SUMS
+          ditto -x -k ./*-unsigned.zip "$RUNNER_TEMP/input"
+          cd "$GITHUB_WORKSPACE"
           python -m venv "$RUNNER_TEMP/dmg-venv"
           "$RUNNER_TEMP/dmg-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r src-tauri/dmg/requirements.txt
-      - name: Sign, notarize, staple and verify
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: |
-          "$RUNNER_TEMP/dmg-venv/bin/python" scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --startup-probe "$RUNNER_TEMP/unsigned/macos-player-init" --output "$RUNNER_TEMP/signed"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          bash review/capture.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
-          name: macos-notarized-${{ matrix.arch }}
-          path: |
-            ${{ runner.temp }}/signed/*.dmg
-            ${{ runner.temp }}/signed/SHA256SUMS
-          if-no-files-found: error
-          retention-days: 14
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ !cancelled() }}
-        with:
-          name: macos-signing-evidence-${{ matrix.arch }}
-          path: |
-            ${{ runner.temp }}/signed/signing-receipt.json
-            ${{ runner.temp }}/signed/*notarization-log.json
-          retention-days: 14
+          name: finder-${{ matrix.arch }}
+          path: ${{ runner.temp }}/review/evidence/

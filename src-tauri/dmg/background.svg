@@ -1,18 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">
-  <!-- VisualSubForge DMG window background (concept C3, chosen 2026-11-21).
-       640x400 points; render at 1x (640x400) and 2x (1280x800).
-       Finder places the app icon centred at (176,186) and the Applications
-       link at (464,186), 128 pt icons, 13 pt labels. Finder draws labels black
-       in light mode and white in dark mode, so each label sits on a #8a94a3
-       chip: 6.9:1 with black, 3.1:1 with white. Calibrate the chip rectangles
-       against a real Finder screenshot; keep them centred on the label text. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
+  <!-- Artwork occupies the first 400 points. The gradient continues below
+       the intended viewport so a taller Finder window retains its background. -->
   <defs>
     <linearGradient id="c3-bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#f7f8fa"/>
       <stop offset="1" stop-color="#eceff3"/>
     </linearGradient>
   </defs>
-  <rect width="640" height="400" fill="url(#c3-bg)"/>
+  <rect width="640" height="480" fill="url(#c3-bg)"/>
 
   <!-- The icon's waveform, scaled to the window -->
   <path d="M-20 200 H86 L140 112 L240 300 L340 70 L400 168 H660" fill="none" stroke="#e1e5ea" stroke-width="34" stroke-linejoin="round"/>
@@ -21,9 +16,9 @@
   <line x1="262" y1="186" x2="370" y2="186" stroke="#ff7a2f" stroke-width="4" stroke-linecap="round"/>
   <path d="M358 174 L374 186 L358 198" fill="none" stroke="#ff7a2f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Lighter chips hugging the text: 6.9:1 with black, 3.1:1 with white -->
-  <rect x="112" y="255" width="128" height="22" rx="11" fill="#8a94a3"/>
-  <rect x="412" y="255" width="104" height="22" rx="11" fill="#8a94a3"/>
+  <!-- Equal-width backplates allow room for the visible .app extension. -->
+  <rect x="101" y="259" width="150" height="22" rx="11" fill="#8a94a3"/>
+  <rect x="389" y="259" width="150" height="22" rx="11" fill="#8a94a3"/>
 
   <text x="320" y="348" text-anchor="middle" font-family="Inter Variable, system-ui, sans-serif" font-size="13" font-weight="500" fill="#5e6876">Drag VisualSubForge to Applications</text>
 </svg>

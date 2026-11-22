@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
+  <!-- Artwork occupies the first 400 points. The gradient continues below
+       the intended viewport so a taller Finder window retains its background. -->
+  <defs>
+    <linearGradient id="c3-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7f8fa"/>
+      <stop offset="1" stop-color="#eceff3"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" fill="url(#c3-bg)"/>
+
+  <!-- The icon's waveform, scaled to the window -->
+  <path d="M-20 200 H86 L140 112 L240 300 L340 70 L400 168 H660" fill="none" stroke="#e1e5ea" stroke-width="34" stroke-linejoin="round"/>
+
+  <!-- Arrow -->
+  <line x1="262" y1="186" x2="370" y2="186" stroke="#ff7a2f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M358 174 L374 186 L358 198" fill="none" stroke="#ff7a2f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Equal-width backplates allow room for the visible .app extension. -->
+
+  <text x="320" y="348" text-anchor="middle" font-family="Inter Variable, system-ui, sans-serif" font-size="13" font-weight="500" fill="#5e6876">Drag VisualSubForge to Applications</text>
+</svg>
