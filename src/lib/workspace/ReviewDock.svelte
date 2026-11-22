@@ -269,8 +269,8 @@
     display: none;
   }
   .scope {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 150px;
+    min-width: min(150px, 100%);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -279,9 +279,9 @@
     font-size: 11px;
   }
   select {
-    min-width: 0;
+    min-width: 90px;
     flex: 1;
-    width: 0;
+    width: auto;
   }
   .body {
     overflow: auto;

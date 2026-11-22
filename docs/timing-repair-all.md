@@ -56,7 +56,7 @@ Rust validates the subset against the captured document, profile and scene data,
 then applies one undoable retime. Saving remains a separate action. Recovery and
 resync documents keep their Save As protection.
 
-## Validation and compatibility
+## Differences from the previous tools
 
 The migration captured 99 results from three original planners on 33 synthetic
 inputs. The default selections match in 79 comparisons. Seven differences fix

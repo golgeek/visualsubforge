@@ -465,7 +465,14 @@ impl Documents {
                         .skip(view.offset as usize)
                         .take(limit as usize)
                         .cloned()
-                        .collect()
+                        .collect();
+                    if let Some(ids) = preview {
+                        for row in &mut view.rows {
+                            row.ghosts.retain(|g| {
+                                g.cue_id.parse().is_ok_and(|id| ids.contains(&CueId(id)))
+                            });
+                        }
+                    }
                 }
                 Section::Manual => {
                     view.manual = review

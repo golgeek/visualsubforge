@@ -23,36 +23,43 @@ test('timing families, policy persistence, linked changes and protected navigati
       dock.getByRole('checkbox', { name: new RegExp(name) }),
     ).toBeChecked();
   const assets = process.env.VSF_TIMING_SCREENSHOTS;
-  if (assets && info.project.name === 'chromium') {
-    for (const theme of ['dark', 'light']) {
-      await page
-        .locator('html')
-        .evaluate(
-          (root, theme) => root.setAttribute('data-theme', theme),
-          theme,
-        );
-      for (const width of [460, 320]) {
-        await dock.evaluate((el, w) => {
-          el.style.width = w + 'px';
-          el.style.maxWidth = 'none';
-          el.style.flex = 'none';
-        }, width);
-        if (
-          (await policy.getAttribute('aria-expanded')) !== String(width === 320)
-        )
-          await policy.click();
+  for (const theme of ['dark', 'light']) {
+    await page
+      .locator('html')
+      .evaluate((el, value) => el.setAttribute('data-theme', value), theme);
+    for (const width of [460, 320]) {
+      await dock.evaluate((el, w) => {
+        el.style.width = w + 'px';
+        el.style.maxWidth = 'none';
+        el.style.flex = 'none';
+      }, width);
+      if (
+        (await policy.getAttribute('aria-expanded')) !== String(width === 320)
+      )
+        await policy.click();
+      const scope = dock.getByRole('combobox', { name: 'Review scope' });
+      expect(
+        await scope.evaluate((el) => el.getBoundingClientRect().width),
+      ).toBeGreaterThanOrEqual(90);
+      expect(
+        await scope.evaluate(
+          (el) =>
+            el.getBoundingClientRect().right <=
+            el.closest('aside')!.getBoundingClientRect().right,
+        ),
+      ).toBe(true);
+      if (width === 320)
+        expect(
+          await priority.evaluate(
+            (el) =>
+              el.closest('label')!.getBoundingClientRect().right <=
+              el.closest('aside')!.getBoundingClientRect().right,
+          ),
+        ).toBe(true);
+      if (assets && info.project.name === 'chromium')
         await dock.screenshot({
           path: path.join(assets, `implemented-${theme}-${width}.png`),
         });
-        if (width === 320)
-          expect(
-            await priority.evaluate(
-              (el) =>
-                el.closest('label')!.getBoundingClientRect().right <=
-                el.closest('aside')!.getBoundingClientRect().right,
-            ),
-          ).toBe(true);
-      }
     }
   }
   if ((await policy.getAttribute('aria-expanded')) !== 'true')
