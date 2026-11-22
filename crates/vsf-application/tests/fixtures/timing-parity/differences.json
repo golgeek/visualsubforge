@@ -1,0 +1,255 @@
+[
+  {
+    "case": "editing.srt",
+    "engine": {
+      "0": [250, 1130],
+      "3": [3000, 4250]
+    },
+    "family": "speed",
+    "legacy": {
+      "3": [3000, 4250]
+    },
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  },
+  {
+    "case": "editing.srt",
+    "engine": {
+      "3": [3130, 3930]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-2-srt",
+    "engine": {
+      "6": [6250, 7950]
+    },
+    "family": "speed",
+    "legacy": {
+      "6": [6250, 7680]
+    },
+    "category": "smaller trim",
+    "reason": "The nearer end resolves the speed finding while shrinking the existing overlap. The old tool trimmed far enough to clear the full gap."
+  },
+  {
+    "case": "seed-2-ass",
+    "engine": {
+      "6": [6250, 7950]
+    },
+    "family": "speed",
+    "legacy": {
+      "6": [6250, 7680]
+    },
+    "category": "smaller trim",
+    "reason": "The nearer end resolves the speed finding while shrinking the existing overlap. The old tool trimmed far enough to clear the full gap."
+  },
+  {
+    "case": "seed-4-srt",
+    "engine": {
+      "0": [0, 830],
+      "4": [4390, 4948]
+    },
+    "family": "speed",
+    "legacy": {
+      "0": [0, 830]
+    },
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  },
+  {
+    "case": "seed-4-ass",
+    "engine": {
+      "0": [0, 830],
+      "4": [4390, 4950]
+    },
+    "family": "speed",
+    "legacy": {
+      "0": [0, 830]
+    },
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  },
+  {
+    "case": "seed-5-srt",
+    "engine": {
+      "0": [130, 802]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-5-ass",
+    "engine": {
+      "0": [130, 800]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-6-srt",
+    "engine": {
+      "1": [1120, 2820]
+    },
+    "family": "speed",
+    "legacy": {
+      "1": [1120, 2320]
+    },
+    "category": "smaller trim",
+    "reason": "The nearer end resolves the speed finding while shrinking the existing overlap. The old tool trimmed far enough to clear the full gap."
+  },
+  {
+    "case": "seed-6-ass",
+    "engine": {
+      "1": [1120, 2820]
+    },
+    "family": "speed",
+    "legacy": {
+      "1": [1120, 2320]
+    },
+    "category": "smaller trim",
+    "reason": "The nearer end resolves the speed finding while shrinking the existing overlap. The old tool trimmed far enough to clear the full gap."
+  },
+  {
+    "case": "seed-9-srt",
+    "engine": {
+      "1": [1360, 2260],
+      "2": [1930, 3088],
+      "3": [3180, 3980],
+      "4": [4240, 5398],
+      "5": [5690, 6848],
+      "7": [8710, 9782]
+    },
+    "family": "speed",
+    "legacy": {
+      "2": [1930, 3088],
+      "3": [3180, 3980],
+      "4": [4240, 5398],
+      "5": [5690, 6848],
+      "7": [8710, 9782]
+    },
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  },
+  {
+    "case": "seed-9-ass",
+    "engine": {
+      "1": [1360, 2260],
+      "2": [1930, 3090],
+      "3": [3180, 3980],
+      "4": [4240, 5400],
+      "5": [5690, 6850],
+      "7": [8710, 9790]
+    },
+    "family": "speed",
+    "legacy": {
+      "2": [1930, 3090],
+      "3": [3180, 3980],
+      "4": [4240, 5400],
+      "5": [5690, 6850],
+      "7": [8710, 9790]
+    },
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  },
+  {
+    "case": "seed-10-srt",
+    "engine": {
+      "0": [130, 930]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-10-ass",
+    "engine": {
+      "0": [130, 930]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-11-srt",
+    "engine": {
+      "4": [4290, 5990],
+      "6": [6060, 6960],
+      "7": [7250, 8050]
+    },
+    "family": "speed",
+    "legacy": {
+      "4": [4290, 5380],
+      "6": [6060, 6960],
+      "7": [7250, 8050]
+    },
+    "category": "smaller trim",
+    "reason": "The nearer end resolves the speed finding while shrinking the existing overlap. The old tool trimmed far enough to clear the full gap."
+  },
+  {
+    "case": "seed-11-srt",
+    "engine": {
+      "0": [130, 1202]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-11-ass",
+    "engine": {
+      "4": [4290, 5990],
+      "6": [6060, 6960],
+      "7": [7250, 8050]
+    },
+    "family": "speed",
+    "legacy": {
+      "4": [4290, 5380],
+      "6": [6060, 6960],
+      "7": [7250, 8050]
+    },
+    "category": "smaller trim",
+    "reason": "The nearer end resolves the speed finding while shrinking the existing overlap. The old tool trimmed far enough to clear the full gap."
+  },
+  {
+    "case": "seed-11-ass",
+    "engine": {
+      "0": [130, 1210]
+    },
+    "family": "shots",
+    "legacy": {},
+    "category": "paired endpoints",
+    "reason": "Move the start to the inward edge and adjust the end to protect duration and speed; the former scene tool only trimmed."
+  },
+  {
+    "case": "seed-12-srt",
+    "engine": {
+      "2": [2480, 3355],
+      "3": [3090, 3990]
+    },
+    "family": "speed",
+    "legacy": {},
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  },
+  {
+    "case": "seed-12-ass",
+    "engine": {
+      "2": [2480, 3350],
+      "3": [3090, 3990]
+    },
+    "family": "speed",
+    "legacy": {},
+    "category": "independent fixes",
+    "reason": "The unit clears at least one ticked finding while protecting all other families; the former duration tool required every duration and speed bound to pass together."
+  }
+]
