@@ -21,7 +21,7 @@ struct Overrides {
     speed_basis: SpeedBasis,
 }
 
-fn check_case(number: u32) {
+fn trial_for_case(number: u32) -> super::oracle::Trial {
     let cases: Vec<Case> = serde_json::from_str(include_str!(
         "../../../../tests/fixtures/timing-parity/dependent-cases.json"
     ))
@@ -45,13 +45,16 @@ fn check_case(number: u32) {
         options: case.options,
         families: case.families,
     };
-    let trial = super::oracle::Trial {
+    super::oracle::Trial {
         document,
         profile,
         scenes,
         format: Format::Srt,
         request,
-    };
+    }
+}
+fn check_case(number: u32) {
+    let trial = trial_for_case(number);
     let proposal = trial.plan();
     let selected = proposal.default_units();
     let plan = proposal.select(&selected, || Ok(())).unwrap();
@@ -240,5 +243,34 @@ fn manual_causes_have_a_single_lead_and_at_most_two_facts() {
     assert_eq!(
         Manual::unticked(0).lead,
         "The change for this cue is unticked."
+    );
+}
+
+#[test]
+fn a_forced_candidate_limit_explains_whole_file_withholding() {
+    let trial = trial_for_case(2499);
+    let proposal = propose_with_limit(
+        trial.document,
+        Evaluation::from(&trial.profile).with_format(trial.format),
+        &trial.scenes,
+        trial.request,
+        1,
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(proposal.evaluations, 1);
+    assert!(proposal.withheld_all);
+    assert!(proposal.units.is_empty());
+    assert!(
+        proposal
+            .manual
+            .iter()
+            .any(|row| row.lead == WITHHELD_ALL_MESSAGE)
+    );
+    assert!(
+        !proposal
+            .manual
+            .iter()
+            .any(|row| row.lead.starts_with("Depends on a change"))
     );
 }

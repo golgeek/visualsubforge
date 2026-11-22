@@ -323,6 +323,8 @@ fn independent_selection_oracle() {
     assert!(max_cues >= 4);
     let mut precision = std::env::var_os("FUZZ_DEPS").map(|_| Precision::default());
     let mut random = Generator(0x035f_2026);
+    let mut pass_time = [std::time::Duration::ZERO; 3];
+    let mut fallbacks = 0;
     let mut histogram = [0usize; 4];
     let mut rejected = 0;
     let mut with_partial = 0;
@@ -334,6 +336,10 @@ fn independent_selection_oracle() {
             metric.measure(&trial, &proposal);
         }
         histogram[proposal.evaluations] += 1;
+        for (sum, duration) in pass_time.iter_mut().zip(proposal.evaluation_time) {
+            *sum += duration;
+        }
+        fallbacks += usize::from(proposal.withheld_all);
         let snapshot =
             |p: &Proposal| serde_json::to_vec(&(&p.units, &p.manual, &p.after.findings)).unwrap();
         let serialized = snapshot(&proposal);
@@ -410,7 +416,7 @@ fn independent_selection_oracle() {
         }
     }
     eprintln!(
-        "cases={cases} evaluations={histogram:?} rejected={rejected} with_partial={with_partial} SHA256={:x}",
+        "cases={cases} withheld_all={fallbacks} candidate_time={pass_time:?} evaluations={histogram:?} rejected={rejected} with_partial={with_partial} SHA256={:x}",
         digest.finalize()
     );
     if let Some(mut metric) = precision {

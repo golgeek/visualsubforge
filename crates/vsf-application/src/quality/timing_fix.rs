@@ -167,7 +167,13 @@ fn family(rule: Rule, f: Families) -> bool {
     }
 }
 
+pub const WITHHELD_ALL_MESSAGE: &str =
+    "Timing changes were withheld because the safety check could not finish. Try a smaller scope.";
+
 pub struct Proposal {
+    pub withheld_all: bool,
+    #[cfg(test)]
+    evaluation_time: [std::time::Duration; 3],
     #[cfg(test)]
     evaluations: usize,
     document: Document,
@@ -500,6 +506,9 @@ struct Walk {
     blocked: Vec<Option<&'static str>>,
 }
 struct Retained {
+    withheld_all: bool,
+    #[cfg(test)]
+    evaluation_time: [std::time::Duration; 3],
     after: Report,
     withheld: HashMap<usize, u32>,
     withheld_facts: HashMap<u32, String>,
@@ -645,6 +654,7 @@ impl PlanningInputs<'_> {
         &self,
         units: &mut Vec<Unit>,
         groups: &[usize],
+        candidate_limit: usize,
         checkpoint: &mut impl FnMut() -> Result<()>,
     ) -> Result<Retained> {
         let Self {
@@ -672,9 +682,18 @@ impl PlanningInputs<'_> {
             };
         let mut withheld = HashMap::new();
         let mut withheld_facts = HashMap::new();
-        let mut evaluations = 1;
+        let mut evaluations = 0;
+        let mut withheld_all = false;
+        #[cfg(test)]
+        let mut evaluation_time = [std::time::Duration::ZERO; 3];
         let after = loop {
+            #[cfg(test)]
+            let started = std::time::Instant::now();
             let candidate = evaluate(units, checkpoint)?;
+            #[cfg(test)]
+            {
+                evaluation_time[evaluations] = started.elapsed();
+            }
             evaluations += 1;
             let chosen = units
                 .iter()
@@ -709,17 +728,23 @@ impl PlanningInputs<'_> {
             }
             let count = units.len();
             dependencies::withhold(units, groups, &unsafe_cues, &mut withheld);
-            // The contract caps full checks at three. The original has already
-            // been evaluated and remains available if a second chain is unsafe.
-            if units.len() == count || evaluations >= 3 {
+            // The original is a known-safe fallback and consumes no candidate pass.
+            if units.len() == count || evaluations >= candidate_limit {
+                withheld_all = true;
                 let root = *unsafe_cues.iter().min().expect("unsafe set is nonempty") as u32;
                 for unit in units.drain(..) {
                     withheld.insert(unit.index as usize, root);
+                    for change in unit.endpoints {
+                        withheld.insert(change.index as usize, root);
+                    }
                 }
                 break before.clone();
             }
         };
         Ok(Retained {
+            withheld_all,
+            #[cfg(test)]
+            evaluation_time,
             after,
             withheld,
             withheld_facts,
@@ -813,6 +838,11 @@ impl PlanningInputs<'_> {
                     )
                 });
             let mut row = Manual::new(index, rules, budget);
+            if retained.withheld_all && withheld.contains_key(&index) {
+                row.lead = WITHHELD_ALL_MESSAGE.into();
+                manual.push(row);
+                continue;
+            }
             row.explain(&manual::ReasonContext {
                 families: request.families,
                 blocked: walk.blocked[index],
@@ -841,6 +871,17 @@ pub fn propose(
     context: Evaluation<'_>,
     scenes: &Scenes,
     request: Request,
+    checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Proposal> {
+    propose_with_limit(document, context, scenes, request, 3, checkpoint)
+}
+
+fn propose_with_limit(
+    document: Document,
+    context: Evaluation<'_>,
+    scenes: &Scenes,
+    request: Request,
+    candidate_limit: usize,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Proposal> {
     request.options.validate()?;
@@ -872,7 +913,8 @@ pub fn propose(
     };
     let mut walk = inputs.walk(&order, &groups, &ambiguous, &mut checkpoint)?;
     precision::refine(&inputs, &order, &mut walk.units, &mut checkpoint)?;
-    let mut retained = inputs.retain_safe(&mut walk.units, &groups, &mut checkpoint)?;
+    let mut retained =
+        inputs.retain_safe(&mut walk.units, &groups, candidate_limit, &mut checkpoint)?;
     dependencies::link_alternatives(&mut walk.units);
     dependencies::withhold_incompatible_partials(
         &mut walk.units,
@@ -883,6 +925,9 @@ pub fn propose(
     let units = walk.units;
     let after = retained.after;
     Ok(Proposal {
+        withheld_all: retained.withheld_all,
+        #[cfg(test)]
+        evaluation_time: retained.evaluation_time,
         #[cfg(test)]
         evaluations: retained.evaluations,
         document,
