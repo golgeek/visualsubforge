@@ -5,6 +5,18 @@ pub(super) fn timecode(time: u64) -> String {
     subtitle_formats::srt::format_time(Milliseconds::new(time).expect("checked subtitle endpoint"))
 }
 
+pub(super) fn family_name(rule: Rule) -> &'static str {
+    match rule {
+        Rule::CpsHigh | Rule::CpsLow => "CPS",
+        Rule::RsHigh | Rule::RsLow => "reading-speed",
+        Rule::SpeedUnavailable => "unavailable reading-speed",
+        Rule::DurationLong | Rule::DurationShort => "duration",
+        Rule::Gap => "minimum-gap",
+        Rule::Overlap => "overlap",
+        Rule::SceneStart | Rule::SceneEnd => "shot-change",
+        _ => "quality",
+    }
+}
 impl Budget {
     pub(super) fn description(&self) -> String {
         let mut line = match (self.shorten_by, self.max_counted) {
@@ -42,6 +54,11 @@ impl Manual {
             rules,
             budget,
         }
+    }
+    pub fn unticked(index: usize) -> Self {
+        let mut row = Self::new(index, Vec::new(), None);
+        row.lead = "The change for this cue is unticked.".into();
+        row
     }
     pub(super) fn explain(&mut self, context: &ReasonContext<'_>) {
         if let Some(cause) = context.blocked {
@@ -122,9 +139,19 @@ impl Manual {
             } else if !in_scope {
                 self.lead = format!("Cue {number} is outside the scope and holds this time.");
             } else {
-                self.lead = "Not fixed: it would make protected timing worse.".into();
+                self.lead = "No allowed timing satisfies the enabled rules.".into();
                 self.facts.push(format!("Cue {number} starts at {time}."));
             }
+        } else if self.rules.contains(&Rule::SceneStart)
+            && !context.families.gaps
+            && let Some((_, edge)) = context.windows.containing(at.start_ms)
+            && edge as u64 >= next_start
+        {
+            self.lead = "Not fixed: it would make gaps and overlaps worse.".into();
+            self.facts.push(format!(
+                "The inward edge is at {}, past the space before cue {number}.",
+                timecode((edge as u64).min(Milliseconds::MAX))
+            ));
         } else if !in_scope {
             self.lead = format!("Cue {number} is outside the scope and holds this time.");
         } else if self.budget.is_some() {
@@ -142,6 +169,7 @@ impl Manual {
     }
 }
 pub(super) struct ReasonContext<'a> {
+    pub families: Families,
     pub blocked: Option<&'a str>,
     pub withheld: Option<u32>,
     pub next: Option<(u32, u64, bool)>,

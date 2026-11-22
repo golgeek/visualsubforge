@@ -114,6 +114,7 @@ pub(super) struct Search<'a> {
     pub index: usize,
     pub next: Option<usize>,
     pub following: Option<u64>,
+    pub remaining_order: &'a [usize],
     pub prior: Option<ReadingPrior>,
     pub frontier: u64,
     pub locked: bool,
@@ -214,6 +215,70 @@ impl Search<'_> {
             score.effective[1] = next_effective;
         }
         score
+    }
+    /// A partial is off the main walk. Check the readers it would affect if
+    /// chosen alone, through the first unchanged effective reading start.
+    fn partial_safe(&self, trial: Trial) -> bool {
+        let profile = self.context.profile;
+        if let Some(prior) = self.prior {
+            let original = self.points[self.index].start_ms as i64 - prior.end as i64;
+            let proposed = trial.current.start_ms as i64 - prior.end as i64;
+            if profile.rules.gaps
+                && original < 0
+                && (0..i64::from(profile.timing.cue_gap_ms)).contains(&proposed)
+            {
+                return false;
+            }
+        }
+        let mut prior = self.prior;
+        for (offset, &index) in self.remaining_order.iter().enumerate() {
+            let point = match offset {
+                0 => trial.current,
+                1 => trial.next.unwrap_or(self.points[index]),
+                _ => self.points[index],
+            };
+            let row = &self.before.metrics[index];
+            let start = metrics::reading_floor(profile.speed_basis, point.start_ms, prior)
+                .min(point.end_ms);
+            if offset > 1 && start == row.reading_start_ms as u64 {
+                break;
+            }
+            let effective = point.end_ms - start;
+            if profile.rules.speed.enabled
+                && effective != row.effective_duration_ms as u64
+                && !row.empty
+            {
+                let bounds = Bounds::new(row, profile);
+                let baseline = row.effective_duration_ms as u64;
+                // Duration bounds are integer inverses of the checker rates.
+                for (minimum, maximum, allowance) in [
+                    (bounds.speed[0], bounds.speed[1], 0),
+                    (bounds.speed[2], bounds.speed[3], 500),
+                ] {
+                    if minimum.is_none() && maximum.is_none() {
+                        continue;
+                    }
+                    if effective <= allowance && baseline > allowance {
+                        return false;
+                    }
+                    if effective > allowance
+                        && (minimum.is_some_and(|cap| {
+                            effective > cap && (baseline <= allowance || effective > baseline)
+                        }) || maximum.is_some_and(|floor| {
+                            effective < floor && (baseline <= allowance || effective < baseline)
+                        }))
+                    {
+                        return false;
+                    }
+                }
+            }
+            prior = Some(ReadingPrior {
+                start,
+                end: point.end_ms,
+                count: row.characters,
+            });
+        }
+        true
     }
     fn grid(&self, raw: &[u64]) -> Vec<u64> {
         let step = self.context.format.time_step_ms();
@@ -485,7 +550,9 @@ impl Search<'_> {
                             start,
                         )),
                     );
-                    if best_key.is_none_or(|old| key > old) {
+                    if best_key.is_none_or(|old| key > old)
+                        && (!partial || self.partial_safe(trial))
+                    {
                         best_key = Some(key);
                         best = Some((trial, score, partial, trade));
                     }
@@ -497,7 +564,16 @@ impl Search<'_> {
         let mut fixed = vec![];
         let mut effects = vec![];
         if self.request.families.gaps && base.previous_gap > 0 && score.previous_gap == 0 {
-            fixed.push(Rule::Gap);
+            fixed.push(
+                if self
+                    .prior
+                    .is_some_and(|prior| original.start_ms < prior.end)
+                {
+                    Rule::Overlap
+                } else {
+                    Rule::Gap
+                },
+            );
         }
         for (neighbour, (cue_index, from, to)) in [
             (Some(index), Some(original), Some(trial.current)),
@@ -629,6 +705,7 @@ impl Search<'_> {
         Some((
             Unit {
                 depends_on: Vec::new(),
+                conflicts_with: Vec::new(),
                 effects_text,
                 cut_timecodes,
                 index: index as u32,

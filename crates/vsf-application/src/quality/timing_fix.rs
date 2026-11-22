@@ -103,6 +103,7 @@ pub struct Effect {
 #[serde(rename_all = "camelCase")]
 pub struct Unit {
     pub depends_on: Vec<u32>,
+    pub conflicts_with: Vec<u32>,
     pub effects_text: Vec<EffectSegment>,
     pub cut_timecodes: Vec<String>,
     pub index: u32,
@@ -500,6 +501,7 @@ struct Walk {
 struct Retained {
     after: Report,
     withheld: HashMap<usize, u32>,
+    withheld_facts: HashMap<u32, String>,
     #[cfg(test)]
     evaluations: usize,
 }
@@ -540,6 +542,7 @@ impl PlanningInputs<'_> {
         let mut frontier = 0;
         let mut locked = false;
         let mut provenance = dependencies::Provenance::new(points.len());
+        let mut alternatives = dependencies::PartialReads::new(points.len());
         let blocked = |index: usize| {
             if !scope.contains(&document.cues()[index].id()) {
                 Some("Outside the selected scope.")
@@ -568,6 +571,7 @@ impl PlanningInputs<'_> {
                 let search = search::Search {
                     index,
                     next,
+                    remaining_order: &order[position..],
                     following: order
                         .get(position + 2)
                         .map(|&neighbour| points[neighbour].start_ms),
@@ -585,7 +589,10 @@ impl PlanningInputs<'_> {
                 if let Some((mut unit, effective)) = search.choose() {
                     unit.depends_on =
                         provenance.prerequisites(index, next, order.get(position + 2).copied());
+                    unit.conflicts_with =
+                        alternatives.read_by(index, next, order.get(position + 2).copied());
                     if unit.partial {
+                        alternatives.record(&unit);
                         let at = unit
                             .endpoints
                             .iter()
@@ -607,14 +614,14 @@ impl PlanningInputs<'_> {
             }
             locked = lock_next;
             let planned = points[index];
-            provenance.advance(
-                index,
-                planned.end_ms >= frontier,
-                context.profile.speed_basis == SpeedBasis::VssOverlapV1
-                    && prior.is_some_and(|previous: metrics::ReadingPrior| {
-                        previous.end > planned.start_ms
-                    }),
-            );
+            let overlap_chain = context.profile.speed_basis == SpeedBasis::VssOverlapV1
+                && position > 0
+                && (prior.is_some_and(|previous: metrics::ReadingPrior| {
+                    previous.end > planned.start_ms
+                }) || document.cues()[order[position - 1]].end()
+                    > document.cues()[index].start());
+            provenance.advance(index, planned.end_ms >= frontier, overlap_chain);
+            alternatives.advance(index, planned.end_ms >= frontier, overlap_chain);
             let floor =
                 metrics::reading_floor(context.profile.speed_basis, planned.start_ms, prior);
             prior = Some(metrics::ReadingPrior {
@@ -623,6 +630,9 @@ impl PlanningInputs<'_> {
                 count: before.metrics[index].characters,
             });
             frontier = frontier.max(planned.end_ms);
+        }
+        if context.profile.speed_basis == SpeedBasis::VssOverlapV1 {
+            dependencies::couple_readers(document, &points, order, &mut units);
         }
         Ok(Walk {
             units,
@@ -660,6 +670,7 @@ impl PlanningInputs<'_> {
                 evaluate_with_scenes(&plan.candidate, context, scenes, |_, _| checkpoint())
             };
         let mut withheld = HashMap::new();
+        let mut withheld_facts = HashMap::new();
         let mut evaluations = 1;
         let after = loop {
             let candidate = evaluate(units, checkpoint)?;
@@ -672,6 +683,28 @@ impl PlanningInputs<'_> {
             let unsafe_cues = unsafe_indices(before, &candidate, units, &chosen);
             if unsafe_cues.is_empty() {
                 break candidate;
+            }
+            let old = timing_validation::timing_findings(before);
+            let mut affected_groups = HashMap::new();
+            for finding in &candidate.findings {
+                let index = finding.cue_index as usize;
+                if unsafe_cues.contains(&index) && timing_validation::worsened(finding, &old) {
+                    affected_groups
+                        .entry(groups[index])
+                        .or_insert((index, manual::family_name(finding.rule)));
+                }
+            }
+            for unit in units.iter() {
+                if let Some(&(index, name)) = unit
+                    .endpoints
+                    .iter()
+                    .find_map(|change| affected_groups.get(&groups[change.index as usize]))
+                {
+                    withheld_facts.insert(
+                        unit.index,
+                        format!("Cue {} would have a worse {name} finding.", index + 1),
+                    );
+                }
             }
             let count = units.len();
             dependencies::withhold(units, groups, &unsafe_cues, &mut withheld);
@@ -688,6 +721,7 @@ impl PlanningInputs<'_> {
         Ok(Retained {
             after,
             withheld,
+            withheld_facts,
             #[cfg(test)]
             evaluations,
         })
@@ -779,6 +813,7 @@ impl PlanningInputs<'_> {
                 });
             let mut row = Manual::new(index, rules, budget);
             row.explain(&manual::ReasonContext {
+                families: request.families,
                 blocked: walk.blocked[index],
                 withheld: withheld.get(&index).copied(),
                 next,
@@ -788,6 +823,12 @@ impl PlanningInputs<'_> {
                 windows,
                 tolerance: request.options.start_tolerance_ms,
             });
+            if let Some(fact) = withheld
+                .get(&index)
+                .and_then(|root| retained.withheld_facts.get(root))
+            {
+                row.facts.push(fact.clone());
+            }
             manual.push(row);
         }
         Ok(manual)
@@ -829,7 +870,13 @@ pub fn propose(
         windows: &windows,
     };
     let mut walk = inputs.walk(&order, &groups, &ambiguous, &mut checkpoint)?;
-    let retained = inputs.retain_safe(&mut walk.units, &groups, &mut checkpoint)?;
+    let mut retained = inputs.retain_safe(&mut walk.units, &groups, &mut checkpoint)?;
+    dependencies::link_alternatives(&mut walk.units);
+    dependencies::withhold_incompatible_partials(
+        &mut walk.units,
+        &mut retained.withheld,
+        &mut checkpoint,
+    )?;
     let manual = inputs.manual_rows(&walk, &retained, &mut checkpoint)?;
     let units = walk.units;
     let after = retained.after;

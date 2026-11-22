@@ -267,9 +267,35 @@ fn independent_selection_oracle() {
                     ),
                 );
             }
-            let (selected, plan) = proposal
+            let (state, plan) = proposal
                 .review_selection(&toggles, action == 4, || Ok(()))
                 .unwrap();
+            let selected = state.selected;
+            if let Some((&last, previous)) = toggles.split_last() {
+                let was_selected = proposal
+                    .selected_units(previous, action == 4)
+                    .unwrap()
+                    .contains(&last);
+                assert_ne!(
+                    selected.contains(&last),
+                    was_selected,
+                    "last checkbox action lost: case {case} {toggles:?}"
+                );
+            }
+            for unit in proposal
+                .units()
+                .iter()
+                .filter(|u| selected.contains(&u.index))
+            {
+                assert!(
+                    unit.depends_on.iter().all(|id| selected.contains(id)),
+                    "missing prerequisite in case {case}"
+                );
+                assert!(
+                    unit.conflicts_with.iter().all(|id| !selected.contains(id)),
+                    "conflicting alternatives in case {case}"
+                );
+            }
             if plan.error.is_some() {
                 assert_ne!(action, 0, "invalid default in case {case}");
                 rejected += 1;
@@ -302,4 +328,5 @@ fn independent_selection_oracle() {
         "cases={cases} evaluations={histogram:?} rejected={rejected} with_partial={with_partial} SHA256={:x}",
         digest.finalize()
     );
+    assert_eq!(rejected, 0, "a closure-respecting selection was rejected");
 }
