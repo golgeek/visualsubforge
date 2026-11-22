@@ -430,12 +430,14 @@ impl Documents {
             changed: 0,
             manual_count: 0,
             trades: 0,
+            withheld_all: false,
             without_trades_toggles: Vec::new(),
             offset,
             rows: vec![],
             manual: vec![],
         };
         if let Some(Proposal::Fix(review, coverage)) = &job.proposal {
+            view.withheld_all = review.withheld_all;
             view.coverage = Some(*coverage);
             view.before = review.before;
             view.after = review.after;

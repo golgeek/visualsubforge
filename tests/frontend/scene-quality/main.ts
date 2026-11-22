@@ -156,7 +156,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             const toggled = input.toggled ?? [];
             let key: keyof typeof episode.views;
             if (incompleteTrial) key = 'incomplete';
-            else if (toggled.join(',') === '7,9') key = 'replacement';
+            else if (toggled.join(',') === '5') key = 'defaultOff';
             else if (toggled.join(',') === '7') key = 'partial';
             else if (toggled.length === 2) key = 'retick';
             else if (toggled.length === 1) key = 'untick';
@@ -176,12 +176,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               | 'coverage'
               | 'selectionError'
               | 'selectionConflicts'
+              | 'withheldAll'
               | 'withoutTradesToggles'
               | 'trades'
             >;
             if (
               (key === 'untick' && toggled.join(',') !== '2') ||
-              (key === 'retick' && toggled.join(',') !== '2,3')
+              (key === 'retick' && toggled.join(',') !== '2,2')
             )
               throw new Error(
                 'Missing engine snapshot for checkbox actions ' +
@@ -200,6 +201,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (policyTrial) {
             host.setAttribute('data-timing-request', JSON.stringify(input));
             view = structuredClone(sample);
+            if (new URLSearchParams(location.search).has('scroll')) {
+              view.rows = Array.from({ length: 160 }, (_, index) => ({
+                ...structuredClone(sample.rows[0]!),
+                cueIndex: index,
+                cueId: String(index + 1),
+                cueLabel: String(index + 1),
+              }));
+            }
             const row = view.rows[0]!;
             row.unit.tradeOff = input.options.priority === 'spacing';
             if (row.unit.tradeOff)

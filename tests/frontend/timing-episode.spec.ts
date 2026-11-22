@@ -30,7 +30,13 @@ for (const theme of ['dark', 'light'])
         );
       }
       async function capture(state: string) {
-        const dir = process.env.VSF_TIMING_SCREENSHOTS;
+        const dir =
+          process.env.VSF_TIMING_SCREENSHOTS ??
+          (theme === 'dark' &&
+          width === 460 &&
+          ['before-untick', 'after-untick'].includes(state)
+            ? process.env.VSF_TIMING_PRECISION_SCREENSHOTS
+            : undefined);
         if (dir && info.project.name === 'chromium')
           await dock.screenshot({
             path: path.join(dir, `${state}-${theme}-${width}.png`),
@@ -39,7 +45,9 @@ for (const theme of ['dark', 'light'])
       await open();
       const reason = dock
         .locator('.manual')
-        .filter({ hasText: 'Gap not fixed: this cue would become too fast.' })
+        .filter({
+          hasText: 'Gap not fixed: this cue would become too fast.',
+        })
         .first();
       await expect(reason.locator('small').first()).toContainText(/CPS .*RS /);
       await expect(reason.locator('.budget')).toContainText(
@@ -48,6 +56,32 @@ for (const theme of ['dark', 'light'])
       expect(
         await reason.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
       ).toBe(true);
+      const duration = dock
+        .locator('.change')
+        .filter({
+          has: page.getByRole('checkbox', {
+            name: 'Include cue 3',
+            exact: true,
+          }),
+        });
+      expect(await duration.locator('.effect').textContent()).toBe(
+        'duration 500 → 800 ms · CPS 6.0 → 3.8 · RS — → 10.0',
+      );
+      await dock
+        .getByRole('checkbox', { name: 'Include cue 6', exact: true })
+        .uncheck();
+      await expect(
+        dock.getByRole('button', { name: 'Apply 3 changes' }),
+      ).toBeEnabled();
+      await expect(
+        dock.getByRole('checkbox', { name: 'Include cue 7', exact: true }),
+      ).toBeChecked();
+      await dock
+        .getByRole('button', { name: 'Restore default selection' })
+        .click();
+      await expect(
+        dock.getByRole('button', { name: 'Apply 4 changes' }),
+      ).toBeEnabled();
       await capture('default');
       await dock.getByRole('button', { name: /Keep reading speed ·/ }).click();
       await dock.getByRole('radio', { name: 'Keep spacing' }).check();
@@ -81,12 +115,21 @@ for (const theme of ['dark', 'light'])
         name: 'Include cue 3',
         exact: true,
       });
-      const dependent = linked.getByRole('checkbox');
+      await linked.locator('.detail').click();
+      await capture('before-untick');
       await prerequisite.uncheck();
-      await expect(dependent).not.toBeChecked();
-      await capture('cascade');
-      await dependent.check();
-      await expect(prerequisite).toBeChecked();
+      await expect(
+        dock.getByRole('button', { name: 'Apply 4 changes' }),
+      ).toBeEnabled();
+      await expect(linked.getByRole('checkbox')).toBeChecked();
+      await expect(
+        dock.getByRole('checkbox', { name: 'Include cue 6→7', exact: true }),
+      ).toBeChecked();
+      await capture('after-untick');
+      await prerequisite.check();
+      await expect(
+        dock.getByRole('button', { name: 'Apply 5 changes' }),
+      ).toBeEnabled();
       await dock
         .getByRole('button', { name: 'Restore default selection' })
         .click();
@@ -97,20 +140,17 @@ for (const theme of ['dark', 'light'])
         name: 'Include cue 8→9',
         exact: true,
       });
-      const replacement = dock.getByRole('checkbox', {
-        name: 'Include cue 10',
-        exact: true,
-      });
-      await expect(
-        dock.getByText('replaces the change to cue 10'),
-      ).toBeVisible();
       await partial.check();
-      await expect(replacement).not.toBeChecked();
-      await expect(dock.getByText('off: cue 8 partial ticked')).toBeVisible();
+      await expect(
+        dock.getByRole('button', { name: 'Apply 6 changes' }),
+      ).toBeEnabled();
+      await expect(
+        dock.getByRole('checkbox', { name: 'Include cue 10', exact: true }),
+      ).toBeChecked();
+      await expect(dock.getByText('replaces the change to cue 10')).toHaveCount(
+        0,
+      );
       await capture('partial');
-      await replacement.check();
-      await expect(partial).not.toBeChecked();
-      await expect(dock.getByText('off: cue 8 partial ticked')).toHaveCount(0);
       await open('&incomplete');
       await expect(dock.locator('.scan-reason')).toHaveText(
         'Finish the scene scan to apply timing changes.',
@@ -122,3 +162,48 @@ for (const theme of ['dark', 'light'])
       await capture('incomplete');
     });
   }
+
+test('deep toggle keeps its page and scroll through the updating view', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 850 });
+  await page.goto('/tests/frontend/scene-quality/?policy&scroll');
+  const dock = page.getByRole('complementary', { name: 'Review panel' });
+  await dock.evaluate((el) =>
+    Object.assign(el.style, { width: '460px', maxWidth: 'none', flex: 'none' }),
+  );
+  await page
+    .locator('html')
+    .evaluate((el) => el.setAttribute('data-theme', 'dark'));
+  await dock
+    .getByRole('navigation', { name: 'Timing proposal pages' })
+    .getByRole('button', { name: 'Next' })
+    .click();
+  const row = dock.getByRole('checkbox', {
+    name: 'Include cue 125',
+    exact: true,
+  });
+  await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const scroll = dock.locator('.scroll');
+  const top = await scroll.evaluate((el) => el.scrollTop);
+  expect(top).toBeGreaterThan(100);
+  await row.uncheck();
+  const busy = dock.locator('.results[aria-busy="true"]');
+  await expect(busy).toBeVisible();
+  await expect(row).toBeDisabled();
+  await expect(
+    dock
+      .getByRole('status', { name: '' })
+      .filter({ hasText: 'Updating preview…' }),
+  ).toBeVisible();
+  await expect(row).toBeInViewport();
+  const dir = process.env.VSF_TIMING_PRECISION_SCREENSHOTS;
+  if (dir && info.project.name === 'chromium')
+    await dock.screenshot({ path: path.join(dir, 'mid-list-updating.png') });
+  await expect(row).toBeEnabled();
+  await expect(row).not.toBeChecked();
+  await expect(row).toBeInViewport();
+  expect(await scroll.evaluate((el) => el.scrollTop)).toBe(top);
+  if (dir && info.project.name === 'chromium')
+    await dock.screenshot({ path: path.join(dir, 'mid-list-restored.png') });
+});

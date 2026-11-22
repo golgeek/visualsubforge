@@ -6,7 +6,7 @@ use std::path::Path;
 
 fn snapshot(proposal: &Proposal, toggled: &[u32]) -> Value {
     let review = proposal.review(toggled, false, || Ok(())).unwrap();
-    json!({"coverage":proposal.before().scene_coverage,"rows":review.changes,"manual":review.manual,
+    json!({"withheldAll":review.withheld_all,"coverage":proposal.before().scene_coverage,"rows":review.changes,"manual":review.manual,
            "before":review.before,"after":review.after,"changed":review.selected,"trades":review.trades,
            "withoutTradesToggles":review.without_trades_toggles,"selectionError":review.plan.error,"selectionConflicts":review.plan.selection_conflicts})
 }
@@ -58,38 +58,40 @@ fn browser_episode_matches_rust_review() {
         )
         .unwrap();
         snapshots.insert(key.into(), snapshot(&proposal, &[]));
-        if key == "nearest" {
-            let partial = proposal
-                .units()
-                .iter()
-                .find(|unit| unit.partial && !unit.conflicts_with.is_empty())
-                .unwrap();
-            let replacement = partial.conflicts_with[0];
-            let off = snapshot(&proposal, &[partial.index]);
+        if key == "default" {
+            let off = snapshot(&proposal, &[5]);
             assert!(
                 off["rows"]
                     .as_array()
                     .unwrap()
                     .iter()
-                    .any(|row| row["offReason"] == "off: cue 8 partial ticked"
-                        && row["selected"] == false)
+                    .any(|r| r["cueIndex"] == 6 && r["selected"] == true)
             );
-            snapshots.insert("partial".into(), off);
-            snapshots.insert(
-                "replacement".into(),
-                snapshot(&proposal, &[partial.index, replacement]),
+            snapshots.insert("defaultOff".into(), off);
+        }
+        if key == "nearest" {
+            let off = snapshot(&proposal, &[2]);
+            assert_eq!(off["changed"], 4);
+            for id in [3, 5] {
+                assert!(
+                    off["rows"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|r| r["cueIndex"] == id && r["selected"] == true)
+                );
+            }
+            snapshots.insert("untick".into(), off);
+            snapshots.insert("retick".into(), snapshot(&proposal, &[2, 2]));
+            let partial = snapshot(&proposal, &[7]);
+            assert!(
+                partial["rows"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|r| r["cueIndex"] == 9 && r["selected"] == true)
             );
-            let dependent = proposal
-                .units()
-                .iter()
-                .find(|unit| !unit.partial && !unit.depends_on.is_empty())
-                .expect("episode has a prerequisite");
-            let root = dependent.depends_on[0];
-            snapshots.insert("untick".into(), snapshot(&proposal, &[root]));
-            snapshots.insert(
-                "retick".into(),
-                snapshot(&proposal, &[root, dependent.index]),
-            );
+            snapshots.insert("partial".into(), partial);
         }
     }
     let incomplete = propose(

@@ -1727,6 +1727,7 @@ export type visualsubforge_timing_review_FixView_Deserialize = {
   changed: number;
   manualCount: number;
   trades: number;
+  withheldAll: boolean;
   withoutTradesToggles: number[];
   offset: number;
   rows: vsf_application_quality_timing_fix_review_Row[];
@@ -1749,6 +1750,7 @@ export type visualsubforge_timing_review_FixView_Serialize = {
   changed: number;
   manualCount: number;
   trades: number;
+  withheldAll: boolean;
   withoutTradesToggles: number[];
   offset: number;
   rows: vsf_application_quality_timing_fix_review_Row[];

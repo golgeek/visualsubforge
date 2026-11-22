@@ -94,6 +94,7 @@ pub(crate) struct FixView {
     pub changed: u32,
     pub manual_count: u32,
     pub trades: u32,
+    pub withheld_all: bool,
     pub without_trades_toggles: Vec<u32>,
     pub offset: u32,
     pub rows: Vec<Row>,

@@ -30,6 +30,7 @@ export interface LiveTimingReview {
   selection: () => ReviewSelection | null;
   context: () => string;
   previewIds: () => readonly number[];
+  pageKey?: () => string;
 }
 const selectionKey = (selection: ReviewSelection | null) =>
   JSON.stringify(selection);
@@ -55,6 +56,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   } | null>(null);
   private polling = false;
   private offset = 0;
+  private pageKey: string | undefined;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private liveSignature = '';
   private liveDocument: DocumentSnapshot | null = null;
@@ -302,7 +304,9 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     this.view = null;
     this.preview = null;
     this.previewKey = '';
-    this.offset = 0;
+    const key = this.live?.pageKey?.();
+    if (key === undefined || key !== this.pageKey) this.offset = 0;
+    this.pageKey = key;
     try {
       if (this.id !== null) await this.api.cancel(this.id);
       if (!this.active(epoch)) return;

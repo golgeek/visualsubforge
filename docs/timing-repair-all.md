@@ -59,7 +59,11 @@ The summary counts findings in scope. Expand a change for its full timecodes or
 choose its cue number to navigate. **Edit** opens a manual cue through protected
 navigation. Changes and manual work page independently. The waveform shows
 selected changes for up to 200 visible cues. Apply includes all selected pages.
-Rust validates the subset against the captured document, profile and scene data,
+After a checkbox edit, checked rows show the original and selected timings.
+An unchecked row previews the result of ticking it, including its prerequisites
+and any replaced alternatives. The dock retains the previous list and its scroll
+position while Rust calculates the new review.
+Rust validates the subset and each claimed fix against the captured document, profile and scene data,
 then applies one undoable retime. Saving remains a separate action. Recovery and
 resync documents keep their Save As protection.
 

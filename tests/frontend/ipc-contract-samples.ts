@@ -454,7 +454,7 @@ export const fixGapsSample = {
           cueId: '2',
         },
       ],
-      needs: 'needs cue 1',
+      needs: null,
       offReason: null,
       replaces: null,
       selected: true,
@@ -465,7 +465,7 @@ export const fixGapsSample = {
       unit: {
         conflictsWith: [],
         cutTimecodes: [],
-        dependsOn: [0],
+        dependsOn: [],
         effects: [
           {
             after: 6.185567010309279,
@@ -520,6 +520,7 @@ export const fixGapsSample = {
   selectionError: null,
   total: 2,
   trades: 0,
+  withheldAll: false,
   withoutTradesToggles: [],
 } satisfies TimingFixView;
 export const fixSpeedSample = {
@@ -715,7 +716,7 @@ export const fixSpeedSample = {
           cueId: '2',
         },
       ],
-      needs: 'needs cue 1',
+      needs: null,
       offReason: null,
       replaces: null,
       selected: true,
@@ -726,7 +727,7 @@ export const fixSpeedSample = {
       unit: {
         conflictsWith: [],
         cutTimecodes: [],
-        dependsOn: [0],
+        dependsOn: [],
         effects: [
           {
             after: 5.347593582887701,
@@ -781,6 +782,7 @@ export const fixSpeedSample = {
   selectionError: null,
   total: 2,
   trades: 0,
+  withheldAll: false,
   withoutTradesToggles: [],
 } satisfies TimingFixView;
 export const styleForm = {
@@ -2599,7 +2601,7 @@ export const timingFixView = {
           cueId: '2',
         },
       ],
-      needs: 'needs cue 1',
+      needs: null,
       offReason: null,
       replaces: null,
       selected: true,
@@ -2612,7 +2614,7 @@ export const timingFixView = {
       unit: {
         conflictsWith: [],
         cutTimecodes: ['00:00:04,000', '00:00:06,000'],
-        dependsOn: [0],
+        dependsOn: [],
         effects: [],
         effectsText: [
           {
@@ -2648,6 +2650,7 @@ export const timingFixView = {
   selectionError: null,
   total: 2,
   trades: 0,
+  withheldAll: false,
   withoutTradesToggles: [],
 } satisfies TimingFixView;
 export const batchTimingView = {

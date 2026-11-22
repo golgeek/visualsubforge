@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import {
     timingFixView,
     type TimingFixOptions,
@@ -76,27 +76,64 @@
       new TimingFixSession(subtitles, mediaSession, input, {
         enabled,
         selection: () => null,
+        pageKey: () => semantic,
         context,
         previewIds,
       }),
   );
-  const result = $derived(session.current ? session.view : null);
+  const current = $derived(
+    session.current && session.view?.phase === 'reviewing'
+      ? session.view
+      : null,
+  );
+  const documentKey = $derived(
+    subtitles.snapshot.generation + '/' + subtitles.snapshot.revision,
+  );
+  let previous = $state.raw<{ key: string; view: TimingFixView } | null>(null);
+  let scroll: HTMLDivElement;
+  let savedScroll: number | null = null;
+  function keepScroll() {
+    savedScroll = scroll.scrollTop;
+  }
+  $effect(() => {
+    if (current) {
+      previous = { key: documentKey, view: current };
+      if (savedScroll !== null) {
+        const top = savedScroll;
+        savedScroll = null;
+        void tick().then(() => {
+          if (scroll) scroll.scrollTop = top;
+        });
+      }
+    }
+  });
+  const result = $derived(
+    current ??
+      (!subtitles.dirty && previous?.key === documentKey
+        ? previous.view
+        : null),
+  );
+  const updating = $derived(!current || session.accepting);
   const coverage = $derived(result?.coverage);
   const blocked = $derived(
     coverage === 'partial' || coverage === 'unavailable',
   );
   const unavailable = $derived(coverage === 'noMedia' || blocked);
-  const pageId = $derived(result?.phase === 'reviewing' ? result.id : null);
+  const pageId = $derived(current?.id ?? null);
   $effect(() => {
     const id = pageId,
-      offset = manualOffset;
+      offset = manualOffset,
+      key = documentKey;
     let current = true;
-    manualPage = null;
+    if (untrack(() => lastManual?.key) !== key) manualPage = null;
     manualError = '';
     if (id !== null)
       void timingFixView(id, offset, 100, 'manual').then(
         (v) => {
-          if (current) manualPage = v;
+          if (current) {
+            manualPage = v;
+            lastManual = { key, rows: v.manual };
+          }
         },
         (e) => {
           if (current) manualError = String(e);
@@ -111,13 +148,7 @@
     key: string;
     rows: TimingFixView['manual'];
   } | null>(null);
-  const documentKey = $derived(
-    subtitles.snapshot.generation + '/' + subtitles.snapshot.revision,
-  );
-  $effect(() => {
-    if (manualPage?.phase === 'reviewing')
-      lastManual = { key: documentKey, rows: manualPage.manual };
-  });
+
   function prepareSelection() {
     if (selectionKey !== semantic) {
       toggled = [];
@@ -125,10 +156,12 @@
     }
   }
   function toggle(index: number) {
+    keepScroll();
     prepareSelection();
     toggled = [...toggled, index];
   }
   function untickTrades() {
+    keepScroll();
     prepareSelection();
     toggled = [...toggled, ...(result?.withoutTradesToggles ?? [])];
   }
@@ -165,7 +198,13 @@
 </script>
 
 <section class="timing-review" aria-label="Live timing review">
-  <div class="scroll">
+  {#if updating && result && !session.error}<p
+      class="preview-status"
+      role="status"
+    >
+      {session.accepting ? 'Applying timings…' : 'Updating preview…'}
+    </p>{/if}
+  <div class="scroll" bind:this={scroll}>
     {#if view.policyOpen}
       <div class="policy">
         <span>If rules conflict</span>
@@ -270,126 +309,136 @@
         {session.accepting ? 'Applying timings…' : 'Updating preview…'}
       </p>
     {:else}
-      <div class="heading">
-        <strong class="number"
-          >{result.before.total} → {result.after.total}</strong
-        > findings
-      </div>
-      {#if result.selectionError}<p role="alert">
-          {result.selectionError}
-        </p>{/if}{#if result.selectionError || toggled.length}<button
-          onclick={() => {
-            prepareSelection();
-            toggled = [];
-          }}>Restore default selection</button
-        >{/if}
-      <div class="heading">
-        <strong>Changes</strong><span class="number">{result.total}</span
-        >{#if result.trades}<button data-variant="quiet" onclick={untickTrades}
-            >Untick trade-offs ({result.trades})</button
+      <div class="results" inert={updating} aria-busy={updating}>
+        {#if result.withheldAll}<p role="status">
+            Timing changes were withheld because the safety check could not
+            finish. Try a smaller scope.
+          </p>{/if}
+        <div class="heading">
+          <strong class="number"
+            >{result.before.total} → {result.after.total}</strong
+          > findings
+        </div>
+        {#if result.selectionError}<p role="alert">
+            {result.selectionError}
+          </p>{/if}{#if result.selectionError || toggled.length}<button
+            onclick={() => {
+              keepScroll();
+              prepareSelection();
+              toggled = [];
+            }}>Restore default selection</button
           >{/if}
-      </div>
-      {#if !result.total}<p>
-          No changes for the ticked rules in this scope.
-        </p>{/if}
-      {#each result.rows as row (row.cueIndex)}
-        <div class="change">
-          <input
-            type="checkbox"
-            aria-label={'Include cue ' + row.cueLabel}
-            checked={row.selected}
-            disabled={session.accepting}
-            onchange={() => toggle(row.cueIndex)}
-          />
-          <button
-            class="cue"
-            data-variant="quiet"
-            aria-label={'Go to cue ' + row.cueLabel}
-            onclick={() => onnavigate(row.cueId)}>{row.cueLabel}</button
-          >
-          <button
-            class="detail"
-            data-variant="quiet"
-            aria-expanded={openRows.includes(row.cueIndex)}
-            onclick={() =>
-              (openRows = openRows.includes(row.cueIndex)
-                ? openRows.filter((i) => i !== row.cueIndex)
-                : [...openRows, row.cueIndex])}
-          >
-            {#each [...new Set(row.unit.fixed.map(chip))] as name (name)}<span
-                class="chip">{name}</span
-              >{/each}
-            {#if row.unit.partial}<span class="chip">Partial</span>{/if}
-            {#if row.startMoved}<span class="chip moved">Start moved</span>{/if}
-            {#if row.unit.tradeOff}<span class="chip trade">Trade-off</span
-              >{/if}<span class="number">{row.delta}</span>{#if row.needs}
-              <small>{row.needs}</small>{/if}
-            {#if row.replaces}<small>{row.replaces}</small>{/if}
-            {#if row.offReason}<small>{row.offReason}</small>{/if}
-          </button>
-          <small class="effect number"
-            >{#each row.unit.effectsText as effect, index (index)}{#if index}
-                ·
-              {/if}<span class:warning={effect.warning}>{effect.text}</span
-              >{/each}</small
-          >
-          {#if openRows.includes(row.cueIndex)}<small class="times number"
-              >{#each row.timecodes as line (line)}<span>{line}</span
-                >{/each}</small
+        <div class="heading">
+          <strong>Changes</strong><span class="number">{result.total}</span
+          >{#if result.trades}<button
+              data-variant="quiet"
+              onclick={untickTrades}>Untick trade-offs ({result.trades})</button
             >{/if}
         </div>
-      {/each}
-      {#if result.total > 100}<nav aria-label="Timing proposal pages">
-          <button
-            disabled={!result.offset}
-            onclick={() => session.page(Math.max(0, result!.offset - 100))}
-            >Previous</button
-          >{result.offset + 1}–{result.offset + result.rows.length} / {result.total}<button
-            disabled={result.offset + 100 >= result.total}
-            onclick={() => session.page(result!.offset + 100)}>Next</button
-          >
-        </nav>{/if}
-      {#if result.manualCount}
-        <div class="heading">
-          <button
-            data-variant="quiet"
-            aria-expanded={manualOpen}
-            onclick={() => (manualOpen = !manualOpen)}
-            >{manualOpen ? '▾' : '▸'} Needs manual work {result.manualCount}</button
-          >
-        </div>
-        {#if manualOpen}{#if manualError}<p role="alert">{manualError}</p>{/if}
-          {#each manualPage?.manual ?? [] as r (r.cueId)}<div class="manual">
-              <span class="number">{r.cueNumber}</span>
-              <div>
-                <span>{r.detail.lead}</span>
-                {#each r.detail.facts as fact (fact)}<small>{fact}</small
-                  >{/each}
-                {#if r.detail.budgetText}<small class="budget"
-                    >{r.detail.budgetText}</small
-                  >{/if}
-              </div>
-              <button onclick={() => onnavigate(r.cueId)}>Edit</button>
-            </div>{/each}
-          {#if manualPage && result.manualCount > 100}<nav
-              aria-label="Manual work pages"
+        {#if !result.total}<p>
+            No changes for the ticked rules in this scope.
+          </p>{/if}
+        {#each result.rows as row (row.cueIndex)}
+          <div class="change">
+            <input
+              type="checkbox"
+              aria-label={'Include cue ' + row.cueLabel}
+              checked={row.selected}
+              disabled={updating}
+              onchange={() => toggle(row.cueIndex)}
+            />
+            <button
+              class="cue"
+              data-variant="quiet"
+              aria-label={'Go to cue ' + row.cueLabel}
+              onclick={() => onnavigate(row.cueId)}>{row.cueLabel}</button
             >
-              <button
-                disabled={!manualPage.offset}
-                onclick={() =>
-                  (manualOffset = Math.max(0, manualPage!.offset - 100))}
-                >Previous</button
-              >{manualPage.offset + 1}–{manualPage.offset +
-                manualPage.manual.length} / {result.manualCount}<button
-                disabled={manualPage.offset + 100 >= result.manualCount}
-                onclick={() => (manualOffset = manualPage!.offset + 100)}
-                >Next</button
+            <button
+              class="detail"
+              data-variant="quiet"
+              aria-expanded={openRows.includes(row.cueIndex)}
+              onclick={() =>
+                (openRows = openRows.includes(row.cueIndex)
+                  ? openRows.filter((i) => i !== row.cueIndex)
+                  : [...openRows, row.cueIndex])}
+            >
+              {#each [...new Set(row.unit.fixed.map(chip))] as name (name)}<span
+                  class="chip">{name}</span
+                >{/each}
+              {#if row.unit.partial}<span class="chip">Partial</span>{/if}
+              {#if row.startMoved}<span class="chip moved">Start moved</span
+                >{/if}
+              {#if row.unit.tradeOff}<span class="chip trade">Trade-off</span
+                >{/if}<span class="number">{row.delta}</span>{#if row.needs}
+                <small>{row.needs}</small>{/if}
+              {#if row.replaces}<small>{row.replaces}</small>{/if}
+              {#if row.offReason}<small>{row.offReason}</small>{/if}
+            </button>
+            <small class="effect number"
+              >{#each row.unit.effectsText as effect, index (index)}{#if index}{' · '}{/if}<span
+                  class:warning={effect.warning}>{effect.text}</span
+                >{/each}</small
+            >
+            {#if openRows.includes(row.cueIndex)}<small class="times number"
+                >{#each row.timecodes as line (line)}<span>{line}</span
+                  >{/each}</small
+              >{/if}
+          </div>
+        {/each}
+        {#if result.total > 100}<nav aria-label="Timing proposal pages">
+            <button
+              disabled={!result.offset}
+              onclick={() => session.page(Math.max(0, result!.offset - 100))}
+              >Previous</button
+            >{result.offset + 1}–{result.offset + result.rows.length} / {result.total}<button
+              disabled={result.offset + 100 >= result.total}
+              onclick={() => session.page(result!.offset + 100)}>Next</button
+            >
+          </nav>{/if}
+        {#if result.manualCount}
+          <div class="heading">
+            <button
+              data-variant="quiet"
+              aria-expanded={manualOpen}
+              onclick={() => (manualOpen = !manualOpen)}
+              >{manualOpen ? '▾' : '▸'} Needs manual work {result.manualCount}</button
+            >
+          </div>
+          {#if manualOpen}{#if manualError}<p role="alert">
+                {manualError}
+              </p>{/if}
+            {#each manualPage?.manual ?? [] as r (r.cueId)}<div class="manual">
+                <span class="number">{r.cueNumber}</span>
+                <div>
+                  <span>{r.detail.lead}</span>
+                  {#each r.detail.facts as fact (fact)}<small>{fact}</small
+                    >{/each}
+                  {#if r.detail.budgetText}<small class="budget"
+                      >{r.detail.budgetText}</small
+                    >{/if}
+                </div>
+                <button onclick={() => onnavigate(r.cueId)}>Edit</button>
+              </div>{/each}
+            {#if manualPage && result.manualCount > 100}<nav
+                aria-label="Manual work pages"
               >
-            </nav>{/if}
-        {/if}
-      {:else if !result.total}<p>
-          No timing findings for the ticked rules in this scope.
-        </p>{/if}
+                <button
+                  disabled={!manualPage.offset}
+                  onclick={() =>
+                    (manualOffset = Math.max(0, manualPage!.offset - 100))}
+                  >Previous</button
+                >{manualPage.offset + 1}–{manualPage.offset +
+                  manualPage.manual.length} / {result.manualCount}<button
+                  disabled={manualPage.offset + 100 >= result.manualCount}
+                  onclick={() => (manualOffset = manualPage!.offset + 100)}
+                  >Next</button
+                >
+              </nav>{/if}
+          {/if}
+        {:else if !result.total}<p>
+            No timing findings for the ticked rules in this scope.
+          </p>{/if}
+      </div>
     {/if}
   </div>
   <footer>
@@ -435,7 +484,15 @@
     font-size: var(--font-size-sm);
     min-height: 0;
   }
+  .results[aria-busy='true'] {
+    opacity: 0.55;
+  }
+  .preview-status {
+    margin: 0;
+    padding: 4px 10px;
+  }
   .scroll {
+    overflow-anchor: none;
     overflow: auto;
     flex: 1;
     min-height: 0;
