@@ -46,9 +46,9 @@ def collect(inputs, output, signed):
         inventories[f'macos-{arch}'] = unsigned
         if signed:
             mac = verified(inputs / f'macos-notarized-{arch}')
-            assets.append(mac[f'VisualSubForge_{version}_{arch}_macos.zip'])
+            assets.append(mac[f'VisualSubForge_{version}_{arch}_macos.dmg'])
         else:
-            assets.append(unsigned[f'VisualSubForge_{version}_{arch}_macos-unsigned.zip'])
+            assets.append(unsigned[f'VisualSubForge_{version}_{arch}_macos-unsigned.dmg'])
     for source in assets:
         source.rename(output / source.name)
     for target, inventory in inventories.items():

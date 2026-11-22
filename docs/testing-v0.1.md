@@ -8,8 +8,8 @@ Open the [v0.1.0 test release](https://github.com/golgeek/visualsubforge/release
 
 | Your computer | What to do |
 | --- | --- |
-| Apple Silicon Mac, macOS 15 or newer | Unzip **VisualSubForge_0.1.0_aarch64_macos.zip**, drag the app to Applications and open it. |
-| Intel Mac, macOS 15 or newer | Use **VisualSubForge_0.1.0_x86_64_macos.zip** and the same steps. |
+| Apple Silicon Mac, macOS 15 or newer | Open **VisualSubForge_0.1.0_aarch64_macos.dmg**. Drag VisualSubForge onto the Applications shortcut, eject the image, then open the installed app from Applications. |
+| Intel Mac, macOS 15 or newer | Use **VisualSubForge_0.1.0_x86_64_macos.dmg** and the same steps. |
 | Windows x64 | Run **VisualSubForge_0.1.0_x64-setup.exe**. This early build is unsigned. If SmartScreen shows “Windows protected your PC”, choose **More info → Run anyway** after verifying the download. A later version will be signed. For a portable installation, extract the entire Windows ZIP and open **visualsubforge.exe**. Both use WebView2. Record your Windows version. |
 | Ubuntu 22.04, 24.04 or 26.04 and Debian 12 or 13 | Run `sudo apt install ./VisualSubForge_0.1.0_amd64.deb` on amd64 or use `VisualSubForge_0.1.0_arm64.deb` on arm64. Remove with `sudo apt remove visualsubforge`. |
 | Fedora 45 (amd64 or arm64), Arch Linux (amd64), or a per-user Linux install | Download `VisualSubForge_0.1.0_x86_64_linux.tar.gz` or `VisualSubForge_0.1.0_aarch64_linux.tar.gz`. Extract it, enter the extracted directory and run `./install.sh`. Open VisualSubForge from Applications. |

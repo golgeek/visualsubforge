@@ -1,5 +1,12 @@
 name: macOS preview packages
 on:
+  pull_request:
+    paths:
+      - .github/workflows/macos-package.yml
+      - scripts/macos_dmg.py
+      - scripts/sign-macos.py
+      - src-tauri/dmg/**
+      - src-tauri/icons/icon.icns
   workflow_call:
     inputs:
       architecture:
@@ -18,6 +25,10 @@ on:
         type: choice
         options: [both, aarch64, x86_64]
         default: both
+      finder_screenshot:
+        description: Capture the mounted image in light Finder on the hosted Apple Silicon runner
+        type: boolean
+        default: false
       parity_baseline_run:
         description: Optional release rehearsal containing the former Mac, Windows and Linux packages
         type: string
@@ -139,6 +150,18 @@ jobs:
         run: |
           (cd tests/fixtures/generated/resync && shasum -a 256 -c SHA256SUMS)
           python tests/release/packaged-cli.py --bundle "$RUNNER_TEMP/package/VisualSubForge.app" --bin Contents/MacOS --output "$RUNNER_TEMP/packaged-cli-check"
+      - name: Install pinned disk image tools
+        run: |
+          python -m venv "$RUNNER_TEMP/dmg-venv"
+          "$RUNNER_TEMP/dmg-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r src-tauri/dmg/requirements.txt
+      - name: Build and verify the unsigned disk image
+        run: |
+          mkdir -p "$RUNNER_TEMP/artifacts"
+          version=$(python scripts/release_version.py)
+          image="$RUNNER_TEMP/artifacts/VisualSubForge_${version}_${{ matrix.arch }}_macos-unsigned.dmg"
+          app="$RUNNER_TEMP/package/VisualSubForge.app"
+          "$RUNNER_TEMP/dmg-venv/bin/python" scripts/macos_dmg.py build "$app" "$image"
+          "$RUNNER_TEMP/dmg-venv/bin/python" scripts/macos_dmg.py verify "$app" "$image"
       - name: Archive the unsigned validation artifact
         run: |
           mkdir -p "$RUNNER_TEMP/artifacts"
@@ -156,11 +179,37 @@ jobs:
           tar -czf "$RUNNER_TEMP/artifacts/application-sources.tar.gz" -C "$RUNNER_TEMP/application-sources" .
           tar -czf "$RUNNER_TEMP/artifacts/native-sources.tar.gz" -C "$RUNNER_TEMP/native-sources" .
           cd "$RUNNER_TEMP/artifacts"
-          shasum -a 256 ./*.zip application-sources.tar.gz native-sources.tar.gz macos-player-init > SHA256SUMS
+          shasum -a 256 ./*.zip ./*.dmg application-sources.tar.gz native-sources.tar.gz macos-player-init > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-unsigned-${{ matrix.arch }}
           path: ${{ runner.temp }}/artifacts/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Capture the light Finder window
+        if: github.event_name == 'workflow_dispatch' && inputs.finder_screenshot && matrix.arch == 'aarch64' && !inputs.sign
+        run: |
+          mount="$RUNNER_TEMP/finder/VisualSubForge"
+          mkdir -p "$mount"
+          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount" "$RUNNER_TEMP"/artifacts/*.dmg
+          trap 'hdiutil detach "$mount"' EXIT
+          if [[ "$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)" == Dark ]]; then
+            osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to false'
+          fi
+          open "$mount"
+          for _ in {1..20}; do
+            window=$(osascript -e 'tell application "Finder" to get id of first Finder window whose name is "VisualSubForge"' 2>/dev/null || true)
+            if [[ "$window" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          test -n "$window"
+          sleep 2
+          screencapture -x -o -l "$window" "$RUNNER_TEMP/finder-light.png"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.event_name == 'workflow_dispatch' && inputs.finder_screenshot && matrix.arch == 'aarch64' && !inputs.sign
+        with:
+          name: finder-light
+          path: ${{ runner.temp }}/finder-light.png
           if-no-files-found: error
           retention-days: 14
       # Meson's raw logs include the inherited environment. Upload only the
@@ -195,7 +244,7 @@ jobs:
     needs: package
     if: ${{ !cancelled() && inputs.sign && github.ref == 'refs/heads/main' && (needs.package.result == 'success' || (needs.package.result == 'skipped' && inputs.unsigned_run_id != '')) }}
     runs-on: ${{ matrix.arch == 'aarch64' && 'macos-15' || 'macos-15-intel' }}
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -257,6 +306,10 @@ jobs:
           if inventory['commit'] != os.environ['VSF_PACKAGE_COMMIT'] or inventory['tracked_changes']:
               raise SystemExit('Application source inventory differs from the selected package commit')
           PY
+      - name: Install pinned disk image tools
+        run: |
+          python -m venv "$RUNNER_TEMP/dmg-venv"
+          "$RUNNER_TEMP/dmg-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r src-tauri/dmg/requirements.txt
       - name: Sign, notarize, staple and verify
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -265,12 +318,13 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: python scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --startup-probe "$RUNNER_TEMP/unsigned/macos-player-init" --output "$RUNNER_TEMP/signed"
+        run: |
+          "$RUNNER_TEMP/dmg-venv/bin/python" scripts/sign-macos.py --app "$RUNNER_TEMP/signing-input/VisualSubForge.app" --receipt "$RUNNER_TEMP/unsigned/assembly-receipt.json" --startup-probe "$RUNNER_TEMP/unsigned/macos-player-init" --output "$RUNNER_TEMP/signed"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-notarized-${{ matrix.arch }}
           path: |
-            ${{ runner.temp }}/signed/*.zip
+            ${{ runner.temp }}/signed/*.dmg
             ${{ runner.temp }}/signed/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
@@ -280,5 +334,5 @@ jobs:
           name: macos-signing-evidence-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/signed/signing-receipt.json
-            ${{ runner.temp }}/signed/notarization-log.json
+            ${{ runner.temp }}/signed/*notarization-log.json
           retention-days: 14
