@@ -60,6 +60,7 @@ choose its cue number to navigate. **Edit** opens a manual cue through protected
 navigation. Changes and manual work page independently. The waveform shows
 selected changes for up to 200 visible cues. Apply includes all selected pages.
 After a checkbox edit, checked rows show the original and selected timings.
+The endpoint delta includes only the endpoints that row contributes.
 An unchecked row previews the result of ticking it, including its prerequisites
 and any replaced alternatives. The dock retains the previous list and its scroll
 position while Rust calculates the new review.

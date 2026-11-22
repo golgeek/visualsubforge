@@ -102,6 +102,29 @@ impl<'a> SelectionEffects<'a> {
         duration
     }
 
+    /// Replay the endpoint writers for one cue. Omitting a row gives its
+    /// contribution while all other chosen writers stay in place.
+    fn point(&self, cue: usize, overrides: &HashMap<u32, bool>, omit: Option<u32>) -> Endpoints {
+        let mut point = self.original[cue];
+        for &(id, change) in &self.writers[cue] {
+            if omit == Some(id)
+                || !overrides
+                    .get(&id)
+                    .copied()
+                    .unwrap_or_else(|| self.selected.contains(&id))
+            {
+                continue;
+            }
+            if change.before.start_ms != change.after.start_ms {
+                point.start_ms = change.after.start_ms;
+            }
+            if change.before.end_ms != change.after.end_ms {
+                point.end_ms = change.after.end_ms;
+            }
+        }
+        point
+    }
+
     pub(super) fn project(&self, source: &Unit, report: &Report) -> Unit {
         let checked = self.selected.contains(&source.index);
         let toggles = if checked {
@@ -117,28 +140,14 @@ impl<'a> SelectionEffects<'a> {
             }
         };
         let after = |i: usize| {
-            if !self.writers[i]
+            if self.writers[i]
                 .iter()
                 .any(|(id, _)| toggles.contains_key(id))
             {
-                return self.current[i];
+                self.point(i, &toggles, None)
+            } else {
+                self.current[i]
             }
-            let mut point = self.original[i];
-            for &(id, change) in &self.writers[i] {
-                if toggles
-                    .get(&id)
-                    .copied()
-                    .unwrap_or_else(|| self.selected.contains(&id))
-                {
-                    if change.before.start_ms != change.after.start_ms {
-                        point.start_ms = change.after.start_ms;
-                    }
-                    if change.before.end_ms != change.after.end_ms {
-                        point.end_ms = change.after.end_ms;
-                    }
-                }
-            }
-            point
         };
         let mut unit = source.clone();
         unit.effects_text.clear();
@@ -157,21 +166,17 @@ impl<'a> SelectionEffects<'a> {
         }
         for change in &mut unit.endpoints {
             let index = change.index as usize;
-            change.before = before(index);
+            let initial = before(index);
+            change.before = self.point(index, &toggles, Some(source.index));
             change.after = after(index);
             for (rule, label, a, b) in [
                 (
                     Rule::SceneStart,
                     "starts",
-                    change.before.start_ms,
+                    initial.start_ms,
                     change.after.start_ms,
                 ),
-                (
-                    Rule::SceneEnd,
-                    "ends",
-                    change.before.end_ms,
-                    change.after.end_ms,
-                ),
+                (Rule::SceneEnd, "ends", initial.end_ms, change.after.end_ms),
             ] {
                 if unit
                     .claims
@@ -195,7 +200,7 @@ impl<'a> SelectionEffects<'a> {
             if unit.claims.iter().any(|c| {
                 c.index == index && matches!(c.rule, Rule::DurationShort | Rule::DurationLong)
             }) {
-                let old = change.before.end_ms - change.before.start_ms;
+                let old = initial.end_ms - initial.start_ms;
                 let new = change.after.end_ms - change.after.start_ms;
                 unit.effects_text
                     .push(EffectSegment::plain(format!("duration {old} → {new} ms")));

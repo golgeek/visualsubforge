@@ -498,7 +498,19 @@ fn edited_row_effects_follow_the_selected_or_checkbox_candidate() {
                 assert_eq!(effect.after, actual);
                 corrected += usize::from(effect.after != old.after);
             }
-            for change in &row.unit.endpoints {
+            for (change, owned) in row.unit.endpoints.iter().zip(&source.endpoints) {
+                if owned.before.start_ms == owned.after.start_ms {
+                    assert_eq!(
+                        change.before.start_ms, change.after.start_ms,
+                        "row borrowed another start move"
+                    );
+                }
+                if owned.before.end_ms == owned.after.end_ms {
+                    assert_eq!(
+                        change.before.end_ms, change.after.end_ms,
+                        "row borrowed another end move"
+                    );
+                }
                 let cue = &plan.candidate.cues()[change.index as usize];
                 assert_eq!(
                     (change.after.start_ms, change.after.end_ms),

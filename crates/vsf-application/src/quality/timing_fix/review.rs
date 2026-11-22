@@ -227,11 +227,7 @@ impl Proposal {
                 .map(|r| (*r).clone())
                 .unwrap_or_else(|| Manual::unticked(i));
             detail.rules = rules;
-            if detail
-                .rules
-                .iter()
-                .any(|r| matches!(r, Rule::CpsHigh | Rule::RsHigh | Rule::SpeedUnavailable))
-            {
+            if needs_text_budget(&detail.rules) {
                 if !detail.budget.as_ref().is_some_and(|b| b.at_partial)
                     || chosen.contains(&(i as u32))
                 {

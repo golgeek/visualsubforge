@@ -967,18 +967,8 @@
           "cueNumber": 3,
           "detail": {
             "blockingCue": null,
-            "budget": {
-              "at": {
-                "endMs": 4600,
-                "startMs": 4100
-              },
-              "atPartial": false,
-              "effectiveMs": 500,
-              "estimate": false,
-              "maxCounted": null,
-              "shortenBy": null
-            },
-            "budgetText": "A text budget is unavailable within the 500 ms reading allowance.",
+            "budget": null,
+            "budgetText": null,
             "facts": [],
             "index": 2,
             "lead": "Finish the scene scan to fix this cue.",
@@ -4436,18 +4426,8 @@
           "cueNumber": 3,
           "detail": {
             "blockingCue": null,
-            "budget": {
-              "at": {
-                "endMs": 4600,
-                "startMs": 4100
-              },
-              "atPartial": false,
-              "effectiveMs": 500,
-              "estimate": false,
-              "maxCounted": null,
-              "shortenBy": null
-            },
-            "budgetText": "A text budget is unavailable within the 500 ms reading allowance.",
+            "budget": null,
+            "budgetText": null,
             "facts": [],
             "index": 2,
             "lead": "The change for this cue is unticked.",

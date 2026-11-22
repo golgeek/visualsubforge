@@ -123,6 +123,13 @@ for (const theme of ['dark', 'light'])
       await expect(
         dock.getByRole('checkbox', { name: 'Include cue 6→7', exact: true }),
       ).toBeChecked();
+      const manualThree = dock.locator('.manual').filter({
+        has: page.getByText('3', { exact: true }),
+      });
+      await expect(manualThree).toContainText(
+        'The change for this cue is unticked.',
+      );
+      await expect(manualThree.locator('.budget')).toHaveCount(0);
       await capture('after-untick');
       await prerequisite.check();
       await expect(
