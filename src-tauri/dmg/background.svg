@@ -16,9 +16,5 @@
   <line x1="262" y1="186" x2="370" y2="186" stroke="#ff7a2f" stroke-width="4" stroke-linecap="round"/>
   <path d="M358 174 L374 186 L358 198" fill="none" stroke="#ff7a2f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Equal-width backplates allow room for the visible .app extension. -->
-  <rect x="101" y="259" width="150" height="22" rx="11" fill="#8a94a3"/>
-  <rect x="389" y="259" width="150" height="22" rx="11" fill="#8a94a3"/>
-
   <text x="320" y="348" text-anchor="middle" font-family="Inter Variable, system-ui, sans-serif" font-size="13" font-weight="500" fill="#5e6876">Drag VisualSubForge to Applications</text>
 </svg>
