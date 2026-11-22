@@ -26,14 +26,14 @@ pub(super) struct Trial {
 }
 
 impl Trial {
-    fn generate(random: &mut Generator) -> Self {
+    fn generate(random: &mut Generator, max_cues: u64) -> Self {
         let format = random.pick(&[Format::Srt, Format::WebVtt, Format::Ass]);
         let step = format.time_step_ms();
         let mut rows = Vec::new();
         let mut cuts = Vec::new();
         let mut frontier = 0i64;
         let mut previous = 0;
-        for _ in 0..4 + random.below(57) {
+        for _ in 0..4 + random.below(max_cues - 3) {
             let gap = random.pick(&[-600, -200, -40, 0, 20, 40, 79, 80, 150, 400, 1500]);
             let start = ((frontier + gap).max(0) as u64 / step * step).max(previous + step);
             let end = start + random.pick(&[200, 400, 600, 800, 1000, 1500, 2200, 3500, 7200]);
@@ -234,20 +234,105 @@ impl Trial {
         }
     }
 }
+#[derive(Default)]
+struct Precision {
+    edges: usize,
+    unnecessary: usize,
+    conflicts: usize,
+    compatible: usize,
+    other_rows_lost: Vec<usize>,
+}
+
+impl Precision {
+    fn measure(&mut self, trial: &Trial, proposal: &Proposal) {
+        let defaults = proposal.default_units();
+        let valid = |choices: &[u32]| {
+            let plan = proposal.select(choices, || Ok(())).unwrap();
+            if plan.error.is_some() {
+                return false;
+            }
+            trial.check(proposal, choices, &plan.candidate);
+            true
+        };
+        // Removing a given writer produces the same counterfactual for all its readers.
+        let mut removable = HashMap::new();
+        for unit in &proposal.units {
+            if unit.partial {
+                let count = unit
+                    .conflicts_with
+                    .iter()
+                    .filter(|id| defaults.contains(id))
+                    .count();
+                self.conflicts += count;
+                if count > 0 && unit.depends_on.iter().all(|id| defaults.contains(id)) {
+                    let mut together = defaults.clone();
+                    together.push(unit.index);
+                    if valid(&together) {
+                        self.compatible += count;
+                    }
+                }
+            } else {
+                let remaining = proposal.selected_units(&[unit.index], false).unwrap().len();
+                self.other_rows_lost.push(defaults.len() - remaining - 1);
+                for parent in &unit.depends_on {
+                    self.edges += 1;
+                    if *removable.entry(*parent).or_insert_with(|| {
+                        valid(
+                            &defaults
+                                .iter()
+                                .copied()
+                                .filter(|id| id != parent)
+                                .collect::<Vec<_>>(),
+                        )
+                    }) {
+                        self.unnecessary += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    fn report(&mut self) {
+        self.other_rows_lost.sort_unstable();
+        let counts = &self.other_rows_lost;
+        if counts.is_empty() {
+            return;
+        }
+        eprintln!(
+            "unnecessary={}/{} compatible={}/{} unticks={} other_rows_mean={:.3} p90={} p99={} max={} three_or_more={}",
+            self.unnecessary,
+            self.edges,
+            self.compatible,
+            self.conflicts,
+            counts.len(),
+            counts.iter().sum::<usize>() as f64 / counts.len() as f64,
+            counts[counts.len() * 9 / 10],
+            counts[counts.len() * 99 / 100],
+            counts.last().unwrap(),
+            counts.iter().filter(|&&n| n >= 3).count()
+        );
+    }
+}
 #[test]
 fn independent_selection_oracle() {
     let cases = std::env::var("VSF_TIMING_ORACLE_CASES")
         .ok()
         .map(|s| s.parse::<usize>().unwrap())
         .unwrap_or(20);
+    let max_cues = std::env::var("VSF_TIMING_ORACLE_MAX_CUES").map_or(60, |s| s.parse().unwrap());
+    assert!(max_cues >= 4);
+    let mut precision = std::env::var_os("FUZZ_DEPS").map(|_| Precision::default());
     let mut random = Generator(0x035f_2026);
     let mut histogram = [0usize; 4];
     let mut rejected = 0;
     let mut with_partial = 0;
     let mut digest = Sha256::new();
     for case in 0..cases {
-        let trial = Trial::generate(&mut random);
+        let trial = Trial::generate(&mut random, max_cues);
         let proposal = trial.plan();
+        if let Some(metric) = &mut precision {
+            metric.measure(&trial, &proposal);
+        }
         histogram[proposal.evaluations] += 1;
         let snapshot =
             |p: &Proposal| serde_json::to_vec(&(&p.units, &p.manual, &p.after.findings)).unwrap();
@@ -328,5 +413,8 @@ fn independent_selection_oracle() {
         "cases={cases} evaluations={histogram:?} rejected={rejected} with_partial={with_partial} SHA256={:x}",
         digest.finalize()
     );
+    if let Some(mut metric) = precision {
+        metric.report();
+    }
     assert_eq!(rejected, 0, "a closure-respecting selection was rejected");
 }
