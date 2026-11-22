@@ -132,7 +132,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               ...r,
               selected:
                 !(r.unit.partial || (input.omitTrades && r.unit.tradeOff)) !==
-                (input.toggled ?? []).includes(r.cueIndex),
+                ((input.toggled ?? []).filter((index) => index === r.cueIndex)
+                  .length %
+                  2 ===
+                  1),
             })),
           };
           return heldStart ?? starts;

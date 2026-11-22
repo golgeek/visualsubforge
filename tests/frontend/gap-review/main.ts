@@ -131,7 +131,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               ...r,
               selected:
                 !(r.unit.partial || (input.omitTrades && r.unit.tradeOff)) !==
-                (input.toggled ?? []).includes(r.cueIndex),
+                ((input.toggled ?? []).filter((index) => index === r.cueIndex)
+                  .length %
+                  2 ===
+                  1),
             })),
           };
           return heldStart ?? starts;
@@ -273,7 +276,7 @@ async function run() {
       'Live no-media preview leaves accepted subtitles intact and projects dashed ghosts plus list deltas',
     );
     host
-      .querySelector<HTMLInputElement>('[aria-label="Include cue 1"]')!
+      .querySelector<HTMLInputElement>('[aria-label="Include cue 2"]')!
       .click();
     await until(() =>
       [...host.querySelectorAll<HTMLButtonElement>('button')].some(
@@ -283,11 +286,11 @@ async function run() {
     await until(() => host.querySelectorAll('.ghosts .ghost').length === 1);
     assert(
       host.querySelector('.ghosts .ghost')?.getAttribute('data-preview-cue') ===
-        '2',
+        '1',
       'Unchecked ghost survived',
     );
     host
-      .querySelector<HTMLInputElement>('[aria-label="Include cue 1"]')!
+      .querySelector<HTMLInputElement>('[aria-label="Include cue 2"]')!
       .click();
     await until(() =>
       [...host.querySelectorAll<HTMLButtonElement>('button')].some(
