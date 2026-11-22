@@ -25,12 +25,10 @@ function capture {
   trap - EXIT
 }
 function appearance {
-  if [[ "$1" == dark ]]; then
-    defaults write -g AppleInterfaceStyle -string Dark
-  elif [[ "$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)" == Dark ]]; then
-    defaults delete -g AppleInterfaceStyle
-  fi
-  killall Finder || true
+  local desired=false
+  if [[ "$1" == dark ]]; then desired=true; fi
+  osascript -e 'with timeout of 10 seconds' -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $desired" -e 'end timeout'
+  test "$(osascript -e 'tell application "System Events" to tell appearance preferences to get dark mode')" = "$desired"
   sleep 2
 }
 appearance light
