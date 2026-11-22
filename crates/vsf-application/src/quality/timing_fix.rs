@@ -1,5 +1,9 @@
 //! One immutable, format-aware timing review. Candidate generation is local;
 //! publication and acceptance always check the resulting subtitle document.
+mod dependencies;
+mod effects;
+mod manual;
+pub use effects::EffectSegment;
 mod search;
 use super::{
     Error, Evaluation, Report, Result, Rule, evaluate_with_scenes, gap, metrics,
@@ -98,12 +102,29 @@ pub struct Effect {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Unit {
+    pub depends_on: Vec<u32>,
+    pub effects_text: Vec<EffectSegment>,
+    pub cut_timecodes: Vec<String>,
     pub index: u32,
     pub endpoints: Vec<Change>,
     pub fixed: Vec<Rule>,
     pub partial: bool,
     pub effects: Vec<Effect>,
     pub trade_off: bool,
+}
+impl Unit {
+    pub fn label(&self) -> String {
+        std::iter::once(self.index)
+            .chain(
+                self.endpoints
+                    .iter()
+                    .map(|point| point.index)
+                    .filter(|&index| index != self.index),
+            )
+            .map(|index| (index + 1).to_string())
+            .collect::<Vec<_>>()
+            .join("→")
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -121,7 +142,10 @@ pub struct Budget {
 #[serde(rename_all = "camelCase")]
 pub struct Manual {
     pub index: u32,
-    pub reason: String,
+    pub lead: String,
+    pub facts: Vec<String>,
+    pub blocking_cue: Option<u32>,
+    pub budget_text: Option<String>,
     pub rules: Vec<Rule>,
     pub budget: Option<Budget>,
 }
@@ -142,6 +166,8 @@ fn family(rule: Rule, f: Families) -> bool {
 }
 
 pub struct Proposal {
+    #[cfg(test)]
+    evaluations: usize,
     document: Document,
     before: Report,
     after: Report,
@@ -348,17 +374,63 @@ impl Proposal {
             &mut checkpoint,
         )?;
         let after = evaluate_with_scenes(&plan.candidate, context, scenes, |_, _| checkpoint())?;
-        if !unsafe_indices(&self.before, &after, &self.units, &chosen).is_empty()
-            || !selection_geometry(
-                &self.document,
-                &plan.candidate,
-                context,
-                self.request.options,
-                scenes,
-                &mut checkpoint,
-            )?
-        {
-            plan.error = Some("These timing units depend on other checked changes.".into());
+        let mut affected = unsafe_indices(&self.before, &after, &self.units, &chosen);
+        let geometry = selection_geometry(
+            &self.document,
+            &plan.candidate,
+            context,
+            self.request.options,
+            scenes,
+            &mut checkpoint,
+        )?;
+        affected.extend(geometry);
+        if !affected.is_empty() {
+            // A timing finding can belong to an unchanged reader or either
+            // side of a gap. Resolve those neighbours back to review units.
+            let positions: HashMap<_, _> = self
+                .before
+                .metrics
+                .iter()
+                .enumerate()
+                .map(|(index, m)| (m.cue_id.as_str(), index))
+                .collect();
+            let mut nearby = affected.clone();
+            for &index in &affected {
+                if let Some(next) = self.before.metrics[index]
+                    .next_cue_id
+                    .as_deref()
+                    .and_then(|id| positions.get(id))
+                {
+                    nearby.insert(*next);
+                }
+            }
+            for (index, m) in self.before.metrics.iter().enumerate() {
+                if m.next_cue_id
+                    .as_deref()
+                    .and_then(|id| positions.get(id))
+                    .is_some_and(|next| affected.contains(next))
+                {
+                    nearby.insert(index);
+                }
+            }
+            let mut labels = Vec::new();
+            for unit in &self.units {
+                if nearby.contains(&(unit.index as usize))
+                    || unit
+                        .endpoints
+                        .iter()
+                        .any(|e| nearby.contains(&(e.index as usize)))
+                {
+                    plan.selection_conflicts.push(unit.index);
+                    labels.push(unit.label());
+                }
+            }
+            let message = if labels.len() == 1 {
+                format!("Cue {} conflicts with the selected timing.", labels[0])
+            } else {
+                format!("Cues {} depend on each other.", labels.join(" and "))
+            };
+            plan.error = Some(format!("{message} Restore the default selection to apply."));
         }
         plan.after = Some(after);
         Ok(plan)
@@ -372,7 +444,7 @@ fn selection_geometry(
     options: Options,
     scenes: &Scenes,
     checkpoint: &mut impl FnMut() -> Result<()>,
-) -> Result<bool> {
+) -> Result<Vec<usize>> {
     let windows = Windows::for_format(context.profile, scenes, context.format, &mut *checkpoint)?;
     let mut order: Vec<_> = (0..before.cues().len()).collect();
     order.sort_by_key(|&i| (before.cues()[i].start(), i));
@@ -391,10 +463,10 @@ fn selection_geometry(
                         && !windows.containing(os).is_some_and(|w| w.1 == s as i64)))
             || (e != oe && windows.containing(e).is_some())
         {
-            return Ok(false);
+            return Ok(vec![i]);
         }
         if s < os && s < frontier {
-            return Ok(false);
+            return Ok(vec![i]);
         }
         if let Some(&next) = order.get(pos + 1) {
             let old_gap = before.cues()[next].start().get() as i64 - oe as i64;
@@ -402,13 +474,13 @@ fn selection_geometry(
             if new_gap < old_gap.min(context.profile.timing.cue_gap_ms.into())
                 || e > oe && new_gap < 0
             {
-                return Ok(false);
+                return Ok(vec![i, next]);
             }
         }
         frontier = frontier.max(e);
         prior_start = Some((s, i));
     }
-    Ok(true)
+    Ok(Vec::new())
 }
 
 pub fn propose(
@@ -447,24 +519,24 @@ pub fn propose(
     }
     let mut points = endpoints(&document);
     let mut units = Vec::new();
-    let mut reasons = HashMap::new();
     let mut partial_d = HashMap::new();
     let mut prior = None;
     let mut frontier = 0;
     let mut locked = false;
+    let mut provenance = dependencies::Provenance::new(points.len());
     let blocked = |i: usize| {
         if !scope.contains(&document.cues()[i].id()) {
-            Some("outside the selected scope")
+            Some("Outside the selected scope.")
         } else if matches!(
             windows.coverage(),
             SceneCoverage::Unavailable | SceneCoverage::Partial
         ) {
-            Some("complete scene data is required")
+            Some("Finish the scene scan to fix this cue.")
         } else if ambiguous[groups[i]] {
-            Some("equal starts or nested intervals require manual review")
+            Some("Equal starts or nested cues need manual timing.")
         } else if crate::subtitle_markup::retiming_is_ambiguous(&document.cues()[i], context.format)
         {
-            Some("timing-sensitive markup or an event effect requires manual review")
+            Some("Timed markup or an event effect needs manual timing.")
         } else {
             None
         }
@@ -474,58 +546,52 @@ pub fn propose(
         checkpoint()?;
         let next = order.get(pos + 1).copied();
         let mut lock_next = false;
-        if targets.contains(&document.cues()[i].id()) {
-            if let Some(why) = movable[i] {
-                reasons.insert(i, why.to_owned());
-            } else {
-                let search = search::Search {
-                    index: i,
-                    next,
-                    following: order.get(pos + 2).map(|&j| points[j].start_ms),
-                    prior,
-                    frontier,
-                    locked,
-                    can_delay: next.is_some_and(|j| movable[j].is_none()),
-                    context,
-                    request: &request,
-                    before: &before,
-                    points: &points,
-                    windows: &windows,
-                };
-                if let Some((unit, effective)) = search.choose() {
-                    if unit.partial {
-                        let at = unit
-                            .endpoints
-                            .iter()
-                            .find(|e| e.index as usize == i)
-                            .map_or(points[i], |e| e.after);
-                        partial_d.insert(i, (at, effective));
-                    } else {
-                        for c in &unit.endpoints {
-                            points[c.index as usize] = c.after;
-                        }
-                        lock_next = unit
-                            .endpoints
-                            .iter()
-                            .any(|c| Some(c.index as usize) == next);
+        if targets.contains(&document.cues()[i].id()) && movable[i].is_none() {
+            let search = search::Search {
+                index: i,
+                next,
+                following: order.get(pos + 2).map(|&j| points[j].start_ms),
+                prior,
+                frontier,
+                locked,
+                can_delay: next.is_some_and(|j| movable[j].is_none()),
+                context,
+                request: &request,
+                before: &before,
+                points: &points,
+                windows: &windows,
+                scenes,
+            };
+            if let Some((mut unit, effective)) = search.choose() {
+                unit.depends_on = provenance.prerequisites(i, next, order.get(pos + 2).copied());
+                if unit.partial {
+                    let at = unit
+                        .endpoints
+                        .iter()
+                        .find(|e| e.index as usize == i)
+                        .map_or(points[i], |e| e.after);
+                    partial_d.insert(i, (at, effective));
+                } else {
+                    provenance.applied(&unit);
+                    for c in &unit.endpoints {
+                        points[c.index as usize] = c.after;
                     }
-                    units.push(unit);
+                    lock_next = unit
+                        .endpoints
+                        .iter()
+                        .any(|c| Some(c.index as usize) == next);
                 }
-                if let Some(j) = next {
-                    reasons.insert(
-                        i,
-                        format!(
-                            "Cue {} limits available time at {} ms{}.",
-                            j + 1,
-                            points[j].start_ms,
-                            movable[j].map_or(String::new(), |r| format!(" ({r})"))
-                        ),
-                    );
-                }
+                units.push(unit);
             }
         }
         locked = lock_next;
         let p = points[i];
+        provenance.advance(
+            i,
+            p.end_ms >= frontier,
+            context.profile.speed_basis == SpeedBasis::VssOverlapV1
+                && prior.is_some_and(|previous: metrics::ReadingPrior| previous.end > p.start_ms),
+        );
         let floor = metrics::reading_floor(context.profile.speed_basis, p.start_ms, prior);
         prior = Some(metrics::ReadingPrior {
             start: floor.min(p.end_ms),
@@ -549,27 +615,32 @@ pub fn propose(
         )?;
         evaluate_with_scenes(&plan.candidate, context, scenes, |_, _| checkpoint())
     };
-    let mut after = evaluate(&units, &mut checkpoint)?;
-    let chosen = units
-        .iter()
-        .filter(|u| !u.partial)
-        .map(|u| u.index)
-        .collect();
-    let unsafe_cues = unsafe_indices(&before, &after, &units, &chosen);
-    if !unsafe_cues.is_empty() {
-        let bad: HashSet<_> = unsafe_cues.iter().map(|&i| groups[i]).collect();
-        units.retain(|u| {
-            !u.endpoints
-                .iter()
-                .any(|e| bad.contains(&groups[e.index as usize]))
-        });
-        after = evaluate(&units, &mut checkpoint)?;
-        if !unsafe_indices(&before, &after, &units, &chosen).is_empty() {
-            return Err(Error::Invalid(
-                "Coupled reading starts prevent a safe timing proposal".into(),
-            ));
+    let mut withheld = HashMap::new();
+    let mut evaluations = 1;
+    let after = loop {
+        let candidate = evaluate(&units, &mut checkpoint)?;
+        evaluations += 1;
+        let chosen = units
+            .iter()
+            .filter(|unit| !unit.partial)
+            .map(|unit| unit.index)
+            .collect();
+        let unsafe_cues = unsafe_indices(&before, &candidate, &units, &chosen);
+        if unsafe_cues.is_empty() {
+            break candidate;
         }
-    }
+        let count = units.len();
+        dependencies::withhold(&mut units, &groups, &unsafe_cues, &mut withheld);
+        // The contract caps full checks at three. The original has already
+        // been evaluated and remains available if a second chain is unsafe.
+        if units.len() == count || evaluations >= 3 {
+            let root = *unsafe_cues.iter().min().expect("unsafe set is nonempty") as u32;
+            for unit in units.drain(..) {
+                withheld.insert(unit.index as usize, root);
+            }
+            break before.clone();
+        }
+    };
     let positions: HashMap<_, _> = document
         .cues()
         .iter()
@@ -619,97 +690,34 @@ pub fn propose(
             .iter()
             .any(|r| matches!(r, Rule::CpsHigh | Rule::RsHigh | Rule::SpeedUnavailable))
             .then(|| budget(m, at, d, partial, context.profile));
-        let mut detail = Vec::new();
-        if let Some(reason) = reasons.remove(&i) {
-            detail.push(reason);
-        }
-        if movable[i].is_none() {
-            for endpoint in [m.start_ms, m.end_ms] {
-                if let Some((left, right)) = windows.containing(endpoint as u64) {
-                    detail.push(format!(
-                        "Endpoint {} ms is inside the exclusion window ({left}, {right}) ms.",
-                        endpoint as u64
-                    ));
-                }
-            }
-            if let Some(next) = m
-                .next_cue_id
-                .as_ref()
-                .and_then(|id| id.parse().ok())
-                .and_then(|id| positions.get(&CueId(id)))
-            {
-                let next_start = after.metrics[*next].start_ms as u64;
-                let cap = next_start.saturating_sub(context.profile.timing.cue_gap_ms.into());
-                if rules.contains(&Rule::DurationShort)
-                    && next_start
-                        < at.start_ms + u64::from(context.profile.rules.duration.minimum_ms)
-                {
-                    detail.push(format!("Minimum duration cannot fit before cue {} without an overlap at this start.",next+1));
-                }
-                if rules.iter().any(|r| matches!(r, Rule::Gap | Rule::Overlap))
-                    && cap > m.reading_start_ms as u64
-                {
-                    let d = cap - m.reading_start_ms as u64;
-                    let (cps, rs, _) = metrics::rates(m.characters, d, m.empty);
-                    for (label, old, new, limit, exclusive) in [
-                        (
-                            "CPS",
-                            &m.cps,
-                            cps,
-                            context.profile.rules.speed.maximum_cps,
-                            false,
-                        ),
-                        (
-                            "RS",
-                            &m.rs,
-                            rs,
-                            context.profile.rules.speed.maximum_rs_exclusive,
-                            true,
-                        ),
-                    ] {
-                        if context.profile.rules.speed.enabled
-                            && let (Some(old), Some(new), Some(limit)) =
-                                (old.value(), new.value(), limit)
-                            && new > old
-                            && (new > f64::from(limit) || exclusive && new == f64::from(limit))
-                        {
-                            detail.push(format!("Moving the end to {cap} ms would raise {label} from {old:.2} to {new:.2} (limit {limit})."));
-                        }
-                    }
-                }
-                if cap < at.end_ms && !scope.contains(&document.cues()[*next].id()) {
-                    detail.push(format!(
-                        "Cue {} is outside the scope and cannot move.",
-                        next + 1
-                    ));
-                } else if cap < at.end_ms
-                    && at.end_ms - cap > u64::from(request.options.start_tolerance_ms)
-                {
-                    detail.push(format!("Keeping this end requires delaying cue {} by {} ms, beyond the {} ms tolerance.",next+1,at.end_ms-cap,request.options.start_tolerance_ms));
-                }
-            }
-        }
-        if let Some(b) = &budget {
-            match (b.max_counted,b.shorten_by) {
-                (Some(n),Some(by))=>detail.push(format!("Shorten by {by} counted characters (maximum {n}).")),
-                _=>detail.push("A text budget is unavailable while reading time is within the 500 ms allowance.".into())
-            }
-        }
-        if detail.is_empty() {
-            detail.push(
-                "No permitted endpoint satisfies the enabled duration, speed and spacing limits."
-                    .into(),
-            );
-        }
-        let reason = detail.join(" ");
-        manual.push(Manual {
-            index: i as u32,
-            reason,
-            rules,
-            budget,
+        let next = m
+            .next_cue_id
+            .as_ref()
+            .and_then(|id| id.parse().ok())
+            .and_then(|id| positions.get(&CueId(id)))
+            .map(|&index| {
+                (
+                    index as u32,
+                    after.metrics[index].start_ms as u64,
+                    scope.contains(&document.cues()[index].id()),
+                )
+            });
+        let mut row = Manual::new(i, rules, budget);
+        row.explain(&manual::ReasonContext {
+            blocked: movable[i],
+            withheld: withheld.get(&i).copied(),
+            next,
+            at,
+            metric: m,
+            profile: context.profile,
+            windows: &windows,
+            tolerance: request.options.start_tolerance_ms,
         });
+        manual.push(row);
     }
     Ok(Proposal {
+        #[cfg(test)]
+        evaluations,
         document,
         before,
         after,

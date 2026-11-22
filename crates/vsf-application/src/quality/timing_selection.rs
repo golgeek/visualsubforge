@@ -23,6 +23,7 @@ pub struct Plan {
     pub changed: usize,
     /// Keep the rows reviewable when a combination needs another selection.
     pub error: Option<String>,
+    pub selection_conflicts: Vec<u32>,
 }
 impl Plan {
     pub fn in_scope(&self, id: CueId) -> bool {
@@ -138,6 +139,7 @@ pub fn prepare_shift(
         after: None,
         changed,
         error: None,
+        selection_conflicts: Vec::new(),
     })
 }
 

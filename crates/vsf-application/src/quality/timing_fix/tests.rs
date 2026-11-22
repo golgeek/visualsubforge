@@ -215,71 +215,6 @@ fn coarse_grid_oracle_enumerates_the_linked_unit() {
     );
 }
 #[test]
-fn generated_documents_keep_all_pairs_safe_in_both_modes() {
-    for seed in 0..24u64 {
-        let text = ["{\\k10}timed", "1234567890123456789", "abc", "a😀\nb"];
-        let rows: Vec<_> = (0..4)
-            .map(|i| {
-                let s = i * (30 + seed % 6) * 10;
-                (
-                    s,
-                    s + (20 + (seed * 7 + i * 11) % 37) * 10,
-                    text[(i as usize + seed as usize) % 4],
-                )
-            })
-            .collect();
-        let d = doc(&rows);
-        let mut p = profile();
-        p.rules.duration.minimum_ms = 310;
-        p.rules.speed.maximum_cps = Some(30);
-        p.timing.scene_before_ms = 30;
-        p.timing.scene_after_ms = 60;
-        p.speed_basis = SpeedBasis::VssOverlapV1;
-        for priority in [Priority::Spacing, Priority::ReadingSpeed] {
-            for edges in [SceneEdges::Inward, SceneEdges::Nearest] {
-                let request = Request {
-                    options: Options {
-                        priority,
-                        start_tolerance_ms: 100,
-                        scene_edges: edges,
-                    },
-                    ..Request::default()
-                };
-                let plan = propose(
-                    d.clone(),
-                    Evaluation::from(&p).with_format(Format::Ass),
-                    &Scenes::Complete(vec![ms(0), ms(330)]),
-                    request,
-                    || Ok(()),
-                )
-                .unwrap();
-                let selected = plan.select(&plan.default_units(), || Ok(())).unwrap();
-                assert!(
-                    selected.error.is_none(),
-                    "seed {seed}: {:?}",
-                    selected.error
-                );
-                let cues = selected.candidate.cues();
-                for (i, c) in cues.iter().enumerate() {
-                    assert!(c.start() < c.end());
-                    assert_eq!(c.start().get() % 10, 0);
-                    assert_eq!(c.end().get() % 10, 0);
-                    for (j, n) in cues.iter().enumerate().skip(i + 1) {
-                        let overlap = |a: &Cue, b: &Cue| {
-                            a.end()
-                                .get()
-                                .min(b.end().get())
-                                .saturating_sub(a.start().get().max(b.start().get()))
-                        };
-                        assert!(overlap(c, n) <= overlap(&d.cues()[i], &d.cues()[j]));
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[test]
 fn revalidation_only_allows_the_reviewed_rate_for_a_retained_spacing_fix() {
     let p = profile();
     let d = doc(&[(0, 1000, "12345678901234567890"), (1000, 3000, "Next")]);
@@ -396,3 +331,6 @@ fn independent_checker_ranks_current_cue_assignments_for_both_priorities() {
         }
     }
 }
+
+mod dependencies;
+mod oracle;

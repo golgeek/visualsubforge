@@ -1,0 +1,608 @@
+[
+  {
+    "case": 2499,
+    "cues": [
+      [1000, 1400, "a😀\nb"],
+      [1440, 3640, "Hi."],
+      [3600, 4400, "Fine, thanks."],
+      [4480, 7980, "We should leave before the rain starts."],
+      [8059, 15259, "a😀\nb"],
+      [15659, 17159, "Fine, thanks."],
+      [
+        17239,
+        17639,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [17439, 18439, "a😀\nb"],
+      [
+        18518,
+        20018,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [20418, 20818, "We should leave before the rain starts."],
+      [
+        20858,
+        23058,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [
+        22858,
+        30058,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [30058, 30458, "<i>Somewhere far away...</i>"],
+      [31958, 32158, "I know, I know."],
+      [
+        33658,
+        35858,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        35258,
+        35658,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [35261, 35861, "a😀\nb"],
+      [36011, 36811, "No."],
+      [38311, 38511, "No."],
+      [38590, 38990, "Fine, thanks."],
+      [38950, 41150, "We should leave before the rain starts."],
+      [41150, 41750, "I know, I know."],
+      [
+        41829,
+        44029,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [45529, 46329, "I know, I know."],
+      [46479, 47979, "Hi."],
+      [
+        47379,
+        48179,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [47579, 54779, "Hi."],
+      [
+        54859,
+        57059,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [57138, 57338, "No."]
+    ],
+    "profile": {
+      "base": "vsf-default",
+      "maximumCps": 20,
+      "sceneAfterMs": 40,
+      "sceneBeforeMs": 250,
+      "speedBasis": "vss_overlap_v1"
+    },
+    "options": {
+      "priority": "readingSpeed",
+      "sceneEdges": "nearest",
+      "startToleranceMs": 1000
+    },
+    "families": {
+      "gaps": true,
+      "shots": false,
+      "speed": true
+    },
+    "scenes": [
+      1333, 1585, 15360, 15687, 18406, 20058, 20872, 30193, 32143, 35614, 35875,
+      35935, 38550, 39141, 40970, 41801, 44160, 46311, 48118, 54683, 57209
+    ],
+    "format": "Srt",
+    "scope": null
+  },
+  {
+    "case": 2821,
+    "cues": [
+      [
+        2500,
+        3100,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [3100, 6600, "We should leave before the rain starts."],
+      [6679, 7079, "Hi."],
+      [
+        7158,
+        7558,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [7358, 10858, "No."],
+      [10818, 11818, "a😀\nb"],
+      [11218, 18418, "Fine, thanks."],
+      [18568, 19368, "Fine, thanks."],
+      [19168, 26368, "<i>Somewhere far away...</i>"],
+      [
+        26518,
+        28718,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [28678, 35878, "We should leave before the rain starts."],
+      [
+        35838,
+        39338,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        39418,
+        40218,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [40018, 40618, "Fine, thanks."],
+      [40418, 42618, "Fine, thanks."],
+      [
+        42578,
+        44078,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [44158, 44358, "a😀\nb"],
+      [44163, 46363, "We should leave before the rain starts."],
+      [46163, 47663, "We should leave before the rain starts."],
+      [47742, 49942, "No."],
+      [
+        49342,
+        49542,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [50342, 51342, "Fine, thanks."],
+      [51492, 58692, "We should leave before the rain starts."],
+      [58712, 59712, "No."],
+      [59862, 63362, "a😀\nb"],
+      [62762, 69962, "Hi."],
+      [70362, 70762, "I know, I know."],
+      [72262, 73062, "a😀\nb"],
+      [72862, 74362, "Hi."],
+      [74322, 77822, "a😀\nb"],
+      [77902, 78702, "Hi."],
+      [78662, 82162, "I know, I know."],
+      [82122, 84322, "<i>Somewhere far away...</i>"],
+      [84402, 85402, "Hi."],
+      [85482, 92682, "Hi."],
+      [92722, 93722, "<i>Somewhere far away...</i>"],
+      [
+        93722,
+        100922,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [101002, 101402, "I know, I know."],
+      [101202, 102702, "We should leave before the rain starts."],
+      [102781, 104281, "Fine, thanks."],
+      [104321, 104721, "Hi."],
+      [104721, 106921, "No."],
+      [107071, 107671, "a😀\nb"],
+      [107631, 109131, "No."],
+      [109211, 111411, "<i>Somewhere far away...</i>"],
+      [111411, 112011, "We should leave before the rain starts."],
+      [
+        111811,
+        112811,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [
+        112611,
+        113211,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [113361, 113961, "No."],
+      [113981, 116181, "Hi."],
+      [116581, 118081, "a😀\nb"],
+      [
+        118481,
+        119281,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [119431, 120231, "No."],
+      [120631, 121231, "Hi."],
+      [
+        122731,
+        123331,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [123411, 124011, "We should leave before the rain starts."],
+      [123811, 124611, "I know, I know."],
+      [
+        124631,
+        126831,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [126911, 130411, "<i>Somewhere far away...</i>"],
+      [130561, 130961, "a😀\nb"],
+      [130921, 133121, "<i>Somewhere far away...</i>"],
+      [133271, 135471, "Hi."]
+    ],
+    "profile": {
+      "base": "vsf-default",
+      "maximumCps": 20,
+      "sceneAfterMs": 130,
+      "sceneBeforeMs": 130,
+      "speedBasis": "vss_overlap_v1"
+    },
+    "options": {
+      "priority": "spacing",
+      "sceneEdges": "inward",
+      "startToleranceMs": 100
+    },
+    "families": {
+      "gaps": false,
+      "shots": true,
+      "speed": true
+    },
+    "scenes": [
+      2997, 6550, 7216, 7431, 11283, 28673, 28794, 35883, 36049, 40296, 42596,
+      44207, 44232, 44367, 47656, 49585, 49763, 58879, 62866, 70064, 77712,
+      77738, 82326, 84524, 92892, 93573, 93785, 101321, 102823, 104850, 107118,
+      109221, 109321, 111225, 112035, 113223, 113895, 116035, 118083, 120709,
+      122803, 124630, 127007, 130289, 133160, 133313, 135379
+    ],
+    "format": "Srt",
+    "scope": null
+  },
+  {
+    "case": 8513,
+    "cues": [
+      [1020, 1220, "Fine, thanks."],
+      [
+        1299,
+        1499,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [1649, 1849, "No."],
+      [1929, 9129, "Hi."],
+      [
+        9529,
+        9929,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        9949,
+        10549,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [10628, 10828, "<i>Somewhere far away...</i>"],
+      [10868, 11468, "Hi."],
+      [11488, 12988, "I know, I know."],
+      [14488, 21688, "I know, I know."],
+      [21768, 22168, "<i>Somewhere far away...</i>"],
+      [21773, 22773, "Fine, thanks."],
+      [
+        22733,
+        22933,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [23083, 24083, "Fine, thanks."],
+      [25583, 26183, "a😀\nb"],
+      [26583, 27383, "Fine, thanks."],
+      [27533, 28333, "I know, I know."],
+      [28293, 29793, "No."],
+      [29813, 30813, "I know, I know."],
+      [30853, 34353, "No."],
+      [
+        34353,
+        36553,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [36593, 37193, "No."],
+      [
+        37272,
+        38072,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [38112, 38712, "Hi."],
+      [38752, 40252, "We should leave before the rain starts."],
+      [40652, 41452, "We should leave before the rain starts."],
+      [40852, 41852, "I know, I know."],
+      [42252, 42652, "Hi."],
+      [42732, 44232, "<i>Somewhere far away...</i>"],
+      [43632, 47132, "No."],
+      [
+        48632,
+        48832,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [48912, 49112, "No."],
+      [
+        48916,
+        49516,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [
+        49595,
+        50395,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [50545, 52045, "Fine, thanks."],
+      [52085, 52485, "I know, I know."]
+    ],
+    "profile": {
+      "base": "vsf-default",
+      "maximumCps": 20,
+      "sceneAfterMs": 130,
+      "sceneBeforeMs": 130,
+      "speedBasis": "vss_overlap_v1"
+    },
+    "options": {
+      "priority": "readingSpeed",
+      "sceneEdges": "nearest",
+      "startToleranceMs": 100
+    },
+    "families": {
+      "gaps": true,
+      "shots": true,
+      "speed": true
+    },
+    "scenes": [
+      1841, 9953, 10033, 10437, 10682, 21804, 25728, 26342, 27257, 28161, 28260,
+      30868, 30886, 36641, 37968, 40531, 40924, 41569, 42323, 44086, 47169,
+      49629
+    ],
+    "format": "Srt",
+    "scope": null
+  },
+  {
+    "case": 8914,
+    "cues": [
+      [1400, 1600, "No."],
+      [1404, 1804, "Fine, thanks."],
+      [1824, 2424, "<i>Somewhere far away...</i>"],
+      [2424, 3924, "I know, I know."],
+      [
+        4004,
+        6204,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [6284, 7284, "Hi."],
+      [8784, 9384, "I know, I know."],
+      [9404, 10004, "No."],
+      [10083, 10283, "I know, I know."],
+      [10303, 11803, "I know, I know."],
+      [11823, 12623, "a😀\nb"],
+      [13023, 14023, "Hi."],
+      [14023, 16223, "Fine, thanks."],
+      [16263, 17263, "<i>Somewhere far away...</i>"],
+      [
+        18763,
+        19563,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [19583, 26783, "I know, I know."],
+      [
+        26863,
+        30363,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [30442, 31442, "No."],
+      [31521, 35021, "I know, I know."],
+      [35101, 36101, "I know, I know."],
+      [36251, 37751, "No."],
+      [37901, 39401, "a😀\nb"],
+      [
+        39421,
+        40421,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        40821,
+        41821,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        42221,
+        43221,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [43181, 50381, "<i>Somewhere far away...</i>"],
+      [50461, 51061, "a😀\nb"],
+      [
+        51141,
+        54641,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [54441, 54641, "Hi."],
+      [56141, 63341, "I know, I know."],
+      [64841, 66341, "a😀\nb"],
+      [66491, 66891, "I know, I know."],
+      [66891, 67091, "Hi."],
+      [66893, 69093, "a😀\nb"],
+      [
+        69093,
+        71293,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [
+        71333,
+        71933,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [73433, 73833, "I know, I know."],
+      [
+        73793,
+        74593,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [74593, 76093, "Fine, thanks."],
+      [76113, 76713, "We should leave before the rain starts."],
+      [
+        76114,
+        76914,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        76954,
+        79154,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [79304, 79704, "a😀\nb"],
+      [80104, 83604, "<i>Somewhere far away...</i>"],
+      [84004, 85004, "Fine, thanks."],
+      [84964, 85564, "No."],
+      [84965, 92165, "Hi."],
+      [92185, 95685, "Fine, thanks."],
+      [96085, 96285, "<i>Somewhere far away...</i>"]
+    ],
+    "profile": {
+      "base": "vsf-default",
+      "maximumCps": 20,
+      "sceneAfterMs": 130,
+      "sceneBeforeMs": 130,
+      "speedBasis": "ordinary_v1"
+    },
+    "options": {
+      "priority": "spacing",
+      "sceneEdges": "nearest",
+      "startToleranceMs": 100
+    },
+    "families": {
+      "gaps": false,
+      "shots": true,
+      "speed": true
+    },
+    "scenes": [
+      2411, 3809, 4048, 6376, 9204, 10176, 10181, 10414, 12628, 17339, 26641,
+      31386, 37743, 40793, 54491, 54587, 66984, 67023, 69150, 74422, 79625,
+      83838, 84996, 85196, 92135, 95911
+    ],
+    "format": "Srt",
+    "scope": null
+  },
+  {
+    "case": 13186,
+    "cues": [
+      [1000, 4500, "<i>Somewhere far away...</i>"],
+      [
+        4580,
+        5180,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [5140, 6140, "I know, I know."],
+      [6100, 6700, "Fine, thanks."],
+      [6104, 7104, "Fine, thanks."],
+      [
+        7104,
+        7304,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [7264, 8764, "Hi."],
+      [8844, 9244, "I know, I know."],
+      [
+        9044,
+        9444,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        9594,
+        10594,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [10634, 11234, "a😀\nb"],
+      [11234, 18434, "Fine, thanks."],
+      [18234, 18634, "Hi."],
+      [18784, 19384, "Fine, thanks."],
+      [
+        19534,
+        21034,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [20434, 22634, "We should leave before the rain starts."],
+      [23034, 24534, "No."],
+      [24334, 27834, "Fine, thanks."],
+      [27234, 28734, "I know, I know."],
+      [28694, 32194, "a😀\nb"],
+      [
+        32344,
+        33344,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        32744,
+        32944,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [33424, 34424, "<i>Somewhere far away...</i>"],
+      [34424, 36624, "I know, I know."],
+      [
+        38124,
+        39124,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [39524, 41024, "No."],
+      [
+        40984,
+        41984,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [42063, 49263, "I know, I know."],
+      [49063, 50563, "We should leave before the rain starts."],
+      [50643, 52843, "a😀\nb"],
+      [
+        52863,
+        53463,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [
+        52865,
+        53065,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [
+        53613,
+        55813,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [56213, 56413, "a😀\nb"],
+      [56373, 63573, "a😀\nb"],
+      [62973, 63973, "Fine, thanks."],
+      [
+        64052,
+        65052,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [65052, 65252, "No."],
+      [65332, 66132, "a😀\nb"],
+      [
+        65932,
+        73132,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [73532, 74532, "We should leave before the rain starts."],
+      [74932, 75932, "I know, I know."],
+      [
+        76332,
+        76732,
+        "Hello there, how are you doing\ntoday, my dear old friend?"
+      ],
+      [76732, 77732, "Fine, thanks."],
+      [77732, 78732, "No."],
+      [
+        79132,
+        79732,
+        "This is a rather long line that needs time\nto be read comfortably by everyone here."
+      ],
+      [79532, 80532, "Hi."],
+      [80612, 82812, "Fine, thanks."]
+    ],
+    "profile": {
+      "base": "vsf-default",
+      "maximumCps": 20,
+      "sceneAfterMs": 130,
+      "sceneBeforeMs": 130,
+      "speedBasis": "ordinary_v1"
+    },
+    "options": {
+      "priority": "readingSpeed",
+      "sceneEdges": "nearest",
+      "startToleranceMs": 100
+    },
+    "families": {
+      "gaps": false,
+      "shots": true,
+      "speed": true
+    },
+    "scenes": [
+      5109, 5916, 6265, 6736, 7208, 9276, 9539, 11053, 18244, 18743, 18915,
+      20589, 28873, 31994, 36534, 38075, 39089, 40903, 55787, 56383, 56447,
+      65218, 65274, 73170, 79505, 82870
+    ],
+    "format": "Srt",
+    "scope": null
+  }
+]

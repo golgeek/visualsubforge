@@ -91,6 +91,7 @@ pub(super) struct Search<'a> {
     pub before: &'a Report,
     pub points: &'a [Endpoints],
     pub windows: &'a Windows,
+    pub scenes: &'a Scenes,
 }
 
 fn violations(
@@ -473,8 +474,81 @@ impl Search<'_> {
                 }
             }
         }
+        let mut effects_text = Vec::new();
+        let mut cut_timecodes = Vec::new();
+        if fixed
+            .iter()
+            .any(|rule| matches!(rule, Rule::Gap | Rule::Overlap))
+        {
+            let pair = if base.previous_gap > score.previous_gap {
+                self.prior.map(|prior| {
+                    (
+                        orig.start_ms as i64 - prior.end as i64,
+                        t.current.start_ms as i64 - prior.end as i64,
+                    )
+                })
+            } else {
+                next.zip(t.next).map(|(old, new)| {
+                    (
+                        old.start_ms as i64 - orig.end_ms as i64,
+                        new.start_ms as i64 - t.current.end_ms as i64,
+                    )
+                })
+            };
+            if let Some((before, after)) = pair {
+                effects_text.push(effects::spacing(before, after));
+            }
+        }
+        for change in &endpoints {
+            for (rule, label, before, after) in [
+                (
+                    Rule::SceneStart,
+                    "starts",
+                    change.before.start_ms,
+                    change.after.start_ms,
+                ),
+                (
+                    Rule::SceneEnd,
+                    "ends",
+                    change.before.end_ms,
+                    change.after.end_ms,
+                ),
+            ] {
+                if fixed.contains(&rule)
+                    && before != after
+                    && self.windows.containing(before).is_some()
+                    && let Some((segment, timecode)) =
+                        effects::shot(label, before, after, self.scenes, p)
+                {
+                    effects_text.push(segment);
+                    if !cut_timecodes.contains(&timecode) {
+                        cut_timecodes.push(timecode);
+                    }
+                }
+            }
+            if fixed
+                .iter()
+                .any(|rule| matches!(rule, Rule::DurationShort | Rule::DurationLong))
+            {
+                let before = change.before.end_ms - change.before.start_ms;
+                let after = change.after.end_ms - change.after.start_ms;
+                if before != after {
+                    effects_text.push(EffectSegment::plain(format!(
+                        "duration {before} → {after} ms"
+                    )));
+                }
+            }
+        }
+        effects_text.extend(
+            effects
+                .iter()
+                .filter_map(|effect| effects::speed(effect, i as u32)),
+        );
         Some((
             Unit {
+                depends_on: Vec::new(),
+                effects_text,
+                cut_timecodes,
                 index: i as u32,
                 endpoints,
                 partial,

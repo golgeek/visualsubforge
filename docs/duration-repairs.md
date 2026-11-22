@@ -202,3 +202,6 @@ failure and allocator investigation remain recorded; the unchanged budgets pass.
 See [duration repairs](duration-repairs.md) for policy, ownership and exact evidence.
 Windows/Linux feature execution, installations and physical GPU/audio acceptance
 remain unverified; full ASS/SSA documents/styles remain separate.
+
+The unified engine's independent selection oracle uses seed `0x035f2026`.
+Run `VSF_TIMING_ORACLE_CASES=20000 cargo test --release --locked -p vsf-application --lib independent_selection_oracle -- --nocapture` to exercise larger samples.
