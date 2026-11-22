@@ -133,10 +133,6 @@ fn preview_hash_scope_accept_and_new_file_guards() {
 fn strict_scenes_explicit_coverage_and_invalid_inputs() {
     let ex = Example::new();
     code(ex.run(&[]), 2);
-    let no = ex.run(&["--without-scenes", "--json"]);
-    assert_eq!(no.status.code(), Some(3));
-    let report: Value = serde_json::from_slice(&no.stdout).unwrap();
-    assert_eq!(report["coverage"], "noMedia");
     let cuts = ex.cuts.to_str().unwrap();
     for input in [
         r#"{"version":2,"cutsMs":[]}"#,
@@ -175,6 +171,39 @@ fn strict_scenes_explicit_coverage_and_invalid_inputs() {
     );
 }
 #[test]
+fn without_scenes_uses_remaining_findings_in_the_requested_families() {
+    let ex = Example::new();
+    // Two equal starts leave an overlap that the planner cannot repair.
+    let overlap =
+        "1\n00:00:00,000 --> 00:00:01,000\nFirst\n\n2\n00:00:00,000 --> 00:00:02,000\nSecond\n";
+    for (source, family, expected) in [
+        ("", "gaps,speed,shots", 0),
+        (
+            "1\n00:00:00,000 --> 00:00:01,000\nHello there.\n",
+            "gaps,speed,shots",
+            0,
+        ),
+        (overlap, "gaps", 1),
+        (overlap, "shots", 0),
+    ] {
+        fs::write(&ex.source, source).unwrap();
+        let preview = ex.run(&["--without-scenes", "--fix", family, "--json"]);
+        assert_eq!(
+            preview.status.code(),
+            Some(expected),
+            "{}",
+            String::from_utf8_lossy(&preview.stderr)
+        );
+        let report: Value = serde_json::from_slice(&preview.stdout).unwrap();
+        assert_eq!(report["coverage"], "noMedia");
+        assert_eq!(
+            report["manual"].as_array().unwrap().is_empty(),
+            expected == 0
+        );
+    }
+}
+
+#[test]
 fn remaining_findings_return_one_and_print_manual_budget() {
     let ex = Example::new();
     let s = format!(
@@ -184,6 +213,13 @@ fn remaining_findings_return_one_and_print_manual_budget() {
     fs::write(&ex.source, s).unwrap();
     let output = ex.run(&["--fix", "speed", "--scenes", ex.cuts.to_str().unwrap()]);
     assert_eq!(output.status.code(), Some(1));
+    let opt_out = ex.run(&["--fix", "speed", "--without-scenes"]);
+    assert_eq!(opt_out.status.code(), Some(1));
+    assert!(
+        String::from_utf8(opt_out.stdout)
+            .unwrap()
+            .contains("Scene coverage: no video")
+    );
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(
         text.contains("Review ID")

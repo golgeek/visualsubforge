@@ -58,7 +58,7 @@ pub enum ShotEdge {
 
 #[derive(Args)]
 #[command(
-    after_help = "Preview writes nothing. Nonzero shot buffers require a scene file or --without-scenes. Exit codes: 0 complete or written, 1 remaining requested findings, 2 invalid input, 3 incomplete scene coverage, 5 IO, 6 changed input or review ID, 130 cancelled."
+    after_help = "Preview writes nothing. Nonzero shot buffers require a scene file or --without-scenes. Exit codes: 0 no remaining requested findings or output written, 1 remaining requested findings (with --without-scenes, only the other requested families count), 2 invalid input, 3 incomplete scene coverage, 5 IO, 6 changed input or review ID, 130 cancelled."
 )]
 pub struct FixTiming {
     #[arg(long, value_name = "FILE")]
@@ -77,6 +77,7 @@ pub struct FixTiming {
     /// Version-1 JSON containing mapped integer cut timestamps in milliseconds.
     #[arg(long, conflicts_with = "without_scenes")]
     pub scenes: Option<PathBuf>,
+    /// Skip shot changes and report findings in the other requested families.
     #[arg(long)]
     pub without_scenes: bool,
     #[arg(long, value_enum, default_value = "reading-speed")]

@@ -107,6 +107,7 @@ pub struct Report {
 
 pub struct Prepared {
     report: Report,
+    without_scenes: bool,
     inputs: Vec<FileIdentity>,
     output: Vec<u8>,
 }
@@ -264,6 +265,7 @@ pub fn preview(mut request: Request<'_>, cancel: &AtomicBool) -> Result<Prepared
     budget.check()?;
     Ok(Prepared {
         report,
+        without_scenes: request.without_scenes,
         inputs,
         output,
     })
@@ -274,12 +276,11 @@ impl Prepared {
     }
 
     pub fn status(&self) -> u8 {
-        if self.report.coverage == SceneCoverage::NoMedia {
-            3
-        } else if self.report.manual.is_empty() {
-            0
+        let coverage = self.report.coverage;
+        if coverage.available() || (self.without_scenes && coverage == SceneCoverage::NoMedia) {
+            u8::from(!self.report.manual.is_empty())
         } else {
-            1
+            3
         }
     }
     pub fn publish(&self, path: &Path, accept: &str, cancel: &AtomicBool) -> Result<PathBuf> {
