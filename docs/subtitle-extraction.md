@@ -17,6 +17,10 @@ are outside this feature.
 Extraction omits `-copyts`: FFmpeg rebases packets to container start, matching
 waveform and playback project time zero. ASS header comments remain untouched.
 Text must be UTF-8 (optional BOM), and extracted output is capped at 16 MiB.
+FFmpeg writes structure with LF but copies packet text verbatim, so tracks
+authored with CRLF can mix endings inside multi-line cues. Extraction unifies
+such mixed output to LF; uniform CRLF is kept and bare CR is still rejected.
+Opening a mixed-ending file directly remains an error.
 The default deadline is thirty minutes. Cancellation terminates and reaps the
 owned child, and incomplete results never become documents or output files.
 

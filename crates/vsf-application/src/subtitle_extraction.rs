@@ -89,7 +89,8 @@ pub fn prepare(path: &Path, extracted: subtitle_tracks::Extracted) -> Result<Pre
     let text = std::str::from_utf8(&extracted.bytes)
         .map_err(|_| format!("Track {} isn't valid UTF-8 text", track.index))?;
     let extension = track.extension().ok_or("Unsupported subtitle codec")?;
-    let (text, repaired_cues) = repair_missing_duration(text, extension)?;
+    let text = unify_mixed_line_endings(text);
+    let (text, repaired_cues) = repair_missing_duration(&text, extension)?;
     // FFmpeg uses its ASS muxer for both script variants. Codec metadata cannot
     // distinguish SSA v4 from ASS v4+: the preserved script header owns that fact.
     let parsed =
@@ -154,6 +155,20 @@ pub fn publish(prepared: &Prepared, output: &Path, cancel: &Cancellation) -> Res
         return Err("Analysis cancelled".into());
     }
     pending.commit_new()
+}
+
+// FFmpeg muxers write structural lines with LF but copy packet text verbatim, so
+// tracks authored with CRLF yield CRLF only inside multi-line cues. That mix is
+// a muxing artifact, not a source convention: the new document has no file whose
+// newline style could be preserved. Uniform CRLF and lone CR are left to the
+// format parsers, which keep CRLF and reject bare CR.
+fn unify_mixed_line_endings(text: &str) -> std::borrow::Cow<'_, str> {
+    let crlf = text.matches("\r\n").count();
+    if crlf > 0 && crlf < text.matches('\n').count() {
+        text.replace("\r\n", "\n").into()
+    } else {
+        text.into()
+    }
 }
 
 // FFmpeg emits explicit equal endpoints for absent durations. Repair only these,
@@ -386,6 +401,49 @@ mod tests {
                 .cues()
                 .is_empty()
         );
+    }
+    #[test]
+    fn crlf_inside_packet_text_is_unified_with_muxer_lf() {
+        let prepare_as = |codec: &str, text: &str| {
+            let mut track = track();
+            track.codec = codec.into();
+            prepare(
+                Path::new("video.mkv"),
+                subtitle_tracks::Extracted {
+                    bytes: text.as_bytes().to_vec(),
+                    track,
+                    font_count: 0,
+                },
+            )
+        };
+        let srt = "1\n00:00:01,000 --> 00:00:02,000\nFirst line\r\nsecond line\n\n\
+                   2\n00:00:03,000 --> 00:00:03,000\nSingle\n";
+        let prepared = prepare_as("subrip", srt).unwrap();
+        let cues = prepared.parsed.document.cues();
+        assert_eq!(cues[0].text(), "First line\nsecond line");
+        assert_eq!(prepared.repaired_cues, [2]);
+        let saved = prepared
+            .parsed
+            .source
+            .serialize(&prepared.parsed.document)
+            .unwrap();
+        assert!(!saved.contains('\r'));
+
+        let vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nTop\r\nBottom\n";
+        let prepared = prepare_as("webvtt", vtt).unwrap();
+        assert_eq!(prepared.parsed.document.cues()[0].text(), "Top\nBottom");
+
+        // Uniform CRLF is a real convention and stays CRLF on save.
+        let uniform = "1\r\n00:00:01,000 --> 00:00:02,000\r\nA\r\nB\r\n";
+        let prepared = prepare_as("subrip", uniform).unwrap();
+        let saved = prepared
+            .parsed
+            .source
+            .serialize(&prepared.parsed.document)
+            .unwrap();
+        assert!(saved.contains("A\r\nB"));
+        // Bare CR remains a parser error rather than a guessed line break.
+        assert!(prepare_as("subrip", "1\n00:00:01,000 --> 00:00:02,000\nA\rB\n").is_err());
     }
     #[test]
     fn absent_duration_ends_at_next_start_with_five_second_cap() {
