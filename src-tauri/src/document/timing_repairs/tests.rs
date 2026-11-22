@@ -459,9 +459,41 @@ fn headless_review_matches_real_desktop_owner_pages() {
     )
     .unwrap();
     let r = headless.report();
+    for (desktop_row, file_row) in desktop.rows.iter().zip(&r.changes) {
+        assert_eq!(desktop_row.unit.depends_on, file_row.unit.depends_on);
+        assert_eq!(
+            desktop_row.unit.conflicts_with,
+            file_row.unit.conflicts_with
+        );
+        assert_eq!(desktop_row.unit.effects.len(), file_row.unit.effects.len());
+    }
+    let published = dir.path().join("published.srt");
+    headless
+        .publish(&published, &r.review_id, &AtomicBool::new(false))
+        .unwrap();
+    let accepted = docs.timing_repair_accept(id, Purpose::Fix).unwrap();
+    let saved = dir.path().join("saved.srt");
+    docs.apply(
+        Action::Save {
+            path: Some(saved.to_string_lossy().into_owned()),
+        },
+        accepted.generation,
+        accepted.revision,
+    )
+    .unwrap();
+    assert_eq!(fs::read(saved).unwrap(), fs::read(published).unwrap());
     assert_eq!(
-        serde_json::to_value((&desktop.rows, &manual.manual, desktop.before, desktop.after))
-            .unwrap(),
+        serde_json::to_value((
+            desktop
+                .rows
+                .into_iter()
+                .map(timing_files::ChangeRow::from)
+                .collect::<Vec<_>>(),
+            &manual.manual,
+            desktop.before,
+            desktop.after
+        ))
+        .unwrap(),
         serde_json::to_value((&r.changes, &r.manual, r.before, r.after)).unwrap()
     );
 }

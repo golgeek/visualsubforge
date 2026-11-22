@@ -5,7 +5,7 @@ use crate::{
         self, Profile,
         scene::{SceneCoverage, Scenes},
         timing_fix::{
-            self, Families, Options,
+            self, Families, Options, Unit,
             review::{Counts, ManualRow, Row},
         },
     },
@@ -54,6 +54,35 @@ fn read_cut_list<'de, D: serde::Deserializer<'de>>(
     deserializer.deserialize_seq(Cuts)
 }
 
+/// The public file review includes the engine's numeric evidence and
+/// explanations. The desktop constructs its timeline overlays separately.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeRow {
+    pub cue_id: String,
+    pub cue_label: String,
+    pub selected: bool,
+    pub delta: String,
+    pub needs: Option<String>,
+    pub replaces: Option<String>,
+    #[serde(flatten)]
+    pub unit: Unit,
+}
+
+impl From<Row> for ChangeRow {
+    fn from(row: Row) -> Self {
+        Self {
+            cue_id: row.cue_id,
+            cue_label: row.cue_label,
+            selected: row.selected,
+            delta: row.delta,
+            needs: row.needs,
+            replaces: row.replaces,
+            unit: row.unit,
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
@@ -70,7 +99,7 @@ pub struct Report {
     pub coverage: SceneCoverage,
     pub before: Counts,
     pub after: Counts,
-    pub changes: Vec<Row>,
+    pub changes: Vec<ChangeRow>,
     pub manual: Vec<ManualRow>,
     pub result_sha256: String,
 }
@@ -218,7 +247,7 @@ pub fn preview(mut request: Request<'_>, cancel: &AtomicBool) -> Result<Prepared
         coverage,
         before: review.before,
         after: review.after,
-        changes: review.changes,
+        changes: review.changes.into_iter().map(ChangeRow::from).collect(),
         manual: review.manual,
         result_sha256: digest(&output),
     };
@@ -295,6 +324,10 @@ mod tests {
         };
         let review = preview(request(), &cancel).unwrap();
         let id = &review.report().review_id;
+        let wire = serde_json::to_string(review.report()).unwrap();
+        let blank_id = wire.replacen(&format!("\"reviewId\":\"{id}\""), "\"reviewId\":\"\"", 1);
+        assert_ne!(blank_id, wire);
+        assert_eq!(digest(blank_id.as_bytes()), *id);
         cancel.store(true, Ordering::Release);
         assert!(matches!(preview(request(), &cancel), Err(Error::Cancelled)));
         assert!(matches!(

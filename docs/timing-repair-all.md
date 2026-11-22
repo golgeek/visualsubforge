@@ -109,7 +109,16 @@ supplies zero cuts. With zero buffers the coverage is `notRequired`.
 
 Schema 1 includes the input hash, profile fingerprint, file hashes for explicit
 presets and cuts, selected families, policy, sorted scope, coverage, before/after
-counts, change units, manual rows with budgets and the result hash. Rust computes
+counts, change units, manual rows with budgets and the result hash. Each change
+has a one-based display label and zero-based unit index. Sorted `dependsOn`
+indices identify prerequisites. Symmetric `conflictsWith` indices identify
+mutually exclusive partial alternatives. `endpoints` contains the numerical
+edits, `effects` the rate measurements, and `effectsText` the ordered repair
+and rate explanations with their warning flags. Each manual row's `detail`
+contains a `lead`, up to two `facts`, an optional one-based `blockingCue`,
+its rules, and the numeric `budget` and formatted `budgetText` when available.
+
+Rust computes
 the SHA-256 review ID over the compact serialized report in schema field order
 with `reviewId` empty. Decimal metrics use the Rust JSON serializer. Preview
 writes nothing. Apply recomputes the report, matches the ID, verifies the source

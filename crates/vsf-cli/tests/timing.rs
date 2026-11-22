@@ -73,6 +73,12 @@ fn preview_hash_scope_accept_and_new_file_guards() {
     assert_eq!(first["schemaVersion"], 1);
     assert_eq!(first, ex.review(&[]));
     assert_eq!(first["coverage"], "checked");
+    for row in first["changes"].as_array().unwrap() {
+        assert!(row.get("ghosts").is_none());
+        for key in ["effects", "effectsText", "dependsOn", "conflictsWith"] {
+            assert!(row[key].is_array(), "missing {key}");
+        }
+    }
     assert!(
         first["changes"]
             .as_array()
@@ -99,7 +105,7 @@ fn preview_hash_scope_accept_and_new_file_guards() {
     assert_eq!(scoped["families"]["speed"], false);
     assert_eq!(scoped["cues"], serde_json::json!([2]));
     assert!(scoped["changes"].as_array().unwrap().iter().all(|r| {
-        r["unit"]["endpoints"]
+        r["endpoints"]
             .as_array()
             .unwrap()
             .iter()
@@ -113,6 +119,7 @@ fn preview_hash_scope_accept_and_new_file_guards() {
     code(ex.publish(id, &output), 0);
     let result = fs::read(&output).unwrap();
     assert_ne!(result, original);
+    assert!(result.ends_with(b"\r\n\r\n"));
     assert!(result.starts_with(&[0xef, 0xbb, 0xbf]));
     assert!(result.windows(2).any(|w| w == b"\r\n"));
     code(ex.publish(id, &output), 2);
@@ -178,7 +185,9 @@ fn remaining_findings_return_one_and_print_manual_budget() {
     assert_eq!(output.status.code(), Some(1));
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(
-        text.contains("Review ID") && text.contains("Shorten by") && text.contains("Budget at")
+        text.contains("Review ID")
+            && text.contains("Shorten by")
+            && text.contains("Scene coverage: complete")
     );
 }
 
@@ -203,4 +212,63 @@ fn complete_scene_input_uses_the_full_file_budget_and_empty_preview_returns_zero
     );
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(report["changes"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn spacing_review_names_the_repair_trade_dependency_and_partial_alternative() {
+    // Construct SRT from the same synthetic cues as the Rust-generated dock review.
+    let episode: Value = serde_json::from_str(include_str!(
+        "../../../tests/frontend/scene-quality/timing-episode.json"
+    ))
+    .unwrap();
+    let ex = Example::new();
+    let mut srt = String::new();
+    let time = |ms: u64| {
+        format!(
+            "{:02}:{:02}:{:02},{:03}",
+            ms / 3_600_000,
+            ms / 60_000 % 60,
+            ms / 1000 % 60,
+            ms % 1000
+        )
+    };
+    for cue in episode["cues"].as_array().unwrap() {
+        use std::fmt::Write;
+        writeln!(
+            srt,
+            "{}\n{} --> {}\n{}\n",
+            cue["id"],
+            time(cue["startMs"].as_u64().unwrap()),
+            time(cue["endMs"].as_u64().unwrap()),
+            cue["text"].as_str().unwrap()
+        )
+        .unwrap();
+    }
+    fs::write(&ex.source, srt).unwrap();
+    fs::write(&ex.cuts, br#"{"version":1,"cutsMs":[12000,17990]}"#).unwrap();
+    let output = ex.run(&[
+        "--scenes",
+        ex.cuts.to_str().unwrap(),
+        "--priority",
+        "spacing",
+        "--start-tolerance-ms",
+        "300",
+        "--scene-edges",
+        "nearest",
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8(output.stdout).unwrap();
+    for phrase in [
+        "Scene coverage: complete",
+        "Trade-off",
+        "gap 20 → 80 ms · CPS 38.7 → 40.3 (limit 20)",
+        "cue 5 CPS",
+        "needs cue 3",
+        "replaces the change to cue 10",
+        "conflicts with cue 8 partial",
+        "Cue 1 needs manual work. Too fast: cue 2 starts at 00:00:02,520.",
+        "Shorten by 30 counted characters (maximum 28).",
+    ] {
+        assert!(text.contains(phrase), "missing {phrase} in {text}");
+    }
 }
