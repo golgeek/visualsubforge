@@ -1,5 +1,6 @@
 //! Rust-owned projection shared by the desktop and headless review.
 use super::*;
+mod selection_effects;
 
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -62,6 +63,7 @@ impl Counts {
     }
 }
 pub struct Review {
+    pub withheld_all: bool,
     pub changes: Vec<Row>,
     pub manual: Vec<ManualRow>,
     pub before: Counts,
@@ -96,7 +98,16 @@ impl Proposal {
         let chosen: HashSet<_> = state.selected.iter().copied().collect();
         let mut changes = Vec::new();
         let mut trades = 0;
-        for u in &self.units {
+        let report = plan.after(self.after());
+        let edited = self
+            .units
+            .iter()
+            .any(|unit| chosen.contains(&unit.index) == unit.partial);
+        let projection = edited
+            .then(|| selection_effects::SelectionEffects::new(self, &chosen, &plan.candidate));
+        for source in &self.units {
+            let projected = projection.as_ref().map(|p| p.project(source, report));
+            let u = projected.as_ref().unwrap_or(source);
             checkpoint()?;
             let checked = chosen.contains(&u.index);
             trades += u32::from(checked && u.trade_off);
@@ -188,7 +199,6 @@ impl Proposal {
                     .collect();
             }
         }
-        let report = plan.after(self.after());
         let positions = self
             .document
             .cues()
@@ -252,6 +262,7 @@ impl Proposal {
             Vec::new()
         };
         Ok(Review {
+            withheld_all: self.withheld_all,
             changes,
             manual,
             before: Counts::new(&self.before, &self.scope),

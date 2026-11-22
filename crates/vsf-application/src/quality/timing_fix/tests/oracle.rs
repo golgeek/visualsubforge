@@ -463,3 +463,52 @@ fn independent_selection_oracle() {
     }
     assert_eq!(rejected, 0, "a closure-respecting selection was rejected");
 }
+
+#[test]
+fn edited_row_effects_follow_the_selected_or_checkbox_candidate() {
+    let mut random = Generator(0x035f_2026);
+    let mut corrected = 0;
+    for _ in 0..100 {
+        let proposal = Trial::generate(&mut random, 30).plan();
+        let Some(first) = proposal.units.first() else {
+            continue;
+        };
+        let review = proposal.review(&[first.index], false, || Ok(())).unwrap();
+        for (row, source) in review.changes.iter().zip(&proposal.units) {
+            let hypothetical;
+            let plan = if row.selected {
+                &review.plan
+            } else {
+                hypothetical = proposal
+                    .review_selection(&[first.index, row.cue_index], false, || Ok(()))
+                    .unwrap()
+                    .1;
+                &hypothetical
+            };
+            for (effect, old) in row.unit.effects.iter().zip(&source.effects) {
+                let m = &plan.after(proposal.after()).metrics[effect.index as usize];
+                let actual = match if effect.rule == Rule::CpsHigh {
+                    &m.cps
+                } else {
+                    &m.rs
+                } {
+                    metrics::Rate::Finite { value } => Some(*value),
+                    _ => None,
+                };
+                assert_eq!(effect.after, actual);
+                corrected += usize::from(effect.after != old.after);
+            }
+            for change in &row.unit.endpoints {
+                let cue = &plan.candidate.cues()[change.index as usize];
+                assert_eq!(
+                    (change.after.start_ms, change.after.end_ms),
+                    (cue.start().get(), cue.end().get())
+                );
+            }
+        }
+    }
+    assert!(
+        corrected > 0,
+        "fixture must exercise a changed numerical effect"
+    );
+}
