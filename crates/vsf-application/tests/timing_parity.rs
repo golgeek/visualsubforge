@@ -73,6 +73,54 @@ fn frozen_planners() {
                     }
                 }
             }
+            // Compare the priority tuple independently of candidate generation.
+            // Legacy counts and endpoints are reference data, never live calls.
+            let counts = |rules: &[&str], json: &Value| -> u64 {
+                rules
+                    .iter()
+                    .map(|r| json.get(r).and_then(Value::as_u64).unwrap_or(0))
+                    .sum()
+            };
+            let mut after = serde_json::Map::new();
+            for f in &plan.after().findings {
+                let rule = serde_json::to_value(f.rule).unwrap();
+                let value = after.entry(rule.as_str().unwrap()).or_insert(json!(0));
+                *value = json!(value.as_u64().unwrap() + 1);
+            }
+            let objective = |report: &Value, rows: &BTreeMap<u64, Value>| {
+                let mut moved_start = 0;
+                let mut moved_end = 0;
+                for (index, t) in rows {
+                    let c = &parsed.document.cues()[*index as usize];
+                    moved_start += c.start().get().abs_diff(t[0].as_u64().unwrap());
+                    moved_end += c.end().get().abs_diff(t[1].as_u64().unwrap());
+                }
+                let (first, second) = match family {
+                    "speed" => (
+                        counts(&["duration_short", "duration_long"], report),
+                        counts(
+                            &[
+                                "cps_high",
+                                "cps_low",
+                                "rs_high",
+                                "rs_low",
+                                "speed_unavailable",
+                            ],
+                            report,
+                        ),
+                    ),
+                    "gaps" => (counts(&["gap", "overlap"], report), 0),
+                    _ => (counts(&["scene_start", "scene_end"], report), 0),
+                };
+                (first, second, moved_start, moved_end)
+            };
+            let old = objective(&case[family]["after"], &expected);
+            let new = objective(&Value::Object(after), &actual);
+            assert!(
+                new <= old,
+                "{} {family}: {new:?} exceeds legacy {old:?}",
+                case["case"]
+            );
             if actual != expected {
                 differences.push(
                     json!({"case":case["case"],"family":family,"legacy":expected,"engine":actual}),
