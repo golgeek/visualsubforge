@@ -16,6 +16,7 @@ import secrets
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 
 
@@ -198,32 +199,49 @@ def sign(args):
                 submission = private / "submission.zip"
                 run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, submission])
                 auth = ["--keychain-profile", profile, "--keychain", keychain]
-                submitted = json.loads(run(["xcrun", "notarytool", "submit", submission,
-                                            *auth, "--output-format", "json"], timeout=600))
-                receipt["submission_id"] = submitted["id"]
-                # Persist the ID before waiting so a timed-out submission can
-                # be inspected rather than blindly submitted again.
-                (output / "signing-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
-                print("Submitted to Apple; waiting for notarization.", flush=True)
-                result = json.loads(run(["xcrun", "notarytool", "wait", submitted["id"], *auth,
-                                         "--timeout", "30m", "--output-format", "json"],
-                                        timeout=1850, status_json=True))
-                receipt["notarization_status"] = result["status"]
-                if result["status"] != "In Progress":
-                    run(["xcrun", "notarytool", "log", submitted["id"], *auth, output / "notarization-log.json"])
-                if result["status"] != "Accepted":
-                    raise ValueError("Apple did not accept the submission; inspect notarization-log.json")
+                def notarize(payload, record, log):
+                    submitted = json.loads(run(["xcrun", "notarytool", "submit", payload,
+                                                *auth, "--output-format", "json"], timeout=600))
+                    record["submission_id"] = submitted["id"]
+                    # Both IDs survive a timeout, including while waiting for the image.
+                    (output / "signing-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+                    print(f"Submitted {payload.name}; waiting for notarization.", flush=True)
+                    result = json.loads(run(["xcrun", "notarytool", "wait", submitted["id"], *auth,
+                                             "--timeout", "30m", "--output-format", "json"],
+                                            timeout=1850, status_json=True))
+                    record["notarization_status"] = result["status"]
+                    if result["status"] != "In Progress":
+                        run(["xcrun", "notarytool", "log", submitted["id"], *auth, output / log])
+                    if result["status"] != "Accepted":
+                        raise ValueError(f"Apple did not accept {payload.name}; inspect the signing evidence")
+
+                notarize(submission, receipt, "notarization-log.json")
                 run(["xcrun", "stapler", "staple", app])
                 run(["xcrun", "stapler", "validate", app])
                 run(["codesign", "--verify", "--deep", "--strict", app])
                 run(["spctl", "--assess", "--type", "execute", app])
                 receipt["signed_files"] = [{"file": str(relative), "sha256": digest(path)}
                                            for relative, path in files.items()]
-                archive = output / f"VisualSubForge_{version}_{arch}_macos.zip"
-                run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, archive])
-                receipt.update(archive=archive.name, sha256=digest(archive))
-                (output / "SHA256SUMS").write_text(f"{receipt['sha256']}  {archive.name}\n")
-                print(f"Signed, notarized and stapled: {archive.name}", flush=True)
+                image = output / f"VisualSubForge_{version}_{arch}_macos.dmg"
+                builder = [sys.executable, Path(__file__).with_name("macos_dmg.py")]
+                run([*builder, "build", app, image], timeout=600)
+                run([*builder, "verify", app, image])
+                run(["codesign", "--force", "--timestamp", "--sign", identity, "--keychain", keychain, image])
+                receipt["image"] = {"name": image.name, "format": "UDZO"}
+                notarize(image, receipt["image"], "image-notarization-log.json")
+                run(["xcrun", "stapler", "staple", image])
+                run(["xcrun", "stapler", "validate", image])
+                # codesign treats a requirement without the leading "=" as a filename.
+                requirement = (f"=anchor apple generic and certificate leaf[subject.OU] = {json.dumps(team)} "
+                               f"and certificate leaf[subject.CN] = {json.dumps(identity)}")
+                run(["codesign", "--verify", "--strict", "-R", requirement, image])
+                run(["spctl", "--assess", "--type", "open", "--context", "context:primary-signature", image])
+                hash_file = private / "app-tree.sha256"
+                run([*builder, "verify", "--signed", "--tree-hash-file", hash_file, app, image])
+                receipt["image"].update(size=image.stat().st_size, sha256=digest(image),
+                                        app_tree_sha256=hash_file.read_text().strip())
+                (output / "SHA256SUMS").write_text(f"{receipt['image']['sha256']}  {image.name}\n")
+                print(f"Signed, notarized and stapled: {image.name}", flush=True)
             finally:
                 if created:
                     try:

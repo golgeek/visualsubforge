@@ -16,6 +16,11 @@ SPEC.loader.exec_module(ASSETS)
 
 class LinuxReleaseAssets(unittest.TestCase):
     def test_both_architectures_and_source_archives_survive_collection(self):
+        for signed in (False, True):
+            with self.subTest(signed=signed):
+                self.check_collection(signed)
+
+    def check_collection(self, signed):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             inputs, output = root / "inputs", root / "downloads"
@@ -34,7 +39,12 @@ class LinuxReleaseAssets(unittest.TestCase):
             artifact("windows-preview-x64", ["Windows-setup.exe", "VisualSubForge_0.1.0_x64_windows.zip", *sources])
             expected = {}
             for arch, deb in [("x86_64", "amd64"), ("aarch64", "arm64")]:
-                artifact("macos-unsigned-" + arch, [f"VisualSubForge_0.1.0_{arch}_macos-unsigned.zip", *sources])
+                base = f"VisualSubForge_0.1.0_{arch}_macos"
+                artifact("macos-unsigned-" + arch, [base + "-unsigned.zip", base + "-unsigned.dmg", *sources])
+                artifact("macos-notarized-" + arch, [base + ".dmg"])
+                image = base + (".dmg" if signed else "-unsigned.dmg")
+                source = ("macos-notarized-" if signed else "macos-unsigned-") + arch
+                expected[image] = f"{source}/{image}".encode()
                 name = "linux-preview-" + deb
                 packages = [f"VisualSubForge_0.1.0_{arch}_linux.tar.gz", f"VisualSubForge_0.1.0_{deb}.deb"]
                 artifact(name, packages + sources)
@@ -44,7 +54,9 @@ class LinuxReleaseAssets(unittest.TestCase):
                     expected[f"VisualSubForge_0.1.0_linux-{deb}_{file}"] = f"{name}/{file}".encode()
             artifact("preview-acceptance-fixtures", ["synthetic.srt"])
             with patch.object(ASSETS, "check", return_value="0.1.0"):
-                ASSETS.collect(inputs, output, signed=False)
+                ASSETS.collect(inputs, output, signed=signed)
             verified = ASSETS.verified(output)
+            self.assertEqual({n for n in verified if "_macos" in n and not n.endswith(".tar.gz")},
+                             {n for n in expected if n.endswith(".dmg")})
             for name, data in expected.items():
                 self.assertEqual(verified[name].read_bytes(), data)

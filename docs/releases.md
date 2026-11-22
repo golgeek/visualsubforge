@@ -13,10 +13,28 @@ The workspace version in `Cargo.toml` drives packaging. After changing it, run
 `python3 scripts/release_version.py` checks the synchronized manifests and locks.
 
 1. On the chosen main commit, run `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=true`. Check the run's head SHA and all application checks. The existing Mac signing job runs only on main. A pull request touching the release workflow rehearses unsigned packaging.
-2. Download the combined `VisualSubForge-v0.1.0` artifact. Verify `shasum -a 256 -c SHA256SUMS`, both Mac plists, stapled tickets and Gatekeeper assessments, the Windows installer and both VSF executable versions, and the versions and checksums of both Linux tarballs and Debian packages. Smoke-test the exact ARM download with the fixture ZIP. Install the downloaded Linux packages across the native distribution matrix and review the [release notes](release-notes/v0.1.0.md).
+2. Download the combined `VisualSubForge-v0.1.0` artifact. Verify `shasum -a 256 -c SHA256SUMS`, both Mac DMGs and their enclosed apps as described below, the Windows installer and both VSF executable versions, and the versions and checksums of both Linux tarballs and Debian packages. Smoke-test the exact ARM download with the fixture ZIP. Install the downloaded Linux packages across the native distribution matrix and review the [release notes](release-notes/v0.1.0.md).
 3. Owner: tag the verified commit with `git tag -a v0.1.0 <verified-commit> -m 'VisualSubForge 0.1.0 (test release)'` and `git push origin refs/tags/v0.1.0`.
 4. Owner: with main still at that commit, dispatch `gh workflow run release.yml --ref main -f tag=v0.1.0 -f dry_run=false`. The workflow checks the existing tag before building and again before creating a draft. Only the draft job can write release assets.
-5. Review the draft and verify its actual downloads again. Signing and notarization produce fresh bytes. Publish as a pre-release with `gh release edit v0.1.0 --draft=false --prerelease --latest=false`. The owner can then apply for Windows signing.
+5. Review the draft and verify its actual downloads again. Signing and notarization produce fresh bytes. Download the draft’s Apple Silicon DMG in a browser, open it, check the Finder window, drag the app to Applications, eject the image and launch the copy in Applications. Confirm the standard first-launch prompt. Publish as a pre-release with `gh release edit v0.1.0 --draft=false --prerelease --latest=false`. The owner can then apply for Windows signing.
+
+The Mac downloads are `VisualSubForge_0.1.0_aarch64_macos.dmg` and
+`VisualSubForge_0.1.0_x86_64_macos.dmg`. For each image at gate 3:
+
+- Run `hdiutil verify`, `xcrun stapler validate` and `codesign --verify --strict`
+  on the downloaded image. Check the Developer ID Application identity and Team ID
+  against the signing configuration, then run
+  `spctl --assess --type open --context context:primary-signature`.
+- Attach read-only. Check that the volume contains the app, the Applications
+  symlink to `/Applications`, the background, volume icon, Finder settings and
+  only filesystem-generated metadata. Compare the background TIFF generated
+  from both committed PNGs and the volume icon by SHA-256.
+- Copy the app out with `ditto`, eject the image and run
+  `codesign --verify --deep --strict`, `xcrun stapler validate` and
+  `spctl --assess --type execute` on the copy. Check the plist version,
+  mounted app tree hash and signed native hashes against the signing receipt.
+  Check the FFmpeg version and load paths against the matching native sources.
+  Record both image sizes alongside the preceding ZIP sizes.
 
 The Debian packages install the same payload as the per-architecture tarballs.
 Check both archives’ payload manifests, the Debian control fields and removal,
@@ -638,7 +656,7 @@ Its separate signing job runs on `main` after packaging,
 with secrets scoped only to the signing step. It validates the assembly hashes,
 uses a temporary Keychain, signs all native code with hardened runtime and a
 timestamp, submits to Apple, requires acceptance, staples and verifies the app,
-then archives it again. A submission ID is saved before waiting so a timeout
+then builds, verifies, signs, notarizes and staples the DMG. Each submission ID is saved before waiting so a timeout
 can be investigated without blindly resubmitting. The original unsigned app
 is preserved. Assembly and signing receipts live outside the app and describe
 the final hashes for their respective stages. The assembly receipt also covers

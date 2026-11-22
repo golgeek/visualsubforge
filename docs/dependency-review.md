@@ -194,6 +194,14 @@ table, including the Debian and Ubuntu t64 alternatives.
 The distribution owns the transitive dependencies of these libraries, including
 WebKitGTK's XML and JPEG providers. mpv disables its JPEG writer and scripts.
 
+## macOS disk image build tools
+
+The release workflow installs dmgbuild 2.0.0, ds_store 1.3.4 and mac_alias
+2.2.4 in a dedicated virtual environment using the wheel hashes in
+[`requirements.txt`](../src-tauri/dmg/requirements.txt). All three are MIT
+licensed. dmgbuild assembles the disk image, ds_store writes Finder settings
+and mac_alias encodes the background reference. They are build-only tools.
+
 ## macOS media runtime
 
 The Apple Silicon and Intel packages use the same FFmpeg 8.1.2 and dav1d

@@ -4,12 +4,10 @@ This guide prepares credentials for VSF releases built on GitHub Actions. You
 only create/export the signing identity on your Mac; release builds do not need
 to run locally. The same identity can sign both Intel and Apple Silicon builds.
 
-Status, 2026-10-11: the six repository secrets are configured. The manual macOS
-packaging workflow now has a separate signing job that consumes them when
-`sign` is selected on `main`. The [ARM64 run at `a222eda`](https://github.com/golgeek/visualsubforge/actions/runs/38171420846)
-passed signing, notarization, stapling and Gatekeeper assessment. Intel validation
-is pending. This workflow does not publish a release; dependency inventory and
-install/runtime checks remain. See [release preparation](releases.md).
+Both architectures passed app signing, notarization, stapling and Gatekeeper in
+the [ZIP rehearsal](https://github.com/golgeek/visualsubforge/actions/runs/44970867350).
+The disk image requires its own main-branch signing rehearsal. Both stages use
+the six configured secrets. See [release preparation](releases.md).
 
 ## 1. Choose the certificate
 
@@ -192,9 +190,14 @@ or a private key in chat.
 The signing job checks the assembly hashes, imports the identity into a private
 temporary Keychain, signs the fully assembled application and its native tools,
 submits it to Apple, requires acceptance, staples the ticket and runs signature
-and Gatekeeper checks. It then recreates the ZIP with the stapled app. The job
-cleans up the Keychain/export and uploads a receipt with the submission ID and
-final archive hash. Secrets are scoped to this step, not the build/test jobs.
+and Gatekeeper checks. It builds and mounts the UDZO disk image, verifies the enclosed app
+against the stapled input, signs the image with the same Developer ID identity,
+then submits the image separately. After stapling it checks the image signature,
+Team ID and Gatekeeper's primary-signature assessment, and repeats the mounted
+contents and app trust checks. The receipt records each submission ID before
+waiting, the two statuses, the mounted app tree hash and the final image size
+and SHA-256. Each submission has a separate notarization log. The job cleans
+up its temporary Keychain and export. Secrets are scoped to this step, not the build/test jobs.
 Successful credential setup is not evidence that signing or clean-install checks
 have passed. Signing also does not lower the minimum macOS version required by
 the compiled dependencies.

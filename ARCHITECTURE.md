@@ -580,6 +580,10 @@ Failed stages retain evidence. Packaging uses a new directory and publishes only
 after the platform assembler succeeds, retaining the previous completed package.
 The preview workflows call the same `make app` prerequisites and consume a
 recorded SDK/Cargo-path manifest before release-specific assembly and audits.
+On macOS the assembly ZIP supplies signing and decoder checks. The release job
+builds a read-only disk image from the stapled app, verifies its mounted tree
+against the input, then signs, notarizes and staples the image separately.
+The Finder layout and pinned build-only dependencies live in `src-tauri/dmg/`.
 Local installation copies the macOS/Windows private bundle or installs the Linux
 Debian package through apt. The Linux tarball has its own offline installer. These are local builds, separate from release source
 inventories, signing and notarization. `media-prototype` and `macos-angle` remain
