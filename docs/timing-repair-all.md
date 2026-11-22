@@ -96,7 +96,7 @@ Use `--fix gaps,speed,shots` (the default), a subset such as `--fix gaps`, or
 `--start-tolerance-ms 0..1000` and `--scene-edges inward|nearest`.
 
 A scene file contains mapped integer milliseconds. It must be a JSON object
-with exactly these two fields. The reader accepts at most 100,000 timestamps
+with exactly these two fields. The file limit is 16 MiB. The reader accepts at most 100,000 timestamps
 within the subtitle time range, sorts them and removes duplicates.
 
 ```json

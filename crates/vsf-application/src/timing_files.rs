@@ -24,7 +24,34 @@ use subtitle_core::{Editor, Milliseconds};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SceneFile {
     version: u32,
+    #[serde(deserialize_with = "read_cut_list")]
     cuts_ms: Vec<u64>,
+}
+
+fn read_cut_list<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Vec<u64>, D::Error> {
+    struct Cuts;
+    impl<'de> serde::de::Visitor<'de> for Cuts {
+        type Value = Vec<u64>;
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("an array of up to 100,000 integer millisecond timestamps")
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> std::result::Result<Self::Value, A::Error> {
+            let mut cuts = Vec::new();
+            while let Some(cut) = seq.next_element()? {
+                if cuts.len() == 100_000 {
+                    return Err(serde::de::Error::custom("Scene input exceeds 100,000 cuts"));
+                }
+                cuts.push(cut);
+            }
+            Ok(cuts)
+        }
+    }
+    deserializer.deserialize_seq(Cuts)
 }
 
 #[derive(Serialize)]
@@ -73,10 +100,8 @@ fn evaluation(error: quality::Error) -> Error {
 }
 fn read_scenes(bytes: &[u8]) -> Result<Scenes> {
     let mut file: SceneFile = serde_json::from_slice(bytes).map_err(invalid)?;
-    if file.version != 1 || file.cuts_ms.len() > 100_000 {
-        return Err(invalid(
-            "Scene input requires version 1 and at most 100,000 cut timestamps",
-        ));
+    if file.version != 1 {
+        return Err(invalid("Scene input requires version 1"));
     }
     file.cuts_ms.sort_unstable();
     file.cuts_ms.dedup();
@@ -116,7 +141,7 @@ pub fn preview(mut request: Request<'_>, cancel: &AtomicBool) -> Result<Prepared
             return Err(invalid("Choose either a scene input or --without-scenes"));
         }
         Some(path) => {
-            let file = CapturedFile::read(path, 4 * 1024 * 1024, &budget)?;
+            let file = CapturedFile::read(path, srt_limits::MAX_BYTES, &budget)?;
             let scenes = read_scenes(&file.bytes)?;
             let hash = file.identity.sha256.clone();
             inputs.push(file.identity);

@@ -181,3 +181,26 @@ fn remaining_findings_return_one_and_print_manual_budget() {
         text.contains("Review ID") && text.contains("Shorten by") && text.contains("Budget at")
     );
 }
+
+#[test]
+fn complete_scene_input_uses_the_full_file_budget_and_empty_preview_returns_zero() {
+    let ex = Example::new();
+    let mut file = vec![b' '; 5 * 1024 * 1024];
+    file.extend_from_slice(br#"{"version":1,"cutsMs":[]}"#);
+    fs::write(&ex.cuts, file).unwrap();
+    let output = ex.run(&[
+        "--scenes",
+        ex.cuts.to_str().unwrap(),
+        "--fix",
+        "shots",
+        "--json",
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(report["changes"].as_array().unwrap().is_empty());
+}
