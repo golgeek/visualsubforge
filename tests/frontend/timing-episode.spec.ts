@@ -93,6 +93,24 @@ for (const theme of ['dark', 'light'])
       await expect(
         dock.getByRole('button', { name: 'Restore default selection' }),
       ).toHaveCount(0);
+      const partial = dock.getByRole('checkbox', {
+        name: 'Include cue 8→9',
+        exact: true,
+      });
+      const replacement = dock.getByRole('checkbox', {
+        name: 'Include cue 10',
+        exact: true,
+      });
+      await expect(
+        dock.getByText('replaces the change to cue 10'),
+      ).toBeVisible();
+      await partial.check();
+      await expect(replacement).not.toBeChecked();
+      await expect(dock.getByText('off: cue 8 partial ticked')).toBeVisible();
+      await capture('partial');
+      await replacement.check();
+      await expect(partial).not.toBeChecked();
+      await expect(dock.getByText('off: cue 8 partial ticked')).toHaveCount(0);
       await open('&incomplete');
       await expect(dock.locator('.scan-reason')).toHaveText(
         'Finish the scene scan to apply timing changes.',

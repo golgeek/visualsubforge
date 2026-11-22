@@ -2949,6 +2949,8 @@ export type vsf_application_quality_timing_fix_review_Row = {
   unit: vsf_application_quality_timing_fix_Unit;
   delta: string;
   needs: string | null;
+  replaces: string | null;
+  offReason: string | null;
   startMoved: boolean;
   timecodes: string[];
   ghosts: vsf_application_quality_timing_fix_review_Ghost[];
@@ -3578,6 +3580,7 @@ export type vsf_application_quality_statistics_UnavailableCounts = {
 
 export type vsf_application_quality_timing_fix_Unit = {
   dependsOn: number[];
+  conflictsWith: number[];
   effectsText: vsf_application_quality_timing_fix_effects_EffectSegment[];
   cutTimecodes: string[];
   index: number;

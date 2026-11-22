@@ -376,12 +376,15 @@ export const fixGapsSample = {
         },
       ],
       needs: null,
+      offReason: null,
+      replaces: null,
       selected: true,
       startMoved: false,
       timecodes: [
         'Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,000 → 00:00:01,970',
       ],
       unit: {
+        conflictsWith: [],
         cutTimecodes: [],
         dependsOn: [],
         effects: [
@@ -452,12 +455,15 @@ export const fixGapsSample = {
         },
       ],
       needs: 'needs cue 1',
+      offReason: null,
+      replaces: null,
       selected: true,
       startMoved: false,
       timecodes: [
         'Start 00:00:02,050 → 00:00:02,050 · End 00:00:03,050 → 00:00:03,020',
       ],
       unit: {
+        conflictsWith: [],
         cutTimecodes: [],
         dependsOn: [0],
         effects: [
@@ -631,12 +637,15 @@ export const fixSpeedSample = {
         },
       ],
       needs: null,
+      offReason: null,
+      replaces: null,
       selected: true,
       startMoved: false,
       timecodes: [
         'Start 00:00:01,000 → 00:00:01,000 · End 00:00:01,400 → 00:00:03,130',
       ],
       unit: {
+        conflictsWith: [],
         cutTimecodes: [],
         dependsOn: [],
         effects: [
@@ -707,12 +716,15 @@ export const fixSpeedSample = {
         },
       ],
       needs: 'needs cue 1',
+      offReason: null,
+      replaces: null,
       selected: true,
       startMoved: false,
       timecodes: [
         'Start 00:00:05,000 → 00:00:05,000 · End 00:00:13,000 → 00:00:06,870',
       ],
       unit: {
+        conflictsWith: [],
         cutTimecodes: [],
         dependsOn: [0],
         effects: [
@@ -2531,6 +2543,8 @@ export const timingFixView = {
         },
       ],
       needs: null,
+      offReason: null,
+      replaces: null,
       selected: true,
       startMoved: true,
       timecodes: [
@@ -2538,6 +2552,7 @@ export const timingFixView = {
         'Cut 00:00:01,000',
       ],
       unit: {
+        conflictsWith: [],
         cutTimecodes: ['00:00:01,000'],
         dependsOn: [],
         effects: [],
@@ -2585,6 +2600,8 @@ export const timingFixView = {
         },
       ],
       needs: 'needs cue 1',
+      offReason: null,
+      replaces: null,
       selected: true,
       startMoved: true,
       timecodes: [
@@ -2593,6 +2610,7 @@ export const timingFixView = {
         'Cut 00:00:06,000',
       ],
       unit: {
+        conflictsWith: [],
         cutTimecodes: ['00:00:04,000', '00:00:06,000'],
         dependsOn: [0],
         effects: [],

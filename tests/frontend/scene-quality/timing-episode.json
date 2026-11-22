@@ -173,12 +173,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -252,6 +255,8 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
@@ -259,6 +264,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -333,6 +339,8 @@
             }
           ],
           "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -340,6 +348,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -416,12 +425,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -475,7 +487,8 @@
       ],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 0
+      "trades": 0,
+      "withoutTradesToggles": []
     },
     "incomplete": {
       "after": {
@@ -617,7 +630,8 @@
       "rows": [],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 0
+      "trades": 0,
+      "withoutTradesToggles": []
     },
     "nearest": {
       "after": {
@@ -708,12 +722,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -786,12 +803,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -876,6 +896,8 @@
             }
           ],
           "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -883,6 +905,7 @@
             "Start 00:00:08,000 → 00:00:08,030 · End 00:00:10,000 → 00:00:10,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [
               2
@@ -1001,6 +1024,8 @@
             }
           ],
           "needs": "needs cue 4",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -1009,6 +1034,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -1111,6 +1137,8 @@
           "delta": "start −300 ms, end +300 ms, cue 9 start +300 ms",
           "ghosts": [],
           "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": "replaces the change to cue 10",
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -1118,6 +1146,9 @@
             "Start 00:00:15,080 → 00:00:15,380 · End 00:00:16,500 → 00:00:16,500"
           ],
           "unit": {
+            "conflictsWith": [
+              9
+            ],
             "cutTimecodes": [],
             "dependsOn": [
               5
@@ -1219,12 +1250,17 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
           ],
           "unit": {
+            "conflictsWith": [
+              7
+            ],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -1278,7 +1314,1419 @@
       ],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 1
+      "trades": 1,
+      "withoutTradesToggles": [
+        0
+      ]
+    },
+    "partial": {
+      "after": {
+        "gaps": 0,
+        "shots": 0,
+        "speed": 6,
+        "total": 6
+      },
+      "before": {
+        "gaps": 2,
+        "shots": 2,
+        "speed": 8,
+        "total": 12
+      },
+      "changed": 5,
+      "coverage": "checked",
+      "manual": [
+        {
+          "cueId": "1",
+          "cueNumber": 1,
+          "detail": {
+            "blockingCue": 2,
+            "budget": {
+              "at": {
+                "endMs": 2440,
+                "startMs": 1000
+              },
+              "atPartial": false,
+              "effectiveMs": 1440,
+              "estimate": false,
+              "maxCounted": 28,
+              "shortenBy": 30
+            },
+            "budgetText": "Shorten by 30 counted characters (maximum 28).",
+            "facts": [],
+            "index": 0,
+            "lead": "Too fast: cue 2 starts at 00:00:02,520.",
+            "rules": [
+              "cps_high",
+              "rs_high"
+            ]
+          }
+        },
+        {
+          "cueId": "8",
+          "cueNumber": 8,
+          "detail": {
+            "blockingCue": 9,
+            "budget": {
+              "at": {
+                "endMs": 15300,
+                "startMs": 13700
+              },
+              "atPartial": false,
+              "effectiveMs": 1600,
+              "estimate": false,
+              "maxCounted": 32,
+              "shortenBy": 52
+            },
+            "budgetText": "Shorten by 52 counted characters (maximum 32).",
+            "facts": [],
+            "index": 7,
+            "lead": "Too fast: cue 9 starts at 00:00:15,080.",
+            "rules": [
+              "cps_high",
+              "rs_high"
+            ]
+          }
+        },
+        {
+          "cueId": "10",
+          "cueNumber": 10,
+          "detail": {
+            "blockingCue": null,
+            "budget": {
+              "at": {
+                "endMs": 21000,
+                "startMs": 20000
+              },
+              "atPartial": false,
+              "effectiveMs": 1000,
+              "estimate": false,
+              "maxCounted": 17,
+              "shortenBy": 4
+            },
+            "budgetText": "Shorten by 4 counted characters (maximum 17).",
+            "facts": [],
+            "index": 9,
+            "lead": "The change for this cue is unticked.",
+            "rules": [
+              "cps_high",
+              "rs_high"
+            ]
+          }
+        }
+      ],
+      "rows": [
+        {
+          "cueId": "1",
+          "cueIndex": 0,
+          "cueLabel": "1",
+          "delta": "end −60 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 2440,
+                "startMs": 1000
+              },
+              "before": {
+                "endMs": 2500,
+                "startMs": 1000
+              },
+              "cueId": "1"
+            }
+          ],
+          "needs": null,
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": false,
+          "timecodes": [
+            "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [],
+            "dependsOn": [],
+            "effects": [
+              {
+                "after": 40.27777777777778,
+                "before": 38.666666666666664,
+                "index": 0,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 61.702127659574465,
+                "before": 58.0,
+                "index": 0,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "gap 20 → 80 ms",
+                "warning": false
+              },
+              {
+                "text": "CPS 38.7 → 40.3 (limit 20)",
+                "warning": true
+              },
+              {
+                "text": "RS 58.0 → 61.7 (limit 35)",
+                "warning": true
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 2440,
+                  "startMs": 1000
+                },
+                "before": {
+                  "endMs": 2500,
+                  "startMs": 1000
+                },
+                "index": 0
+              }
+            ],
+            "fixed": [
+              "gap"
+            ],
+            "index": 0,
+            "partial": false,
+            "tradeOff": true
+          }
+        },
+        {
+          "cueId": "3",
+          "cueIndex": 2,
+          "cueLabel": "3",
+          "delta": "end +300 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 4900,
+                "startMs": 4100
+              },
+              "before": {
+                "endMs": 4600,
+                "startMs": 4100
+              },
+              "cueId": "3"
+            }
+          ],
+          "needs": null,
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": false,
+          "timecodes": [
+            "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [],
+            "dependsOn": [],
+            "effects": [
+              {
+                "after": 3.75,
+                "before": 6.0,
+                "index": 2,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 10.0,
+                "before": null,
+                "index": 2,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "duration 500 → 800 ms",
+                "warning": false
+              },
+              {
+                "text": "CPS 6.0 → 3.8",
+                "warning": false
+              },
+              {
+                "text": "RS — → 10.0",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 4900,
+                  "startMs": 4100
+                },
+                "before": {
+                  "endMs": 4600,
+                  "startMs": 4100
+                },
+                "index": 2
+              }
+            ],
+            "fixed": [
+              "duration_short",
+              "speed_unavailable"
+            ],
+            "index": 2,
+            "partial": false,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "4",
+          "cueIndex": 3,
+          "cueLabel": "4→5",
+          "delta": "end −250 ms, cue 5 start +30 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 7950,
+                "startMs": 6000
+              },
+              "before": {
+                "endMs": 8200,
+                "startMs": 6000
+              },
+              "cueId": "4"
+            },
+            {
+              "after": {
+                "endMs": 10000,
+                "startMs": 8030
+              },
+              "before": {
+                "endMs": 10000,
+                "startMs": 8000
+              },
+              "cueId": "5"
+            }
+          ],
+          "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": true,
+          "timecodes": [
+            "Start 00:00:06,000 → 00:00:06,000 · End 00:00:08,200 → 00:00:07,950",
+            "Start 00:00:08,000 → 00:00:08,030 · End 00:00:10,000 → 00:00:10,000"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [],
+            "dependsOn": [
+              2
+            ],
+            "effects": [
+              {
+                "after": 20.0,
+                "before": 17.727272727272727,
+                "index": 3,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 26.896551724137932,
+                "before": 22.941176470588236,
+                "index": 3,
+                "limit": 35,
+                "rule": "rs_high"
+              },
+              {
+                "after": 7.614213197969543,
+                "before": 7.5,
+                "index": 4,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 10.204081632653061,
+                "before": 10.0,
+                "index": 4,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "overlap 200 ms → gap 80 ms",
+                "warning": false
+              },
+              {
+                "text": "CPS 17.7 → 20.0",
+                "warning": false
+              },
+              {
+                "text": "RS 22.9 → 26.9",
+                "warning": false
+              },
+              {
+                "text": "cue 5 CPS 7.5 → 7.6",
+                "warning": false
+              },
+              {
+                "text": "cue 5 RS 10.0 → 10.2",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 7950,
+                  "startMs": 6000
+                },
+                "before": {
+                  "endMs": 8200,
+                  "startMs": 6000
+                },
+                "index": 3
+              },
+              {
+                "after": {
+                  "endMs": 10000,
+                  "startMs": 8030
+                },
+                "before": {
+                  "endMs": 10000,
+                  "startMs": 8000
+                },
+                "index": 4
+              }
+            ],
+            "fixed": [
+              "overlap"
+            ],
+            "index": 3,
+            "partial": false,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "6",
+          "cueIndex": 5,
+          "cueLabel": "6→7",
+          "delta": "end −80 ms, cue 7 start +100 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 11870,
+                "startMs": 10500
+              },
+              "before": {
+                "endMs": 11950,
+                "startMs": 10500
+              },
+              "cueId": "6"
+            },
+            {
+              "after": {
+                "endMs": 13500,
+                "startMs": 12130
+              },
+              "before": {
+                "endMs": 13500,
+                "startMs": 12030
+              },
+              "cueId": "7"
+            }
+          ],
+          "needs": "needs cue 4",
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": true,
+          "timecodes": [
+            "Start 00:00:10,500 → 00:00:10,500 · End 00:00:11,950 → 00:00:11,870",
+            "Start 00:00:12,030 → 00:00:12,130 · End 00:00:13,500 → 00:00:13,500",
+            "Cut 00:00:12,000"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [
+              "00:00:12,000"
+            ],
+            "dependsOn": [
+              3
+            ],
+            "effects": [
+              {
+                "after": 13.138686131386862,
+                "before": 12.413793103448276,
+                "index": 5,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 20.689655172413794,
+                "before": 18.94736842105263,
+                "index": 5,
+                "limit": 35,
+                "rule": "rs_high"
+              },
+              {
+                "after": 17.51824817518248,
+                "before": 16.3265306122449,
+                "index": 6,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 27.586206896551722,
+                "before": 24.742268041237114,
+                "index": 6,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "ends 50 → 130 ms before the cut",
+                "warning": false
+              },
+              {
+                "text": "starts 30 → 130 ms after the cut",
+                "warning": false
+              },
+              {
+                "text": "CPS 12.4 → 13.1",
+                "warning": false
+              },
+              {
+                "text": "RS 18.9 → 20.7",
+                "warning": false
+              },
+              {
+                "text": "cue 7 CPS 16.3 → 17.5",
+                "warning": false
+              },
+              {
+                "text": "cue 7 RS 24.7 → 27.6",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 11870,
+                  "startMs": 10500
+                },
+                "before": {
+                  "endMs": 11950,
+                  "startMs": 10500
+                },
+                "index": 5
+              },
+              {
+                "after": {
+                  "endMs": 13500,
+                  "startMs": 12130
+                },
+                "before": {
+                  "endMs": 13500,
+                  "startMs": 12030
+                },
+                "index": 6
+              }
+            ],
+            "fixed": [
+              "scene_end",
+              "scene_start"
+            ],
+            "index": 5,
+            "partial": false,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "8",
+          "cueIndex": 7,
+          "cueLabel": "8→9",
+          "delta": "start −300 ms, end +300 ms, cue 9 start +300 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 15300,
+                "startMs": 13700
+              },
+              "before": {
+                "endMs": 15000,
+                "startMs": 14000
+              },
+              "cueId": "8"
+            },
+            {
+              "after": {
+                "endMs": 16500,
+                "startMs": 15380
+              },
+              "before": {
+                "endMs": 16500,
+                "startMs": 15080
+              },
+              "cueId": "9"
+            }
+          ],
+          "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": "replaces the change to cue 10",
+          "selected": true,
+          "startMoved": true,
+          "timecodes": [
+            "Start 00:00:14,000 → 00:00:13,700 · End 00:00:15,000 → 00:00:15,300",
+            "Start 00:00:15,080 → 00:00:15,380 · End 00:00:16,500 → 00:00:16,500"
+          ],
+          "unit": {
+            "conflictsWith": [
+              9
+            ],
+            "cutTimecodes": [],
+            "dependsOn": [
+              5
+            ],
+            "effects": [
+              {
+                "after": 52.5,
+                "before": 84.0,
+                "index": 7,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 76.36363636363636,
+                "before": 168.0,
+                "index": 7,
+                "limit": 35,
+                "rule": "rs_high"
+              },
+              {
+                "after": 17.857142857142858,
+                "before": 14.084507042253522,
+                "index": 8,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 32.25806451612903,
+                "before": 21.73913043478261,
+                "index": 8,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "CPS 84.0 → 52.5 (limit 20)",
+                "warning": false
+              },
+              {
+                "text": "RS 168.0 → 76.4 (limit 35)",
+                "warning": false
+              },
+              {
+                "text": "cue 9 CPS 14.1 → 17.9",
+                "warning": false
+              },
+              {
+                "text": "cue 9 RS 21.7 → 32.3",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 15300,
+                  "startMs": 13700
+                },
+                "before": {
+                  "endMs": 15000,
+                  "startMs": 14000
+                },
+                "index": 7
+              },
+              {
+                "after": {
+                  "endMs": 16500,
+                  "startMs": 15380
+                },
+                "before": {
+                  "endMs": 16500,
+                  "startMs": 15080
+                },
+                "index": 8
+              }
+            ],
+            "fixed": [],
+            "index": 7,
+            "partial": true,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "10",
+          "cueIndex": 9,
+          "cueLabel": "10",
+          "delta": "end +101 ms",
+          "ghosts": [],
+          "needs": null,
+          "offReason": "off: cue 8 partial ticked",
+          "replaces": null,
+          "selected": false,
+          "startMoved": false,
+          "timecodes": [
+            "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
+          ],
+          "unit": {
+            "conflictsWith": [
+              7
+            ],
+            "cutTimecodes": [],
+            "dependsOn": [],
+            "effects": [
+              {
+                "after": 19.07356948228883,
+                "before": 21.0,
+                "index": 9,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 34.94176372712146,
+                "before": 42.0,
+                "index": 9,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "CPS 21.0 → 19.1",
+                "warning": false
+              },
+              {
+                "text": "RS 42.0 → 34.9",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 21101,
+                  "startMs": 20000
+                },
+                "before": {
+                  "endMs": 21000,
+                  "startMs": 20000
+                },
+                "index": 9
+              }
+            ],
+            "fixed": [
+              "cps_high",
+              "rs_high"
+            ],
+            "index": 9,
+            "partial": false,
+            "tradeOff": false
+          }
+        }
+      ],
+      "selectionConflicts": [],
+      "selectionError": null,
+      "trades": 1,
+      "withoutTradesToggles": [
+        0
+      ]
+    },
+    "replacement": {
+      "after": {
+        "gaps": 0,
+        "shots": 0,
+        "speed": 4,
+        "total": 4
+      },
+      "before": {
+        "gaps": 2,
+        "shots": 2,
+        "speed": 8,
+        "total": 12
+      },
+      "changed": 5,
+      "coverage": "checked",
+      "manual": [
+        {
+          "cueId": "1",
+          "cueNumber": 1,
+          "detail": {
+            "blockingCue": 2,
+            "budget": {
+              "at": {
+                "endMs": 2440,
+                "startMs": 1000
+              },
+              "atPartial": false,
+              "effectiveMs": 1440,
+              "estimate": false,
+              "maxCounted": 28,
+              "shortenBy": 30
+            },
+            "budgetText": "Shorten by 30 counted characters (maximum 28).",
+            "facts": [],
+            "index": 0,
+            "lead": "Too fast: cue 2 starts at 00:00:02,520.",
+            "rules": [
+              "cps_high",
+              "rs_high"
+            ]
+          }
+        },
+        {
+          "cueId": "8",
+          "cueNumber": 8,
+          "detail": {
+            "blockingCue": 9,
+            "budget": {
+              "at": {
+                "endMs": 15300,
+                "startMs": 13700
+              },
+              "atPartial": true,
+              "effectiveMs": 1600,
+              "estimate": false,
+              "maxCounted": 32,
+              "shortenBy": 52
+            },
+            "budgetText": "Shorten by 52 counted characters (maximum 32). At the unticked timing 00:00:13,700 → 00:00:15,300.",
+            "facts": [],
+            "index": 7,
+            "lead": "Too fast: cue 9 starts at 00:00:15,080.",
+            "rules": [
+              "cps_high",
+              "rs_high"
+            ]
+          }
+        }
+      ],
+      "rows": [
+        {
+          "cueId": "1",
+          "cueIndex": 0,
+          "cueLabel": "1",
+          "delta": "end −60 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 2440,
+                "startMs": 1000
+              },
+              "before": {
+                "endMs": 2500,
+                "startMs": 1000
+              },
+              "cueId": "1"
+            }
+          ],
+          "needs": null,
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": false,
+          "timecodes": [
+            "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [],
+            "dependsOn": [],
+            "effects": [
+              {
+                "after": 40.27777777777778,
+                "before": 38.666666666666664,
+                "index": 0,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 61.702127659574465,
+                "before": 58.0,
+                "index": 0,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "gap 20 → 80 ms",
+                "warning": false
+              },
+              {
+                "text": "CPS 38.7 → 40.3 (limit 20)",
+                "warning": true
+              },
+              {
+                "text": "RS 58.0 → 61.7 (limit 35)",
+                "warning": true
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 2440,
+                  "startMs": 1000
+                },
+                "before": {
+                  "endMs": 2500,
+                  "startMs": 1000
+                },
+                "index": 0
+              }
+            ],
+            "fixed": [
+              "gap"
+            ],
+            "index": 0,
+            "partial": false,
+            "tradeOff": true
+          }
+        },
+        {
+          "cueId": "3",
+          "cueIndex": 2,
+          "cueLabel": "3",
+          "delta": "end +300 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 4900,
+                "startMs": 4100
+              },
+              "before": {
+                "endMs": 4600,
+                "startMs": 4100
+              },
+              "cueId": "3"
+            }
+          ],
+          "needs": null,
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": false,
+          "timecodes": [
+            "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [],
+            "dependsOn": [],
+            "effects": [
+              {
+                "after": 3.75,
+                "before": 6.0,
+                "index": 2,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 10.0,
+                "before": null,
+                "index": 2,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "duration 500 → 800 ms",
+                "warning": false
+              },
+              {
+                "text": "CPS 6.0 → 3.8",
+                "warning": false
+              },
+              {
+                "text": "RS — → 10.0",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 4900,
+                  "startMs": 4100
+                },
+                "before": {
+                  "endMs": 4600,
+                  "startMs": 4100
+                },
+                "index": 2
+              }
+            ],
+            "fixed": [
+              "duration_short",
+              "speed_unavailable"
+            ],
+            "index": 2,
+            "partial": false,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "4",
+          "cueIndex": 3,
+          "cueLabel": "4→5",
+          "delta": "end −250 ms, cue 5 start +30 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 7950,
+                "startMs": 6000
+              },
+              "before": {
+                "endMs": 8200,
+                "startMs": 6000
+              },
+              "cueId": "4"
+            },
+            {
+              "after": {
+                "endMs": 10000,
+                "startMs": 8030
+              },
+              "before": {
+                "endMs": 10000,
+                "startMs": 8000
+              },
+              "cueId": "5"
+            }
+          ],
+          "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": true,
+          "timecodes": [
+            "Start 00:00:06,000 → 00:00:06,000 · End 00:00:08,200 → 00:00:07,950",
+            "Start 00:00:08,000 → 00:00:08,030 · End 00:00:10,000 → 00:00:10,000"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [],
+            "dependsOn": [
+              2
+            ],
+            "effects": [
+              {
+                "after": 20.0,
+                "before": 17.727272727272727,
+                "index": 3,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 26.896551724137932,
+                "before": 22.941176470588236,
+                "index": 3,
+                "limit": 35,
+                "rule": "rs_high"
+              },
+              {
+                "after": 7.614213197969543,
+                "before": 7.5,
+                "index": 4,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 10.204081632653061,
+                "before": 10.0,
+                "index": 4,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "overlap 200 ms → gap 80 ms",
+                "warning": false
+              },
+              {
+                "text": "CPS 17.7 → 20.0",
+                "warning": false
+              },
+              {
+                "text": "RS 22.9 → 26.9",
+                "warning": false
+              },
+              {
+                "text": "cue 5 CPS 7.5 → 7.6",
+                "warning": false
+              },
+              {
+                "text": "cue 5 RS 10.0 → 10.2",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 7950,
+                  "startMs": 6000
+                },
+                "before": {
+                  "endMs": 8200,
+                  "startMs": 6000
+                },
+                "index": 3
+              },
+              {
+                "after": {
+                  "endMs": 10000,
+                  "startMs": 8030
+                },
+                "before": {
+                  "endMs": 10000,
+                  "startMs": 8000
+                },
+                "index": 4
+              }
+            ],
+            "fixed": [
+              "overlap"
+            ],
+            "index": 3,
+            "partial": false,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "6",
+          "cueIndex": 5,
+          "cueLabel": "6→7",
+          "delta": "end −80 ms, cue 7 start +100 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 11870,
+                "startMs": 10500
+              },
+              "before": {
+                "endMs": 11950,
+                "startMs": 10500
+              },
+              "cueId": "6"
+            },
+            {
+              "after": {
+                "endMs": 13500,
+                "startMs": 12130
+              },
+              "before": {
+                "endMs": 13500,
+                "startMs": 12030
+              },
+              "cueId": "7"
+            }
+          ],
+          "needs": "needs cue 4",
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": true,
+          "timecodes": [
+            "Start 00:00:10,500 → 00:00:10,500 · End 00:00:11,950 → 00:00:11,870",
+            "Start 00:00:12,030 → 00:00:12,130 · End 00:00:13,500 → 00:00:13,500",
+            "Cut 00:00:12,000"
+          ],
+          "unit": {
+            "conflictsWith": [],
+            "cutTimecodes": [
+              "00:00:12,000"
+            ],
+            "dependsOn": [
+              3
+            ],
+            "effects": [
+              {
+                "after": 13.138686131386862,
+                "before": 12.413793103448276,
+                "index": 5,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 20.689655172413794,
+                "before": 18.94736842105263,
+                "index": 5,
+                "limit": 35,
+                "rule": "rs_high"
+              },
+              {
+                "after": 17.51824817518248,
+                "before": 16.3265306122449,
+                "index": 6,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 27.586206896551722,
+                "before": 24.742268041237114,
+                "index": 6,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "ends 50 → 130 ms before the cut",
+                "warning": false
+              },
+              {
+                "text": "starts 30 → 130 ms after the cut",
+                "warning": false
+              },
+              {
+                "text": "CPS 12.4 → 13.1",
+                "warning": false
+              },
+              {
+                "text": "RS 18.9 → 20.7",
+                "warning": false
+              },
+              {
+                "text": "cue 7 CPS 16.3 → 17.5",
+                "warning": false
+              },
+              {
+                "text": "cue 7 RS 24.7 → 27.6",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 11870,
+                  "startMs": 10500
+                },
+                "before": {
+                  "endMs": 11950,
+                  "startMs": 10500
+                },
+                "index": 5
+              },
+              {
+                "after": {
+                  "endMs": 13500,
+                  "startMs": 12130
+                },
+                "before": {
+                  "endMs": 13500,
+                  "startMs": 12030
+                },
+                "index": 6
+              }
+            ],
+            "fixed": [
+              "scene_end",
+              "scene_start"
+            ],
+            "index": 5,
+            "partial": false,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "8",
+          "cueIndex": 7,
+          "cueLabel": "8→9",
+          "delta": "start −300 ms, end +300 ms, cue 9 start +300 ms",
+          "ghosts": [],
+          "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": "replaces the change to cue 10",
+          "selected": false,
+          "startMoved": true,
+          "timecodes": [
+            "Start 00:00:14,000 → 00:00:13,700 · End 00:00:15,000 → 00:00:15,300",
+            "Start 00:00:15,080 → 00:00:15,380 · End 00:00:16,500 → 00:00:16,500"
+          ],
+          "unit": {
+            "conflictsWith": [
+              9
+            ],
+            "cutTimecodes": [],
+            "dependsOn": [
+              5
+            ],
+            "effects": [
+              {
+                "after": 52.5,
+                "before": 84.0,
+                "index": 7,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 76.36363636363636,
+                "before": 168.0,
+                "index": 7,
+                "limit": 35,
+                "rule": "rs_high"
+              },
+              {
+                "after": 17.857142857142858,
+                "before": 14.084507042253522,
+                "index": 8,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 32.25806451612903,
+                "before": 21.73913043478261,
+                "index": 8,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "CPS 84.0 → 52.5 (limit 20)",
+                "warning": false
+              },
+              {
+                "text": "RS 168.0 → 76.4 (limit 35)",
+                "warning": false
+              },
+              {
+                "text": "cue 9 CPS 14.1 → 17.9",
+                "warning": false
+              },
+              {
+                "text": "cue 9 RS 21.7 → 32.3",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 15300,
+                  "startMs": 13700
+                },
+                "before": {
+                  "endMs": 15000,
+                  "startMs": 14000
+                },
+                "index": 7
+              },
+              {
+                "after": {
+                  "endMs": 16500,
+                  "startMs": 15380
+                },
+                "before": {
+                  "endMs": 16500,
+                  "startMs": 15080
+                },
+                "index": 8
+              }
+            ],
+            "fixed": [],
+            "index": 7,
+            "partial": true,
+            "tradeOff": false
+          }
+        },
+        {
+          "cueId": "10",
+          "cueIndex": 9,
+          "cueLabel": "10",
+          "delta": "end +101 ms",
+          "ghosts": [
+            {
+              "after": {
+                "endMs": 21101,
+                "startMs": 20000
+              },
+              "before": {
+                "endMs": 21000,
+                "startMs": 20000
+              },
+              "cueId": "10"
+            }
+          ],
+          "needs": null,
+          "offReason": null,
+          "replaces": null,
+          "selected": true,
+          "startMoved": false,
+          "timecodes": [
+            "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
+          ],
+          "unit": {
+            "conflictsWith": [
+              7
+            ],
+            "cutTimecodes": [],
+            "dependsOn": [],
+            "effects": [
+              {
+                "after": 19.07356948228883,
+                "before": 21.0,
+                "index": 9,
+                "limit": 20,
+                "rule": "cps_high"
+              },
+              {
+                "after": 34.94176372712146,
+                "before": 42.0,
+                "index": 9,
+                "limit": 35,
+                "rule": "rs_high"
+              }
+            ],
+            "effectsText": [
+              {
+                "text": "CPS 21.0 → 19.1",
+                "warning": false
+              },
+              {
+                "text": "RS 42.0 → 34.9",
+                "warning": false
+              }
+            ],
+            "endpoints": [
+              {
+                "after": {
+                  "endMs": 21101,
+                  "startMs": 20000
+                },
+                "before": {
+                  "endMs": 21000,
+                  "startMs": 20000
+                },
+                "index": 9
+              }
+            ],
+            "fixed": [
+              "cps_high",
+              "rs_high"
+            ],
+            "index": 9,
+            "partial": false,
+            "tradeOff": false
+          }
+        }
+      ],
+      "selectionConflicts": [],
+      "selectionError": null,
+      "trades": 1,
+      "withoutTradesToggles": [
+        0
+      ]
     },
     "retick": {
       "after": {
@@ -1399,12 +2847,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -1477,12 +2928,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -1567,6 +3021,8 @@
             }
           ],
           "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -1574,6 +3030,7 @@
             "Start 00:00:08,000 → 00:00:08,030 · End 00:00:10,000 → 00:00:10,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [
               2
@@ -1669,6 +3126,8 @@
           "delta": "end −80 ms, cue 7 start +100 ms",
           "ghosts": [],
           "needs": "needs cue 4",
+          "offReason": null,
+          "replaces": null,
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -1677,6 +3136,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -1779,6 +3239,8 @@
           "delta": "start −300 ms, end +300 ms, cue 9 start +300 ms",
           "ghosts": [],
           "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": "replaces the change to cue 10",
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -1786,6 +3248,9 @@
             "Start 00:00:15,080 → 00:00:15,380 · End 00:00:16,500 → 00:00:16,500"
           ],
           "unit": {
+            "conflictsWith": [
+              9
+            ],
             "cutTimecodes": [],
             "dependsOn": [
               5
@@ -1887,12 +3352,17 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
           ],
           "unit": {
+            "conflictsWith": [
+              7
+            ],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -1946,7 +3416,10 @@
       ],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 1
+      "trades": 1,
+      "withoutTradesToggles": [
+        0
+      ]
     },
     "spacing": {
       "after": {
@@ -2062,12 +3535,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -2140,12 +3616,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -2219,12 +3698,15 @@
             }
           ],
           "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:06,000 → 00:00:06,000 · End 00:00:08,200 → 00:00:07,920"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [
               2
@@ -2299,6 +3781,8 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
@@ -2306,6 +3790,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -2380,6 +3865,8 @@
             }
           ],
           "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -2387,6 +3874,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -2463,12 +3951,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -2522,7 +4013,11 @@
       ],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 2
+      "trades": 2,
+      "withoutTradesToggles": [
+        0,
+        3
+      ]
     },
     "starts": {
       "after": {
@@ -2613,12 +4108,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -2691,12 +4189,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -2781,6 +4282,8 @@
             }
           ],
           "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -2788,6 +4291,7 @@
             "Start 00:00:08,000 → 00:00:08,030 · End 00:00:10,000 → 00:00:10,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [
               2
@@ -2906,6 +4410,8 @@
             }
           ],
           "needs": "needs cue 4",
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": true,
           "timecodes": [
@@ -2914,6 +4420,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -3016,6 +4523,8 @@
           "delta": "start −300 ms, end +300 ms, cue 9 start +300 ms",
           "ghosts": [],
           "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": "replaces the change to cue 10",
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -3023,6 +4532,9 @@
             "Start 00:00:15,080 → 00:00:15,380 · End 00:00:16,500 → 00:00:16,500"
           ],
           "unit": {
+            "conflictsWith": [
+              9
+            ],
             "cutTimecodes": [],
             "dependsOn": [
               5
@@ -3124,12 +4636,17 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
           ],
           "unit": {
+            "conflictsWith": [
+              7
+            ],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -3183,7 +4700,10 @@
       ],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 1
+      "trades": 1,
+      "withoutTradesToggles": [
+        0
+      ]
     },
     "untick": {
       "after": {
@@ -3345,12 +4865,15 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:01,000 → 00:00:01,000 · End 00:00:02,500 → 00:00:02,440"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -3411,12 +4934,15 @@
           "delta": "end +300 ms",
           "ghosts": [],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": false,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:04,100 → 00:00:04,100 · End 00:00:04,600 → 00:00:04,900"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -3478,6 +5004,8 @@
           "delta": "end −250 ms, cue 5 start +30 ms",
           "ghosts": [],
           "needs": "needs cue 3",
+          "offReason": null,
+          "replaces": null,
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -3485,6 +5013,7 @@
             "Start 00:00:08,000 → 00:00:08,030 · End 00:00:10,000 → 00:00:10,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [],
             "dependsOn": [
               2
@@ -3580,6 +5109,8 @@
           "delta": "end −80 ms, cue 7 start +100 ms",
           "ghosts": [],
           "needs": "needs cue 4",
+          "offReason": null,
+          "replaces": null,
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -3588,6 +5119,7 @@
             "Cut 00:00:12,000"
           ],
           "unit": {
+            "conflictsWith": [],
             "cutTimecodes": [
               "00:00:12,000"
             ],
@@ -3690,6 +5222,8 @@
           "delta": "start −300 ms, end +300 ms, cue 9 start +300 ms",
           "ghosts": [],
           "needs": "needs cue 6",
+          "offReason": null,
+          "replaces": "replaces the change to cue 10",
           "selected": false,
           "startMoved": true,
           "timecodes": [
@@ -3697,6 +5231,9 @@
             "Start 00:00:15,080 → 00:00:15,380 · End 00:00:16,500 → 00:00:16,500"
           ],
           "unit": {
+            "conflictsWith": [
+              9
+            ],
             "cutTimecodes": [],
             "dependsOn": [
               5
@@ -3798,12 +5335,17 @@
             }
           ],
           "needs": null,
+          "offReason": null,
+          "replaces": null,
           "selected": true,
           "startMoved": false,
           "timecodes": [
             "Start 00:00:20,000 → 00:00:20,000 · End 00:00:21,000 → 00:00:21,101"
           ],
           "unit": {
+            "conflictsWith": [
+              7
+            ],
             "cutTimecodes": [],
             "dependsOn": [],
             "effects": [
@@ -3857,7 +5399,10 @@
       ],
       "selectionConflicts": [],
       "selectionError": null,
-      "trades": 1
+      "trades": 1,
+      "withoutTradesToggles": [
+        0
+      ]
     }
   }
 }

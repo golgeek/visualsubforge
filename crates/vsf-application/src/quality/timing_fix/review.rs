@@ -12,6 +12,8 @@ pub struct Row {
     pub unit: Unit,
     pub delta: String,
     pub needs: Option<String>,
+    pub replaces: Option<String>,
+    pub off_reason: Option<String>,
     pub start_moved: bool,
     pub timecodes: Vec<String>,
     pub ghosts: Vec<Ghost>,
@@ -69,6 +71,20 @@ pub struct Review {
     pub without_trades_toggles: Vec<u32>,
     pub plan: timing_selection::Plan,
 }
+fn cue_list(indices: &[u32]) -> Option<String> {
+    let noun = match indices.len() {
+        0 => return None,
+        1 => "cue",
+        _ => "cues",
+    };
+    let numbers = indices
+        .iter()
+        .map(|id| (id + 1).to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!("{noun} {numbers}"))
+}
+
 impl Proposal {
     pub fn review(
         &self,
@@ -76,8 +92,8 @@ impl Proposal {
         omit_trades: bool,
         mut checkpoint: impl FnMut() -> Result<()>,
     ) -> Result<Review> {
-        let (selected, plan) = self.review_selection(toggled, omit_trades, &mut checkpoint)?;
-        let chosen: HashSet<_> = selected.iter().copied().collect();
+        let (state, plan) = self.review_selection(toggled, omit_trades, &mut checkpoint)?;
+        let chosen: HashSet<_> = state.selected.iter().copied().collect();
         let mut changes = Vec::new();
         let mut trades = 0;
         for u in &self.units {
@@ -112,21 +128,21 @@ impl Proposal {
                 selected: checked,
                 unit: u.clone(),
                 delta: deltas.join(", "),
-                needs: (!u.depends_on.is_empty()).then(|| {
-                    format!(
-                        "needs {} {}",
-                        if u.depends_on.len() == 1 {
-                            "cue"
+                needs: cue_list(&u.depends_on).map(|label| format!("needs {label}")),
+                replaces: cue_list(&u.conflicts_with)
+                    .filter(|_| u.partial)
+                    .map(|label| {
+                        let noun = if u.conflicts_with.len() == 1 {
+                            "change"
                         } else {
-                            "cues"
-                        },
-                        u.depends_on
-                            .iter()
-                            .map(|id| (id + 1).to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
-                }),
+                            "changes"
+                        };
+                        format!("replaces the {noun} to {label}")
+                    }),
+                off_reason: state
+                    .disabled_by
+                    .get(&u.index)
+                    .map(|id| format!("off: cue {} partial ticked", id + 1)),
                 start_moved: u
                     .endpoints
                     .iter()
@@ -196,11 +212,10 @@ impl Proposal {
         {
             checkpoint()?;
             let m = &report.metrics[i];
-            let mut detail = originals.get(&i).map(|r| (*r).clone()).unwrap_or_else(|| {
-                let mut row = Manual::new(i, vec![], None);
-                row.lead = "The change for this cue is unticked.".into();
-                row
-            });
+            let mut detail = originals
+                .get(&i)
+                .map(|r| (*r).clone())
+                .unwrap_or_else(|| Manual::unticked(i));
             detail.rules = rules;
             if detail
                 .rules
@@ -231,30 +246,17 @@ impl Proposal {
                 detail,
             });
         }
-        // Encode the current selection with every trade and its dependents
-        // removed. A bulk click preserves unrelated manual checkbox choices.
-        let mut without_trades_toggles = Vec::new();
-        if trades > 0 {
-            let mut retained = HashSet::new();
-            for unit in &self.units {
-                if !unit.trade_off && unit.depends_on.iter().all(|id| retained.contains(id)) {
-                    if chosen.contains(&unit.index) {
-                        retained.insert(unit.index);
-                        if unit.partial {
-                            without_trades_toggles.push(unit.index);
-                        }
-                    } else if !unit.partial {
-                        without_trades_toggles.push(unit.index);
-                    }
-                }
-            }
-        }
+        let without_trades_toggles = if trades > 0 {
+            self.trade_toggles(&chosen)
+        } else {
+            Vec::new()
+        };
         Ok(Review {
             changes,
             manual,
             before: Counts::new(&self.before, &self.scope),
             after: Counts::new(report, &self.scope),
-            selected: selected.len() as u32,
+            selected: state.selected.len() as u32,
             trades,
             without_trades_toggles,
             plan,

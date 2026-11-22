@@ -8,7 +8,7 @@ fn snapshot(proposal: &Proposal, toggled: &[u32]) -> Value {
     let review = proposal.review(toggled, false, || Ok(())).unwrap();
     json!({"coverage":proposal.before().scene_coverage,"rows":review.changes,"manual":review.manual,
            "before":review.before,"after":review.after,"changed":review.selected,"trades":review.trades,
-           "selectionError":review.plan.error,"selectionConflicts":review.plan.selection_conflicts})
+           "withoutTradesToggles":review.without_trades_toggles,"selectionError":review.plan.error,"selectionConflicts":review.plan.selection_conflicts})
 }
 
 #[test]
@@ -59,6 +59,26 @@ fn browser_episode_matches_rust_review() {
         .unwrap();
         snapshots.insert(key.into(), snapshot(&proposal, &[]));
         if key == "nearest" {
+            let partial = proposal
+                .units()
+                .iter()
+                .find(|unit| unit.partial && !unit.conflicts_with.is_empty())
+                .unwrap();
+            let replacement = partial.conflicts_with[0];
+            let off = snapshot(&proposal, &[partial.index]);
+            assert!(
+                off["rows"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|row| row["offReason"] == "off: cue 8 partial ticked"
+                        && row["selected"] == false)
+            );
+            snapshots.insert("partial".into(), off);
+            snapshots.insert(
+                "replacement".into(),
+                snapshot(&proposal, &[partial.index, replacement]),
+            );
             let dependent = proposal
                 .units()
                 .iter()

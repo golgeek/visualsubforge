@@ -14,12 +14,18 @@ Each trade-off shows the old and new metric and its limit. **Untick trade-offs**
 removes these units from the accepted set. Policy persists between sessions.
 Family ticks belong to the current review.
 
+A row that needs another cue’s change names the cue. Ticking the row selects
+its prerequisites. Unticking a prerequisite also turns off its dependents.
+A partial can replace a later change that used the original timing. Ticking
+either alternative turns the other off. The affected row names the partial,
+and **Restore default selection** returns to the original review.
+
 The start tolerance defaults to zero and allows up to 1000 ms on either side.
 An inward start correction to the far edge of a shot window is the exception.
 Shot repair defaults to moving inward. Nearest allowed edge also considers the
 other direction. Endpoints on the outside edge of a window are permitted.
-Scanning is heuristic. Incomplete attached-video coverage blocks application.
-With no video the shot family is unavailable and the other families can run.
+Scanning is heuristic. With attached video, an incomplete or unavailable scan
+blocks every timing change. With no video, only Shot changes is disabled.
 
 ## Choosing endpoints
 
@@ -35,7 +41,8 @@ Duration takes first priority. Keep reading speed then compares speed, gaps and
 shot findings in that order. Keep spacing compares gaps, shots and speed.
 Ties prefer less start movement, less end movement, shorter duration, then
 earlier time. Endpoints use integer milliseconds, with 10 ms ticks for ASS/SSA.
-A partial improvement to speed or duration is offered unticked.
+A partial improvement to speed or duration is offered unticked. A second
+run can offer further partial improvements after the first accepted pass.
 
 For counted length N and effective duration D in milliseconds, inclusive maximum
 CPS C needs D ≥ ceil(1000N/C). An exclusive maximum RS R needs
@@ -63,6 +70,3 @@ inputs. The default selections match in 79 comparisons. Seven differences fix
 independent findings, seven pair endpoints to preserve another rule, and six
 use a smaller trim. Run `cargo test --locked -p vsf-application --test timing_parity`
 and the `timing_fix` unit tests to check the frozen results, objective and invariants.
-
-With attached video, an incomplete or unavailable scene scan blocks every timing change. Finish the scan before applying repairs. With no video, only Shot changes is disabled.
-A second run can offer further partial improvements after the first accepted pass.

@@ -47,7 +47,6 @@
   };
   const familyKeys = ['gaps', 'speed', 'shots'] as const;
   let toggled = $state<number[]>([]);
-  let omitTrades = $state(false);
   let selectionKey = $state('');
   let openRows = $state<number[]>([]);
   let manualOpen = $state(true);
@@ -70,7 +69,7 @@
     families: { ...view.families },
     scope: scopeIds(),
     toggled: selectionKey === semantic ? toggled : [],
-    omitTrades: selectionKey === semantic && omitTrades,
+    omitTrades: false,
   });
   const session = untrack(
     () =>
@@ -122,7 +121,6 @@
   function prepareSelection() {
     if (selectionKey !== semantic) {
       toggled = [];
-      omitTrades = false;
       selectionKey = semantic;
     }
   }
@@ -132,8 +130,7 @@
   }
   function untickTrades() {
     prepareSelection();
-    omitTrades = true;
-    toggled = [...(result?.withoutTradesToggles ?? [])];
+    toggled = [...toggled, ...(result?.withoutTradesToggles ?? [])];
   }
   function setPolicy(patch: Partial<TimingFixOptions>) {
     onoptions({ ...options, ...patch });
@@ -280,11 +277,10 @@
       </div>
       {#if result.selectionError}<p role="alert">
           {result.selectionError}
-        </p>{/if}{#if result.selectionError || toggled.length || omitTrades}<button
+        </p>{/if}{#if result.selectionError || toggled.length}<button
           onclick={() => {
             prepareSelection();
             toggled = [];
-            omitTrades = false;
           }}>Restore default selection</button
         >{/if}
       <div class="heading">
@@ -328,6 +324,8 @@
             {#if row.unit.tradeOff}<span class="chip trade">Trade-off</span
               >{/if}<span class="number">{row.delta}</span>{#if row.needs}
               <small>{row.needs}</small>{/if}
+            {#if row.replaces}<small>{row.replaces}</small>{/if}
+            {#if row.offReason}<small>{row.offReason}</small>{/if}
           </button>
           <small class="effect number"
             >{#each row.unit.effectsText as effect, index (index)}{#if index}

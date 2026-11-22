@@ -156,6 +156,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             const toggled = input.toggled ?? [];
             let key: keyof typeof episode.views;
             if (incompleteTrial) key = 'incomplete';
+            else if (toggled.join(',') === '7,9') key = 'replacement';
+            else if (toggled.join(',') === '7') key = 'partial';
             else if (toggled.length === 2) key = 'retick';
             else if (toggled.length === 1) key = 'untick';
             else if (options.sceneEdges === 'nearest') key = 'nearest';
@@ -174,6 +176,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               | 'coverage'
               | 'selectionError'
               | 'selectionConflicts'
+              | 'withoutTradesToggles'
               | 'trades'
             >;
             if (
@@ -225,7 +228,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               ...r,
               selected:
                 !(r.unit.partial || (input.omitTrades && r.unit.tradeOff)) !==
-                (input.toggled ?? []).includes(r.cueIndex),
+                ((input.toggled ?? []).filter((index) => index === r.cueIndex)
+                  .length %
+                  2 ===
+                  1),
             })),
           };
           return heldStart ?? starts;
@@ -244,6 +250,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             total: rows.length,
             changed: rows.filter((r) => r.selected).length,
             manualCount: manual.length,
+            withoutTradesToggles: episodeTrial
+              ? view.withoutTradesToggles
+              : rows
+                  .filter((r) => r.selected && r.unit.tradeOff)
+                  .map((r) => r.cueIndex),
             trades: rows.filter((r) => r.selected && r.unit.tradeOff).length,
             offset,
             rows:
