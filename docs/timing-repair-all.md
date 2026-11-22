@@ -77,3 +77,56 @@ inputs. The default selections match in 79 comparisons. Seven differences fix
 independent findings, seven pair endpoints to preserve another rule, and six
 use a smaller trim. Run `cargo test --locked -p vsf-application --test timing_parity`
 and the `timing_fix` unit tests to check the frozen results, objective and invariants.
+
+## Headless review
+
+Preview prints the default selection, manual work, scene coverage and a review ID.
+The input can be SRT, WebVTT, ASS or SSA. Use a built-in profile ID or a version-2
+preset path. Cue numbers are one-based file positions. The following preview
+and apply commands use identical planning inputs.
+
+```sh
+vsf fix timing --subtitles episode.srt --profile vsf-default --scenes cuts.json --json
+vsf fix timing --subtitles episode.srt --profile vsf-default --scenes cuts.json \
+  --accept REVIEW_ID --output episode-fixed.srt
+```
+
+Use `--fix gaps,speed,shots` (the default), a subset such as `--fix gaps`, or
+`--cue 3,4` to narrow the scope. Policy switches are `--priority reading-speed|spacing`,
+`--start-tolerance-ms 0..1000` and `--scene-edges inward|nearest`.
+
+A scene file contains mapped integer milliseconds. It must be a JSON object
+with exactly these two fields. The reader accepts at most 100,000 timestamps
+within the subtitle time range, sorts them and removes duplicates.
+
+```json
+{"version":1,"cutsMs":[0,1450,3008]}
+```
+
+With nonzero scene buffers, provide a file or pass `--without-scenes` to review
+the other families with `noMedia` coverage. A completed empty file explicitly
+supplies zero cuts. With zero buffers the coverage is `notRequired`.
+
+Schema 1 includes the input hash, profile fingerprint, file hashes for explicit
+presets and cuts, selected families, policy, sorted scope, coverage, before/after
+counts, change units, manual rows with budgets and the result hash. Rust computes
+the SHA-256 review ID over the compact serialized report in schema field order
+with `reviewId` empty. Decimal metrics use the Rust JSON serializer. Preview
+writes nothing. Apply recomputes the report, matches the ID, verifies the source
+files again and atomically publishes a new same-format file. Existing paths,
+including symlinks, and aliases of inputs are refused. With zero selected changes
+the output preserves the original bytes.
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | Complete preview with no remaining requested findings, or output written |
+| 1 | Requested findings remain in the preview |
+| 2 | Invalid input, option, output path or limit |
+| 3 | Incomplete scene coverage, including explicitly omitted required scenes |
+| 5 | File or output error |
+| 6 | Input changed during publication or the review ID mismatched |
+| 130 | Cancelled |
+
+The CLI integration tests run the actual binary. A desktop owner test compares
+Rust's paged changes, manual rows and scope counts against the headless report
+for identical subtitle bytes, profile, cuts and options.

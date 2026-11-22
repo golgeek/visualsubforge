@@ -827,3 +827,5 @@ priority. A unit can include the following cue’s delayed start. Whole-document
 checking covers coupled reading starts, including cues outside the scope.
 The same capture validates a selection before returning one domain retime edit.
 ReviewDock presents the saved policy, family ticks, Rust counts, changes and manual work in Timing → Fix. Timing → Shift retains batch operations. The Fix operation replaces the dedicated gap worker and the scene and duration operations. Fix N composes text and language corrections with this engine using the selected cue as its entire scope. It captures the session’s timing policy on the same worker. A policy change retires the old Fix or Fix N proposal.
+
+The `vsf fix timing` adapter captures bounded subtitle, preset and scene inputs and calls the shared review projection. Its reviewed output uses the same file identity, path protection, lease and atomic new-file publication code as plugin review. The SHA-256 review ID covers the planned result bytes and canonical schema-1 review.
