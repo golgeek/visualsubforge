@@ -1,7 +1,10 @@
 //! Format-aware repairs exercise public application APIs, serialization and history.
 use subtitle_core::{Cue, Document, Edit, Editor, Milliseconds};
 use subtitle_formats::{Format, Source};
-use vsf_application::quality::{self, Profile, duration, gap, scene};
+use vsf_application::quality::{
+    self, Profile, scene,
+    timing_fix::{self, Families, Request},
+};
 use vsf_application::subtitle_file;
 
 fn ms(value: u64) -> Milliseconds {
@@ -33,6 +36,46 @@ fn profile() -> Profile {
     p.timing.scene_before_ms = 0;
     p.timing.scene_after_ms = 0;
     p
+}
+fn proposal(
+    d: &Document,
+    format: Format,
+    p: &Profile,
+    scenes: &scene::Scenes,
+    families: Families,
+) -> timing_fix::Proposal {
+    timing_fix::propose(
+        d.clone(),
+        quality::Evaluation::from(p).with_format(format),
+        scenes,
+        Request {
+            families,
+            ..Default::default()
+        },
+        || Ok(()),
+    )
+    .unwrap()
+}
+const GAPS: Families = Families {
+    gaps: true,
+    speed: false,
+    shots: false,
+};
+const SPEED: Families = Families {
+    gaps: false,
+    speed: true,
+    shots: false,
+};
+const SHOTS: Families = Families {
+    gaps: false,
+    speed: false,
+    shots: true,
+};
+fn accepted_edit(d: &Document, p: &timing_fix::Proposal) -> Edit {
+    p.select(&p.default_units(), || Ok(()))
+        .unwrap()
+        .edit(d)
+        .unwrap()
 }
 fn accept_and_undo(document: Document, source: &Source, edit: Edit, expected: &[(u64, u64)]) {
     let before = source.serialize(&document).unwrap();
@@ -73,31 +116,15 @@ fn gap_duration_and_scene_repairs_preserve_both_formats_and_use_centiseconds() {
         );
         let mut p = profile();
         p.timing.cue_gap_ms = 83;
-        let plan = gap::propose_for_format(
-            d.clone(),
-            source.format(),
-            &p,
-            &scene::Scenes::NoMedia,
-            || Ok(()),
-        )
-        .unwrap();
-        assert_eq!(plan.changed(), 1);
-        let edit = plan.edit(&d, false).unwrap();
+        let plan = proposal(&d, source.format(), &p, &scene::Scenes::NoMedia, GAPS);
+        let edit = accepted_edit(&d, &plan);
         accept_and_undo(d, &source, edit, &[(1000, 1960), (2050, 3000)]);
 
         let (d, source) = fixture(extension, &[(1000, 1500, r"First\Nline")]);
         p.rules.duration.enabled = true;
         p.rules.duration.minimum_ms = 803;
-        let plan = duration::propose_for_format(
-            d.clone(),
-            source.format(),
-            &p,
-            &scene::Scenes::NoMedia,
-            duration::Scope::Document,
-            || Ok(()),
-        )
-        .unwrap();
-        let edit = plan.edit(&d).unwrap();
+        let plan = proposal(&d, source.format(), &p, &scene::Scenes::NoMedia, SPEED);
+        let edit = accepted_edit(&d, &plan);
         accept_and_undo(d, &source, edit, &[(1000, 1810)]);
 
         let (d, source) = fixture(extension, &[(1010, 3000, r"{comment}<i>Literal</i>\Nline")]);
@@ -108,10 +135,8 @@ fn gap_duration_and_scene_repairs_preserve_both_formats_and_use_centiseconds() {
         // exclusion windows must merge so the chosen edge is actually safe.
         let scenes =
             scene::Scenes::Complete([1001, 1005, 1009, 2999].into_iter().map(ms).collect());
-        let plan =
-            scene::propose_for_format(d.clone(), source.format(), &p, &scenes, || Ok(())).unwrap();
-        assert_eq!(plan.changed(), 1);
-        let edit = plan.edit(&d).unwrap();
+        let plan = proposal(&d, source.format(), &p, &scenes, SHOTS);
+        let edit = accepted_edit(&d, &plan);
         accept_and_undo(d, &source, edit, &[(1020, 2990)]);
     }
 }
@@ -132,17 +157,9 @@ fn duration_grid_choice_matches_independent_enumeration_including_scene_edges() 
         ] {
             let (d, source) = fixture("ass", &[(0, old, "Plain")]);
             let scenes = scene::Scenes::Complete(cuts.iter().copied().map(ms).collect());
-            let plan = duration::propose_for_format(
-                d,
-                source.format(),
-                &p,
-                &scenes,
-                duration::Scope::Document,
-                || Ok(()),
-            )
-            .unwrap();
+            let plan = proposal(&d, source.format(), &p, &scenes, SPEED);
             if (803..=1207).contains(&old) {
-                assert!(plan.rows().is_empty());
+                assert!(plan.units().is_empty());
                 continue;
             }
             let oracle = (10u64..=2000)
@@ -152,7 +169,7 @@ fn duration_grid_choice_matches_independent_enumeration_including_scene_edges() 
                 })
                 .min_by_key(|&v| (v.abs_diff(old), v));
             assert_eq!(
-                plan.rows()[0].new_end.map(|m| m.get()),
+                plan.units().first().map(|u| u.endpoints[0].after.end_ms),
                 oracle,
                 "old={old}, cuts={cuts:?}"
             );
@@ -160,19 +177,15 @@ fn duration_grid_choice_matches_independent_enumeration_including_scene_edges() 
     }
     let (d, source) = fixture("ass", &[(0, 400, "Plain")]);
     p.rules.duration.maximum_ms = 809;
-    let plan = duration::propose_for_format(
-        d,
+    let plan = proposal(
+        &d,
         source.format(),
         &p,
         &scene::Scenes::Complete(vec![]),
-        duration::Scope::Document,
-        || Ok(()),
-    )
-    .unwrap();
-    assert_eq!(
-        plan.rows()[0].skipped,
-        Some(duration::Skip::FormatPrecision)
+        SPEED,
     );
+    assert!(plan.default_units().is_empty());
+    assert!(!plan.manual().is_empty());
 }
 #[test]
 fn timed_tags_and_event_effects_are_manual_for_all_timing_repairs() {
@@ -184,38 +197,7 @@ fn timed_tags_and_event_effects_are_manual_for_all_timing_repairs() {
             r"{\unknown}Opaque",
         ] {
             let (d, _) = fixture("ass", &[(1000, 2000, text), (2050, 3000, "Second")]);
-            let mut p = profile();
-            p.timing.cue_gap_ms = 83;
-            let plan =
-                gap::propose_for_format(d.clone(), format, &p, &scene::Scenes::NoMedia, || Ok(()))
-                    .unwrap();
-            assert_eq!(plan.rows()[0].skipped, Some(gap::Skip::MarkupNeedsReview));
-            p.rules.duration.enabled = true;
-            p.rules.duration.minimum_ms = 1100;
-            let plan = duration::propose_for_format(
-                d.clone(),
-                format,
-                &p,
-                &scene::Scenes::NoMedia,
-                duration::Scope::Document,
-                || Ok(()),
-            )
-            .unwrap();
-            assert_eq!(
-                plan.rows()[0].skipped,
-                Some(duration::Skip::MarkupNeedsReview)
-            );
-            p.timing.scene_before_ms = 10;
-            p.timing.scene_after_ms = 10;
-            let plan = scene::propose_for_format(
-                d,
-                format,
-                &p,
-                &scene::Scenes::Complete(vec![ms(1000)]),
-                || Ok(()),
-            )
-            .unwrap();
-            assert_eq!(plan.rows()[0].skipped, Some(scene::Skip::MarkupNeedsReview));
+            assert_manual(&d, format);
         }
     }
     let (d, _) = fixture("ass", &[(1000, 2000, "Plain"), (2050, 3000, "Second")]);
@@ -242,48 +224,33 @@ fn timed_tags_and_event_effects_are_manual_for_all_timing_repairs() {
         .clone()
         .with_metadata(subtitle_core::CueMetadata::new(fields).unwrap());
     let d = Document::new(cues).unwrap();
+    assert_manual(&d, Format::Ass);
+}
+fn assert_manual(d: &Document, format: Format) {
     let mut p = profile();
     p.timing.cue_gap_ms = 83;
-    assert_eq!(
-        gap::propose_for_format(d.clone(), Format::Ass, &p, &scene::Scenes::NoMedia, || Ok(
-            ()
-        ))
-        .unwrap()
-        .rows()[0]
-            .skipped,
-        Some(gap::Skip::MarkupNeedsReview)
-    );
     p.rules.duration.enabled = true;
     p.rules.duration.minimum_ms = 1100;
-    assert_eq!(
-        duration::propose_for_format(
-            d.clone(),
-            Format::Ass,
-            &p,
-            &scene::Scenes::NoMedia,
-            duration::Scope::Document,
-            || Ok(())
-        )
-        .unwrap()
-        .rows()[0]
-            .skipped,
-        Some(duration::Skip::MarkupNeedsReview)
-    );
     p.timing.scene_before_ms = 10;
     p.timing.scene_after_ms = 10;
-    assert_eq!(
-        scene::propose_for_format(
+    for family in [GAPS, SPEED, SHOTS] {
+        let plan = proposal(
             d,
-            Format::Ass,
+            format,
             &p,
             &scene::Scenes::Complete(vec![ms(1000)]),
-            || Ok(())
-        )
-        .unwrap()
-        .rows()[0]
-            .skipped,
-        Some(scene::Skip::MarkupNeedsReview)
-    );
+            family,
+        );
+        assert!(
+            plan.manual().iter().any(|m| m.index == 0
+                && m.lead == "Timed markup or an event effect needs manual timing.")
+        );
+        assert!(
+            plan.units()
+                .iter()
+                .all(|u| u.endpoints.iter().all(|e| e.index != 0))
+        );
+    }
 }
 #[test]
 fn scene_grid_window_construction_remains_cancellable() {
@@ -293,13 +260,19 @@ fn scene_grid_window_construction_remains_cancellable() {
     p.timing.scene_after_ms = 2;
     let scenes = scene::Scenes::Complete((1..=100_000).map(|n| ms(n * 4)).collect());
     let mut calls = 0;
-    let result = scene::propose_for_format(d, source.format(), &p, &scenes, || {
-        calls += 1;
-        if calls > 20 {
-            Err(quality::Error::Cancelled)
-        } else {
-            Ok(())
-        }
-    });
+    let result = timing_fix::propose(
+        d,
+        quality::Evaluation::from(&p).with_format(source.format()),
+        &scenes,
+        Request::default(),
+        || {
+            calls += 1;
+            if calls > 20 {
+                Err(quality::Error::Cancelled)
+            } else {
+                Ok(())
+            }
+        },
+    );
     assert!(matches!(result, Err(quality::Error::Cancelled)));
 }

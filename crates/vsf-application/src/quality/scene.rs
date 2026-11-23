@@ -1,8 +1,6 @@
 //! Scene inputs and endpoint policy, independent of media, filesystem and UI.
 //! A completed visual analysis is heuristic, including a completed empty result.
-mod repair;
 use super::{CueMetrics, Error, Finding, Profile, Result, Rule, Severity};
-pub use repair::{Proposal, Row, Skip, propose, propose_for_format};
 use serde::{Deserialize, Serialize};
 use subtitle_core::Milliseconds;
 

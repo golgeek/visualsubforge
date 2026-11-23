@@ -68,6 +68,8 @@ Rust validates the subset and each claimed fix against the captured document, pr
 then applies one undoable retime. Saving remains a separate action. Recovery and
 resync documents keep their Save As protection.
 
+The cue editor’s **Fix N** uses the same default timing selection for Current cue and all families, with the saved policy. It can combine the timing result with a separate safe text correction in one Undo step.
+
 ## Differences from the previous tools
 
 The migration captured 99 results from three original planners on 33 synthetic

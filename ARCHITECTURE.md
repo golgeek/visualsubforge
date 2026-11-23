@@ -826,4 +826,4 @@ units, comparing grid-aligned candidates using the selected families and
 priority. A unit can include the following cue’s delayed start. Whole-document
 checking covers coupled reading starts, including cues outside the scope.
 The same capture validates a selection before returning one domain retime edit.
-ReviewDock presents the saved policy, family ticks, Rust counts, changes and manual work in Timing → Fix. Timing → Shift retains batch operations. The Fix operation replaces the dedicated gap worker and the scene and duration operations. The selected-cue editor still composes the earlier planners.
+ReviewDock presents the saved policy, family ticks, Rust counts, changes and manual work in Timing → Fix. Timing → Shift retains batch operations. The Fix operation replaces the dedicated gap worker and the scene and duration operations. Fix N composes text and language corrections with this engine using the selected cue as its entire scope. It captures the session’s timing policy on the same worker. A policy change retires the old Fix or Fix N proposal.
