@@ -27,6 +27,11 @@ pub fn run(args: FixTiming, cancel: &AtomicBool) -> Result<u8> {
         }
         *flag = true;
     }
+    if args.without_scenes && families.shots && !families.gaps && !families.speed {
+        return Err(Error::Invalid(
+            "--fix shots needs --scenes; with --without-scenes, request gaps or speed".into(),
+        ));
+    }
     let options = Options {
         priority: match args.priority {
             TimingPriority::ReadingSpeed => Priority::ReadingSpeed,

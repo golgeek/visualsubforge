@@ -104,7 +104,8 @@ within the subtitle time range, sorts them and removes duplicates.
 ```
 
 With nonzero scene buffers, provide a file or pass `--without-scenes` to review
-the other requested families. With this opt-out, preview exits 0 if those families
+the other requested families. Using `--fix shots` alone with `--without-scenes`
+exits 2 before reading any input. With this opt-out, preview exits 0 if the other families
 have no remaining findings or 1 if any remain. JSON reports `noMedia` and the
 human preview shows “Scene coverage: no video”. A completed empty cuts file explicitly
 supplies zero cuts. With zero buffers the coverage is `notRequired`.

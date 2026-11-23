@@ -184,7 +184,6 @@ fn without_scenes_uses_remaining_findings_in_the_requested_families() {
             0,
         ),
         (overlap, "gaps", 1),
-        (overlap, "shots", 0),
     ] {
         fs::write(&ex.source, source).unwrap();
         let preview = ex.run(&["--without-scenes", "--fix", family, "--json"]);
@@ -201,6 +200,26 @@ fn without_scenes_uses_remaining_findings_in_the_requested_families() {
             expected == 0
         );
     }
+}
+
+#[test]
+fn shots_only_without_scenes_is_rejected_before_reading_input() {
+    let ex = Example::new();
+    let args = ["--fix", "shots", "--without-scenes"];
+    let preview = ex.run(&args);
+    assert!(preview.stdout.is_empty());
+    code(preview, 2);
+
+    fs::remove_file(&ex.source).unwrap();
+    let output = ex.dir.path().join("fixed.srt");
+    let id = "0".repeat(64);
+    let mut apply = args.to_vec();
+    apply.extend(["--accept", &id, "--output", output.to_str().unwrap()]);
+    let refused = ex.run(&apply);
+    assert!(refused.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("--fix shots needs --scenes"));
+    code(refused, 2);
+    assert!(!output.exists());
 }
 
 #[test]
@@ -282,6 +301,7 @@ fn episode_names_the_overlap_and_keeps_independent_repairs_separate() {
         .unwrap();
     }
     fs::write(&ex.source, srt).unwrap();
+    code(ex.run(&["--fix", "gaps,shots", "--without-scenes"]), 1);
     fs::write(&ex.cuts, br#"{"version":1,"cutsMs":[12000,17990]}"#).unwrap();
     let output = ex.run(&[
         "--scenes",

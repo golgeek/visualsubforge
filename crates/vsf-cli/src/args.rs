@@ -77,7 +77,7 @@ pub struct FixTiming {
     /// Version-1 JSON containing mapped integer cut timestamps in milliseconds.
     #[arg(long, conflicts_with = "without_scenes")]
     pub scenes: Option<PathBuf>,
-    /// Skip shot changes and report findings in the other requested families.
+    /// Skip shot changes. Request gaps, speed, or both when using this flag.
     #[arg(long)]
     pub without_scenes: bool,
     #[arg(long, value_enum, default_value = "reading-speed")]
