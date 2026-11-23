@@ -114,6 +114,7 @@ pub(crate) struct View {
     pub language_coverage: Option<vsf_application::language::Coverage>,
     pub error: Option<String>,
     pub findings_count: u32,
+    pub timing_findings_count: u32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub rule_cues: Vec<RuleCues>,
     pub affected_cues: u32,

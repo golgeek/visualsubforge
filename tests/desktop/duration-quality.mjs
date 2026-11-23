@@ -115,14 +115,25 @@ export async function durationQuality({
   const proposal = async () => {
     const doc = await status(),
       state = await media();
-    const id = await invoke('duration_repair_start', {
-      selectedCueId: null,
+    const id = await invoke('timing_fix_start', {
+      input: {
+        families: { gaps: false, speed: true, shots: false },
+        options: {
+          priority: 'readingSpeed',
+          startToleranceMs: 0,
+          sceneEdges: 'inward',
+        },
+        scope: null,
+        toggled: [],
+        omitTrades: false,
+      },
       session: state.session,
       generation: doc.generation,
       revision: doc.revision,
     });
     const view = await until('completed duration IPC proposal', async () => {
-      const v = await invoke('duration_repair_view', {
+      const v = await invoke('timing_fix_view', {
+        section: 'changes',
         id,
         offset: 0,
         limit: 100,
@@ -253,7 +264,8 @@ export async function durationQuality({
   await menu('scanScenes');
   await until('scene scan invalidates completed preview', async () => {
     try {
-      await invoke('duration_repair_view', {
+      await invoke('timing_fix_view', {
+        section: 'changes',
         id: old.id,
         offset: 0,
         limit: 100,
@@ -263,7 +275,7 @@ export async function durationQuality({
       return true;
     }
   });
-  await assert.rejects(() => invoke('duration_repair_accept', { id: old.id }));
+  await assert.rejects(() => invoke('timing_fix_accept', { id: old.id }));
   checked = await until(
     'actual completed FFmpeg scene scan',
     async () => {
@@ -287,9 +299,7 @@ export async function durationQuality({
     60000,
   );
   await ready();
-  await assert.rejects(() =>
-    invoke('duration_repair_accept', { id: mediaOld.id }),
-  );
+  await assert.rejects(() => invoke('timing_fix_accept', { id: mediaOld.id }));
   await durationPerformance({
     browser,
     invoke,
@@ -345,8 +355,18 @@ async function durationPerformance({
     result.interaction = await browser.execute(
       async (doc, session) => {
         const invoke = window.__TAURI__.core.invoke;
-        const id = await invoke('duration_repair_start', {
-          selectedCueId: null,
+        const id = await invoke('timing_fix_start', {
+          input: {
+            families: { gaps: false, speed: true, shots: false },
+            options: {
+              priority: 'readingSpeed',
+              startToleranceMs: 0,
+              sceneEdges: 'inward',
+            },
+            scope: null,
+            toggled: [],
+            omitTrades: false,
+          },
           session,
           generation: doc.generation,
           revision: doc.revision,
@@ -358,10 +378,11 @@ async function durationPerformance({
         await new Promise((r) => requestAnimationFrame(r));
         const typingMs = performance.now() - start,
           cancelStart = performance.now();
-        await invoke('duration_repair_cancel', { id });
+        await invoke('timing_fix_cancel', { id });
         let view;
         do {
-          view = await invoke('duration_repair_view', {
+          view = await invoke('timing_fix_view', {
+            section: 'changes',
             id,
             offset: 0,
             limit: 100,
@@ -394,10 +415,20 @@ async function durationPerformance({
     // Options automatically prepare a current read-only proposal.
     await until(
       '10k completed scene preview',
-      async () => (await dialog.getText()).includes('10000 changes'),
+      () =>
+        browser.execute(
+          () =>
+            document
+              .querySelector('.timing-review .apply')
+              ?.textContent?.trim() === 'Apply 10000 changes',
+        ),
       20000,
     );
     result.previewMs = Date.now() - began;
+    assert.ok(
+      result.previewMs < result.budgetMs,
+      'Timing preview exceeded budget',
+    );
     assert.equal((await dialog.$$('.change')).length, 100);
     await (await dialog.$('button=Next')).click();
     await until('10k second scene page', async () =>
@@ -438,7 +469,8 @@ async function durationPerformance({
     const invalidationStart = Date.now();
     await commitCue(browser);
     await until('10k scene invalidation', async () => {
-      const v = await invoke('duration_repair_view', {
+      const v = await invoke('timing_fix_view', {
+        section: 'changes',
         id: captured.id,
         offset: 0,
         limit: 100,

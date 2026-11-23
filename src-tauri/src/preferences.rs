@@ -35,6 +35,8 @@ pub struct Preferences {
     #[serde(default = "enabled_by_default")]
     zoom_waveform_to_cue: bool,
     #[serde(default)]
+    pub(crate) timing_repair: vsf_application::quality::timing_fix::Options,
+    #[serde(default)]
     pub(crate) personal_words: vsf_application::language::WordLists,
 }
 fn enabled_by_default() -> bool {
@@ -55,6 +57,7 @@ impl Default for Preferences {
             quality: Default::default(),
             show_quality_metrics: false,
             zoom_waveform_to_cue: true,
+            timing_repair: Default::default(),
             personal_words: Default::default(),
         }
     }
@@ -67,6 +70,7 @@ impl Preferences {
         if !self.review_name.is_empty() {
             vsf_application::review_package::validate_name(&self.review_name)?;
         }
+        self.timing_repair.validate().map_err(|e| e.to_string())?;
         self.layout.validate()?;
         self.shortcuts.validate()?;
         self.personal_words.validate().map_err(|e| e.to_string())?;
@@ -208,7 +212,10 @@ pub async fn layout_save(app: tauri::AppHandle, layout: LayoutPreferences) -> Re
 #[specta::specta]
 pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
     tauri::async_runtime::spawn_blocking(move || {
-        let value = read(&settings_path(&app)?)?;
+        let mut value = read(&settings_path(&app)?)?;
+        value.timing_repair = app
+            .state::<crate::document::Documents>()
+            .initialize_timing_options(value.timing_repair)?;
         app.state::<crate::document::Documents>()
             .initialize_preferences(value.policy()?, value.personal_words.clone())?;
         crate::desktop::with_shortcuts(&app, &value.shortcuts, || Ok(()))?;
@@ -220,6 +227,7 @@ pub async fn preferences_get(app: tauri::AppHandle) -> Result<Preferences> {
 fn save_general_preferences(path: &Path, preferences: Preferences) -> Result<()> {
     update(path, |current| {
         *current = Preferences {
+            timing_repair: current.timing_repair,
             layout: current.layout.clone(),
             automatic_updates: current.automatic_updates,
             ..preferences
@@ -269,9 +277,44 @@ pub(crate) fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf> {
         .map(|path| path.join("settings-v1.json"))
         .map_err(|e| e.to_string())
 }
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn timing_repair_options_save(
+    app: tauri::AppHandle,
+    options: vsf_application::quality::timing_fix::Options,
+) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        options.validate().map_err(|e| e.to_string())?;
+        app.state::<crate::document::Documents>()
+            .set_timing_options(options)?;
+        update(&settings_path(&app)?, |p| p.timing_repair = options)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn timing_policy_defaults_for_old_settings_and_survives_general_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(Preferences::default()).unwrap();
+        old.as_object_mut().unwrap().remove("timingRepair");
+        let bytes = serde_json::to_vec(&old).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        assert_eq!(read(&path).unwrap().timing_repair, Default::default());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        let options = vsf_application::quality::timing_fix::Options {
+            start_tolerance_ms: 120,
+            ..Default::default()
+        };
+        update(&path, |p| p.timing_repair = options).unwrap();
+        save_general_preferences(&path, Preferences::default()).unwrap();
+        assert_eq!(read(&path).unwrap().timing_repair, options);
+    }
+
     #[test]
     fn general_saves_preserve_stored_consent_even_with_a_stale_draft() {
         let dir = tempfile::tempdir().unwrap();

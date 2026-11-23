@@ -1,4 +1,9 @@
-import { defaultPreferences, type Preferences } from '../client';
+import {
+  saveTimingRepairOptions,
+  type TimingFixOptions,
+  defaultPreferences,
+  type Preferences,
+} from '../client';
 import { defaultTiming, type TimingSettings } from '../timing/magnetic-timing';
 /** Saved defaults, effective project timing and quality invalidation share one owner. */
 export class WorkspacePreferences {
@@ -23,6 +28,16 @@ export class WorkspacePreferences {
     this.timing = { ...value.timing };
     this.showQualityMetrics = value.showQualityMetrics;
   }
+  private repairWrite: Promise<unknown> = Promise.resolve();
+  async saveRepair(options: TimingFixOptions) {
+    this.saved = { ...this.saved, timingRepair: options };
+    const confirmed = { ...options };
+    const write = this.repairWrite.then(() =>
+      saveTimingRepairOptions(confirmed),
+    );
+    this.repairWrite = write.catch(() => {});
+    await write;
+  }
   acceptUpdateConsent(enabled: boolean) {
     this.saved = { ...this.saved, automaticUpdates: enabled };
   }
@@ -34,6 +49,7 @@ export class WorkspacePreferences {
       ...value,
       layout: this.saved.layout,
       automaticUpdates: this.saved.automaticUpdates,
+      timingRepair: this.saved.timingRepair,
     });
     this.invalidateQuality();
   }

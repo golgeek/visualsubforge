@@ -4,6 +4,7 @@ mod dependencies;
 mod effects;
 mod manual;
 mod precision;
+pub mod review;
 pub use effects::EffectSegment;
 mod search;
 use super::{
@@ -78,7 +79,9 @@ pub struct Request {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Endpoints {
+    #[cfg_attr(feature="specta",specta(type=f64))]
     pub start_ms: u64,
+    #[cfg_attr(feature="specta",specta(type=f64))]
     pub end_ms: u64,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -166,6 +169,7 @@ impl Unit {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Budget {
+    #[cfg_attr(feature="specta",specta(type=f64))]
     pub effective_ms: u64,
     pub max_counted: Option<u32>,
     pub shorten_by: Option<u32>,
@@ -184,6 +188,10 @@ pub struct Manual {
     pub budget_text: Option<String>,
     pub rules: Vec<Rule>,
     pub budget: Option<Budget>,
+}
+
+pub fn is_timing_finding(rule: Rule) -> bool {
+    family(rule, Families::default())
 }
 
 fn family(rule: Rule, f: Families) -> bool {
@@ -542,6 +550,34 @@ fn selection_geometry(
     Ok(Vec::new())
 }
 
+fn unresolved_by_cue(
+    report: &Report,
+    document: &Document,
+    scope: &HashSet<CueId>,
+    positions: &HashMap<CueId, usize>,
+    families: Families,
+) -> Vec<Vec<Rule>> {
+    let mut unresolved = vec![Vec::new(); document.cues().len()];
+    for f in &report.findings {
+        if family(f.rule, families) {
+            let i = f.cue_index as usize;
+            let dest = if scope.contains(&document.cues()[i].id()) {
+                Some(i)
+            } else {
+                f.related_cue_id
+                    .as_ref()
+                    .and_then(|s| s.parse().ok())
+                    .and_then(|id| scope.contains(&CueId(id)).then_some(id))
+                    .and_then(|id| positions.get(&CueId(id)).copied())
+            };
+            if let Some(j) = dest {
+                unresolved[j].push(f.rule);
+            }
+        }
+    }
+    unresolved
+}
+
 struct PlanningInputs<'a> {
     document: &'a Document,
     before: &'a Report,
@@ -834,25 +870,7 @@ impl PlanningInputs<'_> {
             .filter(|u| u.partial)
             .map(|u| u.index as usize)
             .collect();
-        let mut unresolved = vec![Vec::new(); document.cues().len()];
-        for finding in &after.findings {
-            if family(finding.rule, request.families) {
-                let index = finding.cue_index as usize;
-                let dest = if scope.contains(&document.cues()[index].id()) {
-                    Some(index)
-                } else {
-                    finding
-                        .related_cue_id
-                        .as_ref()
-                        .and_then(|s| s.parse().ok())
-                        .and_then(|id| scope.contains(&CueId(id)).then_some(id))
-                        .and_then(|id| positions.get(&CueId(id)).copied())
-                };
-                if let Some(destination) = dest {
-                    unresolved[destination].push(finding.rule);
-                }
-            }
-        }
+        let unresolved = unresolved_by_cue(after, document, scope, &positions, request.families);
         let mut manual = Vec::new();
         for (index, rules) in unresolved
             .into_iter()

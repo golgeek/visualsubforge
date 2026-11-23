@@ -1,11 +1,9 @@
-import { DurationRepairSession } from '../../../src/lib/timing/duration-repair-session.svelte';
+import { TimingFixSession } from '../../../src/lib/timing/timing-fix-session.svelte';
+import { defaultPreferences } from '../../../src/lib/client';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
-import type {
-  DurationRepairView,
-  DocumentSnapshot,
-} from '../../../src/lib/client';
+import type { TimingFixView, DocumentSnapshot } from '../../../src/lib/client';
 export async function lifecycle(
-  sample: DurationRepairView,
+  sample: TimingFixView,
   original: DocumentSnapshot,
   passed: (message: string) => void,
 ) {
@@ -21,24 +19,30 @@ export async function lifecycle(
     resyncAccept: async () => {
       throw new Error('Unused');
     },
-    gapAccept: async () => snapshot,
-    durationRepairAccept: async () => accepting ?? snapshot,
+    timingFixAccept: async () => accepting ?? snapshot,
   });
   await subtitles.command({ kind: 'status' });
   let media = 0;
   let next = structuredClone(sample);
-  let readRelease!: (v: DurationRepairView) => void;
-  let held: Promise<DurationRepairView> | null = null;
+  let readRelease!: (v: TimingFixView) => void;
+  let held: Promise<TimingFixView> | null = null;
   const cancelled: number[] = [];
   let scope: string | null = null;
-  const session = new DurationRepairSession(
+  const session = new TimingFixSession(
     subtitles,
     () => media,
-    () => scope,
+    () => ({
+      options: defaultPreferences.timingRepair,
+      families: { gaps: true, speed: true, shots: true },
+      scope: scope === null ? null : [Number(scope)],
+      toggled: [],
+      omitTrades: false,
+    }),
+    undefined,
     {
-      durationRepairStart: async () => sample.id,
-      durationRepairView: async () => held ?? next,
-      durationRepairCancel: async (id) => {
+      timingFixStart: async () => sample.id,
+      timingFixView: async () => held ?? next,
+      timingFixCancel: async (id) => {
         cancelled.push(id);
       },
     },

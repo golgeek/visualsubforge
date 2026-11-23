@@ -21,7 +21,6 @@ mod statistics;
 pub(crate) mod translation;
 #[cfg(test)]
 pub(crate) use statistics::ipc_sample as statistics_ipc_sample;
-mod gaps;
 mod texts;
 #[cfg(test)]
 pub(crate) use texts::conversion_ipc_samples;
@@ -33,15 +32,11 @@ mod timing_repairs;
 #[cfg(test)]
 pub(crate) use checks::ipc_sample as quality_ipc_sample;
 #[cfg(test)]
-pub(crate) use gaps::ipc_sample as gap_ipc_sample;
-#[cfg(test)]
 pub(crate) use texts::ipc_sample as text_ipc_sample;
 #[cfg(test)]
-pub(crate) use timing_repairs::batch_ipc_sample;
+pub(crate) use timing_repairs::ipc_sample as timing_fix_ipc_sample;
 #[cfg(test)]
-pub(crate) use timing_repairs::duration_ipc_sample as duration_repair_ipc_sample;
-#[cfg(test)]
-pub(crate) use timing_repairs::ipc_sample as scene_repair_ipc_sample;
+pub(crate) use timing_repairs::{batch_ipc_sample, preset_samples};
 mod quality;
 mod resync;
 pub(crate) use resync::Capture;
@@ -96,8 +91,8 @@ struct Store {
     quality: quality::State,
     checks: checks::Checks,
     statistics: statistics::State,
-    gaps: gaps::State,
     timing_repairs: timing_repairs::State,
+    timing_options: Option<vsf_application::quality::timing_fix::Options>,
     texts: texts::State,
     translation: translation::State,
     review: review::State,

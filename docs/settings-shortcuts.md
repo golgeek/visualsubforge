@@ -89,6 +89,8 @@ when an overlay or custom bar is active.
 
 ## Menus and panels
 
+Review → Fix All Timing… opens the Timing tab. Fix gaps and overlaps…, Fix reading speed… and Snap to shot changes… open its single-family presets.
+
 Cue and Review group their editing and checking operations. Review → Issues
 (Cmd/Ctrl+1), Statistics (Cmd/Ctrl+2), and View → Translation Reference
 (Cmd/Ctrl+3) open docks in the current layout. Closing Translation restores the

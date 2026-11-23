@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { timingGhosts, timingDelta } from './review-preview.ts';
-import type { GapView, BatchTimingView } from '../client';
+import type { TimingFixView, BatchTimingView } from '../client';
 import {
-  gapView,
+  fixGapsSample,
   batchTimingView,
 } from '../../../tests/frontend/ipc-contract-samples.ts';
 
 test('Timing previews exclude unchecked or unsafe plans without changing accepted timing', () => {
-  const view: GapView = structuredClone(gapView);
+  const view: TimingFixView = structuredClone(fixGapsSample);
   const before = structuredClone(view);
   view.rows[0]!.selected = false;
   const ghosts = timingGhosts(view);
@@ -16,10 +16,10 @@ test('Timing previews exclude unchecked or unsafe plans without changing accepte
   assert(!ghosts.some((ghost) => ghost.id === Number(view.rows[0]!.cueId)));
   for (const ghost of ghosts) {
     const row = before.rows.find((row) => Number(row.cueId) === ghost.id)!;
-    assert.equal(ghost.startMs, row.before.data.startMs);
-    assert.equal(ghost.endMs, row.newEndMs);
+    assert.equal(ghost.startMs, row.ghosts[0]!.after.startMs);
+    assert.equal(ghost.endMs, row.ghosts[0]!.after.endMs);
   }
-  assert.deepEqual(view.rows[0]!.before, before.rows[0]!.before);
+  assert.deepEqual(view.rows[0]!.unit, before.rows[0]!.unit);
   assert.deepEqual(
     timingGhosts({ ...view, selectionError: 'Unsafe coupled subset' }),
     [],

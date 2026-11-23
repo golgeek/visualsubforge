@@ -54,14 +54,10 @@ export type WaveformView = IPC.visualsubforge_waveform_WaveformView_Serialize;
 export type SceneMode = IPC.visualsubforge_scenes_Mode;
 export type SceneView = IPC.visualsubforge_scenes_SceneView_Serialize;
 export type ResyncView = Awaited<ReturnType<typeof commands.resyncView>>;
-export type GapView = Awaited<ReturnType<typeof commands.gapView>>;
-export type SceneRepairView = Awaited<
-  ReturnType<typeof commands.sceneRepairView>
->;
-export type DurationRepairView = Awaited<
-  ReturnType<typeof commands.durationRepairView>
->;
-
+export type TimingFixView = Awaited<ReturnType<typeof commands.timingFixView>>;
+export type TimingFixInput = Parameters<typeof commands.timingFixStart>[3];
+export type TimingFixOptions = TimingFixInput['options'];
+export type TimingFamilies = TimingFixInput['families'];
 export type StatisticsView = Awaited<
   ReturnType<typeof commands.statisticsView>
 >;
@@ -444,106 +440,40 @@ export function resyncAccept(id: number): Promise<DocumentSnapshot> {
   return commands.resyncAccept(id);
 }
 export type ReviewSelection = NonNullable<
-  Parameters<typeof commands.gapStart>[3]
+  Parameters<typeof commands.batchTimingStart>[4]
 >;
-export function gapStart(
+export function timingFixStart(
   session: number,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
-  selection: ReviewSelection | null = null,
+  input: TimingFixInput,
 ) {
-  return commands.gapStart(
+  return commands.timingFixStart(
     session,
     document.generation,
     document.revision,
-    selection,
+    input,
   );
 }
-export function durationRepairStart(
-  session: number,
-  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
-  selectedCueId: string | null,
-  selection: ReviewSelection | null = null,
-) {
-  return commands.durationRepairStart(
-    session,
-    document.generation,
-    document.revision,
-    selectedCueId,
-    selection,
-  );
-}
-export function durationRepairView(
+export function timingFixView(
   id: number,
   offset = 0,
   limit = 100,
+  section: 'changes' | 'manual' = 'changes',
   previewIds: readonly number[] | null = null,
 ) {
-  return commands.durationRepairView(
+  return commands.timingFixView(
     id,
     offset,
     limit,
+    section,
     previewIds ? [...previewIds] : null,
   );
 }
-export async function durationRepairCancel(id: number): Promise<void> {
-  await commands.durationRepairCancel(id);
+export const timingFixAccept = commands.timingFixAccept;
+export async function timingFixCancel(id: number) {
+  await commands.timingFixCancel(id);
 }
-export function durationRepairAccept(id: number): Promise<DocumentSnapshot> {
-  return commands.durationRepairAccept(id);
-}
-export function sceneRepairStart(
-  session: number,
-  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
-  selection: ReviewSelection | null = null,
-) {
-  return commands.sceneRepairStart(
-    session,
-    document.generation,
-    document.revision,
-    selection,
-  );
-}
-export function sceneRepairView(
-  id: number,
-  offset = 0,
-  limit = 100,
-  previewIds: readonly number[] | null = null,
-) {
-  return commands.sceneRepairView(
-    id,
-    offset,
-    limit,
-    previewIds ? [...previewIds] : null,
-  );
-}
-export async function sceneRepairCancel(id: number): Promise<void> {
-  await commands.sceneRepairCancel(id);
-}
-export function sceneRepairAccept(id: number): Promise<DocumentSnapshot> {
-  return commands.sceneRepairAccept(id);
-}
-export function gapView(
-  id: number,
-  offset = 0,
-  limit = 100,
-  previewIds: readonly number[] | null = null,
-) {
-  return commands.gapView(
-    id,
-    offset,
-    limit,
-    previewIds ? [...previewIds] : null,
-  );
-}
-export async function gapCancel(id: number): Promise<void> {
-  await commands.gapCancel(id);
-}
-export function gapAccept(
-  id: number,
-  acknowledgeNoMedia: boolean,
-): Promise<DocumentSnapshot> {
-  return commands.gapAccept(id, acknowledgeNoMedia);
-}
+export const saveTimingRepairOptions = commands.timingRepairOptionsSave;
 export function scenesView(
   generation: number,
   start: number,
@@ -624,6 +554,11 @@ export const defaultPreferences: Preferences = {
   quality: builtinQualityProfiles[0]!,
   showQualityMetrics: false,
   zoomWaveformToCue: true,
+  timingRepair: {
+    priority: 'readingSpeed',
+    startToleranceMs: 0,
+    sceneEdges: 'inward',
+  },
   personalWords: { englishUs: [], french: [] },
 };
 export type UpdateOutcome = Awaited<ReturnType<typeof commands.updateCheck>>;

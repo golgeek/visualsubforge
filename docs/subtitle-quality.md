@@ -139,60 +139,7 @@ limitations remain visible even when there are no findings.
 
 ## Previewing minimum-gap changes
 
-Choose **Fix gaps and overlaps…** from Commands to open Review → Fix timing.
-The live preview waits for drafts to commit or be discarded. Scope follows the
-whole file, list selection or filter. Review endpoints, reading metrics, skip
-reasons and finding counts in bounded 100-row pages. Untick changes to withhold
-them; Rust validates the complete subset before enabling **Apply N changes**.
-Acceptance includes all checked pages in one history entry. Closing retires the
-read-only proposal. With no media, a note explicitly states that shot changes
-weren’t checked; Apply confirms the displayed limited coverage without a separate
-checkbox. Missing attached-media scene coverage cannot be acknowledged away.
-Saving remains a separate action. Existing recovery/resync Save As protections
-survive acceptance, failed saves and Undo.
-
-Document edits, history changes, a changed profile, media replacement or scene
-rescan retire the captured proposal. Accept rechecks these identities in Rust;
-a late reply or an old dock session cannot apply it. One explicit proposal worker runs
-beside the automatic checker, with no queue and a ten-second deadline. Closing
-the dock cancels it; application shutdown joins both workers outside the
-document lock. Full proposals/reports stay in Rust; review IPC caps at 200 rows.
-Text review and shared scene/duration review each have another independently
-bounded owner. Explicit [statistics](statistics.md) uses another bounded owner,
-bringing the total to five CPU workers across checking, gap, text, timing review
-and statistics. Statistics shares metric policy and never changes accepted cues.
-
-The shared proposal keeps every cue start fixed and only
-shortens an earlier cue's end to next-start minus the effective minimum gap.
-No cue is extended, shifted, reordered, deleted or collapsed. Already sufficient
-gaps stay unchanged. Nested/ambiguous overlapping neighborhoods are unresolved.
-Reject candidates that violate the enabled minimum duration, worsen a speed
-violation, or enter a configured scene endpoint exclusion zone. Scene constraints
-require current completed data when media is attached; unavailable/partial data
-is reported, never assumed clear. Without media, scene constraints are explicitly
-not checked; the visible no-media note accompanies explicit acceptance of the
-partial plan.
-
-Equal starts and nested intervals make their connected overlapping group
-ambiguous. Candidate endpoints exactly on a scene exclusion boundary are allowed;
-strictly interior endpoints are rejected. With zero scene buffers, no scene data
-is required. The whole candidate document is evaluated before review. If it adds
-a speed finding or worsens an existing high/low-rate finding in any overlapping
-group, that group's changes are withheld, including when they affect an unchanged
-following cue's reading start. This conservative grouping bounds the work and
-keeps coupled reading-speed changes from escaping an individual-cue check.
-
-Preview includes old/new endpoints, skipped reasons and changed reading metrics.
-For ASS/SSA, gap repair floors the latest permitted end to the 10 ms source grid.
-Timing-sensitive tags, ambiguous markup, nonempty event effects and cues over
-64 KiB require manual timing review, including tagged SRT. Accepted metadata is
-preserved. `vsf check` also accepts ASS/SSA through the shared format-aware reader
-without changing metric policies. See the current
-[ASS/SSA integration and acceptance scope](ass-ssa-documents.md).
-Acceptance applies only the displayed safe changes together via one validated
-`Edit::Retime`, guards document/profile/context identity, preserves failed-save
-and recovery policies, and reruns checking. No action is inferred from profile
-loading, opening Problems, resynchronizing, or saving.
+**Fix gaps and overlaps…** opens Timing → Fix with only gaps and overlaps ticked. The unified planner protects speed, duration and scene constraints while validating the selected subset. [Fix all timing](timing-repair-all.md)
 
 ## Headless check
 

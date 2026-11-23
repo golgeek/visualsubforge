@@ -118,10 +118,7 @@ export class WorkspaceDialogsState {
       return;
     this.workspace.error = '';
     this.effects.suspendFollowing();
-    this.view.openReview(
-      kind === 'batch' ? 'shift' : 'timing',
-      kind === 'batch' ? undefined : kind,
-    );
+    this.view.openReview('timing', kind);
   }
   async openText(mode?: 'find' | 'replace' | TextOperation) {
     if (

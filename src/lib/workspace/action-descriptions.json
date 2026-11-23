@@ -399,6 +399,16 @@
     "macShortcut": null,
     "order": 14
   },
+  "fixAllTiming": {
+    "label": "Fix All Timing…",
+    "group": "Review",
+    "native": true,
+    "shortcut": "",
+    "aliases": ["Fix all", "Repair timing"],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 40
+  },
   "fixGaps": {
     "label": "Fix Gaps and Overlaps\u2026",
     "group": "Review",

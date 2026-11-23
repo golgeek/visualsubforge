@@ -23,7 +23,7 @@ export async function lifecycle(passed: (message: string) => void) {
   const owner = new DocumentSession({
     chooseFile: async () => null,
     resyncAccept: async () => snapshot,
-    gapAccept: async () => snapshot,
+    timingFixAccept: async () => snapshot,
     documentAction: async () => {
       if (statusFails) throw new Error('offline');
       return structuredClone(snapshot);

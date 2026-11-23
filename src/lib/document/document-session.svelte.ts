@@ -6,9 +6,7 @@ import {
   chooseFile,
   documentAction,
   resyncAccept,
-  gapAccept,
-  sceneRepairAccept,
-  durationRepairAccept,
+  timingFixAccept,
   cueFixesAccept,
   batchTimingAccept,
   textAccept,
@@ -41,9 +39,7 @@ const client = {
   chooseFile,
   documentAction,
   resyncAccept,
-  gapAccept,
-  sceneRepairAccept,
-  durationRepairAccept,
+  timingFixAccept,
   cueFixesAccept,
   batchTimingAccept,
   textAccept,
@@ -58,9 +54,8 @@ type Client = Omit<
   | 'fontAccept'
   | 'pluginAccept'
   | 'textAccept'
-  | 'sceneRepairAccept'
+  | 'timingFixAccept'
   | 'cueFixesAccept'
-  | 'durationRepairAccept'
   | 'batchTimingAccept'
   | 'translationAction'
 > &
@@ -71,9 +66,8 @@ type Client = Omit<
       | 'fontAccept'
       | 'pluginAccept'
       | 'textAccept'
-      | 'sceneRepairAccept'
+      | 'timingFixAccept'
       | 'cueFixesAccept'
-      | 'durationRepairAccept'
       | 'batchTimingAccept'
       | 'translationAction'
     >
@@ -277,17 +271,6 @@ export class DocumentSession {
       );
     return this.update(() => this.client.resyncAccept(id));
   }
-  acceptGap(
-    id: number,
-    expected: DocumentSnapshot,
-    acknowledgeNoMedia: boolean,
-  ): Promise<boolean> {
-    if (this.accepted !== expected || this.dirty)
-      return Promise.reject(
-        new Error('Subtitles or the cue draft changed; preview again.'),
-      );
-    return this.update(() => this.client.gapAccept(id, acknowledgeNoMedia));
-  }
   acceptText(
     id: number,
     expected: DocumentSnapshot,
@@ -328,25 +311,13 @@ export class DocumentSession {
       (this.client.pluginAccept ?? pluginAccept)(id, input),
     );
   }
-  acceptSceneRepair(id: number, expected: DocumentSnapshot): Promise<boolean> {
-    if (this.accepted !== expected || this.dirty)
+  acceptTimingFix(id: number, expected: DocumentSnapshot): Promise<boolean> {
+    if (this.accepted !== expected || this.dirty || !this.stateConfirmed)
       return Promise.reject(
         new Error('Subtitles or the cue draft changed; preview again.'),
       );
     return this.update(() =>
-      (this.client.sceneRepairAccept ?? sceneRepairAccept)(id),
-    );
-  }
-  acceptDurationRepair(
-    id: number,
-    expected: DocumentSnapshot,
-  ): Promise<boolean> {
-    if (this.accepted !== expected || this.dirty)
-      return Promise.reject(
-        new Error('Subtitles or the cue draft changed; preview again.'),
-      );
-    return this.update(() =>
-      (this.client.durationRepairAccept ?? durationRepairAccept)(id),
+      (this.client.timingFixAccept ?? timingFixAccept)(id),
     );
   }
   async acceptCueFixes(

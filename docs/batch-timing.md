@@ -21,7 +21,7 @@ Selection is not saved in subtitle files or recovery history.
 
 ## Shift / align cues
 
-Choose **Shift / align cues…** from Commands to open the Review dock’s Shift tab.
+Choose **Shift / align cues…** from Commands to open the Review dock’s Timing → Shift mode.
 Options update a read-only preview automatically. Shifts accept signed integer
 milliseconds: positive moves later, negative earlier. Scope choices follow list selection, the filtered list, all cues, the current
 cue and following **file rows**, or cues whose **start** is at/after a captured paused

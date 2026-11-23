@@ -1,4 +1,4 @@
-export type TimingKind = 'gap' | 'scene' | 'duration' | 'batch';
+export type TimingKind = 'gap' | 'scene' | 'duration' | 'all' | 'batch';
 /** Only workspace panel visibility and its existing open/close rules. */
 export class WorkspaceView {
   translationOpen = $state(false);
@@ -6,17 +6,25 @@ export class WorkspaceView {
   problemsOpen = $state(false);
   diagnostics = $state(false);
   reviewBusy = $state(false);
-  reviewTab = $state<'issues' | 'timing' | 'shift' | 'statistics' | 'changes'>(
-    'issues',
-  );
-  timingKind = $state<'gap' | 'duration' | 'scene'>('gap');
+  reviewTab = $state<'issues' | 'timing' | 'statistics' | 'changes'>('issues');
+  timingMode = $state<'fix' | 'shift'>('fix');
+  families = $state({ gaps: true, speed: true, shots: true });
+  policyOpen = $state(false);
   openReview(
-    tab: 'issues' | 'timing' | 'shift' | 'statistics' | 'changes',
-    kind?: 'gap' | 'duration' | 'scene',
+    tab: 'issues' | 'timing' | 'statistics' | 'changes',
+    preset?: TimingKind,
   ) {
     if (this.reviewBusy) return;
     this.reviewTab = tab;
-    if (kind) this.timingKind = kind;
+    if (preset) {
+      this.timingMode = preset === 'batch' ? 'shift' : 'fix';
+      if (preset !== 'batch')
+        this.families = {
+          gaps: preset === 'all' || preset === 'gap',
+          speed: preset === 'all' || preset === 'duration',
+          shots: preset === 'all' || preset === 'scene',
+        };
+    }
     this.translationOpen = false;
     this.problemsOpen = true;
   }

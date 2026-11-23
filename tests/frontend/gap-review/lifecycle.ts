@@ -1,8 +1,9 @@
-import { GapSession } from '../../../src/lib/timing/gap-session.svelte';
+import { TimingFixSession } from '../../../src/lib/timing/timing-fix-session.svelte';
+import { defaultPreferences } from '../../../src/lib/client';
 import { DocumentSession } from '../../../src/lib/document/document-session.svelte';
-import type { GapView, DocumentSnapshot } from '../../../src/lib/client';
+import type { TimingFixView, DocumentSnapshot } from '../../../src/lib/client';
 export async function lifecycle(
-  sample: GapView,
+  sample: TimingFixView,
   original: DocumentSnapshot,
   passed: (message: string) => void,
 ) {
@@ -18,28 +19,39 @@ export async function lifecycle(
     resyncAccept: async () => {
       throw new Error('Unused');
     },
-    gapAccept: async () => accepting ?? snapshot,
+    timingFixAccept: async () => accepting ?? snapshot,
   });
   await subtitles.command({ kind: 'status' });
   let media = 0;
   let next = structuredClone(sample);
-  let readRelease!: (v: GapView) => void;
-  let held: Promise<GapView> | null = null;
+  let readRelease!: (v: TimingFixView) => void;
+  let held: Promise<TimingFixView> | null = null;
   let reads = 0;
   const cancelled: number[] = [];
-  const session = new GapSession(subtitles, () => media, {
-    gapStart: async () => sample.id,
-    gapView: async (_id, _offset, limit) => {
-      assert(limit === 100, 'Review requested an unbounded page');
-      reads++;
-      return held ?? next;
+  const session = new TimingFixSession(
+    subtitles,
+    () => media,
+    () => ({
+      options: defaultPreferences.timingRepair,
+      families: { gaps: true, speed: true, shots: true },
+      scope: null,
+      toggled: [],
+      omitTrades: false,
+    }),
+    undefined,
+    {
+      timingFixStart: async () => sample.id,
+      timingFixView: async (_id, _offset, limit) => {
+        assert(limit === 100, 'Review requested an unbounded page');
+        reads++;
+        return held ?? next;
+      },
+      timingFixCancel: async (id) => {
+        cancelled.push(id);
+      },
     },
-    gapCancel: async (id) => {
-      cancelled.push(id);
-    },
-  });
+  );
   await session.start();
-  session.acknowledgeNoMedia = true;
   assert(session.canAccept, 'Ready proposal not acceptable');
   held = new Promise((resolve) => {
     readRelease = resolve;
@@ -63,10 +75,7 @@ export async function lifecycle(
   passed('Media replacement during a held review reply retires the proposal');
   media = 0;
   await session.start();
-  assert(
-    !session.acknowledgeNoMedia && !session.canAccept,
-    'A new proposal inherited the previous acknowledgment',
-  );
+  assert(session.canAccept, 'No-media review should allow explicit acceptance');
   snapshot = { ...snapshot, revision: snapshot.revision + 1 };
   await subtitles.command({ kind: 'status' });
   await session.poll();
@@ -100,7 +109,6 @@ export async function lifecycle(
   held = new Promise((resolve) => {
     readRelease = resolve;
   });
-  session.acknowledgeNoMedia = true;
   assert(session.canAccept, 'Policy control was not initially acceptable');
   const policyPoll = session.poll();
   readRelease({ ...next, phase: 'stale' });
@@ -115,7 +123,6 @@ export async function lifecycle(
   held = new Promise((resolve) => {
     readRelease = resolve;
   });
-  session.acknowledgeNoMedia = true;
   assert(session.canAccept, 'Document control was not initially acceptable');
   const documentPoll = session.poll();
   snapshot = { ...snapshot, revision: snapshot.revision + 1 };
@@ -130,7 +137,6 @@ export async function lifecycle(
   passed('Document replacement during a pending read excludes the old page');
   next = { ...next, key: { ...next.key, revision: snapshot.revision } };
   await session.start();
-  session.acknowledgeNoMedia = true;
   accepting = new Promise((resolve) => {
     release = resolve;
   });
@@ -152,7 +158,6 @@ export async function lifecycle(
   held = new Promise((resolve) => {
     readRelease = resolve;
   });
-  session.acknowledgeNoMedia = true;
   assert(session.canAccept, 'Disposal control was not initially acceptable');
   const disposedPoll = session.poll();
   const beforeDisposal = session.view;

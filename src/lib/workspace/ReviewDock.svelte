@@ -5,10 +5,15 @@
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { CueTableView } from '../cues/cue-table-view.svelte';
   import type { TimingPreview } from '../timing/review-preview';
+  import type { TimingFixOptions } from '../client';
+  import ReviewShift from '../timing/ReviewShift.svelte';
   import ReviewTiming from '../timing/ReviewTiming.svelte';
   import StatisticsPanel from '../quality/StatisticsPanel.svelte';
   let {
     view,
+    options,
+    onoptions,
+    issueCount,
     subtitles,
     tableView,
     mediaSession,
@@ -24,6 +29,9 @@
     onnavigate,
   }: {
     view: WorkspaceView;
+    options: TimingFixOptions;
+    onoptions: (o: TimingFixOptions) => void;
+    issueCount: number;
     subtitles: DocumentSession;
     tableView: CueTableView;
     mediaSession: () => number;
@@ -51,17 +59,24 @@
   const busy = $derived(view.reviewBusy);
   let scopePlayhead = $state<number | null>(null);
   let scope = $state<
-    'all' | 'selected' | 'filtered' | 'following' | 'playhead'
+    'all' | 'selected' | 'filtered' | 'following' | 'playhead' | 'current'
   >('all');
   $effect(() => {
     if (
-      view.reviewTab !== 'shift' &&
+      !(view.reviewTab === 'timing' && view.timingMode === 'shift') &&
       (scope === 'following' || scope === 'playhead')
+    )
+      scope = 'all';
+    if (
+      scope === 'current' &&
+      (view.reviewTab !== 'timing' || view.timingMode === 'shift')
     )
       scope = 'all';
   });
   const scopeIds = () => {
     if (scope === 'all') return null;
+    if (scope === 'current')
+      return subtitles.selected === null ? [] : [subtitles.selected];
     if (scope === 'selected') return [...subtitles.selectedIds];
     if (scope === 'following') {
       const index = subtitles.snapshot.cues.findIndex(
@@ -83,8 +98,7 @@
   };
   const tabs = [
     { id: 'issues', label: 'Issues' },
-    { id: 'timing', label: 'Fix timing' },
-    { id: 'shift', label: 'Shift' },
+    { id: 'timing', label: 'Timing' },
     { id: 'statistics', label: 'Statistics' },
     { id: 'changes', label: 'Changes' },
   ] as const;
@@ -92,20 +106,38 @@
 
 <aside class="review-dock" aria-label="Review panel">
   <header>
-    <strong>Review</strong><button
+    <strong>Review</strong>
+    <nav aria-label="Review tools">
+      {#each tabs as tab (tab.id)}<button
+          disabled={busy}
+          aria-pressed={view.reviewTab === tab.id}
+          onclick={() => (view.reviewTab = tab.id)}
+          >{tab.label}{tab.id === 'issues' ? ' ' + issueCount : ''}</button
+        >{/each}
+    </nav>
+    <button
+      data-variant="quiet"
       disabled={busy}
       aria-label="Close review panel"
       onclick={onclose}>Close</button
     >
   </header>
-  <nav aria-label="Review tools">
-    {#each tabs as tab (tab.id)}<button
-        disabled={busy}
-        aria-pressed={view.reviewTab === tab.id}
-        onclick={() => (view.reviewTab = tab.id)}>{tab.label}</button
-      >{/each}
-  </nav>
   <div class="review-options">
+    {#if view.reviewTab === 'timing'}<div
+        class="mode"
+        role="radiogroup"
+        aria-label="Timing mode"
+      >
+        {#each ['fix', 'shift'] as const as mode (mode)}<label
+            ><input
+              type="radio"
+              name="timing-mode"
+              checked={view.timingMode === mode}
+              disabled={busy}
+              onchange={() => (view.timingMode = mode)}
+            />{mode === 'fix' ? 'Fix' : 'Shift'}</label
+          >{/each}
+      </div>{/if}
     {#if view.reviewTab !== 'issues' && view.reviewTab !== 'changes'}<label
         class="scope"
         >Scope <select
@@ -119,14 +151,18 @@
           ><option value="all">Whole file</option><option value="selected"
             >List selection</option
           ><option value="filtered">Filtered list</option
-          >{#if view.reviewTab === 'shift'}<option value="following"
-              >Current cue onward</option
+          >{#if view.reviewTab === 'timing' && view.timingMode === 'shift'}<option
+              value="following">Current cue onward</option
             ><option value="playhead" disabled={playhead() === null}
               >At or after paused playhead</option
+            >{:else if view.reviewTab === 'timing'}<option value="current"
+              >Current cue</option
             >{/if}</select
         ></label
       >{/if}
-    {#if view.reviewTab === 'shift' && scope === 'playhead'}<div class="scope">
+    {#if view.reviewTab === 'timing' && view.timingMode === 'shift' && scope === 'playhead'}<div
+        class="scope"
+      >
         <span
           >From {scopePlayhead === null ? '—' : formatTime(scopePlayhead)}</span
         ><button
@@ -135,15 +171,18 @@
           >Capture scope playhead</button
         >
       </div>{/if}
-    {#if view.reviewTab === 'timing'}<label class="scope"
-        >Repair <select
-          disabled={busy}
-          aria-label="Timing repair"
-          bind:value={view.timingKind}
-          ><option value="gap">Gaps and overlaps</option><option
-            value="duration">Reading speed</option
-          ><option value="scene">Scene changes</option></select
-        ></label
+    {#if view.reviewTab === 'timing' && view.timingMode === 'fix'}<button
+        class="policy-button"
+        data-variant="quiet"
+        aria-expanded={view.policyOpen}
+        onclick={() => (view.policyOpen = !view.policyOpen)}
+        >{options.priority === 'spacing'
+          ? 'Keep spacing'
+          : 'Keep reading speed'} · {options.startToleranceMs
+          ? 'starts ±' + options.startToleranceMs + ' ms'
+          : 'start moves off'} · {options.sceneEdges === 'nearest'
+          ? 'nearest edge'
+          : 'inward'} ▾</button
       >{/if}
   </div>
   <div class="body">
@@ -158,25 +197,41 @@
         {onclose}
         {onnavigate}
       />
-    {:else}{#key view.reviewTab === 'shift' ? 'batch' : view.timingKind}<ReviewTiming
-          kind={view.reviewTab === 'shift' ? 'batch' : view.timingKind}
-          {subtitles}
-          {mediaSession}
-          {context}
-          {scopeIds}
-          {previewIds}
-          {playhead}
-          onbusy={(value) => (view.reviewBusy = value)}
-          {enabled}
-          {onpreview}
-          {onaccepted}
-        />{/key}{/if}
+    {:else if view.timingMode === 'shift'}<ReviewShift
+        {subtitles}
+        {mediaSession}
+        {context}
+        {scopeIds}
+        {previewIds}
+        {playhead}
+        onbusy={(v) => (view.reviewBusy = v)}
+        {enabled}
+        {onpreview}
+        {onaccepted}
+      />
+    {:else}<ReviewTiming
+        {view}
+        {subtitles}
+        {mediaSession}
+        {context}
+        {scopeIds}
+        {previewIds}
+        {options}
+        {onoptions}
+        {onnavigate}
+        onbusy={(v) => (view.reviewBusy = v)}
+        {enabled}
+        {onpreview}
+        {onaccepted}
+      />{/if}
   </div>
 </aside>
 
 <style>
   .review-dock {
+    container-type: inline-size;
     flex: 0 0 42%;
+    overflow: auto;
     min-width: 0;
     min-height: 0;
     display: flex;
@@ -214,8 +269,8 @@
     display: none;
   }
   .scope {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 150px;
+    min-width: min(150px, 100%);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -224,13 +279,64 @@
     font-size: 11px;
   }
   select {
-    min-width: 0;
+    min-width: 90px;
     flex: 1;
-    width: 0;
+    width: auto;
   }
   .body {
     overflow: auto;
-    min-height: 0;
+    min-height: 175px;
     flex: 1;
+  }
+  header,
+  .review-options {
+    flex-wrap: wrap;
+  }
+  .policy-button {
+    margin-inline-start: auto;
+    white-space: normal;
+    text-align: end;
+  }
+  .mode {
+    display: inline-flex;
+  }
+  .mode label {
+    position: relative;
+    cursor: pointer;
+    border: 1px solid var(--line-strong);
+    padding: var(--control-pad-y) var(--control-pad-x);
+  }
+  .mode label:has(:checked) {
+    color: var(--accent-text);
+    background: var(--accent-soft);
+  }
+  .mode input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .mode label:focus-within {
+    outline: 2px solid var(--focus);
+  }
+  @container (max-width: 360px) {
+    header {
+      justify-content: flex-start;
+      gap: 4px;
+    }
+    header strong {
+      flex-basis: 100%;
+    }
+    nav {
+      padding: 0;
+      border: 0;
+    }
+    .policy-button {
+      margin-inline-start: 0;
+      text-align: left;
+    }
   }
 </style>

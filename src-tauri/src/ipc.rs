@@ -1,8 +1,7 @@
 //! One command/event registry for desktop dispatch and generated JSON contracts.
 use crate::{
-    desktop, document, gap_review, media, preferences, project, quality_check, quality_profile,
-    resync, scenes, statistics, text_review, timing_preset, timing_review, waveform,
-    workflow_trace,
+    desktop, document, media, preferences, project, quality_check, quality_profile, resync, scenes,
+    statistics, text_review, timing_preset, timing_review, waveform, workflow_trace,
 };
 
 pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
@@ -24,6 +23,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             crate::updates::update_open,
             preferences::preferences_get,
             preferences::preferences_save,
+            preferences::timing_repair_options_save,
             preferences::layout_save,
             crate::recent::recent_list,
             crate::recent::recent_capture,
@@ -46,22 +46,14 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             crate::plugin_review::plugin_text,
             crate::plugin_review::plugin_cancel,
             crate::plugin_review::plugin_accept,
-            gap_review::gap_start,
-            gap_review::gap_view,
-            gap_review::gap_cancel,
-            gap_review::gap_accept,
             crate::batch_timing::batch_timing_start,
             crate::batch_timing::batch_timing_view,
             crate::batch_timing::batch_timing_cancel,
             crate::batch_timing::batch_timing_accept,
-            timing_review::scene_repair_start,
-            timing_review::scene_repair_view,
-            timing_review::scene_repair_cancel,
-            timing_review::scene_repair_accept,
-            timing_review::duration_repair_start,
-            timing_review::duration_repair_view,
-            timing_review::duration_repair_cancel,
-            timing_review::duration_repair_accept,
+            timing_review::timing_fix_start,
+            timing_review::timing_fix_view,
+            timing_review::timing_fix_cancel,
+            timing_review::timing_fix_accept,
             crate::style_review::style_form,
             crate::style_review::style_start,
             crate::style_review::style_view,
@@ -137,11 +129,12 @@ fn export_bindings() {
     .unwrap();
     let mut sample = format!(
         "// Generated from Rust Serde output; do not edit.\n\
-         import type {{ TimingPreset, DocumentAction, DocumentCommandError, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, GapView, SceneRepairView, DurationRepairView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply, PluginInput, PluginReview, PluginTextChunk }} from '../../src/lib/client';\n\
+         import type {{ TimingPreset, DocumentAction, DocumentCommandError, DocumentSnapshot, RecoveryStatus, OpenedProject, SceneView, WaveformView, WorkspaceAction, MediaStatus, Preferences, ResyncView, QualityView, TimingFixView, BatchTimingView, StatisticsView, TextView, StyleForm, StyleReview, FontReview, ConversionReview, LegacyImportReview, TranslationAction, TranslationReply, PluginInput, PluginReview, PluginTextChunk }} from '../../src/lib/client';\n\
          export const preset = {} satisfies TimingPreset;\n",
         serde_json::to_string_pretty(&preset).unwrap(),
     );
     let mut samples = document::ipc_tests::samples();
+    samples.extend(document::preset_samples());
     samples.extend(document::style_ipc_samples());
     samples.extend(document::font_ipc_samples());
     samples.extend(document::conversion_ipc_samples());
@@ -156,21 +149,15 @@ fn export_bindings() {
             document::statistics_ipc_sample(),
         ),
         ("qualityView", "QualityView", document::quality_ipc_sample()),
-        ("gapView", "GapView", document::gap_ipc_sample()),
         (
-            "sceneRepairView",
-            "SceneRepairView",
-            document::scene_repair_ipc_sample(),
+            "timingFixView",
+            "TimingFixView",
+            document::timing_fix_ipc_sample(),
         ),
         (
             "batchTimingView",
             "BatchTimingView",
             document::batch_ipc_sample(),
-        ),
-        (
-            "durationRepairView",
-            "DurationRepairView",
-            document::duration_repair_ipc_sample(),
         ),
         ("textView", "TextView", document::text_ipc_sample()),
         ("openedProject", "OpenedProject", project::ipc_sample()),

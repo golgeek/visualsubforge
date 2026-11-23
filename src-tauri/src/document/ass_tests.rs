@@ -1,4 +1,5 @@
 use super::*;
+use crate::timing_review::{Input, Purpose};
 
 pub(super) const ASS: &str = include_str!("../../../tests/fixtures/subtitles/styles.ass");
 pub(super) const SSA: &str = include_str!("../../../tests/fixtures/subtitles/styles.ssa");
@@ -446,7 +447,7 @@ fn unchanged_style_retains_field_whitespace_and_pathless_projects_have_no_format
 fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposals() {
     use crate::{quality_profile::Policy, scenes::Scenes, timing_review::Phase};
     use std::time::{Duration, Instant};
-    use vsf_application::quality::{Profile, duration::Scope};
+    use vsf_application::quality::Profile;
     fn policy(p: Profile) -> Policy {
         let timing = crate::timing_preset::Settings {
             cue_gap_ms: p.timing.cue_gap_ms,
@@ -497,24 +498,29 @@ fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposa
         .unwrap();
         let scenes = Scenes::default();
         let captured = scenes.capture_quality(0, false).unwrap();
-        let id = docs.gap_start(1, 0, captured).unwrap();
+        let id = docs
+            .timing_fix_start(1, 0, captured, Input::preset(true, false, false))
+            .unwrap();
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            let v = docs.gap_view(id, 0, 100).unwrap();
-            if v.phase == crate::gap_review::Phase::Reviewing {
+            let v = docs.timing_fix_view(id, 0, 100).unwrap();
+            if v.phase == crate::timing_review::Phase::Reviewing {
                 assert_eq!(v.changed, 1);
                 break;
             }
             assert_eq!(
                 v.phase,
-                crate::gap_review::Phase::Preparing,
+                crate::timing_review::Phase::Preparing,
                 "{:?}",
                 v.error
             );
             assert!(Instant::now() < deadline);
             std::thread::yield_now();
         }
-        assert_eq!(docs.gap_accept(id, false).unwrap().cues[0].end_ms, 1960);
+        assert_eq!(
+            docs.timing_repair_accept(id, Purpose::Fix).unwrap().cues[0].end_ms,
+            1960
+        );
         apply(&mut docs.0.lock().unwrap(), Action::Undo).unwrap();
         assert_eq!(bytes(&docs.0.lock().unwrap()), original);
 
@@ -528,16 +534,16 @@ fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposa
         .unwrap();
         let snapshot = docs.apply(Action::Status, 0, 0).unwrap();
         let id = docs
-            .duration_repair_start(
+            .timing_fix_start(
                 snapshot.generation,
                 snapshot.revision,
                 scenes.capture_quality(0, false).unwrap(),
-                Scope::Document,
+                Input::preset(false, true, false),
             )
             .unwrap();
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            let v = docs.duration_repair_view(id, 0, 100).unwrap();
+            let v = docs.timing_fix_view(id, 0, 100).unwrap();
             if v.phase == Phase::Reviewing {
                 assert_eq!(v.changed, 1);
                 break;
@@ -547,7 +553,7 @@ fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposa
             std::thread::yield_now();
         }
         assert_eq!(
-            docs.duration_repair_accept(id).unwrap().cues[1].end_ms,
+            docs.timing_repair_accept(id, Purpose::Fix).unwrap().cues[1].end_ms,
             3160
         );
         apply(&mut docs.0.lock().unwrap(), Action::Undo).unwrap();
@@ -561,15 +567,16 @@ fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposa
         scenes.test_completed(7, vec![1.0], false);
         let snapshot = docs.apply(Action::Status, 0, 0).unwrap();
         let id = docs
-            .scene_repair_start(
+            .timing_fix_start(
                 snapshot.generation,
                 snapshot.revision,
                 scenes.capture_quality(7, true).unwrap(),
+                Input::preset(false, false, true),
             )
             .unwrap();
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            let v = docs.scene_repair_view(id, 0, 100).unwrap();
+            let v = docs.timing_fix_view(id, 0, 100).unwrap();
             if v.phase == Phase::Reviewing {
                 assert_eq!(v.changed, 1);
                 break;
@@ -578,7 +585,10 @@ fn styled_timing_workers_capture_format_and_accept_serializable_undoable_proposa
             assert!(Instant::now() < deadline);
             std::thread::yield_now();
         }
-        assert_eq!(docs.scene_repair_accept(id).unwrap().cues[0].start_ms, 1010);
+        assert_eq!(
+            docs.timing_repair_accept(id, Purpose::Fix).unwrap().cues[0].start_ms,
+            1010
+        );
         apply(&mut docs.0.lock().unwrap(), Action::Undo).unwrap();
         assert_eq!(bytes(&docs.0.lock().unwrap()), original);
     }

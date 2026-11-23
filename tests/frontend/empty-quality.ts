@@ -22,6 +22,7 @@ export function emptyQuality(args: unknown): QualityView {
     selectedIssues: null,
     draft: null,
     findingsCount: 0,
+    timingFindingsCount: 0,
     affectedCues: 0,
     filteredCount: 0,
     filteredCues: 0,

@@ -27,17 +27,18 @@ pub(super) fn fixture() -> (tempfile::TempDir, Documents, Scenes) {
 }
 pub(super) fn start(docs: &Documents, scenes: &Scenes) -> u64 {
     let doc = docs.apply(Action::Status, 0, 0).unwrap();
-    docs.scene_repair_start(
+    docs.timing_fix_start(
         doc.generation,
         doc.revision,
         scenes.capture_quality(7, true).unwrap(),
+        Input::preset(false, false, true),
     )
     .unwrap()
 }
-pub(super) fn ready(docs: &Documents, id: u64) -> SceneRepairView {
+pub(super) fn ready(docs: &Documents, id: u64) -> FixView {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
-        let view = docs.scene_repair_view(id, 0, 100).unwrap();
+        let view = docs.timing_fix_view(id, 0, 100).unwrap();
         if view.phase == Phase::Reviewing {
             return view;
         }
@@ -56,15 +57,15 @@ fn bounded_preview_acceptance_history_and_exact_save_preserve_all_source_data() 
     let before = value(&docs);
     let id = start(&docs, &scenes);
     let view = ready(&docs, id);
-    assert_eq!((view.total, view.changed, view.skipped), (3, 2, 1));
+    assert_eq!((view.total, view.changed, view.manual_count), (2, 2, 1));
     assert_eq!(view.coverage, Some(engine::scene::SceneCoverage::Checked));
-    assert_eq!((view.before_findings, view.after_findings), (4, 1));
+    assert_eq!((view.before.total, view.after.total), (4, 1));
     assert_eq!(value(&docs), before);
-    let page = docs.scene_repair_view(id, 1, 1).unwrap();
+    let page = docs.timing_fix_view(id, 1, 1).unwrap();
     assert_eq!(page.rows.len(), 1);
     assert_eq!(page.rows[0].cue_index, 1);
-    assert!(docs.scene_repair_view(id, 0, 201).is_err());
-    let accepted = docs.scene_repair_accept(id).unwrap();
+    assert!(docs.timing_fix_view(id, 0, 201).is_err());
+    let accepted = docs.timing_repair_accept(id, Purpose::Fix).unwrap();
     assert_eq!(accepted.revision, 1);
     assert_eq!(
         accepted
@@ -78,9 +79,9 @@ fn bounded_preview_acceptance_history_and_exact_save_preserve_all_source_data() 
         assert_eq!(cue.text, before["cues"][i]["text"]);
         assert_eq!(cue.id, before["cues"][i]["id"]);
     }
-    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     assert_eq!(
-        docs.scene_repair_view(id, 0, 100).unwrap().phase,
+        docs.timing_fix_view(id, 0, 100).unwrap().phase,
         Phase::Accepted
     );
     let undone = docs.apply(Action::Undo, 1, 1).unwrap();
@@ -127,21 +128,21 @@ fn profile_history_document_and_scene_replacement_prevent_stale_acceptance() {
     let (_dir, docs, scenes) = fixture();
     let id = start(&docs, &scenes);
     ready(&docs, id);
-    let key = docs.scene_repair_context(id).unwrap();
+    let key = docs.timing_repair_context(id, Purpose::Fix).unwrap();
     scenes.test_completed(7, vec![2.], true);
     assert!(
         scenes
-            .with_quality_current(key, || docs.scene_repair_accept(id))
+            .with_quality_current(key, || docs.timing_repair_accept(id, Purpose::Fix))
             .is_err()
     );
     assert_eq!(value(&docs)["revision"], 0);
-    docs.scene_repair_cancel(id).unwrap();
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
     let id = start(&docs, &scenes);
     ready(&docs, id);
     docs.reset_quality().unwrap();
-    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     assert_eq!(
-        docs.scene_repair_view(id, 0, 100).unwrap().phase,
+        docs.timing_fix_view(id, 0, 100).unwrap().phase,
         Phase::Stale
     );
     let id = start(&docs, &scenes);
@@ -158,11 +159,11 @@ fn profile_history_document_and_scene_replacement_prevent_stale_acceptance() {
     )
     .unwrap();
     docs.apply(Action::Undo, 1, 1).unwrap();
-    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     let id = start(&docs, &scenes);
     ready(&docs, id);
     docs.apply(Action::Close { discard: true }, 1, 2).unwrap();
-    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
 }
 #[test]
 fn failed_saves_and_recovery_resync_protection_survive_acceptance_and_undo() {
@@ -175,7 +176,7 @@ fn failed_saves_and_recovery_resync_protection_survive_acceptance_and_undo() {
     }
     let id = start(&docs, &scenes);
     ready(&docs, id);
-    let accepted = docs.scene_repair_accept(id).unwrap();
+    let accepted = docs.timing_repair_accept(id, Purpose::Fix).unwrap();
     assert!(accepted.requires_save_as);
     let before = value(&docs);
     assert!(
@@ -205,7 +206,7 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
-                Operation::Scene,
+                Operation::Fix(Input::preset(false, false, true)),
                 profile,
                 move |cancel| {
                     entered.send(cancel).unwrap();
@@ -217,23 +218,28 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
     };
     let cancel = started.recv_timeout(Duration::from_secs(5)).unwrap();
     assert!(
-        docs.scene_repair_start(1, 0, scenes.capture_quality(7, true).unwrap())
-            .is_err()
+        docs.timing_fix_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            Input::preset(false, false, true)
+        )
+        .is_err()
     );
-    docs.scene_repair_cancel(id).unwrap();
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
     assert!(cancel.load(Ordering::Relaxed));
     release.send(()).unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
-    while docs.scene_repair_view(id, 0, 100).unwrap().phase == Phase::Cancelling {
+    while docs.timing_fix_view(id, 0, 100).unwrap().phase == Phase::Cancelling {
         assert!(Instant::now() < deadline);
         std::thread::yield_now();
     }
-    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     let next = start(&docs, &scenes);
     ready(&docs, next);
-    docs.scene_repair_cancel(id).unwrap();
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
     assert_eq!(
-        docs.scene_repair_view(next, 0, 100).unwrap().phase,
+        docs.timing_fix_view(next, 0, 100).unwrap().phase,
         Phase::Reviewing
     );
     let clone = docs.clone();
@@ -247,7 +253,7 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
-                Operation::Scene,
+                Operation::Fix(Input::preset(false, false, true)),
                 profile,
                 move |cancel| {
                     entered.send(()).unwrap();
@@ -266,8 +272,13 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
     docs.shutdown_quality().unwrap();
     assert!(docs.0.lock().unwrap().timing_repairs.job.is_none());
     assert!(
-        docs.scene_repair_start(1, 0, scenes.capture_quality(7, true).unwrap())
-            .is_err()
+        docs.timing_fix_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            Input::preset(false, false, true)
+        )
+        .is_err()
     );
 }
 
@@ -283,7 +294,7 @@ fn worker_failure_is_visible_and_a_new_preview_can_recover() {
             .launch(
                 key,
                 scenes.capture_quality(7, true).unwrap().key,
-                Operation::Scene,
+                Operation::Fix(Input::preset(false, false, true)),
                 profile,
                 |_| Err("Injected failure".into()),
             )
@@ -291,7 +302,7 @@ fn worker_failure_is_visible_and_a_new_preview_can_recover() {
     };
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
-        let view = docs.scene_repair_view(id, 0, 100).unwrap();
+        let view = docs.timing_fix_view(id, 0, 100).unwrap();
         if view.phase == Phase::Failed {
             assert_eq!(view.error.as_deref(), Some("Injected failure"));
             break;
@@ -299,7 +310,7 @@ fn worker_failure_is_visible_and_a_new_preview_can_recover() {
         assert!(Instant::now() < deadline);
         std::thread::yield_now();
     }
-    assert!(docs.scene_repair_accept(id).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     let next = start(&docs, &scenes);
     assert_eq!(ready(&docs, next).changed, 2);
 }
@@ -331,8 +342,8 @@ fn cue_fixes_use_one_history_entry_selected_scope_and_purpose_guard() {
     let view = ready_cue_fixes(&docs, id);
     assert_eq!(view.cue_id.as_deref(), Some("1"));
     assert!(view.fixed > 0);
-    assert!(docs.scene_repair_accept(id).is_err());
-    assert!(docs.duration_repair_view(id, 0, 100).is_err());
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    assert!(docs.timing_fix_view(id, 0, 100).is_err());
     let after = docs.cue_fixes_accept(id).unwrap();
     assert_eq!(after.revision, before.revision + 1);
     assert_ne!(after.cues[0].start_ms, before.cues[0].start_ms);
@@ -389,4 +400,28 @@ fn changed_document_and_cancelled_cue_fix_cannot_commit() {
     .unwrap();
     assert!(docs.cue_fixes_accept(id).is_err());
     assert_eq!(docs.cue_fixes_view(id).unwrap().phase, Phase::Stale);
+}
+
+#[test]
+fn changing_saved_policy_retires_ready_fix() {
+    let (_dir, docs, scenes) = fixture();
+    let id = start(&docs, &scenes);
+    assert_eq!(ready(&docs, id).phase, Phase::Reviewing);
+    docs.set_timing_options(timing_fix::Options {
+        start_tolerance_ms: 120,
+        ..Default::default()
+    })
+    .unwrap();
+    let doc = docs.apply(Action::Status, 0, 0).unwrap();
+    assert!(
+        docs.timing_fix_start(
+            doc.generation,
+            doc.revision,
+            scenes.capture_quality(7, true).unwrap(),
+            Input::preset(false, false, true)
+        )
+        .is_err()
+    );
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    assert_eq!(docs.apply(Action::Status, 0, 0).unwrap().revision, 0);
 }

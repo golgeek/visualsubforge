@@ -76,8 +76,8 @@ responsibilities across these folders.
 | `LegacyImportSession` | Dialog-lived file selections, immutable review projection and reply epochs. Rust inspects and publishes a new project; only an explicit Open action enters ProjectWorkflow's protected restoration. |
 | `ResyncSession` | Dialog-lived proposal projection, source selection and request ordering. It cancels late starts and discards obsolete review replies. Rust keeps the proposal; acceptance goes through DocumentSession's serialized update path. |
 | `QualitySession` | Bounded report/metric projection, filters, pause state and latest draft input. One in-flight read and context guards prevent polling queues and stale publication; Rust owns evaluation and accepted findings. |
-| `TimingRepairSession` | Shared gap/scene/duration/batch review requests, bounded pages, context guards and disposal. Rust owns calculation and acceptance; DocumentSession serializes accepted replies with ordinary edits. |
-| `GapSession` | Gap-specific client adapter and no-media acknowledgment/eligibility over the shared review lifetime. |
+| `TimingRepairSession` | Shared Fix and Shift review requests, bounded pages, context guards and disposal. Rust owns calculation and acceptance; DocumentSession serializes accepted replies with ordinary edits. |
+| `TimingFixSession` | Unified timing repair requests, policy, families and subset identity. |
 | `client.ts` | Typed IPC functions and DTOs. All application communication passes through this module. |
 
 Decision payloads are published only after native video hides and are cleared before
@@ -333,54 +333,9 @@ Serde samples and browser/native regressions on upgrades. The optional schema
 feature in media-analysis is enabled only by the desktop; headless callers do
 not depend on Specta, Tauri or native playback.
 
-## Minimum-gap review
+## Timing review
 
-`workspace/ReviewDock` places Issues, Fix timing, Shift and Statistics beside the
-cue table without overlapping native video. Its scope follows accepted list IDs
-or the active filter. `timing/ReviewTiming` presents gap, scene, duration and batch
-sessions; it owns only option/exclusion controls and bounded projection callbacks.
-`GapSession` retains coverage policy and delegates to `TimingRepairSession`.
-Live inputs debounce 250 ms; semantic input/viewport keys avoid starvation from
-unrelated background updates. Stale plans retire before new admission. Read-only
-admission failures stop after three attempts, with explicit Retry; acceptance is
-never retried. Closing during admission cancels a late returned job identity.
-
-Rust prepares selected repairs through `quality::timing_selection`, re-evaluates
-the whole candidate and reports unsafe coupled subsets without accepting them.
-The frontend never recomputes repair endpoints. Pages contain at most 100 rows;
-ghost/list projections request at most 200 visible IDs, independently of paging.
-`review-preview.ts` formats supplied endpoints only. The UI labels the projection
-limit; Apply includes the entire checked subset as one history operation.
-Acceptance contributes `WorkspaceView.reviewBusy` to workspace admission until
-DocumentSession reconciles its reply. Other controls and tab closure are disabled
-during that acknowledgment. The explicit no-media note replaces the gap checkbox;
-attached-media scene requirements remain enforced. Successful acceptance restarts
-quality checking and leaves the dock available for the next proposal.
-
-The backend holds media selection → scene state → document during acceptance.
-It checks the captured scene generation/readiness, media session and document
-revision/profile epoch before applying the immutable plan as one history entry.
-All capture/projection/commit commands run on blocking workers. Evaluation owns
-an immutable clone outside those locks; shutdown cancels and joins outside them.
-
-## Scene and duration timing review
-
-Scene and duration wrappers retain their coverage eligibility while sharing the
-live session owner. Changing scope, exclusions or context immediately invalidates
-acceptance. App routes timing tools only through ReviewDock; the obsolete modal components
-and identities are removed.
-DocumentSession serializes acceptance with other document actions. Completed
-previews continue polling for backend profile/scene invalidation.
-
-Shared Rust scene proposals trim inward; duration proposals keep starts fixed
-and choose the nearest safe end. Both preserve text/tags and verify the complete
-candidate against timing constraints. The desktop shares one timing-proposal
-worker, global job IDs and purpose guards, with no queue and a ten-second deadline.
-Media → scenes → document locks
-guard capture and acceptance; evaluation and shutdown joins happen outside the
-document lock. The existing `Edit::Retime` supplies one atomic Undo/Redo entry.
-See the [scene contract](../../docs/scene-quality.md) and
-[duration policy](../../docs/duration-repairs.md) for skips and coverage.
+ReviewDock hosts Fix and Shift in its Timing tab. TimingFixSession supplies families, scope, selection and policy to the shared TimingRepairSession lifetime. Live changes debounce for 250 ms. Rust owns endpoints, findings, metrics, budgets, manual rows and acceptance. The dock projects bounded pages and at most 200 visible cue ghosts. DocumentSession reconciles one accepted revision. [Timing repair](../../docs/timing-repair-all.md)
 
 ## Document statistics
 

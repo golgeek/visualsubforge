@@ -26,6 +26,9 @@ pub struct Plan {
     pub selection_conflicts: Vec<u32>,
 }
 impl Plan {
+    pub fn cue_id_at(&self, index: usize) -> Option<CueId> {
+        self.before.cues().get(index).map(|c| c.id())
+    }
     pub fn in_scope(&self, id: CueId) -> bool {
         self.scope.as_ref().is_none_or(|scope| scope.contains(&id))
     }

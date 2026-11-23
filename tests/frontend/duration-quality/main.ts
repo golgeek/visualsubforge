@@ -7,10 +7,11 @@ import {
   defaultPreferences,
   type DocumentSnapshot,
   type DocumentAction,
-  type DurationRepairView,
+  type TimingFixView,
+  type TimingFixInput,
   type ReviewSelection,
 } from '../../../src/lib/client';
-import { durationRepairView as sample } from '../ipc-contract-samples';
+import { fixSpeedSample as sample } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
 const host = document.querySelector('#test')!;
 const heading = document.querySelector('#result')!;
@@ -28,7 +29,8 @@ let doc: DocumentSnapshot = {
   ],
 };
 const original = structuredClone(doc);
-let view: DurationRepairView = structuredClone(sample);
+let activeScope: number[] | null = null;
+let view: TimingFixView = structuredClone(sample);
 let before = structuredClone(doc);
 let accepts = 0,
   starts = 0,
@@ -91,6 +93,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       command: string,
       args: {
         action?: DocumentAction;
+        input?: TimingFixInput;
+        section?: 'changes' | 'manual';
         id?: number;
         offset?: number;
         limit?: number;
@@ -115,57 +119,60 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return { entries: [], error: null };
         case 'media_action':
           return structuredClone(emptyStatus);
-        case 'duration_repair_start':
+        case 'timing_fix_start': {
           starts++;
-          scopes.push(args.selection ?? null);
+          const input = args.input!;
+          activeScope = input.scope ?? null;
+          scopes.push({ scope: activeScope, excluded: [] });
           view = {
             ...view,
             id: starts,
             phase: 'reviewing',
-            rows: view.rows.map((row) => ({
-              ...row,
+            rows: view.rows.map((r) => ({
+              ...r,
               selected:
-                row.newEndMs !== null &&
-                (!args.selection?.scope ||
-                  args.selection.scope.includes(Number(row.cueId))) &&
-                !args.selection?.excluded.includes(Number(row.cueId)),
+                !(r.unit.partial || (input.omitTrades && r.unit.tradeOff)) !==
+                ((input.toggled ?? []).filter((index) => index === r.cueIndex)
+                  .length %
+                  2 ===
+                  1),
             })),
-            selectedCueId: args.selectedCueId ?? null,
-            key: {
-              ...view.key,
-              generation: doc.generation,
-              revision: doc.revision,
-            },
           };
           return heldStart ?? starts;
-        case 'duration_repair_view': {
-          const ids = scopes.at(-1)?.scope;
-          const rows = ids
-            ? view.rows.filter((row) => ids.includes(Number(row.cueId)))
-            : view.rows;
+        }
+        case 'timing_fix_view': {
+          const rows = view.rows.filter(
+            (r) => !activeScope || activeScope.includes(Number(r.cueId)),
+          );
+          const manual = view.manual.filter(
+            (r) => !activeScope || activeScope.includes(Number(r.cueId)),
+          );
+          const offset = args.offset ?? 0,
+            end = offset + (args.limit ?? 100);
           return {
             ...structuredClone(view),
             total: rows.length,
             changed: rows.filter((r) => r.selected).length,
-            skipped: rows.filter((r) => r.newEndMs === null).length,
-            offset: args.offset ?? 0,
-            rows: rows
-              .filter(
-                (row) =>
-                  !args.previewIds ||
-                  args.previewIds.includes(Number(row.cueId)),
-              )
-              .slice(
-                args.offset ?? 0,
-                (args.offset ?? 0) + (args.limit ?? 100),
-              ),
+            manualCount: manual.length,
+            offset,
+            rows:
+              args.section === 'manual'
+                ? []
+                : rows
+                    .filter(
+                      (r) =>
+                        !args.previewIds ||
+                        args.previewIds.includes(Number(r.cueId)),
+                    )
+                    .slice(offset, end),
+            manual: args.section === 'manual' ? manual.slice(offset, end) : [],
           };
         }
-        case 'duration_repair_cancel':
+        case 'timing_fix_cancel':
           cancelled.push(args.id!);
           if (view.id === args.id) view = { ...view, phase: 'cancelled' };
           return;
-        case 'duration_repair_accept': {
+        case 'timing_fix_accept': {
           if (failAccept) throw new Error('Injected stale duration proposal');
           accepts++;
           before = structuredClone(doc);
@@ -179,7 +186,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               endMs:
                 view.rows.find(
                   (row) => row.selected && row.cueId === String(c.id),
-                )?.newEndMs ?? c.endMs,
+                )?.ghosts[0]?.after.endMs ?? c.endMs,
             })),
           };
           return structuredClone(doc);
@@ -268,7 +275,7 @@ async function run() {
     scope.dispatchEvent(new Event('change', { bubbles: true }));
     await tick();
     assert(
-      button('Apply 2 changes').disabled,
+      host.querySelector<HTMLButtonElement>('button.apply')!.disabled,
       'Changed scope retained acceptable proposal',
     );
     await until(() => host.querySelectorAll('.change').length === 1);
@@ -279,7 +286,7 @@ async function run() {
     assert(!button('Apply 1 change').disabled, 'Selected proposal unavailable');
     scope.value = 'all';
     scope.dispatchEvent(new Event('change', { bubbles: true }));
-    await until(() => host.querySelectorAll('.change').length === 3);
+    await until(() => host.querySelectorAll('.change').length === 2);
     assert(
       scopes.at(-1)?.scope === null && !button('Apply 2 changes').disabled,
       'Whole-document scope not restored',
@@ -287,7 +294,7 @@ async function run() {
     passed(
       'List selection scopes the captured proposal; changing scope disables acceptance until the whole-document preview is current',
     );
-    for (const coverage of ['noMedia', 'unavailable', 'partial'] as const) {
+    for (const coverage of ['unavailable', 'partial'] as const) {
       view = { ...view, coverage };
       await until(() => button('Apply 2 changes').disabled);
       assert(
@@ -358,22 +365,26 @@ async function run() {
     );
     view = {
       ...structuredClone(sample),
-      total: 205,
+      total: 0,
       changed: 0,
-      skipped: 205,
-      rows: Array.from({ length: 205 }, (_, i) => ({
-        ...sample.rows[0]!,
+      rows: [],
+      manualCount: 205,
+      manual: Array.from({ length: 205 }, (_, i) => ({
         cueId: String(i + 1),
-        cueIndex: i,
-        newStartMs: null,
-        newEndMs: null,
-        selected: false,
-        skipped: 'conflictingBounds',
-        explanation: 'Would violate minimum duration',
+        cueNumber: i + 1,
+        detail: {
+          index: i,
+          lead: 'Would violate minimum duration.',
+          facts: [],
+          blockingCue: null,
+          budgetText: null,
+          rules: [],
+          budget: null,
+        },
       })),
     };
     await open();
-    await until(() => host.querySelectorAll('.change').length === 100);
+    await until(() => host.querySelectorAll('.manual').length === 100);
     assert(
       button('Apply 0 changes').disabled,
       'All-skipped proposal was acceptable',
@@ -381,7 +392,7 @@ async function run() {
     button('Next').click();
     await until(() => host.textContent!.includes('101–200 / 205'));
     assert(
-      host.querySelectorAll('.change').length === 100,
+      host.querySelectorAll('.manual').length === 100,
       'Unbounded proposal rows',
     );
     passed(
