@@ -425,3 +425,76 @@ fn changing_saved_policy_retires_ready_fix() {
     assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     assert_eq!(docs.apply(Action::Status, 0, 0).unwrap().revision, 0);
 }
+
+#[test]
+fn headless_review_matches_real_desktop_owner_pages() {
+    use vsf_application::timing_files;
+    let (dir, docs, scenes) = fixture();
+    let id = start(&docs, &scenes);
+    let desktop = ready(&docs, id);
+    let manual = docs
+        .timing_fix_view_for_cues(id, 0, 100, Section::Manual, None)
+        .unwrap();
+    let profile = docs.0.lock().unwrap().quality.context().profile;
+    let preset = dir.path().join("profile.vsfpreset");
+    let cuts = dir.path().join("scenes.json");
+    fs::write(&preset, serde_json::to_vec(&profile).unwrap()).unwrap();
+    fs::write(&cuts, br#"{"version":1,"cutsMs":[1000,4000,6000,8000]}"#).unwrap();
+    let source = dir.path().join("source.srt");
+    let headless = timing_files::preview(
+        timing_files::Request {
+            subtitles: &source,
+            profile: preset.to_str().unwrap(),
+            scenes: Some(&cuts),
+            without_scenes: false,
+            families: timing_fix::Families {
+                gaps: false,
+                speed: false,
+                shots: true,
+            },
+            options: Default::default(),
+            cues: vec![],
+        },
+        &AtomicBool::new(false),
+    )
+    .unwrap();
+    let r = headless.report();
+    assert_eq!(desktop.withheld_all, r.withheld_all);
+    for (desktop_row, file_row) in desktop.rows.iter().zip(&r.changes) {
+        assert_eq!(desktop_row.unit.depends_on, file_row.unit.depends_on);
+        assert_eq!(
+            desktop_row.unit.conflicts_with,
+            file_row.unit.conflicts_with
+        );
+        assert_eq!(desktop_row.unit.effects.len(), file_row.unit.effects.len());
+    }
+    let published = dir.path().join("published.srt");
+    headless
+        .publish(&published, &r.review_id, &AtomicBool::new(false))
+        .unwrap();
+    let accepted = docs.timing_repair_accept(id, Purpose::Fix).unwrap();
+    let saved = dir.path().join("saved.srt");
+    docs.apply(
+        Action::Save {
+            path: Some(saved.to_string_lossy().into_owned()),
+        },
+        accepted.generation,
+        accepted.revision,
+    )
+    .unwrap();
+    assert_eq!(fs::read(saved).unwrap(), fs::read(published).unwrap());
+    assert_eq!(
+        serde_json::to_value((
+            desktop
+                .rows
+                .into_iter()
+                .map(timing_files::ChangeRow::from)
+                .collect::<Vec<_>>(),
+            &manual.manual,
+            desktop.before,
+            desktop.after
+        ))
+        .unwrap(),
+        serde_json::to_value((&r.changes, &r.manual, r.before, r.after)).unwrap()
+    );
+}

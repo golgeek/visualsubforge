@@ -23,6 +23,9 @@ pub enum Command {
     Review(Review),
     /// Run local JavaScript subtitle checks and reviewable fixes.
     Plugin(Plugin),
+    /// Prepare or accept reviewed subtitle fixes.
+    #[command(subcommand)]
+    Fix(Fix),
     /// Check subtitle authoring rules without changing the file.
     Check(Check),
     /// Summarize accepted subtitle metrics without changing the file.
@@ -31,6 +34,71 @@ pub enum Command {
     Resync(Resync),
 }
 
+#[derive(Subcommand)]
+pub enum Fix {
+    /// Review timing changes or write a previously reviewed selection to a new file.
+    Timing(FixTiming),
+}
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum Family {
+    Gaps,
+    Speed,
+    Shots,
+}
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum TimingPriority {
+    ReadingSpeed,
+    Spacing,
+}
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum ShotEdge {
+    Inward,
+    Nearest,
+}
+
+#[derive(Args)]
+#[command(
+    after_help = "Preview writes nothing. Nonzero shot buffers require a scene file or --without-scenes. Exit codes: 0 no remaining requested findings or output written, 1 remaining requested findings (with --without-scenes, only the other requested families count), 2 invalid input, 3 incomplete scene coverage, 5 IO, 6 changed input or review ID, 130 cancelled."
+)]
+pub struct FixTiming {
+    #[arg(long, value_name = "FILE")]
+    pub subtitles: PathBuf,
+    /// Built-in profile ID or version-2 preset file.
+    #[arg(long, value_name = "ID_OR_FILE")]
+    pub profile: String,
+    /// Families to fix. Other families stay protected.
+    #[arg(
+        long,
+        value_enum,
+        value_delimiter = ',',
+        default_value = "gaps,speed,shots"
+    )]
+    pub fix: Vec<Family>,
+    /// Version-1 JSON containing mapped integer cut timestamps in milliseconds.
+    #[arg(long, conflicts_with = "without_scenes")]
+    pub scenes: Option<PathBuf>,
+    /// Skip shot changes. Request gaps, speed, or both when using this flag.
+    #[arg(long)]
+    pub without_scenes: bool,
+    #[arg(long, value_enum, default_value = "reading-speed")]
+    pub priority: TimingPriority,
+    #[arg(long,default_value_t=0,value_parser=clap::value_parser!(u32).range(0..=1000))]
+    pub start_tolerance_ms: u32,
+    #[arg(long, value_enum, default_value = "inward")]
+    pub scene_edges: ShotEdge,
+    /// One-based file positions. Omit for the whole document.
+    #[arg(long, value_delimiter = ',')]
+    pub cue: Vec<u32>,
+    /// Write schema-1 JSON to stdout.
+    #[arg(long)]
+    pub json: bool,
+    /// Recompute and match the previous review ID before writing.
+    #[arg(long,requires="output",value_parser=parse_review_id)]
+    pub accept: Option<String>,
+    /// A new path with the source subtitle extension.
+    #[arg(long, requires = "accept")]
+    pub output: Option<PathBuf>,
+}
 #[derive(Args)]
 pub struct Plugin {
     #[command(subcommand)]
@@ -104,7 +172,7 @@ fn parse_review_id(text: &str) -> Result<String, String> {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     {
-        return Err("Use the 64-character lowercase review ID from plugin preview".into());
+        return Err("Use the 64-character lowercase review ID from preview".into());
     }
     Ok(text.into())
 }

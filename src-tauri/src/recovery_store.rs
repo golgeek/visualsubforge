@@ -221,7 +221,7 @@ impl Session {
         if bytes.len() as u64 > MAX_RECORD {
             return Err("Recovery record exceeds its size limit".into());
         }
-        crate::atomic_file::prepare(&self.directory.join("snapshot.json"), &bytes)
+        crate::atomic_file::prepare_private(&self.directory.join("snapshot.json"), &bytes)
     }
     pub fn clear(&self) -> Result<()> {
         remove_snapshot(&self.directory.join("snapshot.json"))

@@ -16,6 +16,7 @@ pub mod plugins;
 pub mod quality;
 pub mod resync;
 pub mod review_file;
+mod review_files;
 pub mod review_package;
 pub mod save_lease;
 pub mod srt_limits;
@@ -25,6 +26,7 @@ mod subtitle_markup;
 pub mod subtitle_operations;
 pub mod subtitle_text;
 pub mod text;
+pub mod timing_files;
 pub mod translation;
 
 // Application policies retain their existing user-facing report messages.

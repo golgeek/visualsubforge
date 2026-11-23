@@ -78,7 +78,7 @@ fn history(
         return Ok(None);
     }
     let bytes = serde_json::to_vec(&state).map_err(|_| Failure::Storage)?;
-    crate::atomic_file::write(path, &bytes).map_err(|_| Failure::Storage)?;
+    crate::atomic_file::write_private(path, &bytes).map_err(|_| Failure::Storage)?;
     Ok(Some(state))
 }
 

@@ -1,13 +1,14 @@
 //! Blocking package/file operations. Desktop callers must use their owned worker.
 //! The executor is injected; no JavaScript engine or Tauri dependency lives here.
-mod input;
+use crate::review_files as input;
+use input::protect;
+pub use input::{Budget, Error, Result};
 mod package;
 mod report;
 use crate::{
-    atomic_file, new_output,
     plugins::{Capture, Context, Execution, Key, Mode, Preferences, Request, Scenes},
     quality::Profile,
-    save_lease, srt_limits, subtitle_file,
+    srt_limits, subtitle_file,
 };
 pub use input::FileIdentity;
 use input::{CapturedFile, digest};
@@ -17,65 +18,10 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashSet},
-    fmt,
     path::{Path, PathBuf},
-    sync::atomic::{AtomicBool, Ordering},
-    time::{Duration, Instant},
 };
 use subtitle_core::{CueId, Document, Editor, Milliseconds};
 
-pub type Result<T> = std::result::Result<T, Error>;
-#[derive(Debug)]
-pub enum Error {
-    Invalid(String),
-    Io(String),
-    Changed(String),
-    Execution(String),
-    Cancelled,
-    Timeout,
-}
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Invalid(m) | Self::Io(m) | Self::Execution(m) => f.write_str(m),
-            Self::Changed(m) => write!(f, "Plugin input or review changed; preview again: {m}"),
-            Self::Cancelled => f.write_str("Plugin operation cancelled"),
-            Self::Timeout => f.write_str("Plugin operation exceeded its time limit"),
-        }
-    }
-}
-impl std::error::Error for Error {}
-pub struct Budget<'a> {
-    cancel: &'a AtomicBool,
-    deadline: Instant,
-}
-impl<'a> Budget<'a> {
-    pub fn new(cancel: &'a AtomicBool, duration: Duration) -> Self {
-        Self {
-            cancel,
-            deadline: Instant::now() + duration,
-        }
-    }
-    pub fn remaining(&self) -> Result<Duration> {
-        if self.cancel.load(Ordering::Acquire) {
-            return Err(Error::Cancelled);
-        }
-        self.deadline
-            .checked_duration_since(Instant::now())
-            .filter(|d| !d.is_zero())
-            .ok_or(Error::Timeout)
-    }
-    pub fn check(&self) -> Result<()> {
-        self.remaining().map(|_| ())
-    }
-    fn checkpoint(&self) -> std::result::Result<(), String> {
-        self.check().map_err(|e| e.to_string())
-    }
-    fn pure<T>(&self, value: std::result::Result<T, impl Into<String>>) -> Result<T> {
-        self.check()?;
-        value.map_err(|error| Error::Invalid(error.into()))
-    }
-}
 pub struct Options {
     pub mode: Mode,
     /// One-based file positions, not source labels. Empty means all cues.
@@ -296,31 +242,14 @@ impl FileRun {
             .output
             .as_ref()
             .ok_or_else(|| Error::Invalid("Plugin proposed no changes to publish".into()))?;
-        if path
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_none_or(|e| !e.eq_ignore_ascii_case(&self.report.source_format))
-        {
-            return Err(Error::Invalid(format!(
-                "Output must keep the .{} source format",
-                self.report.source_format
-            )));
-        }
-        let output = new_output::resolve(path).map_err(output_error)?;
-        self.protect(&output)?;
-        let _lease = save_lease::acquire(&output).map_err(Error::Io)?;
-        new_output::require_absent(&output).map_err(output_error)?;
-        let pending = atomic_file::prepare_with_checkpoint(&output, bytes, || budget.checkpoint())
-            .map_err(|e| budget.check().err().unwrap_or(Error::Io(e)))?;
-        self.verify(budget)?;
-        if new_output::resolve(path).map_err(output_error)? != output {
-            return Err(Error::Changed("output directory changed".into()));
-        }
-        self.protect(&output)?;
-        budget.check()?;
-        pending.commit_new().map_err(Error::Io)?;
-        // A cancellation arriving after commit cannot retract successful output.
-        Ok(output)
+        crate::review_files::publish(
+            path,
+            &self.report.source_format,
+            bytes,
+            budget,
+            |output| self.protect(output),
+            || self.verify(budget),
+        )
     }
     fn protect(&self, output: &Path) -> Result<()> {
         protect(output, &self.source)?;
@@ -329,17 +258,5 @@ impl FileRun {
             protect(output, c)?;
         }
         Ok(())
-    }
-}
-fn protect(output: &Path, input: &FileIdentity) -> Result<()> {
-    for path in [&input.requested_path, &input.canonical_path] {
-        new_output::protect_source(output, path).map_err(output_error)?;
-    }
-    Ok(())
-}
-fn output_error(error: new_output::Error) -> Error {
-    match error {
-        new_output::Error::InvalidInput(e) => Error::Invalid(e),
-        new_output::Error::Io(e) => Error::Io(e),
     }
 }

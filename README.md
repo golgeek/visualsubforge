@@ -10,7 +10,7 @@ The editor provides:
   and accepted-state recovery.
 - [Automatic cue editing](docs/cue-editor.md), fixed-height issues and conservative single-cue fixes.
 - Waveform navigation, timing gestures, scene detection and native subtitle preview.
-- [Reviewed timing repairs](docs/timing-repair-all.md), batch shifts/alignment, tag-aware text tools, quality
+- [Reviewed timing repairs in the dock or with `vsf fix timing`](docs/timing-repair-all.md), batch shifts/alignment, tag-aware text tools, quality
   checks, statistics and optional English/French language tools.
 - ASS/SSA style and font authoring, reviewed separate-file SRT/ASS/SSA conversion,
   and experimental visual resynchronization through the desktop or CLI.

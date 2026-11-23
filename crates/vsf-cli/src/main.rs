@@ -7,6 +7,7 @@ mod extract;
 mod plugins;
 mod review;
 mod stats;
+mod timing;
 use args::{Cli, Command, Resync};
 use clap::Parser;
 use media_analysis::Tools;
@@ -39,11 +40,11 @@ fn main() -> ExitCode {
     };
     let cancel = Cancellation::default();
     let token = cancel.clone();
-    let plugin_cancel = Arc::new(AtomicBool::new(false));
-    let plugin_token = Arc::clone(&plugin_cancel);
+    let file_cancel = Arc::new(AtomicBool::new(false));
+    let file_token = Arc::clone(&file_cancel);
     if let Err(error) = ctrlc::set_handler(move || {
         token.cancel();
-        plugin_token.store(true, Ordering::Release);
+        file_token.store(true, Ordering::Release);
     }) {
         diagnostic(format!("Cannot install cancellation handler: {error}"));
         return ExitCode::from(5);
@@ -54,7 +55,10 @@ fn main() -> ExitCode {
         Command::Extract(args) => extract::run(args, &cancel),
         Command::Review(args) => review::run(args, &cancel),
         Command::Compare(args) => compare::run(args, &cancel),
-        Command::Plugin(args) => plugins::run(args.command, &plugin_cancel)
+        Command::Fix(args::Fix::Timing(args)) => {
+            timing::run(args, &file_cancel).map_err(|e| (plugins::error_code(&e), e.to_string()))
+        }
+        Command::Plugin(args) => plugins::run(args.command, &file_cancel)
             .map_err(|e| (plugins::error_code(&e), e.to_string())),
         Command::Resync(args) => run(args, &cancel).map_err(|error| {
             let code = match &error {
