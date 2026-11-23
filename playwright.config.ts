@@ -14,7 +14,7 @@ export default defineConfig({
   retries: 0,
   forbidOnly: !!process.env.CI,
   timeout: 60_000,
-  globalTimeout: 10 * 60_000,
+  globalTimeout: 20 * 60_000,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL,

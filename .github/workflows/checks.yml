@@ -129,7 +129,12 @@ jobs:
             tests/fixtures/generated/resync/evaluation.json
           retention-days: 7
   browser-workflows:
-    name: Browser workflows (modeled IPC, Chromium and WebKit)
+    name: Browser workflows (modeled IPC, ${{ matrix.browser }})
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    timeout-minutes: 25
     runs-on: ubuntu-24.04
     container: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
     steps:
@@ -139,11 +144,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run test:browser
+      - run: npm run test:browser -- --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: browser-workflow-results
+          name: browser-workflow-results-${{ matrix.browser }}
           path: |
             playwright-report/
             test-results/

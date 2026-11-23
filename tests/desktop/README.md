@@ -265,6 +265,14 @@ npx playwright install chromium webkit
 npm run test:browser
 ```
 
+To run a single browser, use `npm run test:browser -- --project=chromium` or
+`npm run test:browser -- --project=webkit`. CI runs these commands in parallel
+jobs named `Browser workflows (modeled IPC, chromium)` and `Browser workflows
+(modeled IPC, webkit)`, each with one worker. Their artifacts are
+`browser-workflow-results-chromium` and `browser-workflow-results-webkit`.
+Playwright allows 20 minutes for a run, including a local run of both browsers.
+Each CI job allows 25 minutes for setup, tests and artifact upload.
+
 On Linux, use `npx playwright install --with-deps chromium webkit` for system
 prerequisites. The runner starts its own Vite server on port 1421 (override with
 `VSF_BROWSER_TEST_PORT`) and refuses to reuse an existing server. It runs the
