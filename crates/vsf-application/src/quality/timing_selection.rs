@@ -16,13 +16,14 @@ pub struct Selection {
 
 pub struct Plan {
     before: Document,
-    candidate: Document,
+    pub(super) candidate: Document,
     scope: Option<HashSet<CueId>>,
     excluded: HashSet<CueId>,
-    after: Option<Report>,
+    pub(super) after: Option<Report>,
     pub changed: usize,
     /// Keep the rows reviewable when a combination needs another selection.
     pub error: Option<String>,
+    pub selection_conflicts: Vec<u32>,
 }
 impl Plan {
     pub fn in_scope(&self, id: CueId) -> bool {
@@ -138,6 +139,7 @@ pub fn prepare_shift(
         after: None,
         changed,
         error: None,
+        selection_conflicts: Vec::new(),
     })
 }
 
