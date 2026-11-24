@@ -68,7 +68,7 @@
       status.error ||
       status.subtitlePreviewError ||
       workspace.notice ||
-      'Ready'}</span
+      (workspace.activity.visible ? '\u00a0' : 'Ready')}</span
   >{#if gestures.edit}<span
       >{gestures.snapHint || 'Timing preview'}
       {formatTime(gestures.edit.preview.startMs)}–{formatTime(

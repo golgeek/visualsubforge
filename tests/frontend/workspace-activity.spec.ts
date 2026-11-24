@@ -28,6 +28,7 @@ for (const delay of [35, 210, 1000]) {
     await expect(host).toHaveAttribute('data-seeks', '1');
     if (delay > 150) {
       await expect(slot).toBeVisible();
+      await expect(page.locator('footer .message')).not.toHaveText('Ready');
       expect(await rects()).toEqual(before);
     }
     await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false');
