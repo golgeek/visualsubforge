@@ -10,7 +10,7 @@
   }: {
     quality: QualitySession;
     cueId: number | null;
-    onclose: () => Promise<void>;
+    onclose: (showFile?: boolean) => Promise<void>;
   } = $props();
   let dialog: HTMLDialogElement;
   const projection = $derived(
@@ -67,6 +67,7 @@
       >
     {/if}
   {:else}<p>{quality.error || 'Updating issues…'}</p>{/if}
+  <button onclick={() => void onclose(true)}>Show all issues in file</button>
   <button onclick={() => void onclose()}>Close</button>
 </dialog>
 

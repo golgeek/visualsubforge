@@ -69,6 +69,10 @@ const original: DocumentSnapshot = {
     { id: 3, startMs: 9000, endMs: 12000, text: 'Five issues' },
   ],
 };
+const explanationsTrial = new URLSearchParams(location.search).has(
+  'explanations',
+);
+if (explanationsTrial) original.cues[2]!.id = 35;
 let snapshot = structuredClone(original);
 let stage = 'start';
 const history: DocumentSnapshot[] = [];
@@ -96,14 +100,11 @@ const media = {
 function issueProjection(
   cueId: number,
 ): NonNullable<QualityView['selectedIssues']> {
-  const rules = [
-    'rs_high',
-    'line_length',
-    'cps_high',
-    'gap',
-    'scene_end',
-  ] as const;
-  const count = cueId === 1 ? 1 : cueId === 2 ? 3 : 5;
+  const rules =
+    cueId === 35
+      ? (['scene_start', 'scene_end', 'gap', 'line_length'] as const)
+      : (['rs_high', 'line_length', 'cps_high', 'gap', 'scene_end'] as const);
+  const count = cueId === 35 ? 4 : cueId === 1 ? 1 : cueId === 2 ? 3 : 5;
   return {
     cueId: String(cueId),
     count,
@@ -174,6 +175,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_cancel':
           return null;
         case 'quality_read': {
+          if (explanationsTrial)
+            await new Promise((resolve) => setTimeout(resolve, 90));
           const view = emptyQuality(args);
           const request = args.request!;
           if (request.selected !== null) selectedForChecks = request.selected;
@@ -188,9 +191,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             affectedCues: 3,
             filteredCount: 9,
             filteredCues: 3,
-            findings: [1, 2, 3].flatMap((id) =>
-              issueProjection(id).issues.flatMap((issue) => issue.findings),
-            ),
+            findings: snapshot.cues
+              .map((c) => c.id)
+              .flatMap((id) =>
+                issueProjection(id).issues.flatMap((issue) => issue.findings),
+              ),
           };
         }
         case 'cue_fixes_start': {
@@ -315,6 +320,7 @@ async function select(id: number) {
 }
 async function run() {
   const app = mount(App, { target: host });
+  if (explanationsTrial) return;
   try {
     await until(
       () =>
@@ -389,6 +395,12 @@ async function run() {
       .querySelector('.workspace')
       ?.getAttribute('data-preset');
     button('+2').click();
+    await until(
+      () =>
+        host.querySelectorAll('dialog[aria-label="All cue issues"][open] li')
+          .length === 5,
+    );
+    button('Show all issues in file').click();
     await until(() => {
       const findings = host.querySelectorAll(
         '[aria-label="Subtitle issues"] .finding',
@@ -422,7 +434,7 @@ async function run() {
       .click();
     await until(() => !host.querySelector('[aria-label="Review panel"]'));
     passed(
-      'One, three and five issues keep fixed height; overflow lists all five findings in Issues without changing layout',
+      'One, three and five issues keep fixed height; overflow lists all five groups in the cue dialog before opening Issues',
     );
 
     await until(() =>

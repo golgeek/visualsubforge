@@ -179,7 +179,7 @@ export async function sceneQuality({
   const text = await browser.$('[aria-label="Subtitle text"]');
   await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Preserve scene navigation draft');
-  await (await browser.$('button=Cue 2 · End near scene change')).click();
+  await (await browser.$('button=Cue 2 · End near shot change')).click();
   await until(
     'invalid draft blocks scene navigation',
     async () => (await text.getAttribute('aria-invalid')) === 'true',

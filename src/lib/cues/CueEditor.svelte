@@ -54,7 +54,7 @@
     onmove?: () => void;
     onmeasure: (part: 'bar' | 'footer' | 'metrics', height: number) => void;
     actions: {
-      showIssues: () => void;
+      showCueIssues: () => void;
       reviewIssue: (rule: QualityRule) => void;
       suspendCueFollowing: () => void;
       openAuthoring: (kind: AuthoringModal) => Promise<void>;
@@ -282,7 +282,7 @@
         void workspace.task(async () => {
           if (await fixes.accept()) workspace.notice = 'Safe cue fixes applied';
         })}
-      onmore={actions.showIssues}
+      onexplanations={actions.showCueIssues}
       onreview={actions.reviewIssue}
     />
     {#if showQualityMetrics && cue}

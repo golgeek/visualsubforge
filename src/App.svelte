@@ -1350,7 +1350,7 @@
         onmeasure={(part, height) => layout.measureEditor(part, height)}
         actions={{
           suspendCueFollowing: navigation.suspendFollowing,
-          showIssues: () => view.openReview('issues'),
+          showCueIssues: () => void workspaceModal.open('cueIssues'),
           reviewIssue: (rule) => {
             if (
               [
@@ -1395,9 +1395,10 @@
   {#if workspaceModal.identity === 'cueIssues'}<CueIssuesDialog
       {quality}
       cueId={subtitles.selected}
-      onclose={async () => {
+      onclose={async (showFile) => {
         await workspaceModal.close();
         quality.selectedOffset = 0;
+        if (showFile) view.openReview('issues');
       }}
     />{/if}
   {#if workspaceModal.identity === 'columns'}<ColumnChooser
