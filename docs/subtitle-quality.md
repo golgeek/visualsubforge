@@ -82,7 +82,8 @@ Changing those thresholds or importing a version-1 timing preset makes a custom
 profile while preserving every quality rule and coverage limitation. Interaction
 options such as snapping stay in Timing and snapping. Valid edits apply after a
 short pause: Rust validates the pair, atomically saves defaults and accepts the
-current policy. Undo restores the previous confirmed settings. Invalid inputs and
+current policy. Dismissing an uncertain Settings draft clears cached quality results
+until Rust reports the current policy. Undo restores the previous confirmed settings. Invalid inputs and
 failed writes retain their drafts without changing subtitle history. Stale or
 uncertain saves require Check saved settings before an explicit Retry; no mutation
 is replayed automatically. Live per-rule counts describe distinct cues in the
@@ -119,7 +120,12 @@ by rule or severity; results page 100 findings at a time. **Next cue / Previous
 cue** (F4 / Shift+F4) visit distinct affected cues in document order, including
 related cues in overlap/gap pairs, and wrap at the ends. Navigation selects the
 cue and seeks only when media is loaded. Pending cue fields commit before selection. A rejected edit keeps the draft,
-selection and inline rejection reason.
+selection and inline rejection reason. The selected cue’s findings are highlighted.
+Following a finding keeps its focus and position while metrics and selection refresh.
+During a report or filter change, the last page stays visible. Longer refreshes
+dim that page. Cue links still navigate, and report-specific actions wait for
+the new page. When an edit resolves the anchored finding, its nearest surviving
+neighbour takes its place.
 
 Checks run on one cancellable Rust worker. Document edits, Undo/Redo and policy
 or workspace/scene replacement retire old results; late replies cannot publish into a

@@ -1282,6 +1282,7 @@
                 <ProblemsPanel
                   onfixtiming={() => void dialogs.openTimingReview('all')}
                   session={quality}
+                  selected={subtitles.selected}
                   documentLoaded={doc.loaded}
                   disabled={workspace.busy || workspace.confirming}
                   onnavigate={navigate}

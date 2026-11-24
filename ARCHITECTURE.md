@@ -682,6 +682,13 @@ and Select All use visible order. CueNavigation distinguishes acknowledged
 programmatic scrolling from manual scrolling: clicking retains following; manual
 scrolling pauses it; Jump clears filters and resumes subject to draft protection.
 
+QualitySession serializes report reads and independently tracks findings-page
+freshness. A selection or metric window change refreshes its own projection.
+A revision, report, rule, severity or page change invalidates report-specific actions
+immediately. ProblemsPanel retains the last findings page within a document
+generation, media session and context. Its updating style uses the shared settle
+timer. The panel restores a visible finding’s offset by cue, rule and related
+cue or word range, falling back to a surviving neighbour in document order.
 QualitySession retains the existing single in-flight request lifetime. It pages
 Rust findings into a highest-severity-per-cue index (including related cues), and
 caches at most 32 windows of at most 200 accepted metrics. Problems filters/pages
@@ -701,7 +708,10 @@ or missing save reply blocks automatic writes; read-only reconciliation checks t
 stored preferences and effective policy/word epoch. Only explicit Retry sends a
 new mutation. Disposal ignores late replies without claiming cancellation of an
 already dispatched Rust operation. Settings Undo changes preferences, not subtitle
-history. Closing flushes valid drafts; discarding an invalid draft is explicit.
+history. Closing flushes valid drafts. Users can explicitly discard an invalid
+draft. On dismissal of an uncertain save, WorkspaceDialogs invalidates the
+quality context before closing Settings. This retires cached metrics, findings
+and in-flight quality replies while Rust reads the current policy.
 
 Native accelerator publication runs in the existing blocking preference operation.
 Tauri marshals menu changes to its UI thread; no filesystem work moves there.

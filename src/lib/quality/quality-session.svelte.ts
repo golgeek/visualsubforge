@@ -31,6 +31,9 @@ export class QualitySession {
   view = $state.raw<QualityView | null>(null);
   error = $state('');
   stale = $state(true);
+  listStale = $state(true);
+  displayedList = $state.raw<QualityView | null>(null);
+  private listQuery = '';
   paused = $state(false);
   rule = $state<QualityRequest['rule']>(null);
   severity = $state<QualityRequest['severity']>(null);
@@ -77,6 +80,13 @@ export class QualitySession {
     ]);
     if (signature === this.signature) return;
     const version = `${input.session}/${input.generation}/${input.revision}/${input.context}`;
+    if (
+      !input.enabled ||
+      this.input?.session !== input.session ||
+      this.input.generation !== input.generation ||
+      this.input.context !== input.context
+    )
+      this.displayedList = null;
     if (version !== this.version) {
       this.version = version;
       this.view = null;
@@ -86,6 +96,14 @@ export class QualitySession {
       this.offset = 0;
     }
     if (input.selected !== this.input?.selected) this.selectedOffset = 0;
+    const listQuery = JSON.stringify([
+      version,
+      this.rule,
+      this.severity,
+      this.offset,
+    ]);
+    if (listQuery !== this.listQuery || !input.enabled) this.listStale = true;
+    this.listQuery = listQuery;
     const userKey = JSON.stringify([
       version,
       this.rule,
@@ -294,6 +312,8 @@ export class QualitySession {
         return;
       if (this.reportKey && this.reportKey !== this.reportIdentity(view))
         this.clearProjection();
+      this.listStale = view.phase !== 'ready';
+      if (!this.listStale) this.displayedList = view;
       this.view = view;
       this.error = '';
       this.stale = false;
@@ -301,6 +321,8 @@ export class QualitySession {
     } catch (error) {
       if (this.alive && sequence === this.sequence) {
         this.error = String(error);
+        this.listStale = true;
+        this.stale = true;
         this.view = null;
         this.clearProjection();
       }
@@ -320,6 +342,7 @@ export class QualitySession {
     this.nextUserRead = true;
     this.paused = false;
     this.restartPending = true;
+    this.listStale = true;
     this.view = null;
     this.clearProjection();
     this.error = '';
@@ -337,6 +360,7 @@ export class QualitySession {
   }
   dispose() {
     this.alive = false;
+    this.displayedList = null;
     ++this.sequence;
     this.clearTimer();
     if (this.id !== null) void this.api.cancelQuality(this.id).catch(() => {});
