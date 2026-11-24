@@ -692,7 +692,11 @@ freshness. A selection or metric window change refreshes its own projection.
 A revision, report, rule, severity or page change invalidates report-specific actions
 immediately. ProblemsPanel retains the last findings page within a document
 generation, media session and context. Its updating style uses the shared settle
-timer. The panel restores a visible finding’s offset by cue, rule and related
+timer. ReviewDock keeps tabs and options outside the active panel's vertical scroll
+region. ProblemsPanel keeps the filtered counts and partial-coverage control outside the
+findings viewport, and restores the scroll anchor inside it.
+Timing panels reserve their Apply footer. Statistics and Changes scroll within
+the dock body. The panel restores a visible finding’s offset by cue, rule and related
 cue or word range, falling back to a surviving neighbour in document order.
 QualitySession retains the existing single in-flight request lifetime. It pages
 Rust findings into a highest-severity-per-cue index (including related cues), and

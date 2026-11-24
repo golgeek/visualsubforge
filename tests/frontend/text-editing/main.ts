@@ -593,6 +593,7 @@ async function run() {
       ignoredWord && !rememberedWord,
       'Session ignore persisted a personal word',
     );
+    host.querySelector<HTMLElement>('.problems details > summary')!.click();
     await actionable('Clear session ignored words');
     button('Clear session ignored words').click();
     await until(() => host.textContent!.includes('Fixture spelling finding'));

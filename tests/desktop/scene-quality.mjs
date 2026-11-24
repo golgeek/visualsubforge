@@ -187,7 +187,7 @@ export async function sceneQuality({
   assert.equal(await text.getValue(), 'Preserve scene navigation draft');
   assert.deepEqual(await status(), before);
   await discardCue(browser);
-  await (await browser.$('button=Close issues')).click();
+  await (await browser.$('[aria-label="Close issues"]')).click();
   await chooseCommand(browser, 'snapShots');
   let dialog = await browser.$('[aria-label="Review panel"]');
   await until('scene dialog', () => dialog.isDisplayed());

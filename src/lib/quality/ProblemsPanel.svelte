@@ -33,12 +33,11 @@
   } = $props();
   const view = $derived(session.displayedList ?? session.view);
   const summary = $derived(
-    view?.profileHash
-      ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
-      : '',
+    view?.profileHash ? countLabel(view.findingsCount, 'issue') : '',
   );
   const updating = settled(() => session.listStale);
   let findings: HTMLDivElement;
+  let details = $state<HTMLDetailsElement>();
   type Finding = QualityView['findings'][number];
   function findingKey(f: Finding) {
     return JSON.stringify([
@@ -63,8 +62,8 @@
     // Read old row geometry immediately before publishing the replacement page.
     const page = view;
     if (!page || !findings) return;
-    const scroll = findings.closest<HTMLElement>('.body');
-    if (!scroll || scroll.scrollTop === 0) return;
+    const scroll = findings;
+    if (scroll.scrollTop === 0) return;
     const bounds = scroll.getBoundingClientRect();
     const rows = () =>
       Array.from(findings.querySelectorAll<HTMLElement>('.finding'));
@@ -110,6 +109,7 @@
   );
   let wordPending = $state(false);
   let wordError = $state('');
+  const error = $derived(session.error || session.view?.error || wordError);
   async function wordChange(change: LanguageWordChange) {
     if (!view || !usable || wordPending) return;
     wordPending = true;
@@ -142,25 +142,31 @@
 
 <section class="problems" aria-label="Subtitle issues">
   <header>
-    <strong>Issues</strong>
-    <div class="status-slot" data-summary={summary}>
-      <span role="status"
-        >{!documentLoaded
-          ? 'Open subtitles to check for issues'
-          : session.paused
-            ? 'Checking paused'
-            : !view?.profileHash && session.view?.phase === 'checking'
-              ? 'Checking…'
-              : updating.showUpdating
-                ? 'Updating…'
-                : session.view?.phase === 'failed'
-                  ? 'Check failed'
-                  : summary || 'Open subtitles to check'}</span
-      >
+    <div
+      class="status-slot"
+      data-summary={summary || 'Open subtitles to check for issues'}
+    >
+      {#if error}<span role="alert" title={error}>{error}</span>
+      {:else}<span role="status"
+          >{!documentLoaded
+            ? 'Open subtitles to check for issues'
+            : session.paused
+              ? 'Checking paused'
+              : !view?.profileHash && session.view?.phase === 'checking'
+                ? 'Checking…'
+                : updating.showUpdating
+                  ? 'Updating…'
+                  : session.view?.phase === 'failed'
+                    ? 'Check failed'
+                    : summary || 'Open subtitles to check'}</span
+        >
+      {/if}
     </div>
     {#if onfixtiming && view?.timingFindingsCount}<button
         {disabled}
-        onclick={onfixtiming}>Fix timing issues…</button
+        aria-label="Fix timing issues…"
+        onclick={onfixtiming}
+        >Fix timing<span class="suffix">&#32;issues</span>…</button
       >{/if}
     <button
       onclick={() => session.restart()}
@@ -169,48 +175,13 @@
     <button
       onclick={() => session.pause()}
       disabled={session.paused || disabled || !documentLoaded}
-      >Pause checking</button
+      aria-label="Pause checking"
+      >Pause <span class="suffix">checking</span></button
     >
-    <button onclick={onclose}>Close issues</button>
+    <button aria-label="Close issues" onclick={onclose}
+      >Close<span class="suffix">&#32;issues</span></button
+    >
   </header>
-  <div class="error-slot">
-    {#if session.error || session.view?.error || wordError}<p role="alert">
-        {session.error || session.view?.error || wordError}
-      </p>{/if}
-  </div>
-  {#if view}
-    <p class="policy">
-      {view.profile.name}
-    </p>
-    <p class="policy">{sceneCoverage(view.sceneCoverage)}</p>
-    {#if view.languageCoverage?.enabled}
-      <p class="policy">
-        {view.profile.languageTools?.dictionary === 'fr'
-          ? 'French Classique 7.7'
-          : 'English US SCOWL 2020.12.07'} · {countLabel(
-          view.languageCoverage.checkedWords,
-          'word',
-        )} checked · {countLabel(view.languageCoverage.skippedWords, 'word')}
-        and {countLabel(view.languageCoverage.skippedCues, 'cue')} skipped{view
-          .languageCoverage.personalized
-          ? ' · includes personal/session words'
-          : ''}.
-      </p>
-      <button
-        disabled={!usable || wordPending}
-        onclick={() => void wordChange({ kind: 'clearIgnored' })}
-        >Clear session ignored words</button
-      >
-    {/if}
-    {#if view.profile.limitations.length}<details>
-        <summary>Partial coverage — unsupported rules are not checked</summary>
-        <ul>
-          {#each view.profile.limitations as text, index (index)}<li>
-              {text}
-            </li>{/each}
-        </ul>
-      </details>{/if}
-  {/if}
   <div class="filters">
     <label
       >Rule <select
@@ -247,23 +218,82 @@
       data-nav-key="previousCue"
       onclick={(event) =>
         view?.previousCue && onnavigate(view.previousCue, event.currentTarget)}
-      >Previous cue · ⇧F4</button
+      aria-label="Previous cue · ⇧F4"
+      title="Previous cue · ⇧F4"><span>Previous cue · ⇧F4</span></button
     >
     <button
       disabled={!usable || session.stale || !view?.nextCue}
       data-nav-key="nextCue"
       onclick={(event) =>
         view?.nextCue && onnavigate(view.nextCue, event.currentTarget)}
-      >Next cue · F4</button
+      aria-label="Next cue · F4"
+      title="Next cue · F4"><span>Next cue · F4</span></button
     >
-    {#if view?.profileHash}<span
+  </div>
+  {#if view?.profileHash}
+    <div class="result-summary">
+      <span
         >{countLabel(view.filteredCount, 'matching issue')} · {countLabel(
           view.filteredCues,
           'cue',
         )}</span
-      >{/if}
-  </div>
+      >
+      {#if view.profile.limitations.length}
+        <button
+          title={view.profile.limitations.join(' · ')}
+          onclick={() => {
+            if (!details) return;
+            details.open = true;
+            findings.scrollTop = 0;
+            details.querySelector('summary')?.focus({ preventScroll: true });
+          }}>Partial coverage</button
+        >
+      {/if}
+    </div>
+  {/if}
   <div class="findings" bind:this={findings} aria-busy={updating.showUpdating}>
+    {#if view}<details bind:this={details}>
+        <summary>Check details</summary>
+        <p class="policy">
+          {view.profile.name} · {countLabel(
+            view.affectedCues,
+            'cue with issues',
+            'cues with issues',
+          )}
+        </p>
+        <p class="policy">{sceneCoverage(view.sceneCoverage)}</p>
+        {#if view.languageCoverage?.enabled}
+          <p class="policy">
+            {view.profile.languageTools?.dictionary === 'fr'
+              ? 'French Classique 7.7'
+              : 'English US SCOWL 2020.12.07'} · {countLabel(
+              view.languageCoverage.checkedWords,
+              'word',
+            )} checked · {countLabel(
+              view.languageCoverage.skippedWords,
+              'word',
+            )}
+            and {countLabel(view.languageCoverage.skippedCues, 'cue')} skipped{view
+              .languageCoverage.personalized
+              ? ' · includes personal/session words'
+              : ''}.
+          </p>
+          <button
+            disabled={!usable || wordPending}
+            onclick={() => void wordChange({ kind: 'clearIgnored' })}
+            >Clear session ignored words</button
+          >
+        {/if}
+        {#if view.profile.limitations.length}<p>
+            Partial coverage — unsupported rules are not checked
+          </p>
+          <ul>
+            {#each view.profile.limitations as text, index (index)}<li>
+                {text}
+              </li>{/each}
+          </ul>
+        {/if}
+      </details>{/if}
     {#if view?.profileHash}
       {#if !view.filteredCount}<p>
           No findings for these filters.{view.profile.limitations.length
@@ -339,30 +369,33 @@
         </div>
       {/each}
     {/if}
+    {#if view && view.filteredCount > 100}<div class="paging">
+        <button
+          disabled={!usable || !view.offset}
+          onclick={() => (session.offset = Math.max(0, view.offset - 100))}
+          >Previous page</button
+        >
+        <span
+          >{`${view.offset + 1}–${Math.min(view.offset + 100, view.filteredCount)} of ${view.filteredCount}`}</span
+        >
+        <button
+          disabled={!usable || view.offset + 100 >= view.filteredCount}
+          onclick={() => (session.offset = view.offset + 100)}>Next page</button
+        >
+      </div>{/if}
   </div>
-  {#if view && view.filteredCount > 100}<div class="paging">
-      <button
-        disabled={!usable || !view.offset}
-        onclick={() => (session.offset = Math.max(0, view.offset - 100))}
-        >Previous page</button
-      >
-      <span
-        >{view.offset + 1}–{Math.min(view.offset + 100, view.filteredCount)} of {view.filteredCount}</span
-      >
-      <button
-        disabled={!usable || view.offset + 100 >= view.filteredCount}
-        onclick={() => (session.offset = view.offset + 100)}>Next page</button
-      >
-    </div>{/if}
 </section>
 
 <style>
   .problems {
-    flex: 0 0 42%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
     min-width: 0;
     min-height: 0;
-    overflow: auto;
-    padding: 8px;
+    overflow: hidden;
+    padding: 3px 6px;
     border-left: 1px solid var(--line);
     background: var(--surface-raised);
     font-size: 12px;
@@ -373,13 +406,29 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px 10px;
+    flex: none;
+    gap: 2px 4px;
   }
-  header strong {
+
+  .result-summary {
+    display: flex;
+    flex: none;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 11px;
+  }
+  .result-summary button {
+    border: 0;
+    padding: 0;
+    background: transparent;
     color: var(--text);
+    font: inherit;
+    text-decoration: underline;
   }
+
   .status-slot {
     flex: 1 1 auto;
+    position: relative;
     display: grid;
     min-width: 0;
   }
@@ -396,10 +445,14 @@
     color: var(--text-muted);
   }
   details {
-    margin-block: 5px;
+    margin-block: 0;
   }
   .findings {
-    margin-top: 6px;
+    margin-top: 2px;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overflow-anchor: none;
   }
   .finding {
     display: flex;
@@ -419,19 +472,50 @@
     flex-basis: 100%;
     color: var(--text-muted);
   }
-  .error-slot {
-    height: 1.4em;
-    overflow: auto;
+  header button,
+  .filters button,
+  .filters select {
+    padding: 2px 4px;
+    font-size: 11px;
   }
-  .error-slot p {
-    margin: 0;
+  .filters select {
+    max-width: 108px;
+  }
+  .filters label {
+    white-space: nowrap;
+  }
+  .filters [data-nav-key] span {
+    position: absolute;
+    clip-path: inset(50%);
+  }
+  .filters [data-nav-key='previousCue']::before {
+    content: '‹';
+  }
+  .filters [data-nav-key='nextCue']::before {
+    content: '›';
+  }
+  .filters [data-nav-key] {
+    min-width: 24px;
+  }
+  summary {
+    cursor: pointer;
+  }
+  .status-slot [role='alert'] {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   [role='alert'] {
     color: var(--err);
   }
-  @media (max-width: 999px) {
-    .problems {
-      flex-basis: 45%;
+  @container (max-width: 400px) {
+    .suffix {
+      display: none;
+    }
+    .filters select {
+      max-width: 80px;
     }
   }
 </style>

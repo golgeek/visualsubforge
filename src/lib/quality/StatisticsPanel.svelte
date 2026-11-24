@@ -364,8 +364,6 @@
     color: var(--text-muted);
   }
   .findings {
-    max-height: 34vh;
-    overflow: auto;
     margin-block: 10px;
   }
   nav {

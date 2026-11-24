@@ -137,6 +137,12 @@ pages, includes related cues and shows incomplete coverage explicitly. **Issues*
 filters the list independently of the Problems rule/severity filters.
 No profile or check action changes subtitle history, dirty state or save policy.
 
+The Issues dock keeps its filters and tabs visible while findings scroll.
+The filters keep the matching issue and cue counts visible while findings scroll.
+**Partial coverage** opens the list of unsupported rules.
+Expand **Check details** for the active profile, scan and language coverage,
+limitations and the control for clearing session-ignored words.
+
 The desktop and CLI share the same engine and profile snapshot/hash. Executable
 parity is checked by the real desktop workflow using an exported accepted
 profile and the same SRT input, comparing every metric and finding. The desktop

@@ -44,6 +44,7 @@ let document: DocumentSnapshot = {
 };
 const anchorTrial = new URLSearchParams(location.search).get('anchor');
 if (anchorTrial !== null) {
+  base.profile.limitations = ['Unsupported fixture rule'];
   document.cues = Array.from({ length: 70 }, (_, i) => ({
     id: i + 1,
     startMs: 2000 * i,
