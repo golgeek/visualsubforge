@@ -140,7 +140,7 @@ for (const theme of ['dark', 'light'])
         .click();
       await expect(
         dock.getByRole('button', { name: 'Restore default selection' }),
-      ).toHaveCount(0);
+      ).toBeDisabled();
       const partial = dock.getByRole('checkbox', {
         name: 'Include cue 8→9',
         exact: true,
@@ -193,6 +193,9 @@ test('deep toggle keeps its page and scroll through the updating view', async ({
   const top = await scroll.evaluate((el) => el.scrollTop);
   expect(top).toBeGreaterThan(100);
   const rowTop = await row.evaluate((el) => el.getBoundingClientRect().top);
+  await page.locator('#test').evaluate((el) => {
+    el.dataset.startDelay = '650';
+  });
   await row.uncheck();
   const busy = dock.locator('.results[aria-busy="true"]');
   await expect(busy).toBeVisible();

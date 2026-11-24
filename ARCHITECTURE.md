@@ -348,9 +348,12 @@ commands; it cannot undo a mutation already accepted by Rust. Acceptance flows
 that reconcile a lost reply fetch authoritative state before continuing.
 
 Fix and Shift share `TimingRepairSession` for
-start/read/page/cancel/accept ordering and disposal. Live dock inputs debounce
-250 ms and compare semantic keys so unrelated playback updates cannot starve
-admission. Pure read-only admission retries stop after three attempts; mutations
+start/read/page/cancel/accept ordering and disposal. Fix schedules changed live inputs immediately and silently retires
+superseded reads. Shift debounces inputs for 250 ms. Both compare semantic keys
+so unrelated playback updates cannot starve admission. Fix retains a display-only
+page and viewport projection across revisions within a document generation, media
+session and review context. The shared settle timer controls their updating style.
+Only the current capture and Rust proposal can admit Apply. Pure read-only admission retries stop after three attempts; mutations
 are never retried. The capture is reactive and accepted snapshots remain immutable.
 Switching away from Timing disposes its worker. On return, the semantic key
 (document generation/revision, media session, scope IDs, quality/scene context,

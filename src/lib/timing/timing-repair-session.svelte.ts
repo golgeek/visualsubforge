@@ -28,6 +28,7 @@ export const LIVE_REVIEW_DELAY_MS = 250;
 import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
 export interface LiveTimingReview {
   activity?: WorkspaceActivity;
+  retainDisplay?: boolean;
   enabled: () => boolean;
   selection: () => ReviewSelection | null;
   context: () => string;
@@ -48,6 +49,23 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   pending = $state(false);
   accepting = $state(false);
   applyingDraft = $state(false);
+  private retained = $state.raw<{
+    document: DocumentSnapshot;
+    session: number;
+    context: string;
+    view: V;
+    preview: V | null;
+  } | null>(null);
+  get displayed() {
+    const last = this.retained;
+    return last &&
+      last.document.generation === this.subtitles.snapshot.generation &&
+      last.session === this.mediaSession() &&
+      last.context === this.live?.context()
+      ? last
+      : null;
+  }
+  private endActivity: (() => void) | undefined;
   private alive = true;
   private epoch = 0;
   private id: number | null = null;
@@ -68,6 +86,10 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   private liveDirty = false;
   private liveWanted = false;
   private attempts = 0;
+  private admissionRetryable = false;
+  private get superseded() {
+    return this.live?.retainDisplay && this.liveDirty && !this.current;
+  }
   private previewKey = '';
 
   constructor(
@@ -108,6 +130,11 @@ export class TimingRepairSession<V extends Review, S = string | null> {
             signature !== this.liveSignature ||
             document !== this.liveDocument
           ) {
+            if (!this.displayed) this.retained = null;
+            if (live.retainDisplay) {
+              this.endActivity?.();
+              this.endActivity = wanted ? live.activity?.begin() : undefined;
+            }
             this.liveDocument = document;
             this.liveSignature = signature;
             this.liveDirty = true;
@@ -117,7 +144,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
             this.error = '';
           }
           this.liveWanted = wanted;
-          this.schedule(LIVE_REVIEW_DELAY_MS);
+          this.schedule(live.retainDisplay ? 0 : LIVE_REVIEW_DELAY_MS);
         });
       });
   }
@@ -139,6 +166,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       this.schedule(100);
       return;
     }
+    const delay = this.live.retainDisplay ? 0 : LIVE_REVIEW_DELAY_MS;
     const signature = this.liveSignature;
     const document = this.liveDocument;
     if (!this.liveWanted) {
@@ -157,30 +185,39 @@ export class TimingRepairSession<V extends Review, S = string | null> {
           ))
       ) {
         await this.cancel();
-        if (this.alive) this.schedule(LIVE_REVIEW_DELAY_MS);
+        if (this.alive)
+          this.schedule(this.running ? LIVE_REVIEW_DELAY_MS : delay);
         return;
       }
       if (!this.canStart) {
         this.schedule(LIVE_REVIEW_DELAY_MS);
         return;
       }
+      this.admissionRetryable = false;
       const start = this.start();
-      await (this.live.activity ? this.live.activity.track(start) : start);
+      await (this.live.activity && !this.live.retainDisplay
+        ? this.live.activity.track(start)
+        : start);
       if (!this.alive) return;
       if (signature !== this.liveSignature || document !== this.liveDocument) {
-        this.schedule(LIVE_REVIEW_DELAY_MS);
+        this.schedule(delay);
         return;
       }
       if (this.id === null) {
-        if (++this.attempts < 3) this.schedule(LIVE_REVIEW_DELAY_MS);
-        else this.liveDirty = false;
+        const retryable = !this.live.retainDisplay || this.admissionRetryable;
+        if (retryable && ++this.attempts < 3)
+          this.schedule(LIVE_REVIEW_DELAY_MS);
+        else {
+          this.liveDirty = false;
+          this.endActivity?.();
+        }
         return;
       }
       this.liveDirty = false;
     } else await this.poll();
     if (!this.alive) return;
     if (signature !== this.liveSignature || document !== this.liveDocument) {
-      this.schedule(LIVE_REVIEW_DELAY_MS);
+      this.schedule(delay);
       return;
     }
     if (this.current && this.view?.phase === 'reviewing')
@@ -189,7 +226,14 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       this.preview = null;
       this.previewKey = '';
     }
-    if (this.alive && this.id !== null) this.schedule(400);
+    if (
+      signature === this.liveSignature &&
+      document === this.liveDocument &&
+      !this.running
+    )
+      this.endActivity?.();
+    if (this.alive && this.id !== null)
+      this.schedule(this.liveDirty && this.live.retainDisplay ? 0 : 400);
   }
   private async readPreview() {
     if (
@@ -214,9 +258,11 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       )
         return;
       this.preview = view.phase === 'reviewing' ? view : null;
+      if (this.retained && this.preview)
+        this.retained = { ...this.retained, preview: this.preview };
       this.previewKey = key;
     } catch (error) {
-      if (this.active(epoch)) {
+      if (this.active(epoch) && !this.superseded) {
         this.preview = null;
         this.error = String(error);
       }
@@ -229,6 +275,10 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     this.error = '';
     this.liveDirty = true;
     this.attempts = 0;
+    if (this.live?.retainDisplay) {
+      this.endActivity?.();
+      this.endActivity = this.live.activity?.begin();
+    }
     if (this.live) this.schedule(0);
     else void this.start();
   }
@@ -334,7 +384,18 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     } catch (e) {
       if (this.active(epoch)) {
         if (this.id !== null) void this.api.cancel(this.id).catch(() => {});
-        this.error = String(e);
+        const message = String(e);
+        this.admissionRetryable =
+          message.includes(
+            'Wait for the current timing proposal to finish cancelling',
+          ) || message.includes('Timing policy changed before preview');
+        if (
+          !this.superseded &&
+          (!this.live?.retainDisplay ||
+            !this.admissionRetryable ||
+            this.attempts >= 2)
+        )
+          this.error = String(e);
         this.id = null;
         this.capture = null;
       }
@@ -360,10 +421,23 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       this.view = null;
       this.id = null;
       this.capture = null;
-      this.error = `${reason}; preview again.`;
+      if (!this.live?.retainDisplay || !this.liveDirty)
+        this.error = `${reason}; preview again.`;
       return;
     }
     this.view = view;
+    if (this.live?.retainDisplay && this.capture) {
+      if (view.phase === 'reviewing') {
+        this.retained = {
+          document: this.capture.document,
+          session: this.capture.session,
+          context: this.capture.context,
+          view,
+          preview: this.displayed?.preview ?? null,
+        };
+      } else if (view.phase === 'stale' || view.phase === 'closed')
+        this.retained = null;
+    }
     if (view.error) this.error = view.error;
   }
   async poll() {
@@ -383,7 +457,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     } catch (e) {
       if (this.active(epoch)) {
         if (this.id !== null) void this.api.cancel(this.id).catch(() => {});
-        this.error = String(e);
+        if (!this.superseded) this.error = String(e);
         this.view = null;
         this.id = null;
         this.capture = null;
@@ -400,7 +474,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     try {
       await this.read(epoch);
     } catch (e) {
-      if (this.active(epoch)) this.error = String(e);
+      if (this.active(epoch) && !this.superseded) this.error = String(e);
     } finally {
       if (this.active(epoch)) this.pending = false;
     }
@@ -415,7 +489,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       await this.api.cancel(this.id);
       await this.read(epoch);
     } catch (e) {
-      if (this.active(epoch)) this.error = String(e);
+      if (this.active(epoch) && !this.superseded) this.error = String(e);
     } finally {
       if (this.active(epoch)) this.pending = false;
     }
@@ -438,6 +512,8 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   dispose() {
     if (!this.alive) return;
     this.alive = false;
+    this.endActivity?.();
+    this.retained = null;
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
     this.preview = null;

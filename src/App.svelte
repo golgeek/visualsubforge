@@ -493,9 +493,15 @@
   );
 
   let timingPreview = $state.raw<TimingPreview | null>(null);
+  const timingContext = () =>
+    `${preferences.qualityContext}/${scenes.sceneState.qualityKey}`;
   const reviewGhosts = $derived(
-    timingPreview?.document === subtitles.snapshot &&
-      !subtitles.dirty &&
+    timingPreview &&
+      (timingPreview.retained
+        ? timingPreview.document.generation === subtitles.snapshot.generation &&
+          timingPreview.retained.session === media.status.session &&
+          timingPreview.retained.context === timingContext()
+        : timingPreview.document === subtitles.snapshot && !subtitles.dirty) &&
       view.problemsOpen &&
       ['timing', 'shift'].includes(view.reviewTab)
       ? timingPreview.ghosts
@@ -1253,8 +1259,7 @@
                   ? Math.round(media.status.positionSeconds * 1000)
                   : null}
               mediaSession={() => media.status.session}
-              context={() =>
-                `${preferences.qualityContext}/${scenes.sceneState.qualityKey}`}
+              context={timingContext}
               previewIds={reviewPreviewIds}
               enabled={() =>
                 (workspace.canAct || view.reviewBusy) &&

@@ -99,9 +99,7 @@
         : Math.max(...c.original.map((q) => q.end_ms));
     return old === current ? null : { old, delta: signedDelta(current - old) };
   }
-  const deltas = $derived(
-    new Map(ghosts.map((ghost) => [ghost.id, timingDelta(ghost)])),
-  );
+  const deltas = $derived(new Map(ghosts.map((ghost) => [ghost.id, ghost])));
   const doc = $derived(subtitles.snapshot);
   const columns = $derived(tableView.visibleColumns);
   const checkWidth = $derived.by(() => {
@@ -551,8 +549,9 @@
                           metric,
                         )}{/if}{#if column.id === 'text' && deltas.has(row.cue.id)}<small
                           class="timing-delta"
+                          class:updating={deltas.get(row.cue.id)?.updating}
                           data-preview-cue={row.cue.id}
-                          >{deltas.get(row.cue.id)}</small
+                          >{timingDelta(deltas.get(row.cue.id)!)}</small
                         >{/if}</span
                     >{/if}
                 {/each}
@@ -714,6 +713,9 @@
     line-height: 1;
   }
 
+  .timing-delta.updating {
+    opacity: 0.55;
+  }
   .timing-delta {
     margin-left: 8px;
     color: var(--accent);
