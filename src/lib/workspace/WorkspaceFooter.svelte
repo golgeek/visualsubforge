@@ -30,7 +30,7 @@
     <span class="spinner" aria-hidden="true"></span>
   </span>
   {#if extraction?.result && extraction.result.generation === documentGeneration}
-    <span class="result" role="status">{extraction.result.message}</span>
+    <span class="result">{extraction.result.message}</span>
     <button
       class="notice-action"
       aria-label="Dismiss extraction result"
@@ -40,7 +40,7 @@
     >
   {/if}
   {#if showExtraction && extraction?.notice}
-    <span role="status"
+    <span
       >This video contains {extraction.notice.count} subtitle track{extraction
         .notice.count === 1
         ? ''
@@ -64,11 +64,13 @@
       status.error ||
       status.subtitlePreviewError ||
       undefined}
-    >{workspace.error ||
-      status.error ||
-      status.subtitlePreviewError ||
-      workspace.notice ||
-      (workspace.activity.visible ? '\u00a0' : 'Ready')}</span
+    >{workspace.activity.visible
+      ? 'Working…'
+      : workspace.error ||
+        status.error ||
+        status.subtitlePreviewError ||
+        workspace.notice ||
+        'Ready'}</span
   >{#if gestures.edit}<span
       >{gestures.snapHint || 'Timing preview'}
       {formatTime(gestures.edit.preview.startMs)}–{formatTime(
@@ -77,9 +79,6 @@
     >{/if}{#if timeline.range}<span
       >Range {timeline.range[0].toFixed(3)}–{timeline.range[1].toFixed(3)} s</span
     >{/if}
-  <span class="activity-text" role="status"
-    >{workspace.activity.visible ? 'Working…' : ''}</span
-  >
 </footer>
 
 <style>
@@ -123,13 +122,6 @@
     to {
       transform: rotate(360deg);
     }
-  }
-  .activity-text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
   .result {
     min-width: 0;

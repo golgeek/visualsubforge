@@ -11,6 +11,8 @@ for (const delay of [35, 210, 1000]) {
       slot.evaluate((el) =>
         [el, el.parentElement!].map((e) => e.getBoundingClientRect().toJSON()),
       );
+    const message = page.locator('footer').getByRole('status');
+    await expect(message).toHaveCount(1);
     const before = await rects();
     await host.evaluate((el, delay) => {
       el.dataset.delay = String(delay);
@@ -28,11 +30,12 @@ for (const delay of [35, 210, 1000]) {
     await expect(host).toHaveAttribute('data-seeks', '1');
     if (delay > 150) {
       await expect(slot).toBeVisible();
-      await expect(page.locator('footer .message')).not.toHaveText('Ready');
+      await expect(message).toHaveText('Working…');
       expect(await rects()).toEqual(before);
     }
     await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false');
     await expect(slot).toBeHidden();
+    await expect(message).toHaveText('Ready');
     expect(await rects()).toEqual(before);
     const times = await host.evaluate((el) => [
       Number(el.dataset.shown),
