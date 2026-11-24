@@ -127,7 +127,7 @@ export class QualitySession {
       if (this.id !== null)
         void this.api.cancelQuality(this.id).catch(() => {});
       this.restartPending = true;
-    } else this.schedule(0);
+    } else this.schedule(180);
   }
   private clearProjection() {
     this.reportKey = '';

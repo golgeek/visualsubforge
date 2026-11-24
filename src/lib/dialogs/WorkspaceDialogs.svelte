@@ -99,6 +99,6 @@
     timing={timingSettings}
     checks={quality}
     onapply={(value) => dialogs.acceptSettings(value)}
-    onclose={() => void dialogs.closeSettings()}
+    onclose={(policyUncertain) => void dialogs.closeSettings(policyUncertain)}
   />
 {/if}

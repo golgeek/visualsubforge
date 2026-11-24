@@ -82,7 +82,8 @@ Changing those thresholds or importing a version-1 timing preset makes a custom
 profile while preserving every quality rule and coverage limitation. Interaction
 options such as snapping stay in Timing and snapping. Valid edits apply after a
 short pause: Rust validates the pair, atomically saves defaults and accepts the
-current policy. Undo restores the previous confirmed settings. Invalid inputs and
+current policy. Dismissing an uncertain Settings draft clears cached quality results
+until Rust reports the current policy. Undo restores the previous confirmed settings. Invalid inputs and
 failed writes retain their drafts without changing subtitle history. Stale or
 uncertain saves require Check saved settings before an explicit Retry; no mutation
 is replayed automatically. Live per-rule counts describe distinct cues in the

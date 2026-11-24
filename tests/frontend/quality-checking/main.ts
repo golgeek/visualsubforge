@@ -203,6 +203,23 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             ...structuredClone(defaultPreferences),
             showQualityMetrics: true,
           };
+        case 'quality_settings':
+          return {
+            current: {
+              epoch: base.key.epoch,
+              profile: base.profile,
+              timing: defaultPreferences.timing,
+            },
+            builtins: [base.profile],
+          };
+        case 'language_words':
+          return {
+            epoch: base.key.epoch,
+            personal: defaultPreferences.personalWords,
+            ignored: { englishUs: [], french: [] },
+          };
+        case 'preferences_save':
+          throw new Error('Workspace settings changed; reopen Settings');
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
@@ -291,6 +308,51 @@ async function run() {
     );
     passed(
       'Accepted metrics appear without media and checking leaves document/history unchanged',
+    );
+    // Another writer advances the policy while the dialog holds its draft.
+    // Hold quality IPC so the old selected metric cannot be replaced by chance.
+    await chooseCommand(host, 'settings');
+    let releasePolicy!: () => void;
+    heldRead = new Promise<void>((resolve) => {
+      releasePolicy = resolve;
+    });
+    try {
+      const metricsDefault = [...host.querySelectorAll('dialog label')]
+        .find((label) =>
+          label.textContent?.includes('Show cue metrics by default'),
+        )!
+        .querySelector('input')!;
+      await until(
+        () => !metricsDefault.matches(':disabled'),
+        'Settings unavailable',
+      );
+      base.key.epoch++;
+      metricsDefault.click();
+      button('Close').click();
+      await until(
+        () => host.textContent!.includes('Workspace settings changed'),
+        'Settings write did not conflict',
+      );
+      button('Close without saving draft').click();
+      await until(
+        () => !host.querySelector('dialog[open]'),
+        'Settings did not close',
+      );
+      assert(
+        !host.querySelector('[aria-label="Accepted cue metrics"]'),
+        'Discarding an uncertain settings draft exposed retired accepted metrics',
+      );
+    } finally {
+      heldRead = null;
+      releasePolicy();
+    }
+    await until(
+      () => !!host.querySelector('[aria-label="Accepted cue metrics"]'),
+      'Fresh accepted metrics did not return',
+    );
+    holdStarted = false;
+    passed(
+      'Discarding an uncertain settings draft waits for current accepted metrics',
     );
     await chooseCommand(host, 'problems');
     await until(

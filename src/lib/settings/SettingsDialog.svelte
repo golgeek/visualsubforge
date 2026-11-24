@@ -36,7 +36,7 @@
     timing: TimingSettings;
     checks?: QualitySession;
     onapply: (value: Preferences) => void;
-    onclose: () => void;
+    onclose: (policyUncertain: boolean) => void;
   } = $props();
   let dialog: HTMLDialogElement;
   let form: HTMLFormElement;
@@ -152,7 +152,7 @@
   }
   async function close() {
     if (session.saving || importing) return;
-    if (!session.ready || (await session.flush())) onclose();
+    if (!session.ready || (await session.flush())) onclose(false);
   }
   async function transfer(kind: 'timing' | 'quality', importingFile: boolean) {
     if (disabled || session.saving || session.uncertain) return;
@@ -494,7 +494,8 @@
         {#if session.validation || session.error || session.uncertain}<button
             type="button"
             disabled={session.saving || importing}
-            onclick={onclose}>Close without saving draft</button
+            onclick={() => onclose(session.uncertain)}
+            >Close without saving draft</button
           >{/if}
         <button
           type="button"

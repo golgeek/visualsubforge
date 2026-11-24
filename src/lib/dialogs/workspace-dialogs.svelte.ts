@@ -50,9 +50,9 @@ export class WorkspaceDialogsState {
     this.preferences.accept(value);
     this.workspace.notice = 'Settings saved';
   }
-  async closeSettings(value?: Preferences) {
+  async closeSettings(policyUncertain: boolean) {
     if (!this.alive || this.modal.identity !== 'settings') return;
-    if (value) this.acceptSettings(value);
+    if (policyUncertain) this.preferences.invalidateQuality();
     await this.modal.close();
   }
 

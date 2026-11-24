@@ -708,7 +708,10 @@ or missing save reply blocks automatic writes; read-only reconciliation checks t
 stored preferences and effective policy/word epoch. Only explicit Retry sends a
 new mutation. Disposal ignores late replies without claiming cancellation of an
 already dispatched Rust operation. Settings Undo changes preferences, not subtitle
-history. Closing flushes valid drafts; discarding an invalid draft is explicit.
+history. Closing flushes valid drafts. Users can explicitly discard an invalid
+draft. On dismissal of an uncertain save, WorkspaceDialogs invalidates the
+quality context before closing Settings. This retires cached metrics, findings
+and in-flight quality replies while Rust reads the current policy.
 
 Native accelerator publication runs in the existing blocking preference operation.
 Tauri marshals menu changes to its UI thread; no filesystem work moves there.
