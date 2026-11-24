@@ -145,7 +145,7 @@ export async function statisticsWorkflow({
     return dialog;
   }
   async function close() {
-    await (await browser.$('button=Close')).click();
+    await (await browser.$('[aria-label="Close review panel"]')).click();
     await ready();
   }
   async function navigate(dialog, cue) {
@@ -283,7 +283,7 @@ export async function statisticsWorkflow({
   assert.equal(stale.summary, null);
   assert.deepEqual(await status(), before);
   await record({
-    step: 'real read-only statistics, full/range/all-excluded CLI parity, protected draft Cancel/Discard/Apply, exact source/history preservation, invalid scope and profile invalidation',
+    step: 'real read-only statistics, full/range/all-excluded CLI parity, rejected draft retention and commit-before-selection, exact source/history preservation, invalid scope and profile invalidation',
     cues: 4,
     parityScopes: parity.length,
   });
