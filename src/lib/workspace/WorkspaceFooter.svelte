@@ -28,9 +28,6 @@
 <footer>
   <span class="activity-slot" class:visible={workspace.activity.visible}>
     <span class="spinner" aria-hidden="true"></span>
-    <span class="activity-text" role="status"
-      >{workspace.activity.visible ? 'Working…' : ''}</span
-    >
   </span>
   {#if extraction?.result && extraction.result.generation === documentGeneration}
     <span class="result" role="status">{extraction.result.message}</span>
@@ -80,6 +77,9 @@
     >{/if}{#if timeline.range}<span
       >Range {timeline.range[0].toFixed(3)}–{timeline.range[1].toFixed(3)} s</span
     >{/if}
+  <span class="activity-text" role="status"
+    >{workspace.activity.visible ? 'Working…' : ''}</span
+  >
 </footer>
 
 <style>
