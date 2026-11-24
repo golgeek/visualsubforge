@@ -349,6 +349,10 @@ export async function languageTools({
           words.ignored[language === 'fr' ? 'french' : 'englishUs'],
           [typo],
         );
+        await browser.execute(() => {
+          const details = document.querySelector('.problems .findings details');
+          if (!details.open) details.querySelector('summary').click();
+        });
         await click('Clear session ignored words');
         await findings(1);
         const beforeWords = await invoke('language_words');

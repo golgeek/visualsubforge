@@ -246,6 +246,11 @@
           >
         </nav>{/if}
     {/if}
+    {#if previewIds().length > 200}<p class="hint">
+        Preview shows the first 200 visible cues. Apply includes all selected
+        changes across every page.
+      </p>{/if}
+    <p class="hint">One Undo step · Preview only until applied.</p>
   </div>
   <footer>
     <button
@@ -255,11 +260,6 @@
       onclick={() => void accept()}
       >Apply {view?.changed ?? 0} change{view?.changed === 1 ? '' : 's'}</button
     >
-    {#if previewIds().length > 200}<p class="hint">
-        Preview shows the first 200 visible cues. Apply includes all selected
-        changes across every page.
-      </p>{/if}
-    <p class="hint">One Undo step · Preview only until applied.</p>
   </footer>
 </section>
 
@@ -282,9 +282,6 @@
     flex: none;
     padding: 8px 10px;
     border-top: 1px solid var(--line);
-  }
-  footer p {
-    margin: 4px 0;
   }
   p {
     line-height: 1.4;

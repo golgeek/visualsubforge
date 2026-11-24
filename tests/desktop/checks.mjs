@@ -143,15 +143,19 @@ export async function qualityChecking({
   assert.ok(layout.listHeight >= 64, 'Problems squeezed out the cue list');
   assert.ok(layout.editorHeight >= 34, 'Metrics squeezed out the text editor');
   await browser.execute(() => {
-    document.querySelector('[aria-label="Subtitle issues"]').scrollTop = 0;
+    document.querySelector(
+      '[aria-label="Subtitle issues"] .findings',
+    ).scrollTop = 0;
   });
   await browser.saveScreenshot(join(evidence, 'quality-problems.png'));
   await browser.execute(() => {
-    const panel = document.querySelector('[aria-label="Subtitle issues"]');
+    const panel = document.querySelector(
+      '[aria-label="Subtitle issues"] .findings',
+    );
     panel.scrollTop = panel.scrollHeight;
   });
   await browser.saveScreenshot(join(evidence, 'quality-findings.png'));
-  await (await browser.$('button=Close issues')).click();
+  await (await browser.$('[aria-label="Close issues"]')).click();
   await metrics.click();
   await (await browser.$$('.cue-row'))[0].click();
   await until(

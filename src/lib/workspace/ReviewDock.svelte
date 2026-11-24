@@ -261,7 +261,11 @@
           : 'inward'} ▾</button
       >{/if}
   </div>
-  <div class="body">
+  <div
+    class="body"
+    class:document-panel={view.reviewTab === 'changes' ||
+      view.reviewTab === 'statistics'}
+  >
     {#if view.reviewTab === 'issues'}{@render issues(navigate)}
     {:else if view.reviewTab === 'changes'}{@render changes()}
     {:else if view.reviewTab === 'statistics'}<StatisticsPanel
@@ -310,7 +314,7 @@
   .review-dock {
     container-type: inline-size;
     flex: 0 0 42%;
-    overflow: auto;
+    overflow: hidden;
     min-width: 0;
     min-height: 0;
     display: flex;
@@ -322,12 +326,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 10px;
+    padding: 3px 6px;
   }
   nav {
     display: flex;
     gap: 2px;
-    padding: 0 6px 6px;
+    padding: 0;
     border-bottom: 1px solid var(--line);
   }
   nav button {
@@ -342,14 +346,14 @@
   .review-options {
     display: flex;
     gap: 8px;
-    padding: 5px 8px;
+    padding: 2px 5px;
   }
   .review-options:empty {
     display: none;
   }
   .scope {
     flex: 1 1 150px;
-    min-width: min(150px, 100%);
+    min-width: 90px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -363,15 +367,22 @@
     width: auto;
   }
   .body {
-    overflow: auto;
-    min-height: 175px;
+    overflow: hidden;
+    min-height: 0;
     flex: 1;
+  }
+  .document-panel > :global(section) {
+    height: 100%;
+    overflow-y: auto;
   }
   header,
   .review-options {
+    flex: none;
     flex-wrap: wrap;
   }
   .policy-button {
+    min-width: 0;
+    flex: 1 1 90px;
     margin-inline-start: auto;
     white-space: normal;
     text-align: end;
@@ -407,7 +418,7 @@
       gap: 4px;
     }
     header strong {
-      flex-basis: 100%;
+      display: none;
     }
     nav {
       padding: 0;

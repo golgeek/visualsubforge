@@ -447,32 +447,6 @@
           </p>{/if}
       </div>
     {/if}
-  </div>
-  <footer>
-    <div class="preview-status">
-      {#if session.error || manualError || session.view?.phase === 'failed' || session.view?.phase === 'stale'}
-        <span role="alert"
-          >{session.error ||
-            manualError ||
-            session.view?.error ||
-            'Preview is stale. Check the preview again.'}</span
-        >
-        <button onclick={() => session.retry()}>Retry preview</button>
-      {:else if current?.selectionError}<span role="alert"
-          >{current.selectionError}</span
-        >
-      {:else}
-        <span role="status"
-          >{subtitles.dirty
-            ? 'Waiting for the cue edit to commit.'
-            : visual.showUpdating
-              ? session.accepting
-                ? 'Applying timings…'
-                : 'Updating preview…'
-              : ''}</span
-        >
-      {/if}
-    </div>
     {#if coverage === 'notRequired'}<p>
         Scene checks are disabled because both scene buffers are zero.
       </p>{/if}{#if coverage === 'reduced'}<p>
@@ -486,6 +460,39 @@
         Preview shows the first 200 visible cues. Apply includes all checked
         changes.
       </p>{/if}
+    <small>One Undo step · Preview only until applied</small>
+  </div>
+  <footer>
+    <div class="preview-status">
+      {#if session.error || manualError || session.view?.phase === 'failed' || session.view?.phase === 'stale'}
+        <span
+          role="alert"
+          title={session.error ||
+            manualError ||
+            session.view?.error ||
+            'Preview is stale. Check the preview again.'}
+          >{session.error ||
+            manualError ||
+            session.view?.error ||
+            'Preview is stale. Check the preview again.'}</span
+        >
+        <button onclick={() => session.retry()}>Retry preview</button>
+      {:else if current?.selectionError}<span
+          role="alert"
+          title={current.selectionError}>{current.selectionError}</span
+        >
+      {:else}
+        <span role="status"
+          >{subtitles.dirty
+            ? 'Waiting for the cue edit to commit.'
+            : visual.showUpdating
+              ? session.accepting
+                ? 'Applying timings…'
+                : 'Updating preview…'
+              : ''}</span
+        >
+      {/if}
+    </div>
     <button
       data-variant="primary"
       class="apply"
@@ -502,7 +509,6 @@
         ? ''
         : 's'}</button
     >
-    <small>One Undo step · Preview only until applied</small>
   </footer>
 </section>
 
@@ -523,7 +529,12 @@
     align-items: center;
     gap: 4px;
     height: 24px;
-    overflow: auto;
+    overflow: hidden;
+  }
+  .preview-status span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .preview-status button {
     width: auto;
@@ -658,10 +669,21 @@
   .heading button:first-child {
     padding: 0;
   }
-  footer button {
-    width: 100%;
+  footer {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
   }
-  footer small,
+  .preview-status {
+    flex: 1;
+    min-width: 0;
+  }
+  footer .apply {
+    flex: none;
+  }
+
   p,
   small {
     color: var(--text-muted);
@@ -669,9 +691,7 @@
   p {
     margin: 4px 0;
   }
-  footer small {
-    margin-top: 4px;
-  }
+
   nav {
     padding: 6px;
   }
