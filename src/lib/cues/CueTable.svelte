@@ -1,7 +1,8 @@
 <script lang="ts">
   import { countLabel } from '../ui/count-label';
   import { timingDelta, type TimingGhost } from '../timing/review-preview';
-  import { onMount, type Snippet } from 'svelte';
+  import { settled } from '../ui/settled.svelte';
+  import { onMount, tick, untrack, type Snippet } from 'svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
   import type { QualitySession } from '../quality/quality-session.svelte';
   import type { Workspace } from '../workspace/workspace.svelte';
@@ -210,14 +211,59 @@
     );
     layout.setColumns(resizeColumn(layout.columns, id, width));
   }
-  $effect(() => {
-    void tableView.filterKey;
-    void doc.generation;
-    void layout.preset;
-    if (list) {
-      list.scrollTop = 0;
-      tableView.scrollTop = 0;
+  const updating = settled(
+    () => quality.refreshStarted && quality.retainingIndex,
+  );
+  const resetKey = $derived(
+    JSON.stringify([doc.generation, tableView.filterKey, layout.preset]),
+  );
+  let oldKey = '';
+  let oldRows: CueRow[] = [];
+  $effect.pre(() => {
+    const key = resetKey;
+    const rows = tableView.rows;
+    const previous = oldRows;
+    const reset = oldKey !== key;
+    oldRows = rows;
+    oldKey = key;
+    if (!list) return;
+    const element = list;
+    const height = tableView.rowHeight;
+    const top = element.scrollTop;
+    const first = Math.floor(top / height);
+    if (
+      !reset &&
+      (!top ||
+        !previous[first] ||
+        previous[first].cue.id === rows[first]?.cue.id)
+    )
+      return;
+    let target = 0;
+    if (!reset) {
+      // Prefer the next surviving neighbour when two are equally near.
+      let index = -1;
+      for (
+        let distance = 0;
+        distance < previous.length && index < 0;
+        distance++
+      ) {
+        for (const pos of [first + distance, first - distance]) {
+          const cue = previous[pos]?.cue;
+          if (cue && (index = untrack(() => tableView.indexOf(cue.id))) >= 0)
+            break;
+        }
+      }
+      target = Math.max(0, index * height + (top % height));
     }
+    let current = true;
+    void tick().then(() => {
+      if (!current || !element.isConnected) return;
+      element.scrollTop = target;
+      tableView.scrollTop = element.scrollTop;
+    });
+    return () => {
+      current = false;
+    };
   });
   onMount(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -273,7 +319,9 @@
       active={tableView.issuesOnly}
       onclick={() => (tableView.issuesOnly = !tableView.issuesOnly)}
       >{countLabel(
-        quality.issueIndexComplete ? quality.issues.size : '…',
+        quality.issueIndexComplete || quality.retainingIndex
+          ? quality.displayedIssues.size
+          : '…',
         'cue',
       )} with issues</Chip
     >
@@ -389,14 +437,15 @@
     {:else}<div
         style:height={`${tableView.rows.length * tableView.rowHeight}px`}
         class="virtual-list"
+        aria-busy={updating.showUpdating}
       >
         <div
           style:transform={`translateY(${tableView.firstRow * tableView.rowHeight}px)`}
         >
           {#each tableView.visibleRows as row (row.cue.id)}
             {@const item = row.cue}
-            {@const metric = quality.metrics.get(String(item.id))}
-            {@const issue = quality.issues.get(String(item.id))}
+            {@const metric = quality.displayedMetrics.get(String(item.id))}
+            {@const issue = quality.displayedIssues.get(String(item.id))}
             {@const change = changes.get(item.id)}
             {@const summary = review.index.byCue.get(item.id)}
             {@const kind = summary?.kind ?? change?.kind ?? 'unchanged'}
@@ -406,6 +455,7 @@
             <div class="row-wrap">
               <button
                 class="cue-row"
+                class:resolved={tableView.resolvedCue === item.id}
                 data-kind={kind}
                 class:removed-before={removed.length > 0}
                 class:selected={subtitles.selectedIds.has(item.id)}
@@ -464,20 +514,26 @@
                       class="issue"
                       class:violation={issue === 'violation'}
                       class:advisory={issue === 'advisory'}
-                      aria-label={issue === 'violation'
-                        ? 'Error'
-                        : issue === 'advisory'
-                          ? 'Warning'
-                          : quality.issueIndexComplete
-                            ? 'No reported issue'
-                            : 'Issues not yet available'}
-                      >{issue === 'violation'
-                        ? '!'
-                        : issue === 'advisory'
-                          ? '•'
-                          : quality.issueIndexComplete
-                            ? ''
-                            : '…'}</span
+                      aria-label={tableView.resolvedCue === item.id
+                        ? 'Resolved'
+                        : issue === 'violation'
+                          ? 'Error'
+                          : issue === 'advisory'
+                            ? 'Warning'
+                            : quality.issueIndexComplete ||
+                                quality.retainingIndex
+                              ? 'No reported issue'
+                              : 'Issues not yet available'}
+                      >{tableView.resolvedCue === item.id
+                        ? '✓'
+                        : issue === 'violation'
+                          ? '!'
+                          : issue === 'advisory'
+                            ? '•'
+                            : quality.issueIndexComplete ||
+                                quality.retainingIndex
+                              ? ''
+                              : '…'}</span
                     >
                   {:else if column.id === 'original'}<span
                       data-cell="original"
@@ -722,6 +778,10 @@
     border: 1px dashed var(--accent);
     padding: 0 3px;
     font-size: 10px;
+  }
+  .cue-row.resolved,
+  .virtual-list[aria-busy='true'] .issue {
+    opacity: 0.65;
   }
   .cue-table {
     container-type: inline-size;

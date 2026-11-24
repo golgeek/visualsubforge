@@ -119,6 +119,23 @@ export async function projection(
       'Metric cache evicts old windows instead of retaining the entire document',
     );
 
+    session.configure({ ...input, revision: input.revision + 1 });
+    assert(
+      session.displayedIssues.size === 450 &&
+        session.issues.size === 0 &&
+        session.displayedMetrics.size > 0,
+      'Revision discarded the displayed index or exposed it to commands',
+    );
+    session.configure({ ...input, generation: input.generation + 1 });
+    assert(
+      session.displayedIssues.size === 0 &&
+        session.displayedMetrics.size === 0 &&
+        !session.displayedList,
+      'Replacement document inherited retired projections',
+    );
+    passed(
+      'Revision retains display-only projections and replacement clears them',
+    );
     epoch++;
     held = true;
     session.configure(input);

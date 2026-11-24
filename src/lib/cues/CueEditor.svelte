@@ -1,6 +1,7 @@
 <script lang="ts">
   import ChangeDetail from '../review/ChangeDetail.svelte';
   import type { ReviewChange } from '../client';
+  import { settled } from '../ui/settled.svelte';
   import { countLabel } from '../ui/count-label';
   import type { CueEditing } from './cue-editing.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -82,18 +83,39 @@
   const draftDirty = $derived(subtitles.dirty);
   const timeStepMs = $derived(doc.format?.timeStepMs ?? 1);
 
-  const lineMetric = $derived(
-    !showQualityMetrics || quality.stale
-      ? null
-      : draftDirty
-        ? quality.view?.draft?.data.cueId === String(selected)
-          ? quality.view.draft
-          : null
-        : quality.view?.selected?.data.cueId === String(selected)
-          ? quality.view.selected
-          : null,
+  const report = $derived(quality.displayedList);
+  const acceptedMetric = $derived(
+    report?.selected?.data.cueId === String(selected) ? report.selected : null,
   );
-
+  const draftMetric = $derived(
+    draftDirty && quality.lastDraft?.data.cueId === String(selected)
+      ? quality.lastDraft
+      : null,
+  );
+  const lineMetric = $derived(draftMetric ?? acceptedMetric);
+  const metricLabel = $derived(
+    draftMetric
+      ? 'Draft'
+      : acceptedMetric
+        ? 'Accepted'
+        : draftDirty
+          ? 'Draft'
+          : 'Accepted',
+  );
+  const metricError = $derived(
+    (draftDirty && (draftMetricError || quality.view?.draftError)) ||
+      quality.error ||
+      quality.view?.error,
+  );
+  const updating = settled(
+    () =>
+      quality.refreshStarted &&
+      showQualityMetrics &&
+      !!cue &&
+      (quality.stale ||
+        quality.view?.phase !== 'ready' ||
+        (draftDirty && (!draftMetric || !!quality.view?.draftChecking))),
+  );
   function editorKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape' && !e.isComposing) {
       e.preventDefault();
@@ -286,32 +308,25 @@
       onreview={actions.reviewIssue}
     />
     {#if showQualityMetrics && cue}
-      {#if draftDirty}
-        {#if draftMetricError || quality.view?.draftError}<span role="status"
-            >Draft metrics unavailable: {draftMetricError ||
-              quality.view?.draftError}</span
+      <div class="metric-slot" aria-busy={updating.showUpdating}>
+        {#if metricError}<span role="alert"
+            >{draftDirty
+              ? 'Draft metrics unavailable: '
+              : 'Metrics unavailable: '}{metricError}</span
           >
-        {:else if quality.view?.draft?.data.cueId === String(cue.id) && !quality.stale}
+        {:else if lineMetric && report}
           <CueMetrics
-            value={quality.view.draft}
-            profile={quality.view.profile}
-            label="Draft"
+            value={lineMetric}
+            profile={report.profile}
+            label={metricLabel}
+            updating={updating.showUpdating}
           />
         {:else}<span
-            >Draft metrics {quality.paused ? 'paused' : 'pending'}…</span
+            >{metricLabel} metrics {quality.paused
+              ? 'paused'
+              : 'pending'}…</span
           >{/if}
-      {:else if quality.view?.selected?.data.cueId === String(cue.id)}
-        <CueMetrics
-          value={quality.view.selected}
-          profile={quality.view.profile}
-          label="Accepted"
-        />
-      {:else}<span
-          >Accepted metrics {quality.paused ? 'paused' : 'pending'}…</span
-        >{/if}
-      {#if quality.error || quality.view?.error}<span role="alert"
-          >{quality.error || quality.view?.error}</span
-        >{/if}
+      </div>
     {/if}
   </div>
 
@@ -330,16 +345,16 @@
       aria-describedby={subtitles.editError ? 'cue-commit-error' : undefined}
       oncompositionstart={() => editing.composition(true)}
       oncompositionend={() => editing.composition(false)}></textarea>
-    {#if lineMetric}<aside
+    {#if showQualityMetrics && cue}<aside
         aria-label="Source line character counts"
-        title={lineMetric.linesTruncated
+        title={lineMetric?.linesTruncated
           ? 'First 20 source lines; wrapped display lines do not change the source counts'
           : 'Source line character counts; wrapped display lines do not change these counts'}
       >
-        {#each lineMetric.data.lineCharacters as count, index (index)}<span
+        {#each lineMetric?.data.lineCharacters ?? [] as count, index (index)}<span
             >L{index + 1}: {count}</span
-          >{/each}
-        {#if lineMetric.linesTruncated}<span
+          >{:else}<span>L1: …</span>{/each}
+        {#if lineMetric?.linesTruncated}<span
             >… {countLabel(lineMetric.lineCount, 'line')}</span
           >{/if}
       </aside>{/if}
@@ -451,6 +466,16 @@
     font-size: 11px;
   }
 
+  .metric-slot {
+    height: 28px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+  .metric-slot[aria-busy='true'] {
+    opacity: 0.65;
+  }
   .quality-readout [role='alert'] {
     color: var(--err);
   }

@@ -324,7 +324,11 @@
             : review.index.threaded
           : undefined,
       styled: () => subtitles.styled,
-      issues: () => quality.issues,
+      issues: () => quality.displayedIssues,
+      selected: () => subtitles.selected,
+      indexAvailable: () =>
+        quality.retainingIndex || quality.issueIndexComplete,
+      indexCurrent: () => quality.issueIndexComplete && !quality.retainingIndex,
       position: () =>
         status.loaded && !media.pending && !status.seeking
           ? status.positionSeconds

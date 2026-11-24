@@ -42,7 +42,11 @@ Both +N and All explanations… open the selected cue’s accepted findings. Clo
 focus to the button that opened the dialog. Show all issues in file opens the Issues dock. Meters and per-source-line character
 counts come from Rust; wrapped display lines do not change source-line counts.
 Enable Cue metrics to show the meters and source-line counts. Draft and accepted
-metrics are labelled separately.
+metrics are labelled separately. During a refresh the meters and source-line
+gutter keep their size. The last measurements for the same cue show their
+source and an updating label if the read takes longer. With the issues filter
+on, a selected cue whose last issue resolves stays in place with a check mark
+until you select another cue.
 
 “Fix N” applies an immutable Rust plan as one Undo step. It combines available
 reflow, deterministic language replacements and timing repairs for this cue,

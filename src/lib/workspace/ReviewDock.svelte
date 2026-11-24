@@ -157,7 +157,7 @@
             .filter((cue) => cue.startMs >= position)
             .map((cue) => cue.id);
     }
-    return tableView.order.map((cue) => cue.id);
+    return tableView.filteredScopeIds;
   };
   $effect.pre(() => {
     const key = JSON.stringify([

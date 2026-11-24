@@ -681,6 +681,15 @@ width bounds before atomic publication. The chooser uses WorkspaceModal/HideVide
 resizing stays inside the list. Actor is a read-only projection of existing ASS/SSA
 Name metadata. No column operation changes subtitle content or history.
 
+Within a revision refresh, QualitySession keeps the last completed issue index and
+metric windows for display until new coverage is available. Document, media or
+policy replacement clears them. CueEditor can reuse measurements from the same
+cue and labels their source. Report actions still require current data.
+CueTableView pins a selected row whose last issue resolves until selection
+moves. Filtered timing scope excludes the pinned row and waits for a current
+index. CueTable anchors a revision by cue ID and offset in the virtual rows,
+using the nearest surviving neighbour when the anchor disappears.
+
 CueTableView derives filtered rows once from accepted cues, query and issue index,
 retaining original file indices for numbering and metric windows. Keyboard ranges
 and Select All use visible order. CueNavigation distinguishes acknowledged

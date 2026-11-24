@@ -131,6 +131,7 @@ export function filterCueRows(
   query: string,
   issuesOnly: boolean,
   issues: ReadonlyMap<string, unknown>,
+  pinned: number | null = null,
 ): CueRow[] {
   const text = query.trim().toLowerCase();
   const number = /^#(\d+)$/.exec(text);
@@ -140,7 +141,8 @@ export function filterCueRows(
       (number
         ? index + 1 === Number(number[1])
         : cue.text.toLowerCase().includes(text));
-    return matches && (!issuesOnly || issues.has(String(cue.id)))
+    return matches &&
+      (!issuesOnly || cue.id === pinned || issues.has(String(cue.id)))
       ? [{ cue, index }]
       : [];
   });

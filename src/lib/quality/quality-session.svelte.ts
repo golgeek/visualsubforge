@@ -31,8 +31,31 @@ export class QualitySession {
   view = $state.raw<QualityView | null>(null);
   error = $state('');
   stale = $state(true);
+  // Keep the configure debounce separate from the visual hold on an IPC read.
+  refreshStarted = $state(false);
   listStale = $state(true);
   displayedList = $state.raw<QualityView | null>(null);
+  // During a same-context revision, the table can paint the last complete index
+  // while new finding pages accumulate. Commands only consume the current index.
+  private retainedIndex = $state.raw<{
+    issues: QualitySession['issues'];
+    metrics: QualitySession['metrics'];
+  } | null>(null);
+  get displayedIssues() {
+    return this.retainedIndex?.issues ?? this.issues;
+  }
+  get displayedMetrics() {
+    return this.retainedIndex?.metrics ?? this.metrics;
+  }
+  get retainingIndex() {
+    return this.retainedIndex !== null;
+  }
+  lastDraft = $state.raw<QualityView['draft']>(null);
+  private clearDisplay() {
+    this.retainedIndex = null;
+    this.displayedList = null;
+    this.lastDraft = null;
+  }
   private listQuery = '';
   paused = $state(false);
   rule = $state<QualityRequest['rule']>(null);
@@ -80,13 +103,16 @@ export class QualitySession {
     ]);
     if (signature === this.signature) return;
     const version = `${input.session}/${input.generation}/${input.revision}/${input.context}`;
-    if (
+    const replaced =
       !input.enabled ||
       this.input?.session !== input.session ||
       this.input.generation !== input.generation ||
-      this.input.context !== input.context
-    )
-      this.displayedList = null;
+      this.input.context !== input.context;
+    if (replaced) this.clearDisplay();
+    else if (version !== this.version && this.issueIndexComplete)
+      this.retainedIndex = { issues: this.issues, metrics: this.metrics };
+    if (input.selected !== this.input?.selected || !input.draft)
+      this.lastDraft = null;
     if (version !== this.version) {
       this.version = version;
       this.view = null;
@@ -115,6 +141,7 @@ export class QualitySession {
       this.nextUserRead = input.enabled;
       this.userKey = userKey;
     }
+    this.refreshStarted = false;
     this.signature = signature;
     this.input = input;
     ++this.sequence;
@@ -218,6 +245,7 @@ export class QualitySession {
       )
         return;
       if (identity !== this.reportIdentity(page)) {
+        this.clearDisplay();
         this.clearProjection();
         return;
       }
@@ -285,6 +313,7 @@ export class QualitySession {
     };
     this.restartPending = false;
     this.pending = true;
+    this.refreshStarted = true;
     try {
       const userRead = this.nextUserRead;
       this.nextUserRead = false;
@@ -310,16 +339,31 @@ export class QualitySession {
         view.key.revision !== input.revision
       )
         return;
+      if (this.displayedList && this.displayedList.key.epoch !== view.key.epoch)
+        this.clearDisplay();
       if (this.reportKey && this.reportKey !== this.reportIdentity(view))
         this.clearProjection();
       this.listStale = view.phase !== 'ready';
       if (!this.listStale) this.displayedList = view;
+      if (
+        view.draft &&
+        input.draft &&
+        view.draft.data.cueId === String(input.selected)
+      )
+        this.lastDraft = view.draft;
       this.view = view;
       this.error = '';
       this.stale = false;
       await this.project(view, request, version);
+      if (
+        version === this.version &&
+        this.issueIndexComplete &&
+        this.missingMetricWindow() === undefined
+      )
+        this.retainedIndex = null;
     } catch (error) {
       if (this.alive && sequence === this.sequence) {
+        this.clearDisplay();
         this.error = String(error);
         this.listStale = true;
         this.stale = true;
@@ -360,7 +404,9 @@ export class QualitySession {
   }
   dispose() {
     this.alive = false;
-    this.displayedList = null;
+    this.clearDisplay();
+    this.clearProjection();
+    this.view = null;
     ++this.sequence;
     this.clearTimer();
     if (this.id !== null) void this.api.cancelQuality(this.id).catch(() => {});
