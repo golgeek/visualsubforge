@@ -30,7 +30,7 @@
     <span class="spinner" aria-hidden="true"></span>
   </span>
   {#if extraction?.result && extraction.result.generation === documentGeneration}
-    <span class="result">{extraction.result.message}</span>
+    <span class="result" role="status">{extraction.result.message}</span>
     <button
       class="notice-action"
       aria-label="Dismiss extraction result"
@@ -40,7 +40,7 @@
     >
   {/if}
   {#if showExtraction && extraction?.notice}
-    <span
+    <span role="status"
       >This video contains {extraction.notice.count} subtitle track{extraction
         .notice.count === 1
         ? ''

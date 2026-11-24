@@ -11,8 +11,8 @@ for (const delay of [35, 210, 1000]) {
       slot.evaluate((el) =>
         [el, el.parentElement!].map((e) => e.getBoundingClientRect().toJSON()),
       );
-    const message = page.locator('footer').getByRole('status');
-    await expect(message).toHaveCount(1);
+    const message = page.locator('footer .message');
+    await expect(message).toHaveRole('status');
     const before = await rects();
     await host.evaluate((el, delay) => {
       el.dataset.delay = String(delay);
