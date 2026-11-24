@@ -13,6 +13,11 @@ reason. Retry never blindly replays an unknown outcome: it first refreshes Rust'
 state, then asks you to review before another mutation. If the target was removed
 or replaced, retained text remains available to copy without attaching to a new cue.
 
+Following a cue link from Issues, Timing or Statistics commits the current draft
+before selecting and revealing the target, just like selecting a cue in the list.
+The dock stays on the same tab. If the commit is rejected, the editor stays on
+the original cue with the draft, its outline and the rejection reason.
+
 Consecutive text-only commits to the same cue in one focus session coalesce into
 one Rust Undo step, with a five-second maximum idle interval between commits.
 Timing/style changes, other cues, commands, Undo/Redo and file-save checkpoints
@@ -23,8 +28,7 @@ The interaction defaults are implemented for owner trial and remain adjustable.
 
 A modal or Save/Discard decision retains its existing draft-protection controls.
 Its focus transfer does not implicitly commit underneath the decision. Closing
-it restarts the pause interval; explicit Apply/Discard controls inside a protected
-review keep their original purpose. Ctrl/Cmd+Enter can still commit immediately.
+it restarts the pause interval. Ctrl/Cmd+Enter can still commit immediately.
 
 Start/end fields accept exact timecodes. Minus/plus nudge one *nominal* frame at
 the container-declared frame rate, rounded to the format's precision (1 ms for

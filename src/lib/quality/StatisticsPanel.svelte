@@ -22,7 +22,7 @@
     mediaSession: () => number;
     context: () => string;
     onclose: () => void;
-    onnavigate: (id: string) => void;
+    onnavigate: (id: string, origin: HTMLButtonElement) => void;
   } = $props();
   const input = $derived({
     ...statisticsSelection(subtitles.snapshot.cues, scopeIds()),
@@ -65,8 +65,8 @@
   );
   const number = (n: number | null | undefined) =>
     n == null ? 'unavailable' : Number(n.toFixed(3)).toLocaleString();
-  function navigate(id: string) {
-    if (summary && !session.pending) onnavigate(id);
+  function navigate(id: string, origin: HTMLButtonElement) {
+    if (summary && !session.pending) onnavigate(id, origin);
   }
   onMount(() => () => session.dispose());
 </script>
@@ -77,8 +77,8 @@
     <button onclick={onclose}>Close</button>
   </header>
   <p>
-    Statistics describe accepted subtitles. Unapplied cue drafts stay unchanged.
-    Choose a cue link to return to the editor; navigation protects any draft.
+    Statistics describe accepted subtitles. Following a cue link commits pending
+    editor changes before selecting the cue.
   </p>
   {#if subtitles.dirty}<p class="notice">
       The current cue has an unapplied draft. It is not included in these
@@ -151,7 +151,9 @@
               ><th>{label}</th><td>{value.count}</td><td
                 >{#if value.minimum}<button
                     disabled={session.pending}
-                    onclick={() => navigate(value.minimum!.cueId)}
+                    data-nav-key={label + '-minimum-' + value.minimum.cueId}
+                    onclick={(event) =>
+                      navigate(value.minimum!.cueId, event.currentTarget)}
                     title={`Go to cue ${value.minimum.cueIndex + 1}`}
                     >{number(value.minimum.value)} · cue {value.minimum
                       .cueIndex + 1}</button
@@ -159,7 +161,9 @@
               ><td
                 >{#if value.maximum}<button
                     disabled={session.pending}
-                    onclick={() => navigate(value.maximum!.cueId)}
+                    data-nav-key={label + '-maximum-' + value.maximum.cueId}
+                    onclick={(event) =>
+                      navigate(value.maximum!.cueId, event.currentTarget)}
                     title={`Go to cue ${value.maximum.cueIndex + 1}`}
                     >{number(value.maximum.value)} · cue {value.maximum
                       .cueIndex + 1}</button
@@ -252,7 +256,13 @@
         >
           <button
             disabled={session.pending}
-            onclick={() => navigate(finding.cueId)}
+            data-nav-key={'stats-cueId-' +
+              finding.cueId +
+              '-' +
+              finding.rule +
+              '-' +
+              index}
+            onclick={(event) => navigate(finding.cueId, event.currentTarget)}
             >Cue {finding.cueIndex + 1} · {qualityRules.find(
               (r) => r.id === finding.rule,
             )?.label}</button
@@ -262,7 +272,14 @@
             )}</span
           >{#if finding.relatedCueId}<button
               disabled={session.pending}
-              onclick={() => navigate(finding.relatedCueId!)}
+              data-nav-key={'stats-relatedCueId-' +
+                finding.cueId +
+                '-' +
+                finding.rule +
+                '-' +
+                index}
+              onclick={(event) =>
+                navigate(finding.relatedCueId!, event.currentTarget)}
               >Related cue (context)</button
             >{/if}<small>{qualityText(finding.explanation)}</small>
         </div>{/each}

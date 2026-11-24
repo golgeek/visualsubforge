@@ -180,10 +180,10 @@ export async function sceneQuality({
   await (await browser.$('[aria-label="Cue start"]')).setValue('invalid');
   await text.setValue('Preserve scene navigation draft');
   await (await browser.$('button=Cue 2 · End near scene change')).click();
-  await until('protected scene navigation', () =>
-    browser.$('button=Cancel navigation').then((b) => b.isExisting()),
+  await until(
+    'invalid draft blocks scene navigation',
+    async () => (await text.getAttribute('aria-invalid')) === 'true',
   );
-  await (await browser.$('button=Cancel navigation')).click();
   assert.equal(await text.getValue(), 'Preserve scene navigation draft');
   assert.deepEqual(await status(), before);
   await discardCue(browser);

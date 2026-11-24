@@ -22,6 +22,7 @@
     context,
     enabled,
     options,
+    previewEnabled,
     onoptions,
     onbusy,
     onpreview,
@@ -37,11 +38,12 @@
     context: () => string;
     enabled: () => boolean;
     options: TimingFixOptions;
+    previewEnabled: () => boolean;
     onoptions: (o: TimingFixOptions) => void;
     onbusy: (v: boolean) => void;
     onpreview: (v: TimingPreview | null) => void;
     onaccepted: () => void;
-    onnavigate: (id: string) => void;
+    onnavigate: (id: string, origin: HTMLButtonElement) => void;
   } = $props();
   const labels: Record<keyof TimingFamilies, string> = {
     gaps: 'Gaps and overlaps',
@@ -49,29 +51,14 @@
     shots: 'Shot changes',
   };
   const familyKeys = ['gaps', 'speed', 'shots'] as const;
-  let toggled = $state<number[]>([]);
-  let selectionKey = $state('');
-  let openRows = $state<number[]>([]);
-  let manualOpen = $state(true);
-  let manualOffset = $state(0);
+  const choices = $derived(view.timingSelection);
   let manualPage = $state.raw<TimingFixView | null>(null);
   let manualError = $state('');
-  const semantic = $derived(
-    JSON.stringify([
-      subtitles.snapshot.generation,
-      subtitles.snapshot.revision,
-      mediaSession(),
-      scopeIds(),
-      context(),
-      view.families,
-      options,
-    ]),
-  );
   const input = (): TimingFixInput => ({
     options: { ...options },
     families: { ...view.families },
     scope: scopeIds(),
-    toggled: selectionKey === semantic ? toggled : [],
+    toggled: choices.toggled,
     omitTrades: false,
   });
   const session = untrack(
@@ -79,8 +66,10 @@
       new TimingFixSession(subtitles, mediaSession, input, {
         activity,
         enabled,
+        previewEnabled,
         selection: () => null,
-        pageKey: () => semantic,
+        pageKey: () => choices.selectionKey,
+        initialOffset: () => choices.changesOffset,
         context,
         previewIds,
       }),
@@ -95,20 +84,49 @@
   );
   let previous = $state.raw<{ key: string; view: TimingFixView } | null>(null);
   let scroll: HTMLDivElement;
-  let savedScroll: number | null = null;
+  function rows() {
+    return Array.from(scroll.querySelectorAll<HTMLElement>('[data-anchor]'));
+  }
   function keepScroll() {
-    savedScroll = scroll.scrollTop;
+    if (!scroll || !current) return;
+    const top = scroll.getBoundingClientRect().top;
+    const list = rows();
+    const row = list.find((el) => el.getBoundingClientRect().bottom > top);
+    choices.anchor =
+      row && scroll.scrollTop > 0
+        ? {
+            key: row.dataset.anchor!,
+            index: Number(row.dataset.index),
+            offset: row.getBoundingClientRect().top - top,
+          }
+        : null;
+  }
+  function restoreAnchor() {
+    const anchor = choices.anchor;
+    if (!anchor || !scroll) return;
+    const list = rows();
+    const row =
+      list.find((el) => el.dataset.anchor === anchor.key) ??
+      list.reduce<HTMLElement | undefined>(
+        (nearest, el) =>
+          !nearest ||
+          Math.abs(Number(el.dataset.index) - anchor.index) <
+            Math.abs(Number(nearest.dataset.index) - anchor.index)
+            ? el
+            : nearest,
+        undefined,
+      );
+    if (row)
+      scroll.scrollTop +=
+        row.getBoundingClientRect().top -
+        scroll.getBoundingClientRect().top -
+        anchor.offset;
   }
   $effect(() => {
     if (current) {
       previous = { key: documentKey, view: current };
-      if (savedScroll !== null) {
-        const top = savedScroll;
-        savedScroll = null;
-        void tick().then(() => {
-          if (scroll) scroll.scrollTop = top;
-        });
-      }
+      choices.changesOffset = current.offset;
+      void tick().then(restoreAnchor);
     }
   });
   const result = $derived(
@@ -126,7 +144,7 @@
   const pageId = $derived(current?.id ?? null);
   $effect(() => {
     const id = pageId,
-      offset = manualOffset,
+      offset = choices.manualOffset,
       key = documentKey;
     let current = true;
     if (untrack(() => lastManual?.key) !== key) manualPage = null;
@@ -137,6 +155,7 @@
           if (current) {
             manualPage = v;
             lastManual = { key, rows: v.manual };
+            void tick().then(restoreAnchor);
           }
         },
         (e) => {
@@ -153,21 +172,16 @@
     rows: TimingFixView['manual'];
   } | null>(null);
 
-  function prepareSelection() {
-    if (selectionKey !== semantic) {
-      toggled = [];
-      selectionKey = semantic;
-    }
-  }
   function toggle(index: number) {
     keepScroll();
-    prepareSelection();
-    toggled = [...toggled, index];
+    choices.toggled = [...choices.toggled, index];
   }
   function untickTrades() {
     keepScroll();
-    prepareSelection();
-    toggled = [...toggled, ...(result?.withoutTradesToggles ?? [])];
+    choices.toggled = [
+      ...choices.toggled,
+      ...(result?.withoutTradesToggles ?? []),
+    ];
   }
   function setPolicy(patch: Partial<TimingFixOptions>) {
     onoptions({ ...options, ...patch });
@@ -208,7 +222,7 @@
     >
       {session.accepting ? 'Applying timings…' : 'Updating preview…'}
     </p>{/if}
-  <div class="scroll" bind:this={scroll}>
+  <div class="scroll" bind:this={scroll} onscroll={keepScroll}>
     {#if view.policyOpen}
       <div class="policy">
         <span>If rules conflict</span>
@@ -297,8 +311,9 @@
             class="manual"
           >
             <span>{r.cueNumber}</span><span>{r.detail.lead}</span><button
-              onmousedown={(e) => e.preventDefault()}
-              onclick={() => onnavigate(r.cueId)}>Edit</button
+              data-nav-key={'manual-' + r.cueId}
+              onclick={(event) => onnavigate(r.cueId, event.currentTarget)}
+              >Edit</button
             >
           </div>{/each}{/if}{/if}
     {#if session.error || session.view?.phase === 'failed' || session.view?.phase === 'stale'}<p
@@ -325,11 +340,10 @@
         </div>
         {#if result.selectionError}<p role="alert">
             {result.selectionError}
-          </p>{/if}{#if result.selectionError || toggled.length}<button
+          </p>{/if}{#if result.selectionError || choices.toggled.length}<button
             onclick={() => {
               keepScroll();
-              prepareSelection();
-              toggled = [];
+              choices.toggled = [];
             }}>Restore default selection</button
           >{/if}
         <div class="heading">
@@ -343,7 +357,11 @@
             No changes for the ticked rules in this scope.
           </p>{/if}
         {#each result.rows as row (row.cueIndex)}
-          <div class="change">
+          <div
+            class="change"
+            data-anchor={'change-' + row.cueId}
+            data-index={row.cueIndex}
+          >
             <input
               type="checkbox"
               aria-label={'Include cue ' + row.cueLabel}
@@ -352,19 +370,21 @@
               onchange={() => toggle(row.cueIndex)}
             />
             <button
+              data-nav-key={'change-' + row.cueId}
               class="cue"
               data-variant="quiet"
               aria-label={'Go to cue ' + row.cueLabel}
-              onclick={() => onnavigate(row.cueId)}>{row.cueLabel}</button
+              onclick={(event) => onnavigate(row.cueId, event.currentTarget)}
+              >{row.cueLabel}</button
             >
             <button
               class="detail"
               data-variant="quiet"
-              aria-expanded={openRows.includes(row.cueIndex)}
+              aria-expanded={choices.openRows.includes(row.cueIndex)}
               onclick={() =>
-                (openRows = openRows.includes(row.cueIndex)
-                  ? openRows.filter((i) => i !== row.cueIndex)
-                  : [...openRows, row.cueIndex])}
+                (choices.openRows = choices.openRows.includes(row.cueIndex)
+                  ? choices.openRows.filter((i) => i !== row.cueIndex)
+                  : [...choices.openRows, row.cueIndex])}
             >
               {#each [...new Set(row.unit.fixed.map(chip))] as name (name)}<span
                   class="chip">{name}</span
@@ -385,7 +405,8 @@
                 >{/each}</small
             >
             <!-- eslint-enable svelte/no-useless-mustaches -->
-            {#if openRows.includes(row.cueIndex)}<small class="times number"
+            {#if choices.openRows.includes(row.cueIndex)}<small
+                class="times number"
                 >{#each row.timecodes as line (line)}<span>{line}</span
                   >{/each}</small
               >{/if}
@@ -405,15 +426,19 @@
           <div class="heading">
             <button
               data-variant="quiet"
-              aria-expanded={manualOpen}
-              onclick={() => (manualOpen = !manualOpen)}
-              >{manualOpen ? '▾' : '▸'} Needs manual work {result.manualCount}</button
+              aria-expanded={choices.manualOpen}
+              onclick={() => (choices.manualOpen = !choices.manualOpen)}
+              >{choices.manualOpen ? '▾' : '▸'} Needs manual work {result.manualCount}</button
             >
           </div>
-          {#if manualOpen}{#if manualError}<p role="alert">
+          {#if choices.manualOpen}{#if manualError}<p role="alert">
                 {manualError}
               </p>{/if}
-            {#each manualPage?.manual ?? [] as r (r.cueId)}<div class="manual">
+            {#each manualPage?.manual ?? [] as r (r.cueId)}<div
+                class="manual"
+                data-anchor={'manual-' + r.cueId}
+                data-index={r.cueNumber - 1}
+              >
                 <span class="number">{r.cueNumber}</span>
                 <div>
                   <span>{r.detail.lead}</span>
@@ -423,7 +448,11 @@
                       >{r.detail.budgetText}</small
                     >{/if}
                 </div>
-                <button onclick={() => onnavigate(r.cueId)}>Edit</button>
+                <button
+                  data-nav-key={'manual-' + r.cueId}
+                  onclick={(event) => onnavigate(r.cueId, event.currentTarget)}
+                  >Edit</button
+                >
               </div>{/each}
             {#if manualPage && result.manualCount > 100}<nav
                 aria-label="Manual work pages"
@@ -431,12 +460,15 @@
                 <button
                   disabled={!manualPage.offset}
                   onclick={() =>
-                    (manualOffset = Math.max(0, manualPage!.offset - 100))}
-                  >Previous</button
+                    (choices.manualOffset = Math.max(
+                      0,
+                      manualPage!.offset - 100,
+                    ))}>Previous</button
                 >{manualPage.offset + 1}–{manualPage.offset +
                   manualPage.manual.length} / {result.manualCount}<button
                   disabled={manualPage.offset + 100 >= result.manualCount}
-                  onclick={() => (manualOffset = manualPage!.offset + 100)}
+                  onclick={() =>
+                    (choices.manualOffset = manualPage!.offset + 100)}
                   >Next</button
                 >
               </nav>{/if}

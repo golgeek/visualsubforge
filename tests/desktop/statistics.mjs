@@ -134,7 +134,8 @@ export async function statisticsWorkflow({
   }
   async function open() {
     await ready();
-    await chooseCommand(browser, 'statistics');
+    if (!(await browser.$('[aria-labelledby="statistics-title"]').isExisting()))
+      await chooseCommand(browser, 'statistics');
     const dialog = await browser.$(
       'section[aria-labelledby="statistics-title"]',
     );
@@ -144,7 +145,7 @@ export async function statisticsWorkflow({
     return dialog;
   }
   async function close() {
-    await (await browser.$('button=Close')).click();
+    await (await browser.$('[aria-label="Close review panel"]')).click();
     await ready();
   }
   async function navigate(dialog, cue) {
@@ -204,28 +205,25 @@ export async function statisticsWorkflow({
   assert.equal(await text.getValue(), 'Keep statistics draft');
   dialog = await open();
   await navigate(dialog, 2);
-  await until('statistics draft guard', () =>
-    browser.$('button=Cancel navigation').then((e) => e.isExisting()),
+  await until(
+    'invalid draft blocks statistics navigation',
+    async () => (await text.getAttribute('aria-invalid')) === 'true',
   );
-  await (await browser.$('button=Cancel navigation')).click();
   assert.equal(await text.getValue(), 'Keep statistics draft');
   assert.deepEqual(await status(), before);
-  dialog = await open();
+  await discardCue(browser);
   await navigate(dialog, 2);
-  await (await browser.$('button=Discard draft and navigate')).click();
   await until(
     'statistics selected second cue',
     async () => (await text.getValue()) === '0',
   );
   assert.deepEqual(await status(), before);
-  const startField = await browser.$('[aria-label="Cue start"]');
-  const acceptedStart = await startField.getValue();
-  await startField.setValue('invalid');
   await text.setValue('Explicit statistics navigation');
-  dialog = await open();
   await navigate(dialog, 1);
-  await startField.setValue(acceptedStart);
-  await (await browser.$('button=Apply draft and navigate')).click();
+  await until(
+    'statistics selected first cue',
+    async () => (await text.getValue()) === before.cues[0].text,
+  );
   await until(
     'explicit statistics navigation Apply',
     async () => (await status()).revision === before.revision + 1,
@@ -285,7 +283,7 @@ export async function statisticsWorkflow({
   assert.equal(stale.summary, null);
   assert.deepEqual(await status(), before);
   await record({
-    step: 'real read-only statistics, full/range/all-excluded CLI parity, protected draft Cancel/Discard/Apply, exact source/history preservation, invalid scope and profile invalidation',
+    step: 'real read-only statistics, full/range/all-excluded CLI parity, rejected draft retention and commit-before-selection, exact source/history preservation, invalid scope and profile invalidation',
     cues: 4,
     parityScopes: parity.length,
   });

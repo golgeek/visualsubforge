@@ -20,9 +20,9 @@ empty-text cues. Each duration, CPS, RS, line-count, longest-line and signed-gap
 summary shows its sample count, minimum, maximum and mean. Extremum links choose
 the first cue in document order on ties. All nine reading-speed categories are
 shown, including zero counts. Outliers list existing quality findings and navigate
-through the editor's Apply/Discard/Cancel draft guard. An explicit Apply there is
-an ordinary document edit; calculating, filtering and closing statistics never
-commits or discards anything. Save/recovery protections and history stay intact.
+through the editor's ordinary cue-selection path. Following a link commits pending
+fields first. A rejection keeps the draft and the selected cue. Statistics
+calculations read accepted fields. Save/recovery protections and history stay intact.
 
 ## Counting and denominators
 
@@ -109,13 +109,13 @@ latency for every maximum-size document.
 ## Validation
 
 Ten core tests, two CLI parity/error tests and four desktop-owner tests pass.
-Thirteen modeled assertions per Chromium/WebKit cover draft preservation,
+Modeled Chromium and WebKit workflows cover draft preservation,
 protected navigation and failed Apply, scope/exclusion failures, paging, empty
 reports, stale/late replies, cancellation, failure retry and disposal.
 
 The actual Mac app matches executable CLI JSON for whole-document, range/excluded
 and all-excluded scopes. It preserves source bytes, accepted cues, history and
-drafts, exercises navigation Cancel/Discard/Apply with exact Undo, rejects invalid
+drafts, verifies exact Undo after an edit, rejects invalid
 scope and stale profile/document/media/scenes, and rescans real generated media.
 The normal Settings/text/save/recovery/restart checks also pass. The inspected
 summary, scoped and paged-outlier screenshots remain with the run receipt.

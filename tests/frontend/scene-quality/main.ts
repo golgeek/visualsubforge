@@ -13,7 +13,10 @@ import {
   type TimingFixInput,
   type ReviewSelection,
 } from '../../../src/lib/client';
-import { timingFixView as sample } from '../ipc-contract-samples';
+import {
+  statisticsView as stats,
+  timingFixView as sample,
+} from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
 const activityTrial = new URLSearchParams(location.search).has('activity');
 const episodeTrial = new URLSearchParams(location.search).has('episode');
@@ -35,7 +38,16 @@ let doc: DocumentSnapshot = {
   ],
 };
 if (episodeTrial) doc.cues = structuredClone(episode.cues);
+const navDelay = new URLSearchParams(location.search).get('navigation');
+if (navDelay !== null)
+  doc.cues = Array.from({ length: 160 }, (_, i) => ({
+    id: i + 1,
+    startMs: i * 2000,
+    endMs: i * 2000 + 1500,
+    text: 'Cue ' + (i + 1),
+  }));
 const original = structuredClone(doc);
+let statisticsRevision = doc.revision;
 let activeScope: number[] | null = null;
 let view: TimingFixView = structuredClone(sample);
 let before = structuredClone(doc);
@@ -147,25 +159,44 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
-          if (activityTrial) {
-            const action = args.action as { kind: string; seconds?: number };
+          if (activityTrial || navDelay !== null) {
+            const action = args.action as { kind: string };
             if (action.kind === 'seek') {
               host.dataset.seeks = String(Number(host.dataset.seeks ?? 0) + 1);
+              host.dataset.seek = 'pending';
               await new Promise((resolve) =>
-                setTimeout(resolve, Number(host.dataset.delay)),
+                setTimeout(resolve, Number(navDelay ?? host.dataset.delay)),
               );
+              host.dataset.seek = 'done';
             }
             return {
               ...emptyStatus,
               available: true,
               loaded: true,
-              paused: false,
+              paused: !activityTrial,
               session: 1,
               positionSeconds: 0,
-              durationSeconds: 60,
+              durationSeconds: 340,
             };
           }
           return structuredClone(emptyStatus);
+        case 'statistics_start':
+          statisticsRevision = doc.revision;
+          return 1;
+        case 'statistics_view':
+          return {
+            ...structuredClone(stats),
+            key: {
+              ...stats.key,
+              generation: doc.generation,
+              revision: statisticsRevision,
+            },
+            phase: 'ready',
+            session: 1,
+            findings: [{ ...stats.findings[0], cueId: '8', cueIndex: 7 }],
+          };
+        case 'statistics_cancel':
+          return;
         case 'timing_fix_start': {
           starts++;
           const input = args.input!;
@@ -334,6 +365,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (policyTrial || episodeTrial)
             return {
               ...emptyQuality(args),
+              nextCue: navDelay === null ? null : '8',
               findingsCount: 3,
               timingFindingsCount: 3,
             };
@@ -341,8 +373,22 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'document_action': {
           const action = args.action!;
           if (action.kind === 'edit') {
+            if (navDelay !== null) {
+              host.dataset.editAttempts = String(
+                Number(host.dataset.editAttempts ?? 0) + 1,
+              );
+              await new Promise((resolve) =>
+                setTimeout(resolve, Number(navDelay)),
+              );
+              if (host.dataset.rejectEdit)
+                throw {
+                  kind: 'rejected',
+                  message: 'Rejected navigation draft',
+                };
+            }
             if (failApply) throw new Error('Injected draft failure');
             edits++;
+            host.dataset.edits = String(edits);
             doc = {
               ...doc,
               revision: doc.revision + 1,
@@ -544,7 +590,9 @@ async function run() {
   }
 }
 if (policyTrial || episodeTrial) {
-  void until(
-    () => host.querySelectorAll('.cue-row').length === doc.cues.length,
+  void until(() =>
+    navDelay !== null
+      ? !!host.querySelector('.cue-row')
+      : host.querySelectorAll('.cue-row').length === doc.cues.length,
   ).then(() => chooseCommand(host, 'fixAllTiming'));
 } else if (!activityTrial) void run();

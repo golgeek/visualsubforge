@@ -52,7 +52,7 @@ responsibilities across these folders.
 | Owner | State and responsibility |
 | --- | --- |
 | `Workspace` | Workspace task counter, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
-| `CueNavigation` | Explicit selection, keyboard focus, pending problem navigation, reveal and cue-following effects; narrow DOM callbacks and mount-lifetime guards. |
+| `CueNavigation` | Explicit selection, keyboard focus, dock cue navigation, reveal and cue-following effects; narrow DOM callbacks and mount-lifetime guards. |
 | `WorkspaceView` / `WorkspaceLayout` | Panel visibility/rules and measured pane sizes/splitter constraints, respectively. |
 | `WorkspacePreferences` | Saved defaults, effective project timing, metric visibility and quality-context invalidation, updated through initialization, acceptance and restore methods. |
 | `WorkspaceScenes` | Scene visibility, cuts, controls, status and restored-generation projection. |
@@ -88,9 +88,8 @@ supply the appropriate save continuation, including the project operation's own
 save context. TranslationSession clears hidden reference queries in its initialization
 scoped effect; TranslationReference handles user file operations and quality invalidation.
 
-Panel rules preserve existing distinctions: explicitly closing Problems cancels its
-pending navigation, toggling Translation only hides Problems, and Statistics can
-reveal Problems while retaining Translation visibility. Preference initialization,
+Dock cue navigation keeps the active tab. Translation can temporarily hide Review
+and restores its visibility when closed. Preference initialization,
 Settings acceptance and project timing restoration each update the related fields
 through one owner method; project timing never replaces saved defaults.
 
@@ -262,8 +261,8 @@ project save. See the [quality guide](../../docs/subtitle-quality.md).
 rules in TypeScript. App supplies visible rows, selection and the unapplied cue
 draft; accepted and draft metrics remain visibly separate. Profile epochs force
 unchanged drafts to be resubmitted after Rust invalidates them. F4 and Problems
-buttons use the same protected Apply/Discard/Cancel navigation before calling
-existing cue selection. Failed Apply cannot discard a draft or move selection.
+buttons use the cue list’s apply-before-selection path. A rejected commit
+retains the draft and selection.
 
 Rust captures immutable domain/profile inputs under the document mutex, then
 evaluates outside it on one CPU worker. No queued document snapshots accumulate.
@@ -345,7 +344,7 @@ one in-flight poll projects the summary and 100-row outlier pages. Draft typing
 leaves the report valid, while document/profile/media/scenes or scope changes
 hide old results. Reactive capture and request epochs reject late responses;
 closing also cancels a late worker admission. Current cue links route through
-existing Problems Apply/Discard/Cancel navigation. The dock stays outside native
+the same commit-before-selection path as the cue list. The dock stays outside native
 video bounds and restores its launcher focus on close.
 
 The typed client calls three thin worker-dispatched commands. Rust's dedicated

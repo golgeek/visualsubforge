@@ -32,6 +32,8 @@ export interface LiveTimingReview {
   selection: () => ReviewSelection | null;
   context: () => string;
   previewIds: () => readonly number[];
+  previewEnabled?: () => boolean;
+  initialOffset?: () => number;
   pageKey?: () => string;
 }
 const selectionKey = (selection: ReviewSelection | null) =>
@@ -80,6 +82,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     if (live)
       $effect(() => {
         const document = subtitles.snapshot;
+        const enabled = (live.previewEnabled ?? live.enabled)();
         const signature = JSON.stringify([
           subtitles.snapshot.generation,
           subtitles.snapshot.revision,
@@ -87,10 +90,10 @@ export class TimingRepairSession<V extends Review, S = string | null> {
           scope(),
           live.selection(),
           live.context(),
-          live.enabled(),
+          enabled,
           subtitles.dirty,
         ]);
-        const wanted = live.enabled() && !subtitles.dirty;
+        const wanted = enabled && !subtitles.dirty;
         // Viewport changes only refresh a bounded projection, never the proposal.
         const ids = JSON.stringify(live.previewIds().slice(0, 200));
         untrack(() => {
@@ -308,7 +311,8 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     this.preview = null;
     this.previewKey = '';
     const key = this.live?.pageKey?.();
-    if (key === undefined || key !== this.pageKey) this.offset = 0;
+    if (key === undefined || key !== this.pageKey)
+      this.offset = this.live?.initialOffset?.() ?? 0;
     this.pageKey = key;
     try {
       if (this.id !== null) await this.api.cancel(this.id);

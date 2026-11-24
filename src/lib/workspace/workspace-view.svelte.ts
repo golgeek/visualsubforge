@@ -1,3 +1,4 @@
+import { TimingReviewSelection } from '../timing/timing-review-selection.svelte';
 export type TimingKind = 'gap' | 'scene' | 'duration' | 'all' | 'batch';
 /** Only workspace panel visibility and its existing open/close rules. */
 export class WorkspaceView {
@@ -9,6 +10,7 @@ export class WorkspaceView {
   reviewTab = $state<'issues' | 'timing' | 'statistics' | 'changes'>('issues');
   timingMode = $state<'fix' | 'shift'>('fix');
   families = $state({ gaps: true, speed: true, shots: true });
+  timingSelection = $state.raw(new TimingReviewSelection());
   policyOpen = $state(false);
   openReview(
     tab: 'issues' | 'timing' | 'statistics' | 'changes',
@@ -28,7 +30,7 @@ export class WorkspaceView {
     this.translationOpen = false;
     this.problemsOpen = true;
   }
-  toggleProblems(cancelNavigation: () => void) {
+  toggleProblems() {
     if (this.problemsOpen && this.reviewTab !== 'issues') {
       this.reviewTab = 'issues';
       return;
@@ -36,12 +38,10 @@ export class WorkspaceView {
     this.reviewTab = 'issues';
     this.problemsOpen = !this.problemsOpen;
     if (this.problemsOpen) this.translationOpen = false;
-    if (!this.problemsOpen) cancelNavigation();
   }
-  closeProblems(cancelNavigation: () => void) {
+  closeProblems() {
     if (this.reviewBusy) return;
     this.problemsOpen = false;
-    cancelNavigation();
   }
   toggleTranslation() {
     if (this.reviewBusy) return;

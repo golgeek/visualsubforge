@@ -249,15 +249,11 @@ export class WorkspaceCommands {
         break;
       case 'statistics':
         if (view.problemsOpen && view.reviewTab === 'statistics')
-          view.closeProblems(() => {
-            navigation.pendingProblem = null;
-          });
+          view.closeProblems();
         else await dialogs.openStatistics();
         break;
       case 'problems':
-        view.toggleProblems(() => {
-          navigation.pendingProblem = null;
-        });
+        view.toggleProblems();
         break;
       case 'styles':
       case 'fonts':

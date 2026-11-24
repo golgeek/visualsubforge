@@ -360,7 +360,7 @@
     }),
   );
 
-  const navigation = disposeWithComponent(
+  const navigation: CueNavigation = disposeWithComponent(
     new CueNavigation(
       workspace,
       subtitles,
@@ -650,12 +650,10 @@
       arranged: (panels) => {
         view.problemsOpen = panels.includes('review');
         view.translationOpen = panels.includes('translation');
-        if (!view.problemsOpen) navigation.pendingProblem = null;
       },
       preset: (preset) => {
         view.problemsOpen = preset === 'review';
         view.translationOpen = preset === 'translation';
-        if (!view.problemsOpen) navigation.pendingProblem = null;
       },
     }),
   );
@@ -1268,27 +1266,22 @@
                   'Timings accepted. Undo restores the whole change.';
                 quality.restart();
               }}
-              onclose={() =>
-                view.closeProblems(() => (navigation.pendingProblem = null))}
-              onnavigate={(id) => {
-                view.revealProblems();
-                navigation.requestProblem(id);
-              }}
+              onclose={() => view.closeProblems()}
+              onnavigate={navigation.requestProblem}
+              navigating={() =>
+                navigation.reviewNavigating &&
+                !workspace.confirming &&
+                !timeline.interacting}
             >
-              {#snippet issues()}
+              {#snippet issues(navigate)}
                 <ProblemsPanel
                   onfixtiming={() => void dialogs.openTimingReview('all')}
                   session={quality}
                   documentLoaded={doc.loaded}
                   disabled={workspace.busy || workspace.confirming}
-                  pending={navigation.pendingProblem !== null}
-                  onnavigate={navigation.requestProblem}
+                  onnavigate={navigate}
                   onlanguage={(operation) => void dialogs.openText(operation)}
-                  onresolve={(choice) => void navigation.resolveProblem(choice)}
-                  onclose={() =>
-                    view.closeProblems(() => {
-                      navigation.pendingProblem = null;
-                    })}
+                  onclose={() => view.closeProblems()}
                 />
               {/snippet}
               {#snippet changes()}<ChangesPanel

@@ -81,7 +81,8 @@ async function open() {
   await until(
     () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
-  await chooseCommand(host, 'statistics');
+  if (!host.querySelector('[aria-labelledby="statistics-title"]'))
+    await chooseCommand(host, 'statistics');
   await until(
     () => !!host.querySelector('[aria-labelledby="statistics-title"]'),
   );
@@ -111,8 +112,10 @@ async function navigate(cue: number) {
   )!;
   assert(b, 'Missing extremum navigation');
   b.click();
-  await until(
-    () => !host.querySelector('[aria-labelledby="statistics-title"]'),
+  await tick();
+  assert(
+    host.querySelector('[aria-labelledby="statistics-title"]'),
+    'Following a cue closed Statistics',
   );
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });
@@ -263,86 +266,36 @@ try {
   );
   await open();
   await report();
-  await navigate(2);
-  await until(
-    () =>
-      !![
-        ...host.querySelectorAll<HTMLButtonElement>(
-          'button:not(dialog:not([open]) button)',
-        ),
-      ].find((b) => b.textContent === 'Cancel navigation'),
-  );
-  button('Cancel navigation').click();
-  assert(
-    JSON.stringify(doc) === before && edits === 0,
-    'Cancel changed accepted document',
-  );
-  assert(
-    (host.querySelector('[aria-label="Subtitle text"]') as HTMLTextAreaElement)
-      .value === 'Keep my statistics draft',
-    'Cancel lost draft',
-  );
-  passed('Extremum navigation uses the existing draft Cancel guard');
-  await open();
-  await report();
-  await navigate(2);
-  await until(
-    () =>
-      !![
-        ...host.querySelectorAll<HTMLButtonElement>(
-          'button:not(dialog:not([open]) button)',
-        ),
-      ].find((b) => b.textContent === 'Discard draft and navigate'),
-  );
-  button('Discard draft and navigate').click();
-  await until(
-    () =>
-      (
-        host.querySelector(
-          '[aria-label="Subtitle text"]',
-        ) as HTMLTextAreaElement
-      ).value === '0',
-  );
-  assert(
-    JSON.stringify(doc) === before,
-    'Discard navigation wrote accepted state',
-  );
-  passed('Discard navigation changes selection without accepting a draft');
-  input('Subtitle text', 'Explicitly applied draft');
-  await open();
-  await report();
-  await navigate(1);
-  await until(
-    () =>
-      !![
-        ...host.querySelectorAll<HTMLButtonElement>(
-          'button:not(dialog:not([open]) button)',
-        ),
-      ].find((b) => b.textContent === 'Apply draft and navigate'),
-  );
   failApply = true;
-  button('Apply draft and navigate').click();
+  await navigate(2);
   await until(
     () => host.textContent?.includes('Injected draft failure') ?? false,
   );
-  assert(JSON.stringify(doc) === before, 'Failed Apply changed document');
-  failApply = false;
-  button('Apply draft and navigate').click();
-  await until(() => doc.revision === original.revision + 1);
-  await until(
-    () =>
-      (
-        host.querySelector(
-          '[aria-label="Subtitle text"]',
-        ) as HTMLTextAreaElement
-      ).value === original.cues[0]!.text,
-  );
   assert(
-    edits === 1 && doc.cues[1]!.text === 'Explicitly applied draft',
-    'Explicit navigation Apply did not commit once',
+    JSON.stringify(doc) === before,
+    'Rejected navigation changed the document',
+  );
+  failApply = false;
+  await navigate(2);
+  await until(() => doc.revision === original.revision + 1);
+  const editor = host.querySelector<HTMLTextAreaElement>(
+    '[aria-label="Subtitle text"]',
+  )!;
+  await until(() => editor.value === '0');
+  assert(
+    edits === 1 && doc.cues[0]!.text === 'Keep my statistics draft',
+    'Retry did not commit the original cue exactly once',
+  );
+  input('Subtitle text', 'Explicitly applied draft');
+  await report();
+  await navigate(1);
+  await until(() => editor.value === 'Keep my statistics draft');
+  assert(
+    edits === 2 && doc.cues[1]!.text === 'Explicitly applied draft',
+    'Return link did not commit cue 2 before navigating',
   );
   passed(
-    'Failed Apply preserves draft and retry commits only the explicit navigation choice',
+    'Statistics links preserve rejected drafts and commit accepted edits before selecting their target',
   );
   await open();
   await report();

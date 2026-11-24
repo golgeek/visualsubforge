@@ -118,8 +118,8 @@ explanations, profile coverage and separate finding/affected-cue counts. Filter
 by rule or severity; results page 100 findings at a time. **Next cue / Previous
 cue** (F4 / Shift+F4) visit distinct affected cues in document order, including
 related cues in overlap/gap pairs, and wrap at the ends. Navigation selects the
-cue and seeks only when media is loaded. An unapplied draft requires an explicit
-Apply, Discard or Cancel choice; failed Apply keeps the draft and selection.
+cue and seeks only when media is loaded. Pending cue fields commit before selection. A rejected edit keeps the draft,
+selection and inline rejection reason.
 
 Checks run on one cancellable Rust worker. Document edits, Undo/Redo and policy
 or workspace/scene replacement retire old results; late replies cannot publish into a

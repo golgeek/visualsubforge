@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, type Snippet } from 'svelte';
+  import { onMount, tick, type Snippet } from 'svelte';
   import { formatTime } from '../timeline/timeline';
   import type { WorkspaceView } from './workspace-view.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -10,6 +10,8 @@
   import ReviewTiming from '../timing/ReviewTiming.svelte';
   import StatisticsPanel from '../quality/StatisticsPanel.svelte';
   import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
+  import { TimingReviewSelection } from '../timing/timing-review-selection.svelte';
+  type Navigate = (id: string, origin: HTMLButtonElement) => void;
   let {
     activity,
     view,
@@ -23,6 +25,7 @@
     context,
     previewIds,
     enabled,
+    navigating,
     issues,
     changes,
     onclose,
@@ -42,19 +45,76 @@
     context: () => string;
     previewIds: () => readonly number[];
     enabled: () => boolean;
-    issues: Snippet;
+    navigating: () => boolean;
+    issues: Snippet<[Navigate]>;
     changes: Snippet;
     onclose: () => void;
     onpreview: (value: TimingPreview | null) => void;
     onaccepted: () => void;
-    onnavigate: (id: string) => void;
+    onnavigate: (id: string) => Promise<void>;
   } = $props();
+  let panel: HTMLElement;
+  let focusRequest: AbortController | undefined;
+  function preserveDraftFocus(event: MouseEvent) {
+    // Blur can commit and disable or replace the link before its click fires.
+    if (
+      event.button === 0 &&
+      subtitles.dirty &&
+      event.target instanceof Element &&
+      event.target.closest('button[data-nav-key]')
+    )
+      event.preventDefault();
+  }
+  const navigate: Navigate = async (id, button) => {
+    focusRequest?.abort();
+    const request = new AbortController();
+    focusRequest = request;
+    const stop = () => request.abort();
+    const options = { capture: true, signal: request.signal };
+    document.addEventListener('pointerdown', stop, options);
+    document.addEventListener('keydown', stop, options);
+    await onnavigate(id);
+    await tick();
+    if (request.signal.aborted) return;
+    if (subtitles.dirty) {
+      stop();
+      return;
+    }
+    const key = button.dataset.navKey!;
+    const selector = `button[data-nav-key="${CSS.escape(key)}"]:enabled`;
+    const restore = () => {
+      const replacement = panel.querySelector<HTMLButtonElement>(selector);
+      if (!replacement || replacement.closest('[inert]')) return false;
+      replacement.focus({ preventScroll: true });
+      stop();
+      return true;
+    };
+    if (restore()) return;
+    // A new accepted revision can replace the button until the fresh report arrives.
+    panel
+      .querySelector<HTMLButtonElement>('nav button[aria-pressed=true]')
+      ?.focus({ preventScroll: true });
+    const observer = new MutationObserver(restore);
+    request.signal.addEventListener('abort', () => observer.disconnect(), {
+      once: true,
+    });
+    observer.observe(panel, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['inert', 'disabled'],
+    });
+  };
   onMount(() => {
     const launcher =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+    panel.addEventListener('mousedown', preserveDraftFocus);
     return () => {
+      focusRequest?.abort();
+      panel.removeEventListener('mousedown', preserveDraftFocus);
+      view.timingSelection = new TimingReviewSelection();
       if (launcher?.isConnected && !launcher.matches(':disabled'))
         launcher.focus({ preventScroll: true });
     };
@@ -99,6 +159,19 @@
     }
     return tableView.order.map((cue) => cue.id);
   };
+  $effect.pre(() => {
+    const key = JSON.stringify([
+      subtitles.snapshot.generation,
+      subtitles.snapshot.revision,
+      mediaSession(),
+      scopeIds(),
+      context(),
+      view.families,
+      options,
+    ]);
+    if (view.timingSelection.selectionKey !== key)
+      view.timingSelection = new TimingReviewSelection(key);
+  });
   const tabs = [
     { id: 'issues', label: 'Issues' },
     { id: 'timing', label: 'Timing' },
@@ -107,7 +180,7 @@
   ] as const;
 </script>
 
-<aside class="review-dock" aria-label="Review panel">
+<aside bind:this={panel} class="review-dock" aria-label="Review panel">
   <header>
     <strong>Review</strong>
     <nav aria-label="Review tools">
@@ -189,16 +262,16 @@
       >{/if}
   </div>
   <div class="body">
-    {#if view.reviewTab === 'issues'}{@render issues()}
+    {#if view.reviewTab === 'issues'}{@render issues(navigate)}
     {:else if view.reviewTab === 'changes'}{@render changes()}
     {:else if view.reviewTab === 'statistics'}<StatisticsPanel
         {subtitles}
         {mediaSession}
         {context}
         {scopeIds}
-        {enabled}
+        enabled={() => enabled() || navigating()}
         {onclose}
-        {onnavigate}
+        onnavigate={navigate}
       />
     {:else if view.timingMode === 'shift'}<ReviewShift
         {activity}
@@ -215,6 +288,7 @@
       />
     {:else}<ReviewTiming
         {activity}
+        previewEnabled={() => enabled() || navigating()}
         {view}
         {subtitles}
         {mediaSession}
@@ -223,7 +297,7 @@
         {previewIds}
         {options}
         {onoptions}
-        {onnavigate}
+        onnavigate={navigate}
         onbusy={(v) => (view.reviewBusy = v)}
         {enabled}
         {onpreview}

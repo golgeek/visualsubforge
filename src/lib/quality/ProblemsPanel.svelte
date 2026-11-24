@@ -15,9 +15,7 @@
     onfixtiming,
     documentLoaded = true,
     disabled,
-    pending,
     onnavigate,
-    onresolve,
     onclose,
     onlanguage,
   }: {
@@ -25,9 +23,7 @@
     onfixtiming?: () => void;
     documentLoaded?: boolean;
     disabled: boolean;
-    pending: boolean;
-    onnavigate: (id: string) => void;
-    onresolve: (choice: 'apply' | 'discard' | 'cancel') => void;
+    onnavigate: (id: string, origin: HTMLButtonElement) => void;
     onclose: () => void;
     onlanguage: (operation: TextOperation) => void;
   } = $props();
@@ -168,12 +164,16 @@
     >
     <button
       disabled={!usable || !view?.previousCue}
-      onclick={() => view?.previousCue && onnavigate(view.previousCue)}
+      data-nav-key="previousCue"
+      onclick={(event) =>
+        view?.previousCue && onnavigate(view.previousCue, event.currentTarget)}
       >Previous cue · ⇧F4</button
     >
     <button
       disabled={!usable || !view?.nextCue}
-      onclick={() => view?.nextCue && onnavigate(view.nextCue)}
+      data-nav-key="nextCue"
+      onclick={(event) =>
+        view?.nextCue && onnavigate(view.nextCue, event.currentTarget)}
       >Next cue · F4</button
     >
     {#if view?.profileHash}<span
@@ -183,22 +183,6 @@
         )}</span
       >{/if}
   </div>
-  {#if pending}<div
-      class="draft-choice"
-      role="group"
-      aria-label="Resolve cue draft before navigation"
-    >
-      <span>The current cue has an unapplied draft.</span>
-      <button {disabled} onclick={() => onresolve('apply')}
-        >Apply draft and navigate</button
-      >
-      <button {disabled} onclick={() => onresolve('discard')}
-        >Discard draft and navigate</button
-      >
-      <button {disabled} onclick={() => onresolve('cancel')}
-        >Cancel navigation</button
-      >
-    </div>{/if}
   <div class="findings" aria-busy={session.stale}>
     {#if view?.profileHash && !session.stale}
       {#if !view.filteredCount}<p>
@@ -208,7 +192,15 @@
         </p>{/if}
       {#each view.findings as finding, index (`${view.id}/${view.offset + index}`)}
         <div class="finding">
-          <button disabled={!usable} onclick={() => onnavigate(finding.cueId)}
+          <button
+            disabled={!usable}
+            data-nav-key={'issue-cueId-' +
+              finding.cueId +
+              '-' +
+              finding.rule +
+              '-' +
+              index}
+            onclick={(event) => onnavigate(finding.cueId, event.currentTarget)}
             >Cue {finding.cueIndex + 1} · {qualityRules.find(
               (r) => r.id === finding.rule,
             )?.label}</button
@@ -222,7 +214,14 @@
           >
           {#if finding.relatedCueId}<button
               disabled={!usable}
-              onclick={() => onnavigate(finding.relatedCueId!)}
+              data-nav-key={'issue-relatedCueId-' +
+                finding.cueId +
+                '-' +
+                finding.rule +
+                '-' +
+                index}
+              onclick={(event) =>
+                onnavigate(finding.relatedCueId!, event.currentTarget)}
               >Related cue</button
             >{/if}
           <small>{qualityText(finding.explanation)}</small>
@@ -292,7 +291,6 @@
   }
   header,
   .filters,
-  .draft-choice,
   .paging {
     display: flex;
     align-items: center;
@@ -326,11 +324,6 @@
   .finding small {
     flex-basis: 100%;
     color: var(--text-muted);
-  }
-  .draft-choice {
-    background: var(--surface-raised);
-    padding: 6px;
-    margin-block: 6px;
   }
   [role='alert'] {
     color: var(--err);

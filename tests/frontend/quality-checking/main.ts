@@ -332,24 +332,8 @@ async function run() {
     passed(
       'Draft metrics are labeled and remain separate from accepted report/state',
     );
-    button('Next cue · F4').click();
-    await until(
-      () =>
-        !!host.querySelector(
-          '[aria-label="Resolve cue draft before navigation"]',
-        ),
-      'Draft navigation protection absent',
-    );
-    button('Cancel navigation').click();
-    assert(
-      selected(2) && edits === 0,
-      'Cancel navigation lost draft or selection',
-    );
-    passed('Cancel navigation preserves the current draft and selection');
-    button('Next cue · F4').click();
-    await tick();
     failApply = true;
-    button('Apply draft and navigate').click();
+    button('Next cue · F4').click();
     await until(
       () =>
         host.textContent!.includes('Injected quality navigation apply failure'),
@@ -358,41 +342,28 @@ async function run() {
     assert(
       selected(2) &&
         edits === 0 &&
-        !!host.querySelector(
-          '[aria-label="Resolve cue draft before navigation"]',
-        ),
+        host
+          .querySelector('[aria-label="Subtitle text"]')
+          ?.getAttribute('aria-invalid') === 'true',
       'Failed apply navigated or discarded the draft',
     );
     passed(
-      'Failed draft Apply prevents navigation and preserves the pending choice',
+      'A rejected dock commit leaves the cue selected and the draft marked invalid',
     );
     failApply = false;
-    button('Apply draft and navigate').click();
+    button('Next cue · F4').click();
     await until(() => selected(1), 'Explicit Apply did not navigate');
     assert(
       edits === 1 && document.cues[1]!.text === 'Unapplied quality draft',
       'Explicit Apply did not commit once',
     );
-    passed('Explicit Apply commits once before protected navigation');
+    passed('Retrying navigation commits once and selects the target');
     await until(
       () => !button('Next cue · F4').disabled,
       'Recheck did not finish after edit',
     );
-    input('Subtitle text', 'Discard this draft');
-    await tick();
-    await until(
-      () => !button('Next cue · F4').disabled,
-      'Draft metric refresh did not finish',
-    );
     button('Next cue · F4').click();
-    await tick();
-    button('Discard draft and navigate').click();
-    await until(() => selected(2), 'Discard did not navigate');
-    assert(
-      edits === 1 && document.cues[0]!.text.startsWith('First subtitle'),
-      'Discard changed accepted text',
-    );
-    passed('Explicit Discard navigates without an edit');
+    await until(() => selected(2), 'Clean navigation did not select cue 2');
     await until(
       () => !button('Previous cue · ⇧F4').disabled,
       'Navigation still updating',
@@ -524,9 +495,7 @@ async function run() {
         session: emptyQuality,
         documentLoaded: false,
         disabled: false,
-        pending: false,
         onnavigate: () => {},
-        onresolve: () => {},
         onclose: () => {},
         onlanguage: () => {},
       },

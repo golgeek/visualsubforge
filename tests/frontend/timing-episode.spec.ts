@@ -192,6 +192,7 @@ test('deep toggle keeps its page and scroll through the updating view', async ({
   const scroll = dock.locator('.scroll');
   const top = await scroll.evaluate((el) => el.scrollTop);
   expect(top).toBeGreaterThan(100);
+  const rowTop = await row.evaluate((el) => el.getBoundingClientRect().top);
   await row.uncheck();
   const busy = dock.locator('.results[aria-busy="true"]');
   await expect(busy).toBeVisible();
@@ -208,7 +209,26 @@ test('deep toggle keeps its page and scroll through the updating view', async ({
   await expect(row).toBeEnabled();
   await expect(row).not.toBeChecked();
   await expect(row).toBeInViewport();
-  expect(await scroll.evaluate((el) => el.scrollTop)).toBe(top);
+  // Controls above the page can change height. Preserve the row's on-screen position.
+  expect(
+    Math.abs(
+      (await row.evaluate((el) => el.getBoundingClientRect().top)) - rowTop,
+    ),
+  ).toBeLessThanOrEqual(1);
+  const rowOffset = () =>
+    row.evaluate(
+      (el) =>
+        el.getBoundingClientRect().top -
+        el.closest('.scroll')!.getBoundingClientRect().top,
+    );
+  const beforeLeaving = await rowOffset();
+  await dock.getByRole('button', { name: /^Issues/ }).click();
+  await dock.getByRole('button', { name: 'Timing', exact: true }).click();
+  await expect(row).toBeEnabled();
+  await expect(row).not.toBeChecked();
+  await expect
+    .poll(async () => Math.abs((await rowOffset()) - beforeLeaving))
+    .toBeLessThanOrEqual(1);
   if (dir && info.project.name === 'chromium')
     await dock.screenshot({ path: path.join(dir, 'mid-list-restored.png') });
 });
