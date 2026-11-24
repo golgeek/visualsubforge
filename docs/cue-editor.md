@@ -36,7 +36,10 @@ SRT/WebVTT, 10 ms for ASS/SSA). Nudges are disabled when cadence is unavailable.
 This is not a variable-frame-rate boundary guarantee; review timing against video.
 
 The selected cue's issue strip stays the same height for one or many issues.
-Errors come first, CPS/reading-speed findings share a chip, and +N opens the Issues dock in the current layout. Meters and per-source-line character
+Errors come first, CPS/reading-speed findings share a chip, and +N opens the Issues dock in the current layout.
+Start near shot change and End near shot change identify the affected endpoint.
+All explanations… opens the selected cue’s accepted findings. Close returns
+focus to the strip. Show all issues in file opens the Issues dock. Meters and per-source-line character
 counts come from Rust; wrapped display lines do not change source-line counts.
 Enable Cue metrics to show the meters and source-line counts. Draft and accepted
 metrics are labelled separately.

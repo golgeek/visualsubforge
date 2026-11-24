@@ -10,6 +10,7 @@
     cueId,
     disabled,
     onmore,
+    onexplanations,
     onfix,
     onreview,
   }: {
@@ -20,6 +21,7 @@
     cueId: number | null;
     disabled: boolean;
     onmore: () => void;
+    onexplanations: () => void;
   } = $props();
   const projection = $derived(
     !quality.stale && quality.view?.selectedIssues?.cueId === String(cueId)
@@ -53,9 +55,7 @@
         ? 'Too slow'
         : rule === 'line_length'
           ? 'Line too long'
-          : rule === 'scene_start' || rule === 'scene_end'
-            ? 'Near scene change'
-            : (qualityRules.find((item) => item.id === rule)?.label ?? rule);
+          : (qualityRules.find((item) => item.id === rule)?.label ?? rule);
   }
 </script>
 
@@ -114,8 +114,12 @@
   </div>
   <div class="detail" title={explanations}>
     <span>{explanations || '\u00a0'}</span>
-    {#if projection?.count}<button {disabled} onclick={onmore}
-        >All explanations…</button
+    {#if projection?.count}<button
+        {disabled}
+        onclick={(event) => {
+          event.currentTarget.focus({ preventScroll: true });
+          onexplanations();
+        }}>All explanations…</button
       >{/if}
     {#if current}<button {disabled} onclick={() => onreview(current!.rule)}
         >{current.rule === 'scene_start' || current.rule === 'scene_end'
