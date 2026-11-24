@@ -289,8 +289,10 @@ async function run() {
       'Extraction must require Save As',
     );
     assert(
-      host.textContent?.includes('Extracted 1 cue from track 2') === true,
-      'Result notice missing',
+      host
+        .querySelector('footer .result[role="status"]')
+        ?.textContent?.includes('Extracted 1 cue from track 2') === true,
+      'Extraction result must be announced',
     );
     passed(
       'accepted extraction is dirty and requires Save As with provenance notice',

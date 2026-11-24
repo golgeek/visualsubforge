@@ -251,6 +251,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | Owner | State it owns |
 | --- | --- |
 | `Workspace` | Workspace task counter, readiness, error and notice; derives busy and confirming from owner activity and exposes the shared admission check. |
+| `WorkspaceActivity` | Counts overlapping user-awaited tasks, changed-input timing admissions and the first quality read for changed report inputs. Cue selection registers through the workspace task. The permanent footer slot appears after 150 ms and stays visible for at least 300 ms. Its spinner is decorative. The primary footer status reads Working… while visible and resumes the current message afterward. Background polling runs independently. |
 | `DocumentSession` | Replacement-only accepted projection, selection and text/time/style drafts; serialization and reconciliation of document commands. |
 | `CueEditing` | Pause/blur/IME/Escape triggers, focus identity and cancellable auto-commit timer. It owns no accepted history. |
 | `CueFixes` | Debounced selected-cue repair admission, bounded polling and stale/disposal guards; the existing Rust timing worker owns the plan. |

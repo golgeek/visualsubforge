@@ -9,7 +9,9 @@
   import ReviewShift from '../timing/ReviewShift.svelte';
   import ReviewTiming from '../timing/ReviewTiming.svelte';
   import StatisticsPanel from '../quality/StatisticsPanel.svelte';
+  import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
   let {
+    activity,
     view,
     options,
     onoptions,
@@ -28,6 +30,7 @@
     onaccepted,
     onnavigate,
   }: {
+    activity: WorkspaceActivity;
     view: WorkspaceView;
     options: TimingFixOptions;
     onoptions: (o: TimingFixOptions) => void;
@@ -198,6 +201,7 @@
         {onnavigate}
       />
     {:else if view.timingMode === 'shift'}<ReviewShift
+        {activity}
         {subtitles}
         {mediaSession}
         {context}
@@ -210,6 +214,7 @@
         {onaccepted}
       />
     {:else}<ReviewTiming
+        {activity}
         {view}
         {subtitles}
         {mediaSession}

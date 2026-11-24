@@ -8,6 +8,8 @@ import {
   type QualityDraft,
 } from '../client';
 
+import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
+
 export interface QualityInput {
   session: number;
   enabled: boolean;
@@ -54,8 +56,16 @@ export class QualitySession {
   private draftSignature: string | undefined;
   private epoch: number | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
-  constructor(private api = client) {}
+  private userKey = '';
+  private nextUserRead = false;
+  constructor(
+    private api = client,
+    private activity?: WorkspaceActivity,
+  ) {}
 
+  userSelectedCue() {
+    this.nextUserRead = true;
+  }
   configure(input: QualityInput) {
     if (!this.alive) return;
     const signature = JSON.stringify([
@@ -76,6 +86,17 @@ export class QualitySession {
       this.offset = 0;
     }
     if (input.selected !== this.input?.selected) this.selectedOffset = 0;
+    const userKey = JSON.stringify([
+      version,
+      this.rule,
+      this.severity,
+      this.offset,
+      this.selectedOffset,
+    ]);
+    if (userKey !== this.userKey) {
+      this.nextUserRead = input.enabled;
+      this.userKey = userKey;
+    }
     this.signature = signature;
     this.input = input;
     ++this.sequence;
@@ -247,7 +268,12 @@ export class QualitySession {
     this.restartPending = false;
     this.pending = true;
     try {
-      const view = await this.api.readQuality(request);
+      const userRead = this.nextUserRead;
+      this.nextUserRead = false;
+      const read = this.api.readQuality(request);
+      const view = await (userRead && this.activity
+        ? this.activity.track(read)
+        : read);
       this.id = view.id;
       if (!this.alive || !this.input?.enabled || this.paused) {
         await this.api.cancelQuality(view.id).catch(() => {});
@@ -291,6 +317,7 @@ export class QualitySession {
     }
   }
   restart() {
+    this.nextUserRead = true;
     this.paused = false;
     this.restartPending = true;
     this.view = null;

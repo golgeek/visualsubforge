@@ -1,5 +1,7 @@
 import type { WorkspaceAction } from '../client';
 
+import { WorkspaceActivity } from './workspace-activity.svelte';
+
 interface WorkspaceEffects {
   activity: () => boolean;
   confirming: () => boolean;
@@ -8,6 +10,7 @@ interface WorkspaceEffects {
 
 /** The workspace owns admission; feature owners only expose their activity. */
 export class Workspace {
+  readonly activity = new WorkspaceActivity();
   private tasks = $state(0);
   private alive = true;
   error = $state('');
@@ -48,6 +51,7 @@ export class Workspace {
     fn: () => Promise<unknown>,
     options: { clearError?: boolean } = {},
   ) {
+    const end = this.activity.begin();
     ++this.tasks;
     if (options.clearError !== false) this.error = '';
     try {
@@ -58,10 +62,12 @@ export class Workspace {
       return false;
     } finally {
       --this.tasks;
+      end();
     }
   }
 
   dispose() {
     this.alive = false;
+    this.activity.dispose();
   }
 }
