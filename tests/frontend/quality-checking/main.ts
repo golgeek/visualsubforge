@@ -43,14 +43,26 @@ let document: DocumentSnapshot = {
   ],
 };
 const anchorTrial = new URLSearchParams(location.search).get('anchor');
+const editorTrial = new URLSearchParams(location.search).get('editor');
+if (editorTrial !== null) {
+  heading.setAttribute('hidden', '');
+  output.setAttribute('hidden', '');
+}
 if (anchorTrial !== null) {
   base.profile.limitations = ['Unsupported fixture rule'];
+}
+if (anchorTrial !== null || editorTrial !== null) {
   document.cues = Array.from({ length: 70 }, (_, i) => ({
     id: i + 1,
     startMs: 2000 * i,
     endMs: 2000 * i + 1500,
     text: 'Cue ' + (i + 1),
   }));
+  if (editorTrial !== null)
+    base.metrics = document.cues.map((cue) => ({
+      ...base.metrics[0]!,
+      data: { ...base.metrics[0]!.data, cueId: String(cue.id) },
+    }));
   base.findings = document.cues.map((cue, i) => ({
     ...base.findings[0]!,
     cueIndex: i,
@@ -235,6 +247,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             );
             host.setAttribute('data-read-state', 'done');
           }
+          if (editorTrial !== null && args.request!.selected === 35) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, Number(editorTrial)),
+            );
+            host.setAttribute('data-read-revision', String(view.key.revision));
+          }
           if (heldRead) {
             holdStarted = true;
             await heldRead;
@@ -250,7 +268,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                 message: 'Injected quality navigation apply failure',
               };
             edits++;
-            if (anchorTrial !== null)
+            host.setAttribute('data-edits', String(edits));
+            if (
+              anchorTrial !== null ||
+              (editorTrial !== null && action.text === 'Resolved')
+            )
               base.findings = base.findings.filter(
                 (f) => f.cueId !== String(action.cueId),
               );
@@ -287,7 +309,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 const app = mount(App, { target: host });
 async function run() {
   try {
-    if (anchorTrial !== null) {
+    if (anchorTrial !== null || editorTrial !== null) {
       await until(
         () => !!host.querySelector('[aria-label="Accepted cue metrics"]'),
         'waiting for metrics',

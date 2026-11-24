@@ -7,8 +7,11 @@
     value,
     label,
     profile,
-  }: { value: QualityMetric; label: string; profile: QualityProfile } =
-    $props();
+  }: {
+    value: QualityMetric;
+    label: string;
+    profile: QualityProfile;
+  } = $props();
   const rs = $derived(
     value.data.rs.status === 'finite' ? value.data.rs.value : null,
   );

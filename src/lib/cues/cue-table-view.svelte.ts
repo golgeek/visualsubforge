@@ -17,12 +17,21 @@ export class CueTableView {
   private defaults = defaultColumns();
   query = $state('');
   issuesOnly = $state(false);
+  private pinned = $state<number | null>(null);
+  get resolvedCue() {
+    return this.issuesOnly &&
+      this.pinned === this.effects.selected?.() &&
+      !this.effects.issues?.().has(String(this.pinned))
+      ? this.pinned
+      : null;
+  }
   readonly rows = $derived.by(() =>
     filterCueRows(
       this.effects.cues(),
       this.query,
       this.issuesOnly,
       this.effects.issues?.() ?? new Map(),
+      this.resolvedCue,
     ).filter((row) => this.effects.reviewIds?.()?.has(row.cue.id) ?? true),
   );
   readonly order = $derived(this.rows.map((row) => row.cue));
@@ -39,8 +48,30 @@ export class CueTableView {
       reviewIds?: () => ReadonlySet<number> | undefined;
       styled?: () => boolean;
       issues?: () => ReadonlyMap<string, unknown>;
+      selected?: () => number | null;
+      indexAvailable?: () => boolean;
+      indexCurrent?: () => boolean;
     },
-  ) {}
+  ) {
+    $effect(() => {
+      const selected = this.effects.selected?.() ?? null;
+      if (
+        !this.issuesOnly ||
+        !this.effects.indexAvailable?.() ||
+        selected === null
+      )
+        this.pinned = null;
+      else if (this.effects.issues?.().has(String(selected)))
+        this.pinned = selected;
+      else if (selected !== this.pinned) this.pinned = null;
+    });
+  }
+  get filteredScopeIds() {
+    if (this.issuesOnly && !this.effects.indexCurrent?.()) return [];
+    return this.order
+      .filter((cue) => cue.id !== this.resolvedCue)
+      .map((cue) => cue.id);
+  }
   get columns() {
     return this.effects.columns?.() ?? this.defaults;
   }

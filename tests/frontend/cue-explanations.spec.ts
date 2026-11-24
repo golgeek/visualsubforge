@@ -43,3 +43,94 @@ test('the selected cue has distinct endpoint chips and its own explanations', as
       .getByRole('button', { name: /^Issues/ }),
   ).toHaveAttribute('aria-pressed', 'true');
 });
+
+for (const delay of [0, 120]) {
+  test(`typing keeps all issue strip controls stable during a ${delay} ms read`, async ({
+    page,
+  }) => {
+    await page.goto(
+      '/tests/frontend/cue-editor/?explanations&readDelay=' + delay,
+    );
+    await page.locator('[data-cue-id="35"]').click();
+    const strip = page.locator('.issue-strip');
+    const fix = strip.getByRole('button', { name: 'Fix 1', exact: true });
+    await expect(fix).toBeEnabled();
+    const editor = page.getByRole('textbox', { name: 'Subtitle text' });
+    await editor.focus();
+    const snapshot = await strip.evaluateHandle((el) => {
+      const editorRoot = el.closest('.editor')!;
+      const ancestors: Element[] = [];
+      for (
+        let parent = el.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        if (
+          parent === document.scrollingElement ||
+          parent.scrollHeight > parent.clientHeight ||
+          /auto|scroll|hidden|overlay/.test(getComputedStyle(parent).overflowY)
+        )
+          ancestors.push(parent);
+      }
+      function geometry() {
+        const top = el.getBoundingClientRect().top;
+        return {
+          top,
+          relativeTop: top - editorRoot.getBoundingClientRect().top,
+          page: document.scrollingElement!.scrollTop,
+          ancestors: ancestors.map((parent) => [
+            parent.tagName + '.' + parent.className,
+            parent.scrollTop,
+          ]),
+        };
+      }
+
+      const sample = () =>
+        JSON.stringify({
+          geometry: geometry(),
+          opacity: getComputedStyle(el).opacity,
+          controls: [...el.querySelectorAll('button')].map((b) => [
+            b.textContent,
+            b.disabled,
+            getComputedStyle(b).opacity,
+            b.getBoundingClientRect().toJSON(),
+          ]),
+        });
+      const baseline = sample();
+      let changed = '';
+      let frames = 0;
+      let frame = 0;
+      function observe() {
+        frames++;
+        const now = sample();
+        if (now !== baseline && !changed) changed = now;
+        frame = requestAnimationFrame(observe);
+      }
+      observe();
+      return () => {
+        cancelAnimationFrame(frame);
+        return { baseline, changed, frames };
+      };
+    });
+    await editor.press('End');
+    await editor.pressSequentially('xy', { delay });
+    const draft = await editor.inputValue();
+    // Avoid a focus change here: the draft and the read must still guard Fix.
+    await strip.evaluate((el) =>
+      [...el.querySelectorAll('button')]
+        .find((b) => b.textContent?.trim() === 'Fix 1')
+        ?.click(),
+    );
+    await expect(page.locator('#test')).toHaveAttribute(
+      'data-checked-text',
+      draft,
+    );
+    const observation = await snapshot.evaluate((stop) => stop());
+    await snapshot.dispose();
+    expect(observation.frames).toBeGreaterThan(2);
+    expect(observation.changed || observation.baseline).toBe(
+      observation.baseline,
+    );
+    await expect(editor).toHaveValue(draft);
+  });
+}

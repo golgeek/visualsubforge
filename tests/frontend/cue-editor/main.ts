@@ -13,9 +13,15 @@ import {
   type updateMenu,
 } from '../../../src/lib/client';
 import { emptyQuality } from '../empty-quality';
-const host = document.querySelector('#test')!;
-const heading = document.querySelector('#result')!;
-const output = document.querySelector('#checks')!;
+function fixtureElement<T extends HTMLElement>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element)
+    throw new Error('Missing cue editor fixture element: ' + selector);
+  return element;
+}
+const host = fixtureElement<HTMLDivElement>('#test');
+const heading = fixtureElement<HTMLHeadingElement>('#result');
+const output = fixtureElement<HTMLOListElement>('#checks');
 function assert(value: unknown, message: string) {
   if (!value) throw new Error(message);
 }
@@ -72,6 +78,18 @@ const original: DocumentSnapshot = {
 const explanationsTrial = new URLSearchParams(location.search).has(
   'explanations',
 );
+const readDelay = new URLSearchParams(location.search).get('readDelay');
+if (readDelay !== null) {
+  // The desktop shell fills the window. Keep the fixture's checklist out of
+  // this geometry trial so caret tracking cannot scroll the document.
+  heading.hidden = true;
+  output.hidden = true;
+  Object.assign(host.style, {
+    position: 'fixed',
+    inset: '0',
+    overflow: 'hidden',
+  });
+}
 if (explanationsTrial) original.cues[2]!.id = 35;
 let snapshot = structuredClone(original);
 let stage = 'start';
@@ -160,7 +178,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recent_forget':
           return [];
         case 'preferences_get':
-          return structuredClone(defaultPreferences);
+          return {
+            ...structuredClone(defaultPreferences),
+            showQualityMetrics:
+              readDelay !== null || defaultPreferences.showQualityMetrics,
+          };
         case 'recovery_status':
           return { entries: [], error: null };
         case 'plugin:event|listen':
@@ -176,9 +198,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return null;
         case 'quality_read': {
           if (explanationsTrial)
-            await new Promise((resolve) => setTimeout(resolve, 90));
+            await new Promise((resolve) =>
+              setTimeout(resolve, Number(readDelay ?? 90)),
+            );
           const view = emptyQuality(args);
           const request = args.request!;
+          if (request.draft?.kind === 'update')
+            host.dataset.checkedText = request.draft.value.text;
           if (request.selected !== null) selectedForChecks = request.selected;
           const projection =
             request.selected === null

@@ -133,6 +133,7 @@ async function fixture() {
 }
 async function fixesLifecycle() {
   type Input = {
+    canApply: boolean;
     document: DocumentSnapshot;
     cueId: number;
     session: number;
@@ -142,6 +143,7 @@ async function fixesLifecycle() {
     const f = await fixture();
     let input = $state.raw<Input | null>({
       document: f.session.snapshot,
+      canApply: true,
       cueId: 1,
       session: 1,
       context: 'first',
@@ -199,6 +201,7 @@ async function fixesLifecycle() {
     const f = await fixture();
     let input = $state.raw<Input | null>({
       document: f.session.snapshot,
+      canApply: true,
       cueId: 1,
       session: 1,
       context: 'first',
@@ -263,6 +266,7 @@ async function fixesLifecycle() {
     const f = await fixture();
     const input = {
       document: f.session.snapshot,
+      canApply: true,
       cueId: 1,
       session: 1,
       context: 'current',

@@ -324,7 +324,11 @@
             : review.index.threaded
           : undefined,
       styled: () => subtitles.styled,
-      issues: () => quality.issues,
+      issues: () => quality.displayedIssues,
+      selected: () => subtitles.selected,
+      indexAvailable: () =>
+        quality.retainingIndex || quality.issueIndexComplete,
+      indexCurrent: () => quality.issueIndexComplete && !quality.retainingIndex,
       position: () =>
         status.loaded && !media.pending && !status.seeking
           ? status.positionSeconds
@@ -615,10 +619,9 @@
         workspaceModal.active ||
         (view.problemsOpen && ['timing', 'shift'].includes(view.reviewTab)) ||
         workspace.confirming ||
-        subtitles.dirty ||
         !subtitles.stateConfirmed ||
         quality.paused ||
-        quality.stale ||
+        quality.view?.phase !== 'ready' ||
         !subtitles.cue ||
         issues?.cueId !== String(subtitles.selected) ||
         !issues.count
@@ -626,6 +629,7 @@
         return null;
       return {
         document: subtitles.snapshot,
+        canApply: !subtitles.dirty && !quality.stale,
         cueId: subtitles.cue.id,
         session: media.status.session,
         context: `${preferences.qualityContext}/${scenes.sceneState.qualityKey}/${quality.view?.key.epoch}`,
