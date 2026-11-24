@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+  import { settled } from '../ui/settled.svelte';
   import { countLabel } from '../ui/count-label';
   import { qualityText } from './quality-display';
   import type { QualitySession } from './quality-session.svelte';
@@ -12,6 +14,7 @@
   import { qualityRules, sceneCoverage } from './quality-display';
   let {
     session,
+    selected = null,
     onfixtiming,
     documentLoaded = true,
     disabled,
@@ -20,6 +23,7 @@
     onlanguage,
   }: {
     session: QualitySession;
+    selected?: number | null;
     onfixtiming?: () => void;
     documentLoaded?: boolean;
     disabled: boolean;
@@ -27,8 +31,78 @@
     onclose: () => void;
     onlanguage: (operation: TextOperation) => void;
   } = $props();
-  const view = $derived(session.view);
-  const usable = $derived(!!view?.profileHash && !session.stale && !disabled);
+  const view = $derived(session.displayedList ?? session.view);
+  const updating = settled(() => session.listStale);
+  let findings: HTMLDivElement;
+  type Finding = QualityView['findings'][number];
+  function findingKey(f: Finding) {
+    return JSON.stringify([
+      f.cueId,
+      f.rule,
+      f.relatedCueId,
+      f.language?.start,
+      f.language?.end,
+    ]);
+  }
+  const findingRows = $derived.by(() => {
+    const occurrences: Record<string, number> = {};
+    return (view?.findings ?? []).map((finding) => {
+      const identity = findingKey(finding);
+      const occurrence = occurrences[identity] ?? 0;
+      occurrences[identity] = occurrence + 1;
+      return { finding, key: identity + '/' + occurrence };
+    });
+  });
+  let followed: string | null = null;
+  $effect.pre(() => {
+    // Read old row geometry immediately before publishing the replacement page.
+    const page = view;
+    if (!page || !findings) return;
+    const scroll = findings.closest<HTMLElement>('.body');
+    if (!scroll || scroll.scrollTop === 0) return;
+    const bounds = scroll.getBoundingClientRect();
+    const rows = () =>
+      Array.from(findings.querySelectorAll<HTMLElement>('.finding'));
+    const visible = rows().filter((row) => {
+      const box = row.getBoundingClientRect();
+      return box.top < bounds.bottom && box.bottom > bounds.top;
+    });
+    const anchor =
+      visible.find((row) => row.dataset.key === followed) ?? visible[0];
+    if (!anchor) return;
+    const offset = anchor.getBoundingClientRect().top - bounds.top;
+    const index = Number(anchor.dataset.index);
+    let current = true;
+    void tick().then(() => {
+      if (!current || !scroll.isConnected) return;
+      const list = rows();
+      const next =
+        list.find((row) => row.dataset.key === anchor.dataset.key) ??
+        list.reduce<HTMLElement | undefined>((nearest, row) => {
+          if (!nearest) return row;
+          const distance = Number(row.dataset.index) - index;
+          const best = Number(nearest.dataset.index) - index;
+          return Math.abs(distance) < Math.abs(best) ||
+            (Math.abs(distance) === Math.abs(best) && distance >= 0 && best < 0)
+            ? row
+            : nearest;
+        }, undefined);
+      if (next)
+        scroll.scrollTop +=
+          next.getBoundingClientRect().top -
+          scroll.getBoundingClientRect().top -
+          offset;
+    });
+    return () => {
+      current = false;
+    };
+  });
+  const usable = $derived(
+    view === session.view &&
+      !!view?.profileHash &&
+      !session.listStale &&
+      !disabled,
+  );
   let wordPending = $state(false);
   let wordError = $state('');
   async function wordChange(change: LanguageWordChange) {
@@ -46,7 +120,7 @@
   }
   function review(finding: QualityView['findings'][number]) {
     const d = finding.language;
-    if (!d || d.manualReason) return;
+    if (!usable || !d || d.manualReason) return;
     const target = {
       cueIndex: finding.cueIndex,
       start: d.start,
@@ -69,11 +143,11 @@
         ? 'Open subtitles to check for issues'
         : session.paused
           ? 'Checking paused'
-          : view?.phase === 'checking' || view?.phase === 'cancelling'
+          : !view?.profileHash && session.view?.phase === 'checking'
             ? 'Checking…'
-            : session.stale
+            : updating.showUpdating
               ? 'Updating…'
-              : view?.phase === 'failed'
+              : session.view?.phase === 'failed'
                 ? 'Check failed'
                 : view?.profileHash
                   ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
@@ -94,8 +168,8 @@
     >
     <button onclick={onclose}>Close issues</button>
   </header>
-  {#if session.error || view?.error}<p role="alert">
-      {session.error || view?.error}
+  {#if session.error || session.view?.error}<p role="alert">
+      {session.error || session.view?.error}
     </p>{/if}
   {#if wordError}<p role="alert">{wordError}</p>{/if}
   {#if view}
@@ -163,14 +237,14 @@
       ></label
     >
     <button
-      disabled={!usable || !view?.previousCue}
+      disabled={!usable || session.stale || !view?.previousCue}
       data-nav-key="previousCue"
       onclick={(event) =>
         view?.previousCue && onnavigate(view.previousCue, event.currentTarget)}
       >Previous cue · ⇧F4</button
     >
     <button
-      disabled={!usable || !view?.nextCue}
+      disabled={!usable || session.stale || !view?.nextCue}
       data-nav-key="nextCue"
       onclick={(event) =>
         view?.nextCue && onnavigate(view.nextCue, event.currentTarget)}
@@ -183,24 +257,27 @@
         )}</span
       >{/if}
   </div>
-  <div class="findings" aria-busy={session.stale}>
-    {#if view?.profileHash && !session.stale}
+  <div class="findings" bind:this={findings} aria-busy={updating.showUpdating}>
+    {#if view?.profileHash}
       {#if !view.filteredCount}<p>
           No findings for these filters.{view.profile.limitations.length
             ? ' Profile coverage remains partial.'
             : ''}
         </p>{/if}
-      {#each view.findings as finding, index (`${view.id}/${view.offset + index}`)}
-        <div class="finding">
+      {#each findingRows as { finding, key } (key)}
+        <div
+          class="finding"
+          data-key={key}
+          data-index={finding.cueIndex}
+          aria-current={String(selected) === finding.cueId ? 'true' : undefined}
+        >
           <button
-            disabled={!usable}
-            data-nav-key={'issue-cueId-' +
-              finding.cueId +
-              '-' +
-              finding.rule +
-              '-' +
-              index}
-            onclick={(event) => onnavigate(finding.cueId, event.currentTarget)}
+            {disabled}
+            data-nav-key={'issue-' + key}
+            onclick={(event) => {
+              followed = key;
+              onnavigate(finding.cueId, event.currentTarget);
+            }}
             >Cue {finding.cueIndex + 1} · {qualityRules.find(
               (r) => r.id === finding.rule,
             )?.label}</button
@@ -213,13 +290,8 @@
             )}</span
           >
           {#if finding.relatedCueId}<button
-              disabled={!usable}
-              data-nav-key={'issue-relatedCueId-' +
-                finding.cueId +
-                '-' +
-                finding.rule +
-                '-' +
-                index}
+              {disabled}
+              data-nav-key={'related-' + key}
               onclick={(event) =>
                 onnavigate(finding.relatedCueId!, event.currentTarget)}
               >Related cue</button
@@ -301,7 +373,11 @@
     color: var(--text);
   }
   header span {
-    flex: 1 1 auto;
+    flex: 1 1 10ch;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .policy {
     margin: 6px 0;
@@ -320,6 +396,12 @@
     gap: 4px 8px;
     border-top: 1px solid var(--line);
     padding-block: 5px;
+  }
+  .findings[aria-busy='true'] {
+    opacity: 0.6;
+  }
+  .finding[aria-current='true'] {
+    background: var(--accent-soft);
   }
   .finding small {
     flex-basis: 100%;

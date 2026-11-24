@@ -42,6 +42,21 @@ let document: DocumentSnapshot = {
     { id: 3, startMs: 2300, endMs: 4000, text: 'Third' },
   ],
 };
+const anchorTrial = new URLSearchParams(location.search).get('anchor');
+if (anchorTrial !== null) {
+  document.cues = Array.from({ length: 70 }, (_, i) => ({
+    id: i + 1,
+    startMs: 2000 * i,
+    endMs: 2000 * i + 1500,
+    text: 'Cue ' + (i + 1),
+  }));
+  base.findings = document.cues.map((cue, i) => ({
+    ...base.findings[0]!,
+    cueIndex: i,
+    cueId: String(cue.id),
+    relatedCueId: null,
+  }));
+}
 let draft: QualityRequest['draft'] = null;
 let edits = 0;
 let failApply = false;
@@ -195,6 +210,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(emptyStatus);
         case 'quality_read': {
           const view = read(args.request!);
+          if (anchorTrial !== null && args.request!.selected === 35) {
+            host.setAttribute('data-read-state', 'pending');
+            await new Promise((resolve) =>
+              setTimeout(resolve, Number(anchorTrial)),
+            );
+            host.setAttribute('data-read-state', 'done');
+          }
           if (heldRead) {
             holdStarted = true;
             await heldRead;
@@ -210,6 +232,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                 message: 'Injected quality navigation apply failure',
               };
             edits++;
+            if (anchorTrial !== null)
+              base.findings = base.findings.filter(
+                (f) => f.cueId !== String(action.cueId),
+              );
             document = {
               ...document,
               revision: document.revision + 1,
@@ -243,6 +269,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 const app = mount(App, { target: host });
 async function run() {
   try {
+    if (anchorTrial !== null) {
+      await until(
+        () => !!host.querySelector('[aria-label="Accepted cue metrics"]'),
+        'waiting for metrics',
+      );
+      await chooseCommand(host, 'problems');
+      return;
+    }
     await until(
       () => !!host.querySelector('[aria-label="Accepted cue metrics"]'),
       'Accepted metrics unavailable',
