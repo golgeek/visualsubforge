@@ -20,7 +20,7 @@ duplicates. No nominal frame rate is inferred from profile names. For example,
 1001/24000 seconds becomes 42 ms. Source timestamps remain unchanged in caches.
 
 Problems offers **Start near scene cut** and **End near scene cut** filters and
-the existing protected cue navigation (Apply/Discard/Cancel for drafts). Coverage
+cue navigation that commits pending fields before selecting the target. Coverage
 is separate from findings and profile limitations. Missing media, unavailable
 analysis and partial/running scans are not passing scene results. Completed
 Standard and Reduced scans can supply checks; both remain heuristic, and Reduced

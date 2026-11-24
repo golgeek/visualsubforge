@@ -205,28 +205,25 @@ export async function statisticsWorkflow({
   assert.equal(await text.getValue(), 'Keep statistics draft');
   dialog = await open();
   await navigate(dialog, 2);
-  await until('statistics draft guard', () =>
-    browser.$('button=Cancel navigation').then((e) => e.isExisting()),
+  await until(
+    'invalid draft blocks statistics navigation',
+    async () => (await text.getAttribute('aria-invalid')) === 'true',
   );
-  await (await browser.$('button=Cancel navigation')).click();
   assert.equal(await text.getValue(), 'Keep statistics draft');
   assert.deepEqual(await status(), before);
-  dialog = await open();
+  await discardCue(browser);
   await navigate(dialog, 2);
-  await (await browser.$('button=Discard draft and navigate')).click();
   await until(
     'statistics selected second cue',
     async () => (await text.getValue()) === '0',
   );
   assert.deepEqual(await status(), before);
-  const startField = await browser.$('[aria-label="Cue start"]');
-  const acceptedStart = await startField.getValue();
-  await startField.setValue('invalid');
   await text.setValue('Explicit statistics navigation');
-  dialog = await open();
   await navigate(dialog, 1);
-  await startField.setValue(acceptedStart);
-  await (await browser.$('button=Apply draft and navigate')).click();
+  await until(
+    'statistics selected first cue',
+    async () => (await text.getValue()) === before.cues[0].text,
+  );
   await until(
     'explicit statistics navigation Apply',
     async () => (await status()).revision === before.revision + 1,

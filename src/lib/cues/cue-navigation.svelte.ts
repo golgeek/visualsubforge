@@ -29,8 +29,6 @@ export class CueNavigation {
   following = $state<CueFollowing>('following');
   editorFocused = $state(false);
   textFocused = $state(false);
-  pendingProblem = $state<string | null>(null);
-  private pendingProblemVersion = '';
   private lastRevealedCue = '';
   private alive = true;
   private cueMenu: Pick<CueMenu, 'context'> | null = null;
@@ -46,18 +44,6 @@ export class CueNavigation {
     private gestures: TimingGesture,
     private effects: Effects,
   ) {
-    $effect(() => {
-      if (!this.alive) return;
-      if (
-        this.pendingProblem &&
-        (this.pendingProblemVersion !==
-          `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}` ||
-          !this.subtitles.snapshot.cues.some(
-            (c) => String(c.id) === this.pendingProblem,
-          ))
-      )
-        this.pendingProblem = null;
-    });
     $effect(() => {
       if (!this.alive) return;
       // Includes timing buttons and other draft changes that do not focus an input.
@@ -222,15 +208,7 @@ export class CueNavigation {
     });
   };
   reviewNavigating = $state(false);
-  private async selectFromReview(id: string) {
-    this.reviewNavigating = true;
-    try {
-      await this.selectCue(Number(id));
-    } finally {
-      this.reviewNavigating = false;
-    }
-  }
-  requestProblem = (id: string) => {
+  requestProblem = async (id: string) => {
     if (
       this.workspace.busy ||
       this.workspace.confirming ||
@@ -238,30 +216,13 @@ export class CueNavigation {
       !this.subtitles.snapshot.cues.some((c) => String(c.id) === id)
     )
       return;
-    if (String(this.subtitles.selected) === id) {
-      const cue = this.subtitles.cue;
-      if (cue) this.timeline.frameCue(cue, this.effects.zoomToCue?.() ?? true);
-      return;
-    }
     this.suspendFollowing();
-    if (this.subtitles.dirty) {
-      this.pendingProblemVersion = `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}`;
-      this.pendingProblem = id;
-    } else void this.selectFromReview(id);
-  };
-  resolveProblem = async (choice: 'apply' | 'discard' | 'cancel') => {
-    if (this.workspace.busy || !this.pendingProblem) return;
-    const id = this.pendingProblem;
-    if (choice === 'cancel') {
-      this.pendingProblem = null;
-      return;
+    this.reviewNavigating = true;
+    try {
+      await this.selectCue(Number(id));
+    } finally {
+      this.reviewNavigating = false;
     }
-    const completed = await this.workspace.task(async () => {
-      if (choice === 'apply') await this.subtitles.apply();
-      else this.subtitles.revert();
-      this.pendingProblem = null;
-    });
-    if (completed && this.alive) await this.selectFromReview(id);
   };
   revealSelection = async (id: number | null = this.subtitles.selected) => {
     await tick();

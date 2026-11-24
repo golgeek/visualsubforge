@@ -127,12 +127,11 @@ test('timing families, policy persistence, linked changes and protected navigati
     .getByLabel('Subtitle text', { exact: true })
     .fill('Uncommitted wording');
   await edit.click();
-  const decision = page.getByRole('group', {
-    name: 'Resolve cue draft before navigation',
-  });
-  await expect(decision).toBeVisible();
-  await decision.getByRole('button', { name: 'Cancel navigation' }).click();
   await expect(page.getByLabel('Subtitle text', { exact: true })).toHaveValue(
-    'Uncommitted wording',
+    '{\\k20}Timed',
   );
+  await expect(page.locator('#test')).toHaveAttribute('data-edits', '1');
+  await expect(
+    dock.getByRole('button', { name: 'Timing', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });

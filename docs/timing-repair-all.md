@@ -62,9 +62,9 @@ selected changes for up to 200 visible cues. Apply includes all selected pages.
 After a checkbox edit, checked rows show the original and selected timings.
 The endpoint delta includes only the endpoints that row contributes.
 An unchecked row previews the result of ticking it, including its prerequisites
-and any replaced alternatives. Following a cue keeps its review tab. A pending
-cue draft offers Apply, Discard and Cancel in the dock. Under Whole file,
-navigation preserves the checked changes, expanded rows and anchored row position.
+and any replaced alternatives. Following a cue keeps its review tab. The editor commits a pending
+draft before following the link. A rejected edit keeps the original cue selected.
+Under Whole file, navigation within the same document revision preserves the checked changes, expanded rows and anchored row position.
 Switching tabs and returning to Timing restores those choices and the proposal
 page. The dock anchors by cue identity and uses the nearest surviving row if a
 refresh removes the anchor. Changing the document revision, media session,

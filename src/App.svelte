@@ -345,7 +345,7 @@
 
   const cueEditing = disposeWithComponent(
     new CueEditing(subtitles, media, timeline, {
-      canCommit: () => workspace.canAct && !navigation.pendingProblem,
+      canCommit: () => workspace.canAct,
       leaveEditor: () => waveHost?.querySelector('canvas')?.focus(),
     }),
   );
@@ -650,12 +650,10 @@
       arranged: (panels) => {
         view.problemsOpen = panels.includes('review');
         view.translationOpen = panels.includes('translation');
-        if (!view.problemsOpen) navigation.pendingProblem = null;
       },
       preset: (preset) => {
         view.problemsOpen = preset === 'review';
         view.translationOpen = preset === 'translation';
-        if (!view.problemsOpen) navigation.pendingProblem = null;
       },
     }),
   );
@@ -1268,12 +1266,8 @@
                   'Timings accepted. Undo restores the whole change.';
                 quality.restart();
               }}
-              onclose={() =>
-                view.closeProblems(() => (navigation.pendingProblem = null))}
+              onclose={() => view.closeProblems()}
               onnavigate={navigation.requestProblem}
-              pending={navigation.pendingProblem !== null}
-              resolvingDisabled={workspace.busy || workspace.confirming}
-              onresolve={navigation.resolveProblem}
               navigating={() =>
                 navigation.reviewNavigating &&
                 !workspace.confirming &&
@@ -1287,10 +1281,7 @@
                   disabled={workspace.busy || workspace.confirming}
                   onnavigate={navigate}
                   onlanguage={(operation) => void dialogs.openText(operation)}
-                  onclose={() =>
-                    view.closeProblems(() => {
-                      navigation.pendingProblem = null;
-                    })}
+                  onclose={() => view.closeProblems()}
                 />
               {/snippet}
               {#snippet changes()}<ChangesPanel

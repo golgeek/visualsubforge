@@ -30,7 +30,7 @@ export class WorkspaceView {
     this.translationOpen = false;
     this.problemsOpen = true;
   }
-  toggleProblems(cancelNavigation: () => void) {
+  toggleProblems() {
     if (this.problemsOpen && this.reviewTab !== 'issues') {
       this.reviewTab = 'issues';
       return;
@@ -38,12 +38,10 @@ export class WorkspaceView {
     this.reviewTab = 'issues';
     this.problemsOpen = !this.problemsOpen;
     if (this.problemsOpen) this.translationOpen = false;
-    if (!this.problemsOpen) cancelNavigation();
   }
-  closeProblems(cancelNavigation: () => void) {
+  closeProblems() {
     if (this.reviewBusy) return;
     this.problemsOpen = false;
-    cancelNavigation();
   }
   toggleTranslation() {
     if (this.reviewBusy) return;

@@ -77,8 +77,8 @@
     <button onclick={onclose}>Close</button>
   </header>
   <p>
-    Statistics describe accepted subtitles. Unapplied cue drafts stay unchanged.
-    Choose a cue link to return to the editor; navigation protects any draft.
+    Statistics describe accepted subtitles. Following a cue link commits pending
+    editor changes before selecting the cue.
   </p>
   {#if subtitles.dirty}<p class="notice">
       The current cue has an unapplied draft. It is not included in these

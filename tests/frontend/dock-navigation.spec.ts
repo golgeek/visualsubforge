@@ -96,56 +96,62 @@ test('Statistics outlier follows its cue on the same tab', async ({ page }) => {
   await expect(page.getByLabel('Subtitle text')).toHaveValue('Cue 8');
 });
 
-for (const choice of [
-  'Cancel navigation',
-  'Discard draft and navigate',
-  'Apply draft and navigate',
-]) {
-  test(`Timing owns the draft prompt for ${choice}`, async ({ page }) => {
-    await page.goto('/tests/frontend/scene-quality/?policy&navigation=70');
+for (const tab of ['Issues', 'Timing', 'Statistics']) {
+  test(`${tab} mouse navigation commits the focused draft and follows the clicked cue`, async ({
+    page,
+  }) => {
+    await page.goto('/tests/frontend/scene-quality/?policy&navigation=180');
     const dock = page.getByRole('complementary', { name: 'Review panel' });
-    const apply = dock.locator('.apply');
-    const tick = dock.getByRole('checkbox', {
-      name: 'Include cue 2',
-      exact: true,
-    });
-    await tick.uncheck();
-    await expect(apply).toHaveText('Apply 1 change');
-    const edit = dock
-      .locator('.manual')
-      .getByRole('button', { name: 'Edit', exact: true });
-    await expect(edit).toBeVisible();
+    const tabButton = dock
+      .getByRole('button', { name: new RegExp('^' + tab) })
+      .first();
+    await tabButton.click();
+    const target =
+      tab === 'Timing'
+        ? dock
+            .locator('.manual')
+            .getByRole('button', { name: 'Edit', exact: true })
+        : dock.getByRole('button', {
+            name: tab === 'Issues' ? /^Next cue/ : /^Cue 8 ·/,
+          });
+    await expect(target).toBeEnabled();
     const text = page.getByLabel('Subtitle text');
-    await text.fill('Protect this draft');
-    await edit.click();
-    const prompt = dock.getByRole('group', {
-      name: 'Resolve cue draft before navigation',
-    });
-    await expect(prompt.getByRole('button').first()).toBeFocused();
-    await expect(
-      dock.getByRole('button', { name: 'Timing', exact: true }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    await page.waitForTimeout(800);
-    await expect(page.locator('#test')).not.toHaveAttribute('data-edits', /.+/);
-    await prompt.getByRole('button', { name: choice, exact: true }).click();
-    await expect(prompt).toHaveCount(0);
-    await expect(edit).toBeFocused();
-    if (choice === 'Cancel navigation') {
-      await expect(text).toHaveValue('Protect this draft');
-      await text.focus();
-      await text.press('Escape');
-      await expect(text).toHaveValue('Cue 1');
-      await expect(apply).toHaveText('Apply 1 change');
-      await expect(tick).not.toBeChecked();
-    } else {
-      await expect(text).toHaveValue('Cue 3');
-      if (choice.startsWith('Apply'))
-        await expect(page.locator('#test')).toHaveAttribute('data-edits', '1');
-      else
-        await expect(page.locator('#test')).not.toHaveAttribute(
-          'data-edits',
-          /.+/,
-        );
-    }
+    await text.fill('Pending subtitle');
+    await target.click();
+    await expect(text).toHaveValue(tab === 'Timing' ? 'Cue 3' : 'Cue 8');
+    await expect(page.locator('#test')).toHaveAttribute(
+      'data-edit-attempts',
+      '1',
+    );
+    await expect(page.locator('#test')).toHaveAttribute('data-edits', '1');
+    await expect(page.locator('#test')).toHaveAttribute('data-seek', 'done');
+    await expect(tabButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(target).toBeFocused();
   });
 }
+
+test('a rejected dock commit leaves the selected cue and its inline reason', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/scene-quality/?policy&navigation=180');
+  const dock = page.getByRole('complementary', { name: 'Review panel' });
+  await dock.getByRole('button', { name: /^Issues/ }).click();
+  const host = page.locator('#test');
+  await host.evaluate((el) => {
+    el.dataset.rejectEdit = '1';
+  });
+  const text = page.getByLabel('Subtitle text');
+  await text.fill('Keep this draft');
+  await dock.getByRole('button', { name: /^Next cue/ }).click();
+  await expect(text).toHaveValue('Keep this draft');
+  await expect(text).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#cue-commit-error')).toContainText(
+    'Rejected navigation draft',
+  );
+  await expect(page.locator('[data-cue-id="1"]')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(host).toHaveAttribute('data-edit-attempts', '1');
+  await expect(host).not.toHaveAttribute('data-seeks', /.+/);
+});

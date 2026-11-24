@@ -10,7 +10,6 @@
   import ReviewTiming from '../timing/ReviewTiming.svelte';
   import StatisticsPanel from '../quality/StatisticsPanel.svelte';
   import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
-  import DockDraftPrompt from './DockDraftPrompt.svelte';
   import { TimingReviewSelection } from '../timing/timing-review-selection.svelte';
   type Navigate = (id: string, origin: HTMLButtonElement) => void;
   let {
@@ -26,9 +25,6 @@
     context,
     previewIds,
     enabled,
-    pending,
-    resolvingDisabled,
-    onresolve,
     navigating,
     issues,
     changes,
@@ -49,75 +45,75 @@
     context: () => string;
     previewIds: () => readonly number[];
     enabled: () => boolean;
-    pending: boolean;
-    resolvingDisabled: boolean;
-    onresolve: (choice: 'apply' | 'discard' | 'cancel') => Promise<void>;
     navigating: () => boolean;
     issues: Snippet<[Navigate]>;
     changes: Snippet;
     onclose: () => void;
     onpreview: (value: TimingPreview | null) => void;
     onaccepted: () => void;
-    onnavigate: (id: string) => void;
+    onnavigate: (id: string) => Promise<void>;
   } = $props();
   let panel: HTMLElement;
-  let focusObserver: MutationObserver | null = null;
-  function stopRestoringFocus() {
-    focusObserver?.disconnect();
-    focusObserver = null;
-    document.removeEventListener('pointerdown', stopRestoringFocus, true);
-    document.removeEventListener('keydown', stopRestoringFocus, true);
+  let focusRequest: AbortController | undefined;
+  function preserveDraftFocus(event: MouseEvent) {
+    // Blur can commit and disable or replace the link before its click fires.
+    if (
+      event.button === 0 &&
+      subtitles.dirty &&
+      event.target instanceof Element &&
+      event.target.closest('button[data-nav-key]')
+    )
+      event.preventDefault();
   }
-  let origin: HTMLButtonElement | null = null;
-  const navigate: Navigate = (id, button) => {
-    origin = button;
-    onnavigate(id);
-    // WebKit leaves pointer-activated buttons unfocused by default.
-    if (!pending) button.focus({ preventScroll: true });
-  };
-  async function resolve(choice: 'apply' | 'discard' | 'cancel') {
-    const button = origin;
-    await onresolve(choice);
+  const navigate: Navigate = async (id, button) => {
+    focusRequest?.abort();
+    const request = new AbortController();
+    focusRequest = request;
+    const stop = () => request.abort();
+    const options = { capture: true, signal: request.signal };
+    document.addEventListener('pointerdown', stop, options);
+    document.addEventListener('keydown', stop, options);
+    await onnavigate(id);
     await tick();
-    if (!panel?.isConnected || pending) return;
-    if (button?.isConnected) button.focus({ preventScroll: true });
-    else {
-      // A committed draft can replace the row before its fresh report arrives.
-      const key = button?.dataset.navKey;
-      const tab = panel.querySelector<HTMLButtonElement>(
-        'nav button[aria-pressed=true]',
-      );
-      tab?.focus({ preventScroll: true });
-      if (!key) return;
-      const selector = `button[data-nav-key="${CSS.escape(key)}"]:enabled`;
-      const restore = () => {
-        const replacement = panel.querySelector<HTMLButtonElement>(selector);
-        if (replacement && !replacement.closest('[inert]')) {
-          replacement.focus({ preventScroll: true });
-          stopRestoringFocus();
-          return true;
-        }
-        return false;
-      };
-      if (restore()) return;
-      focusObserver = new MutationObserver(restore);
-      focusObserver.observe(panel, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-        attributeFilter: ['inert', 'disabled'],
-      });
-      document.addEventListener('pointerdown', stopRestoringFocus, true);
-      document.addEventListener('keydown', stopRestoringFocus, true);
+    if (request.signal.aborted) return;
+    if (subtitles.dirty) {
+      stop();
+      return;
     }
-  }
+    const key = button.dataset.navKey!;
+    const selector = `button[data-nav-key="${CSS.escape(key)}"]:enabled`;
+    const restore = () => {
+      const replacement = panel.querySelector<HTMLButtonElement>(selector);
+      if (!replacement || replacement.closest('[inert]')) return false;
+      replacement.focus({ preventScroll: true });
+      stop();
+      return true;
+    };
+    if (restore()) return;
+    // A new accepted revision can replace the button until the fresh report arrives.
+    panel
+      .querySelector<HTMLButtonElement>('nav button[aria-pressed=true]')
+      ?.focus({ preventScroll: true });
+    const observer = new MutationObserver(restore);
+    request.signal.addEventListener('abort', () => observer.disconnect(), {
+      once: true,
+    });
+    observer.observe(panel, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['inert', 'disabled'],
+    });
+  };
   onMount(() => {
     const launcher =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+    panel.addEventListener('mousedown', preserveDraftFocus);
     return () => {
-      stopRestoringFocus();
+      focusRequest?.abort();
+      panel.removeEventListener('mousedown', preserveDraftFocus);
       view.timingSelection = new TimingReviewSelection();
       if (launcher?.isConnected && !launcher.matches(':disabled'))
         launcher.focus({ preventScroll: true });
@@ -265,10 +261,6 @@
           : 'inward'} ▾</button
       >{/if}
   </div>
-  {#if pending}<DockDraftPrompt
-      disabled={resolvingDisabled}
-      onresolve={resolve}
-    />{/if}
   <div class="body">
     {#if view.reviewTab === 'issues'}{@render issues(navigate)}
     {:else if view.reviewTab === 'changes'}{@render changes()}

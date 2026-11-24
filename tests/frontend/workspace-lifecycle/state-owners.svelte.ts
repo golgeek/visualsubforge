@@ -45,17 +45,16 @@ export async function stateOwnerCases(passed: (message: string) => void) {
   );
 
   const panels = new WorkspaceView();
-  let cancelled = 0;
   panels.translationOpen = true;
-  panels.toggleProblems(() => ++cancelled);
+  panels.toggleProblems();
   assert(
-    panels.problemsOpen && !panels.translationOpen && cancelled === 0,
-    'Opening Problems hides Translation without cancelling navigation',
+    panels.problemsOpen && !panels.translationOpen,
+    'Opening Problems hides Translation',
   );
   panels.toggleTranslation();
   assert(
-    panels.translationOpen && !panels.problemsOpen && cancelled === 0,
-    'Translation toggle preserves the existing pending-navigation policy',
+    panels.translationOpen && !panels.problemsOpen,
+    'Opening Translation hides Review',
   );
   panels.toggleTranslation();
   assert(
@@ -68,11 +67,8 @@ export async function stateOwnerCases(passed: (message: string) => void) {
     panels.problemsOpen && panels.translationOpen,
     'Statistics reveal preserves translation visibility',
   );
-  panels.closeProblems(() => ++cancelled);
-  assert(
-    !panels.problemsOpen && cancelled === 1,
-    'Explicit Problems close cancels its pending navigation',
-  );
+  panels.closeProblems();
+  assert(!panels.problemsOpen, 'Closing Problems hides Review');
   passed('Panel owner preserves toggle, close and Statistics reveal policies');
 
   let finishHide!: () => void;

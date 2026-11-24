@@ -311,7 +311,6 @@
             class="manual"
           >
             <span>{r.cueNumber}</span><span>{r.detail.lead}</span><button
-              onmousedown={(e) => e.preventDefault()}
               data-nav-key={'manual-' + r.cueId}
               onclick={(event) => onnavigate(r.cueId, event.currentTarget)}
               >Edit</button

@@ -47,6 +47,7 @@ if (navDelay !== null)
     text: 'Cue ' + (i + 1),
   }));
 const original = structuredClone(doc);
+let statisticsRevision = doc.revision;
 let activeScope: number[] | null = null;
 let view: TimingFixView = structuredClone(sample);
 let before = structuredClone(doc);
@@ -180,10 +181,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           }
           return structuredClone(emptyStatus);
         case 'statistics_start':
+          statisticsRevision = doc.revision;
           return 1;
         case 'statistics_view':
           return {
             ...structuredClone(stats),
+            key: {
+              ...stats.key,
+              generation: doc.generation,
+              revision: statisticsRevision,
+            },
             phase: 'ready',
             session: 1,
             findings: [{ ...stats.findings[0], cueId: '8', cueIndex: 7 }],
@@ -358,6 +365,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (policyTrial || episodeTrial)
             return {
               ...emptyQuality(args),
+              nextCue: navDelay === null ? null : '8',
               findingsCount: 3,
               timingFindingsCount: 3,
             };
@@ -365,6 +373,19 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'document_action': {
           const action = args.action!;
           if (action.kind === 'edit') {
+            if (navDelay !== null) {
+              host.dataset.editAttempts = String(
+                Number(host.dataset.editAttempts ?? 0) + 1,
+              );
+              await new Promise((resolve) =>
+                setTimeout(resolve, Number(navDelay)),
+              );
+              if (host.dataset.rejectEdit)
+                throw {
+                  kind: 'rejected',
+                  message: 'Rejected navigation draft',
+                };
+            }
             if (failApply) throw new Error('Injected draft failure');
             edits++;
             host.dataset.edits = String(edits);

@@ -267,7 +267,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `Recovery` | Recovery listing, polling/response epochs, discard confirmation and recovery action activity. |
 | `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for command discovery/keyboard help, styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
-| `CueNavigation` | Selection/focus/reveal orchestration, pending problem navigation and cue-following effects; uses workspace tasks without assigning the gate. |
+| `CueNavigation` | Selection/focus/reveal orchestration, dock cue links and cue-following effects; uses workspace tasks without assigning the gate. |
 | `TimingReviewSelection` | Review-scoped checkbox toggles, disclosures, proposal/manual page positions and the scroll anchor keyed by row identity. WorkspaceView holds the selection while tabs change. |
 | `WorkspaceView` / `WorkspaceLayout` | Panel visibility/rules and measured pane sizes/splitter constraints, respectively. |
 | `WorkspacePreferences` | Saved defaults, effective project timing, metric visibility and quality-context invalidation, updated through initialization, acceptance and restore methods. |
@@ -286,11 +286,13 @@ supply the appropriate save continuation, including the project operation's own
 save context. TranslationSession clears hidden reference queries in its initialization
 scoped effect; TranslationReference handles user file operations and quality invalidation.
 
-Following a cue keeps the originating dock tab. ReviewDock presents the draft
-decision across tabs, pauses auto-commit during the decision and restores focus
-to the invoking control when it survives or returns. CueNavigation validates the
-target and resolves Apply, Discard or Cancel. Explicitly closing the dock cancels
-pending navigation. Translation can temporarily hide the dock. Preference initialization,
+Following a cue keeps the originating dock tab. ReviewDock defers focus transfer
+on a dirty cue link until the click has captured its target. Dock links and F4
+delegate to CueNavigation.selectCue, the same apply-before-selection workspace
+task used by list rows. A rejected commit leaves the selection, draft and inline
+reason in the editor. After success the dock focuses the invoking button, or its
+replacement when the refreshed report arrives. Further input or closing the
+dock cancels focus restoration. Translation can temporarily hide the dock. Preference initialization,
 Settings acceptance and project timing restoration each update the related fields
 through one owner method; project timing never replaces saved defaults.
 

@@ -94,12 +94,25 @@ export async function qualityChecking({
   assert.deepEqual(await status(), before);
   const next = await browser.$('button=Next cue · F4');
   await until('problem navigation ready', () => next.isEnabled());
+  const target = before.cues.find((cue) => String(cue.id) === report.nextCue);
+  assert.ok(
+    target && target.id !== before.cues[0].id,
+    'Fixture needs a different next cue',
+  );
   await next.click();
   await until(
     'problem navigation committed pending text',
     async () => (await status()).revision === before.revision + 1,
   );
   assert.equal((await status()).cues[0].text, text);
+  await until(
+    'same click selected the next problem cue',
+    async () =>
+      (await editor.getValue()) === target.text &&
+      (await browser
+        .$(`[data-cue-id="${target.id}"]`)
+        .getAttribute('aria-pressed')) === 'true',
+  );
   await (await browser.$('button=Undo')).click();
   await until(
     'quality edit restored',
@@ -146,7 +159,7 @@ export async function qualityChecking({
     async () => (await editor.getValue()) === before.cues[0].text,
   );
   await record({
-    step: 'real quality metrics/Problems/blur commit and executable CLI parity',
+    step: 'real quality metrics/Problems/commit and navigate and executable CLI parity',
     findings: report.findingsCount,
     affectedCues: report.affectedCues,
     profileHash: report.profileHash,
