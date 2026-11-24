@@ -669,7 +669,7 @@ checkbox changes scope immediately, with pending durability stated in the UI.
 
 ## Cue columns and issue projections
 
-The editor opens the selected cue’s explanations through WorkspaceModal, which
+The issue strip’s overflow and explanations buttons open the same selected-cue dialog through WorkspaceModal, which
 owns native-video visibility and return focus. The dialog reads the matching
 current selected-cue projection from QualitySession. Its file-wide action
 closes the modal before opening the Issues dock.

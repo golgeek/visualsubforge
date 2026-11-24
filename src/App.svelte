@@ -1351,7 +1351,6 @@
         actions={{
           suspendCueFollowing: navigation.suspendFollowing,
           showCueIssues: () => void workspaceModal.open('cueIssues'),
-          showIssues: () => view.openReview('issues'),
           reviewIssue: (rule) => {
             if (
               [

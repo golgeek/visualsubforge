@@ -102,9 +102,9 @@ function issueProjection(
 ): NonNullable<QualityView['selectedIssues']> {
   const rules =
     cueId === 35
-      ? (['scene_start', 'scene_end'] as const)
+      ? (['scene_start', 'scene_end', 'gap', 'line_length'] as const)
       : (['rs_high', 'line_length', 'cps_high', 'gap', 'scene_end'] as const);
-  const count = cueId === 35 ? 2 : cueId === 1 ? 1 : cueId === 2 ? 3 : 5;
+  const count = cueId === 35 ? 4 : cueId === 1 ? 1 : cueId === 2 ? 3 : 5;
   return {
     cueId: String(cueId),
     count,
@@ -395,6 +395,12 @@ async function run() {
       .querySelector('.workspace')
       ?.getAttribute('data-preset');
     button('+2').click();
+    await until(
+      () =>
+        host.querySelectorAll('dialog[aria-label="All cue issues"][open] li')
+          .length === 5,
+    );
+    button('Show all issues in file').click();
     await until(() => {
       const findings = host.querySelectorAll(
         '[aria-label="Subtitle issues"] .finding',
@@ -428,7 +434,7 @@ async function run() {
       .click();
     await until(() => !host.querySelector('[aria-label="Review panel"]'));
     passed(
-      'One, three and five issues keep fixed height; overflow lists all five findings in Issues without changing layout',
+      'One, three and five issues keep fixed height; overflow lists all five groups in the cue dialog before opening Issues',
     );
 
     await until(() =>

@@ -9,7 +9,6 @@
     fixes,
     cueId,
     disabled,
-    onmore,
     onexplanations,
     onfix,
     onreview,
@@ -20,7 +19,6 @@
     onreview: (rule: QualityRule) => void;
     cueId: number | null;
     disabled: boolean;
-    onmore: () => void;
     onexplanations: () => void;
   } = $props();
   const projection = $derived(
@@ -48,6 +46,10 @@
       )
       .join(' · ') ?? '',
   );
+  function explain(event: MouseEvent & { currentTarget: HTMLButtonElement }) {
+    event.currentTarget.focus({ preventScroll: true });
+    onexplanations();
+  }
   function label(rule: string) {
     return rule === 'rs_high'
       ? 'Too fast'
@@ -77,7 +79,7 @@
     {#if projection && projection.count > 3}
       <button
         {disabled}
-        onclick={onmore}
+        onclick={explain}
         aria-label={`Show all ${projection.count} cue issue groups`}
         >+{projection.count - 3}</button
       >
@@ -114,16 +116,12 @@
   </div>
   <div class="detail" title={explanations}>
     <span>{explanations || '\u00a0'}</span>
-    {#if projection?.count}<button
-        {disabled}
-        onclick={(event) => {
-          event.currentTarget.focus({ preventScroll: true });
-          onexplanations();
-        }}>All explanations…</button
+    {#if projection?.count}<button {disabled} onclick={explain}
+        >All explanations…</button
       >{/if}
     {#if current}<button {disabled} onclick={() => onreview(current!.rule)}
         >{current.rule === 'scene_start' || current.rule === 'scene_end'
-          ? 'Snap to scene change…'
+          ? 'Snap to shot change…'
           : 'Review fix…'}</button
       >{/if}
   </div>
