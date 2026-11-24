@@ -16,7 +16,9 @@
   import { sameBatchRequest } from './batch-timing';
   import { timingGhosts, type TimingPreview } from './review-preview';
   import { formatTime } from '../timeline/timeline';
+  import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
   let {
+    activity,
     subtitles,
     mediaSession,
     playhead,
@@ -28,6 +30,7 @@
     onpreview,
     onaccepted,
   }: {
+    activity: WorkspaceActivity;
     subtitles: DocumentSession;
     mediaSession: () => number;
     playhead: () => number | null;
@@ -95,6 +98,7 @@
   }
   const live: LiveTimingReview = {
     enabled: () => enabled() && request !== null,
+    activity: untrack(() => activity),
     selection,
     context: () => context(),
     previewIds: () => previewIds(),

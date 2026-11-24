@@ -26,6 +26,12 @@
 </script>
 
 <footer>
+  <span class="activity-slot" class:visible={workspace.activity.visible}>
+    <span class="spinner" aria-hidden="true"></span>
+    <span class="activity-text" role="status"
+      >{workspace.activity.visible ? 'Working…' : ''}</span
+    >
+  </span>
   {#if extraction?.result && extraction.result.generation === documentGeneration}
     <span class="result" role="status">{extraction.result.message}</span>
     <button
@@ -65,7 +71,7 @@
       status.error ||
       status.subtitlePreviewError ||
       workspace.notice ||
-      (workspace.busy ? 'Working…' : 'Ready')}</span
+      'Ready'}</span
   >{#if gestures.edit}<span
       >{gestures.snapHint || 'Timing preview'}
       {formatTime(gestures.edit.preview.startMs)}–{formatTime(
@@ -87,6 +93,43 @@
     z-index: 2;
     color: var(--text-muted);
     font-size: 11px;
+  }
+  .activity-slot {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    position: relative;
+    visibility: hidden;
+    opacity: 0;
+  }
+  .activity-slot.visible {
+    visibility: visible;
+    opacity: 1;
+  }
+  .spinner {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .visible .spinner {
+      animation: spin 800ms linear infinite;
+    }
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .activity-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   .result {
     min-width: 0;

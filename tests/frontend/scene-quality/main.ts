@@ -15,10 +15,11 @@ import {
 } from '../../../src/lib/client';
 import { timingFixView as sample } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
+const activityTrial = new URLSearchParams(location.search).has('activity');
 const episodeTrial = new URLSearchParams(location.search).has('episode');
 const incompleteTrial = new URLSearchParams(location.search).has('incomplete');
 const policyTrial = new URLSearchParams(location.search).has('policy');
-const host = document.querySelector('#test')!;
+const host = document.querySelector<HTMLElement>('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
 let doc: DocumentSnapshot = {
@@ -146,6 +147,24 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
+          if (activityTrial) {
+            const action = args.action as { kind: string; seconds?: number };
+            if (action.kind === 'seek') {
+              host.dataset.seeks = String(Number(host.dataset.seeks ?? 0) + 1);
+              await new Promise((resolve) =>
+                setTimeout(resolve, Number(host.dataset.delay)),
+              );
+            }
+            return {
+              ...emptyStatus,
+              available: true,
+              loaded: true,
+              paused: false,
+              session: 1,
+              positionSeconds: 0,
+              durationSeconds: 60,
+            };
+          }
           return structuredClone(emptyStatus);
         case 'timing_fix_start': {
           starts++;
@@ -305,6 +324,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(doc);
         }
         case 'quality_read':
+          if (activityTrial) {
+            host.dataset.reads = String(Number(host.dataset.reads ?? 0) + 1);
+            await new Promise((resolve) =>
+              setTimeout(resolve, Number(host.dataset.readDelay ?? 0)),
+            );
+            return emptyQuality(args);
+          }
           if (policyTrial || episodeTrial)
             return {
               ...emptyQuality(args),
@@ -521,4 +547,4 @@ if (policyTrial || episodeTrial) {
   void until(
     () => host.querySelectorAll('.cue-row').length === doc.cues.length,
   ).then(() => chooseCommand(host, 'fixAllTiming'));
-} else void run();
+} else if (!activityTrial) void run();

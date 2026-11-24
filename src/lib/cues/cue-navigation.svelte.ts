@@ -17,6 +17,7 @@ import type { CueTableView } from './cue-table-view.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
 import type { CueMenu } from './cue-menu.svelte';
 interface Effects {
+  userSelectedCue?: () => void;
   zoomToCue?: () => boolean;
   readList: () => { scrollTop: number; height: number } | null;
   scrollList: (top: number) => number;
@@ -145,6 +146,7 @@ export class CueNavigation {
       await this.subtitles.apply();
       if (!this.alive || (expected && this.subtitles.snapshot !== expected))
         return;
+      if (id !== this.subtitles.selected) this.effects.userSelectedCue?.();
       this.subtitles.select(
         id,
         mode,

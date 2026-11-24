@@ -11,7 +11,9 @@
   import type { WorkspaceView } from '../workspace/workspace-view.svelte';
   import { TimingFixSession } from './timing-fix-session.svelte';
   import { timingGhosts, type TimingPreview } from './review-preview';
+  import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
   let {
+    activity,
     view,
     subtitles,
     mediaSession,
@@ -26,6 +28,7 @@
     onaccepted,
     onnavigate,
   }: {
+    activity: WorkspaceActivity;
     view: WorkspaceView;
     subtitles: DocumentSession;
     mediaSession: () => number;
@@ -74,6 +77,7 @@
   const session = untrack(
     () =>
       new TimingFixSession(subtitles, mediaSession, input, {
+        activity,
         enabled,
         selection: () => null,
         pageKey: () => semantic,

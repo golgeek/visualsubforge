@@ -25,7 +25,9 @@ interface Client<V, S> {
 }
 
 export const LIVE_REVIEW_DELAY_MS = 250;
+import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
 export interface LiveTimingReview {
+  activity?: WorkspaceActivity;
   enabled: () => boolean;
   selection: () => ReviewSelection | null;
   context: () => string;
@@ -159,7 +161,8 @@ export class TimingRepairSession<V extends Review, S = string | null> {
         this.schedule(LIVE_REVIEW_DELAY_MS);
         return;
       }
-      await this.start();
+      const start = this.start();
+      await (this.live.activity ? this.live.activity.track(start) : start);
       if (!this.alive) return;
       if (signature !== this.liveSignature || document !== this.liveDocument) {
         this.schedule(LIVE_REVIEW_DELAY_MS);

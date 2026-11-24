@@ -166,7 +166,9 @@
     new TranslationSession(subtitles, undefined, () => view.translationOpen),
   );
 
-  const quality = disposeWithComponent(new QualitySession());
+  const quality = disposeWithComponent(
+    new QualitySession(undefined, workspace.activity),
+  );
 
   const status = $derived(media.status);
 
@@ -367,6 +369,7 @@
       tableView,
       gestures,
       {
+        userSelectedCue: () => quality.userSelectedCue(),
         zoomToCue: () => preferences.preferences.zoomWaveformToCue ?? true,
         readList: () =>
           list
@@ -1231,6 +1234,7 @@
             style={layout.panelStyle('review')}
           >
             <ReviewDock
+              activity={workspace.activity}
               options={preferences.preferences.timingRepair}
               onoptions={(o) => {
                 void preferences.saveRepair(o).catch((e) => {
