@@ -20,6 +20,10 @@ node -e 'const p=require("./package.json"); if(process.version!=="v"+p.engines.n
 case "$(uname -s)" in
     Darwin)
         platform=macos
+        # A stale x86_64 tool first on PATH (for example /usr/local/bin/bash)
+        # would run the whole build under Rosetta and target the wrong CPU.
+        [[ "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" != 1 ]] \
+            || fail 'The build is running under Rosetta; an x86_64 tool (such as bash) is first on PATH'
         command -v brew >/dev/null || fail 'Homebrew is required'
         xcodebuild -version >/dev/null
         SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"

@@ -22,7 +22,7 @@ tar -xf ffmpeg.tar.xz --strip-components=1 -C source
 # NASM does not inherit the clang deployment target. Tell it which platform
 # to write into Intel assembly objects, including dav1d's static archive.
 if [ "$(uname -s -m)" = 'Darwin x86_64' ]; then
-    VSF_NASM=$(command -v nasm)
+    VSF_NASM=$(command -v nasm) || { echo 'Missing nasm; see docs/build.md' >&2; exit 1; }
     export VSF_NASM
     mkdir asm-tools
     cat > asm-tools/nasm <<'EOF'
