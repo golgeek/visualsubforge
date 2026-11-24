@@ -32,6 +32,11 @@
     onlanguage: (operation: TextOperation) => void;
   } = $props();
   const view = $derived(session.displayedList ?? session.view);
+  const summary = $derived(
+    view?.profileHash
+      ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
+      : '',
+  );
   const updating = settled(() => session.listStale);
   let findings: HTMLDivElement;
   type Finding = QualityView['findings'][number];
@@ -138,21 +143,21 @@
 <section class="problems" aria-label="Subtitle issues">
   <header>
     <strong>Issues</strong>
-    <span role="status"
-      >{!documentLoaded
-        ? 'Open subtitles to check for issues'
-        : session.paused
-          ? 'Checking paused'
-          : !view?.profileHash && session.view?.phase === 'checking'
-            ? 'Checking…'
-            : updating.showUpdating
-              ? 'Updating…'
-              : session.view?.phase === 'failed'
-                ? 'Check failed'
-                : view?.profileHash
-                  ? `${countLabel(view.findingsCount, 'issue')} · ${countLabel(view.affectedCues, 'cue with issues', 'cues with issues')}`
-                  : 'Open subtitles to check'}</span
-    >
+    <div class="status-slot" data-summary={summary}>
+      <span role="status"
+        >{!documentLoaded
+          ? 'Open subtitles to check for issues'
+          : session.paused
+            ? 'Checking paused'
+            : !view?.profileHash && session.view?.phase === 'checking'
+              ? 'Checking…'
+              : updating.showUpdating
+                ? 'Updating…'
+                : session.view?.phase === 'failed'
+                  ? 'Check failed'
+                  : summary || 'Open subtitles to check'}</span
+      >
+    </div>
     {#if onfixtiming && view?.timingFindingsCount}<button
         {disabled}
         onclick={onfixtiming}>Fix timing issues…</button
@@ -168,10 +173,11 @@
     >
     <button onclick={onclose}>Close issues</button>
   </header>
-  {#if session.error || session.view?.error}<p role="alert">
-      {session.error || session.view?.error}
-    </p>{/if}
-  {#if wordError}<p role="alert">{wordError}</p>{/if}
+  <div class="error-slot">
+    {#if session.error || session.view?.error || wordError}<p role="alert">
+        {session.error || session.view?.error || wordError}
+      </p>{/if}
+  </div>
   {#if view}
     <p class="policy">
       {view.profile.name}
@@ -372,12 +378,18 @@
   header strong {
     color: var(--text);
   }
-  header span {
-    flex: 1 1 10ch;
+  .status-slot {
+    flex: 1 1 auto;
+    display: grid;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+  .status-slot span,
+  .status-slot::before {
+    grid-area: 1 / 1;
+  }
+  .status-slot::before {
+    content: attr(data-summary);
+    visibility: hidden;
   }
   .policy {
     margin: 6px 0;
@@ -406,6 +418,13 @@
   .finding small {
     flex-basis: 100%;
     color: var(--text-muted);
+  }
+  .error-slot {
+    height: 1.4em;
+    overflow: auto;
+  }
+  .error-slot p {
+    margin: 0;
   }
   [role='alert'] {
     color: var(--err);
