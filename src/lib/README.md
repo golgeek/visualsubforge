@@ -334,7 +334,7 @@ not depend on Specta, Tauri or native playback.
 
 ## Timing review
 
-ReviewDock hosts Fix and Shift in its Timing tab. TimingFixSession supplies families, scope, selection and policy to the shared TimingRepairSession lifetime. Live changes debounce for 250 ms. Rust owns endpoints, findings, metrics, budgets, manual rows and acceptance. The dock projects bounded pages and at most 200 visible cue ghosts. DocumentSession reconciles one accepted revision. [Timing repair](../../docs/timing-repair-all.md)
+ReviewDock hosts Fix and Shift in its Timing tab. TimingFixSession supplies families, scope, selection and policy to the shared TimingRepairSession lifetime. Fix requests changed inputs immediately and retains the last display during refresh. Shift debounces live input for 250 ms. Rust owns endpoints, findings, metrics, budgets, manual rows and acceptance. The dock projects bounded pages and at most 200 visible cue ghosts. DocumentSession reconciles one accepted revision. [Timing repair](../../docs/timing-repair-all.md)
 
 ## Document statistics
 

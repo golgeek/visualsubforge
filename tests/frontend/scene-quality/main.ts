@@ -199,6 +199,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return;
         case 'timing_fix_start': {
           starts++;
+          if (host.dataset.failStart)
+            throw new Error('Injected preview failure');
+          if (host.dataset.startDelay)
+            await new Promise((resolve) =>
+              setTimeout(resolve, Number(host.dataset.startDelay)),
+            );
           const input = args.input!;
           activeScope = input.scope ?? null;
           if (episodeTrial) {
@@ -296,6 +302,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return heldStart ?? starts;
         }
         case 'timing_fix_view': {
+          if (
+            host.dataset.delayNextView &&
+            !args.previewIds &&
+            args.section === 'changes'
+          ) {
+            delete host.dataset.delayNextView;
+            host.dataset.reading = 'true';
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            delete host.dataset.reading;
+          }
           const rows = view.rows.filter(
             (r) => !activeScope || activeScope.includes(Number(r.cueId)),
           );

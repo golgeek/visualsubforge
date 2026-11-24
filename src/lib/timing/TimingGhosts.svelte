@@ -17,6 +17,7 @@
       )}
       <div
         class="ghost"
+        class:updating={ghost.updating}
         data-preview-cue={ghost.id}
         style:left={`${left}%`}
         style:width={`${Math.max(0, right - left)}%`}
@@ -31,6 +32,9 @@
     inset: 20px 0 3px;
     pointer-events: none;
     overflow: hidden;
+  }
+  .updating {
+    opacity: 0.55;
   }
   .ghost {
     position: absolute;

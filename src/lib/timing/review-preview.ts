@@ -10,10 +10,12 @@ export interface TimingGhost {
   endMs: number;
   oldStartMs: number;
   oldEndMs: number;
+  updating?: boolean;
 }
 export interface TimingPreview {
   document: DocumentSnapshot;
   ghosts: TimingGhost[];
+  retained?: { session: number; context: string };
 }
 /** Projection of Rust-calculated values, never an accepted document edit. */
 export function timingGhosts(view: TimingView): TimingGhost[] {

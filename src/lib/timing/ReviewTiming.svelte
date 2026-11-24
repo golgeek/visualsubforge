@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { settled } from '../ui/settled.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import {
     timingFixView,
@@ -65,6 +66,7 @@
     () =>
       new TimingFixSession(subtitles, mediaSession, input, {
         activity,
+        retainDisplay: true,
         enabled,
         previewEnabled,
         selection: () => null,
@@ -80,9 +82,8 @@
       : null,
   );
   const documentKey = $derived(
-    subtitles.snapshot.generation + '/' + subtitles.snapshot.revision,
+    JSON.stringify([subtitles.snapshot.generation, mediaSession(), context()]),
   );
-  let previous = $state.raw<{ key: string; view: TimingFixView } | null>(null);
   let scroll: HTMLDivElement;
   function rows() {
     return Array.from(scroll.querySelectorAll<HTMLElement>('[data-anchor]'));
@@ -124,18 +125,13 @@
   }
   $effect(() => {
     if (current) {
-      previous = { key: documentKey, view: current };
       choices.changesOffset = current.offset;
       void tick().then(restoreAnchor);
     }
   });
-  const result = $derived(
-    current ??
-      (!subtitles.dirty && previous?.key === documentKey
-        ? previous.view
-        : null),
-  );
+  const result = $derived(current ?? session.displayed?.view);
   const updating = $derived(!current || session.accepting);
+  const visual = settled(() => updating || !session.preview);
   const coverage = $derived(result?.coverage);
   const blocked = $derived(
     coverage === 'partial' || coverage === 'unavailable',
@@ -147,14 +143,14 @@
       offset = choices.manualOffset,
       key = documentKey;
     let current = true;
-    if (untrack(() => lastManual?.key) !== key) manualPage = null;
+    if (manualKey !== key) manualPage = null;
+    manualKey = key;
     manualError = '';
     if (id !== null)
       void timingFixView(id, offset, 100, 'manual').then(
         (v) => {
           if (current) {
             manualPage = v;
-            lastManual = { key, rows: v.manual };
             void tick().then(restoreAnchor);
           }
         },
@@ -166,11 +162,7 @@
       current = false;
     };
   });
-  // Drafts retire the proposal. Keep only navigation targets from this document.
-  let lastManual = $state.raw<{
-    key: string;
-    rows: TimingFixView['manual'];
-  } | null>(null);
+  let manualKey = '';
 
   function toggle(index: number) {
     keepScroll();
@@ -191,13 +183,17 @@
     untrack(() => onbusy(busy));
   });
   $effect(() => {
-    const preview =
-      session.current && session.preview && session.previewDocument
-        ? {
-            document: session.previewDocument,
-            ghosts: timingGhosts(session.preview),
-          }
-        : null;
+    const last = session.displayed;
+    const preview = last?.preview
+      ? {
+          document: last.document,
+          retained: { session: last.session, context: last.context },
+          ghosts: timingGhosts(last.preview).map((ghost) => ({
+            ...ghost,
+            updating: visual.showUpdating,
+          })),
+        }
+      : null;
     untrack(() => onpreview(preview));
   });
   onMount(() => () => {
@@ -216,12 +212,6 @@
 </script>
 
 <section class="timing-review" aria-label="Live timing review">
-  {#if updating && result && !session.error}<p
-      class="preview-status"
-      role="status"
-    >
-      {session.accepting ? 'Applying timings…' : 'Updating preview…'}
-    </p>{/if}
   <div class="scroll" bind:this={scroll} onscroll={keepScroll}>
     {#if view.policyOpen}
       <div class="policy">
@@ -306,29 +296,8 @@
     {#if blocked}<p class="scan-reason">
         Finish the scene scan to apply timing changes.
       </p>{/if}
-    {#if subtitles.dirty}<p>Waiting for the cue edit to commit.</p>
-      {#if lastManual?.key === documentKey}{#each lastManual.rows as r (r.cueId)}<div
-            class="manual"
-          >
-            <span>{r.cueNumber}</span><span>{r.detail.lead}</span><button
-              data-nav-key={'manual-' + r.cueId}
-              onclick={(event) => onnavigate(r.cueId, event.currentTarget)}
-              >Edit</button
-            >
-          </div>{/each}{/if}{/if}
-    {#if session.error || session.view?.phase === 'failed' || session.view?.phase === 'stale'}<p
-        role="alert"
-      >
-        {session.error ||
-          session.view?.error ||
-          'Preview is stale. Check the preview again.'}
-      </p>
-      <button onclick={() => session.retry()}>Retry preview</button>
-    {:else if !result || result.phase !== 'reviewing'}<p role="status">
-        {session.accepting ? 'Applying timings…' : 'Updating preview…'}
-      </p>
-    {:else}
-      <div class="results" inert={updating} aria-busy={updating}>
+    {#if result}
+      <div class="results" aria-busy={visual.showUpdating}>
         {#if result.withheldAll}<p role="status">
             Timing changes were withheld because the safety check could not
             finish. Try a smaller scope.
@@ -338,18 +307,19 @@
             >{result.before.total} → {result.after.total}</strong
           > findings
         </div>
-        {#if result.selectionError}<p role="alert">
-            {result.selectionError}
-          </p>{/if}{#if result.selectionError || choices.toggled.length}<button
-            onclick={() => {
-              keepScroll();
-              choices.toggled = [];
-            }}>Restore default selection</button
-          >{/if}
+        <button
+          disabled={updating ||
+            (!result.selectionError && !choices.toggled.length)}
+          onclick={() => {
+            keepScroll();
+            choices.toggled = [];
+          }}>Restore default selection</button
+        >
         <div class="heading">
           <strong>Changes</strong><span class="number">{result.total}</span
           >{#if result.trades}<button
               data-variant="quiet"
+              disabled={updating}
               onclick={untickTrades}>Untick trade-offs ({result.trades})</button
             >{/if}
         </div>
@@ -414,11 +384,11 @@
         {/each}
         {#if result.total > 100}<nav aria-label="Timing proposal pages">
             <button
-              disabled={!result.offset}
+              disabled={updating || !result.offset}
               onclick={() => session.page(Math.max(0, result!.offset - 100))}
               >Previous</button
             >{result.offset + 1}–{result.offset + result.rows.length} / {result.total}<button
-              disabled={result.offset + 100 >= result.total}
+              disabled={updating || result.offset + 100 >= result.total}
               onclick={() => session.page(result!.offset + 100)}>Next</button
             >
           </nav>{/if}
@@ -431,9 +401,7 @@
               >{choices.manualOpen ? '▾' : '▸'} Needs manual work {result.manualCount}</button
             >
           </div>
-          {#if choices.manualOpen}{#if manualError}<p role="alert">
-                {manualError}
-              </p>{/if}
+          {#if choices.manualOpen || subtitles.dirty}
             {#each manualPage?.manual ?? [] as r (r.cueId)}<div
                 class="manual"
                 data-anchor={'manual-' + r.cueId}
@@ -458,7 +426,7 @@
                 aria-label="Manual work pages"
               >
                 <button
-                  disabled={!manualPage.offset}
+                  disabled={updating || !manualPage.offset}
                   onclick={() =>
                     (choices.manualOffset = Math.max(
                       0,
@@ -466,7 +434,8 @@
                     ))}>Previous</button
                 >{manualPage.offset + 1}–{manualPage.offset +
                   manualPage.manual.length} / {result.manualCount}<button
-                  disabled={manualPage.offset + 100 >= result.manualCount}
+                  disabled={updating ||
+                    manualPage.offset + 100 >= result.manualCount}
                   onclick={() =>
                     (choices.manualOffset = manualPage!.offset + 100)}
                   >Next</button
@@ -480,6 +449,30 @@
     {/if}
   </div>
   <footer>
+    <div class="preview-status">
+      {#if session.error || manualError || session.view?.phase === 'failed' || session.view?.phase === 'stale'}
+        <span role="alert"
+          >{session.error ||
+            manualError ||
+            session.view?.error ||
+            'Preview is stale. Check the preview again.'}</span
+        >
+        <button onclick={() => session.retry()}>Retry preview</button>
+      {:else if current?.selectionError}<span role="alert"
+          >{current.selectionError}</span
+        >
+      {:else}
+        <span role="status"
+          >{subtitles.dirty
+            ? 'Waiting for the cue edit to commit.'
+            : visual.showUpdating
+              ? session.accepting
+                ? 'Applying timings…'
+                : 'Updating preview…'
+              : ''}</span
+        >
+      {/if}
+    </div>
     {#if coverage === 'notRequired'}<p>
         Scene checks are disabled because both scene buffers are zero.
       </p>{/if}{#if coverage === 'reduced'}<p>
@@ -526,8 +519,15 @@
     opacity: 0.55;
   }
   .preview-status {
-    margin: 0;
-    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    overflow: auto;
+  }
+  .preview-status button {
+    width: auto;
+    flex: none;
   }
   .scroll {
     overflow-anchor: none;

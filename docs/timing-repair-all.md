@@ -59,6 +59,10 @@ The summary counts findings in scope. Expand a change for its full timecodes or
 choose its cue number to navigate. **Edit** opens a manual cue through protected
 navigation. Changes and manual work page independently. The waveform shows
 selected changes for up to 200 visible cues. Apply includes all selected pages.
+Changing the selection or policy requests a fresh preview immediately. The last
+review rows, waveform ghosts and table deltas stay in place until replaced.
+A longer refresh dims them after 150 ms. Apply waits for the current proposal.
+Replacing the document, media or review context clears the display.
 After a checkbox edit, checked rows show the original and selected timings.
 The endpoint delta includes only the endpoints that row contributes.
 An unchecked row previews the result of ticking it, including its prerequisites
