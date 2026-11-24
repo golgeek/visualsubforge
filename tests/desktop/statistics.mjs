@@ -134,7 +134,8 @@ export async function statisticsWorkflow({
   }
   async function open() {
     await ready();
-    await chooseCommand(browser, 'statistics');
+    if (!(await browser.$('[aria-labelledby="statistics-title"]').isExisting()))
+      await chooseCommand(browser, 'statistics');
     const dialog = await browser.$(
       'section[aria-labelledby="statistics-title"]',
     );

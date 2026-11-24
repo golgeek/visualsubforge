@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, type Snippet } from 'svelte';
+  import { onMount, tick, type Snippet } from 'svelte';
   import { formatTime } from '../timeline/timeline';
   import type { WorkspaceView } from './workspace-view.svelte';
   import type { DocumentSession } from '../document/document-session.svelte';
@@ -10,6 +10,9 @@
   import ReviewTiming from '../timing/ReviewTiming.svelte';
   import StatisticsPanel from '../quality/StatisticsPanel.svelte';
   import type { WorkspaceActivity } from '../workspace/workspace-activity.svelte';
+  import DockDraftPrompt from './DockDraftPrompt.svelte';
+  import { TimingReviewSelection } from '../timing/timing-review-selection.svelte';
+  type Navigate = (id: string, origin: HTMLButtonElement) => void;
   let {
     activity,
     view,
@@ -23,6 +26,10 @@
     context,
     previewIds,
     enabled,
+    pending,
+    resolvingDisabled,
+    onresolve,
+    navigating,
     issues,
     changes,
     onclose,
@@ -42,19 +49,76 @@
     context: () => string;
     previewIds: () => readonly number[];
     enabled: () => boolean;
-    issues: Snippet;
+    pending: boolean;
+    resolvingDisabled: boolean;
+    onresolve: (choice: 'apply' | 'discard' | 'cancel') => Promise<void>;
+    navigating: () => boolean;
+    issues: Snippet<[Navigate]>;
     changes: Snippet;
     onclose: () => void;
     onpreview: (value: TimingPreview | null) => void;
     onaccepted: () => void;
     onnavigate: (id: string) => void;
   } = $props();
+  let panel: HTMLElement;
+  let focusObserver: MutationObserver | null = null;
+  function stopRestoringFocus() {
+    focusObserver?.disconnect();
+    focusObserver = null;
+    document.removeEventListener('pointerdown', stopRestoringFocus, true);
+    document.removeEventListener('keydown', stopRestoringFocus, true);
+  }
+  let origin: HTMLButtonElement | null = null;
+  const navigate: Navigate = (id, button) => {
+    origin = button;
+    onnavigate(id);
+    // WebKit leaves pointer-activated buttons unfocused by default.
+    if (!pending) button.focus({ preventScroll: true });
+  };
+  async function resolve(choice: 'apply' | 'discard' | 'cancel') {
+    const button = origin;
+    await onresolve(choice);
+    await tick();
+    if (!panel?.isConnected || pending) return;
+    if (button?.isConnected) button.focus({ preventScroll: true });
+    else {
+      // A committed draft can replace the row before its fresh report arrives.
+      const key = button?.dataset.navKey;
+      const tab = panel.querySelector<HTMLButtonElement>(
+        'nav button[aria-pressed=true]',
+      );
+      tab?.focus({ preventScroll: true });
+      if (!key) return;
+      const selector = `button[data-nav-key="${CSS.escape(key)}"]:enabled`;
+      const restore = () => {
+        const replacement = panel.querySelector<HTMLButtonElement>(selector);
+        if (replacement && !replacement.closest('[inert]')) {
+          replacement.focus({ preventScroll: true });
+          stopRestoringFocus();
+          return true;
+        }
+        return false;
+      };
+      if (restore()) return;
+      focusObserver = new MutationObserver(restore);
+      focusObserver.observe(panel, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['inert', 'disabled'],
+      });
+      document.addEventListener('pointerdown', stopRestoringFocus, true);
+      document.addEventListener('keydown', stopRestoringFocus, true);
+    }
+  }
   onMount(() => {
     const launcher =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
     return () => {
+      stopRestoringFocus();
+      view.timingSelection = new TimingReviewSelection();
       if (launcher?.isConnected && !launcher.matches(':disabled'))
         launcher.focus({ preventScroll: true });
     };
@@ -99,6 +163,19 @@
     }
     return tableView.order.map((cue) => cue.id);
   };
+  $effect.pre(() => {
+    const key = JSON.stringify([
+      subtitles.snapshot.generation,
+      subtitles.snapshot.revision,
+      mediaSession(),
+      scopeIds(),
+      context(),
+      view.families,
+      options,
+    ]);
+    if (view.timingSelection.selectionKey !== key)
+      view.timingSelection = new TimingReviewSelection(key);
+  });
   const tabs = [
     { id: 'issues', label: 'Issues' },
     { id: 'timing', label: 'Timing' },
@@ -107,7 +184,7 @@
   ] as const;
 </script>
 
-<aside class="review-dock" aria-label="Review panel">
+<aside bind:this={panel} class="review-dock" aria-label="Review panel">
   <header>
     <strong>Review</strong>
     <nav aria-label="Review tools">
@@ -188,17 +265,21 @@
           : 'inward'} ▾</button
       >{/if}
   </div>
+  {#if pending}<DockDraftPrompt
+      disabled={resolvingDisabled}
+      onresolve={resolve}
+    />{/if}
   <div class="body">
-    {#if view.reviewTab === 'issues'}{@render issues()}
+    {#if view.reviewTab === 'issues'}{@render issues(navigate)}
     {:else if view.reviewTab === 'changes'}{@render changes()}
     {:else if view.reviewTab === 'statistics'}<StatisticsPanel
         {subtitles}
         {mediaSession}
         {context}
         {scopeIds}
-        {enabled}
+        enabled={() => enabled() || navigating()}
         {onclose}
-        {onnavigate}
+        onnavigate={navigate}
       />
     {:else if view.timingMode === 'shift'}<ReviewShift
         {activity}
@@ -215,6 +296,7 @@
       />
     {:else}<ReviewTiming
         {activity}
+        previewEnabled={() => enabled() || navigating()}
         {view}
         {subtitles}
         {mediaSession}
@@ -223,7 +305,7 @@
         {previewIds}
         {options}
         {onoptions}
-        {onnavigate}
+        onnavigate={navigate}
         onbusy={(v) => (view.reviewBusy = v)}
         {enabled}
         {onpreview}

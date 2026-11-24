@@ -81,7 +81,8 @@ async function open() {
   await until(
     () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
-  await chooseCommand(host, 'statistics');
+  if (!host.querySelector('[aria-labelledby="statistics-title"]'))
+    await chooseCommand(host, 'statistics');
   await until(
     () => !!host.querySelector('[aria-labelledby="statistics-title"]'),
   );
@@ -111,8 +112,10 @@ async function navigate(cue: number) {
   )!;
   assert(b, 'Missing extremum navigation');
   b.click();
-  await until(
-    () => !host.querySelector('[aria-labelledby="statistics-title"]'),
+  await tick();
+  assert(
+    host.querySelector('[aria-labelledby="statistics-title"]'),
+    'Following a cue closed Statistics',
   );
 }
 Object.defineProperty(window, 'isTauri', { configurable: true, value: true });

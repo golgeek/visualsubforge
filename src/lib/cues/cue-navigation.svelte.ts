@@ -221,6 +221,15 @@ export class CueNavigation {
       this.subtitles.selectAll(this.tableView.order);
     });
   };
+  reviewNavigating = $state(false);
+  private async selectFromReview(id: string) {
+    this.reviewNavigating = true;
+    try {
+      await this.selectCue(Number(id));
+    } finally {
+      this.reviewNavigating = false;
+    }
+  }
   requestProblem = (id: string) => {
     if (
       this.workspace.busy ||
@@ -238,7 +247,7 @@ export class CueNavigation {
     if (this.subtitles.dirty) {
       this.pendingProblemVersion = `${this.subtitles.snapshot.generation}/${this.subtitles.snapshot.revision}`;
       this.pendingProblem = id;
-    } else void this.selectCue(Number(id));
+    } else void this.selectFromReview(id);
   };
   resolveProblem = async (choice: 'apply' | 'discard' | 'cancel') => {
     if (this.workspace.busy || !this.pendingProblem) return;
@@ -252,7 +261,7 @@ export class CueNavigation {
       else this.subtitles.revert();
       this.pendingProblem = null;
     });
-    if (completed && this.alive) await this.selectCue(Number(id));
+    if (completed && this.alive) await this.selectFromReview(id);
   };
   revealSelection = async (id: number | null = this.subtitles.selected) => {
     await tick();

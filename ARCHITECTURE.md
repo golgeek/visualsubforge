@@ -268,6 +268,7 @@ from confirmed rejection. Error types add no worker, lock or document owner.
 | `WorkspaceDialogsState` | Dialog eligibility, inputs and post-close continuations over WorkspaceModal identity; accepted content remains with DocumentSession. |
 | `WorkspaceModal` | Modal identity/transitions, native-video hide/restore ordering and return focus for command discovery/keyboard help, styles/fonts/conversion/plugins, timing reviews, Settings, resync, statistics and text tools. |
 | `CueNavigation` | Selection/focus/reveal orchestration, pending problem navigation and cue-following effects; uses workspace tasks without assigning the gate. |
+| `TimingReviewSelection` | Review-scoped checkbox toggles, disclosures, proposal/manual page positions and the scroll anchor keyed by row identity. WorkspaceView holds the selection while tabs change. |
 | `WorkspaceView` / `WorkspaceLayout` | Panel visibility/rules and measured pane sizes/splitter constraints, respectively. |
 | `WorkspacePreferences` | Saved defaults, effective project timing, metric visibility and quality-context invalidation, updated through initialization, acceptance and restore methods. |
 | `WorkspaceScenes` | Scene visibility, cuts, controls, status and restored-generation projection. |
@@ -285,9 +286,11 @@ supply the appropriate save continuation, including the project operation's own
 save context. TranslationSession clears hidden reference queries in its initialization
 scoped effect; TranslationReference handles user file operations and quality invalidation.
 
-Panel rules preserve existing distinctions: explicitly closing Problems cancels its
-pending navigation, toggling Translation only hides Problems, and Statistics can
-reveal Problems while retaining Translation visibility. Preference initialization,
+Following a cue keeps the originating dock tab. ReviewDock presents the draft
+decision across tabs, pauses auto-commit during the decision and restores focus
+to the invoking control when it survives or returns. CueNavigation validates the
+target and resolves Apply, Discard or Cancel. Explicitly closing the dock cancels
+pending navigation. Translation can temporarily hide the dock. Preference initialization,
 Settings acceptance and project timing restoration each update the related fields
 through one owner method; project timing never replaces saved defaults.
 
@@ -347,7 +350,12 @@ start/read/page/cancel/accept ordering and disposal. Live dock inputs debounce
 250 ms and compare semantic keys so unrelated playback updates cannot starve
 admission. Pure read-only admission retries stop after three attempts; mutations
 are never retried. The capture is reactive and accepted snapshots remain immutable.
-Coverage eligibility stays in the session adapter. Fix permits no-media
+Switching away from Timing disposes its worker. On return, the semantic key
+(document generation/revision, media session, scope IDs, quality/scene context,
+families and options) determines which review choices the new session receives.
+Closing the dock clears those choices. Read-only Timing and Statistics captures
+can remain live during a review navigation seek. Apply uses workspace admission
+throughout the seek. Coverage eligibility stays in the session adapter. Fix permits no-media
 acceptance, with an explicit note beside Apply; missing attached-media scene
 coverage remains protected. Completed plans poll for Rust-owned invalidation.
 

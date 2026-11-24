@@ -345,7 +345,7 @@
 
   const cueEditing = disposeWithComponent(
     new CueEditing(subtitles, media, timeline, {
-      canCommit: () => workspace.canAct,
+      canCommit: () => workspace.canAct && !navigation.pendingProblem,
       leaveEditor: () => waveHost?.querySelector('canvas')?.focus(),
     }),
   );
@@ -360,7 +360,7 @@
     }),
   );
 
-  const navigation = disposeWithComponent(
+  const navigation: CueNavigation = disposeWithComponent(
     new CueNavigation(
       workspace,
       subtitles,
@@ -1270,21 +1270,23 @@
               }}
               onclose={() =>
                 view.closeProblems(() => (navigation.pendingProblem = null))}
-              onnavigate={(id) => {
-                view.revealProblems();
-                navigation.requestProblem(id);
-              }}
+              onnavigate={navigation.requestProblem}
+              pending={navigation.pendingProblem !== null}
+              resolvingDisabled={workspace.busy || workspace.confirming}
+              onresolve={navigation.resolveProblem}
+              navigating={() =>
+                navigation.reviewNavigating &&
+                !workspace.confirming &&
+                !timeline.interacting}
             >
-              {#snippet issues()}
+              {#snippet issues(navigate)}
                 <ProblemsPanel
                   onfixtiming={() => void dialogs.openTimingReview('all')}
                   session={quality}
                   documentLoaded={doc.loaded}
                   disabled={workspace.busy || workspace.confirming}
-                  pending={navigation.pendingProblem !== null}
-                  onnavigate={navigation.requestProblem}
+                  onnavigate={navigate}
                   onlanguage={(operation) => void dialogs.openText(operation)}
-                  onresolve={(choice) => void navigation.resolveProblem(choice)}
                   onclose={() =>
                     view.closeProblems(() => {
                       navigation.pendingProblem = null;
