@@ -7,12 +7,10 @@
     value,
     label,
     profile,
-    updating = false,
   }: {
     value: QualityMetric;
     label: string;
     profile: QualityProfile;
-    updating?: boolean;
   } = $props();
   const rs = $derived(
     value.data.rs.status === 'finite' ? value.data.rs.value : null,
@@ -23,7 +21,7 @@
 </script>
 
 <div class="cue-metrics" aria-label={`${label} cue metrics`}>
-  <strong>{label}{updating ? ' · updating' : ''}</strong>
+  <strong>{label}</strong>
   <div
     class="reading"
     title={rateReason(value.data.rs) || rating(value.data.rating)}

@@ -8,6 +8,7 @@ import {
 } from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
 interface Input {
+  canApply: boolean;
   document: DocumentSnapshot;
   cueId: number;
   session: number;
@@ -114,7 +115,7 @@ export class CueFixes {
     }
   }
   retry() {
-    if (!this.alive || this.accepting || !this.input) return;
+    if (!this.alive || this.accepting || !this.read()?.canApply) return;
     ++this.sequence;
     if (this.id !== null) void this.client.cancel(this.id).catch(() => {});
     this.id = null;
@@ -140,7 +141,7 @@ export class CueFixes {
       return false;
     const current = this.read();
     if (
-      !current ||
+      !current?.canApply ||
       current.document !== input.document ||
       current.cueId !== input.cueId ||
       current.context !== input.context ||

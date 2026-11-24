@@ -44,7 +44,8 @@ counts come from Rust; wrapped display lines do not change source-line counts.
 Enable Cue metrics to show the meters and source-line counts. Draft and accepted
 metrics are labelled separately. During a refresh the meters and source-line
 gutter keep their size. The last measurements for the same cue show their
-source and an updating label if the read takes longer. With the issues filter
+source and dim in place if the read takes longer. Issue chips and both
+explanation controls remain available while typing. With the issues filter
 on, a selected cue whose last issue resolves stays in place with a check mark
 until you select another cue.
 

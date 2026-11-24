@@ -84,14 +84,14 @@
       >
         <Chip
           active={selected === index}
-          disabled={disabled || !fresh}
+          {disabled}
           onclick={() => (selected = index)}>{label(issue.rule)}</Chip
         >
       </span>
     {/each}
     {#if projection && projection.count > 3}
       <button
-        disabled={disabled || !fresh}
+        {disabled}
         onclick={explain}
         aria-label={`Show all ${projection.count} cue issue groups`}
         >+{projection.count - 3}</button
@@ -111,14 +111,14 @@
     {/if}
     <span class="spacer"></span>
     {#if fixes.count}<button
-        disabled={disabled || !fresh || fixes.accepting}
-        onclick={onfix}
+        disabled={disabled || updating.showUpdating || fixes.accepting}
+        onclick={() => fresh && onfix()}
         title="Apply safe fixes as one Undo step; never split a cue"
         >Fix {fixes.count}</button
       >
     {:else if fixes.error}<button
-        disabled={disabled || !fresh}
-        onclick={() => fixes.retry()}
+        disabled={disabled || updating.showUpdating}
+        onclick={() => fresh && fixes.retry()}
         title={fixes.error}>Retry fixes</button
       >
     {:else if fixes.preparing}<span>Checking fixes…</span>
@@ -129,13 +129,12 @@
   </div>
   <div class="detail" title={explanations}>
     <span>{explanations || '\u00a0'}</span>
-    {#if projection?.count}<button
-        disabled={disabled || !fresh}
-        onclick={explain}>All explanations…</button
+    {#if projection?.count}<button {disabled} onclick={explain}
+        >All explanations…</button
       >{/if}
     {#if current}<button
-        disabled={disabled || !fresh}
-        onclick={() => onreview(current!.rule)}
+        disabled={disabled || updating.showUpdating}
+        onclick={() => fresh && current && onreview(current.rule)}
         >{current.rule === 'scene_start' || current.rule === 'scene_end'
           ? 'Snap to shot change…'
           : 'Review fix…'}</button

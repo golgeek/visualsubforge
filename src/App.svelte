@@ -619,10 +619,9 @@
         workspaceModal.active ||
         (view.problemsOpen && ['timing', 'shift'].includes(view.reviewTab)) ||
         workspace.confirming ||
-        subtitles.dirty ||
         !subtitles.stateConfirmed ||
         quality.paused ||
-        quality.stale ||
+        quality.view?.phase !== 'ready' ||
         !subtitles.cue ||
         issues?.cueId !== String(subtitles.selected) ||
         !issues.count
@@ -630,6 +629,7 @@
         return null;
       return {
         document: subtitles.snapshot,
+        canApply: !subtitles.dirty && !quality.stale,
         cueId: subtitles.cue.id,
         session: media.status.session,
         context: `${preferences.qualityContext}/${scenes.sceneState.qualityKey}/${quality.view?.key.epoch}`,

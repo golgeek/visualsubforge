@@ -319,7 +319,6 @@
             value={lineMetric}
             profile={report.profile}
             label={metricLabel}
-            updating={updating.showUpdating}
           />
         {:else}<span
             >{metricLabel} metrics {quality.paused
