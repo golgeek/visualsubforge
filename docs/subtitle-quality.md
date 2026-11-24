@@ -121,6 +121,8 @@ cue** (F4 / Shift+F4) visit distinct affected cues in document order, including
 related cues in overlap/gap pairs, and wrap at the ends. Navigation selects the
 cue and seeks only when media is loaded. Pending cue fields commit before selection. A rejected edit keeps the draft,
 selection and inline rejection reason. The selected cue’s findings are highlighted.
+Click the finding’s explanation, measurement or row background to follow its cue.
+Related cue and language actions have their own buttons.
 Following a finding keeps its focus and position while metrics and selection refresh.
 During a report or filter change, the last page stays visible. Longer refreshes
 dim that page. Cue links still navigate, and report-specific actions wait for

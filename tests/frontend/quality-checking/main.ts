@@ -43,6 +43,7 @@ let document: DocumentSnapshot = {
   ],
 };
 const anchorTrial = new URLSearchParams(location.search).get('anchor');
+const rowBodyTrial = new URLSearchParams(location.search).has('rowBody');
 const editorTrial = new URLSearchParams(location.search).get('editor');
 if (editorTrial !== null) {
   heading.setAttribute('hidden', '');
@@ -67,7 +68,7 @@ if (anchorTrial !== null || editorTrial !== null) {
     ...base.findings[0]!,
     cueIndex: i,
     cueId: String(cue.id),
-    relatedCueId: null,
+    relatedCueId: rowBodyTrial && cue.id === 33 ? '32' : null,
   }));
 }
 let draft: QualityRequest['draft'] = null;
@@ -240,12 +241,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(emptyStatus);
         case 'quality_read': {
           const view = read(args.request!);
-          if (anchorTrial !== null && args.request!.selected === 35) {
+          if (
+            anchorTrial !== null &&
+            (args.request!.selected === 35 || rowBodyTrial)
+          ) {
             host.setAttribute('data-read-state', 'pending');
             await new Promise((resolve) =>
               setTimeout(resolve, Number(anchorTrial)),
             );
             host.setAttribute('data-read-state', 'done');
+            host.setAttribute('data-read-cue', String(args.request!.selected));
           }
           if (editorTrial !== null && args.request!.selected === 35) {
             await new Promise((resolve) =>

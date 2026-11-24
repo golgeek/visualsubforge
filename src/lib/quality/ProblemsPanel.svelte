@@ -309,6 +309,7 @@
         >
           <button
             {disabled}
+            class="primary"
             data-nav-key={'issue-' + key}
             onclick={(event) => {
               followed = key;
@@ -455,12 +456,23 @@
     overflow-anchor: none;
   }
   .finding {
+    position: relative;
+    isolation: isolate;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 4px 8px;
     border-top: 1px solid var(--line);
     padding-block: 5px;
+  }
+  .primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .finding button:not(.primary) {
+    position: relative;
+    z-index: 1;
   }
   .findings[aria-busy='true'] {
     opacity: 0.6;
