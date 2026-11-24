@@ -138,6 +138,8 @@ filters the list independently of the Problems rule/severity filters.
 No profile or check action changes subtitle history, dirty state or save policy.
 
 The Issues dock keeps its filters and tabs visible while findings scroll.
+The filters keep the matching issue and cue counts visible while findings scroll.
+**Partial coverage** opens the list of unsupported rules.
 Expand **Check details** for the active profile, scan and language coverage,
 limitations and the control for clearing session-ignored words.
 

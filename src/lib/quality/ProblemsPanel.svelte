@@ -37,6 +37,7 @@
   );
   const updating = settled(() => session.listStale);
   let findings: HTMLDivElement;
+  let details = $state<HTMLDetailsElement>();
   type Finding = QualityView['findings'][number];
   function findingKey(f: Finding) {
     return JSON.stringify([
@@ -229,8 +230,29 @@
       title="Next cue · F4"><span>Next cue · F4</span></button
     >
   </div>
+  {#if view?.profileHash}
+    <div class="result-summary">
+      <span
+        >{countLabel(view.filteredCount, 'matching issue')} · {countLabel(
+          view.filteredCues,
+          'cue',
+        )}</span
+      >
+      {#if view.profile.limitations.length}
+        <button
+          title={view.profile.limitations.join(' · ')}
+          onclick={() => {
+            if (!details) return;
+            details.open = true;
+            findings.scrollTop = 0;
+            details.querySelector('summary')?.focus({ preventScroll: true });
+          }}>Partial coverage</button
+        >
+      {/if}
+    </div>
+  {/if}
   <div class="findings" bind:this={findings} aria-busy={updating.showUpdating}>
-    {#if view}<details>
+    {#if view}<details bind:this={details}>
         <summary>Check details</summary>
         <p class="policy">
           {view.profile.name} · {countLabel(
@@ -271,12 +293,6 @@
               </li>{/each}
           </ul>
         {/if}
-        {#if view?.profileHash}<span
-            >{countLabel(view.filteredCount, 'matching issue')} · {countLabel(
-              view.filteredCues,
-              'cue',
-            )}</span
-          >{/if}
       </details>{/if}
     {#if view?.profileHash}
       {#if !view.filteredCount}<p>
@@ -392,6 +408,22 @@
     flex-wrap: wrap;
     flex: none;
     gap: 2px 4px;
+  }
+
+  .result-summary {
+    display: flex;
+    flex: none;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 11px;
+  }
+  .result-summary button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-decoration: underline;
   }
 
   .status-slot {

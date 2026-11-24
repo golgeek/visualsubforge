@@ -33,12 +33,29 @@ for (const minimum of [false, true]) {
         has: dock.page().getByText('Check details', { exact: true }),
       });
       await expect(details).not.toHaveAttribute('open', '');
+      const count = dock.getByText('70 matching issues · 70 cues', {
+        exact: true,
+      });
+      const partial = dock.getByText('Partial coverage', { exact: true });
+      await expect(count).toBeVisible();
+      await expect(partial).toBeVisible();
       await inside(first, dock);
       const findings = dock.locator('.findings');
       await findings.evaluate((el) => (el.scrollTop = el.scrollHeight));
       expect(await findings.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
       await inside(dock.getByLabel('Review tools'), dock);
       await inside(dock.getByLabel('Issue rule'), dock);
+      await inside(count, dock);
+      await inside(partial, dock);
+      await expect(partial).toHaveAttribute(
+        'title',
+        /Unsupported fixture rule/,
+      );
+      await partial.click();
+      await expect(details).toHaveAttribute('open', '');
+      await expect(details.getByText('Unsupported fixture rule')).toBeVisible();
+      await expect(details.locator('summary')).toBeFocused();
+      await details.locator('summary').click();
       const row = dock.getByRole('button', { name: /^Cue 35 ·/ });
       await row.click();
       const host = page.locator('#test');
