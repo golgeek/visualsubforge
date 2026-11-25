@@ -16,10 +16,12 @@ export async function qualityIndexBudget({
   restart,
 }) {
   const scenes = lane === 'scenes';
-  for (const english of [false, true]) {
+  for (const variant of ['off', 'english', 'english-distinct']) {
+    const english = variant !== 'off';
+    const distinct = variant === 'english-distinct';
     const budgetMs = 100;
     const findings = english ? 50000 : 20000;
-    const data = join(root, `index-${lane}-${english ? 'english' : 'off'}`);
+    const data = join(root, `index-${lane}-${variant}`);
     await mkdir(data);
     const path = join(
       data,
@@ -57,11 +59,26 @@ export async function qualityIndexBudget({
         await invoke('preferences_save', { preferences, epoch: current.epoch });
       }
     }
+    if (distinct) {
+      // Both original fixtures say “subtitle line”. Number that line in the cue
+      // text so all 10k cache keys differ, preserving markup and language errors.
+      const subtitles = scenes ? join(data, 'scene-large.srt') : path;
+      const source = await readFile(subtitles, 'utf8');
+      let index = 0;
+      const numbered = source.replaceAll(
+        'subtitle line',
+        () => `subtitle ${String(index++).padStart(4, '0')}`,
+      );
+      assert.equal(index, 10000);
+      await writeFile(subtitles, numbered);
+    }
     await menu(scenes ? 'openProject' : 'openSubtitles');
-    const doc = await until('original 10,000-cue fixture', async () => {
+    const doc = await until('10,000-cue fixture', async () => {
       const doc = await status();
       return doc.cues.length === 10000 && doc;
     });
+    if (distinct)
+      assert.equal(new Set(doc.cues.map((cue) => cue.text)).size, 10000);
     const waitForRevision = (revision) =>
       until('complete index for the exact accepted revision', async () =>
         browser.execute(
@@ -109,13 +126,17 @@ export async function qualityIndexBudget({
     };
     const samples = [];
     for (let i = 0; i < 20; ++i) samples.push(await measureCommit());
-    if (!scenes && english) {
+    if (distinct || (!scenes && english)) {
+      const { session } = await invoke('media_action', {
+        action: { kind: 'status' },
+        session: 0,
+      });
       const phase = await browser.execute(
-        async (generation, revision) => {
+        async (session, generation, revision) => {
           const invoke = window.__TAURI__.core.invoke;
           const view = await invoke('quality_read', {
             request: {
-              session: 0,
+              session,
               generation,
               revision,
               run: true,
@@ -133,6 +154,7 @@ export async function qualityIndexBudget({
           await invoke('quality_cancel', { id: view.id });
           return view.phase;
         },
+        session,
         doc.generation,
         revision,
       );
@@ -140,6 +162,7 @@ export async function qualityIndexBudget({
       await record({
         step: 'English commit to complete index after quality cancellation',
         lane,
+        variant,
         elapsedMs: await measureCommit(),
         findings,
       });
@@ -152,6 +175,7 @@ export async function qualityIndexBudget({
       step: 'commit to complete 10,000-cue issue index',
       lane,
       english,
+      variant,
       findings,
       budgetMs,
       samples,
@@ -159,7 +183,7 @@ export async function qualityIndexBudget({
     });
     assert.ok(
       p95Ms <= budgetMs,
-      `${lane} (${english ? 'English' : 'language off'}) commit to index p95 ${p95Ms} ms exceeds ${budgetMs} ms`,
+      `${lane} (${variant}) commit to index p95 ${p95Ms} ms exceeds ${budgetMs} ms`,
     );
   }
 }

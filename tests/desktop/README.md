@@ -160,13 +160,25 @@ npm run test:desktop -- --ass-performance
 | `--plugin-performance` | Five exact inputs with both plugin APIs, all finding/change pages, repeated check/fix/accept/history/save cycles, cancellation, source protection and recovery. Loads no media; requires sibling CLI. |
 
 Both `--performance` and `--scenes` finish with a release-build budget on the
-original 10,000-cue fixtures. Keep the window in front. Each language setting
-runs 20 real editor commits and restores the original cues with Undo between
-samples. The desktop receipt records commit-to-complete-index p95 and all
-samples in milliseconds. The limit is 100 ms with language checking off or
-English enabled. The SRT English lane also records one separate commit after
-cancelling a warm quality check. Use the release desktop-e2e binary and sibling CLI
-with `--binary` and `--cli`. On macOS the scenes lane also needs `macos-angle`.
+original 10,000-cue fixtures and a distinct-text English variant. The variant
+numbers the subtitle line in each cue, preserving timings, markup and the
+50,000-finding workload. Keep the window in front. Each cell runs 20 editor
+commits and restores the original cues with Undo between samples. The desktop
+receipt records the samples and commit-to-complete-index p95 in milliseconds.
+The limit is 100 ms in every cell. Both distinct-text lanes and the original
+SRT English lane also record a separate commit after cancelling a warm check.
+Use the release desktop-e2e binary and sibling CLI with `--binary` and `--cli`.
+On macOS the scenes lane also needs `macos-angle`.
+
+To measure warm cache occupancy, set `VSF_INDEX_BUDGET_DIR` to the receipt’s
+`data/index-performance-english-distinct` or `data/index-scenes-english-distinct`
+directory and run the probe below. It replays the language pass twice using the
+recorded SRT and settings, verifies 30,000 language findings, and prints the
+entry count, accounted bytes and number of cues that bypassed storage.
+
+```sh
+cargo test --locked -p vsf-application --lib distinct_desktop_cache_occupancy -- --ignored --nocapture
+```
 
 Use the feature's native-build recipe for authoring/translation/plugin benchmark
 bundles, even when a particular workload loads no media. Most interaction gates

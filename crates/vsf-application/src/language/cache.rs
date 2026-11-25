@@ -143,6 +143,70 @@ mod tests {
     use crate::language::Settings;
     use subtitle_core::{CueId, Milliseconds};
 
+    /// Replay the language pass on an actual distinct-text desktop lane receipt.
+    #[test]
+    #[ignore = "requires VSF_INDEX_BUDGET_DIR from a completed desktop lane"]
+    fn distinct_desktop_cache_occupancy() {
+        use std::{env, fs, path::PathBuf};
+
+        let dir =
+            PathBuf::from(env::var_os("VSF_INDEX_BUDGET_DIR").expect("desktop fixture directory"));
+        let (srt, config, settings) = if dir.join("scene-large.vsfproject").is_file() {
+            (
+                "scene-large.srt",
+                "scene-large.vsfproject",
+                "/options/quality/languageTools",
+            )
+        } else {
+            (
+                "quality-10000.srt",
+                "settings-v1.json",
+                "/quality/languageTools",
+            )
+        };
+        let source = fs::read_to_string(dir.join(srt)).unwrap();
+        let document = subtitle_formats::srt::parse(&source).unwrap().document;
+        let config: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.join(config)).unwrap()).unwrap();
+        let settings: Settings =
+            serde_json::from_value(config.pointer(settings).unwrap().clone()).unwrap();
+        let words = Lexicon::default();
+        let mut cache = LanguageCache::default();
+        for _ in 0..2 {
+            cache.prepare("desktop fixture", Format::Srt, &words);
+            let mut analysis = Analysis::new(&settings, &words);
+            let mut findings = Vec::new();
+            for (index, cue) in document.cues().iter().enumerate() {
+                cache
+                    .check(
+                        &mut analysis,
+                        cue,
+                        index,
+                        Format::Srt,
+                        &mut findings,
+                        || Ok(()),
+                    )
+                    .unwrap();
+            }
+            cache.finish_scan();
+            assert_eq!(findings.len(), 30_000);
+        }
+        // Every key is unique in this ordered fixture. Each cue without a
+        // resident entry therefore bypassed admission at one of the two caps.
+        let distinct = document
+            .cues()
+            .iter()
+            .map(Cue::text)
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(distinct.len(), 10_000);
+        println!(
+            "{srt}: {} entries, {} accounted bytes, {} cues bypassed",
+            cache.len(),
+            cache.bytes,
+            distinct.len() - cache.len()
+        );
+    }
+
     #[test]
     fn completed_scans_sweep_unused_entries_and_respect_both_caps() {
         let mut cache = LanguageCache::default();
