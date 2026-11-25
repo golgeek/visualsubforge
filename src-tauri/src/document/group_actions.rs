@@ -1,6 +1,6 @@
 //! Read-only availability for a captured selection. Trial edits run outside
 //! the store lock on private documents, through the same acceptance boundary.
-use super::{Documents, Result};
+use super::{Documents, Editor, Result, Source};
 use crate::ipc_number::SafeU64;
 use subtitle_core::CueId;
 use vsf_application::subtitle_operations::{GroupActions, group_actions};
@@ -10,22 +10,22 @@ impl Documents {
         &self,
         generation: u64,
         revision: u64,
-        inspect: impl FnOnce(subtitle_core::Document, subtitle_formats::Source) -> Result<T>,
+        inspect: impl FnOnce(Editor<Source>) -> Result<T>,
     ) -> Result<T> {
         let lock = || {
             self.0
                 .lock()
                 .map_err(|_| "Document worker unavailable".to_string())
         };
-        let (doc, source) = {
+        let editor = {
             let store = lock()?;
             store
                 .check_version(generation, revision)
                 .map_err(|e| e.message().to_owned())?;
             let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
-            (loaded.editor.document().clone(), loaded.source().clone())
+            loaded.editor.trial_copy()
         };
-        let result = inspect(doc, source);
+        let result = inspect(editor);
         lock()?
             .check_version(generation, revision)
             .map_err(|e| e.message().to_owned())?;
@@ -38,24 +38,28 @@ impl Documents {
         revision: u64,
         ids: Vec<SafeU64>,
     ) -> Result<GroupActions> {
-        self.inspect_cues(generation, revision, |doc, source| {
+        self.inspect_cues(generation, revision, |editor| {
             let ids: Vec<_> = ids.into_iter().map(|id| CueId(id.get())).collect();
-            Ok(group_actions(&doc, &source, &ids))
+            Ok(group_actions(editor.document(), editor.properties(), &ids))
         })
     }
 
     fn split_midpoint(&self, generation: u64, revision: u64, id: CueId) -> Result<SafeU64> {
-        self.inspect_cues(generation, revision, |doc, source| {
-            let cue = doc
+        self.inspect_cues(generation, revision, |mut editor| {
+            let cue = editor
+                .document()
                 .cues()
                 .iter()
                 .find(|cue| cue.id() == id)
                 .ok_or("Cue no longer exists")?;
-            let at = vsf_application::subtitle_operations::split_midpoint(cue, source.format())?;
-            subtitle_core::Editor::new(doc).apply_edit(
+            let at = vsf_application::subtitle_operations::split_midpoint(
+                cue,
+                editor.properties().format(),
+            )?;
+            editor.apply_edit_with_properties(
                 0,
                 subtitle_core::Edit::Split { id, at },
-                |candidate| vsf_application::subtitle_file::validate_document(candidate, &source),
+                vsf_application::subtitle_file::validate_document,
             )?;
             Ok(SafeU64::try_from(at.get())?)
         })
@@ -174,6 +178,52 @@ mod tests {
                 serde_json::to_value(before.cues).unwrap()
             );
         }
+    }
+
+    #[test]
+    fn midpoint_trial_uses_the_same_new_identity_as_the_accepted_split() {
+        // Reusing the deleted ID would restore imported SRT label order,
+        // including the padded label, and incorrectly exceed the byte limit.
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("padded.srt");
+        let text = "a".repeat(crate::srt_limits::MAX_BYTES / 2 - 40);
+        std::fs::write(&path, format!("{}\n00:00:00,000 --> 00:00:02,000\n{text}\n\n2\n00:00:03,000 --> 00:00:04,000\nEnd\n", "0".repeat(128))).unwrap();
+        let docs = Documents::default();
+        let mut store = docs.0.lock().unwrap();
+        let opened = store
+            .apply(
+                Action::Open {
+                    path: path.to_string_lossy().into_owned(),
+                    discard: false,
+                },
+                0,
+                0,
+            )
+            .unwrap();
+        let before = store
+            .apply(
+                Action::Delete { cue_id: 2 },
+                opened.generation,
+                opened.revision,
+            )
+            .unwrap();
+        drop(store);
+        let at = docs.split_midpoint(before.generation, before.revision, CueId(1));
+        let split = docs
+            .0
+            .lock()
+            .unwrap()
+            .apply(
+                Action::Split {
+                    cue_id: 1,
+                    at_ms: 1000,
+                },
+                before.generation,
+                before.revision,
+            )
+            .unwrap();
+        assert_eq!(split.cues[1].id, 3);
+        assert_eq!(at.unwrap().get(), 1000);
     }
 
     #[test]
