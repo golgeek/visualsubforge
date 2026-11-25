@@ -86,3 +86,21 @@ pub(crate) async fn cue_fixes_cancel(app: tauri::AppHandle, id: SafeU64) -> Resu
     .await
     .map_err(|error| error.to_string())?
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn timing_slot_wait(
+    documents: tauri::State<'_, Documents>,
+    id: SafeU64,
+) -> Result<(), String> {
+    documents.timing_slot_wait(id.get()).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn timing_slot_cancel_wait(
+    documents: tauri::State<'_, Documents>,
+    id: SafeU64,
+) -> Result<(), String> {
+    documents.timing_slot_cancel_wait(id.get())
+}

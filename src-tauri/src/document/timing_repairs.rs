@@ -3,17 +3,19 @@
 use super::*;
 use crate::batch_timing::{BatchRow, BatchView};
 use crate::cue_fixes::Origin;
+use crate::ipc_number::SafeU64;
 use crate::{
     quality_check::Key,
     scenes::{SceneCapture, SceneKey},
     timing_review::{FixView, Input, Phase, Purpose, Section},
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle,
     time::{Duration, Instant},
 };
+use tokio_util::sync::{CancellationToken, DropGuard};
 use vsf_application::batch_timing as batch;
 use vsf_application::quality::{self as engine, Profile, timing_fix, timing_selection};
 
@@ -27,7 +29,9 @@ pub(crate) enum TimingStartKind {
 }
 
 #[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TimingStartError {
+    wait_id: Option<SafeU64>,
     kind: TimingStartKind,
     pub(crate) message: String,
 }
@@ -36,6 +40,7 @@ impl From<String> for TimingStartError {
     fn from(message: String) -> Self {
         Self {
             kind: TimingStartKind::Rejected,
+            wait_id: None,
             message,
         }
     }
@@ -111,6 +116,7 @@ impl Proposal {
 #[derive(Default)]
 pub(super) struct State {
     next_id: u64,
+    next_wait: u64,
     closed: bool,
     job: Option<Job>,
 }
@@ -123,6 +129,9 @@ struct Job {
     hash: String,
     cancel: Arc<AtomicBool>,
     worker: Option<JoinHandle<Result<Prepared>>>,
+    finished: CancellationToken,
+    released: DropGuard,
+    waits: HashMap<u64, DropGuard>,
     proposal: Option<Proposal>,
     selection: Option<timing_selection::Plan>,
     error: Option<String>,
@@ -131,12 +140,15 @@ struct Job {
 }
 impl Job {
     fn cancel(&mut self) {
+        self.released.token().cancel();
         self.cancel.store(true, Ordering::Relaxed);
         self.proposal = None;
         self.selection = None;
     }
     fn refresh(&mut self) {
-        if let Some(worker) = self.worker.take_if(|w| w.is_finished()) {
+        // The worker drops its completion guard as it returns. A released busy
+        // waiter can reap immediately, even before is_finished would turn true.
+        if let Some(worker) = self.worker.take_if(|_| self.finished.is_cancelled()) {
             let result = worker
                 .join()
                 .unwrap_or_else(|_| Err("Timing proposal worker stopped unexpectedly".into()));
@@ -187,6 +199,31 @@ impl State {
             job.cancel();
         }
     }
+    /// Register under the admission lock. A late wait then sees either its
+    /// latched token or a retired ticket, both of which complete immediately.
+    fn register_admission_wait(&mut self, mut error: TimingStartError) -> TimingStartError {
+        let Some(job) = self.job.as_mut() else {
+            return error;
+        };
+        let signal = match error.kind {
+            TimingStartKind::ReviewOpen => job.released.token(),
+            TimingStartKind::WorkerBusy => &job.finished,
+            _ => return error,
+        };
+        let Some(id) = self
+            .next_wait
+            .checked_add(1)
+            .and_then(|id| SafeU64::try_from(id).ok())
+        else {
+            return "Timing wait identities exhausted".into();
+        };
+        self.next_wait = id.get();
+        job.waits
+            .insert(id.get(), signal.child_token().drop_guard());
+        error.wait_id = Some(id);
+        error
+    }
+
     fn ensure_idle(&mut self) -> StartResult<()> {
         if let Some(job) = &mut self.job {
             job.refresh();
@@ -197,6 +234,7 @@ impl State {
         if self.job.as_ref().is_some_and(|j| j.worker.is_some()) {
             return Err(TimingStartError {
                 kind: TimingStartKind::WorkerBusy,
+                wait_id: None,
                 message: "Wait for the current timing proposal to finish cancelling".into(),
             });
         }
@@ -219,9 +257,14 @@ impl State {
         let hash = profile.fingerprint().map_err(|e| e.to_string())?;
         let cancel = Arc::new(AtomicBool::new(false));
         let token = cancel.clone();
+        let finished = CancellationToken::new();
+        let completion = finished.clone().drop_guard();
         let worker = std::thread::Builder::new()
             .name("timing-proposal".into())
-            .spawn(move || run(token))
+            .spawn(move || {
+                let _completion = completion;
+                run(token)
+            })
             .map_err(|e| format!("Cannot start timing proposal: {e}"))?;
         self.job = Some(Job {
             id,
@@ -232,6 +275,9 @@ impl State {
             hash,
             cancel,
             worker: Some(worker),
+            finished,
+            released: CancellationToken::new().drop_guard(),
+            waits: HashMap::new(),
             proposal: None,
             selection: None,
             error: None,
@@ -243,6 +289,31 @@ impl State {
     }
 }
 impl Documents {
+    pub(crate) async fn timing_slot_wait(&self, id: u64) -> Result<()> {
+        let token = {
+            let store = self.0.lock().map_err(|_| "Document state unavailable")?;
+            store
+                .timing_repairs
+                .job
+                .as_ref()
+                .and_then(|job| job.waits.get(&id))
+                .map(|guard| guard.token().clone())
+        };
+        if let Some(token) = token {
+            token.cancelled().await;
+            self.timing_slot_cancel_wait(id)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn timing_slot_cancel_wait(&self, id: u64) -> Result<()> {
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        if let Some(job) = &mut store.timing_repairs.job {
+            job.waits.remove(&id);
+        }
+        Ok(())
+    }
+
     pub(crate) fn initialize_timing_options(
         &self,
         stored: timing_fix::Options,
@@ -369,13 +440,21 @@ impl Documents {
         {
             return Err(TimingStartError {
                 kind: TimingStartKind::PolicyChanged,
+                wait_id: None,
                 message: "Timing policy changed before preview; try again".into(),
             });
         }
         // Reject busy admission before cloning another document snapshot.
-        store.timing_repairs.ensure_idle()?;
+        let automatic = matches!(operation, Operation::CueFixes(_, Origin::Automatic));
+        if let Err(error) = store.timing_repairs.ensure_idle() {
+            return Err(if automatic {
+                store.timing_repairs.register_admission_wait(error)
+            } else {
+                error
+            });
+        }
         // A completed worker still owns its review until it is accepted, retired or closed.
-        if matches!(operation, Operation::CueFixes(_, Origin::Automatic))
+        if automatic
             && store.timing_repairs.job.as_ref().is_some_and(|job| {
                 !matches!(job.operation, Operation::CueFixes(_, Origin::Automatic))
                     && job.key == key
@@ -383,10 +462,13 @@ impl Documents {
                     && phase(job, false) == Phase::Reviewing
             })
         {
-            return Err(TimingStartError {
-                kind: TimingStartKind::ReviewOpen,
-                message: "Finish the current timing review to preview cue fixes".into(),
-            });
+            return Err(store
+                .timing_repairs
+                .register_admission_wait(TimingStartError {
+                    kind: TimingStartKind::ReviewOpen,
+                    wait_id: None,
+                    message: "Finish the current timing review to preview cue fixes".into(),
+                }));
         }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let document = loaded.editor.document().clone();
@@ -703,6 +785,7 @@ impl Documents {
         };
         store.loaded_mut()?.apply_edit(key.revision.get(), edit)?;
         if let Some(job) = &mut store.timing_repairs.job {
+            job.released.token().cancel();
             job.accepted = true;
             job.proposal = None;
             job.selection = None;

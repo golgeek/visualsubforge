@@ -126,6 +126,10 @@ export const commands = {
       cueId,
       origin,
     }),
+  timingSlotWait: (id: number) =>
+    __TAURI_INVOKE<null>('timing_slot_wait', { id }),
+  timingSlotCancelWait: (id: number) =>
+    __TAURI_INVOKE<null>('timing_slot_cancel_wait', { id }),
   cueFixesView: (id: number) =>
     __TAURI_INVOKE<visualsubforge_cue_fixes_View>('cue_fixes_view', { id }),
   cueFixesCancel: (id: number) =>
@@ -3719,6 +3723,7 @@ export type vsf_application_quality_profile_Timing = {
 };
 
 export type visualsubforge_document_timing_repairs_TimingStartError = {
+  waitId: number | null;
   kind: visualsubforge_document_timing_repairs_TimingStartKind;
   message: string;
 };

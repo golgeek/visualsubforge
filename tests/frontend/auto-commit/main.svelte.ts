@@ -139,7 +139,7 @@ async function fixesLifecycle() {
     session: number;
     context: string;
   };
-  for (const phase of ['start', 'view']) {
+  for (const phase of ['start', 'view', 'refusal', 'wait']) {
     const f = await fixture();
     let input = $state.raw<Input | null>({
       document: f.session.snapshot,
@@ -160,7 +160,13 @@ async function fixesLifecycle() {
         {
           start: async () => {
             started++;
-            if (phase === 'start') await gate.promise;
+            if (phase === 'start' || phase === 'refusal') await gate.promise;
+            if (phase === 'refusal' || phase === 'wait')
+              throw {
+                kind: 'reviewOpen',
+                message: 'Finish the review',
+                waitId: 42,
+              };
             return 99;
           },
           view: async () => {
@@ -176,19 +182,30 @@ async function fixesLifecycle() {
               error: null,
             };
           },
+          wait: async () => {
+            reads++;
+            await gate.promise;
+          },
+          cancelWait: async (id) => {
+            cancelled.push(id);
+          },
           cancel: async (id) => {
             cancelled.push(id);
           },
         },
       );
     });
-    await until(() => (phase === 'start' ? started === 1 : reads === 1));
+    await until(() =>
+      phase === 'start' || phase === 'refusal' ? started === 1 : reads === 1,
+    );
     owner.dispose();
     cleanup();
     gate.resolve();
     await sleep(10);
     assert(
-      cancelled.includes(99) && owner.count === 0,
+      cancelled.includes(phase === 'wait' || phase === 'refusal' ? 42 : 99) &&
+        started === 1 &&
+        owner.count === 0,
       `Disposed fixes ${phase} republished or leaked admission`,
     );
     input = null;
@@ -217,6 +234,8 @@ async function fixesLifecycle() {
         () => input,
         { acceptCueFixes: async () => true },
         {
+          wait: async () => {},
+          cancelWait: async () => {},
           start: async (_session, _document, cueId) => {
             started++;
             active++;
@@ -285,6 +304,8 @@ async function fixesLifecycle() {
           },
         },
         {
+          wait: async () => {},
+          cancelWait: async () => {},
           start: async () => 1,
           view: async () => ({
             id: 1,

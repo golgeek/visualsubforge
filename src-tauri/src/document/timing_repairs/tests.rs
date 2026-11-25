@@ -192,8 +192,8 @@ fn failed_saves_and_recovery_resync_protection_survive_acceptance_and_undo() {
     assert_eq!(value(&docs), before);
     assert!(docs.apply(Action::Undo, 1, 1).unwrap().requires_save_as);
 }
-#[test]
-fn timing_start_reports_worker_busy_until_the_cancelled_worker_finishes() {
+#[tokio::test]
+async fn timing_start_reports_worker_busy_until_the_cancelled_worker_finishes() {
     let (_dir, docs, scenes) = fixture();
     let (entered, started) = mpsc::channel();
     let (release, wait) = mpsc::channel();
@@ -232,12 +232,31 @@ fn timing_start_reports_worker_busy_until_the_cancelled_worker_finishes() {
         refusal.message,
         "Wait for the current timing proposal to finish cancelling"
     );
-    release.send(()).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while docs.timing_fix_view(id, 0, 100).unwrap().phase == Phase::Cancelling {
-        assert!(Instant::now() < deadline);
-        std::thread::yield_now();
+    let automatic = docs
+        .cue_fixes_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+            Origin::Automatic,
+        )
+        .unwrap_err();
+    assert_eq!(automatic.kind, TimingStartKind::WorkerBusy);
+    let mut wait = Box::pin(docs.timing_slot_wait(automatic.wait_id.unwrap().get()));
+    tokio::select! {
+        biased;
+        result = &mut wait => panic!("Worker is still cancelling: {result:?}"),
+        () = std::future::ready(()) => {}
     }
+    release.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(1), wait)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        docs.timing_fix_view(id, 0, 100).unwrap().phase,
+        Phase::Cancelled
+    );
     assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     let next = start(&docs, &scenes);
     ready(&docs, next);
@@ -608,4 +627,123 @@ fn user_requested_cue_preview_can_replace_a_timing_review() {
     assert_eq!(ready_cue_fixes(&docs, next).phase, Phase::Reviewing);
     assert!(docs.timing_fix_view(old, 0, 100).is_err());
     assert_eq!(docs.cue_fixes_accept(next).unwrap().revision, 1);
+}
+
+fn refused_ticket(docs: &Documents, scenes: &Scenes) -> u64 {
+    let error = docs
+        .cue_fixes_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+            Origin::Automatic,
+        )
+        .unwrap_err();
+    assert_eq!(error.kind, TimingStartKind::ReviewOpen);
+    error.wait_id.unwrap().get()
+}
+
+#[tokio::test]
+async fn slot_wait_observes_every_review_exit_before_or_after_registration() {
+    enum Exit {
+        Accept,
+        Cancel,
+        Replace,
+        Edit,
+        Close,
+        Policy,
+        TimingOptions,
+        Shutdown,
+    }
+    for exit in [
+        Exit::Accept,
+        Exit::Cancel,
+        Exit::Replace,
+        Exit::Edit,
+        Exit::Close,
+        Exit::Policy,
+        Exit::TimingOptions,
+        Exit::Shutdown,
+    ] {
+        let (_dir, docs, scenes) = fixture();
+        let id = start(&docs, &scenes);
+        ready(&docs, id);
+        let early = refused_ticket(&docs, &scenes);
+        let late = refused_ticket(&docs, &scenes);
+        let mut waiting = Box::pin(docs.timing_slot_wait(early));
+        // Poll once so the command has subscribed. It must yield with the
+        // document unlocked, allowing the operation that releases the slot.
+        tokio::select! {
+            biased;
+            result = &mut waiting => panic!("Review still open: {result:?}"),
+            () = std::future::ready(()) => {}
+        }
+        assert!(docs.0.try_lock().is_ok());
+        match exit {
+            Exit::Accept => {
+                docs.timing_repair_accept(id, Purpose::Fix).unwrap();
+            }
+            Exit::Cancel => docs.timing_repair_cancel(id, Purpose::Fix).unwrap(),
+            Exit::Replace => {
+                batch_tests::start(&docs, &scenes, 125);
+            }
+            Exit::Edit => {
+                docs.apply(
+                    Action::Edit {
+                        cue_id: 1,
+                        start_ms: 1000,
+                        end_ms: 3000,
+                        text: "Changed".into(),
+                    },
+                    1,
+                    0,
+                )
+                .unwrap();
+            }
+            Exit::Close => {
+                docs.apply(Action::Close { discard: true }, 1, 0).unwrap();
+            }
+            Exit::Policy => {
+                docs.reset_quality().unwrap();
+            }
+            Exit::TimingOptions => docs
+                .set_timing_options(timing_fix::Options {
+                    start_tolerance_ms: 120,
+                    ..Default::default()
+                })
+                .unwrap(),
+            Exit::Shutdown => docs.shutdown_timing_repairs().unwrap(),
+        }
+        tokio::time::timeout(Duration::from_secs(1), async {
+            waiting.await.unwrap();
+            docs.timing_slot_wait(late).await.unwrap();
+        })
+        .await
+        .expect("Review release was missed");
+    }
+}
+
+#[tokio::test]
+async fn withdrawing_one_slot_wait_preserves_the_review_and_other_waiters() {
+    let (_dir, docs, scenes) = fixture();
+    let id = start(&docs, &scenes);
+    ready(&docs, id);
+    let first = refused_ticket(&docs, &scenes);
+    let second = refused_ticket(&docs, &scenes);
+    docs.timing_slot_cancel_wait(first).unwrap();
+    tokio::time::timeout(Duration::from_secs(1), docs.timing_slot_wait(first))
+        .await
+        .unwrap()
+        .unwrap();
+    let mut remaining = Box::pin(docs.timing_slot_wait(second));
+    tokio::select! {
+        biased;
+        result = &mut remaining => panic!("Withdrawing another wait released this one: {result:?}"),
+        () = std::future::ready(()) => {}
+    }
+    docs.timing_repair_accept(id, Purpose::Fix).unwrap();
+    tokio::time::timeout(Duration::from_secs(1), remaining)
+        .await
+        .unwrap()
+        .unwrap();
 }

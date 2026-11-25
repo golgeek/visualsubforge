@@ -427,16 +427,35 @@ async function scenePerformance({
       },
     );
     assert.equal(refusal?.kind, 'reviewOpen');
+    assert.ok(Number.isSafeInteger(refusal.waitId));
+    await browser.execute((id) => {
+      window.__vsfTimingSlot = 'waiting';
+      void window.__TAURI__.core.invoke('timing_slot_wait', { id }).then(
+        () => {
+          window.__vsfTimingSlot = 'released';
+        },
+        (error) => {
+          window.__vsfTimingSlot = String(error);
+        },
+      );
+    }, refusal.waitId);
     assert.equal((await dialog.$$('.change')).length, 100);
     await (await dialog.$('button=Next')).click();
     await until('10k second scene page', async () =>
       (await dialog.getText()).includes('101–200 / 10000'),
     );
     await browser.saveScreenshot(join(evidence, 'scene-10000-preview.png'));
+    assert.equal(
+      await browser.execute(() => window.__vsfTimingSlot),
+      'waiting',
+    );
     const acceptStart = Date.now();
     await acceptReview(browser, status, until);
     await ready();
     result.acceptanceMs = Date.now() - acceptStart;
+    await until('10k review released its cue-preview wait', () =>
+      browser.execute(() => window.__vsfTimingSlot === 'released'),
+    );
     assert.ok(
       result.acceptanceMs < result.budgetMs,
       'Scene acceptance exceeded budget',
