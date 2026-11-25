@@ -178,7 +178,8 @@ export async function assPerformance({
         list.dispatchEvent(new Event('scroll'));
         const row = await b.wait(() =>
           [...document.querySelectorAll('.cue-row')].find(
-            (r) => r.firstElementChild.textContent === '10000',
+            (r) =>
+              r.querySelector('[data-cell="number"]')?.textContent === '10000',
           ),
         );
         row.click();
