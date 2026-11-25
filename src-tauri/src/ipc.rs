@@ -37,6 +37,8 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             quality_check::quality_read,
             quality_check::quality_cancel,
             crate::cue_fixes::cue_fixes_start,
+            crate::cue_fixes::timing_slot_wait,
+            crate::cue_fixes::timing_slot_cancel_wait,
             crate::cue_fixes::cue_fixes_view,
             crate::cue_fixes::cue_fixes_cancel,
             crate::cue_fixes::cue_fixes_accept,

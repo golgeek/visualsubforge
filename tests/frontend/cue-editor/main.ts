@@ -105,6 +105,9 @@ let fixCount = 0;
 let rejectEdit = false;
 let fixId = 0;
 let cueRefusal: 'reviewOpen' | 'rejected' | null = null;
+const previewStarts: number[] = [];
+let nextWait = 0;
+const releaseWaits = new Map<number, () => void>();
 const reviewInUse = 'The fixture timing review owns the slot';
 const plans = new Map<number, { cue: number; version: number }>();
 let selectedForChecks = 1;
@@ -246,12 +249,27 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         }
         case 'cue_fixes_start': {
+          previewStarts.push(args.cueId!);
           if (cueRefusal && args.origin !== 'user')
-            throw { kind: cueRefusal, message: reviewInUse };
+            throw {
+              kind: cueRefusal,
+              message: reviewInUse,
+              waitId: cueRefusal === 'reviewOpen' ? ++nextWait : null,
+            };
           const id = ++fixId;
           plans.set(id, { cue: args.cueId!, version: args.revision! });
           return id;
         }
+        case 'timing_slot_wait':
+          if (cueRefusal === 'reviewOpen')
+            await new Promise<void>((resolve) =>
+              releaseWaits.set(args.id!, resolve),
+            );
+          return null;
+        case 'timing_slot_cancel_wait':
+          releaseWaits.get(args.id!)?.();
+          releaseWaits.delete(args.id!);
+          return null;
         case 'cue_fixes_view': {
           const plan = plans.get(args.id!)!;
           return {
@@ -587,14 +605,42 @@ async function run() {
       ),
       'An automatic cue preview offered to replace the open review',
     );
+    const attempts = previewStarts.length;
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    assert(
+      previewStarts.length === attempts,
+      'Open review polled cue_fixes_start',
+    );
+    const oldWait = nextWait;
+    await select(2);
+    await until(() => releaseWaits.has(nextWait) && nextWait !== oldWait);
+    assert(!releaseWaits.has(oldWait), 'Selection kept the old cue waiting');
+    await select(3);
+    await until(
+      () =>
+        releaseWaits.size === 1 &&
+        previewStarts.at(-1) === 3 &&
+        !!host.querySelector('.fix-reason'),
+    );
+    assert(
+      previewStarts.slice(attempts).join(',') === '2,3',
+      'A selection change retried a stale cue preview',
+    );
+    const beforeRelease = previewStarts.length;
     // Cancel releases the slot without changing the selected cue or document.
     const reviewRevision = snapshot.revision;
     cueRefusal = null;
+    for (const resolve of releaseWaits.values()) resolve();
+    releaseWaits.clear();
     stage = 'automatic cue preview after Cancel';
     await until(() =>
       [...host.querySelectorAll('button')].some(
         (b) => b.textContent?.trim() === 'Fix 2',
       ),
+    );
+    assert(
+      previewStarts.slice(beforeRelease).join(',') === '3',
+      'Slot release must retry exactly once for the current cue',
     );
     assert(
       snapshot.revision === reviewRevision,

@@ -4,6 +4,8 @@ import {
   cueFixesView,
   cueFixesCancel,
   timingStartError,
+  timingSlotWait,
+  timingSlotCancelWait,
   type CueFixOrigin,
   type CueFixesView,
   type DocumentSnapshot,
@@ -20,6 +22,8 @@ const api = {
   start: cueFixesStart,
   view: cueFixesView,
   cancel: cueFixesCancel,
+  wait: timingSlotWait,
+  cancelWait: timingSlotCancelWait,
 };
 /** Projection of one Rust plan. The shared timing worker owns computation;
  * DocumentSession alone adopts acceptance. No arithmetic or history here. */
@@ -35,6 +39,7 @@ export class CueFixes {
   private input: Input | null = null;
   private id: number | null = null;
   private pending = false;
+  private waitId: number | null = null;
   private origin: CueFixOrigin = 'automatic';
   private timer: ReturnType<typeof setTimeout> | null = null;
   constructor(
@@ -66,6 +71,7 @@ export class CueFixes {
     this.input = input;
     ++this.sequence;
     this.clearTimer();
+    this.cancelWait();
     if (this.id !== null) void this.client.cancel(this.id).catch(() => {});
     this.id = null;
     this.view = null;
@@ -73,6 +79,26 @@ export class CueFixes {
     this.waitingForReview = false;
     this.preparing = !!input;
     if (input) this.schedule(350);
+  }
+  private cancelWait() {
+    if (this.waitId !== null)
+      void this.client.cancelWait(this.waitId).catch(() => {});
+    this.waitId = null;
+  }
+  private async resumeAfterRelease(id: number, sequence: number) {
+    this.waitId = id;
+    try {
+      await this.client.wait(id);
+    } catch (error) {
+      if (this.alive && sequence === this.sequence) {
+        this.waitingForReview = false;
+        this.error = String(error);
+      }
+      return;
+    } finally {
+      if (this.waitId === id) this.waitId = null;
+    }
+    if (this.alive && sequence === this.sequence) void this.poll();
   }
   private clearTimer() {
     if (this.timer !== null) clearTimeout(this.timer);
@@ -113,14 +139,21 @@ export class CueFixes {
       this.error = view.error ?? '';
       if (this.preparing) this.schedule(200);
     } catch (error) {
-      if (this.alive && sequence === this.sequence) {
-        const refusal = this.id === null ? timingStartError(error) : null;
+      const refusal = timingStartError(error);
+      const waitId = refusal?.waitId;
+      const current = this.alive && sequence === this.sequence;
+      if (current) {
         this.waitingForReview =
-          refusal?.kind === 'reviewOpen' ||
-          (this.waitingForReview && refusal?.kind === 'workerBusy');
+          waitId != null &&
+          (refusal?.kind === 'reviewOpen' ||
+            (this.waitingForReview && refusal?.kind === 'workerBusy'));
         this.error = refusal?.message ?? String(error);
         this.preparing = false;
-        if (this.waitingForReview) this.schedule(350);
+      }
+      if (waitId != null) {
+        if (current && this.waitingForReview)
+          void this.resumeAfterRelease(waitId, sequence);
+        else void this.client.cancelWait(waitId).catch(() => {});
       }
     } finally {
       this.pending = false;
@@ -187,6 +220,7 @@ export class CueFixes {
     this.alive = false;
     ++this.sequence;
     this.clearTimer();
+    this.cancelWait();
     if (this.id !== null) void this.client.cancel(this.id).catch(() => {});
   }
 }

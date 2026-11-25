@@ -466,8 +466,18 @@ export function timingStartError(value: unknown): TimingStartError | null {
       error.kind === 'reviewOpen' ||
       error.kind === 'rejected')
   )
-    return { kind: error.kind, message: error.message };
+    return {
+      kind: error.kind,
+      message: error.message,
+      waitId: typeof error.waitId === 'number' ? error.waitId : null,
+    };
   return null;
+}
+export async function timingSlotWait(id: number) {
+  await commands.timingSlotWait(id);
+}
+export async function timingSlotCancelWait(id: number) {
+  await commands.timingSlotCancelWait(id);
 }
 export function timingFixStart(
   session: number,

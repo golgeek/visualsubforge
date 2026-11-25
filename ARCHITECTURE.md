@@ -464,8 +464,8 @@ dock without changing the preset. Meters and source-line counts use Rust project
 Rust checks the origin of a selected-cue preview under the document lock. A
 reviewable user proposal keeps the timing slot until acceptance, cancellation or
 invalidation. Rust returns the typed `reviewOpen` admission refusal. CueFixes
-shows its message in the cue strip and rechecks admission with automatic origin
-while its input remains current. A cancellation releases the slot at the same
+shows its message in the cue strip and awaits the slot-release signal. It retries
+admission with automatic origin if its input is still current. A cancellation releases the slot at the same
 revision. Explicit user previews may still replace a ready review.
 
 Safe cue fixes reuse the existing single timing-proposal worker, cancellation,
@@ -805,6 +805,17 @@ pool. A worker that finished before the follow-up read satisfies the wait
 immediately. The frontend checks its request sequence and document context before
 publishing a reply. The mandatory issue column enables accepted checking for
 loaded documents. Pause remains available.
+
+A user timing review owns a separate slot-release token in the document store.
+Acceptance, cancellation and invalidation signal it under the admission lock.
+Replacing the job or shutting down drops its guard. When Rust refuses an automatic
+cue preview it registers a ticket under that same lock. The async command copies
+the ticket’s child token, releases the lock and awaits it. A ticket retired before
+the command arrives completes immediately. Each registration is independent, so
+changing selection, revision or media context, or disposing the cue editor, can
+cancel its wait without closing the review. The frontend checks its request
+sequence before retrying. If a replacement worker is still preparing, the retry
+can wait on that worker’s completion using the same mechanism.
 
 
 ## Instant Settings and shortcut publication
