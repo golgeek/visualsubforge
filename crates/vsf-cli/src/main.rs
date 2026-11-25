@@ -1,11 +1,11 @@
 //! Thin synchronous CLI adapter. Shared application operations own analysis,
 //! validation and file publication; this process never loads desktop settings.
-mod args;
+pub(crate) mod args;
 mod check;
 mod compare;
 mod extract;
 mod plugins;
-mod review;
+pub(crate) mod review;
 mod stats;
 mod timing;
 use args::{Cli, Command, Resync};
@@ -26,7 +26,7 @@ use vsf_application::resync::{
     self, Budget, Cancellation, Error, OutputPaths, Publication, Request, Stage, Subtitles,
 };
 
-fn main() -> ExitCode {
+pub(crate) fn main() -> ExitCode {
     if let Some(code) = vsf_plugin_host::worker_entry() {
         return code;
     }
