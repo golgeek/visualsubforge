@@ -1,3 +1,4 @@
+import { fixtureIssueIndex } from '../empty-quality';
 import { visualCheckpoint } from '../visual-checkpoint';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
@@ -177,6 +178,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                   ];
             return {
               ...structuredClone(qualitySample),
+              issueIndex: fixtureIssueIndex(args, findings),
               selectedIssues: null,
               key: {
                 loaded: true,

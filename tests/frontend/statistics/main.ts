@@ -1,3 +1,4 @@
+import { fixtureIssueIndex } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -189,6 +190,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'quality_read':
           return {
             ...structuredClone(qualitySample),
+            issueIndex: fixtureIssueIndex(args, qualitySample.findings),
             selectedIssues: null,
             key: {
               ...qualitySample.key,

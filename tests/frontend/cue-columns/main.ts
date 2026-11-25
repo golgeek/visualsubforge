@@ -100,7 +100,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           ];
           return {
             ...emptyQuality(args),
-            issueIndex: fixtureIssueIndex(findings),
+            issueIndex: fixtureIssueIndex(args, findings),
             findingsCount: 2,
             filteredCount: 2,
             findings,

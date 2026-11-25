@@ -135,10 +135,7 @@ function read(request: QualityRequest): QualityView {
     generation: document.generation,
     revision: document.revision,
   };
-  view.issueIndex =
-    request.indexSince === view.reportId
-      ? null
-      : fixtureIssueIndex(base.findings);
+  view.issueIndex = fixtureIssueIndex({ request }, base.findings);
   view.findings = base.findings.filter(
     (f) =>
       (!request.rule || request.rule === f.rule) &&

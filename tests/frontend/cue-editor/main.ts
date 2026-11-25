@@ -227,7 +227,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             );
           return {
             ...view,
-            issueIndex: fixtureIssueIndex(findings),
+            issueIndex: fixtureIssueIndex(args, findings),
             selectedIssues: projection,
             findingsCount: 9,
             affectedCues: 3,

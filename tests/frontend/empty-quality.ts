@@ -2,7 +2,13 @@ import type { QualityRequest, QualityView } from '../../src/lib/client';
 import { qualityView } from './ipc-contract-samples';
 
 /** Build the modeled worker reply from the fixture’s complete, unfiltered findings. */
-export function fixtureIssueIndex(findings: QualityView['findings']) {
+export function fixtureIssueIndex(
+  args: unknown,
+  findings: QualityView['findings'],
+) {
+  const { request } = args as { request: QualityRequest };
+  if (request.indexSince == null || request.indexSince === qualityView.reportId)
+    return null;
   const violations = new Set<string>();
   const advisories = new Set<string>();
   for (const f of findings) {
@@ -31,7 +37,7 @@ export function emptyQuality(args: unknown): QualityView {
       loaded: true,
     },
     phase: 'ready',
-    issueIndex: { advisories: [], violations: [] },
+    issueIndex: fixtureIssueIndex(args, []),
     findings: [],
     metrics: [],
     selected: null,

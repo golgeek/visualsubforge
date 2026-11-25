@@ -623,15 +623,21 @@ async function run() {
         'Unchanged paused status polls do not repaint the waveform: ' +
           JSON.stringify(redrawDetails),
       );
+      const waitForPlayhead = (position: string) =>
+        until(
+          () =>
+            redraws > 0 &&
+            host.querySelector('.transport output')?.textContent === position,
+        );
       media.positionSeconds = 13.5;
-      await until(() => redraws > 0);
+      await waitForPlayhead('00:00:13,500');
       assert(
         redraws > 0,
         'A changed playback position repaints the waveform playhead',
       );
       media.positionSeconds = 12.5;
       redraws = 0;
-      await until(() => redraws > 0);
+      await waitForPlayhead('00:00:12,500');
     } finally {
       sizes.disconnect();
       document.fonts.removeEventListener('loadingdone', fontLoaded);
