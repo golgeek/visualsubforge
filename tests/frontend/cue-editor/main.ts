@@ -284,7 +284,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'media_action': {
           const action = args.action as MediaAction;
 
-          if (action.kind === 'seek') media.positionSeconds = action.seconds;
+          if (action.kind === 'seek') {
+            media.positionSeconds = action.seconds;
+            host.dataset.lastSeek = String(action.seconds);
+          }
           return structuredClone(media);
         }
         case 'cue_group_actions': {

@@ -38,6 +38,64 @@ function route(
   );
 }
 
+test('navigation bindings in native menus dispatch from workspace focus and preserve text navigation', () => {
+  for (const mac of [false, true]) {
+    const mod = mac ? { metaKey: true } : { ctrlKey: true };
+    for (const [key, bindingKey, modifiers] of [
+      ['ArrowDown', 'CmdOrCtrl+Shift+Down', { ...mod, shiftKey: true }],
+      ['ArrowLeft', 'CmdOrCtrl+Left', mod],
+      ...(!mac
+        ? ([
+            ['Home', 'Home', {}],
+            ['End', 'Shift+End', { shiftKey: true }],
+          ] as const)
+        : []),
+    ] as const) {
+      const event = {
+        key,
+        code: key,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        altKey: false,
+        repeat: false,
+        isComposing: false,
+        defaultPrevented: false,
+        ...modifiers,
+      };
+      const shortcuts = {
+        preset: 'custom' as const,
+        bindings: [
+          { action: 'save', mode: 'global' as const, key: bindingKey },
+        ],
+      };
+      for (const editing of [true, false]) {
+        assert.deepEqual(
+          routeWorkspaceKey(event, { ...context, mac, editing }, shortcuts),
+          editing ? null : { kind: 'action', action: 'save' },
+        );
+      }
+    }
+  }
+  for (const [key, action] of [
+    ['ArrowUp', 'previousCue'],
+    ['ArrowDown', 'nextCue'],
+  ] as const) {
+    assert.deepEqual(
+      route(key, { altKey: true }, { mac: true, editing: true, cueText: true }),
+      { kind: 'editing', action },
+    );
+    assert.equal(
+      route(
+        key,
+        { altKey: true },
+        { mac: true, editing: true, cueText: false },
+      ),
+      null,
+    );
+  }
+});
+
 test('Find and Replace stay distinct from Merge on both platforms', () => {
   for (const modifier of ['ctrlKey', 'metaKey'])
     assert.deepEqual(

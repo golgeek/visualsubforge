@@ -823,7 +823,10 @@ The runtime advances only after successful persistence. Scoped and alternate
 bindings dispatch in the webview; primary native bindings use menus, with the
 existing unconsumed Windows fallback. Text formatting/history, Escape and OS keys
 retain their owners. Ordinary cue-row focus belongs to the list shortcut mode;
-other buttons retain Enter/Space activation and other fields retain Tab navigation.
+other buttons retain Enter/Space activation and other fields retain Tab navigation. The shared platform text-navigation table tells both owners which key
+bindings the webview must dispatch according to focus. Rust displays these keys
+as native menu hints and leaves them unregistered as accelerators, including on
+startup and after a rebind.
 
 The mode-aware preset remains opt-in pending owner trials. Migrated settings keep
 current bindings except Replace moves to Cmd/Ctrl+Shift+F to resolve the macOS

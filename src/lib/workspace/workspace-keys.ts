@@ -3,6 +3,7 @@ import {
   matchesShortcut,
   type ActionId,
 } from './action-registry.ts';
+import textNavigationKeys from './text-navigation-keys.json' with { type: 'json' };
 import { shortcutPreset } from './shortcut-settings.ts';
 export type EditingShortcut =
   | 'setStart'
@@ -49,6 +50,7 @@ interface KeyContext {
   confirming: boolean;
   problems: boolean;
   windows: boolean;
+  mac?: boolean;
   available: boolean;
   canAct: boolean;
   timing: boolean;
@@ -87,6 +89,15 @@ export function routeWorkspaceKey(
   );
   if (!binding) return null;
   const action = binding.action as ActionId;
+  const textNavigation = Object.hasOwn(
+    context.mac ? textNavigationKeys.macos : textNavigationKeys.other,
+    binding.key,
+  );
+  const cueJump =
+    mode === 'text' &&
+    ((action === 'previousCue' && binding.key === 'Alt+Up') ||
+      (action === 'nextCue' && binding.key === 'Alt+Down'));
+  if (context.editing && textNavigation && !cueJump) return null;
   if (
     action === 'play' &&
     binding.mode === 'workspace' &&
@@ -132,7 +143,11 @@ export function routeWorkspaceKey(
       return null;
     // Primary native accelerators dispatch from menus on macOS/Linux. WebView2
     // needs the existing unconsumed-key fallback; scoped keys live in the DOM.
-    if (binding.mode === 'global' && (!context.windows || e.metaKey))
+    if (
+      binding.mode === 'global' &&
+      !textNavigation &&
+      (!context.windows || e.metaKey)
+    )
       return null;
     return action === 'openMedia' && !context.available
       ? { kind: 'consume' }
@@ -186,6 +201,7 @@ export function workspaceKeydown(e: KeyboardEvent, owners: KeyOwners) {
       confirming: workspace.confirming,
       problems: owners.problemsOpen,
       windows: owners.windows,
+      mac: navigator.platform.startsWith('Mac'),
       available: media.status.available,
       canAct: workspace.canAct,
       timing: gestures.mode,

@@ -1,0 +1,38 @@
+{
+  "macos": {
+    "CmdOrCtrl+Left": "⌘←",
+    "CmdOrCtrl+Right": "⌘→",
+    "CmdOrCtrl+Up": "⌘↑",
+    "CmdOrCtrl+Down": "⌘↓",
+    "CmdOrCtrl+Shift+Left": "⇧⌘←",
+    "CmdOrCtrl+Shift+Right": "⇧⌘→",
+    "CmdOrCtrl+Shift+Up": "⇧⌘↑",
+    "CmdOrCtrl+Shift+Down": "⇧⌘↓",
+    "Alt+Left": "⌥←",
+    "Alt+Right": "⌥→",
+    "Alt+Up": "⌥↑",
+    "Alt+Down": "⌥↓",
+    "Alt+Shift+Left": "⌥⇧←",
+    "Alt+Shift+Right": "⌥⇧→",
+    "Alt+Shift+Up": "⌥⇧↑",
+    "Alt+Shift+Down": "⌥⇧↓"
+  },
+  "other": {
+    "CmdOrCtrl+Left": "Ctrl+←",
+    "CmdOrCtrl+Right": "Ctrl+→",
+    "CmdOrCtrl+Up": "Ctrl+↑",
+    "CmdOrCtrl+Down": "Ctrl+↓",
+    "CmdOrCtrl+Shift+Left": "Ctrl+Shift+←",
+    "CmdOrCtrl+Shift+Right": "Ctrl+Shift+→",
+    "CmdOrCtrl+Shift+Up": "Ctrl+Shift+↑",
+    "CmdOrCtrl+Shift+Down": "Ctrl+Shift+↓",
+    "Home": "Home",
+    "End": "End",
+    "Shift+Home": "Shift+Home",
+    "Shift+End": "Shift+End",
+    "CmdOrCtrl+Home": "Ctrl+Home",
+    "CmdOrCtrl+End": "Ctrl+End",
+    "CmdOrCtrl+Shift+Home": "Ctrl+Shift+Home",
+    "CmdOrCtrl+Shift+End": "Ctrl+Shift+End"
+  }
+}

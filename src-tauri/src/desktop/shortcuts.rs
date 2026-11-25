@@ -2,10 +2,39 @@
 //! menu mutations to its UI thread; callers and filesystem work stay on a
 //! blocking worker. Settings owns modal admission while the transaction runs.
 use crate::preferences::shortcuts::Shortcuts;
-use std::sync::Mutex;
+use std::{
+    collections::BTreeMap,
+    sync::{LazyLock, Mutex},
+};
 use tauri::{Manager, menu::MenuItemKind};
 #[derive(Default)]
 pub(super) struct Runtime(Mutex<Shortcuts>);
+
+/// A native accelerator fires before the focused WebView text field sees the key.
+fn menu_binding<'a>(label: &str, key: Option<&'a str>, mac: bool) -> (String, Option<&'a str>) {
+    #[derive(serde::Deserialize)]
+    struct TextNavigationKeys {
+        macos: BTreeMap<String, String>,
+        other: BTreeMap<String, String>,
+    }
+    static KEYS: LazyLock<TextNavigationKeys> = LazyLock::new(|| {
+        serde_json::from_str(include_str!(
+            "../../../src/lib/workspace/text-navigation-keys.json"
+        ))
+        .expect("valid text navigation keys")
+    });
+    let keys = if mac { &KEYS.macos } else { &KEYS.other };
+    let key = key.filter(|key| !key.is_empty());
+    if let Some(hint) = key.and_then(|key| keys.get(key)) {
+        (format!("{label} ({hint})"), None)
+    } else {
+        (label.to_owned(), key)
+    }
+}
+
+pub(super) fn native_binding<'a>(label: &str, key: Option<&'a str>) -> (String, Option<&'a str>) {
+    menu_binding(label, key, cfg!(target_os = "macos"))
+}
 
 fn publish(app: &tauri::AppHandle, shortcuts: &Shortcuts) -> Result<(), String> {
     let menu = app.menu().ok_or("Native menu unavailable")?;
@@ -26,14 +55,23 @@ fn publish(app: &tauri::AppHandle, shortcuts: &Shortcuts) -> Result<(), String> 
     let items: Vec<_> = descriptions
         .into_iter()
         .filter(|(_, d)| d.native)
-        .filter_map(|(id, _)| find(menu.items().ok()?, &id).map(|item| (id, item)))
+        .filter_map(|(id, description)| {
+            find(menu.items().ok()?, &id).map(|item| (id, description.label, item))
+        })
         .collect();
     // Clear first so a swap never temporarily installs duplicate accelerators.
-    for (_, item) in &items {
+    for (_, _, item) in &items {
         set(item, None)?;
     }
-    for (id, item) in &items {
-        set(item, shortcuts.native_key(id))?;
+    for (id, label, item) in &items {
+        let (text, key) = native_binding(label, shortcuts.native_key(id));
+        match item {
+            MenuItemKind::MenuItem(item) => item.set_text(&text),
+            MenuItemKind::Check(item) => item.set_text(&text),
+            _ => continue,
+        }
+        .map_err(|e| e.to_string())?;
+        set(item, key)?;
     }
     Ok(())
 }
@@ -92,6 +130,33 @@ fn transition<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_navigation_is_shown_in_native_menus_without_intercepting_the_chord() {
+        for (mac, key, hint) in [
+            (true, "Alt+Left", "⌥←"),
+            (true, "Alt+Shift+Right", "⌥⇧→"),
+            (true, "CmdOrCtrl+Shift+Up", "⇧⌘↑"),
+            (false, "CmdOrCtrl+Right", "Ctrl+→"),
+            (false, "Shift+End", "Shift+End"),
+        ] {
+            assert_eq!(
+                menu_binding("Seek", Some(key), mac),
+                (format!("Seek ({hint})"), None)
+            );
+        }
+        for mac in [false, true] {
+            assert_eq!(
+                menu_binding("Save", Some("CmdOrCtrl+S"), mac),
+                ("Save".into(), Some("CmdOrCtrl+S"))
+            );
+            assert_eq!(menu_binding("Seek", None, mac), ("Seek".into(), None));
+        }
+        assert_eq!(
+            menu_binding("Seek", Some("Alt+Left"), false),
+            ("Seek".into(), Some("Alt+Left"))
+        );
+    }
 
     #[test]
     fn native_publication_and_disk_failures_restore_confirmed_bindings() {

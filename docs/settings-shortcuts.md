@@ -61,7 +61,14 @@ OS-reserved keys retain their owners. Ctrl+Alt character bindings are rejected t
 preserve AltGr typing; composition is never dispatched as a command.
 
 Native menus display the primary Everywhere binding. Scoped and alternate
-bindings are handled by the webview. Confirmed changes update menus, command
+bindings are handled by the webview. A primary shortcut that also navigates text
+appears in parentheses in its menu item and runs through the focused view.
+On macOS, Option+Left/Right seeks from the cue list or waveform. In text fields it
+moves by word, and adding Shift selects by word. Command+arrows and their Shift
+variants also stay with text fields. On Windows and Linux, text fields keep
+Ctrl+arrows and Home/End, including Shift selections. In cue text, Option+Up/Down
+still edits the previous or next cue. The Classic preset follows the same focus
+rule. Confirmed changes update menus, command
 help and tooltips. Rust validates persistence and native publication together,
 restoring previous accelerators on failure. A failed restoration is reported
 explicitly and requires restarting the app.
