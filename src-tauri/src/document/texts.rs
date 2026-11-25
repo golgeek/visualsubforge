@@ -447,7 +447,7 @@ fn project(job: &Job, closed: bool, offset: u32, limit: u32) -> Result<TextView>
         view.matches = p.matches() as u32;
         view.before_findings = p.before_findings() as u32;
         view.after_findings = p.after_findings() as u32;
-        view.offset = offset.min(view.total.saturating_sub(1) / limit.max(1) * limit.max(1));
+        view.offset = page_offset(offset, view.total, limit);
         for row in p
             .rows()
             .iter()

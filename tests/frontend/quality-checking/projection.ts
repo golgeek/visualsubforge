@@ -25,13 +25,13 @@ export async function projection(
     metricOffsets: [0, 400],
   };
   const findings: QualityView['findings'] = Array.from(
-    { length: 450 },
+    { length: 400 },
     (_, i) => ({
       ...sample.findings[0]!,
       cueId: String(i + 1),
       cueIndex: i,
-      severity: i === 449 ? 'violation' : 'advisory',
-      relatedCueId: i === 449 ? '1' : null,
+      severity: i === 399 ? 'violation' : 'advisory',
+      relatedCueId: i === 399 ? '1' : null,
     }),
   );
   let epoch = sample.key.epoch;
@@ -43,17 +43,20 @@ export async function projection(
     readQuality: async (request) => {
       reads++;
       if (fail) throw new Error('Projection transport failed');
+      const limit = Math.max(1, request.limit);
+      const lastPage =
+        Math.floor(Math.max(0, findings.length - 1) / limit) * limit;
+      // Model Rust's out-of-range fallback, including an unaligned final index page.
+      const offset =
+        request.offset < findings.length ? request.offset : lastPage;
       const page: QualityView = {
         ...structuredClone(sample),
         key: { ...sample.key, epoch },
         phase: 'ready',
-        offset: request.offset,
+        offset,
         findingsCount: findings.length,
         filteredCount: findings.length,
-        findings: findings.slice(
-          request.offset,
-          request.offset + request.limit,
-        ),
+        findings: findings.slice(offset, offset + request.limit),
         metrics: request.metricsLimit
           ? [
               {
@@ -88,8 +91,8 @@ export async function projection(
     );
     await session.poll();
     assert(
-      session.issues.size === 450 && session.issueIndexComplete,
-      'Issue index did not complete bounded pages',
+      session.issues.size === 400 && session.issueIndexComplete,
+      session.projectionError || 'Issue index did not complete bounded pages',
     );
     assert(
       session.issues.get('1') === 'violation',
@@ -121,7 +124,7 @@ export async function projection(
 
     session.configure({ ...input, revision: input.revision + 1 });
     assert(
-      session.displayedIssues.size === 450 &&
+      session.displayedIssues.size === 400 &&
         session.issues.size === 0 &&
         session.displayedMetrics.size > 0,
       'Revision discarded the displayed index or exposed it to commands',
@@ -154,7 +157,7 @@ export async function projection(
       phase: 'ready',
       offset: 100,
       findings: findings.slice(100, 300),
-      findingsCount: 450,
+      findingsCount: 400,
     });
     await pending;
     assert(

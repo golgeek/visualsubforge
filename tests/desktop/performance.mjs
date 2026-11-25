@@ -1,3 +1,4 @@
+import { waitForIssueIndex } from './checks.mjs';
 import { discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Opt-in actual WebView/IPC measurement. Events are generated in the webview;
@@ -210,6 +211,7 @@ export async function qualityPerformance({
     );
     const warm = await invoke('quality_read', { request });
     assert.equal(warm.phase, 'ready');
+    await waitForIssueIndex(browser, until, warm.affectedCues);
     result.profile = warm.profile;
     result.profileHash = warm.profileHash;
     result.findingsCount = warm.findingsCount;
@@ -338,6 +340,9 @@ export async function qualityPerformance({
     result.invalidation = await browser.execute(async () => {
       const b = window.__qualityBench;
       const editor = document.querySelector('[aria-label="Subtitle text"]');
+      const priorMetrics = document.querySelector(
+        '[aria-label="Accepted cue metrics"]',
+      ).textContent;
       editor.value = 'Accepted large-document edit';
       editor.dispatchEvent(new Event('input', { bubbles: true }));
       await b.frame();
@@ -361,8 +366,11 @@ export async function qualityPerformance({
         'accepted edit reconciled into the cue list',
       );
       await b.wait(
-        () => !document.querySelector('[aria-label="Accepted cue metrics"]'),
-        'obsolete metrics removed',
+        () =>
+          document.querySelector(
+            '.metric-slot[aria-busy="true"] [aria-label="Accepted cue metrics"]',
+          )?.textContent === priorMetrics,
+        'paused metrics retained and marked as updating',
       );
       // WebDriver reserves a top-level `error` key in returned objects.
       return { elapsedMs: performance.now() - began, rejection };

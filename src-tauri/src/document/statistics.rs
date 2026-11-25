@@ -206,10 +206,7 @@ impl Documents {
         let page = job
             .report
             .as_ref()
-            .map(|r| {
-                offset
-                    .min((r.findings.len() as u32).saturating_sub(1) / limit.max(1) * limit.max(1))
-            })
+            .map(|r| page_offset(offset, r.findings.len() as u32, limit))
             .unwrap_or(0);
         Ok(StatisticsView {
             id: id.try_into()?,

@@ -1,3 +1,4 @@
+import { waitForIssueIndex } from './checks.mjs';
 import { acceptReview } from './review.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
@@ -332,6 +333,7 @@ async function scenePerformance({
       return v.phase === 'ready' && v;
     });
     assert.equal(result.checking.filteredCount, 10000);
+    await waitForIssueIndex(browser, until, result.checking.affectedCues);
     delete result.checking;
     result.interaction = await browser.execute(
       async (doc, session) => {
