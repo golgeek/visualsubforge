@@ -507,9 +507,7 @@ fn project_view(
         .collect();
     view.filtered_count = filtered.len() as u32;
     view.filtered_cues = cues.len() as u32;
-    view.offset = request
-        .offset
-        .min(view.filtered_count.saturating_sub(1) / request.limit.max(1) * request.limit.max(1));
+    view.offset = page_offset(request.offset, view.filtered_count, request.limit);
     view.findings = filtered
         .into_iter()
         .skip(view.offset as usize)
@@ -580,7 +578,7 @@ fn cue_issues(
             .any(|finding| finding.severity == Severity::Violation)
     });
     let count = issues.len() as u32;
-    let offset = offset.min(count.saturating_sub(1) / 200 * 200);
+    let offset = page_offset(offset, count, 200);
     CueIssues {
         cue_id: id.into(),
         count,

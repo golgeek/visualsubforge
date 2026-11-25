@@ -468,7 +468,7 @@ impl Documents {
                 Section::Changes => view.total,
                 Section::Manual => view.manual_count,
             };
-            view.offset = offset.min(count.saturating_sub(1) / limit.max(1) * limit.max(1));
+            view.offset = page_offset(offset, count, limit);
             match section {
                 Section::Changes => {
                     view.rows = review
@@ -558,7 +558,7 @@ impl Documents {
             view.changed = job.selection.as_ref().map_or(p.rows.len(), |s| s.changed) as u32;
             view.offset_ms = Some(p.offset_ms.to_string());
             view.aligned_ms = p.aligned_ms.map(|t| t.get().try_into()).transpose()?;
-            view.offset = offset.min(view.total.saturating_sub(1) / limit.max(1) * limit.max(1));
+            view.offset = page_offset(offset, view.total, limit);
             for row in rows
                 .into_iter()
                 .skip(view.offset as usize)

@@ -4,6 +4,16 @@ import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 
+// On a freshly opened document the cue table publishes a numeric count only
+// after it has indexed all findings, including their related cues.
+export async function waitForIssueIndex(browser, until, affectedCues) {
+  await until('complete issue index for the opened document', async () => {
+    const failure = await browser.$('.check-error');
+    if (await failure.isExisting()) throw new Error(await failure.getText());
+    return browser.$(`button=${affectedCues} cues with issues`).isExisting();
+  });
+}
+
 // Real component/IPC/file/CLI parity; no mocked quality reports or media needed.
 export async function qualityChecking({
   browser,

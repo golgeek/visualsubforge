@@ -179,6 +179,54 @@ fn desktop_pages_match_shared_checker_and_checking_preserves_history() {
 }
 
 #[test]
+fn finding_pages_preserve_valid_projection_cursors() {
+    let docs = fixture();
+    let sample = ready(&docs).findings.remove(0);
+    for count in [0_u32, 1, 100, 101, 150, 199, 200, 201, 20_000, 50_000] {
+        let mut query = request(&docs);
+        query.selected = None;
+        let mut store = docs.0.lock().unwrap();
+        let report = store.checks.report.as_mut().unwrap();
+        report.findings = (0..count)
+            .map(|i| engine::Finding {
+                cue_index: i,
+                ..sample.clone()
+            })
+            .collect();
+        let last_aligned = count.saturating_sub(1) / 200 * 200;
+        let last_projection = if count <= 100 {
+            0
+        } else {
+            100 + (count - 101) / 200 * 200
+        };
+        for (offset, limit, expected) in [
+            (0, 100, 0),
+            (100, 200, if count > 100 { 100 } else { last_aligned }),
+            (last_projection, 200, last_projection),
+            (count, 200, last_aligned),
+            (u32::MAX, 200, last_aligned),
+            (u32::MAX, 0, count.saturating_sub(1)),
+        ] {
+            query.offset = offset;
+            query.limit = limit;
+            let view = project_view(
+                &store.checks,
+                store.quality_key().unwrap(),
+                store.quality.context().profile,
+                &query,
+            )
+            .unwrap();
+            assert_eq!(view.offset, expected, "count={count}, offset={offset}");
+            let indexes: Vec<_> = view.findings.iter().map(|f| f.cue_index).collect();
+            assert_eq!(
+                indexes,
+                (expected..count.min(expected + limit)).collect::<Vec<_>>()
+            );
+        }
+    }
+}
+
+#[test]
 fn draft_metrics_are_explicit_read_only_and_use_the_same_overlap_policy() {
     let docs = fixture();
     docs.apply_quality_defaults(
@@ -413,6 +461,8 @@ fn selected_issues_group_speed_sort_errors_and_page_without_problem_filters() {
     assert_eq!(first.issues[0].rule, Rule::RsHigh);
     assert_eq!(first.issues[0].findings.len(), 2);
     assert_eq!(first.issues[1].rule, Rule::Overlap);
+    let tail = cue_issues(&findings, "1", 206);
+    assert_eq!((tail.offset, tail.issues.len()), (206, 1));
     let last = cue_issues(&findings, "1", 200);
     assert_eq!(last.offset, 200);
     assert_eq!(last.issues.len(), 7);

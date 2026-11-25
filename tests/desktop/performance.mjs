@@ -1,3 +1,4 @@
+import { waitForIssueIndex } from './checks.mjs';
 import { discardCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Opt-in actual WebView/IPC measurement. Events are generated in the webview;
@@ -210,6 +211,7 @@ export async function qualityPerformance({
     );
     const warm = await invoke('quality_read', { request });
     assert.equal(warm.phase, 'ready');
+    await waitForIssueIndex(browser, until, warm.affectedCues);
     result.profile = warm.profile;
     result.profileHash = warm.profileHash;
     result.findingsCount = warm.findingsCount;

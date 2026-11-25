@@ -57,6 +57,15 @@ use autosave::RecoveryControl;
 
 type Result<T> = std::result::Result<T, String>;
 
+/// Keep a valid cursor even when the caller changes page size between reads.
+fn page_offset(offset: u32, count: u32, limit: u32) -> u32 {
+    if offset < count {
+        return offset;
+    }
+    let limit = limit.max(1);
+    count.saturating_sub(1) / limit * limit
+}
+
 /// Structured failures for the document IPC command. Other adapters retain their
 /// existing text contracts. Version refusal is determined under the store lock,
 /// before any mutation. Worker failures do not establish whether a commit occurred.
