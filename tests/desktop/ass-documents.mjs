@@ -373,7 +373,7 @@ export async function assDocuments({
         { kind: 'saveSubtitles', path: recovered },
       ]);
       const recoveryRow = await browser.$(
-        `//div[contains(@class,"recovery-row")][span[starts-with(normalize-space(.),"copy.${extension} ")]]`,
+        `//div[contains(@class,"recovery-row")][.//span[normalize-space(.)="copy.${extension}"]]`,
       );
       await until('matching styled recovery entry', () =>
         recoveryRow.isExisting(),
