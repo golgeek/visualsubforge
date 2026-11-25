@@ -38,11 +38,17 @@ impl ReportIndex {
                 checkpoint()?;
             }
             timing_count += u32::from(engine::timing_fix::is_timing_finding(f.rule));
-            let primary = by_id[&f.cue_id];
+            let row = |id: &String, role: &str| {
+                by_id.get(id).copied().ok_or_else(|| {
+                    format!("Quality finding {i} references missing {role} cue ID {id}")
+                })
+            };
+            let primary = row(&f.cue_id, "primary")?;
             let related = f
                 .related_cue_id
                 .as_ref()
-                .map(|id| by_id[id])
+                .map(|id| row(id, "related"))
+                .transpose()?
                 .filter(|i| *i != primary);
             for cue in std::iter::once(primary).chain(related) {
                 by_cue[cue].push(i as u32);

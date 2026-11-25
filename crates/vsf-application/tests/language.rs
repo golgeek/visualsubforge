@@ -500,3 +500,156 @@ fn unsafe_fixes_and_changed_personal_context_are_rejected_and_review_counts_agre
         statistics::summarize(report, statistics::Selection::default(), || Ok(())).unwrap();
     assert_eq!(stats, expected);
 }
+
+#[test]
+fn cached_reports_match_fresh_bytes_through_edits_and_undo() {
+    use subtitle_core::Editor;
+    use vsf_application::language::LanguageCache;
+    let ms = |n| Milliseconds::new(n).unwrap();
+    let texts = [
+        "hello?",
+        "hello",
+        "xxyzz ...",
+        "<i>helo</i>",
+        r"{\p1}m 0 0",
+        "test@example.com",
+        "—hi!",
+        "😀 hello",
+    ];
+    let words = WordLists {
+        english_us: vec!["xxyzz".into()],
+        ..Default::default()
+    };
+    let personal = Lexicon::new(&words, &WordLists::default()).unwrap();
+
+    for seed in [7_u32, 31, 203] {
+        let mut state = seed;
+        let mut draw = |n: usize| {
+            state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+            ((state >> 8) as usize) % n
+        };
+        // A long enclosing cue and two nested neighbors exercise downstream SW3 floors.
+        let cues = texts
+            .iter()
+            .enumerate()
+            .map(|(i, text)| {
+                Cue::new(
+                    CueId(i as u64 + 1),
+                    ms(i as u64 * 100),
+                    ms(if i == 0 { 4000 } else { i as u64 * 100 + 800 }),
+                    (*text).into(),
+                )
+                .unwrap()
+            })
+            .collect();
+        let mut editor = Editor::new(Document::new(cues).unwrap());
+        let mut cache = LanguageCache::default();
+        let mut p = Profile::builtin("sw3-uk-vo-subset")
+            .unwrap()
+            .custom("cached".into(), "Cached".into());
+        p.language_tools = Settings {
+            spelling: true,
+            typography: true,
+            capitalization: true,
+            dialogue_markers: true,
+            ..Default::default()
+        };
+        let scenes = quality::scene::Scenes::Complete(vec![ms(300), ms(1600)]);
+        for step in 0..180 {
+            let context = Evaluation {
+                profile: &p,
+                format: [Format::Srt, Format::Ass, Format::WebVtt, Format::Ssa][step / 23 % 4],
+                lexicon: (step / 17 % 2 == 1).then_some(&personal),
+            };
+            let fresh =
+                quality::evaluate_with_scenes(editor.document(), context, &scenes, |_, _| Ok(()))
+                    .unwrap();
+            let (cached, next) =
+                quality::evaluate_cached(editor.document(), context, &scenes, cache, |_, _| Ok(()))
+                    .unwrap();
+            assert_eq!(
+                serde_json::to_vec(&cached).unwrap(),
+                serde_json::to_vec(&fresh).unwrap(),
+                "seed {seed}, step {step}"
+            );
+            cache = next;
+            if step % 29 == 0 {
+                p.language_tools.typography = !p.language_tools.typography;
+            }
+            let rev = editor.revision();
+            let cues = editor.document().cues();
+            let i = draw(cues.len());
+            let cue = &cues[i];
+            let start = ms(draw(3000) as u64);
+            let end = ms(start.get() + 800);
+            let text = texts[draw(texts.len())].to_owned();
+            match draw(8) {
+                0 => {
+                    editor
+                        .edit(rev, cue.id(), cue.start(), cue.end(), text)
+                        .unwrap();
+                }
+                1 => {
+                    editor
+                        .edit(rev, cue.id(), start, end, cue.text().into())
+                        .unwrap();
+                }
+                2 => {
+                    editor
+                        .create(rev, Some(cue.id()), start, end, text)
+                        .unwrap();
+                }
+                3 if cues.len() > 2 => editor.delete(rev, cue.id()).unwrap(),
+                4 if cue.end().get() - cue.start().get() >= 2 => {
+                    editor
+                        .split(
+                            rev,
+                            cue.id(),
+                            ms(cue.start().get().midpoint(cue.end().get())),
+                        )
+                        .unwrap();
+                }
+                5 if cues.len() > 2 => {
+                    let first = i.min(cues.len() - 2);
+                    editor
+                        .merge(rev, cues[first].id(), cues[first + 1].id())
+                        .unwrap();
+                }
+                6 => {
+                    editor.undo(rev).unwrap();
+                }
+                _ => {
+                    editor.redo(rev).unwrap();
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn warm_language_check_skips_token_analysis_for_unchanged_unique_cues() {
+    let p = profile(Language::EnglishUs);
+    let doc = document(&[
+        "This is the first sentence.",
+        "Another completely different sentence.",
+    ]);
+    let run = |cache| {
+        let mut work = 0;
+        let (report, cache) = quality::evaluate_cached(
+            &doc,
+            (&p).into(),
+            &quality::scene::Scenes::NoMedia,
+            cache,
+            |_, _| {
+                work += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        (report, cache, work)
+    };
+    let (cold, cache, cold_work) = run(Default::default());
+    let (warm, _, warm_work) = run(cache);
+    assert_eq!(warm, cold);
+    assert!(cold_work >= warm_work + cold.language_coverage.checked_words);
+}

@@ -9,7 +9,9 @@ pub mod statistics;
 pub mod timing_fix;
 pub mod timing_selection;
 mod timing_validation;
-pub use check::{CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_with_scenes};
+pub use check::{
+    CueMetrics, Finding, Report, Rule, Severity, evaluate, evaluate_cached, evaluate_with_scenes,
+};
 pub use profile::Profile;
 use std::{fmt, fs, io::Read, path::Path};
 

@@ -680,3 +680,63 @@ fn recent_summary_uses_only_current_completed_checks_of_saved_content() {
             .is_none()
     );
 }
+
+#[test]
+fn index_reports_missing_primary_and_related_cue_ids() {
+    let docs = fixture();
+    ready(&docs);
+    let mut store = docs.0.lock().unwrap();
+    let report = &mut store.checks.report.as_mut().unwrap().data;
+    for related in [true, false] {
+        let finding = &mut report.findings[0];
+        if related {
+            finding.related_cue_id = Some("9000".into());
+        } else {
+            finding.cue_id = "9000".into();
+        }
+        let error = ReportIndex::build(report, || Ok(()))
+            .err()
+            .expect("missing ID");
+        assert!(error.contains("9000"));
+        assert!(error.contains(if related { "related" } else { "primary" }));
+    }
+}
+
+#[tokio::test]
+async fn cancelled_worker_cannot_publish_its_language_cache() {
+    let docs = fixture();
+    ready(&docs);
+    assert!(docs.0.lock().unwrap().checks.language_cache.is_some());
+    let mut restart = request(&docs);
+    restart.restart = true;
+    let id = docs.quality_read(restart).unwrap().id.get();
+    let completion = docs.quality_completion(id).unwrap().unwrap();
+    // Cancel after the computation succeeds, before refresh can publish it.
+    tokio::time::timeout(Duration::from_secs(5), completion.cancelled())
+        .await
+        .unwrap();
+    docs.quality_cancel(id).unwrap();
+    let mut store = docs.0.lock().unwrap();
+    store.checks.refresh();
+    assert!(store.checks.worker.is_none());
+    assert!(store.checks.report.is_none());
+    assert!(store.checks.language_cache.is_none());
+}
+
+#[test]
+fn language_cache_survives_revision_but_clears_on_generation_or_policy_epoch() {
+    let docs = fixture();
+    ready(&docs);
+    let mut store = docs.0.lock().unwrap();
+    let mut key = store.quality_key().unwrap();
+    key.revision = (key.revision.get() + 1).try_into().unwrap();
+    store.checks.synchronize(key);
+    assert!(store.checks.language_cache.is_some());
+    key.generation = (key.generation.get() + 1).try_into().unwrap();
+    store.checks.synchronize(key);
+    assert!(store.checks.language_cache.is_none());
+    store.checks.language_cache = Some(LanguageCache::default());
+    key.epoch = (key.epoch.get() + 1).try_into().unwrap();
+    store.checks.synchronize(key);
+    assert!(store.checks.language_cache.is_none());
+}

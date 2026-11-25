@@ -759,6 +759,22 @@ one per severity. Later reads send the known report ID and fetch only the reques
 Problems page, selected cue and metric window. Draft jobs retain the accepted
 report ID. QualitySession caches up to 32 windows of 200 metrics.
 
+The document store hands its language cache to the next accepted quality worker by
+value. The worker returns it with the completed report and index. Refresh publishes
+all three under the document lock after checking cancellation and revision. A
+cancelled, failed or superseded run drops its cache, so the next accepted run
+starts cold. Draft jobs use the fresh evaluator and leave the accepted cache in
+the store. The cache has no shared lock and stays outside document history.
+
+A generation or quality-epoch change clears the store’s cache, including changes
+to personal or ignored words. The evaluator also scopes entries to the profile
+fingerprint, source format and effective lexicon. Within that scope, exact source
+text and the entering sentence-start flag select language advisories, coverage
+counts and the outgoing flag. Replay assigns the current cue ID and file index.
+FIFO eviction caps the cache at 16,384 entries and 8 MiB of entry payload (source,
+advisories and strings). Oversized entries bypass storage. Every evaluation
+recomputes metrics, chronological reading floors, overlaps, gaps and scene checks.
+
 A committed revision schedules admission immediately. Draft input keeps the
 180 ms debounce. After admission the next background read can name the worker it
 is waiting for. The command awaits that worker’s completion token outside the
