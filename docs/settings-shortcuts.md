@@ -34,6 +34,11 @@ be overwritten by a stale dialog. Quality-rule counts represent distinct cues in
 the accepted report, including related cues, and are unavailable while checking
 or stale. They do not count findings or unsaved cue text.
 
+The transport bar starts with Play/Pause and Loop range. Loop range plays the
+selected interval. Press it again to clear an active loop. Previous Frame and
+Next Frame are available in the Playback menu. In the VSF default (trial)
+preset, Left and Right step frames with the cue list or waveform focused.
+
 ## Shortcut presets
 
 **Cue → Merge as Dialog** acts on two adjacent selected cues. It starts with no

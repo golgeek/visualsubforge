@@ -101,7 +101,7 @@ export class WorkspaceCommands {
       webvtt: doc.format?.name === 'vtt',
       undo: doc.canUndo,
       redo: doc.canRedo,
-      range: !!timeline.range && timeline.range[1] > timeline.range[0],
+      range: timeline.hasRange,
       scenesRunning: scenes.sceneState.running,
       scenesPending: scenes.sceneState.pending,
       previousScene: scenes.sceneState.previous,

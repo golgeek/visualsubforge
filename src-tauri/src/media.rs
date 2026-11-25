@@ -69,6 +69,7 @@ pub struct Status {
     pub available: bool,
     pub loaded: bool,
     pub paused: bool,
+    pub loop_active: bool,
     pub seeking: bool,
     pub queued_audio_clock: bool,
     pub position_seconds: Option<f64>,
@@ -559,6 +560,9 @@ impl Media {
                             if status.loaded && status.audio_tracks.is_empty() {
                                 status.audio_tracks = audio_tracks(active);
                             }
+                            status.loop_active = status.loaded
+                                && active.number(c"ab-loop-a").is_some()
+                                && active.number(c"ab-loop-b").is_some();
                             status.paused = active.paused();
                             status.seeking = active.seeking();
                             status.rendered_frames = active.frames().saturating_sub(frame_origin);

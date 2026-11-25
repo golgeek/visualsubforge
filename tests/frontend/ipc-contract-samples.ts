@@ -2974,6 +2974,7 @@ export const mediaStatus = {
   error: null,
   hardwareDecoder: null,
   loaded: false,
+  loopActive: false,
   nominalFrameRate: null,
   outputDrops: null,
   paused: false,

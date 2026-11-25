@@ -34,7 +34,8 @@ function passed(message: string) {
 }
 function button(label: string) {
   return [...host.querySelectorAll('button')].find(
-    (b) => b.textContent?.trim() === label,
+    (b) =>
+      b.getAttribute('aria-label') === label || b.textContent?.trim() === label,
   );
 }
 async function until(predicate: () => boolean) {
@@ -84,6 +85,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'document_action':
           return structuredClone(snapshot);
         case 'media_action':
+          if (args.action?.kind === 'clearLoop') media.loopActive = false;
           if (args.action?.kind === 'occlude') occluded = args.action.occluded;
           return structuredClone(media);
         case 'recovery_status':
@@ -159,6 +161,16 @@ async function run() {
     media.paused = false;
     await until(
       () => !!button('Start here') && !!button('End here') && !!button('Pause'),
+    );
+    const loop = button('Loop range')!;
+    assert(loop.disabled, 'Loop needs a range or an active loop');
+    media.loopActive = true;
+    await until(
+      () => !loop.disabled && loop.getAttribute('aria-pressed') === 'true',
+    );
+    loop.click();
+    await until(
+      () => loop.disabled && loop.getAttribute('aria-pressed') === 'false',
     );
     passed('Both playhead actions return when media becomes available');
     media.loaded = false;

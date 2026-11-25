@@ -181,7 +181,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               durationSeconds: 100,
               positionSeconds: 0,
             };
-          if (action.kind === 'loop') loops.push([action.start, action.end]);
+          if (action.kind === 'loop') {
+            media.loopActive = true;
+            loops.push([action.start, action.end]);
+          }
+          if (action.kind === 'clearLoop') media.loopActive = false;
           if (action.kind === 'seek') media.positionSeconds = action.seconds;
           return structuredClone(media);
         }
@@ -225,7 +229,8 @@ function menuAction(action: string) {
 function button(label: string) {
   const b = [...host.querySelectorAll('button')].find(
     (b) =>
-      b.textContent?.trim() === label &&
+      (b.getAttribute('aria-label') === label ||
+        b.textContent?.trim() === label) &&
       (!b.closest('dialog') || b.closest('dialog')!.open),
   );
   if (!b) throw new Error('Missing ' + label);

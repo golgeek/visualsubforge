@@ -293,6 +293,7 @@ export const emptyStatus: MediaStatus = {
   available: false,
   loaded: false,
   paused: true,
+  loopActive: false,
   seeking: false,
   queuedAudioClock: false,
   positionSeconds: null,

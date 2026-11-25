@@ -43,9 +43,24 @@ function button(label: string) {
     ...host.querySelectorAll<HTMLButtonElement>(
       'button:not(dialog:not([open]) button)',
     ),
-  ].find((b) => b.textContent?.trim() === label);
+  ].find(
+    (b) =>
+      b.getAttribute('aria-label') === label || b.textContent?.trim() === label,
+  );
   if (!found) throw new Error(`Missing ${label}`);
   return found;
+}
+function transportGeometry() {
+  return JSON.stringify(
+    [
+      ...host.querySelectorAll(
+        '.transport button, .transport output, .transport input, .transport select',
+      ),
+    ].map((el) => {
+      const { x, y, width, height } = el.getBoundingClientRect();
+      return [x, y, width, height];
+    }),
+  );
 }
 async function until(condition: () => boolean) {
   await tick();
@@ -106,8 +121,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
-          if (args.action?.kind === 'loop')
+          if (args.action?.kind === 'loop') {
+            media.loopActive = true;
             loops.push([args.action.start, args.action.end]);
+          }
+          if (args.action?.kind === 'clearLoop') media.loopActive = false;
           if (args.action?.kind !== 'status' && args.action?.kind !== 'layout')
             transport.push(args.action!.kind);
           if (args.action?.kind === 'pause') media.paused = args.action.paused;
@@ -215,11 +233,17 @@ async function run() {
     passed(
       'Create applies previous text draft before creating and focusing the next cue',
     );
+    const playingGeometry = transportGeometry();
+    assert(button('Pause').textContent?.trim() === '', 'Pause must be an icon');
     key(editor, ' ', { altKey: true });
     await until(
       () =>
         media.paused &&
         !(!menuState || !menuState!.enabled.includes('settings')),
+    );
+    assert(
+      transportGeometry() === playingGeometry,
+      'Play/Pause moved a transport control',
     );
     assert(document.activeElement === editor, 'Transport stole text focus');
     key(editor, ' ', { altKey: true });
@@ -525,7 +549,13 @@ async function run() {
     passed(
       'Second click seeks inside selected cue without replacing its range',
     );
-    button('Loop range').click();
+    const loop = button('Loop range');
+    const beforeLoop = transportGeometry();
+    assert(
+      loop.getAttribute('aria-pressed') === 'false',
+      'Loop must start unpressed',
+    );
+    loop.click();
     await until(
       () =>
         loops.length > 0 &&
@@ -534,6 +564,11 @@ async function run() {
     const edge = host.querySelector<HTMLButtonElement>(
       '[aria-label^="Cue end boundary"]',
     )!;
+    assert(
+      loop.getAttribute('aria-pressed') === 'true' &&
+        beforeLoop === transportGeometry(),
+      'Starting the loop moved controls or failed to show its state',
+    );
     const editRevision = snapshot.revision;
     key(edge, 'ArrowRight', { shiftKey: true });
     await until(() => loops.at(-1)?.[1] === 21.1);
@@ -570,9 +605,15 @@ async function run() {
     passed(
       'Boundary release commits one edit and keeps the live loop at accepted bounds',
     );
-    button('Clear loop').click();
+    const beforeClear = transportGeometry();
+    loop.click();
     await until(
       () => !(!menuState || !menuState!.enabled.includes('settings')),
+    );
+    assert(
+      loop.getAttribute('aria-pressed') === 'false' &&
+        beforeClear === transportGeometry(),
+      'Clearing the loop moved controls or failed to show its state',
     );
     const loopsBefore = loops.length;
     key(edge, 'ArrowRight');
@@ -623,7 +664,42 @@ async function run() {
     passed(
       'Follow can be disabled and resumed independently after held timing',
     );
-    heading.textContent = 'PASS: all 23 fast-editing checks';
+    loop.click();
+    await until(
+      () => loop.getAttribute('aria-pressed') === 'true' && !loop.disabled,
+    );
+    const sentLoops = loops.length;
+    // Drag outwards from the left viewport edge. Both ends clamp to its start.
+    for (const [type, x] of [
+      ['pointerdown', rect.left],
+      ['pointerup', rect.left - 10],
+    ] as const) {
+      canvas.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 1,
+          isPrimary: true,
+          button: 0,
+          bubbles: true,
+          clientX: x,
+          clientY: rect.top + 10,
+          altKey: true,
+        }),
+      );
+      await tick();
+    }
+    assert(
+      loops.length === sentLoops,
+      'The collapsed range was sent to the player',
+    );
+    assert(
+      !loop.disabled && loop.getAttribute('aria-pressed') === 'true',
+      'An active loop must remain clearable',
+    );
+    loop.click();
+    await until(() => loop.getAttribute('aria-pressed') === 'false');
+    assert(loop.disabled, 'A collapsed selection still enables Loop range');
+    passed('A zero-length selection cannot start a playback loop');
+    heading.textContent = 'PASS: all 24 fast-editing checks';
   } catch (error) {
     heading.textContent = `FAIL: ${String(error)}`;
   } finally {
