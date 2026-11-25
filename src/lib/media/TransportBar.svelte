@@ -38,6 +38,8 @@
   import { formatTime } from '../timeline/timeline';
   import { measurePaneControl } from '../layout/measure-pane-control';
   const status = $derived(media.status);
+  const showPlay = $derived(!status.loaded || status.paused);
+  const loopAction = $derived(status.loopActive ? 'clearLoop' : 'playRange');
 </script>
 
 <div
@@ -45,24 +47,41 @@
   use:measurePaneControl={(height) => (layout.transportHeight = height)}
 >
   <button
+    class="transport-icon"
+    aria-label={showPlay ? 'Play' : 'Pause'}
+    title={showPlay ? 'Play' : 'Pause'}
     disabled={!status.loaded || workspace.busy}
     onclick={() => void workspace.run('play')}
-    >{!status.loaded || status.paused ? 'Play' : 'Pause'}</button
-  ><Tooltip action="previousFrame"
-    ><button
+  >
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+      <path
+        fill="currentColor"
+        d={showPlay ? 'M4 2l9 6-9 6z' : 'M3 2h4v12H3z M9 2h4v12H9z'}
+      />
+    </svg>
+  </button>
+  <Tooltip action={loopAction}>
+    <button
+      class="transport-icon"
+      aria-label="Loop range"
+      aria-pressed={status.loopActive}
       aria-describedby="workspace-tooltip"
-      disabled={!status.loaded || workspace.busy}
-      onclick={() => void workspace.run('previousFrame')}
-      aria-label="Previous frame">◀|</button
-    ></Tooltip
-  ><Tooltip action="nextFrame"
-    ><button
-      aria-describedby="workspace-tooltip"
-      disabled={!status.loaded || workspace.busy}
-      onclick={() => void workspace.run('nextFrame')}
-      aria-label="Next frame">|▶</button
-    ></Tooltip
-  ><output
+      disabled={!status.loaded ||
+        workspace.busy ||
+        (!status.loopActive && !timeline.range)}
+      onclick={() => void workspace.run(loopAction)}
+    >
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+        <path
+          d="M12 5a5 5 0 1 0 1 5M9 5h4V1"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        />
+      </svg>
+    </button>
+  </Tooltip>
+  <output
     >{status.positionSeconds === null
       ? '—'
       : formatTime(status.positionSeconds * 1000)}</output
@@ -97,38 +116,6 @@
       ></span
     >
   </span>
-  <Tooltip action="playRange"
-    ><button
-      aria-label="Loop range"
-      aria-describedby="workspace-tooltip"
-      disabled={!timeline.range || !status.loaded || workspace.busy}
-      onclick={() => void workspace.run('playRange')}
-      ><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"
-        ><path
-          d="M12 5a5 5 0 1 0 1 5M9 5h4V1"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-        /></svg
-      ><span class="sr-only">Loop range</span></button
-    ></Tooltip
-  >
-  <Tooltip action="clearLoop"
-    ><button
-      aria-label="Clear loop"
-      aria-describedby="workspace-tooltip"
-      disabled={!status.loaded || workspace.busy}
-      onclick={() => void workspace.run('clearLoop')}
-      ><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"
-        ><path
-          d="M4 4l8 8M12 4l-8 8"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-        /></svg
-      ><span class="sr-only">Clear loop</span></button
-    ></Tooltip
-  >
   <label
     ><input
       aria-label="Tap-to-time · hold Space"
@@ -167,6 +154,18 @@
     flex-shrink: 0;
   }
 
+  .transport-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 27px;
+    flex: none;
+    padding: 0;
+  }
+  .transport-icon[aria-pressed='true'] {
+    color: var(--accent);
+    border-color: currentColor;
+  }
   .transport output {
     font-variant-numeric: tabular-nums;
     min-width: 116px;

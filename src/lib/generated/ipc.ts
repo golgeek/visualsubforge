@@ -3436,6 +3436,7 @@ export type visualsubforge_media_Status_Deserialize = {
   available: boolean;
   loaded: boolean;
   paused: boolean;
+  loopActive: boolean;
   seeking: boolean;
   queuedAudioClock: boolean;
   positionSeconds: number | null;
@@ -3464,6 +3465,7 @@ export type visualsubforge_media_Status_Serialize = {
   available: boolean;
   loaded: boolean;
   paused: boolean;
+  loopActive: boolean;
   seeking: boolean;
   queuedAudioClock: boolean;
   positionSeconds: number | null;

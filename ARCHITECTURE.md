@@ -591,7 +591,9 @@ The domain uses `CueId` and integer `Milliseconds`. SRT/WebVTT use millisecond
 ticks; ASS/SSA output uses 10 ms ticks. Format-aware operations validate or round
 at their documented conversion boundary. Native playback exposes seconds as
 floating-point values; missing clock values remain unavailable rather than
-becoming zero. Timeline helpers convert explicitly before committing edits.
+becoming zero. The media worker reports whether both native loop endpoints are set.
+The transport toggle reads that status independently of the current waveform selection.
+Timeline helpers convert explicitly before committing edits.
 
 All frontend/backend application communication goes through `src/lib/client.ts`.
 `src-tauri/src/ipc.rs` supplies the command/event registry and generated TypeScript

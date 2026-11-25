@@ -171,7 +171,7 @@ export async function exchangeRoundTrip({
   await until('native media controls active', () =>
     browser.execute(() =>
       [...document.querySelectorAll('button')].some(
-        (b) => !b.disabled && b.textContent.trim() === 'Play',
+        (b) => !b.disabled && b.getAttribute('aria-label') === 'Play',
       ),
     ),
   );

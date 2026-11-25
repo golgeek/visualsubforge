@@ -257,7 +257,7 @@ export async function translationWorkflow({
         async () => (await media()).loaded,
       );
       await until('frontend media readiness', () =>
-        browser.$('button=Play').isEnabled(),
+        browser.$('button[aria-label="Play"]').isEnabled(),
       );
       await ready();
       await panel();

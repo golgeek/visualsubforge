@@ -117,7 +117,7 @@ export async function styledResync({
             !document.querySelector('dialog[open]') &&
             !!document.querySelector('[data-cue-id="1"]') &&
             [...document.querySelectorAll('button')].some(
-              (b) => b.textContent.trim() === 'Play' && !b.disabled,
+              (b) => b.getAttribute('aria-label') === 'Play' && !b.disabled,
             ),
         ),
       );

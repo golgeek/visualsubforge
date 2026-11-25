@@ -264,7 +264,7 @@ export async function legacyImportWorkflow({
       // Backend readiness can precede MediaSession's next status projection.
       // Native Save Project remains disabled until that projection is loaded.
       await until('frontend media readiness', () =>
-        browser.$('button=Play').isEnabled(),
+        browser.$('button[aria-label="Play"]').isEnabled(),
       );
       await ready();
       await menu('openSubtitles');

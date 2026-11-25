@@ -285,7 +285,8 @@ export async function conversionWorkflow({
               ),
             ].some(
               (b) =>
-                ['Play', 'Pause'].includes(b.textContent.trim()) && !b.disabled,
+                ['Play', 'Pause'].includes(b.getAttribute('aria-label')) &&
+                !b.disabled,
             ),
           ),
         );
