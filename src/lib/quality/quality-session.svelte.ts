@@ -60,6 +60,10 @@ export class QualitySession {
   checkingCue(id: number | null) {
     return this.retainingIndex && id !== null && this.editedIds.has(id);
   }
+  private retainCompletedIndex() {
+    if (this.issueIndexComplete)
+      this.retainedIndex = { issues: this.issues, metrics: this.metrics };
+  }
   private clearDisplay() {
     this.displayMap = new SvelteMap();
     this.indexedCues = [];
@@ -123,14 +127,14 @@ export class QualitySession {
       this.input.generation !== input.generation ||
       this.input.context !== input.context;
     if (replaced) this.clearDisplay();
-    else if (version !== this.version && this.issueIndexComplete)
-      this.retainedIndex = { issues: this.issues, metrics: this.metrics };
+    else if (version !== this.version) this.retainCompletedIndex();
     this.inputCues = cues;
     if (!replaced && version !== this.version && this.retainedIndex) {
       const previous = new Map(this.indexedCues.map((cue) => [cue.id, cue]));
       const edited = new Set<number>();
       for (const cue of cues) {
         const prior = previous.get(cue.id);
+        previous.delete(cue.id);
         if (
           !prior ||
           prior.startMs !== cue.startMs ||
@@ -141,6 +145,7 @@ export class QualitySession {
         )
           edited.add(cue.id);
       }
+      for (const deletedId of previous.keys()) edited.add(deletedId);
       this.editedIds = edited;
     }
     if (input.selected !== this.input?.selected || !input.draft)
@@ -250,6 +255,7 @@ export class QualitySession {
       reconcileCueIssues(this.displayMap, view.issueIndex);
       this.issues = this.displayMap;
       this.indexedCues = this.inputCues;
+      this.editedIds = new Set();
       this.indexedReport = view.reportId ?? view.id;
       this.issueIndexComplete = true;
       // Keep a single User Timing entry for commit-to-index measurements.
@@ -409,7 +415,7 @@ export class QualitySession {
         this.retainedIndex = null;
     } catch (error) {
       if (this.alive && sequence === this.sequence) {
-        this.clearDisplay();
+        this.retainCompletedIndex();
         this.error = String(error);
         this.listStale = true;
         this.stale = true;
@@ -436,6 +442,7 @@ export class QualitySession {
     this.nextUserRead = true;
     this.paused = false;
     this.restartPending = true;
+    this.retainCompletedIndex();
     this.listStale = true;
     this.view = null;
     this.clearProjection();

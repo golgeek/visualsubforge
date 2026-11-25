@@ -1,9 +1,25 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function recordStripes(page: Page) {
+  await page.addInitScript(() => {
+    const draws: number[][] = [];
+    Object.assign(window, { stripes: draws });
+    const rect = CanvasRenderingContext2D.prototype.fillRect;
+    CanvasRenderingContext2D.prototype.fillRect = function (x, y, w, h) {
+      if (this.canvas.matches('canvas[aria-label^="Audio waveform"]')) {
+        if (x === 0 && y === 0) draws.push([]);
+        if (y === 21 && w === 3) draws.at(-1)?.push(x);
+      }
+      rect.call(this, x, y, w, h);
+    };
+  });
+}
 
 for (const delay of [60, 600]) {
   test(`only edited cues show pending quality at ${delay} ms`, async ({
     page,
   }) => {
+    await recordStripes(page);
     await page.setViewportSize({ width: 1350, height: 850 });
     await page.goto('/tests/frontend/quality-checking/?large&anchor=' + delay);
     await expect(
@@ -14,18 +30,7 @@ for (const delay of [60, 600]) {
     const finding = page.locator('.finding[data-index="1"]');
     await expect(finding).toBeAttached();
     await page.evaluate(() => {
-      const canvas = document.querySelector<HTMLCanvasElement>(
-        'canvas[aria-label^="Audio waveform"]',
-      )!;
-      const context = canvas.getContext('2d')!;
-      const rect = context.fillRect.bind(context);
-      const stripes: number[][] = [];
-      Object.assign(window, { stripes });
-      context.fillRect = (x, y, w, h) => {
-        if (x === 0 && y === 0) stripes.push([]);
-        if (y === 21 && w === 3) stripes.at(-1)?.push(x);
-        rect(x, y, w, h);
-      };
+      (window as unknown as { stripes: number[][] }).stripes.length = 0;
       const observed: string[] = [];
       Object.assign(window, { observed });
       new MutationObserver((records) => {
@@ -73,12 +78,25 @@ for (const delay of [60, 600]) {
   });
 }
 
-test('a failed quality read keeps the cue header and rows in place', async ({
+test('deleted cues dim their own and related findings during a slow recheck', async ({
   page,
 }) => {
-  await page.goto(
-    '/tests/frontend/quality-checking/?large&anchor=0&errorTrial',
-  );
+  await page.goto('/tests/frontend/quality-checking/?anchor=1000&deleteTrial');
+  const findings = page.locator('.finding');
+  await expect(findings).toHaveCount(70);
+  await page.getByRole('button', { name: 'Delete cue', exact: true }).click();
+  await expect(findings.nth(0)).toHaveCSS('opacity', '0.6');
+  await expect(findings.nth(1)).toHaveCSS('opacity', '0.6');
+  await expect(findings.nth(2)).toHaveCSS('opacity', '1');
+  await expect(findings).toHaveCount(68);
+  await expect(findings.first()).toHaveCSS('opacity', '1');
+});
+
+test('a failed quality read retains stripes, markers, metrics and layout until recovery', async ({
+  page,
+}) => {
+  await recordStripes(page);
+  await page.goto('/tests/frontend/quality-checking/?large&anchor=0');
   await expect(
     page.getByRole('button', { name: '10000 cues with issues' }),
   ).toBeVisible();
@@ -92,11 +110,60 @@ test('a failed quality read keeps the cue header and rows in place', async ({
     ];
   };
   const before = await top();
+  const stripes = () =>
+    page.evaluate(() =>
+      (window as unknown as { stripes: number[][] }).stripes.at(-1),
+    );
+  const markers = () =>
+    page
+      .locator('[data-cue-id] .issue')
+      .evaluateAll((els) =>
+        els.map((el) => [
+          el.closest('[data-cue-id]')!.getAttribute('data-cue-id'),
+          el.getAttribute('aria-label'),
+        ]),
+      );
+  const metric = page.getByLabel('Accepted cue metrics', { exact: true });
+  await expect(metric).toBeVisible();
+  const beforeMetrics = await metric.innerText();
+  const beforeMarkers = await markers();
+  const beforeStripes = await stripes();
+  expect(beforeStripes?.length).toBeGreaterThan(1);
+  await page
+    .locator('#test')
+    .evaluate((el) => el.setAttribute('data-fail-read', ''));
+  const expectRetained = async () => {
+    await expect(
+      page.getByText('Checks unavailable:', { exact: false }),
+    ).toBeVisible();
+    expect(await top()).toEqual(before);
+    expect(await markers()).toEqual(beforeMarkers);
+    expect(await stripes()).toEqual(beforeStripes);
+    await expect(metric).toHaveText(beforeMetrics, { useInnerText: true });
+    await expect(
+      page.getByRole('button', { name: 'Next cue · F4' }),
+    ).toBeDisabled();
+  };
+  await expectRetained();
   const editor = page.getByLabel('Subtitle text', { exact: true });
   await editor.fill('Edited');
   await editor.press('Tab');
+  await expectRetained();
+  await page
+    .locator('#test')
+    .evaluate((el) => el.removeAttribute('data-fail-read'));
+  await expect(
+    page.getByRole('button', { name: '9999 cues with issues' }),
+  ).toBeVisible();
   await expect(
     page.getByText('Checks unavailable:', { exact: false }),
-  ).toBeVisible();
-  expect(await top()).toEqual(before);
+  ).toBeHidden();
+  await expect(page.locator('[data-cue-id="1"] .issue')).toHaveAttribute(
+    'aria-label',
+    'No reported issue',
+  );
+  await expect.poll(stripes).toEqual(beforeStripes!.slice(1));
+  await expect(
+    page.getByRole('button', { name: 'Next cue · F4' }),
+  ).toBeEnabled();
 });

@@ -104,7 +104,7 @@
   );
   const metricError = $derived(
     (draftDirty && (draftMetricError || quality.view?.draftError)) ||
-      quality.error ||
+      (!lineMetric && quality.error) ||
       quality.view?.error,
   );
   const updating = settled(
