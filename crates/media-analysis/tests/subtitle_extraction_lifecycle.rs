@@ -1,4 +1,9 @@
 //! Controlled subprocesses exercise extraction admission and cleanup, not media decoding.
+// Both tests write executable fixtures and spawn children. An overlapping fork can
+// inherit the other test's writable fd until exec, causing ETXTBSY on Linux.
+#[cfg(unix)]
+static SCRIPT_LIFECYCLE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(unix)]
 #[test]
 fn cancellation_and_timeout_reap_the_extraction_child_without_a_result() {
@@ -10,6 +15,7 @@ fn cancellation_and_timeout_reap_the_extraction_child_without_a_result() {
         thread,
         time::{Duration, Instant},
     };
+    let _guard = SCRIPT_LIFECYCLE.lock().unwrap();
     for cancel in [false, true] {
         let directory = tempfile::tempdir().unwrap();
         let probe = directory.path().join("probe");
@@ -67,6 +73,7 @@ fn cancellation_and_timeout_reap_the_extraction_child_without_a_result() {
 fn oversized_decoder_output_names_the_track_and_limit() {
     use media_analysis::{Cancellation, Tools, subtitle_tracks};
     use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
+    let _guard = SCRIPT_LIFECYCLE.lock().unwrap();
     let dir = tempfile::tempdir().unwrap();
     let script = |name, body| {
         let path = dir.path().join(name);

@@ -396,20 +396,18 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn wav_packet_verification_obeys_cancellation_and_the_overall_deadline() {
-        use std::{fs, os::unix::fs::PermissionsExt, process::Stdio, thread, time::Instant};
+        use std::{fs, os::unix::fs::symlink, process::Stdio, thread, time::Instant};
         for cancel in [false, true] {
             let dir = tempfile::tempdir().unwrap();
             let probe = dir.path().join("ffprobe");
-            fs::write(&probe, r#"#!/bin/sh
-case "$*" in
-  *packet=stream_index,pts*)
-    printf '%s' "$$" > "$(dirname "$0")/packet.pid"
-    exec sleep 60
-    ;;
-  *) printf '%s' '{"streams":[{"index":0,"codec_name":"pcm_s16le"}],"format":{"format_name":"wav","nb_streams":1}}' ;;
-esac
-"#).unwrap();
-            fs::set_permissions(&probe, fs::Permissions::from_mode(0o755)).unwrap();
+            symlink(
+                concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/tests/fixtures/wav-packet-probe.sh"
+                ),
+                &probe,
+            )
+            .unwrap();
             let media = dir.path().join("input.wav");
             fs::write(&media, []).unwrap();
             let tools = Tools {
