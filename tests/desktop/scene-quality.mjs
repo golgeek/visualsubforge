@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { time, identity, makeVideos } from './timing-fixtures.mjs';
-async function prepare(root, context) {
+export async function prepareSceneFixtures(root, context) {
   const { small, large } = await makeVideos(root, 'scene', [
     ['black', 1],
     ['red', 3],
@@ -84,7 +84,7 @@ export async function sceneQuality({
   record,
 }) {
   const context = (await invoke('quality_settings')).current;
-  const source = await prepare(root, context);
+  const source = await prepareSceneFixtures(root, context);
   const ready = () =>
     until('scene workspace ready', () =>
       browser

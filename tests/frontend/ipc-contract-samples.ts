@@ -2160,6 +2160,10 @@ export const qualityView = {
   ],
   findingsCount: 8,
   id: 1,
+  issueIndex: {
+    advisories: [],
+    violations: ['1', '2', '3'],
+  },
   key: {
     epoch: 0,
     generation: 1,
@@ -2306,6 +2310,7 @@ export const qualityView = {
   },
   profileHash:
     'b3142b9ca7fcc4bfe20675eb0fb344f252adec1847deae31349c8fde9a18d2ba',
+  reportId: 1,
   ruleCues: [
     {
       cues: 1,

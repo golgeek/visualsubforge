@@ -31,6 +31,8 @@ pub(super) fn fixture() -> Documents {
 fn request(docs: &Documents) -> Request {
     let key = docs.0.lock().unwrap().quality_key().unwrap();
     Request {
+        index_since: Some(0.try_into().unwrap()),
+        after_worker: None,
         session: 0.try_into().unwrap(),
         generation: key.generation,
         revision: key.revision,
@@ -178,6 +180,87 @@ fn desktop_pages_match_shared_checker_and_checking_preserves_history() {
     assert_eq!(ready(&docs).metrics.len(), 3);
 }
 
+#[tokio::test]
+async fn completion_can_be_observed_before_or_after_a_worker_finishes() {
+    let docs = fixture();
+    let (release, held) = std::sync::mpsc::channel();
+    let id = {
+        let mut store = docs.0.lock().unwrap();
+        let key = store.quality_key().unwrap();
+        store.checks.synchronize(key);
+        store.checks.scenes = Some(
+            crate::scenes::Scenes::default()
+                .capture_quality(0, false)
+                .unwrap()
+                .key,
+        );
+        store
+            .checks
+            .launch_with(key, None, move |_| {
+                held.recv_timeout(Duration::from_secs(5)).unwrap();
+                Err("test worker finished".into())
+            })
+            .unwrap();
+        store.checks.id
+    };
+    let completion = docs.quality_completion(id).unwrap().unwrap();
+    assert!(!completion.is_cancelled());
+    assert!(docs.quality_completion(id + 1).unwrap().is_none());
+    release.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), completion.cancelled())
+        .await
+        .unwrap();
+    assert!(docs.quality_completion(id).unwrap().unwrap().is_cancelled());
+    let mut query = request(&docs);
+    query.run = false;
+    let view = docs.quality_read(query).unwrap();
+    assert_eq!(view.phase, Phase::Failed);
+    assert!(docs.quality_completion(id).unwrap().is_none());
+}
+
+#[test]
+fn compact_index_includes_related_cues_and_is_sent_once_per_report() {
+    let docs = fixture();
+    let view = ready(&docs);
+    let index = view.issue_index.unwrap();
+    let mut violations = std::collections::BTreeSet::new();
+    let mut advisories = std::collections::BTreeSet::new();
+    for finding in &view.findings {
+        for id in std::iter::once(&finding.cue_id).chain(finding.related_cue_id.iter()) {
+            if finding.severity == engine::Severity::Violation {
+                violations.insert(id.clone());
+            } else {
+                advisories.insert(id.clone());
+            }
+        }
+    }
+    assert_eq!(
+        index
+            .violations
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>(),
+        violations
+    );
+    assert_eq!(
+        index
+            .advisories
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>(),
+        advisories.difference(&violations).cloned().collect()
+    );
+    let mut next = request(&docs);
+    next.rule = Some(engine::Rule::Overlap);
+    next.index_since = view.report_id;
+    let filtered = docs.quality_read(next).unwrap();
+    assert!(filtered.issue_index.is_none());
+    assert_eq!(filtered.report_id, view.report_id);
+    let mut first = request(&docs);
+    first.rule = Some(engine::Rule::Empty);
+    let first = docs.quality_read(first).unwrap();
+    assert_eq!(first.filtered_count, 0);
+    assert!(first.issue_index.is_some());
+}
+
 #[test]
 fn finding_pages_preserve_valid_projection_cursors() {
     let docs = fixture();
@@ -187,12 +270,13 @@ fn finding_pages_preserve_valid_projection_cursors() {
         query.selected = None;
         let mut store = docs.0.lock().unwrap();
         let report = store.checks.report.as_mut().unwrap();
-        report.findings = (0..count)
+        report.data.findings = (0..count)
             .map(|i| engine::Finding {
                 cue_index: i,
                 ..sample.clone()
             })
             .collect();
+        report.index = ReportIndex::build(&report.data, || Ok(())).unwrap();
         let last_aligned = count.saturating_sub(1) / 200 * 200;
         let last_projection = if count <= 100 {
             0
@@ -455,19 +539,28 @@ fn selected_issues_group_speed_sort_errors_and_page_without_problem_filters() {
     related.related_cue_id = Some("1".into());
     findings.push(related);
     findings.extend((0..205).map(|_| finding(Rule::Spelling, Severity::Advisory, "1")));
-    let first = cue_issues(&findings, "1", 0);
+    let selected = |id: &str, offset| {
+        cue_issues(
+            findings
+                .iter()
+                .filter(|f| f.cue_id == id || f.related_cue_id.as_deref() == Some(id)),
+            id,
+            offset,
+        )
+    };
+    let first = selected("1", 0);
     assert_eq!(first.count, 207);
     assert_eq!(first.issues.len(), 200);
     assert_eq!(first.issues[0].rule, Rule::RsHigh);
     assert_eq!(first.issues[0].findings.len(), 2);
     assert_eq!(first.issues[1].rule, Rule::Overlap);
-    let tail = cue_issues(&findings, "1", 206);
+    let tail = selected("1", 206);
     assert_eq!((tail.offset, tail.issues.len()), (206, 1));
-    let last = cue_issues(&findings, "1", 200);
+    let last = selected("1", 200);
     assert_eq!(last.offset, 200);
     assert_eq!(last.issues.len(), 7);
-    assert_eq!(cue_issues(&findings, "1", u32::MAX).offset, 200);
-    assert!(cue_issues(&findings, "missing", 0).issues.is_empty());
+    assert_eq!(selected("1", u32::MAX).offset, 200);
+    assert!(selected("missing", 0).issues.is_empty());
 }
 
 #[test]
@@ -481,20 +574,22 @@ fn rule_counts_deduplicate_cues_and_related_findings_on_the_worker() {
         let filtered = docs.quality_read(request).unwrap();
         assert_eq!(count.cues, filtered.filtered_cues);
     }
-    let mut findings = view.findings.clone();
-    findings.extend(view.findings.iter().cloned());
-    let doubled = rule_cues(&findings, || Ok(())).unwrap();
+    let mut store = docs.0.lock().unwrap();
+    let report = &mut store.checks.report.as_mut().unwrap().data;
+    report.findings.extend(view.findings.iter().cloned());
+    let doubled = ReportIndex::build(report, || Ok(())).unwrap();
     assert_eq!(
         doubled
+            .rule_counts
             .iter()
-            .map(|count| (count.rule, count.cues))
+            .map(|c| (c.rule, c.cues))
             .collect::<Vec<_>>(),
         view.rule_cues
             .iter()
-            .map(|count| (count.rule, count.cues))
+            .map(|c| (c.rule, c.cues))
             .collect::<Vec<_>>()
     );
-    assert!(rule_cues(&findings, || Err("cancelled".into())).is_err());
+    assert!(ReportIndex::build(report, || Err("cancelled".into())).is_err());
 }
 
 #[test]

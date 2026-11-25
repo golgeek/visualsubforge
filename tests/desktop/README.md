@@ -159,6 +159,14 @@ npm run test:desktop -- --ass-performance
 | `--translation-performance` | Five exact reference/target workloads, all reference pages, repeated offset/edit/history/save/project cycles and captured-reference recovery. Loads no media. |
 | `--plugin-performance` | Five exact inputs with both plugin APIs, all finding/change pages, repeated check/fix/accept/history/save cycles, cancellation, source protection and recovery. Loads no media; requires sibling CLI. |
 
+Both `--performance` and `--scenes` finish with a release-build budget on the
+original 10,000-cue fixtures. Keep the window in front. Each language setting
+runs 20 real editor commits and restores the original cues with Undo between
+samples. The desktop receipt records commit-to-complete-index p95 and all
+samples in milliseconds. The limit is 100 ms with language checking off and
+150 ms with English enabled. Use the release desktop-e2e binary and sibling CLI
+with `--binary` and `--cli`. On macOS the scenes lane also needs `macos-angle`.
+
 Use the feature's native-build recipe for authoring/translation/plugin benchmark
 bundles, even when a particular workload loads no media. Most interaction gates
 are one second; background preparation is recorded separately and retains its

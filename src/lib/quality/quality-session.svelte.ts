@@ -1,5 +1,5 @@
 /* eslint-disable svelte/prefer-svelte-reactivity -- Collections are replaced as immutable projections; the private metric cache is not reactive state. */
-import { addIssuePage, type IssueSeverity } from './cue-issues';
+import { cueIssueMap, type IssueSeverity } from './cue-issues';
 import {
   readQuality,
   cancelQuality,
@@ -36,7 +36,7 @@ export class QualitySession {
   listStale = $state(true);
   displayedList = $state.raw<QualityView | null>(null);
   // During a same-context revision, the table can paint the last complete index
-  // while new finding pages accumulate. Commands only consume the current index.
+  // until the compact index arrives. Commands only consume the current index.
   private retainedIndex = $state.raw<{
     issues: QualitySession['issues'];
     metrics: QualitySession['metrics'];
@@ -69,7 +69,9 @@ export class QualitySession {
   issueIndexComplete = $state(false);
   projectionError = $state('');
   private reportKey = '';
-  private findingOffset = 0;
+  private indexedReport = 0;
+  private afterWorker: number | null = null;
+  private due = 0;
   private metricWindows = new Map<number, QualityView['metrics']>();
   private input: QualityInput | null = null;
   private signature = '';
@@ -141,6 +143,12 @@ export class QualitySession {
       this.nextUserRead = input.enabled;
       this.userKey = userKey;
     }
+    const committed =
+      !!this.input &&
+      this.input.generation === input.generation &&
+      this.input.revision !== input.revision;
+    this.afterWorker = null;
+    this.due = performance.now() + (committed ? 0 : 180);
     this.refreshStarted = false;
     this.signature = signature;
     this.input = input;
@@ -154,11 +162,11 @@ export class QualitySession {
       if (this.id !== null)
         void this.api.cancelQuality(this.id).catch(() => {});
       this.restartPending = true;
-    } else this.schedule(180);
+    } else this.schedule(Math.max(0, this.due - performance.now()));
   }
   private clearProjection() {
     this.reportKey = '';
-    this.findingOffset = 0;
+    this.indexedReport = 0;
     this.issues = new Map();
     this.metrics = new Map();
     this.metricWindows.clear();
@@ -166,7 +174,7 @@ export class QualitySession {
     this.projectionError = '';
   }
   private reportIdentity(view: QualityView) {
-    return JSON.stringify([view.id, view.key]);
+    return JSON.stringify([view.reportId ?? view.id, view.key]);
   }
   private keepMetrics(offset: number, rows: QualityView['metrics']) {
     this.metricWindows.delete(offset);
@@ -207,67 +215,62 @@ export class QualitySession {
     }
     if (request.metricsLimit)
       this.keepMetrics(request.metricsOffset, view.metrics);
-    if (
-      !this.issueIndexComplete &&
-      request.rule === null &&
-      request.severity === null &&
-      view.offset === this.findingOffset
-    ) {
-      this.issues = addIssuePage(this.issues, view.findings);
-      this.findingOffset += view.findings.length;
-      this.issueIndexComplete = this.findingOffset >= view.findingsCount;
-    }
-    const metricOffset = this.missingMetricWindow();
-    if (this.issueIndexComplete && metricOffset === undefined) return;
-    try {
-      // Same serialized request lifetime, no new worker and no draft update.
-      // Problems paging/filter state is never replaced by this projection.
-      const page = await this.api.readQuality({
-        ...request,
-        run: false,
-        restart: false,
-        draft: null,
-        selected: null,
-        rule: null,
-        severity: null,
-        offset: this.findingOffset,
-        limit: this.issueIndexComplete ? 0 : 200,
-        metricsOffset: metricOffset ?? 0,
-        metricsLimit: metricOffset === undefined ? 0 : 200,
+    if (view.issueIndex) {
+      this.issues = cueIssueMap(view.issueIndex);
+      this.indexedReport = view.reportId ?? view.id;
+      this.issueIndexComplete = true;
+      // Keep a single User Timing entry for commit-to-index measurements.
+      performance.clearMarks('quality-index-complete');
+      performance.mark('quality-index-complete', {
+        detail: {
+          generation: request.generation,
+          revision: request.revision,
+          cues: this.issues.size,
+          findings: view.findingsCount,
+        },
       });
-      if (
-        !this.alive ||
-        !this.input?.enabled ||
-        this.paused ||
-        version !== this.version ||
-        identity !== this.reportKey ||
-        page.phase !== 'ready'
-      )
-        return;
-      if (identity !== this.reportIdentity(page)) {
-        this.clearDisplay();
-        this.clearProjection();
-        return;
-      }
-      if (!this.issueIndexComplete) {
+    }
+    const sequence = this.sequence;
+    try {
+      if (!this.issueIndexComplete)
+        throw new Error('Ready report omitted its issue index');
+      let offset = this.missingMetricWindow();
+      while (offset !== undefined) {
+        const page = await this.api.readQuality({
+          ...request,
+          run: false,
+          restart: false,
+          draft: null,
+          selected: null,
+          indexSince: null,
+          afterWorker: null,
+          rule: null,
+          severity: null,
+          offset: 0,
+          limit: 0,
+          metricsOffset: offset,
+          metricsLimit: 200,
+        });
         if (
-          page.offset !== this.findingOffset ||
-          (page.findings.length === 0 &&
-            this.findingOffset < page.findingsCount)
+          !this.alive ||
+          !this.input?.enabled ||
+          this.paused ||
+          sequence !== this.sequence ||
+          version !== this.version ||
+          page.phase !== 'ready' ||
+          identity !== this.reportIdentity(page)
         )
-          throw new Error('Issue page did not advance; check again to retry.');
-        this.issues = addIssuePage(this.issues, page.findings);
-        this.findingOffset += page.findings.length;
-        this.issueIndexComplete = this.findingOffset >= page.findingsCount;
+          return;
+        this.keepMetrics(offset, page.metrics);
+        offset = this.missingMetricWindow();
       }
-      if (metricOffset !== undefined)
-        this.keepMetrics(metricOffset, page.metrics);
       this.projectionError = '';
     } catch (error) {
       if (
         this.alive &&
         this.input?.enabled &&
         !this.paused &&
+        sequence === this.sequence &&
         version === this.version &&
         identity === this.reportKey
       )
@@ -295,6 +298,8 @@ export class QualitySession {
       generation: input.generation,
       revision: input.revision,
       run: !this.paused,
+      afterWorker: this.afterWorker,
+      indexSince: input.indexIssues ? this.indexedReport : null,
       restart: this.restartPending,
       offset: this.offset,
       limit: 100,
@@ -311,6 +316,7 @@ export class QualitySession {
             ? { kind: 'update', value: input.draft }
             : { kind: 'clear' },
     };
+    this.afterWorker = null;
     this.restartPending = false;
     this.pending = true;
     this.refreshStarted = true;
@@ -351,6 +357,13 @@ export class QualitySession {
         view.draft.data.cueId === String(input.selected)
       )
         this.lastDraft = view.draft;
+      if (
+        !this.paused &&
+        (view.phase === 'checking' ||
+          view.phase === 'cancelling' ||
+          (view.phase === 'ready' && view.draftChecking))
+      )
+        this.afterWorker = view.id;
       this.view = view;
       this.error = '';
       this.stale = false;
@@ -373,16 +386,20 @@ export class QualitySession {
     } finally {
       this.pending = false;
       this.schedule(
-        sequence !== this.sequence ||
-          (this.view?.phase === 'ready' && this.projectionPending)
-          ? 0
-          : this.view?.phase === 'ready' && !this.view.draftChecking
-            ? 800
-            : 180,
+        sequence !== this.sequence
+          ? Math.max(0, this.due - performance.now())
+          : this.afterWorker !== null ||
+              (this.view?.phase === 'ready' && this.projectionPending)
+            ? 0
+            : this.view?.phase === 'ready' && !this.view.draftChecking
+              ? 800
+              : 180,
       );
     }
   }
   restart() {
+    this.afterWorker = null;
+    this.due = 0;
     this.nextUserRead = true;
     this.paused = false;
     this.restartPending = true;

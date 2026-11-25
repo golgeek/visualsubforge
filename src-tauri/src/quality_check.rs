@@ -43,6 +43,10 @@ pub(crate) struct Request {
     pub rule: Option<Rule>,
     pub severity: Option<Severity>,
     pub draft: Option<DraftChange>,
+    #[serde(default)]
+    pub index_since: Option<crate::ipc_number::SafeU64>,
+    #[serde(default)]
+    pub after_worker: Option<crate::ipc_number::SafeU64>,
 }
 #[derive(Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -102,12 +106,21 @@ pub(crate) struct RuleCues {
     pub rule: Rule,
     pub cues: u32,
 }
+#[derive(Clone, Default, Serialize, specta::Type)]
+pub(crate) struct IssueIndex {
+    pub violations: Vec<String>,
+    pub advisories: Vec<String>,
+}
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct View {
     pub key: Key,
     pub id: crate::ipc_number::SafeU64,
     pub phase: Phase,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub report_id: Option<crate::ipc_number::SafeU64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issue_index: Option<IssueIndex>,
     pub profile: Profile,
     pub profile_hash: Option<String>,
     pub scene_coverage: Option<vsf_application::quality::scene::SceneCoverage>,
@@ -146,6 +159,16 @@ pub(crate) enum Phase {
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn quality_read(app: tauri::AppHandle, request: Request) -> Result<View, String> {
+    if let Some(id) = request.after_worker {
+        let docs = app.state::<crate::document::Documents>().inner().clone();
+        let finished =
+            tauri::async_runtime::spawn_blocking(move || docs.quality_completion(id.get()))
+                .await
+                .map_err(|e| e.to_string())??;
+        if let Some(finished) = finished {
+            finished.cancelled().await;
+        }
+    }
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<crate::media::Media>()
             .with_context(request.session.get(), |path| {

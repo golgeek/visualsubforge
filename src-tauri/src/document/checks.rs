@@ -2,14 +2,17 @@
 //! worker owns an immutable domain clone, never the document owner or its lock.
 //! There is one latest draft and no queued document snapshots. Joining running
 //! work happens only during explicit shutdown, after releasing the document lock.
+mod index;
 use super::*;
 use crate::quality_check::{Draft, DraftChange, Key, Metric, Phase, Request, View};
+use index::ReportIndex;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle,
     time::{Duration, Instant},
 };
+use tokio_util::sync::CancellationToken;
 use vsf_application::quality::{self as engine, Report};
 
 #[derive(Default)]
@@ -20,9 +23,9 @@ pub(super) struct Checks {
     id_key: Option<Key>,
     id_scenes: Option<crate::scenes::SceneKey>,
     worker: Option<Worker>,
-    report: Option<Report>,
+    report: Option<AcceptedReport>,
     completed_at_ms: Option<crate::ipc_number::SafeU64>,
-    rule_cues: Vec<crate::quality_check::RuleCues>,
+    report_id: Option<crate::ipc_number::SafeU64>,
     error: Option<String>,
     draft: Option<Draft>,
     draft_metric: Option<Metric>,
@@ -35,9 +38,14 @@ struct Worker {
     draft: Option<Draft>,
     cancel: Arc<AtomicBool>,
     handle: Option<JoinHandle<Result<Output>>>,
+    finished: CancellationToken,
+}
+struct AcceptedReport {
+    data: Report,
+    index: ReportIndex,
 }
 enum Output {
-    Accepted(Report, Vec<crate::quality_check::RuleCues>),
+    Accepted(Box<AcceptedReport>),
     Draft(Metric),
 }
 impl Drop for Worker {
@@ -69,10 +77,7 @@ impl Checks {
         }
     }
     fn refresh(&mut self) {
-        let Some(mut worker) = self
-            .worker
-            .take_if(|w| w.handle.as_ref().is_some_and(|h| h.is_finished()))
-        else {
+        let Some(mut worker) = self.worker.take_if(|w| w.finished.is_cancelled()) else {
             return;
         };
         let result = worker
@@ -85,10 +90,10 @@ impl Checks {
             return;
         }
         match result {
-            Ok(Output::Accepted(report, counts)) => {
+            Ok(Output::Accepted(report)) => {
                 self.completed_at_ms = crate::recent::now().ok();
-                self.report = Some(report);
-                self.rule_cues = counts;
+                self.report = Some(*report);
+                self.report_id = self.id.try_into().ok();
             }
             Ok(Output::Draft(metric)) if worker.draft == self.draft => {
                 self.draft_metric = Some(metric)
@@ -141,7 +146,7 @@ impl Checks {
                     .map(|m| Output::Draft(m.into()))
                     .ok_or_else(|| "Draft cue no longer exists".into()),
                 None => {
-                    let counts = rule_cues(&report.findings, || {
+                    let index = ReportIndex::build(&report, || {
                         if cancel.load(Ordering::Relaxed) {
                             return Err("Quality check cancelled".into());
                         }
@@ -150,7 +155,10 @@ impl Checks {
                         }
                         Ok(())
                     })?;
-                    Ok(Output::Accepted(report, counts))
+                    Ok(Output::Accepted(Box::new(AcceptedReport {
+                        data: report,
+                        index,
+                    })))
                 }
             }
         })
@@ -171,15 +179,21 @@ impl Checks {
             .ok_or("Quality identities exhausted")?;
         let cancel = Arc::new(AtomicBool::new(false));
         let token = cancel.clone();
+        let finished = CancellationToken::new();
+        let completion = finished.clone().drop_guard();
         let handle = std::thread::Builder::new()
             .name("subtitle-quality".into())
-            .spawn(move || run(token))
+            .spawn(move || {
+                let _completion = completion;
+                run(token)
+            })
             .map_err(|e| format!("Cannot start quality worker: {e}"))?;
         self.worker = Some(Worker {
             key,
             draft,
             cancel,
             handle: Some(handle),
+            finished,
         });
         self.id = id;
         self.id_key = Some(key);
@@ -217,6 +231,16 @@ impl Store {
     }
 }
 impl Documents {
+    pub(crate) fn quality_completion(&self, id: u64) -> Result<Option<CancellationToken>> {
+        let store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        Ok(store
+            .checks
+            .worker
+            .as_ref()
+            .filter(|_| store.checks.id == id)
+            .map(|w| w.finished.clone()))
+    }
+
     /// Small read-only projection; no worker admission, reaping or file reads.
     pub(crate) fn recent_subtitles(
         &self,
@@ -246,17 +270,19 @@ impl Documents {
                 && !checks.closed
                 && checks.error.is_none()
         });
-        let summary = report
-            .zip(checks.completed_at_ms)
-            .map(|(report, checked_at_ms)| crate::recent::Summary {
-                cues: loaded.editor.document().cues().len() as u32,
-                issues: report.findings.len() as u32,
-                complete: report.complete,
-                profile_name: report.profile.name.clone(),
-                profile_hash: report.profile_hash.clone(),
-                source_sha256: String::new(),
-                checked_at_ms,
-            });
+        let summary =
+            report
+                .map(|r| &r.data)
+                .zip(checks.completed_at_ms)
+                .map(|(report, checked_at_ms)| crate::recent::Summary {
+                    cues: loaded.editor.document().cues().len() as u32,
+                    issues: report.findings.len() as u32,
+                    complete: report.complete,
+                    profile_name: report.profile.name.clone(),
+                    profile_hash: report.profile_hash.clone(),
+                    source_sha256: String::new(),
+                    checked_at_ms,
+                });
         Ok(Some(crate::recent::SubtitleCapture {
             path: path.clone(),
             bytes: summary.as_ref().map(|_| loaded.saved_bytes.clone()),
@@ -394,32 +420,6 @@ impl Documents {
         self.shutdown_plugins()
     }
 }
-/// Distinct affected cue IDs per rule, including related cues. Computed once on
-/// the existing worker; the UI receives at most one small count per rule.
-fn rule_cues(
-    findings: &[engine::Finding],
-    mut checkpoint: impl FnMut() -> Result<()>,
-) -> Result<Vec<crate::quality_check::RuleCues>> {
-    let mut rules: HashMap<engine::Rule, HashSet<&str>> = HashMap::new();
-    for finding in findings {
-        checkpoint()?;
-        let cues = rules.entry(finding.rule).or_default();
-        cues.insert(&finding.cue_id);
-        if let Some(related) = &finding.related_cue_id {
-            cues.insert(related);
-        }
-    }
-    let mut counts: Vec<_> = rules
-        .into_iter()
-        .map(|(rule, cues)| crate::quality_check::RuleCues {
-            rule,
-            cues: cues.len() as u32,
-        })
-        .collect();
-    counts.sort_by_key(|count| count.rule as u8);
-    Ok(counts)
-}
-
 fn project_view(
     checks: &Checks,
     key: Key,
@@ -449,6 +449,8 @@ fn project_view(
         key,
         id: checks.id.try_into()?,
         phase,
+        report_id: None,
+        issue_index: None,
         profile,
         profile_hash: None,
         scene_coverage: None,
@@ -474,46 +476,20 @@ fn project_view(
             && !checks.cancelled,
         draft_error: checks.draft_error.clone(),
     };
-    let Some(report) = &checks.report else {
+    let Some(AcceptedReport {
+        data: report,
+        index,
+    }) = &checks.report
+    else {
         return Ok(view);
     };
-    view.rule_cues = checks.rule_cues.clone();
+    view.report_id = checks.report_id;
+    index.project(report, request, &mut view);
     view.profile_hash = Some(report.profile_hash.clone());
     view.scene_coverage = Some(report.scene_coverage);
     view.language_coverage = Some(report.language_coverage.clone());
     view.findings_count = report.findings.len() as u32;
-    view.timing_findings_count = report
-        .findings
-        .iter()
-        .filter(|f| engine::timing_fix::is_timing_finding(f.rule))
-        .count() as u32;
     view.affected_cues = report.affected_cues;
-    let filtered: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| {
-            request.rule.is_none_or(|r| f.rule == r)
-                && request.severity.is_none_or(|s| f.severity == s)
-        })
-        .collect();
-    let affected: HashSet<&str> = filtered
-        .iter()
-        .flat_map(|f| std::iter::once(f.cue_id.as_str()).chain(f.related_cue_id.as_deref()))
-        .collect();
-    let cues: Vec<_> = report
-        .metrics
-        .iter()
-        .filter(|m| affected.contains(m.cue_id.as_str()))
-        .collect();
-    view.filtered_count = filtered.len() as u32;
-    view.filtered_cues = cues.len() as u32;
-    view.offset = page_offset(request.offset, view.filtered_count, request.limit);
-    view.findings = filtered
-        .into_iter()
-        .skip(view.offset as usize)
-        .take(request.limit as usize)
-        .cloned()
-        .collect();
     view.metrics = report
         .metrics
         .iter()
@@ -521,41 +497,18 @@ fn project_view(
         .take(request.metrics_limit as usize)
         .map(Metric::from)
         .collect();
-    let selected = request.selected.map(|id| id.get().to_string());
-    let index = selected
-        .as_ref()
-        .and_then(|id| report.metrics.iter().position(|m| &m.cue_id == id));
-    view.selected = index.map(|i| (&report.metrics[i]).into());
-    view.selected_issues = selected
-        .as_deref()
-        .filter(|_| index.is_some())
-        .map(|id| cue_issues(&report.findings, id, request.selected_offset));
-    view.next_cue = cues
-        .iter()
-        .find(|m| index.is_none_or(|i| m.cue_index as usize > i))
-        .or(cues.first())
-        .map(|m| m.cue_id.clone());
-    view.previous_cue = cues
-        .iter()
-        .rev()
-        .find(|m| index.is_none_or(|i| (m.cue_index as usize) < i))
-        .or(cues.last())
-        .map(|m| m.cue_id.clone());
     Ok(view)
 }
 
-fn cue_issues(
-    findings: &[vsf_application::quality::Finding],
+fn cue_issues<'a>(
+    findings: impl Iterator<Item = &'a vsf_application::quality::Finding>,
     id: &str,
     offset: u32,
 ) -> crate::quality_check::CueIssues {
     use crate::quality_check::{CueIssue, CueIssues};
     use vsf_application::quality::{Finding, Rule, Severity};
     let mut issues: Vec<(Rule, Vec<&Finding>)> = Vec::new();
-    for finding in findings
-        .iter()
-        .filter(|finding| finding.cue_id == id || finding.related_cue_id.as_deref() == Some(id))
-    {
+    for finding in findings {
         let rule = match finding.rule {
             Rule::CpsHigh | Rule::RsHigh => Rule::RsHigh,
             Rule::CpsLow | Rule::RsLow => Rule::RsLow,

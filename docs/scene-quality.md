@@ -88,9 +88,9 @@ npm run test:browser
 npm run tauri -- build --debug --no-bundle -- --locked
 cargo build --locked --release -p vsf-application --example scene-benchmark
 python3 scripts/scene-quality-benchmark.py
-npm run tauri -- build --debug --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
-cargo build --locked -p vsf-cli
-npm run test:desktop -- --scenes
+npm run tauri -- build --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
+cargo build --locked --release -p vsf-cli
+npm run test:desktop -- --scenes --binary target/release/visualsubforge --cli target/release/vsf
 ```
 
 The initial workspace run exposed two CLI assertions assuming full coverage

@@ -134,8 +134,8 @@ or workspace/scene replacement retire old results; late replies cannot publish i
 new context. Checking does not occupy the UI thread. **Pause checking** retains
 valid accepted results and stops new work until **Check again**. The mandatory
 issue column keeps accepted-state checking enabled while a document is loaded,
-even when editor metrics and Problems are hidden. Issue indexing reads bounded
-pages, includes related cues and shows incomplete coverage explicitly. **Issues**
+even when editor metrics and Problems are hidden. A ready report supplies the complete issue index in one read, including related cues.
+The Problems list and visible cue metrics use bounded pages. **Issues**
 filters the list independently of the Problems rule/severity filters.
 No profile or check action changes subtitle history, dirty state or save policy.
 
@@ -215,8 +215,9 @@ Ignored pure-engine receipts:
 The real Mac desktop lane has an optional large-document measurement:
 
 ```sh
-npm run build:desktop-test
-npm run test:desktop -- --performance
+npm run tauri -- build --no-bundle --features desktop-e2e --config tests/desktop/tauri.test.json -- --locked
+cargo build --locked --release -p vsf-cli
+npm run test:desktop -- --performance --binary target/release/visualsubforge --cli target/release/vsf
 ```
 
 It runs the ordinary Settings/checking/gap/history/save/recovery workflow, then

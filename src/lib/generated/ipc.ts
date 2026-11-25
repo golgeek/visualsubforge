@@ -2059,6 +2059,11 @@ export type visualsubforge_document_review_exchange_Inspection = {
   exportedAtMs: number;
 };
 
+export type visualsubforge_quality_check_IssueIndex = {
+  violations: string[];
+  advisories: string[];
+};
+
 export type visualsubforge_document_translation_JobView = {
   id: number;
   key: visualsubforge_document_translation_Key;
@@ -2822,6 +2827,8 @@ export type visualsubforge_quality_check_Request = {
   rule: vsf_application_quality_check_Rule | null;
   severity: vsf_application_quality_check_Severity | null;
   draft: visualsubforge_quality_check_DraftChange | null;
+  indexSince?: number | null;
+  afterWorker?: number | null;
 };
 
 export type visualsubforge_recent_Request = {
@@ -3815,6 +3822,8 @@ export type visualsubforge_quality_check_View_Deserialize = {
   key: visualsubforge_quality_check_Key;
   id: number;
   phase: visualsubforge_quality_check_Phase;
+  reportId: number | null;
+  issueIndex: visualsubforge_quality_check_IssueIndex | null;
   profile: vsf_application_quality_profile_Profile_Deserialize;
   profileHash: string | null;
   sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;
@@ -3842,6 +3851,8 @@ export type visualsubforge_quality_check_View_Serialize = {
   key: visualsubforge_quality_check_Key;
   id: number;
   phase: visualsubforge_quality_check_Phase;
+  reportId?: number | null;
+  issueIndex?: visualsubforge_quality_check_IssueIndex | null;
   profile: vsf_application_quality_profile_Profile_Serialize;
   profileHash: string | null;
   sceneCoverage: vsf_application_quality_scene_SceneCoverage | null;

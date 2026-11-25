@@ -12,7 +12,7 @@ import {
   type QualityView,
   type updateMenu,
 } from '../../../src/lib/client';
-import { emptyQuality } from '../empty-quality';
+import { emptyQuality, fixtureIssueIndex } from '../empty-quality';
 function fixtureElement<T extends HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);
   if (!element)
@@ -220,18 +220,20 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             request.selected === null
               ? null
               : issueProjection(request.selected);
+          const findings = snapshot.cues
+            .map((c) => c.id)
+            .flatMap((id) =>
+              issueProjection(id).issues.flatMap((issue) => issue.findings),
+            );
           return {
             ...view,
+            issueIndex: fixtureIssueIndex(args, findings),
             selectedIssues: projection,
             findingsCount: 9,
             affectedCues: 3,
             filteredCount: 9,
             filteredCues: 3,
-            findings: snapshot.cues
-              .map((c) => c.id)
-              .flatMap((id) =>
-                issueProjection(id).issues.flatMap((issue) => issue.findings),
-              ),
+            findings,
           };
         }
         case 'cue_fixes_start': {
