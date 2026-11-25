@@ -340,6 +340,9 @@ export async function qualityPerformance({
     result.invalidation = await browser.execute(async () => {
       const b = window.__qualityBench;
       const editor = document.querySelector('[aria-label="Subtitle text"]');
+      const priorMetrics = document.querySelector(
+        '[aria-label="Accepted cue metrics"]',
+      ).textContent;
       editor.value = 'Accepted large-document edit';
       editor.dispatchEvent(new Event('input', { bubbles: true }));
       await b.frame();
@@ -363,8 +366,11 @@ export async function qualityPerformance({
         'accepted edit reconciled into the cue list',
       );
       await b.wait(
-        () => !document.querySelector('[aria-label="Accepted cue metrics"]'),
-        'obsolete metrics removed',
+        () =>
+          document.querySelector(
+            '.metric-slot[aria-busy="true"] [aria-label="Accepted cue metrics"]',
+          )?.textContent === priorMetrics,
+        'paused metrics retained and marked as updating',
       );
       // WebDriver reserves a top-level `error` key in returned objects.
       return { elapsedMs: performance.now() - began, rejection };
