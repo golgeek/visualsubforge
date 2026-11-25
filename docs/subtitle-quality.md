@@ -215,8 +215,9 @@ Ignored pure-engine receipts:
 The real Mac desktop lane has an optional large-document measurement:
 
 ```sh
-npm run build:desktop-test
-npm run test:desktop -- --performance
+npm run tauri -- build --no-bundle --features desktop-e2e --config tests/desktop/tauri.test.json -- --locked
+cargo build --locked --release -p vsf-cli
+npm run test:desktop -- --performance --binary target/release/visualsubforge --cli target/release/vsf
 ```
 
 It runs the ordinary Settings/checking/gap/history/save/recovery workflow, then
