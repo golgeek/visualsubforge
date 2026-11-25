@@ -299,6 +299,15 @@ async function run() {
       'Selection range changed',
     );
     passed('Waveform selection context menu creates its exact interval');
+    // Structural commands retain selected IDs. Start this single-target trial
+    // with only the newly created cue selected, then right-click outside it.
+    host.querySelector<HTMLButtonElement>('[data-cue-id="4"]')!.click();
+    await until(
+      () =>
+        host.querySelectorAll('.cue-row[aria-pressed="true"]').length === 1 &&
+        !!menuState?.enabled.includes('settings'),
+    );
+    const before = transport.filter((k) => k === 'seek').length;
     const row = host.querySelector<HTMLButtonElement>('.cue-row')!;
     row.dispatchEvent(
       new MouseEvent('contextmenu', {
@@ -309,7 +318,6 @@ async function run() {
       }),
     );
     await until(() => !!host.querySelector('[role=menu]'));
-    const before = transport.filter((k) => k === 'seek').length;
     [...host.querySelectorAll<HTMLButtonElement>('[role=menuitem]')]
       .find((b) => b.textContent?.trim() === 'Delete cue')!
       .click();

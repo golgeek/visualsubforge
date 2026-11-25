@@ -283,6 +283,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (action.kind === 'status') return structuredClone(snapshot);
           commands.push(action.kind);
           if (action.kind === 'edit') {
+            if (groupTrial)
+              await new Promise((resolve) => setTimeout(resolve, 120));
             editCount++;
             if (rejectEdit)
               throw { kind: 'rejected', message: 'Modeled invalid timing' };
