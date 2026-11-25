@@ -303,6 +303,10 @@
       {#each findingRows as { finding, key } (key)}
         <div
           class="finding"
+          aria-busy={updating.showUpdating &&
+            (session.checkingCue(Number(finding.cueId)) ||
+              (finding.relatedCueId !== null &&
+                session.checkingCue(Number(finding.relatedCueId))))}
           data-key={key}
           data-index={finding.cueIndex}
           aria-current={String(selected) === finding.cueId ? 'true' : undefined}
@@ -474,7 +478,7 @@
     position: relative;
     z-index: 1;
   }
-  .findings[aria-busy='true'] {
+  .finding[aria-busy='true'] {
     opacity: 0.6;
   }
   .finding[aria-current='true'] {

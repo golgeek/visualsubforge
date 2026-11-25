@@ -34,25 +34,28 @@ export class WorkspaceQuality {
     private scenes: WorkspaceScenes,
   ) {
     $effect(() => {
-      this.quality.configure({
-        session: this.media.status.session,
-        enabled: this.workspace.ready && this.subtitles.snapshot.loaded,
-        generation: this.subtitles.snapshot.generation,
-        revision: this.subtitles.snapshot.revision,
-        context: `${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`,
-        selected: this.subtitles.selected,
-        indexIssues: true,
-        metricsOffset: this.tableView.metricOffsets[0] ?? 0,
-        metricsLimit:
-          this.tableView.needsMetrics || this.preferences.showQualityMetrics
-            ? 200
-            : 0,
-        metricOffsets:
-          this.tableView.needsMetrics || this.preferences.showQualityMetrics
-            ? this.tableView.metricOffsets
-            : [],
-        draft: this.preferences.showQualityMetrics ? this.draft.value : null,
-      });
+      this.quality.configure(
+        {
+          session: this.media.status.session,
+          enabled: this.workspace.ready && this.subtitles.snapshot.loaded,
+          generation: this.subtitles.snapshot.generation,
+          revision: this.subtitles.snapshot.revision,
+          context: `${this.media.status.session}/${this.preferences.qualityContext}/${this.scenes.sceneState.qualityKey}`,
+          selected: this.subtitles.selected,
+          indexIssues: true,
+          metricsOffset: this.tableView.metricOffsets[0] ?? 0,
+          metricsLimit:
+            this.tableView.needsMetrics || this.preferences.showQualityMetrics
+              ? 200
+              : 0,
+          metricOffsets:
+            this.tableView.needsMetrics || this.preferences.showQualityMetrics
+              ? this.tableView.metricOffsets
+              : [],
+          draft: this.preferences.showQualityMetrics ? this.draft.value : null,
+        },
+        this.subtitles.snapshot.cues,
+      );
     });
   }
 }

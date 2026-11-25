@@ -723,7 +723,14 @@ resizing stays inside the list. Actor is a read-only projection of existing ASS/
 Name metadata. No column operation changes subtitle content or history.
 
 Within a revision refresh, QualitySession keeps the last completed issue index and
-metric windows for display until new coverage is available. Document, media or
+metric windows for display until new coverage is available. Both waveform views
+read the displayed index. The ready reply contains a complete severity index, so
+the frontend can reconcile its reactive map by cue ID even across skipped revisions.
+Only additions, removals and severity changes write to the map. For a pending
+revision, the accepted cue snapshots identify edited cues by ID. After the 150 ms
+settle interval, only their markers, their findings (including related cues) and
+their selected-cue readouts dim. Current commands still await the current revision.
+Quality read failures use the existing footer status slot. Document, media or
 policy replacement clears them. CueEditor can reuse measurements from the same
 cue and labels their source. A draft read keeps the prepared fix for the current
 accepted revision. Applying it requires a clean draft and a fresh report at click

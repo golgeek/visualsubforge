@@ -112,6 +112,7 @@
       quality.refreshStarted &&
       showQualityMetrics &&
       !!cue &&
+      (!quality.retainingIndex || quality.checkingCue(cue.id) || draftDirty) &&
       (quality.stale ||
         quality.view?.phase !== 'ready' ||
         (draftDirty && (!draftMetric || !!quality.view?.draftChecking))),

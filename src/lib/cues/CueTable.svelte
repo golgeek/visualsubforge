@@ -363,12 +363,6 @@
       <span>{review.checked.size}/{review.progress.total} checked</span>
     </div>
   {/if}
-  {#if quality.error || quality.projectionError}<div
-      class="check-error"
-      role="alert"
-    >
-      Checks unavailable: {quality.error || quality.projectionError}
-    </div>{/if}
   <div class="header-clip">
     <div
       class="table-head"
@@ -437,7 +431,6 @@
     {:else}<div
         style:height={`${tableView.rows.length * tableView.rowHeight}px`}
         class="virtual-list"
-        aria-busy={updating.showUpdating}
       >
         <div
           style:transform={`translateY(${tableView.firstRow * tableView.rowHeight}px)`}
@@ -528,6 +521,8 @@
                 {#each columns as column (column.id)}
                   {#if column.id === 'issue'}<span
                       class="issue"
+                      aria-busy={updating.showUpdating &&
+                        quality.checkingCue(item.id)}
                       class:violation={issue === 'violation'}
                       class:advisory={issue === 'advisory'}
                       aria-label={tableView.resolvedCue === item.id
@@ -796,7 +791,7 @@
     font-size: 10px;
   }
   .cue-row.resolved,
-  .virtual-list[aria-busy='true'] .issue {
+  .issue[aria-busy='true'] {
     opacity: 0.65;
   }
   .cue-table {
@@ -927,19 +922,11 @@
     font-weight: 700;
     color: var(--text-faint);
   }
-  .issue.violation,
-  .check-error {
+  .issue.violation {
     color: var(--err);
   }
   .issue.advisory {
     color: var(--warn);
-  }
-  .check-error {
-    font-size: 11px;
-    padding: 2px 8px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
   .empty {
     padding: 16px;
