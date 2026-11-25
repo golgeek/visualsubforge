@@ -350,19 +350,6 @@
               disabled={updating}
               onchange={() => toggle(row.cueIndex)}
             />
-            <div class="summary">
-              {#each [...new Set(row.unit.fixed.map(chip))] as name (name)}<span
-                  class="chip">{name}</span
-                >{/each}
-              {#if row.unit.partial}<span class="chip">Partial</span>{/if}
-              {#if row.startMoved}<span class="chip moved">Start moved</span
-                >{/if}
-              {#if row.unit.tradeOff}<span class="chip trade">Trade-off</span
-                >{/if}<span class="number">{row.delta}</span>{#if row.needs}
-                <small>{row.needs}</small>{/if}
-              {#if row.replaces}<small>{row.replaces}</small>{/if}
-              {#if row.offReason}<small>{row.offReason}</small>{/if}
-            </div>
             <button
               class="detail"
               data-variant="quiet"
@@ -376,6 +363,19 @@
             >
               {expanded ? '▾' : '▸'}
             </button>
+            <div class="summary">
+              {#each [...new Set(row.unit.fixed.map(chip))] as name (name)}<span
+                  class="chip">{name}</span
+                >{/each}
+              {#if row.unit.partial}<span class="chip">Partial</span>{/if}
+              {#if row.startMoved}<span class="chip moved">Start moved</span
+                >{/if}
+              {#if row.unit.tradeOff}<span class="chip trade">Trade-off</span
+                >{/if}<span class="number">{row.delta}</span>{#if row.needs}
+                <small>{row.needs}</small>{/if}
+              {#if row.replaces}<small>{row.replaces}</small>{/if}
+              {#if row.offReason}<small>{row.offReason}</small>{/if}
+            </div>
             <!-- eslint-disable svelte/no-useless-mustaches -- A literal interpolation preserves both spaces across Svelte whitespace trimming. -->
             <small class="effect number"
               >{#each row.unit.effectsText as effect, index (index)}{#if index}{' · '}{/if}<span
@@ -650,7 +650,7 @@
   }
   .change {
     display: grid;
-    grid-template-columns: minmax(3ch, auto) auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(3ch, auto) auto auto minmax(0, 1fr);
     column-gap: 6px;
     align-items: baseline;
   }
@@ -662,11 +662,13 @@
   .cue {
     color: var(--accent-text);
   }
-  .effect {
-    grid-column: 3;
+  .change .detail {
+    min-width: 24px;
+    text-align: center;
   }
+  .effect,
   .times {
-    grid-column: 3/-1;
+    grid-column: 4;
   }
   .times[hidden] {
     display: none;

@@ -56,7 +56,7 @@ Overlap-aware estimates are identified in the review. Text editing is separate.
 ## Reviewing and applying
 
 The summary counts findings in scope. Click anywhere on a change or manual row to follow its cue. The checkbox
-changes inclusion and the disclosure opens full timecodes. Keyboard focus moves
+changes inclusion. The disclosure beside it opens full timecodes. Keyboard focus moves
 from the cue button to the checkbox and then the disclosure. **Edit** opens a manual cue through protected
 navigation. Changes and manual work page independently. The waveform shows
 selected changes for up to 200 visible cues. Apply includes all selected pages.
