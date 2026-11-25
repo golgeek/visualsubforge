@@ -116,11 +116,13 @@
         title="Apply safe fixes as one Undo step; never split a cue"
         >Fix {fixes.count}</button
       >
-    {:else if fixes.error}<button
-        disabled={disabled || updating.showUpdating}
-        onclick={() => fresh && fixes.retry()}
-        title={fixes.error}>Retry fixes</button
-      >
+    {:else if fixes.error}<span class="fix-reason" title={fixes.error}
+        >{fixes.error}</span
+      >{#if !fixes.waitingForReview}<button
+          disabled={disabled || updating.showUpdating}
+          onclick={() => fresh && fixes.retry()}
+          title={fixes.error}>Retry fixes</button
+        >{/if}
     {:else if fixes.preparing}<span>Checking fixes…</span>
     {:else if projection?.count}<span
         title="Some issues need manual editing, a spelling choice, or current scene data"
@@ -145,6 +147,11 @@
 <style>
   .issue-strip[aria-busy='true'] {
     opacity: 0.65;
+  }
+  .fix-reason {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .spacer {
     flex: 1;

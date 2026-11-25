@@ -345,6 +345,7 @@ fn cue_fixes_use_one_history_entry_selected_scope_and_purpose_guard() {
             before.revision,
             scenes.capture_quality(7, true).unwrap(),
             CueId(1),
+            Origin::Automatic,
         )
         .unwrap();
     let view = ready_cue_fixes(&docs, id);
@@ -386,6 +387,7 @@ fn changed_document_and_cancelled_cue_fix_cannot_commit() {
             before.revision,
             scenes.capture_quality(7, true).unwrap(),
             CueId(1),
+            Origin::Automatic,
         )
         .unwrap()
     };
@@ -519,4 +521,91 @@ fn headless_review_matches_real_desktop_owner_pages() {
         .unwrap(),
         serde_json::to_value((&r.changes, &r.manual, r.before, r.after)).unwrap()
     );
+}
+#[test]
+fn automatic_cue_preview_leaves_the_open_timing_review_readable_and_acceptable() {
+    for purpose in [Purpose::Fix, Purpose::Batch] {
+        let (_dir, docs, scenes) = fixture();
+        let id = if purpose == Purpose::Fix {
+            let id = start(&docs, &scenes);
+            ready(&docs, id);
+            id
+        } else {
+            let id = batch_tests::start(&docs, &scenes, 125);
+            assert_eq!(batch_tests::ready(&docs, id).phase, Phase::Reviewing);
+            id
+        };
+        let automatic = docs.cue_fixes_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+            Origin::Automatic,
+        );
+        assert_eq!(automatic.unwrap_err().kind, TimingStartKind::ReviewOpen);
+        assert!(docs.timing_repair_context(id, purpose).is_ok());
+        let accepted = docs.timing_repair_accept(id, purpose).unwrap();
+        assert_eq!(accepted.revision, 1);
+        let next = docs
+            .cue_fixes_start(
+                1,
+                1,
+                scenes.capture_quality(7, true).unwrap(),
+                CueId(1),
+                Origin::Automatic,
+            )
+            .unwrap();
+        assert_eq!(ready_cue_fixes(&docs, next).phase, Phase::Reviewing);
+    }
+}
+
+#[test]
+fn automatic_cue_preview_resumes_after_cancel_on_the_same_revision() {
+    let (_dir, docs, scenes) = fixture();
+    let id = start(&docs, &scenes);
+    let revision = ready(&docs, id).key.revision.get();
+    let automatic = || {
+        docs.cue_fixes_start(
+            1,
+            revision,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+            Origin::Automatic,
+        )
+    };
+    assert_eq!(automatic().unwrap_err().kind, TimingStartKind::ReviewOpen);
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
+    let resumed = ready_cue_fixes(&docs, automatic().unwrap());
+    assert_eq!(resumed.phase, Phase::Reviewing);
+    assert_eq!(resumed.key.revision.get(), revision);
+}
+
+#[test]
+fn explicit_timing_preview_replaces_the_previous_review() {
+    let (_dir, docs, scenes) = fixture();
+    let old = start(&docs, &scenes);
+    ready(&docs, old);
+    let next = batch_tests::start(&docs, &scenes, 125);
+    assert_eq!(batch_tests::ready(&docs, next).phase, Phase::Reviewing);
+    assert!(docs.timing_fix_view(old, 0, 100).is_err());
+    assert_eq!(docs.batch_timing_accept(next).unwrap().revision, 1);
+}
+
+#[test]
+fn user_requested_cue_preview_can_replace_a_timing_review() {
+    let (_dir, docs, scenes) = fixture();
+    let old = start(&docs, &scenes);
+    ready(&docs, old);
+    let next = docs
+        .cue_fixes_start(
+            1,
+            0,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+            Origin::User,
+        )
+        .unwrap();
+    assert_eq!(ready_cue_fixes(&docs, next).phase, Phase::Reviewing);
+    assert!(docs.timing_fix_view(old, 0, 100).is_err());
+    assert_eq!(docs.cue_fixes_accept(next).unwrap().revision, 1);
 }

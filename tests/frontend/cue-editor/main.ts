@@ -100,6 +100,8 @@ let editCount = 0;
 let fixCount = 0;
 let rejectEdit = false;
 let fixId = 0;
+let cueRefusal: 'reviewOpen' | 'rejected' | null = null;
+const reviewInUse = 'The fixture timing review owns the slot';
 const plans = new Map<number, { cue: number; version: number }>();
 let selectedForChecks = 1;
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
@@ -169,6 +171,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         handler?: number;
         event?: string;
         cueId?: number;
+        origin?: string;
         id?: number;
         revision?: number;
         generation?: number;
@@ -232,6 +235,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         }
         case 'cue_fixes_start': {
+          if (cueRefusal && args.origin !== 'user')
+            throw { kind: cueRefusal, message: reviewInUse };
           const id = ++fixId;
           plans.set(id, { cue: args.cueId!, version: args.revision! });
           return id;
@@ -525,11 +530,59 @@ async function run() {
       'One, three and five issues keep fixed height; overflow lists all five groups in the cue dialog before opening Issues',
     );
 
+    stage = 'waiting for cue preview reason';
+    cueRefusal = 'reviewOpen';
+    await select(2);
+    await select(3);
+    await until(
+      () =>
+        host.querySelector('.fix-reason')?.textContent?.trim() === reviewInUse,
+    );
+    const strip = host.querySelector('.issue-strip')!;
+    assert(
+      strip.getBoundingClientRect().height === heights[0],
+      'A waiting cue fix shifted the issue strip',
+    );
+    assert(
+      !strip.querySelector('[role="alert"]') &&
+        !host.querySelector('.activity-slot.visible'),
+      'A background cue request announced activity',
+    );
+    assert(
+      ![...strip.querySelectorAll('button')].some(
+        (b) => b.textContent?.trim() === 'Retry fixes',
+      ),
+      'An automatic cue preview offered to replace the open review',
+    );
+    // Cancel releases the slot without changing the selected cue or document.
+    const reviewRevision = snapshot.revision;
+    cueRefusal = null;
+    stage = 'automatic cue preview after Cancel';
     await until(() =>
       [...host.querySelectorAll('button')].some(
         (b) => b.textContent?.trim() === 'Fix 2',
       ),
     );
+    assert(
+      snapshot.revision === reviewRevision,
+      'Cancel changed the document revision',
+    );
+    // Identical wording from a different kind must still permit an explicit retry.
+    cueRefusal = 'rejected';
+    await select(2);
+    await select(3);
+    await until(() =>
+      [...strip.querySelectorAll('button')].some(
+        (b) => b.textContent?.trim() === 'Retry fixes' && !b.disabled,
+      ),
+    );
+    button('Retry fixes').click();
+    await until(() =>
+      [...strip.querySelectorAll('button')].some(
+        (b) => b.textContent?.trim() === 'Fix 2',
+      ),
+    );
+    cueRefusal = null;
     const before = structuredClone(snapshot);
     button('Fix 2').click();
     await until(() => fixCount === 1 && editor().value === 'Fixed\ntext');

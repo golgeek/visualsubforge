@@ -3,6 +3,8 @@ import {
   cueFixesStart,
   cueFixesView,
   cueFixesCancel,
+  timingStartError,
+  type CueFixOrigin,
   type CueFixesView,
   type DocumentSnapshot,
 } from '../client';
@@ -24,6 +26,7 @@ const api = {
 export class CueFixes {
   view = $state.raw<CueFixesView | null>(null);
   error = $state('');
+  waitingForReview = $state(false);
   preparing = $state(false);
   accepting = $state(false);
   private alive = true;
@@ -32,6 +35,7 @@ export class CueFixes {
   private input: Input | null = null;
   private id: number | null = null;
   private pending = false;
+  private origin: CueFixOrigin = 'automatic';
   private timer: ReturnType<typeof setTimeout> | null = null;
   constructor(
     private read: () => Input | null,
@@ -58,6 +62,7 @@ export class CueFixes {
       : '';
     if (identity === this.identity) return;
     this.identity = identity;
+    this.origin = 'automatic';
     this.input = input;
     ++this.sequence;
     this.clearTimer();
@@ -65,6 +70,7 @@ export class CueFixes {
     this.id = null;
     this.view = null;
     this.error = '';
+    this.waitingForReview = false;
     this.preparing = !!input;
     if (input) this.schedule(350);
   }
@@ -90,11 +96,14 @@ export class CueFixes {
           input.session,
           input.document,
           input.cueId,
+          this.origin,
         );
         if (!this.alive || sequence !== this.sequence) {
           await this.client.cancel(id).catch(() => {});
           return;
         }
+        this.waitingForReview = false;
+        this.error = '';
         this.id = id;
       }
       const view = await this.client.view(this.id);
@@ -105,8 +114,13 @@ export class CueFixes {
       if (this.preparing) this.schedule(200);
     } catch (error) {
       if (this.alive && sequence === this.sequence) {
-        this.error = String(error);
+        const refusal = this.id === null ? timingStartError(error) : null;
+        this.waitingForReview =
+          refusal?.kind === 'reviewOpen' ||
+          (this.waitingForReview && refusal?.kind === 'workerBusy');
+        this.error = refusal?.message ?? String(error);
         this.preparing = false;
+        if (this.waitingForReview) this.schedule(350);
       }
     } finally {
       this.pending = false;
@@ -115,13 +129,20 @@ export class CueFixes {
     }
   }
   retry() {
-    if (!this.alive || this.accepting || !this.read()?.canApply) return;
+    if (
+      !this.alive ||
+      this.accepting ||
+      this.waitingForReview ||
+      !this.read()?.canApply
+    )
+      return;
     ++this.sequence;
     if (this.id !== null) void this.client.cancel(this.id).catch(() => {});
     this.id = null;
     this.view = null;
     this.error = '';
     this.preparing = true;
+    this.origin = 'user';
     this.schedule(350);
   }
   get count() {

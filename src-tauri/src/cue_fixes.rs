@@ -1,13 +1,21 @@
 //! Selected-cue fixes reuse the bounded timing-proposal worker and acceptance
 //! lock order. No second accepted editor or additional background worker.
 use crate::{
-    document::{Documents, Snapshot},
+    document::{Documents, Snapshot, TimingStartError},
     ipc_number::SafeU64,
     quality_check::Key,
     timing_review::{self, Phase, Purpose},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Origin {
+    #[default]
+    Automatic,
+    User,
+}
+
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct View {
@@ -27,23 +35,18 @@ pub(crate) async fn cue_fixes_start(
     generation: SafeU64,
     revision: SafeU64,
     cue_id: SafeU64,
-) -> Result<SafeU64, String> {
+    origin: Option<Origin>,
+) -> Result<SafeU64, TimingStartError> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<crate::media::Media>()
-            .with_context(session.get(), |path| {
-                let scenes = app
-                    .state::<crate::scenes::Scenes>()
-                    .capture_quality(session.get(), path.is_some())?;
-                Ok(app
-                    .state::<Documents>()
-                    .cue_fixes_start(
-                        generation.get(),
-                        revision.get(),
-                        scenes,
-                        subtitle_core::CueId(cue_id.get()),
-                    )?
-                    .try_into()?)
-            })
+        timing_review::start_in_context(&app, session, |documents, scenes| {
+            documents.cue_fixes_start(
+                generation.get(),
+                revision.get(),
+                scenes,
+                subtitle_core::CueId(cue_id.get()),
+                origin.unwrap_or_default(),
+            )
+        })
     })
     .await
     .map_err(|error| error.to_string())?

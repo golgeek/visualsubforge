@@ -60,6 +60,8 @@ are unavailable. An incomplete attached-video scan blocks timing changes.
 Ambiguous markup and spelling choices remain manual. Preparation considers up
 to 200 deterministic language replacements. [Timing policy](timing-repair-all.md)
 
+An open timing review keeps its proposal when background cue fixes are requested. The cue strip explains the wait. Cue fixes resume automatically when the timing review is accepted, cancelled or invalidated. Other preview failures offer **Retry fixes**.
+
 Preparation shares the existing timing-review worker, has no pending queue and a
 ten-second deadline. Changing document/profile/media/scenes/selection or entering
 another modal retires the plan. Native video, variable-rate timing and physical
