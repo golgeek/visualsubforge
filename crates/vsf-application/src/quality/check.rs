@@ -117,17 +117,18 @@ pub fn evaluate_with_scenes<'a>(
     evaluate_report(document, profile.into(), scenes, None, checkpoint)
 }
 
-/// A cancelled or failed evaluation drops its private cache together with the
-/// unfinished report. Only a complete result returns ownership to the caller.
+/// Only complete cue entries enter the worker-owned cache. A cancelled scan
+/// leaves them reusable, and only a completed scan can evict unseen entries.
 pub fn evaluate_cached(
     document: &Document,
     context: super::Evaluation<'_>,
     scenes: &super::scene::Scenes,
-    mut cache: LanguageCache,
+    cache: &mut LanguageCache,
     checkpoint: impl FnMut(usize, usize) -> Result<()>,
-) -> Result<(Report, LanguageCache)> {
-    let report = evaluate_report(document, context, scenes, Some(&mut cache), checkpoint)?;
-    Ok((report, cache))
+) -> Result<Report> {
+    let report = evaluate_report(document, context, scenes, Some(cache), checkpoint)?;
+    cache.finish_scan();
+    Ok(report)
 }
 
 fn evaluate_report(

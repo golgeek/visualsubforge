@@ -564,15 +564,19 @@ fn cached_reports_match_fresh_bytes_through_edits_and_undo() {
             let fresh =
                 quality::evaluate_with_scenes(editor.document(), context, &scenes, |_, _| Ok(()))
                     .unwrap();
-            let (cached, next) =
-                quality::evaluate_cached(editor.document(), context, &scenes, cache, |_, _| Ok(()))
-                    .unwrap();
+            let cached = quality::evaluate_cached(
+                editor.document(),
+                context,
+                &scenes,
+                &mut cache,
+                |_, _| Ok(()),
+            )
+            .unwrap();
             assert_eq!(
                 serde_json::to_vec(&cached).unwrap(),
                 serde_json::to_vec(&fresh).unwrap(),
                 "seed {seed}, step {step}"
             );
-            cache = next;
             if step % 29 == 0 {
                 p.language_tools.typography = !p.language_tools.typography;
             }
@@ -633,13 +637,13 @@ fn warm_language_check_skips_token_analysis_for_unchanged_unique_cues() {
         "This is the first sentence.",
         "Another completely different sentence.",
     ]);
-    let run = |cache| {
+    let run = |mut cache| {
         let mut work = 0;
-        let (report, cache) = quality::evaluate_cached(
+        let report = quality::evaluate_cached(
             &doc,
             (&p).into(),
             &quality::scene::Scenes::NoMedia,
-            cache,
+            &mut cache,
             |_, _| {
                 work += 1;
                 Ok(())
@@ -652,4 +656,35 @@ fn warm_language_check_skips_token_analysis_for_unchanged_unique_cues() {
     let (warm, _, warm_work) = run(cache);
     assert_eq!(warm, cold);
     assert!(cold_work >= warm_work + cold.language_coverage.checked_words);
+}
+
+#[test]
+fn sequential_scan_larger_than_the_entry_cap_keeps_warm_hits() {
+    let texts: Vec<_> = (0..17_000)
+        .map(|i| format!("Distinct subtitle number {i}"))
+        .collect();
+    let doc = document(&texts.iter().map(String::as_str).collect::<Vec<_>>());
+    let p = profile(Language::EnglishUs);
+    let run = |mut cache| {
+        let mut checkpoints = 0;
+        let report = quality::evaluate_cached(
+            &doc,
+            (&p).into(),
+            &quality::scene::Scenes::NoMedia,
+            &mut cache,
+            |_, _| {
+                checkpoints += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        (cache, checkpoints, serde_json::to_vec(&report).unwrap())
+    };
+    let (cache, cold, bytes) = run(Default::default());
+    let (_, warm, replay) = run(cache);
+    assert!(
+        warm < cold,
+        "second sequential scan did all {cold} cold checkpoints"
+    );
+    assert_eq!(bytes, replay);
 }

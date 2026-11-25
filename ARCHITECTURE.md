@@ -760,19 +760,24 @@ Problems page, selected cue and metric window. Draft jobs retain the accepted
 report ID. QualitySession caches up to 32 windows of 200 metrics.
 
 The document store hands its language cache to the next accepted quality worker by
-value. The worker returns it with the completed report and index. Refresh publishes
-all three under the document lock after checking cancellation and revision. A
-cancelled, failed or superseded run drops its cache, so the next accepted run
-starts cold. Draft jobs use the fresh evaluator and leave the accepted cache in
-the store. The cache has no shared lock and stays outside document history.
+value. A worker inserts a cue entry only after its full language analysis succeeds.
+Refresh can recover these entries from cancelled or superseded runs when generation
+and quality epoch still match. Reports and indexes require a completed current
+revision and scene capture. An epoch or generation change drops the returned cache.
+Draft workers compute the selected metric with language analysis disabled and
+leave the accepted cache in the store. The cache has no shared lock and stays
+outside document history.
 
 A generation or quality-epoch change clears the store’s cache, including changes
 to personal or ignored words. The evaluator also scopes entries to the profile
 fingerprint, source format and effective lexicon. Within that scope, exact source
 text and the entering sentence-start flag select language advisories, coverage
 counts and the outgoing flag. Replay assigns the current cue ID and file index.
-FIFO eviction caps the cache at 16,384 entries and 8 MiB of entry payload (source,
-advisories and strings). Oversized entries bypass storage. Every evaluation
+Each scan marks entries it visits. At either limit (16,384 entries or 8 MiB of
+accounted payload) a miss computes normally and bypasses insertion. A completed
+scan removes entries it never visited, freeing space for later revisions.
+Cancellation skips this sweep. A long sequential read can therefore reuse its
+resident entries on the next pass. Every evaluation
 recomputes metrics, chronological reading floors, overlaps, gaps and scene checks.
 
 A committed revision schedules admission immediately. Draft input keeps the

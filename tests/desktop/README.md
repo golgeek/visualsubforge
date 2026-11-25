@@ -164,7 +164,8 @@ original 10,000-cue fixtures. Keep the window in front. Each language setting
 runs 20 real editor commits and restores the original cues with Undo between
 samples. The desktop receipt records commit-to-complete-index p95 and all
 samples in milliseconds. The limit is 100 ms with language checking off or
-English enabled. Use the release desktop-e2e binary and sibling CLI
+English enabled. The SRT English lane also records one separate commit after
+cancelling a warm quality check. Use the release desktop-e2e binary and sibling CLI
 with `--binary` and `--cli`. On macOS the scenes lane also needs `macos-angle`.
 
 Use the feature's native-build recipe for authoring/translation/plugin benchmark

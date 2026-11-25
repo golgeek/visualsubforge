@@ -1,10 +1,7 @@
 //! Cue-local language work from successful accepted quality evaluations.
 use super::{Analysis, Detail, Lexicon, analysis::push};
 use crate::quality::{Finding, Result, Rule};
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::Arc,
-};
+use std::collections::HashMap;
 use subtitle_core::Cue;
 use subtitle_formats::Format;
 
@@ -24,6 +21,7 @@ struct Entry {
     skipped_cues: u32,
     sentence_start: bool,
     bytes: usize,
+    visited: bool,
 }
 
 /// Owned by one evaluator at a time. The two maps distinguish the entering
@@ -31,8 +29,7 @@ struct Entry {
 #[derive(Default)]
 pub struct LanguageCache {
     scope: Option<(String, Format, Lexicon)>,
-    entries: [HashMap<Arc<str>, Entry>; 2],
-    insertion_order: VecDeque<(usize, Arc<str>)>,
+    entries: [HashMap<Box<str>, Entry>; 2],
     bytes: usize,
 }
 
@@ -43,12 +40,30 @@ impl LanguageCache {
             .as_ref()
             .is_some_and(|(hash, f, words)| hash == fingerprint && *f == format && words == lexicon)
         {
+            for entry in self.entries.iter_mut().flat_map(|map| map.values_mut()) {
+                entry.visited = false;
+            }
             return;
         }
         *self = Self {
             scope: Some((fingerprint.into(), format, lexicon.clone())),
             ..Self::default()
         };
+    }
+
+    fn len(&self) -> usize {
+        self.entries[0].len() + self.entries[1].len()
+    }
+
+    pub(crate) fn finish_scan(&mut self) {
+        for map in &mut self.entries {
+            map.retain(|_, entry| {
+                if !entry.visited {
+                    self.bytes -= entry.bytes;
+                }
+                entry.visited
+            });
+        }
     }
 
     pub(crate) fn check(
@@ -61,7 +76,8 @@ impl LanguageCache {
         mut checkpoint: impl FnMut() -> Result<()>,
     ) -> Result<()> {
         let entering = usize::from(analysis.sentence_start);
-        if let Some(entry) = self.entries[entering].get(cue.text()) {
+        if let Some(entry) = self.entries[entering].get_mut(cue.text()) {
+            entry.visited = true;
             for f in &entry.findings {
                 checkpoint()?;
                 push(out, cue, index, f.rule, &f.explanation, f.detail.clone())?;
@@ -75,6 +91,10 @@ impl LanguageCache {
         let before = analysis.coverage.clone();
         let first = out.len();
         analysis.check(cue, index, format, out, checkpoint)?;
+        // A scan over capacity must not evict entries it can reuse on its next pass.
+        if self.len() >= MAX_ENTRIES {
+            return Ok(());
+        }
         let findings = &out[first..];
         let bytes = cue.text().len()
             + size_of::<Entry>()
@@ -90,20 +110,11 @@ impl LanguageCache {
                         })
                 })
                 .sum::<usize>();
-        if bytes > MAX_BYTES {
+        if self.bytes + bytes > MAX_BYTES {
             return Ok(());
         }
-        while self.insertion_order.len() >= MAX_ENTRIES || self.bytes + bytes > MAX_BYTES {
-            let (state, text) = self.insertion_order.pop_front().expect("cache is nonempty");
-            let evicted = self.entries[state]
-                .remove(&text)
-                .expect("queued cache entry");
-            self.bytes -= evicted.bytes;
-        }
-        let text: Arc<str> = cue.text().into();
-        self.insertion_order.push_back((entering, text.clone()));
         self.entries[entering].insert(
-            text,
+            cue.text().into(),
             Entry {
                 findings: findings
                     .iter()
@@ -118,6 +129,7 @@ impl LanguageCache {
                 skipped_cues: analysis.coverage.skipped_cues - before.skipped_cues,
                 sentence_start: analysis.sentence_start,
                 bytes,
+                visited: true,
             },
         );
         self.bytes += bytes;
@@ -132,7 +144,7 @@ mod tests {
     use subtitle_core::{CueId, Milliseconds};
 
     #[test]
-    fn fifo_bounds_and_scope_changes_evict_entries() {
+    fn completed_scans_sweep_unused_entries_and_respect_both_caps() {
         let mut cache = LanguageCache::default();
         let words = Lexicon::default();
         let settings = Settings {
@@ -154,18 +166,23 @@ mod tests {
         for i in 0..=MAX_ENTRIES {
             insert(&mut cache, i.to_string());
         }
-        assert_eq!(cache.insertion_order.len(), MAX_ENTRIES);
-        assert!(!cache.entries[1].contains_key("0"));
+        assert_eq!(cache.len(), MAX_ENTRIES);
+        assert!(cache.entries[1].contains_key("0"));
+        cache.finish_scan();
+        cache.prepare("profile", Format::Srt, &words);
+        insert(&mut cache, "0".into());
+        cache.finish_scan();
+        assert_eq!(cache.len(), 1);
         // Oversized-for-analysis cues still contribute a cached coverage finding.
         for i in 0..9 {
             insert(&mut cache, format!("{i}{}", "x".repeat(1024 * 1024)));
         }
         assert!(cache.bytes <= MAX_BYTES);
-        assert!(cache.insertion_order.len() < 9);
+        assert!(cache.len() < 9);
         cache.prepare("profile", Format::Ass, &words);
-        assert!(cache.insertion_order.is_empty());
+        assert_eq!(cache.len(), 0);
         insert(&mut cache, "Hello".into());
         cache.prepare("another profile", Format::Ass, &words);
-        assert!(cache.insertion_order.is_empty());
+        assert_eq!(cache.len(), 0);
     }
 }

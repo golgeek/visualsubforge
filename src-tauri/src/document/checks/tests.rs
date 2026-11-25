@@ -87,7 +87,7 @@ fn scene_replacement_invalidates_reports_and_ignores_retired_worker_cancellation
         let key = store.quality_key().unwrap();
         store
             .checks
-            .launch_with(key, None, move |cancel| {
+            .launch_with(key, None, move |cancel, _| {
                 entered.send(cancel).unwrap();
                 waiting.recv_timeout(Duration::from_secs(5)).unwrap();
                 Err("retired scene failure".into())
@@ -196,7 +196,7 @@ async fn completion_can_be_observed_before_or_after_a_worker_finishes() {
         );
         store
             .checks
-            .launch_with(key, None, move |_| {
+            .launch_with(key, None, move |_, _| {
                 held.recv_timeout(Duration::from_secs(5)).unwrap();
                 Err("test worker finished".into())
             })
@@ -409,7 +409,7 @@ fn stale_workers_cannot_publish_or_overlap_and_shutdown_reaps_work() {
         store.checks.synchronize(key);
         store
             .checks
-            .launch_with(key, None, move |cancel| {
+            .launch_with(key, None, move |cancel, _| {
                 entered.send(cancel.clone()).unwrap();
                 release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
                 Err("obsolete worker failure".into())
@@ -471,7 +471,7 @@ fn stale_workers_cannot_publish_or_overlap_and_shutdown_reaps_work() {
         let key = store.quality_key().unwrap();
         store
             .checks
-            .launch_with(key, None, move |cancel| {
+            .launch_with(key, None, move |cancel, _| {
                 entered.send(()).unwrap();
                 let deadline = Instant::now() + Duration::from_secs(5);
                 while !cancel.load(Ordering::Relaxed) && Instant::now() < deadline {
@@ -703,7 +703,7 @@ fn index_reports_missing_primary_and_related_cue_ids() {
 }
 
 #[tokio::test]
-async fn cancelled_worker_cannot_publish_its_language_cache() {
+async fn cancelled_worker_returns_its_cache_without_publishing_the_report() {
     let docs = fixture();
     ready(&docs);
     assert!(docs.0.lock().unwrap().checks.language_cache.is_some());
@@ -720,7 +720,7 @@ async fn cancelled_worker_cannot_publish_its_language_cache() {
     store.checks.refresh();
     assert!(store.checks.worker.is_none());
     assert!(store.checks.report.is_none());
-    assert!(store.checks.language_cache.is_none());
+    assert!(store.checks.language_cache.is_some());
 }
 
 #[test]
@@ -739,4 +739,187 @@ fn language_cache_survives_revision_but_clears_on_generation_or_policy_epoch() {
     key.epoch = (key.epoch.get() + 1).try_into().unwrap();
     store.checks.synchronize(key);
     assert!(store.checks.language_cache.is_none());
+}
+
+#[test]
+fn draft_metrics_and_work_are_identical_with_language_on_or_off() {
+    let docs = fixture();
+    let store = docs.0.lock().unwrap();
+    let doc = store.loaded.as_ref().unwrap().editor.document();
+    let mut profile = engine::Profile::builtin("sw3-uk-vo-subset")
+        .unwrap()
+        .custom("draft-metrics".into(), "Draft metrics".into());
+    let run = |profile: &engine::Profile| {
+        let mut work = 0;
+        let result = draft_metric(
+            doc,
+            profile.into(),
+            &engine::scene::Scenes::NoMedia,
+            3,
+            |_, _| {
+                work += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        (serde_json::to_vec(&result).unwrap(), work)
+    };
+    let off = run(&profile);
+    profile.language_tools.spelling = true;
+    profile.language_tools.capitalization = true;
+    assert_eq!(off, run(&profile));
+}
+
+#[tokio::test]
+async fn commit_recovers_completed_entries_from_an_interrupted_english_scan() {
+    use std::{fmt::Write, sync::mpsc};
+    let docs = Documents::default();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("unique.srt");
+    let mut srt = String::new();
+    for i in 1..=10_000 {
+        writeln!(
+            srt,
+            "{i}\n00:00:00,000 --> 00:00:02,000\nDistinct subtitle number {i}!\n"
+        )
+        .unwrap();
+    }
+    std::fs::write(&file, srt).unwrap();
+    docs.apply(
+        Action::Open {
+            path: file.to_str().unwrap().into(),
+            discard: true,
+        },
+        0,
+        0,
+    )
+    .unwrap();
+    let mut policy = Policy::default();
+    policy.profile = policy
+        .profile
+        .custom("cancel-sample".into(), "Cancel sample".into());
+    policy.profile.language_tools.spelling = true;
+    policy.profile.language_tools.capitalization = true;
+    docs.initialize_quality(policy).unwrap();
+
+    let (entered, halfway) = mpsc::channel();
+    let (resume, wait) = mpsc::channel();
+    let (key, done) = {
+        let mut store = docs.0.lock().unwrap();
+        let key = store.quality_key().unwrap();
+        let document = store.loaded.as_ref().unwrap().editor.document().clone();
+        let policy = store.quality.capture(subtitle_formats::Format::Srt);
+        store
+            .checks
+            .launch_with(key, None, move |cancel, cache| {
+                let mut visits = 0;
+                let report = engine::evaluate_cached(
+                    &document,
+                    policy.evaluation(),
+                    &engine::scene::Scenes::NoMedia,
+                    cache,
+                    |index, _| {
+                        // Several token checkpoints into this cue, after the two linear passes.
+                        if index == 5000 {
+                            visits += 1;
+                            if visits == 8 {
+                                entered.send(()).unwrap();
+                                wait.recv_timeout(Duration::from_secs(15)).unwrap();
+                            }
+                        }
+                        if cancel.load(Ordering::Relaxed) {
+                            Err(engine::Error::Cancelled)
+                        } else {
+                            Ok(())
+                        }
+                    },
+                );
+                assert_eq!(report.unwrap_err(), engine::Error::Cancelled);
+                Err("cancelled".into())
+            })
+            .unwrap();
+        (key, store.checks.worker.as_ref().unwrap().finished.clone())
+    };
+    halfway.recv_timeout(Duration::from_secs(15)).unwrap();
+    docs.apply(
+        Action::Edit {
+            cue_id: 1,
+            start_ms: 0,
+            end_ms: 2000,
+            text: "Edited cue!".into(),
+        },
+        key.generation.get(),
+        key.revision.get(),
+    )
+    .unwrap();
+    resume.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), done.cancelled())
+        .await
+        .unwrap();
+    let mut store = docs.0.lock().unwrap();
+    store.checks.refresh();
+    assert!(store.checks.report.is_none());
+    let mut cache = store
+        .checks
+        .language_cache
+        .take()
+        .expect("return the interrupted cache");
+    let doc = store.loaded.as_ref().unwrap().editor.document();
+    let policy = store.quality.capture(subtitle_formats::Format::Srt);
+    let run = |cache: &mut LanguageCache| {
+        let mut work = 0;
+        let start = Instant::now();
+        let report = engine::evaluate_cached(
+            doc,
+            policy.evaluation(),
+            &engine::scene::Scenes::NoMedia,
+            cache,
+            |_, _| {
+                work += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        (report, work, start.elapsed())
+    };
+    let (warm, reused, warm_time) = run(&mut cache);
+    let (_, cold, cold_time) = run(&mut LanguageCache::default());
+    let fresh = engine::evaluate(doc, policy.evaluation(), |_, _| Ok(())).unwrap();
+    assert_eq!(
+        serde_json::to_vec(&warm).unwrap(),
+        serde_json::to_vec(&fresh).unwrap()
+    );
+    assert!(
+        reused + 4999 * 3 <= cold,
+        "completed first-half cues must skip token work"
+    );
+    eprintln!(
+        "10k distinct English cues, commit during cue 5001: recovered {reused} checkpoints in {warm_time:?}, cold {cold} in {cold_time:?}"
+    );
+}
+
+#[tokio::test]
+async fn cancelled_cache_never_crosses_generation_or_quality_epoch() {
+    for change_generation in [false, true] {
+        let docs = fixture();
+        let mut restart = request(&docs);
+        restart.restart = true;
+        let id = docs.quality_read(restart).unwrap().id.get();
+        let done = docs.quality_completion(id).unwrap().unwrap();
+        tokio::time::timeout(Duration::from_secs(5), done.cancelled())
+            .await
+            .unwrap();
+        let mut store = docs.0.lock().unwrap();
+        let mut key = store.quality_key().unwrap();
+        let component = if change_generation {
+            &mut key.generation
+        } else {
+            &mut key.epoch
+        };
+        *component = (component.get() + 1).try_into().unwrap();
+        store.checks.synchronize(key);
+        store.checks.refresh();
+        assert!(store.checks.language_cache.is_none());
+        assert!(store.checks.report.is_none());
+    }
 }

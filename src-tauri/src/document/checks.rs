@@ -40,7 +40,7 @@ struct Worker {
     key: Key,
     draft: Option<Draft>,
     cancel: Arc<AtomicBool>,
-    handle: Option<JoinHandle<Result<Output>>>,
+    handle: Option<JoinHandle<(Result<Output>, LanguageCache)>>,
     finished: CancellationToken,
 }
 struct AcceptedReport {
@@ -48,7 +48,7 @@ struct AcceptedReport {
     index: ReportIndex,
 }
 enum Output {
-    Accepted(Box<(AcceptedReport, LanguageCache)>),
+    Accepted(Box<AcceptedReport>),
     Draft(Metric),
 }
 impl Drop for Worker {
@@ -89,21 +89,31 @@ impl Checks {
         let Some(mut worker) = self.worker.take_if(|w| w.finished.is_cancelled()) else {
             return;
         };
+        let cancelled = worker.cancel.load(Ordering::Relaxed);
         let result = worker
             .handle
             .take()
             .expect("finished handle exists")
             .join()
-            .unwrap_or_else(|_| Err("Quality worker stopped unexpectedly".into()));
-        if worker.cancel.load(Ordering::Relaxed) || Some(worker.key) != self.key {
+            .map_err(|_| "Quality worker stopped unexpectedly".to_string())
+            .and_then(|(result, cache)| {
+                if worker.draft.is_none()
+                    && (cancelled || result.is_ok())
+                    && self.key.is_some_and(|key| {
+                        key.generation == worker.key.generation && key.epoch == worker.key.epoch
+                    })
+                {
+                    self.language_cache = Some(cache);
+                }
+                result
+            });
+        if cancelled || Some(worker.key) != self.key {
             return;
         }
         match result {
-            Ok(Output::Accepted(output)) => {
-                let (report, cache) = *output;
-                self.language_cache = Some(cache);
+            Ok(Output::Accepted(report)) => {
                 self.completed_at_ms = crate::recent::now().ok();
-                self.report = Some(report);
+                self.report = Some(*report);
                 self.report_id = self.id.try_into().ok();
             }
             Ok(Output::Draft(metric)) if worker.draft == self.draft => {
@@ -122,12 +132,7 @@ impl Checks {
         draft: Option<Draft>,
         scenes: engine::scene::Scenes,
     ) -> Result<()> {
-        let cache = if draft.is_none() {
-            self.language_cache.take().unwrap_or_default()
-        } else {
-            LanguageCache::default()
-        };
-        self.launch_with(key, draft.clone(), move |cancel| {
+        self.launch_with(key, draft.clone(), move |cancel, cache| {
             let began = Instant::now();
             let mut document = document;
             if let Some(draft) = &draft {
@@ -155,16 +160,11 @@ impl Checks {
             };
             match draft {
                 Some(draft) => {
-                    engine::evaluate_with_scenes(&document, context, &scenes, checkpoint)
-                        .map_err(|e| e.to_string())?
-                        .metrics
-                        .iter()
-                        .find(|m| m.cue_id == draft.cue_id.get().to_string())
-                        .map(|m| Output::Draft(m.into()))
-                        .ok_or_else(|| "Draft cue no longer exists".into())
+                    draft_metric(&document, context, &scenes, draft.cue_id.get(), checkpoint)
+                        .map(Output::Draft)
                 }
                 None => {
-                    let (report, cache) =
+                    let report =
                         engine::evaluate_cached(&document, context, &scenes, cache, checkpoint)
                             .map_err(|e| e.to_string())?;
                     let index = ReportIndex::build(&report, || {
@@ -176,13 +176,10 @@ impl Checks {
                         }
                         Ok(())
                     })?;
-                    Ok(Output::Accepted(Box::new((
-                        AcceptedReport {
-                            data: report,
-                            index,
-                        },
-                        cache,
-                    ))))
+                    Ok(Output::Accepted(Box::new(AcceptedReport {
+                        data: report,
+                        index,
+                    })))
                 }
             }
         })
@@ -191,7 +188,7 @@ impl Checks {
         &mut self,
         key: Key,
         draft: Option<Draft>,
-        run: impl FnOnce(Arc<AtomicBool>) -> Result<Output> + Send + 'static,
+        run: impl FnOnce(Arc<AtomicBool>, &mut LanguageCache) -> Result<Output> + Send + 'static,
     ) -> Result<()> {
         if self.worker.is_some() || self.closed {
             return Err("Quality worker is not idle".into());
@@ -205,11 +202,16 @@ impl Checks {
         let token = cancel.clone();
         let finished = CancellationToken::new();
         let completion = finished.clone().drop_guard();
+        let mut cache = if draft.is_none() {
+            self.language_cache.take().unwrap_or_default()
+        } else {
+            LanguageCache::default()
+        };
         let handle = std::thread::Builder::new()
             .name("subtitle-quality".into())
             .spawn(move || {
                 let _completion = completion;
-                run(token)
+                (run(token, &mut cache), cache)
             })
             .map_err(|e| format!("Cannot start quality worker: {e}"))?;
         self.worker = Some(Worker {
@@ -225,6 +227,29 @@ impl Checks {
         Ok(())
     }
 }
+fn draft_metric(
+    document: &subtitle_core::Document,
+    context: engine::Evaluation<'_>,
+    scenes: &engine::scene::Scenes,
+    id: u64,
+    checkpoint: impl FnMut(usize, usize) -> engine::Result<()>,
+) -> Result<Metric> {
+    let id = id.to_string();
+    let mut profile = context.profile.clone();
+    profile.language_tools = Default::default();
+    let context = engine::Evaluation {
+        profile: &profile,
+        ..context
+    };
+    engine::evaluate_with_scenes(document, context, scenes, checkpoint)
+        .map_err(|e| e.to_string())?
+        .metrics
+        .iter()
+        .find(|m| m.cue_id == id)
+        .map(Metric::from)
+        .ok_or_else(|| "Draft cue no longer exists".into())
+}
+
 impl Store {
     pub(super) fn quality_key(&self) -> Result<Key> {
         Ok(Key {

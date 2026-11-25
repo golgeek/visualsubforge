@@ -83,8 +83,7 @@ export async function qualityIndexBudget({
       );
     let revision = doc.revision;
     await waitForRevision(revision);
-    const samples = [];
-    for (let i = 0; i < 20; ++i) {
+    const measureCommit = async () => {
       const began = await browser.execute(async (text) => {
         const editor = document.querySelector('[aria-label="Subtitle text"]');
         if (editor.value !== text)
@@ -98,16 +97,52 @@ export async function qualityIndexBudget({
         return start;
       }, doc.cues[0].text);
       await waitForRevision(++revision);
-      samples.push(
-        await browser.execute(
-          (start) =>
-            performance.getEntriesByName('quality-index-complete').at(-1)
-              .startTime - start,
-          began,
-        ),
+      const elapsedMs = await browser.execute(
+        (start) =>
+          performance.getEntriesByName('quality-index-complete').at(-1)
+            .startTime - start,
+        began,
       );
       await (await browser.$('button=Undo')).click();
       await waitForRevision(++revision);
+      return elapsedMs;
+    };
+    const samples = [];
+    for (let i = 0; i < 20; ++i) samples.push(await measureCommit());
+    if (!scenes && english) {
+      const phase = await browser.execute(
+        async (generation, revision) => {
+          const invoke = window.__TAURI__.core.invoke;
+          const view = await invoke('quality_read', {
+            request: {
+              session: 0,
+              generation,
+              revision,
+              run: true,
+              restart: true,
+              offset: 0,
+              limit: 0,
+              metricsOffset: 0,
+              metricsLimit: 0,
+              selected: null,
+              rule: null,
+              severity: null,
+              draft: null,
+            },
+          });
+          await invoke('quality_cancel', { id: view.id });
+          return view.phase;
+        },
+        doc.generation,
+        revision,
+      );
+      assert.equal(phase, 'checking');
+      await record({
+        step: 'English commit to complete index after quality cancellation',
+        lane,
+        elapsedMs: await measureCommit(),
+        findings,
+      });
     }
     assert.deepEqual((await status()).cues, doc.cues);
     const p95Ms = [...samples].sort((a, b) => a - b)[
