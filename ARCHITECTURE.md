@@ -316,6 +316,14 @@ constructs format-specific text. The core replaces the run with one cue spanning
 its earliest start to latest end, or deletes the selected IDs while retaining
 intervening cues. Each operation records a single undoable range replacement.
 
+For a single cue, Rust rounds the midpoint on the source time grid and trials the
+existing split through the same serializer. The private trial preserves the next
+cue ID, including after deletions, because source labels can depend on identity.
+CueEditing shares one midpoint read
+between both menus and dispatch, keyed by generation, revision and cue ID.
+After a draft commits, dispatch reads the new version. It submits the returned
+time with the version Rust checked. A refusal supplies the disabled menu reason.
+
 The menu permits replacement while visible and retains its immediate return-focus
 policy. The shared lifecycle waits for native-video hiding before exposing content.
 Closing removes content, waits for rendering, restores the remaining diagnostics

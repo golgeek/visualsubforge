@@ -1,5 +1,6 @@
 import { tick } from 'svelte';
 import { textFormat, type TextFormat } from '../client';
+import type { CueEditing } from './cue-editing.svelte';
 import type { TimelineView } from '../timeline/timeline-view.svelte';
 import type { Workspace } from '../workspace/workspace.svelte';
 import type { DocumentSession } from '../document/document-session.svelte';
@@ -16,6 +17,7 @@ export type CueAction =
   | 'createCue'
   | 'deleteCue'
   | 'splitCue'
+  | 'splitInHalf'
   | 'mergePrevious'
   | 'mergeNext'
   | 'mergeAsDialog'
@@ -27,10 +29,25 @@ interface Owners {
   subtitles: DocumentSession;
   gestures: TimingGesture;
   timeline: Pick<TimelineView, 'selectRange'>;
+  splitMidpoint: CueEditing['splitMidpoint'];
   operationContext: Parameters<typeof planCueOperation>[1];
   suspendFollowing: () => void;
   revealSelection: () => Promise<void>;
   focusText: () => Promise<void>;
+}
+
+export async function commitSplitInHalf(
+  subtitles: DocumentSession,
+  id: number,
+  midpoint: CueEditing['splitMidpoint'],
+) {
+  const version = subtitles.snapshot;
+  const atMs = await midpoint(version, id);
+  const action = { kind: 'split', cueId: id, atMs } as const;
+  return subtitles.command(action, {
+    version,
+    plan: { action, selection: 'created' },
+  });
 }
 
 export async function commitCueGroup(
@@ -73,6 +90,19 @@ export async function runCueAction(
   workspace.notice = '';
   await workspace.task(async () => {
     switch (action) {
+      case 'splitInHalf': {
+        const id = subtitles.selected;
+        if (
+          id === null ||
+          subtitles.selectedIds.size !== 1 ||
+          !(await subtitles.apply())
+        )
+          return;
+        suspendFollowing();
+        if (await commitSplitInHalf(subtitles, id, owners.splitMidpoint))
+          await revealSelection();
+        break;
+      }
       case 'mergeAsDialog': {
         const ids = [...subtitles.selectedIds];
         if (!(await subtitles.apply())) return;

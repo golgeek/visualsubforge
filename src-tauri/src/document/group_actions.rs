@@ -1,36 +1,68 @@
 //! Read-only availability for a captured selection. Trial edits run outside
 //! the store lock on private documents, through the same acceptance boundary.
-use super::{Documents, Result};
+use super::{Documents, Editor, Result, Source};
 use crate::ipc_number::SafeU64;
 use subtitle_core::CueId;
 use vsf_application::subtitle_operations::{GroupActions, group_actions};
 
 impl Documents {
+    fn inspect_cues<T>(
+        &self,
+        generation: u64,
+        revision: u64,
+        inspect: impl FnOnce(Editor<Source>) -> Result<T>,
+    ) -> Result<T> {
+        let lock = || {
+            self.0
+                .lock()
+                .map_err(|_| "Document worker unavailable".to_string())
+        };
+        let editor = {
+            let store = lock()?;
+            store
+                .check_version(generation, revision)
+                .map_err(|e| e.message().to_owned())?;
+            let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
+            loaded.editor.trial_copy()
+        };
+        let result = inspect(editor);
+        lock()?
+            .check_version(generation, revision)
+            .map_err(|e| e.message().to_owned())?;
+        result
+    }
+
     fn group_actions(
         &self,
         generation: u64,
         revision: u64,
         ids: Vec<SafeU64>,
     ) -> Result<GroupActions> {
-        let lock = || {
-            self.0
-                .lock()
-                .map_err(|_| "Document worker unavailable".to_string())
-        };
-        let (doc, source) = {
-            let store = lock()?;
-            store
-                .check_version(generation, revision)
-                .map_err(|e| e.message().to_owned())?;
-            let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
-            (loaded.editor.document().clone(), loaded.source().clone())
-        };
-        let ids: Vec<_> = ids.into_iter().map(|id| CueId(id.get())).collect();
-        let actions = group_actions(&doc, &source, &ids);
-        lock()?
-            .check_version(generation, revision)
-            .map_err(|e| e.message().to_owned())?;
-        Ok(actions)
+        self.inspect_cues(generation, revision, |editor| {
+            let ids: Vec<_> = ids.into_iter().map(|id| CueId(id.get())).collect();
+            Ok(group_actions(editor.document(), editor.properties(), &ids))
+        })
+    }
+
+    fn split_midpoint(&self, generation: u64, revision: u64, id: CueId) -> Result<SafeU64> {
+        self.inspect_cues(generation, revision, |mut editor| {
+            let cue = editor
+                .document()
+                .cues()
+                .iter()
+                .find(|cue| cue.id() == id)
+                .ok_or("Cue no longer exists")?;
+            let at = vsf_application::subtitle_operations::split_midpoint(
+                cue,
+                editor.properties().format(),
+            )?;
+            editor.apply_edit_with_properties(
+                0,
+                subtitle_core::Edit::Split { id, at },
+                vsf_application::subtitle_file::validate_document,
+            )?;
+            Ok(SafeU64::try_from(at.get())?)
+        })
     }
 }
 
@@ -50,6 +82,22 @@ pub async fn cue_group_actions(
     .map_err(|error| format!("Cannot check cue group actions: {error}"))?
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn cue_split_midpoint(
+    documents: tauri::State<'_, Documents>,
+    generation: SafeU64,
+    revision: SafeU64,
+    cue_id: SafeU64,
+) -> Result<SafeU64> {
+    let documents = documents.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        documents.split_midpoint(generation.get(), revision.get(), CueId(cue_id.get()))
+    })
+    .await
+    .map_err(|error| format!("Cannot check cue midpoint: {error}"))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,6 +109,173 @@ mod tests {
             .enumerate()
             .map(|(i, text)| format!("{}\n00:00:01,000 --> 00:00:03,000\n{text}\n\n", i + 1))
             .collect()
+    }
+
+    #[test]
+    fn midpoint_plan_and_split_round_to_source_ticks_and_undo_the_whole_edit() {
+        use super::super::ass_tests::{ASS, SSA};
+        let root = tempfile::tempdir().unwrap();
+        for (format, source, expected_ms) in [
+            (
+                "srt",
+                "1\n00:00:01,001 --> 00:00:01,006\n<i>A</i>\nB\n".into(),
+                1004,
+            ),
+            (
+                "vtt",
+                "WEBVTT\n\n00:01.001 --> 00:01.006\n<i>A</i>\nB\n".into(),
+                1004,
+            ),
+            ("ass", ASS.replace("0:00:03.00", "0:00:01.05"), 1030),
+            ("ssa", SSA.replace("0:00:03.00", "0:00:01.05"), 1030),
+            ("srt", "1\n00:00:01,001 --> 00:00:01,003\nA\n".into(), 1002),
+        ] {
+            let path = root.path().join(format!("split.{format}"));
+            std::fs::write(&path, &source).unwrap();
+            let docs = Documents::default();
+            let before = docs
+                .0
+                .lock()
+                .unwrap()
+                .apply(
+                    Action::Open {
+                        path: path.to_string_lossy().into_owned(),
+                        discard: false,
+                    },
+                    0,
+                    0,
+                )
+                .unwrap();
+            let original = &before.cues[0];
+            let at = docs
+                .split_midpoint(before.generation, before.revision, CueId(original.id))
+                .unwrap()
+                .get();
+            assert_eq!(at, expected_ms, "{format}");
+            let mut store = docs.0.lock().unwrap();
+            let split = store
+                .apply(
+                    Action::Split {
+                        cue_id: original.id,
+                        at_ms: at,
+                    },
+                    before.generation,
+                    before.revision,
+                )
+                .unwrap();
+            let (left, right) = (&split.cues[0], &split.cues[1]);
+            assert_eq!(
+                (left.start_ms, left.end_ms, right.start_ms, right.end_ms),
+                (original.start_ms, at, at, original.end_ms)
+            );
+            assert_eq!((&left.text, &right.text), (&original.text, &original.text));
+            let restored = store
+                .apply(Action::Undo, split.generation, split.revision)
+                .unwrap();
+            assert!(!restored.dirty && !restored.can_undo);
+            assert_eq!(
+                serde_json::to_value(restored.cues).unwrap(),
+                serde_json::to_value(before.cues).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn midpoint_trial_uses_the_same_new_identity_as_the_accepted_split() {
+        // Reusing the deleted ID would restore imported SRT label order,
+        // including the padded label, and incorrectly exceed the byte limit.
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("padded.srt");
+        let text = "a".repeat(crate::srt_limits::MAX_BYTES / 2 - 40);
+        std::fs::write(&path, format!("{}\n00:00:00,000 --> 00:00:02,000\n{text}\n\n2\n00:00:03,000 --> 00:00:04,000\nEnd\n", "0".repeat(128))).unwrap();
+        let docs = Documents::default();
+        let mut store = docs.0.lock().unwrap();
+        let opened = store
+            .apply(
+                Action::Open {
+                    path: path.to_string_lossy().into_owned(),
+                    discard: false,
+                },
+                0,
+                0,
+            )
+            .unwrap();
+        let before = store
+            .apply(
+                Action::Delete { cue_id: 2 },
+                opened.generation,
+                opened.revision,
+            )
+            .unwrap();
+        drop(store);
+        let at = docs.split_midpoint(before.generation, before.revision, CueId(1));
+        let split = docs
+            .0
+            .lock()
+            .unwrap()
+            .apply(
+                Action::Split {
+                    cue_id: 1,
+                    at_ms: 1000,
+                },
+                before.generation,
+                before.revision,
+            )
+            .unwrap();
+        assert_eq!(split.cues[1].id, 3);
+        assert_eq!(at.unwrap().get(), 1000);
+    }
+
+    #[test]
+    fn midpoint_refuses_one_tick_and_unsafe_format_without_history() {
+        for (extension, source, reason) in [
+            (
+                "srt",
+                "1\n00:00:01,000 --> 00:00:01,001\nOne tick\n".to_string(),
+                "too short",
+            ),
+            (
+                "ass",
+                super::super::ass_tests::ASS.replace("0:00:03.00", "0:00:01.01"),
+                "too short",
+            ),
+            (
+                "vtt",
+                "WEBVTT\n\nnamed\n00:01.000 --> 00:03.000\nNamed\n".to_string(),
+                "identifiers must stay unique",
+            ),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join(format!("split.{extension}"));
+            std::fs::write(&path, source).unwrap();
+            let docs = Documents::default();
+            let before = docs
+                .0
+                .lock()
+                .unwrap()
+                .apply(
+                    Action::Open {
+                        path: path.to_string_lossy().into_owned(),
+                        discard: false,
+                    },
+                    0,
+                    0,
+                )
+                .unwrap();
+            let id = CueId(before.cues[0].id);
+            assert!(
+                docs.split_midpoint(before.generation, before.revision + 1, id)
+                    .is_err()
+            );
+            assert!(
+                docs.split_midpoint(before.generation, before.revision, id)
+                    .unwrap_err()
+                    .contains(reason)
+            );
+            let after = docs.0.lock().unwrap().snapshot();
+            assert_eq!(before.revision, after.revision);
+            assert!(!after.can_undo);
+        }
     }
 
     #[test]

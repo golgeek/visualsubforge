@@ -82,6 +82,7 @@ pub enum WorkspaceAction {
     CreateCue,
     DeleteCue,
     SplitCue,
+    SplitInHalf,
     MergePrevious,
     MergeNext,
     MergeAsDialog,
@@ -285,6 +286,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
 pub struct MenuState {
     enabled: Vec<String>,
     checked: Vec<String>,
+    split_in_half_reason: Option<String>,
 }
 fn sync_menu(
     items: Vec<tauri::menu::MenuItemKind<tauri::Wry>>,
@@ -297,6 +299,20 @@ fn sync_menu(
                 sync_menu(menu.items().map_err(|e| e.to_string())?, state)?
             }
             tauri::menu::MenuItemKind::MenuItem(item) => {
+                if item.id().as_ref() == "splitInHalf" {
+                    // Keep any key hint published by the shortcut owner.
+                    let current = item.text().map_err(|e| e.to_string())?;
+                    let label = current
+                        .split_once(" — ")
+                        .map_or(current.as_str(), |(base, _)| base);
+                    let text = match state.split_in_half_reason.as_deref() {
+                        Some(reason) => format!("{label} — {reason}"),
+                        None => label.to_owned(),
+                    };
+                    if text != current {
+                        item.set_text(&text).map_err(|e| e.to_string())?;
+                    }
+                }
                 item.set_enabled(enabled).map_err(|e| e.to_string())?
             }
             tauri::menu::MenuItemKind::Check(item) => {

@@ -38,6 +38,10 @@ export const cueGroupActions = (
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
   ids: number[],
 ) => commands.cueGroupActions(document.generation, document.revision, ids);
+export const cueSplitMidpoint = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  id: number,
+) => commands.cueSplitMidpoint(document.generation, document.revision, id);
 export type Cue = IPC.visualsubforge_document_CueView_Serialize;
 export type RecoveryStatus =
   IPC.visualsubforge_document_RecoveryStatus_Serialize;

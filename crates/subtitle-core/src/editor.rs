@@ -161,6 +161,20 @@ impl<P: Clone + PartialEq> Editor<P> {
             .max()
             .unwrap_or(0)
             .checked_add(1);
+        Self::with_next_cue(document, properties, next_cue)
+    }
+
+    /// Start a private trial at revision zero with the same cue identities a
+    /// live edit would allocate. Accepted history can stay with its owner.
+    pub fn trial_copy(&self) -> Self {
+        Self::with_next_cue(
+            self.document.clone(),
+            self.properties.clone(),
+            self.next_cue,
+        )
+    }
+
+    fn with_next_cue(document: Document, properties: P, next_cue: Option<u64>) -> Self {
         Self {
             document,
             properties,
