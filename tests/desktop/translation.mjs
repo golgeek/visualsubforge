@@ -1,3 +1,4 @@
+import { submitCreateProject } from './create-project.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 // Real WebView/Rust/files and native preview. Supplied chooser results/DOM input
 // do not establish actual OS picker or physical keyboard/device acceptance.
@@ -239,7 +240,6 @@ export async function translationWorkflow({
           path: join(root, 'missing-parent', `target.${format}`),
         },
         { kind: 'saveSubtitles', path: target },
-        { kind: 'saveProject', path: project },
         { kind: 'project', path: project },
         ...(special
           ? [
@@ -342,6 +342,7 @@ export async function translationWorkflow({
       assert.equal(await readFile(target, 'utf8'), translated);
       assert.equal(await readFile(source, 'utf8'), original);
       await menu('saveProject');
+      await submitCreateProject(browser, project);
       await until(
         'translation project saved',
         async () => !(await absent(project)),
@@ -498,7 +499,6 @@ export async function translationWorkflow({
         { kind: 'saveSubtitles', path: source },
         { kind: 'saveSubtitles', path: target },
         { kind: 'saveSubtitles', path: recovered },
-        { kind: 'saveProject', path: recoveredProject },
       ]);
       await until('recover target with missing reference', () =>
         browser.execute((path) => {
@@ -553,6 +553,7 @@ export async function translationWorkflow({
       );
       await writeFile(referencePath, capturedReference);
       await menu('saveProject');
+      await submitCreateProject(browser, recoveredProject);
       await until(
         'subtitle-only recovered project saved',
         async () => !(await absent(recoveredProject)),
@@ -594,7 +595,6 @@ export async function translationWorkflow({
     browser = await restart([
       { kind: 'subtitles', path: mixed },
       { kind: 'subtitles', path: reference },
-      { kind: 'saveProject', path: mixedProject },
     ]);
     await menu('openSubtitles');
     const before = await documentIs(
@@ -616,6 +616,7 @@ export async function translationWorkflow({
     assert.equal((await status()).revision, before.revision);
     await discardCue(browser);
     await menu('saveProject');
+    await submitCreateProject(browser, mixedProject);
     await until(
       'mixed project saved',
       async () => !(await absent(mixedProject)),

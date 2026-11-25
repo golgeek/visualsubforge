@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tauri::Manager;
+pub(crate) mod create;
 pub(crate) mod import;
 mod store;
 #[cfg(test)]
@@ -404,6 +405,12 @@ pub struct SaveRequest {
     #[serde(default, with = "crate::ipc_number::optional")]
     #[specta(type = Option<crate::ipc_number::SafeU64>)]
     token: Option<u64>,
+    #[serde(flatten)]
+    workspace: WorkspaceInput,
+}
+#[derive(Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceInput {
     media_path: Option<String>,
     subtitle_path: Option<String>,
     #[serde(with = "crate::ipc_number")]
@@ -422,6 +429,42 @@ pub async fn project_save(app: tauri::AppHandle, request: SaveRequest) -> Result
         .map_err(|e| e.to_string())?
 }
 fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
+    let path = Path::new(&request.path);
+    if path.extension().is_none_or(|s| s != "vsfproject") {
+        return Err("Project filename must end in .vsfproject".into());
+    }
+    let destination = destination(path)?;
+    let subtitle = request
+        .workspace
+        .subtitle_path
+        .as_deref()
+        .map(Path::new)
+        .map(Path::canonicalize)
+        .transpose()
+        .map_err(|e| e.to_string())?;
+    with_workspace(
+        app,
+        request.workspace,
+        &destination,
+        subtitle.as_deref(),
+        |project| {
+            app.state::<Projects>().save_document(
+                &app.state::<crate::document::Documents>(),
+                subtitle.as_deref(),
+                &destination,
+                request.token,
+                project,
+            )
+        },
+    )
+}
+fn with_workspace<T>(
+    app: &tauri::AppHandle,
+    request: WorkspaceInput,
+    destination: &Path,
+    subtitle: Option<&Path>,
+    publish: impl FnOnce(Project) -> Result<T>,
+) -> Result<T> {
     let media = request
         .media_path
         .as_deref()
@@ -429,19 +472,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
         .map(Path::canonicalize)
         .transpose()
         .map_err(|e| e.to_string())?;
-    let path = Path::new(&request.path);
-    if path.extension().is_none_or(|s| s != "vsfproject") {
-        return Err("Project filename must end in .vsfproject".into());
-    }
-    let destination = destination(path)?;
     let base = destination.parent().ok_or("Project path has no parent")?;
-    let subtitle = request
-        .subtitle_path
-        .as_deref()
-        .map(Path::new)
-        .map(Path::canonicalize)
-        .transpose()
-        .map_err(|e| e.to_string())?;
     let identity = media.as_deref().map(identify).transpose()?;
     let scenes = identity
         .as_ref()
@@ -454,7 +485,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
     let project = Project {
         version: if media.is_some() { 1 } else { 2 },
         media_path: media.as_ref().map(|media| portable(base, media)),
-        subtitle_path: subtitle.as_ref().map(|p| portable(base, p)),
+        subtitle_path: subtitle.map(|p| portable(base, p)),
         subtitle_format: None,
         media_identity: identity,
         translation: None,
@@ -477,13 +508,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
             {
                 return Err("Project references differ from the selected media".into());
             }
-            app.state::<Projects>().save_document(
-                &app.state::<crate::document::Documents>(),
-                subtitle.as_deref(),
-                &destination,
-                request.token,
-                project,
-            )
+            publish(project)
         })
 }
 impl Projects {
@@ -493,24 +518,38 @@ impl Projects {
         subtitle: Option<&Path>,
         destination: &Path,
         token: Option<u64>,
-        mut project: Project,
+        project: Project,
     ) -> Result<Attachment> {
-        let base = destination.parent().ok_or("Project path has no parent")?;
         documents.with_project_subtitle(subtitle, |context, format, translation, review| {
-            // Only Rust's accepted effective rules may be persisted.
-            // Ignore optional frontend profile and stale timing fields.
-            project.options.quality = Some(context.profile.clone());
-            project.options.timing = context.timing.clone();
-            project.subtitle_format = format.map(|format| format.extension().into());
-            translation.protect(destination)?;
-            translation.verify_project_reference()?;
-            project.translation = translation.project_description(base)?;
-            review.reference.protect(destination)?;
-            review.verify_source()?;
-            project.review = review.project_description(base)?;
-            project.version = project.version_for_save();
+            let project =
+                project.with_document(destination, context, format, translation, review)?;
             self.save(destination, token, &project)
         })
+    }
+}
+impl Project {
+    fn with_document(
+        mut self,
+        destination: &Path,
+        context: &crate::quality_profile::Context,
+        format: Option<subtitle_formats::Format>,
+        translation: &TranslationContext,
+        review: &crate::document::review::Context,
+    ) -> Result<Self> {
+        let base = destination.parent().ok_or("Project path has no parent")?;
+        // Only Rust's accepted effective rules may be persisted.
+        // Ignore optional frontend profile and stale timing fields.
+        self.options.quality = Some(context.profile.clone());
+        self.options.timing = context.timing.clone();
+        self.subtitle_format = format.map(|format| format.extension().into());
+        translation.protect(destination)?;
+        translation.verify_project_reference()?;
+        self.translation = translation.project_description(base)?;
+        review.reference.protect(destination)?;
+        review.verify_source()?;
+        self.review = review.project_description(base)?;
+        self.version = self.version_for_save();
+        Ok(self)
     }
 }
 fn destination(path: &Path) -> Result<PathBuf> {

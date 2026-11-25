@@ -337,6 +337,7 @@ pub enum FileChoice {
     Project,
     LegacyProject,
     SaveProject,
+    ProjectFolder,
     TimingPreset,
     SaveTimingPreset,
     QualityPreset,
@@ -376,7 +377,11 @@ pub async fn choose_file(
         if let Some(window) = app.get_webview_window("main") {
             dialog = dialog.set_parent(&window);
         }
-        if let Some(current) = current {
+        if matches!(kind, FileChoice::ProjectFolder) {
+            if let Some(folder) = current.as_deref() {
+                dialog = dialog.set_directory(folder);
+            }
+        } else if let Some(current) = current {
             let path = std::path::Path::new(&current);
             if let Some(parent) = path.parent() {
                 dialog = dialog.set_directory(parent);
@@ -417,6 +422,9 @@ pub async fn choose_file(
                 .set_title("Import VisualSubSync Project")
                 .add_filter("VisualSubSync project", &["vssprj"])
                 .blocking_pick_file(),
+            FileChoice::ProjectFolder => dialog
+                .set_title("Choose Project Folder")
+                .blocking_pick_folder(),
             FileChoice::SaveProject => dialog
                 .set_title("Save VSF Project As")
                 .add_filter("VSF project", &["vsfproject"])

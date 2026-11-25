@@ -544,6 +544,18 @@ try {
     'recovered unsaved copy',
     (doc) => doc.requiresSaveAs && doc.cues[0]?.text === 'Recovery 世界',
   );
+  await menu('saveProject');
+  const createDialog = browser.$(
+    'dialog[open][aria-labelledby="create-project-title"]',
+  );
+  await createDialog.waitForExist();
+  assert.ok(await createDialog.$('[name="companionName"]').isExisting());
+  await createDialog.$('button=Cancel').click();
+  await createDialog.waitForExist({ reverse: true });
+  await documentIs(
+    'cancelled project creation retains recovered subtitles',
+    (doc) => doc.requiresSaveAs && doc.dirty,
+  );
   await menu('saveAs');
   await until('recovered source conflict reported', async () =>
     (await browser.$('footer [role="status"]'))

@@ -493,6 +493,18 @@ async function appCases() {
                 : savePath;
           case 'project_detach':
             return null;
+          case 'create_project': {
+            const path = '/' + args.request!.companionName;
+            if (failSave)
+              return { kind: 'nothingWritten', error: 'Injected save failure' };
+            files.set(path, JSON.stringify(doc.cues));
+            doc = { ...doc, path, dirty: false, requiresSaveAs: false };
+            projectSubtitle = path;
+            return {
+              kind: 'created',
+              attachment: { path: '/target.vsfproject', token: 1 },
+            };
+          }
           case 'project_save':
             assert(
               !doc.requiresSaveAs,
@@ -809,10 +821,19 @@ async function appCases() {
     savePath = '/target.srt';
     failSave = true;
     dispatch('saveProject');
+    await until(() => !!host.querySelector('dialog[open] form'));
+    const form = host.querySelector<HTMLFormElement>('dialog[open] form')!;
+    const companion = form.querySelector<HTMLInputElement>(
+      '[name="companionName"]',
+    )!;
+    companion.value = 'target.srt';
+    companion.dispatchEvent(new Event('input', { bubbles: true }));
+    form.requestSubmit();
     await until(
       () =>
-        !!menu!.enabled.includes('settings') &&
-        host.textContent!.includes('Injected save failure'),
+        !!form
+          .querySelector('[role="alert"]')
+          ?.textContent?.includes('Injected save failure'),
     );
     assert(
       projectSubtitle === undefined &&
@@ -821,7 +842,7 @@ async function appCases() {
       'Failed Save As published a project or modified the original',
     );
     failSave = false;
-    dispatch('saveProject');
+    form.requestSubmit();
     await until(
       () =>
         !!menu!.enabled.includes('settings') &&

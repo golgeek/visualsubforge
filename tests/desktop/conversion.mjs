@@ -1,3 +1,4 @@
+import { submitCreateProject } from './create-project.mjs';
 import { commitCue } from './editor-input.mjs';
 // Actual desktop/WebView, Rust and files. Only file selections and app-data paths
 // are supplied. Optional independent native captures inspect the video sibling.
@@ -260,7 +261,6 @@ export async function conversionWorkflow({
         browser = await restart([
           { kind: 'media', path: media },
           { kind: 'subtitles', path: source },
-          { kind: 'saveProject', path: project },
           { kind: choice(target), path: null },
           {
             kind: choice(target),
@@ -295,6 +295,7 @@ export async function conversionWorkflow({
         );
         await ready();
         await menu('saveProject');
+        await submitCreateProject(browser, project);
         const projectBytes = await until(
           'conversion project saved',
           async () => {

@@ -417,6 +417,12 @@ export const commands = {
       'project_save',
       { request },
     ),
+  createProject: (
+    request: visualsubforge_project_create_CreateRequest_Deserialize,
+  ) =>
+    __TAURI_INVOKE<
+      vsf_application_create_project_Outcome<visualsubforge_project_store_Attachment_Serialize>
+    >('create_project', { request }),
   projectImportStart: (
     request: visualsubforge_project_import_api_LegacyImportRequest,
   ) => __TAURI_INVOKE<number>('project_import_start', { request }),
@@ -1428,6 +1434,28 @@ export type vsf_application_language_analysis_Coverage = {
   personalized: boolean;
 };
 
+export type visualsubforge_project_create_CreateRequest =
+  | visualsubforge_project_create_CreateRequest_Serialize
+  | visualsubforge_project_create_CreateRequest_Deserialize;
+
+export type visualsubforge_project_create_CreateRequest_Deserialize = {
+  folder: string;
+  projectName: string;
+  companionName: string | null;
+  generation: number;
+  revision: number;
+  workspace: visualsubforge_project_WorkspaceInput_Deserialize;
+};
+
+export type visualsubforge_project_create_CreateRequest_Serialize = {
+  folder: string;
+  projectName: string;
+  companionName: string | null;
+  generation: number;
+  revision: number;
+  workspace: visualsubforge_project_WorkspaceInput_Serialize;
+};
+
 /**
  *  Selected-cue projection is independent of the Problems filters. Speed rules
  *  share one issue, while each other finding retains its own identity/detail.
@@ -1799,6 +1827,7 @@ export type visualsubforge_desktop_FileChoice =
   | 'project'
   | 'legacyProject'
   | 'saveProject'
+  | 'projectFolder'
   | 'timingPreset'
   | 'saveTimingPreset'
   | 'qualityPreset'
@@ -2348,6 +2377,11 @@ export type visualsubforge_updates_Outcome =
   | { kind: 'current' }
   | { kind: 'available'; version: string }
   | { kind: 'failed'; reason: visualsubforge_updates_Failure };
+
+export type vsf_application_create_project_Outcome<T> =
+  | { kind: 'created'; attachment: T }
+  | { kind: 'subtitleSavedProjectFailed'; subtitlePath: string; error: string }
+  | { kind: 'nothingWritten'; error: string };
 
 export type visualsubforge_document_review_exchange_OutputKind =
   'package' | 'report' | 'readable';
@@ -3139,22 +3173,12 @@ export type visualsubforge_project_SaveRequest =
 export type visualsubforge_project_SaveRequest_Deserialize = {
   path: string;
   token?: number | null;
-  mediaPath: string | null;
-  subtitlePath: string | null;
-  session: number;
-  positionSeconds: number;
-  options: visualsubforge_project_Options_Deserialize;
-};
+} & visualsubforge_project_WorkspaceInput_Deserialize;
 
 export type visualsubforge_project_SaveRequest_Serialize = {
   path: string;
   token: number | null;
-  mediaPath: string | null;
-  subtitlePath: string | null;
-  session: number;
-  positionSeconds: number;
-  options: visualsubforge_project_Options_Serialize;
-};
+} & visualsubforge_project_WorkspaceInput_Serialize;
 
 export type visualsubforge_scenes_Saved =
   | visualsubforge_scenes_Saved_Serialize
@@ -3960,6 +3984,26 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'arrangePanels'
   | 'diagnostics'
   | 'quit';
+
+export type visualsubforge_project_WorkspaceInput =
+  | visualsubforge_project_WorkspaceInput_Serialize
+  | visualsubforge_project_WorkspaceInput_Deserialize;
+
+export type visualsubforge_project_WorkspaceInput_Deserialize = {
+  mediaPath: string | null;
+  subtitlePath: string | null;
+  session: number;
+  positionSeconds: number;
+  options: visualsubforge_project_Options_Deserialize;
+};
+
+export type visualsubforge_project_WorkspaceInput_Serialize = {
+  mediaPath: string | null;
+  subtitlePath: string | null;
+  session: number;
+  positionSeconds: number;
+  options: visualsubforge_project_Options_Serialize;
+};
 
 /* Tauri Specta runtime */
 type EventEmit<T> = [T] extends [null]

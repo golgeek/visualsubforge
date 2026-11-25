@@ -1,5 +1,7 @@
+import { projectDefaults, type CreateProjectPrompt } from './create-project';
 import {
   chooseFile,
+  createProject,
   openProject,
   attachProject,
   detachProject,
@@ -17,6 +19,7 @@ import type { ProjectExitChoice } from './ProjectSaveFailureDialog.svelte';
 
 const client = {
   chooseFile,
+  createProject,
   openProject,
   attachProject,
   detachProject,
@@ -39,6 +42,7 @@ export interface ProjectWorkspace {
     issue: ProjectReferenceIssue,
   ): Promise<'cancel' | 'choose' | 'reload'>;
   saveSubtitles(): Promise<boolean>;
+  createProject(prompt: CreateProjectPrompt): Promise<boolean>;
   saveFailed(error: unknown): Promise<ProjectExitChoice>;
   notify(message: string): void;
 }
@@ -244,7 +248,85 @@ export class ProjectWorkflow {
     return this.saveAt(++this.operation, false, false);
   }
   async save(as: boolean) {
-    return this.saveAt(++this.operation, as, true);
+    const operation = ++this.operation;
+    if (!this.path) return this.createAt(operation);
+    return this.saveAt(operation, as, true);
+  }
+  private workspaceInput(session: number) {
+    const current = this.workspace.read();
+    return {
+      mediaPath: this.media.status.loaded ? current.mediaPath : null,
+      subtitlePath: this.document.snapshot.path,
+      session,
+      positionSeconds: this.media.status.loaded
+        ? (this.media.status.positionSeconds ?? 0)
+        : 0,
+      options: current.options,
+    };
+  }
+  private async createAt(operation: number) {
+    const opening = this.document.snapshot;
+    const session = this.media.status.session;
+    if (!this.media.status.loaded && !opening.loaded) return false;
+    let partial: { path: string; revision: number } | null = null;
+    return this.workspace.createProject({
+      ...projectDefaults(opening, this.workspace.read().mediaPath),
+      submit: async (names) => {
+        this.check(operation, session);
+        if (opening.generation !== this.document.snapshot.generation)
+          throw new Error(
+            'The subtitle document changed; reopen Create Project.',
+          );
+        if (!partial && !(await this.document.apply()))
+          throw new Error(
+            this.document.editError || 'The cue draft could not be applied',
+          );
+        this.check(operation, session);
+        const version = this.document.snapshot;
+        if (
+          version.generation !== opening.generation ||
+          (partial && version.revision !== partial.revision)
+        )
+          throw new Error(
+            'The subtitle document changed; reopen Create Project.',
+          );
+        const outcome = await this.client.createProject({
+          ...names,
+          generation: opening.generation,
+          revision: version.revision,
+          workspace: {
+            ...this.workspaceInput(session),
+            subtitlePath: partial?.path ?? opening.path,
+          },
+        });
+        this.check(operation, session);
+        if (outcome.kind !== 'nothingWritten') {
+          if (outcome.kind === 'created') this.attachment = outcome.attachment;
+          else
+            partial = {
+              path: outcome.subtitlePath,
+              revision: version.revision,
+            };
+          try {
+            await this.document.command({ kind: 'status' });
+          } catch (error) {
+            this.check(operation, session);
+            // Publication is known even if the follow-up status read fails.
+            if (outcome.kind === 'subtitleSavedProjectFailed')
+              return {
+                ...outcome,
+                error: outcome.error + ' · ' + String(error),
+              };
+            this.workspace.notify('Project created · ' + String(error));
+            return outcome;
+          }
+          this.check(operation, session);
+          if (outcome.kind === 'created')
+            this.workspace.notify('Project created');
+        }
+        return outcome;
+      },
+    });
   }
   private async saveAt(
     operation: number,
@@ -277,17 +359,10 @@ export class ProjectWorkflow {
         : this.path;
     this.check(operation, session);
     if (!path) return false;
-    const current = this.workspace.read();
     const attached = await this.client.saveProject({
+      ...this.workspaceInput(session),
       path,
       token: this.attachment?.token ?? null,
-      mediaPath: this.media.status.loaded ? current.mediaPath : null,
-      subtitlePath: this.document.snapshot.path,
-      session,
-      positionSeconds: this.media.status.loaded
-        ? (this.media.status.positionSeconds ?? 0)
-        : 0,
-      options: current.options,
     });
     this.check(operation, session);
     this.attachment = attached;

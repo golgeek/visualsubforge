@@ -6,6 +6,8 @@ import {
   defaultPreferences,
   emptyDocument,
   emptyStatus,
+  type CreateProjectOutcome,
+  type createProject,
   type DocumentAction,
   type DocumentSnapshot,
   type MediaAction,
@@ -20,6 +22,13 @@ let recovered = 0;
 let occluded = false;
 const callbacks = new Map<number, (value: unknown) => void>();
 const events = new Map<string, number>();
+const createTrial = new URLSearchParams(location.search).get('createProject');
+if (createTrial)
+  host.addEventListener('fixture-save-project', () =>
+    callbacks.get(events.get('workspace-action')!)?.({
+      payload: 'saveProject',
+    }),
+  );
 const recovery: RecoveryStatus = {
   entries: [
     {
@@ -70,6 +79,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         manual?: boolean;
         kind?: string;
         id?: string;
+        request?: Parameters<typeof createProject>[0];
       },
     ) {
       switch (command) {
@@ -148,7 +158,44 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             (entry) => entry.id !== args.id,
           );
           return;
+        case 'create_project': {
+          const req = args.request!;
+          host.dataset.createWrites = String(
+            Number(host.dataset.createWrites ?? 0) + 1,
+          );
+          host.dataset.createRequest = JSON.stringify(req);
+          await new Promise((resolve) => setTimeout(resolve, 90));
+          let result: CreateProjectOutcome;
+          if (req.projectName === 'Taken.vsfproject') {
+            result = {
+              kind: 'nothingWritten',
+              error: 'Output already exists: Taken.vsfproject',
+            };
+          } else if (
+            req.companionName &&
+            req.projectName === 'Blocked.vsfproject'
+          ) {
+            snapshot.path = req.folder + '/' + req.companionName;
+            snapshot.dirty = false;
+            snapshot.requiresSaveAs = false;
+            result = {
+              kind: 'subtitleSavedProjectFailed',
+              subtitlePath: snapshot.path,
+              error: 'Project write failed',
+            };
+          } else {
+            result = {
+              kind: 'created',
+              attachment: {
+                path: req.folder + '/' + req.projectName,
+                token: 1,
+              },
+            };
+          }
+          return result;
+        }
         case 'choose_file':
+          if (args.kind === 'projectFolder') return '/destination';
           if (args.kind !== 'workspace')
             throw new Error('Expected unified Open picker');
           return path;
@@ -160,6 +207,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (action.kind === 'create') {
             snapshot = accepted(null, true);
             snapshot.cues[0]!.text = '';
+            if (createTrial) {
+              snapshot.suggestedSavePath = '/work/Interview.fr.' + createTrial;
+              if (createTrial === 'ass')
+                snapshot.format = {
+                  name: 'ass',
+                  timeStepMs: 10,
+                  styles: [],
+                  scriptInfo: [],
+                };
+            }
           }
           if (action.kind === 'open') {
             ++opened;

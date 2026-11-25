@@ -11,6 +11,7 @@ import {
   type MediaAction,
   type Preferences,
   type SaveProjectRequest,
+  type createProject,
   type DocumentAction,
 } from '../../../src/lib/client';
 
@@ -42,7 +43,8 @@ let listener = 0;
 let occluded = false;
 let stored = structuredClone(defaultPreferences.layout);
 let saves = 0;
-const projectSaves: SaveProjectRequest[] = [];
+type CreateRequest = Parameters<typeof createProject>[0];
+const projectSaves: CreateRequest['workspace'][] = [];
 const documentActions: string[] = [];
 let nativeBounds: MediaAction | null = null;
 let holdHide: (() => void) | null = null;
@@ -89,7 +91,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       command: string,
       args: {
         action?: MediaAction | DocumentAction;
-        request?: SaveProjectRequest;
+        request?: SaveProjectRequest | CreateRequest;
         handler?: number;
         event?: string;
         layout?: Preferences['layout'];
@@ -125,6 +127,16 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return structuredClone(snapshot);
         case 'choose_file':
           return '/arrange.vsfproject';
+        case 'create_project':
+          projectSaves.push(
+            JSON.parse(
+              JSON.stringify((args.request as CreateRequest).workspace),
+            ),
+          );
+          return {
+            kind: 'created',
+            attachment: { path: '/arrange.vsfproject', token: 1 },
+          };
         case 'project_save':
           // Model Tauri JSON serialization, which unwraps reactive option proxies.
           projectSaves.push(
@@ -361,6 +373,15 @@ async function run() {
       'reset and Escape restore the standard preset and release native occlusion',
     );
     callbacks.get(listener)!({ payload: 'saveProject' });
+    await until(() => !!host.querySelector('dialog[open] form'));
+    const createForm =
+      host.querySelector<HTMLFormElement>('dialog[open] form')!;
+    assert(
+      createForm.textContent?.includes('References: /captions.srt') === true &&
+        !createForm.elements.namedItem('companionName'),
+      'A saved document is a read-only project reference',
+    );
+    createForm.requestSubmit();
     await until(
       () =>
         projectSaves.length === 1 &&

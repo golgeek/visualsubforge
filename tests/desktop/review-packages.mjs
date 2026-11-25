@@ -1,4 +1,5 @@
 // Scenario for the isolated release WebView harness. Both participants and every file are synthetic.
+import { submitCreateProject } from './create-project.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -11,7 +12,6 @@ export function packageChoices(root, original, copy, video, project, report) {
     ['subtitles', original],
     ['saveSubtitles', copy],
     ['saveReviewPackage', pkg],
-    ['saveProject', project],
     ['reviewPackage', pkg],
     ['saveSubtitles', join(root, 'author.srt')],
     ['media', video],
@@ -116,6 +116,7 @@ export async function exchangeRoundTrip({
   assert.equal(pkg.round, 1);
   assert.equal(pkg.threads.length, 1);
   await menu('saveProject');
+  await submitCreateProject(browser, project);
   await until('saved project', async () => {
     try {
       return JSON.parse(await readFile(project, 'utf8')).version === 5;

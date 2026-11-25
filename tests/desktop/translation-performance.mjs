@@ -1,5 +1,6 @@
 // Actual WebView/Rust/files with simultaneous target/reference/history/recovery.
 // Supplied chooser results and DOM events do not measure physical input latency.
+import { installCreateProject } from './create-project.mjs';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -80,6 +81,7 @@ async function sampleMemory(pid, phase) {
 }
 
 async function install(browser) {
+  await installCreateProject(browser);
   await browser.execute((profileDraws) => {
     if (profileDraws) {
       const draws = [],
@@ -287,7 +289,6 @@ export async function translationPerformance({
         { kind: 'subtitles', path: source },
         { kind: 'saveSubtitles', path: source },
         { kind: 'saveSubtitles', path: target },
-        { kind: 'saveProject', path: project },
         { kind: 'project', path: project },
       ]);
       await install(browser);
@@ -432,7 +433,7 @@ export async function translationPerformance({
         const text = `Translated ${cycle} ${baseline.cues[0].text}`,
           offset = cycle % 2 ? 1500 : -1500;
         const times = await browser.execute(
-          async (text, offset) => {
+          async (text, offset, firstProject) => {
             const b = window.__translationBench,
               before = await b.state();
             b.input('Subtitle text', text);
@@ -486,12 +487,14 @@ export async function translationPerformance({
             const saveMs = performance.now() - saveAt;
             const projectAt = performance.now();
             await b.menu('saveProject');
+            if (firstProject) await window.__submitCreateProject(firstProject);
             await b.wait(
               async () =>
                 !(await b.state()).translation.dirty &&
                 b.ready() &&
                 document.querySelector('footer [role="status"]')
-                  ?.textContent === 'Project saved',
+                  ?.textContent ===
+                  (firstProject ? 'Project created' : 'Project saved'),
             );
             await b.frame();
             const projectSaveMs = performance.now() - projectAt;
@@ -509,6 +512,7 @@ export async function translationPerformance({
           },
           text,
           offset,
+          cycle === 0 ? project : null,
         );
         result.cycles.push(times);
         assert.deepEqual((await status()).cues, baseline.cues);
@@ -699,7 +703,6 @@ export async function translationPerformance({
         { kind: 'saveSubtitles', path: source },
         { kind: 'saveSubtitles', path: target },
         { kind: 'saveSubtitles', path: recovered },
-        { kind: 'saveProject', path: recoveredProject },
         { kind: 'saveSubtitles', path: source },
         { kind: 'subtitles', path: source },
       ]);
@@ -794,20 +797,21 @@ export async function translationPerformance({
       );
       assert.equal(await readFile(recovered, 'utf8'), expectedRecovery);
       await writeFile(source, bytes);
-      result.timings.recoveryProjectMs = await browser.execute(async () => {
+      result.timings.recoveryProjectMs = await browser.execute(async (path) => {
         const b = window.__translationBench,
           at = performance.now();
         await b.menu('saveProject');
+        await window.__submitCreateProject(path);
         await b.wait(
           async () =>
             !(await b.state()).translation.dirty &&
             b.ready() &&
             document.querySelector('footer [role="status"]')?.textContent ===
-              'Project saved',
+              'Project created',
         );
         await b.frame();
         return performance.now() - at;
-      });
+      }, recoveredProject);
       const recoveredData = JSON.parse(
         await readFile(recoveredProject, 'utf8'),
       );

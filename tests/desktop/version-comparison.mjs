@@ -1,5 +1,6 @@
 // Isolated real Rust/WebView review lane. All subtitles/media are generated here.
 // File choices and DOM events are supplied; native-window observations are separate.
+import { submitCreateProject } from './create-project.mjs';
 import { packageChoices, exchangeRoundTrip } from './review-packages.mjs';
 import { acceptReview } from './review.mjs';
 import { time } from './timing-fixtures.mjs';
@@ -114,7 +115,6 @@ execFileSync(process.env.VSF_FFMPEG ?? 'ffmpeg', [
 const choices = [
   { kind: 'subtitles', path: original },
   { kind: 'saveSubtitles', path: copy },
-  { kind: 'saveProject', path: project },
   { kind: 'project', path: project },
   { kind: 'subtitles', path: revised },
   { kind: 'reviewOriginal', path: original },
@@ -373,6 +373,7 @@ try {
 
 async function comparisonWorkflows() {
   await menu('saveProject');
+  await submitCreateProject(browser, project);
   await until('saved project', async () => {
     try {
       return JSON.parse(await readFile(project, 'utf8')).review;
