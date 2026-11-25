@@ -365,19 +365,10 @@ fn analysis_only_and_needs_review_do_not_create_subtitle_outputs() {
 #[cfg(unix)]
 #[test]
 fn ctrl_c_and_timeout_reap_the_active_tool_and_publish_nothing() {
-    use std::os::unix::fs::PermissionsExt;
     for interrupt in [true, false] {
         let dir = tempfile::tempdir().unwrap();
         let mut command = setup(dir.path());
-        let tool = dir.path().join("slow-tool");
-        // exec retains this PID: there is one owned child, no detached shell
-        // grandchild. The actual subprocess supervisor must kill and reap it.
-        fs::write(
-            &tool,
-            "#!/bin/sh\nprintf '%s' \"$$\" > \"$VSF_TEST_CHILD_PID\"\nexec /bin/sleep 60\n",
-        )
-        .unwrap();
-        fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
+        let tool = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/slow-tool.sh");
         let pid_path = dir.path().join("tool.pid");
         command.args([
             "--analysis-only",
