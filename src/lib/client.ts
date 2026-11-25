@@ -458,6 +458,7 @@ export function timingStartError(value: unknown): TimingStartError | null {
     typeof error.message === 'string' &&
     (error.kind === 'workerBusy' ||
       error.kind === 'policyChanged' ||
+      error.kind === 'reviewOpen' ||
       error.kind === 'rejected')
   )
     return { kind: error.kind, message: error.message };

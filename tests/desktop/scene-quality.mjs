@@ -409,17 +409,24 @@ async function scenePerformance({
     );
     // An automatic request may already be in flight when the user opens Timing.
     // Admit it after the visible review is ready to exercise that ordering.
-    await assert.rejects(
-      () =>
-        invoke('cue_fixes_start', {
-          session: state.session,
-          generation: baseline.generation,
-          revision: baseline.revision,
-          cueId: baseline.cues[0].id,
-          origin: 'automatic',
-        }),
-      /Finish the current timing review to preview cue fixes/,
+    const refusal = await browser.execute(
+      async (request) => {
+        try {
+          await window.__TAURI__.core.invoke('cue_fixes_start', request);
+          return null;
+        } catch (error) {
+          return error;
+        }
+      },
+      {
+        session: state.session,
+        generation: baseline.generation,
+        revision: baseline.revision,
+        cueId: baseline.cues[0].id,
+        origin: 'automatic',
+      },
     );
+    assert.equal(refusal?.kind, 'reviewOpen');
     assert.equal((await dialog.$$('.change')).length, 100);
     await (await dialog.$('button=Next')).click();
     await until('10k second scene page', async () =>

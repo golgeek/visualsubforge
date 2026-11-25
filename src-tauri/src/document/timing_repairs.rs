@@ -22,6 +22,7 @@ use vsf_application::quality::{self as engine, Profile, timing_fix, timing_selec
 pub(crate) enum TimingStartKind {
     WorkerBusy,
     PolicyChanged,
+    ReviewOpen,
     Rejected,
 }
 
@@ -308,7 +309,7 @@ impl Documents {
         scenes: SceneCapture,
         cue: CueId,
         origin: Origin,
-    ) -> Result<u64> {
+    ) -> StartResult<u64> {
         self.timing_repair_start(
             generation,
             revision,
@@ -316,7 +317,6 @@ impl Documents {
             Operation::CueFixes(cue, origin),
             None,
         )
-        .map_err(|error| error.message)
     }
     pub(crate) fn cue_fixes_view(&self, id: u64) -> Result<crate::cue_fixes::View> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
@@ -383,7 +383,10 @@ impl Documents {
                     && phase(job, false) == Phase::Reviewing
             })
         {
-            return Err("Finish the current timing review to preview cue fixes".into());
+            return Err(TimingStartError {
+                kind: TimingStartKind::ReviewOpen,
+                message: "Finish the current timing review to preview cue fixes".into(),
+            });
         }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let document = loaded.editor.document().clone();

@@ -542,10 +542,7 @@ fn automatic_cue_preview_leaves_the_open_timing_review_readable_and_acceptable()
             CueId(1),
             Origin::Automatic,
         );
-        assert!(
-            automatic.is_err(),
-            "automatic cue preview displaced {purpose:?} {id}: {automatic:?}"
-        );
+        assert_eq!(automatic.unwrap_err().kind, TimingStartKind::ReviewOpen);
         assert!(docs.timing_repair_context(id, purpose).is_ok());
         let accepted = docs.timing_repair_accept(id, purpose).unwrap();
         assert_eq!(accepted.revision, 1);
@@ -560,6 +557,27 @@ fn automatic_cue_preview_leaves_the_open_timing_review_readable_and_acceptable()
             .unwrap();
         assert_eq!(ready_cue_fixes(&docs, next).phase, Phase::Reviewing);
     }
+}
+
+#[test]
+fn automatic_cue_preview_resumes_after_cancel_on_the_same_revision() {
+    let (_dir, docs, scenes) = fixture();
+    let id = start(&docs, &scenes);
+    let revision = ready(&docs, id).key.revision.get();
+    let automatic = || {
+        docs.cue_fixes_start(
+            1,
+            revision,
+            scenes.capture_quality(7, true).unwrap(),
+            CueId(1),
+            Origin::Automatic,
+        )
+    };
+    assert_eq!(automatic().unwrap_err().kind, TimingStartKind::ReviewOpen);
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
+    let resumed = ready_cue_fixes(&docs, automatic().unwrap());
+    assert_eq!(resumed.phase, Phase::Reviewing);
+    assert_eq!(resumed.key.revision.get(), revision);
 }
 
 #[test]

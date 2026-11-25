@@ -1,7 +1,7 @@
 //! Selected-cue fixes reuse the bounded timing-proposal worker and acceptance
 //! lock order. No second accepted editor or additional background worker.
 use crate::{
-    document::{Documents, Snapshot},
+    document::{Documents, Snapshot, TimingStartError},
     ipc_number::SafeU64,
     quality_check::Key,
     timing_review::{self, Phase, Purpose},
@@ -36,24 +36,17 @@ pub(crate) async fn cue_fixes_start(
     revision: SafeU64,
     cue_id: SafeU64,
     origin: Option<Origin>,
-) -> Result<SafeU64, String> {
+) -> Result<SafeU64, TimingStartError> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<crate::media::Media>()
-            .with_context(session.get(), |path| {
-                let scenes = app
-                    .state::<crate::scenes::Scenes>()
-                    .capture_quality(session.get(), path.is_some())?;
-                Ok(app
-                    .state::<Documents>()
-                    .cue_fixes_start(
-                        generation.get(),
-                        revision.get(),
-                        scenes,
-                        subtitle_core::CueId(cue_id.get()),
-                        origin.unwrap_or_default(),
-                    )?
-                    .try_into()?)
-            })
+        timing_review::start_in_context(&app, session, |documents, scenes| {
+            documents.cue_fixes_start(
+                generation.get(),
+                revision.get(),
+                scenes,
+                subtitle_core::CueId(cue_id.get()),
+                origin.unwrap_or_default(),
+            )
+        })
     })
     .await
     .map_err(|error| error.to_string())?

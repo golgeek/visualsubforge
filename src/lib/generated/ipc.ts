@@ -3708,7 +3708,7 @@ export type visualsubforge_document_timing_repairs_TimingStartError = {
 };
 
 export type visualsubforge_document_timing_repairs_TimingStartKind =
-  'workerBusy' | 'policyChanged' | 'rejected';
+  'workerBusy' | 'policyChanged' | 'reviewOpen' | 'rejected';
 
 export type vsf_application_comparison_words_TokenChange = {
   kind: vsf_application_comparison_words_TokenKind;

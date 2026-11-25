@@ -100,8 +100,8 @@ let editCount = 0;
 let fixCount = 0;
 let rejectEdit = false;
 let fixId = 0;
-let timingReviewActive = false;
-const reviewInUse = 'Finish the current timing review to preview cue fixes';
+let cueRefusal: 'reviewOpen' | 'rejected' | null = null;
+const reviewInUse = 'The fixture timing review owns the slot';
 const plans = new Map<number, { cue: number; version: number }>();
 let selectedForChecks = 1;
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
@@ -235,7 +235,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         }
         case 'cue_fixes_start': {
-          if (timingReviewActive && args.origin !== 'user') throw reviewInUse;
+          if (cueRefusal && args.origin !== 'user')
+            throw { kind: cueRefusal, message: reviewInUse };
           const id = ++fixId;
           plans.set(id, { cue: args.cueId!, version: args.revision! });
           return id;
@@ -530,7 +531,7 @@ async function run() {
     );
 
     stage = 'waiting for cue preview reason';
-    timingReviewActive = true;
+    cueRefusal = 'reviewOpen';
     await select(2);
     await select(3);
     await until(
@@ -547,15 +548,41 @@ async function run() {
         !host.querySelector('.activity-slot.visible'),
       'A background cue request announced activity',
     );
-    stage = 'explicit cue preview retry';
-    await until(() => !button('Retry fixes').disabled);
-    button('Retry fixes').click();
+    assert(
+      ![...strip.querySelectorAll('button')].some(
+        (b) => b.textContent?.trim() === 'Retry fixes',
+      ),
+      'An automatic cue preview offered to replace the open review',
+    );
+    // Cancel releases the slot without changing the selected cue or document.
+    const reviewRevision = snapshot.revision;
+    cueRefusal = null;
+    stage = 'automatic cue preview after Cancel';
     await until(() =>
       [...host.querySelectorAll('button')].some(
         (b) => b.textContent?.trim() === 'Fix 2',
       ),
     );
-    timingReviewActive = false;
+    assert(
+      snapshot.revision === reviewRevision,
+      'Cancel changed the document revision',
+    );
+    // Identical wording from a different kind must still permit an explicit retry.
+    cueRefusal = 'rejected';
+    await select(2);
+    await select(3);
+    await until(() =>
+      [...strip.querySelectorAll('button')].some(
+        (b) => b.textContent?.trim() === 'Retry fixes' && !b.disabled,
+      ),
+    );
+    button('Retry fixes').click();
+    await until(() =>
+      [...strip.querySelectorAll('button')].some(
+        (b) => b.textContent?.trim() === 'Fix 2',
+      ),
+    );
+    cueRefusal = null;
     const before = structuredClone(snapshot);
     button('Fix 2').click();
     await until(() => fixCount === 1 && editor().value === 'Fixed\ntext');

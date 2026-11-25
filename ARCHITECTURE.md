@@ -455,8 +455,10 @@ dock without changing the preset. Meters and source-line counts use Rust project
 
 Rust checks the origin of a selected-cue preview under the document lock. A
 reviewable user proposal keeps the timing slot until acceptance, cancellation or
-invalidation. An automatic cue request yields with a reason in the cue strip.
-An explicit preview or Retry fixes may replace a ready review.
+invalidation. Rust returns the typed `reviewOpen` admission refusal. CueFixes
+shows its message in the cue strip and rechecks admission with automatic origin
+while its input remains current. A cancellation releases the slot at the same
+revision. Explicit user previews may still replace a ready review.
 
 Safe cue fixes reuse the existing single timing-proposal worker, cancellation,
 10-second deadline and media → scenes → document acceptance lock order. The pure
