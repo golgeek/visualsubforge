@@ -75,6 +75,7 @@ const original: DocumentSnapshot = {
     { id: 3, startMs: 9000, endMs: 12000, text: 'Five issues' },
   ],
 };
+const groupTrial = new URLSearchParams(location.search).has('groupMenu');
 const explanationsTrial = new URLSearchParams(location.search).has(
   'explanations',
 );
@@ -193,6 +194,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return null;
         case 'update_menu':
           menuState = args.state;
+          if (groupTrial)
+            host.dataset.dialogueEnabled = String(
+              menuState?.enabled.includes('mergeAsDialog'),
+            );
           return null;
         case 'quality_cancel':
           return null;
@@ -302,6 +307,26 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                   : c,
               ),
             };
+          } else if (groupTrial && action.kind === 'mergeRun') {
+            // The Rust parity test verifies serialization. This records the two UI routes' IPC.
+            host.dataset.groupRequest = JSON.stringify({
+              action,
+              revision: args.revision,
+            });
+            history.push(structuredClone(snapshot));
+            snapshot = {
+              ...snapshot,
+              revision: snapshot.revision + 1,
+              canUndo: true,
+              cues: [
+                {
+                  ...snapshot.cues[0]!,
+                  endMs: 8000,
+                  text: '- One issue\n- Three issues',
+                },
+                snapshot.cues[2]!,
+              ],
+            };
           } else if (action.kind === 'undo') {
             const previous = history.pop()!;
             snapshot = {
@@ -346,6 +371,12 @@ async function select(id: number) {
 }
 async function run() {
   const app = mount(App, { target: host });
+  if (groupTrial) {
+    host.addEventListener('fixture-native-dialogue', () =>
+      callbacks.get(handler)?.({ payload: 'mergeAsDialog' }),
+    );
+    return;
+  }
   if (explanationsTrial) return;
   try {
     await until(

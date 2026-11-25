@@ -4,6 +4,7 @@ import type { TimelineView } from '../timeline/timeline-view.svelte';
 import {
   cueOperationLabels,
   planCueOperation,
+  groupOperationReason,
   type CueOperation,
 } from './cue-operations';
 export const AUTOCOMMIT_DELAY_MS = 700;
@@ -150,6 +151,16 @@ export class CueEditing {
           : null,
       range: this.timeline.range,
     };
+  });
+  dialogueReason = $derived.by(() => {
+    const ids = this.subtitles.selectedIds;
+    return ids.size === 2
+      ? groupOperationReason(
+          'mergeAsDialog',
+          [...ids],
+          this.subtitles.snapshot.cues,
+        )
+      : 'Select two adjacent cues';
   });
   operations = $derived.by(() => {
     const context = this.context;

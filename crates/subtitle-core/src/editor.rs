@@ -97,6 +97,13 @@ pub enum Edit {
     Delete {
         id: CueId,
     },
+    DeleteMany {
+        ids: Vec<CueId>,
+    },
+    MergeRun {
+        ids: Vec<CueId>,
+        text: String,
+    },
     Split {
         id: CueId,
         at: Milliseconds,
@@ -477,35 +484,39 @@ impl<P: Clone + PartialEq> Editor<P> {
                 first,
                 second,
                 separator,
-            } => {
-                let index = self.index(first)?;
-                let left = &self.document.cues[index];
-                let right = self
+            } => self.merge_change(&[first, second], |cues| {
+                cues.iter()
+                    .map(Cue::text)
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(&separator)
+            })?,
+            Edit::MergeRun { ids, text } => self.merge_change(&ids, |_| text)?,
+            Edit::DeleteMany { ids } => {
+                let first = *ids.first().ok_or(Error::EmptyCueSelection)?;
+                let mut targets = std::collections::HashSet::new();
+                for id in ids {
+                    if !targets.insert(id) {
+                        return Err(Error::DuplicateCue { id });
+                    }
+                }
+                let mut selected = self
                     .document
                     .cues
-                    .get(index + 1)
-                    .filter(|cue| cue.id == second)
-                    .ok_or(Error::NonAdjacentMerge { first, second })?;
-                if left.metadata != right.metadata {
-                    return Err(Error::MergeMetadataMismatch);
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, cue)| targets.contains(&cue.id));
+                let (start, _) = selected.next().ok_or(Error::MissingCue { id: first })?;
+                let end = selected.next_back().map_or(start, |(index, _)| index);
+                let after = self.document.cues[start..=end]
+                    .iter()
+                    .filter(|cue| !targets.remove(&cue.id))
+                    .cloned()
+                    .collect();
+                if let Some(id) = targets.into_iter().next() {
+                    return Err(Error::MissingCue { id });
                 }
-                let text = match (left.text.is_empty(), right.text.is_empty()) {
-                    (true, _) => right.text.clone(),
-                    (_, true) => left.text.clone(),
-                    _ => format!("{}{separator}{}", left.text, right.text),
-                };
-                Cue::validate(left.start.min(right.start), left.end.max(right.end), &text)?;
-                (
-                    index,
-                    2,
-                    vec![Cue {
-                        id: first,
-                        start: left.start.min(right.start),
-                        end: left.end.max(right.end),
-                        text,
-                        metadata: left.metadata.clone(),
-                    }],
-                )
+                (start, end - start + 1, after)
             }
         };
         if self.document.cues[index..index + count] == after {
@@ -671,6 +682,23 @@ impl<P: Clone + PartialEq> Editor<P> {
         Ok(true)
     }
 
+    fn merge_change(
+        &self,
+        ids: &[CueId],
+        text: impl FnOnce(&[Cue]) -> String,
+    ) -> Result<(usize, usize, Vec<Cue>)> {
+        let range = self.document.merge_range(ids)?;
+        let cues = &self.document.cues[range.clone()];
+        let first = &cues[0];
+        let (start, end) = cues
+            .iter()
+            .fold((first.start, first.end), |(start, end), c| {
+                (start.min(c.start), end.max(c.end))
+            });
+        let mut merged = Cue::new(first.id, start, end, text(cues))?;
+        merged.metadata = first.metadata.clone();
+        Ok((range.start, range.len(), vec![merged]))
+    }
     fn index(&self, id: CueId) -> Result<usize> {
         self.document
             .cues

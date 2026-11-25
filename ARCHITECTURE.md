@@ -302,6 +302,15 @@ through one owner method; project timing never replaces saved defaults.
 WorkspaceModal, WorkspaceDecision and CueMenu delegate native-video transitions
 to HideVideo. Modal admission failures are reported and modal close restores focus;
 decision admission failures propagate and decisions settle their answer after close.
+A table context menu commits the pending draft, retargets an outside click, and
+captures cue IDs, document generation, revision and media session. Waveform
+targets retain their cue or time range. Menu eligibility uses full document order.
+The native and context-menu dialogue commands share a selection planner and
+dispatch the same revision-checked edit. The application validates each pair and
+constructs format-specific text. The core replaces the run with one cue spanning
+its earliest start to latest end, or deletes the selected IDs while retaining
+intervening cues. Each operation records a single undoable range replacement.
+
 The menu permits replacement while visible and retains its immediate return-focus
 policy. The shared lifecycle waits for native-video hiding before exposing content.
 Closing removes content, waits for rendering, restores the remaining diagnostics

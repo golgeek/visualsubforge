@@ -167,6 +167,13 @@ pub enum Action {
         end_ms: u64,
         text: String,
     },
+    DeleteMany {
+        ids: Vec<crate::ipc_number::SafeU64>,
+    },
+    MergeRun {
+        ids: Vec<crate::ipc_number::SafeU64>,
+        dialogue: bool,
+    },
     Delete {
         #[serde(with = "crate::ipc_number")]
         #[specta(type = crate::ipc_number::SafeU64)]
@@ -585,6 +592,24 @@ impl Store {
                     self.generation += 1;
                 }
             }
+            Action::DeleteMany { ids } => {
+                self.loaded_mut()?.apply_edit(
+                    revision,
+                    Edit::DeleteMany {
+                        ids: ids.into_iter().map(|id| CueId(id.get())).collect(),
+                    },
+                )?;
+            }
+            Action::MergeRun { ids, dialogue } => {
+                let loaded = self.loaded_mut()?;
+                let edit = vsf_application::subtitle_operations::merge_run(
+                    loaded.editor.document(),
+                    ids.into_iter().map(|id| CueId(id.get())).collect(),
+                    loaded.source().format(),
+                    dialogue,
+                )?;
+                loaded.apply_edit(revision, edit)?;
+            }
             Action::Delete { cue_id } => {
                 self.loaded_mut()?
                     .apply_edit(revision, Edit::Delete { id: CueId(cue_id) })?;
@@ -629,13 +654,10 @@ impl Store {
                     second,
                     loaded.source().format(),
                 )?;
-                let separator = if self.loaded_mut()?.source().ass().is_some() {
-                    "\\N{\\r}"
-                } else {
-                    "\n"
-                }
-                .into();
-                self.loaded_mut()?.apply_edit(
+                let separator =
+                    vsf_application::subtitle_operations::merge_separator(loaded.source().format())
+                        .into();
+                loaded.apply_edit(
                     revision,
                     Edit::Merge {
                         first: CueId(first_id),
@@ -925,6 +947,82 @@ mod tests {
             )
             .unwrap();
     }
+    #[test]
+    fn nested_group_merges_span_both_cues_and_plain_matches_desktop_bytes() {
+        let ass = ass_tests::ASS.lines().map(|line| {
+            if line.starts_with("Dialogue: Title,") { "Dialogue: Title,0:00:06.00,0:00:01.00,2,actor,0000,0000,0000,,retain,{\\i1}Où vas-tu ?" }
+            else if line.starts_with("Dialogue: Default,") { "Dialogue: Title,0:00:03.00,0:00:02.00,2,actor,0000,0000,0000,,retain,Au port." }
+            else { line }
+        }).collect::<Vec<_>>().join("\n");
+        for (extension, source) in [
+            (
+                "srt",
+                "1\n00:00:01,000 --> 00:00:06,000\nOù vas-tu ?\n\n2\n00:00:02,000 --> 00:00:03,000\nAu port.\n",
+            ),
+            (
+                "vtt",
+                "WEBVTT\n\n00:00:01.000 --> 00:00:06.000\nOù vas-tu ?\n\n00:00:02.000 --> 00:00:03.000\nAu port.\n",
+            ),
+            ("ass", &ass),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join(format!("nested.{extension}"));
+            fs::write(&path, source).unwrap();
+            let bytes = |store: &Store| {
+                let loaded = store.loaded.as_ref().unwrap();
+                loaded.source().serialize(loaded.editor.document()).unwrap()
+            };
+            let mut reference = Store::default();
+            open(&mut reference, &path);
+            reference
+                .apply(
+                    Action::Merge {
+                        first_id: 1,
+                        second_id: 2,
+                    },
+                    1,
+                    0,
+                )
+                .unwrap();
+            for dialogue in [false, true] {
+                let mut store = Store::default();
+                open(&mut store, &path);
+                let original = bytes(&store);
+                let snapshot = store
+                    .apply(
+                        Action::MergeRun {
+                            ids: vec![1.try_into().unwrap(), 2.try_into().unwrap()],
+                            dialogue,
+                        },
+                        1,
+                        0,
+                    )
+                    .unwrap();
+                assert_eq!(snapshot.cues.len(), 1);
+                let cue = &snapshot.cues[0];
+                assert_eq!((cue.id, cue.start_ms, cue.end_ms), (1, 1000, 6000));
+                if dialogue {
+                    assert_eq!(
+                        cue.text,
+                        if extension == "ass" {
+                            r"{\i1}- Où vas-tu ?\N{\r}- Au port."
+                        } else {
+                            "- Où vas-tu ?\n- Au port."
+                        }
+                    );
+                } else {
+                    assert_eq!(bytes(&store), bytes(&reference));
+                }
+                let merged = bytes(&store);
+                let undo = store.apply(Action::Undo, 1, 1).unwrap();
+                assert!(!undo.can_undo);
+                assert_eq!(bytes(&store), original);
+                store.apply(Action::Redo, 1, 2).unwrap();
+                assert_eq!(bytes(&store), merged);
+            }
+        }
+    }
+
     fn edit(store: &mut Store) {
         store
             .apply(

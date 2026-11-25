@@ -113,3 +113,62 @@ export function operationSelection(
   const ids = new Set(before.map((cue) => cue.id));
   return after.find((cue) => !ids.has(cue.id))?.id ?? null;
 }
+
+export type GroupOperation = 'mergeRun' | 'mergeAsDialog' | 'deleteMany';
+
+export function planGroupOperation(
+  operation: GroupOperation,
+  ids: readonly number[],
+  cues: readonly Cue[],
+): CueOperationPlan {
+  if (operation === 'mergeAsDialog' && ids.length !== 2)
+    throw new Error('Merge as dialog needs exactly two cues');
+  if (ids.length < 2) throw new Error('Select at least two cues');
+  const selected = new Set(ids);
+  const indices: number[] = [];
+  for (const [index, cue] of cues.entries())
+    if (selected.has(cue.id)) indices.push(index);
+  if (indices.length !== ids.length)
+    throw new Error('The selected cues changed');
+  const first = indices[0]!;
+  const ordered = indices.map((index) => cues[index]!.id);
+  if (operation === 'deleteMany') {
+    const next = cues.slice(first).find((cue) => !selected.has(cue.id));
+    return {
+      action: { kind: 'deleteMany', ids: ordered },
+      selection: next?.id ?? cues[first - 1]?.id ?? null,
+    };
+  }
+  for (let i = 1; i < indices.length; i++) {
+    const before = indices[i - 1]!,
+      after = indices[i]!;
+    if (after !== before + 1)
+      throw new Error(`Cues ${before + 1} and ${after + 1} are not adjacent`);
+    if (
+      cues[before]!.style !== cues[after]!.style ||
+      cues[before]!.actor !== cues[after]!.actor
+    )
+      throw new Error('Merge requires matching cue style and actor');
+  }
+  return {
+    action: {
+      kind: 'mergeRun',
+      ids: ordered,
+      dialogue: operation === 'mergeAsDialog',
+    },
+    selection: ordered[0]!,
+  };
+}
+
+export function groupOperationReason(
+  operation: GroupOperation,
+  ids: readonly number[],
+  cues: readonly Cue[],
+): string | null {
+  try {
+    planGroupOperation(operation, ids, cues);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}

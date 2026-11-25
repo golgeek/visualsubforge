@@ -84,6 +84,7 @@ pub enum WorkspaceAction {
     SplitCue,
     MergePrevious,
     MergeNext,
+    MergeAsDialog,
     Apply,
     OpenMedia,
     OpenSubtitles,

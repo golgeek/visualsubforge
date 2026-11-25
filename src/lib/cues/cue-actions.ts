@@ -5,7 +5,12 @@ import type { Workspace } from '../workspace/workspace.svelte';
 import type { DocumentSession } from '../document/document-session.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
 import { traceApplyInput } from '../client';
-import { planCueOperation, cueOperationLabels } from './cue-operations';
+import {
+  planCueOperation,
+  planGroupOperation,
+  type GroupOperation,
+  cueOperationLabels,
+} from './cue-operations';
 
 export type CueAction =
   | 'createCue'
@@ -13,6 +18,7 @@ export type CueAction =
   | 'splitCue'
   | 'mergePrevious'
   | 'mergeNext'
+  | 'mergeAsDialog'
   | 'apply'
   | 'undo'
   | 'redo';
@@ -25,6 +31,15 @@ interface Owners {
   suspendFollowing: () => void;
   revealSelection: () => Promise<void>;
   focusText: () => Promise<void>;
+}
+
+export async function commitCueGroup(
+  operation: GroupOperation,
+  ids: readonly number[],
+  subtitles: DocumentSession,
+) {
+  const plan = planGroupOperation(operation, ids, subtitles.snapshot.cues);
+  return subtitles.command(plan.action, { plan });
 }
 
 export async function runCueAction(
@@ -58,6 +73,14 @@ export async function runCueAction(
   workspace.notice = '';
   await workspace.task(async () => {
     switch (action) {
+      case 'mergeAsDialog': {
+        const ids = [...subtitles.selectedIds];
+        if (!(await subtitles.apply())) return;
+        suspendFollowing();
+        if (await commitCueGroup(action, ids, subtitles))
+          await revealSelection();
+        break;
+      }
       case 'createCue':
       case 'deleteCue':
       case 'splitCue':

@@ -97,7 +97,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 21
+    "order": 22
   },
   "splitCue": {
     "label": "Split at Playhead",
@@ -128,6 +128,16 @@
     "alternateShortcuts": [],
     "macShortcut": null,
     "order": 19
+  },
+  "mergeAsDialog": {
+    "label": "Merge as Dialog",
+    "group": "Cue",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 21
   },
   "play": {
     "label": "Play / Pause",
@@ -447,7 +457,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 24
+    "order": 25
   },
   "statistics": {
     "label": "Statistics\u2026",
@@ -717,7 +727,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 22
+    "order": 23
   },
   "setEnd": {
     "label": "Set End at Playhead",
@@ -727,7 +737,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 23
+    "order": 24
   },
   "replay": {
     "label": "Replay Last 2 Seconds",

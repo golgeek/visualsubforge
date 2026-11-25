@@ -110,6 +110,7 @@ export class WorkspaceCommands {
       previousProblem: !!quality.view?.previousCue,
       nextProblem: !!quality.view?.nextCue,
       operations: {
+        mergeAsDialog: cueEditing.dialogueReason,
         endReview: doc.review?.path ? null : 'No review attached',
         previousOpenThread: doc.review?.path ? null : 'No review attached',
         nextOpenThread: doc.review?.path ? null : 'No review attached',

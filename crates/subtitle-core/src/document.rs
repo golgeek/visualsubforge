@@ -146,6 +146,31 @@ impl Document {
         }
         Ok(Self { cues })
     }
+    /// The selection is expressed in document order, independently of filtering or timing.
+    pub fn merge_range(&self, ids: &[CueId]) -> Result<std::ops::Range<usize>> {
+        let [first, _, ..] = ids else {
+            return Err(Error::TooFewCuesToMerge);
+        };
+        let start = self
+            .cues
+            .iter()
+            .position(|c| c.id == *first)
+            .ok_or(Error::MissingCue { id: *first })?;
+        for (offset, pair) in ids.windows(2).enumerate() {
+            let next = self
+                .cues
+                .get(start + offset + 1)
+                .filter(|c| c.id == pair[1])
+                .ok_or(Error::NonAdjacentMerge {
+                    first: pair[0],
+                    second: pair[1],
+                })?;
+            if next.metadata != self.cues[start].metadata {
+                return Err(Error::MergeMetadataMismatch);
+            }
+        }
+        Ok(start..start + ids.len())
+    }
     pub fn cues(&self) -> &[Cue] {
         &self.cues
     }

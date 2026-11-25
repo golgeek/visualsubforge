@@ -880,6 +880,7 @@
       case 'apply':
       case 'createCue':
       case 'deleteCue':
+      case 'mergeAsDialog':
       case 'mergeNext':
       case 'mergePrevious':
       case 'redo':
@@ -1216,8 +1217,8 @@
             actions={{
               listScrolled: navigation.listScrolled,
               columns: () => void workspaceModal.open('columns'),
-              openCueMenu: (x, y, id, inRange) =>
-                cueMenu.open(x, y, id, inRange),
+              openCueMenu: (x, y, id, row) =>
+                cueMenu.open(x, y, id, false, row),
               selectCue: navigation.selectCue,
               cueSelectionKey: (event, id) => {
                 workspaceKeydown(event, keys);

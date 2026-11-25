@@ -9,10 +9,11 @@
   }: {
     x: number;
     y: number;
-    items: { id: string; label: string }[];
+    items: { id: string; label: string; reason?: string | null }[];
     onchoose: (id: string) => void;
     onclose: () => void;
   } = $props();
+  const menuId = $props.id();
   let menu: HTMLDivElement;
   let left = $state(0),
     top = $state(0);
@@ -20,10 +21,12 @@
     const bounds = menu.getBoundingClientRect();
     left = Math.max(8, Math.min(x, innerWidth - bounds.width - 8));
     top = Math.max(8, Math.min(y, innerHeight - bounds.height - 8));
-    menu.querySelector('button')?.focus();
+    menu.querySelector<HTMLButtonElement>('button:enabled')?.focus();
   });
   function key(event: KeyboardEvent) {
-    const buttons = [...menu.querySelectorAll('button')];
+    const buttons = [
+      ...menu.querySelectorAll<HTMLButtonElement>('button:enabled'),
+    ];
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -59,9 +62,17 @@
   oncontextmenu={(e) => e.preventDefault()}
 >
   {#each items as item (item.id)}
-    <button role="menuitem" onclick={() => onchoose(item.id)}
-      >{item.label}</button
+    <button
+      role="menuitem"
+      aria-label={item.label}
+      disabled={!!item.reason}
+      aria-describedby={item.reason ? menuId + '-' + item.id : undefined}
+      onclick={() => onchoose(item.id)}
     >
+      {item.label}
+      {#if item.reason}<small id={menuId + '-' + item.id}>{item.reason}</small
+        >{/if}
+    </button>
   {/each}
 </div>
 
@@ -90,7 +101,10 @@
     cursor: pointer;
     border-radius: 3px;
   }
-  button:hover,
+  small {
+    display: block;
+  }
+  button:enabled:hover,
   button:focus-visible {
     background: var(--surface-hover);
     outline: 1px solid var(--focus);

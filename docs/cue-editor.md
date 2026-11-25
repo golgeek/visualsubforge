@@ -71,3 +71,20 @@ keeps cue selection and seek behavior. Pending fields commit before selecting th
 pointer is checked again before starting. Edges use the existing snap, preview,
 Escape-cancel and single-Undo timing operation. A drag outside the edge tolerance
 continues to select a range.
+
+## Cue list context menu
+
+Right-click a selected cue to act on the selection. Right-clicking a different
+cue commits any pending draft and selects that row. The context-menu key and
+Shift+F10 open the focused row’s menu. Escape returns focus to that row.
+
+One cue offers Edit cue text, Merge with previous, Merge with next and Delete.
+For a group, Merge needs consecutive cues in file order, including cues hidden by
+filters. Delete accepts a discontinuous selection. Each operation takes one Undo
+step. A merge keeps the first cue’s ID, the earliest start and the latest end.
+The cues must have compatible metadata and pass the source format’s merge checks.
+
+**Merge as Dialog** joins two adjacent cues into two speaker lines. It flattens
+line breaks within each side and keeps existing hyphens and en/em dashes.
+ASS/SSA retain leading overrides before each speaker prefix and use `\N{\r}`
+between the two sides.
