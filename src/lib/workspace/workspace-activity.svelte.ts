@@ -1,3 +1,4 @@
+import { tick } from 'svelte';
 import { afterSettle } from '../ui/settle-delay';
 
 export class WorkspaceActivity {
@@ -5,29 +6,32 @@ export class WorkspaceActivity {
   private count = 0;
   private disposed = false;
   private cancelShow?: () => void;
-  private hide?: ReturnType<typeof setTimeout>;
-  private shownAt = 0;
+  private holdTimer?: ReturnType<typeof setTimeout>;
+  private minimumElapsed = false;
+
+  private async show() {
+    this.minimumElapsed = false;
+    this.visible = true;
+    // Start the minimum display time after Svelte commits the footer class.
+    await tick();
+    if (this.disposed) return;
+    this.holdTimer = setTimeout(() => {
+      this.minimumElapsed = true;
+      if (!this.count) this.visible = false;
+    }, 300);
+  }
 
   begin() {
     if (this.disposed) return () => {};
-    if (++this.count === 1) {
-      clearTimeout(this.hide);
-      if (!this.visible)
-        this.cancelShow = afterSettle(() => {
-          this.shownAt = performance.now();
-          this.visible = true;
-        });
-    }
+    if (++this.count === 1 && !this.visible)
+      this.cancelShow = afterSettle(() => void this.show());
     let ended = false;
     return () => {
       if (ended || this.disposed) return;
       ended = true;
       if (--this.count) return;
       this.cancelShow?.();
-      if (!this.visible) return;
-      const remaining = 300 - (performance.now() - this.shownAt);
-      if (remaining <= 0) this.visible = false;
-      else this.hide = setTimeout(() => (this.visible = false), remaining);
+      if (this.minimumElapsed) this.visible = false;
     };
   }
   track<T>(work: Promise<T>) {
@@ -36,7 +40,7 @@ export class WorkspaceActivity {
   dispose() {
     this.disposed = true;
     this.cancelShow?.();
-    clearTimeout(this.hide);
+    clearTimeout(this.holdTimer);
     this.visible = false;
   }
 }
