@@ -160,6 +160,22 @@ impl Drop for Job {
     }
 }
 impl State {
+    fn job_for(&mut self, id: u64, purpose: Purpose) -> Result<&mut Job> {
+        match self.job.as_mut() {
+            Some(job) if job.id == id && job.operation.purpose() == purpose => Ok(job),
+            _current => {
+                #[cfg(feature = "desktop-e2e")]
+                eprintln!(
+                    "Timing proposal lookup: requested id={id} purpose={purpose:?}, current={:?}",
+                    _current
+                        .as_ref()
+                        .map(|job| (job.id, job.operation.purpose()))
+                );
+                Err("Timing proposal was replaced or has a different kind".into())
+            }
+        }
+    }
+
     pub(super) fn invalidate(&mut self, key: Key) {
         if let Some(job) = &mut self.job
             && job.key != key
@@ -424,14 +440,8 @@ impl Documents {
             })
     }
     pub(crate) fn timing_repair_context(&self, id: u64, purpose: Purpose) -> Result<SceneKey> {
-        let store = self.0.lock().map_err(|_| "Document state unavailable")?;
-        Ok(store
-            .timing_repairs
-            .job
-            .as_ref()
-            .filter(|j| j.id == id && j.operation.purpose() == purpose)
-            .ok_or("Timing proposal was replaced or has a different kind")?
-            .scenes)
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        Ok(store.timing_repairs.job_for(id, purpose)?.scenes)
     }
     pub(crate) fn timing_fix_view_for_cues(
         &self,
@@ -448,12 +458,7 @@ impl Documents {
         let key = store.quality_key()?;
         store.timing_repairs.invalidate(key);
         let closed = store.timing_repairs.closed;
-        let job = store
-            .timing_repairs
-            .job
-            .as_mut()
-            .filter(|j| j.id == id && j.operation.purpose() == Purpose::Fix)
-            .ok_or("Timing proposal was replaced or has a different kind")?;
+        let job = store.timing_repairs.job_for(id, Purpose::Fix)?;
         job.refresh();
         let mut view = FixView {
             key: job.key,
@@ -560,12 +565,7 @@ impl Documents {
         let key = store.quality_key()?;
         store.timing_repairs.invalidate(key);
         let closed = store.timing_repairs.closed;
-        let job = store
-            .timing_repairs
-            .job
-            .as_mut()
-            .filter(|j| j.id == id && j.operation.purpose() == Purpose::Batch)
-            .ok_or("Timing proposal was replaced or has a different kind")?;
+        let job = store.timing_repairs.job_for(id, Purpose::Batch)?;
         job.refresh();
         let mut view = BatchView {
             id: job.id.try_into()?,
@@ -639,12 +639,7 @@ impl Documents {
         if store.timing_repairs.closed {
             return Err("Timing preview is shutting down".into());
         }
-        let job = store
-            .timing_repairs
-            .job
-            .as_mut()
-            .filter(|j| j.id == id && j.operation.purpose() == purpose)
-            .ok_or("Timing proposal was replaced or has a different kind")?;
+        let job = store.timing_repairs.job_for(id, purpose)?;
         job.refresh();
         if job.key != key || job.stale || job.cancel.load(Ordering::Relaxed) || job.accepted {
             return Err("Timing proposal is no longer current; create a new preview".into());
