@@ -29,6 +29,8 @@ pub enum Error {
         id: CueId,
     },
     InvalidCueBatch,
+    EmptyCueSelection,
+    TooFewCuesToMerge,
     InvalidTextBatch,
     InvalidRetiming,
     InvalidSplit {
@@ -71,6 +73,8 @@ impl fmt::Display for Error {
                 f.write_str("Subtitle document changed; refresh before committing this edit")
             }
             Self::MissingCue { .. } => f.write_str("Cue no longer exists"),
+            Self::EmptyCueSelection => f.write_str("Select at least one cue"),
+            Self::TooFewCuesToMerge => f.write_str("Merge requires at least two cues"),
             Self::InvalidCueBatch => {
                 f.write_str("Cue batch must include every cue once in document order")
             }

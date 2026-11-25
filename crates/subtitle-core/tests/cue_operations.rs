@@ -170,3 +170,66 @@ fn exhausted_identity_space_is_a_recoverable_atomic_error() {
     assert!(!e.dirty());
     assert!(!e.can_undo());
 }
+
+#[test]
+fn group_edits_restore_the_exact_document_in_one_history_entry() {
+    use subtitle_core::Edit;
+    for (edit, remaining) in [
+        (
+            Edit::DeleteMany {
+                ids: vec![CueId(30), CueId(10)],
+            },
+            vec![2],
+        ),
+        (
+            Edit::MergeRun {
+                ids: vec![CueId(10), CueId(2), CueId(30)],
+                text: "joined".into(),
+            },
+            vec![10],
+        ),
+    ] {
+        let mut editor = editor();
+        let original = editor.document().clone();
+        editor.apply_edit(0, edit, |_| Ok(())).unwrap();
+        let after = editor.document().clone();
+        assert_eq!(
+            after.cues().iter().map(|c| c.id().0).collect::<Vec<_>>(),
+            remaining
+        );
+        editor.undo(1).unwrap();
+        assert_eq!(editor.document(), &original);
+        assert!(!editor.can_undo());
+        editor.redo(2).unwrap();
+        assert_eq!(editor.document(), &after);
+    }
+}
+
+#[test]
+fn invalid_group_edits_are_atomic() {
+    use subtitle_core::Edit;
+    let mut editor = editor();
+    let original = editor.document().clone();
+    for edit in [
+        Edit::DeleteMany { ids: vec![] },
+        Edit::DeleteMany {
+            ids: vec![CueId(10), CueId(999)],
+        },
+        Edit::DeleteMany {
+            ids: vec![CueId(10), CueId(10)],
+        },
+        Edit::MergeRun {
+            ids: vec![CueId(10), CueId(30)],
+            text: "bad".into(),
+        },
+        Edit::MergeRun {
+            ids: vec![CueId(2), CueId(10)],
+            text: "bad".into(),
+        },
+    ] {
+        assert!(editor.apply_edit(0, edit, |_| Ok(())).is_err());
+        assert_eq!(editor.document(), &original);
+        assert!(!editor.can_undo());
+        assert_eq!(editor.revision(), 0);
+    }
+}

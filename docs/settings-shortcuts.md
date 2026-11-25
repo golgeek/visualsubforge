@@ -36,6 +36,9 @@ or stale. They do not count findings or unsaved cue text.
 
 ## Shortcut presets
 
+**Cue → Merge as Dialog** acts on two adjacent selected cues. It starts with no
+shortcut. Assign one under Settings → Shortcuts.
+
 Existing settings migrate to **Current VSF bindings**. Replace uses
 Cmd/Ctrl+Shift+F, resolving its former macOS collision with Merge with Previous.
 

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   planCueOperation,
+  planGroupOperation,
   operationSelection,
   reconcileCueSelection,
   cueOperationLabels,
@@ -159,4 +160,15 @@ test('First cue starts untitled subtitles at the playhead or selected range', ()
       text: '',
     },
   );
+});
+
+test('group requests use document order and preserve intervening cues', () => {
+  assert.deepEqual(planGroupOperation('mergeRun', [12, 8, 3], cues), {
+    action: { kind: 'mergeRun', ids: [8, 3, 12], dialogue: false },
+    selection: 8,
+  });
+  assert.deepEqual(planGroupOperation('deleteMany', [12, 8], cues), {
+    action: { kind: 'deleteMany', ids: [8, 12] },
+    selection: 3,
+  });
 });

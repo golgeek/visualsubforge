@@ -113,3 +113,47 @@ export function operationSelection(
   const ids = new Set(before.map((cue) => cue.id));
   return after.find((cue) => !ids.has(cue.id))?.id ?? null;
 }
+
+export type GroupOperation = 'mergeRun' | 'mergeAsDialog' | 'deleteMany';
+
+// Selection order is transient. Rust takes IDs in document order for both the
+// availability read and the revision-guarded command.
+export function orderedGroupIds(
+  ids: readonly number[],
+  cues: readonly Cue[],
+): number[] {
+  const selected = new Set(ids);
+  const ordered = cues
+    .filter((cue) => selected.has(cue.id))
+    .map((cue) => cue.id);
+  if (ordered.length !== ids.length)
+    throw new Error('The selected cues changed');
+  return ordered;
+}
+
+export function planGroupOperation(
+  operation: GroupOperation,
+  ids: readonly number[],
+  cues: readonly Cue[],
+): CueOperationPlan {
+  const ordered = orderedGroupIds(ids, cues);
+  const first = ordered[0];
+  if (first === undefined) throw new Error('Select cues first');
+  if (operation === 'deleteMany') {
+    const selected = new Set(ordered);
+    const index = cues.findIndex((cue) => cue.id === first);
+    const next = cues.slice(index).find((cue) => !selected.has(cue.id));
+    return {
+      action: { kind: 'deleteMany', ids: ordered },
+      selection: next?.id ?? cues[index - 1]?.id ?? null,
+    };
+  }
+  return {
+    action: {
+      kind: 'mergeRun',
+      ids: ordered,
+      dialogue: operation === 'mergeAsDialog',
+    },
+    selection: first,
+  };
+}

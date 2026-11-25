@@ -2903,6 +2903,7 @@ export const workspaceActions = [
   'layoutReview',
   'layoutTiming',
   'layoutTranslation',
+  'mergeAsDialog',
   'mergeNext',
   'mergePrevious',
   'nextChange',

@@ -13,6 +13,8 @@ covers package verification and outstanding desktop acceptance.
 Cue-list columns, widths and 24/32 px density save per layout preset. Issues and
 Text stay visible; text/file-number and Issues filters preserve original cue
 indices. Metrics come from Rust's checker, and ASS/SSA also expose Style/Actor.
+The cue list’s context menu follows the selection. Group delete and contiguous
+merges use one history entry. Two adjacent cues can merge as speaker dialogue.
 Manual list scrolling pauses following; row clicks retain it and Jump resumes.
 Waveform zoom retains following, panning suspends it temporarily, and cue selection
 centers the range with optional zoom. Unselected cue edges share timing gestures.

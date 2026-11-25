@@ -58,7 +58,7 @@
         x: number,
         y: number,
         id: number | null,
-        inRange: boolean,
+        row: HTMLButtonElement,
       ) => Promise<void>;
       selectCue: (id: number, mode?: SelectionMode) => Promise<void>;
       cueSelectionKey: (event: KeyboardEvent, id: number) => void;
@@ -470,7 +470,7 @@
                     e.clientX,
                     e.clientY,
                     item.id,
-                    false,
+                    e.currentTarget,
                   );
                 }}
                 onclick={(e) =>
@@ -484,7 +484,23 @@
                         ? 'toggle'
                         : 'replace',
                   )}
-                onkeydown={(e) => actions.cueSelectionKey(e, item.id)}
+                onkeydown={(e) => {
+                  if (
+                    e.key === 'ContextMenu' ||
+                    (e.key === 'F10' && e.shiftKey)
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const row = e.currentTarget;
+                    const box = row.getBoundingClientRect();
+                    void actions.openCueMenu(
+                      box.left,
+                      box.bottom,
+                      item.id,
+                      row,
+                    );
+                  } else actions.cueSelectionKey(e, item.id);
+                }}
                 ondblclick={() => void actions.focusText()}
               >
                 {#if doc.review?.path}<span

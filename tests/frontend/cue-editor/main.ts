@@ -75,6 +75,7 @@ const original: DocumentSnapshot = {
     { id: 3, startMs: 9000, endMs: 12000, text: 'Five issues' },
   ],
 };
+const groupTrial = new URLSearchParams(location.search).has('groupMenu');
 const explanationsTrial = new URLSearchParams(location.search).has(
   'explanations',
 );
@@ -170,6 +171,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         cueId?: number;
         id?: number;
         revision?: number;
+        generation?: number;
+        ids?: number[];
       },
     ) {
       switch (command) {
@@ -193,6 +196,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return null;
         case 'update_menu':
           menuState = args.state;
+          if (groupTrial)
+            host.dataset.dialogueEnabled = String(
+              menuState?.enabled.includes('mergeAsDialog'),
+            );
           return null;
         case 'quality_cancel':
           return null;
@@ -273,11 +280,40 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (action.kind === 'seek') media.positionSeconds = action.seconds;
           return structuredClone(media);
         }
+        case 'cue_group_actions': {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          assert(
+            args.generation === snapshot.generation &&
+              args.revision === snapshot.revision,
+            'Group query used stale version',
+          );
+          const scenario = new URLSearchParams(location.search).get(
+            'groupReply',
+          );
+          if (scenario === 'failure')
+            throw new Error('Cannot read accepted cue selection');
+          const reason =
+            scenario === 'webvtt'
+              ? 'WebVTT merge would change markup scope; close optional voice tags before merging these cues'
+              : null;
+          const empty = snapshot.cues.some(
+            (cue) => args.ids?.includes(cue.id) && !cue.text,
+          );
+          return {
+            mergeRun: reason,
+            mergeAsDialog:
+              reason ??
+              (empty ? 'Merge as dialog needs text in both cues' : null),
+            deleteMany: null,
+          };
+        }
         case 'document_action': {
           const action = args.action as DocumentAction;
           if (action.kind === 'status') return structuredClone(snapshot);
           commands.push(action.kind);
           if (action.kind === 'edit') {
+            if (groupTrial)
+              await new Promise((resolve) => setTimeout(resolve, 120));
             editCount++;
             if (rejectEdit)
               throw { kind: 'rejected', message: 'Modeled invalid timing' };
@@ -301,6 +337,26 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                     }
                   : c,
               ),
+            };
+          } else if (groupTrial && action.kind === 'mergeRun') {
+            // The Rust parity test verifies serialization. This records the two UI routes' IPC.
+            host.dataset.groupRequest = JSON.stringify({
+              action,
+              revision: args.revision,
+            });
+            history.push(structuredClone(snapshot));
+            snapshot = {
+              ...snapshot,
+              revision: snapshot.revision + 1,
+              canUndo: true,
+              cues: [
+                {
+                  ...snapshot.cues[0]!,
+                  endMs: 8000,
+                  text: '- One issue\n- Three issues',
+                },
+                snapshot.cues[2]!,
+              ],
             };
           } else if (action.kind === 'undo') {
             const previous = history.pop()!;
@@ -346,6 +402,12 @@ async function select(id: number) {
 }
 async function run() {
   const app = mount(App, { target: host });
+  if (groupTrial) {
+    host.addEventListener('fixture-native-dialogue', () =>
+      callbacks.get(handler)?.({ payload: 'mergeAsDialog' }),
+    );
+    return;
+  }
   if (explanationsTrial) return;
   try {
     await until(

@@ -115,6 +115,8 @@ enum Operation {
     Delete,
     Split,
     Merge,
+    MergeRun,
+    DeleteMany,
     Edit,
     EditStyled,
     Undo,

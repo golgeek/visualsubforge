@@ -27,6 +27,11 @@ export const commands = {
       'document_action',
       { action, generation, revision, textSession },
     ),
+  cueGroupActions: (generation: number, revision: number, ids: number[]) =>
+    __TAURI_INVOKE<vsf_application_subtitle_operations_GroupActions>(
+      'cue_group_actions',
+      { generation, revision, ids },
+    ),
   translationAction: (action: visualsubforge_document_translation_Action) =>
     __TAURI_INVOKE<visualsubforge_document_translation_Reply_Serialize>(
       'translation_action',
@@ -583,9 +588,11 @@ export type visualsubforge_document_Action_Deserialize =
     } & {
       afterId?: never;
       atMs?: never;
+      dialogue?: never;
       discard?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
     })
@@ -593,10 +600,12 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -607,8 +616,10 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       endMs?: never;
       firstId?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -619,9 +630,11 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       secondId?: never;
       startMs?: never;
       style?: never;
@@ -631,9 +644,11 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -649,9 +664,11 @@ export type visualsubforge_document_Action_Deserialize =
     } & {
       afterId?: never;
       atMs?: never;
+      dialogue?: never;
       discard?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       style?: never;
@@ -665,16 +682,20 @@ export type visualsubforge_document_Action_Deserialize =
     } & {
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       style?: never;
     })
-  | ({ kind: 'delete'; cueId: number } & {
+  | ({ kind: 'deleteMany'; ids: number[] } & {
       afterId?: never;
       atMs?: never;
+      cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
@@ -685,12 +706,43 @@ export type visualsubforge_document_Action_Deserialize =
       style?: never;
       text?: never;
     })
-  | ({ kind: 'split'; cueId: number; atMs: number } & {
+  | ({ kind: 'mergeRun'; ids: number[]; dialogue: boolean } & {
       afterId?: never;
+      atMs?: never;
+      cueId?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      style?: never;
+      text?: never;
+    })
+  | ({ kind: 'delete'; cueId: number } & {
+      afterId?: never;
+      atMs?: never;
+      dialogue?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      ids?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      style?: never;
+      text?: never;
+    })
+  | ({ kind: 'split'; cueId: number; atMs: number } & {
+      afterId?: never;
+      dialogue?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -701,9 +753,11 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       id?: never;
+      ids?: never;
       path?: never;
       startMs?: never;
       style?: never;
@@ -713,10 +767,12 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -727,10 +783,12 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -741,10 +799,12 @@ export type visualsubforge_document_Action_Deserialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       secondId?: never;
       startMs?: never;
       style?: never;
@@ -762,9 +822,11 @@ export type visualsubforge_document_Action_Serialize =
     } & {
       afterId?: never;
       atMs?: never;
+      dialogue?: never;
       discard?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
     })
@@ -772,10 +834,12 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -786,8 +850,10 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       endMs?: never;
       firstId?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -798,9 +864,11 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       secondId?: never;
       startMs?: never;
       style?: never;
@@ -810,9 +878,11 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -828,9 +898,11 @@ export type visualsubforge_document_Action_Serialize =
     } & {
       afterId?: never;
       atMs?: never;
+      dialogue?: never;
       discard?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       style?: never;
@@ -844,16 +916,20 @@ export type visualsubforge_document_Action_Serialize =
     } & {
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       style?: never;
     })
-  | ({ kind: 'delete'; cueId: number } & {
+  | ({ kind: 'deleteMany'; ids: number[] } & {
       afterId?: never;
       atMs?: never;
+      cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
@@ -864,12 +940,43 @@ export type visualsubforge_document_Action_Serialize =
       style?: never;
       text?: never;
     })
-  | ({ kind: 'split'; cueId: number; atMs: number } & {
+  | ({ kind: 'mergeRun'; ids: number[]; dialogue: boolean } & {
       afterId?: never;
+      atMs?: never;
+      cueId?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      style?: never;
+      text?: never;
+    })
+  | ({ kind: 'delete'; cueId: number } & {
+      afterId?: never;
+      atMs?: never;
+      dialogue?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      ids?: never;
+      path?: never;
+      secondId?: never;
+      startMs?: never;
+      style?: never;
+      text?: never;
+    })
+  | ({ kind: 'split'; cueId: number; atMs: number } & {
+      afterId?: never;
+      dialogue?: never;
+      discard?: never;
+      endMs?: never;
+      firstId?: never;
+      id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -880,9 +987,11 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       id?: never;
+      ids?: never;
       path?: never;
       startMs?: never;
       style?: never;
@@ -892,10 +1001,12 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -906,10 +1017,12 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       path?: never;
       secondId?: never;
       startMs?: never;
@@ -920,10 +1033,12 @@ export type visualsubforge_document_Action_Serialize =
       afterId?: never;
       atMs?: never;
       cueId?: never;
+      dialogue?: never;
       discard?: never;
       endMs?: never;
       firstId?: never;
       id?: never;
+      ids?: never;
       secondId?: never;
       startMs?: never;
       style?: never;
@@ -1838,6 +1953,12 @@ export type vsf_application_quality_timing_fix_review_Ghost = {
   after: vsf_application_quality_timing_fix_Endpoints;
 };
 
+export type vsf_application_subtitle_operations_GroupActions = {
+  mergeRun: string | null;
+  mergeAsDialog: string | null;
+  deleteMany: string | null;
+};
+
 export type visualsubforge_document_review_exchange_ImportCase =
   'new' | 'same' | 'different';
 
@@ -2150,6 +2271,8 @@ export type visualsubforge_workflow_trace_Operation =
   | 'delete'
   | 'split'
   | 'merge'
+  | 'mergeRun'
+  | 'deleteMany'
   | 'edit'
   | 'editStyled'
   | 'undo'
@@ -3816,6 +3939,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'splitCue'
   | 'mergePrevious'
   | 'mergeNext'
+  | 'mergeAsDialog'
   | 'apply'
   | 'openMedia'
   | 'openSubtitles'
