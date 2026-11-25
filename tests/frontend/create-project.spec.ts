@@ -37,7 +37,10 @@ test('ASS creation keeps an edited companion name, reports partial publication a
   await name.fill('Taken');
   await expect(companion).toHaveValue('Taken.fr.ass');
   await companion.fill('Speaker.fr.ass');
-  await dialog.getByRole('button', { name: 'Choose…' }).click();
+  await dialog.getByRole('button', { name: 'Choose…', exact: true }).click();
+  await expect(
+    dialog.getByLabel('Destination folder', { exact: true }),
+  ).toHaveValue('/destination');
   await dialog.getByRole('button', { name: 'Create Project' }).click();
   await expect(dialog.getByRole('alert')).toContainText('Taken.vsfproject');
   await name.fill('Blocked');

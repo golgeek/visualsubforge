@@ -86,15 +86,18 @@
           }}
         />
       </label>
-      <label
-        >Destination folder
-        <span class="folder"
-          ><input name="folder" bind:value={folder} required /><button
-            type="button"
-            onclick={chooseFolder}>Choose…</button
-          ></span
-        >
-      </label>
+      <div class="destination">
+        <label for="project-folder">Destination folder</label>
+        <div class="folder">
+          <input
+            id="project-folder"
+            name="folder"
+            bind:value={folder}
+            required
+          />
+          <button type="button" onclick={chooseFolder}>Choose…</button>
+        </div>
+      </div>
       {#if saved}<p role="status">Subtitle saved to {saved}</p>
       {:else if companion !== null}<label
           >Companion filename<input
@@ -142,7 +145,8 @@
     padding: 0;
     border: 0;
   }
-  label {
+  label,
+  .destination {
     display: grid;
     gap: 4px;
   }
