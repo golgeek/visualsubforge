@@ -516,6 +516,8 @@ export function attachProject(
 export async function detachProject(): Promise<void> {
   await commands.projectDetach();
 }
+export const createProject = commands.createProject;
+export type CreateProjectOutcome = Awaited<ReturnType<typeof createProject>>;
 export function saveProject(
   request: SaveProjectRequest,
 ): Promise<ProjectAttachment> {

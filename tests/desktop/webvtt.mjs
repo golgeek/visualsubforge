@@ -1,3 +1,4 @@
+import { submitCreateProject } from './create-project.mjs';
 import { acceptReview, closeReview } from './review.mjs';
 import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
@@ -203,7 +204,6 @@ export async function webvttWorkflow({
       { kind: 'saveSubtitles', path: join(root, 'wrong.srt') },
       { kind: 'saveSubtitles', path: copy },
       { kind: 'subtitles', path: copy },
-      { kind: 'saveProject', path: project },
       { kind: 'project', path: project },
     ]);
     await menu('openMedia');
@@ -424,6 +424,7 @@ export async function webvttWorkflow({
     assert.deepEqual((await status()).cues, changed.cues);
     await ready();
     await menu('saveProject');
+    await submitCreateProject(browser, project);
     await until('WebVTT project saved', async () => {
       try {
         return (

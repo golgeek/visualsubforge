@@ -28,6 +28,25 @@ impl Session<'_> {
         destination: Option<&Path>,
         protected: impl IntoIterator<Item = &'a Path>,
     ) -> Result<(), String> {
+        self.publish(revision, destination, protected, false)
+    }
+
+    pub fn save_new<'a>(
+        self,
+        revision: u64,
+        path: &Path,
+        protected: impl IntoIterator<Item = &'a Path>,
+    ) -> Result<(), String> {
+        self.publish(revision, Some(path), protected, true)
+    }
+
+    fn publish<'a>(
+        self,
+        revision: u64,
+        destination: Option<&Path>,
+        protected: impl IntoIterator<Item = &'a Path>,
+        new_file: bool,
+    ) -> Result<(), String> {
         if revision != self.editor.revision() {
             return Err("Subtitle document changed; refresh before retrying this operation".into());
         }
@@ -38,6 +57,9 @@ impl Session<'_> {
             return Err("Recovered subtitles require Save As to choose a destination".into());
         }
         let target = match destination {
+            Some(path) if new_file => {
+                crate::new_output::resolve(path).map_err(|e| e.to_string())?
+            }
             Some(path) => resolve_path(path)?,
             None => self
                 .path
@@ -62,7 +84,12 @@ impl Session<'_> {
                 "Subtitle file changed on disk. Use Save As to preserve both versions".into(),
             );
         }
-        crate::atomic_file::write(&target, &bytes)?;
+        let prepared = crate::atomic_file::prepare(&target, &bytes)?;
+        if new_file {
+            prepared.commit_new()?;
+        } else {
+            prepared.commit()?;
+        }
         // The exclusive borrow keeps the checked revision current through IO.
         // Only successful publication changes the saved identity or persistence fields.
         self.editor.mark_saved(revision)?;

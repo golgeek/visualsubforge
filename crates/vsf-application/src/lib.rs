@@ -6,6 +6,7 @@ pub mod authoring;
 pub mod batch_timing;
 pub mod comparison;
 pub mod conversion;
+pub mod create_project;
 pub mod document_save;
 pub mod file_lease;
 pub mod language;

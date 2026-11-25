@@ -207,6 +207,27 @@ impl Projects {
         Ok(())
     }
     pub fn save(&self, path: &Path, token: Option<u64>, project: &Project) -> Result<Attachment> {
+        self.publish(path, token, project, false)
+    }
+    pub(super) fn require_unattached(&self) -> Result<()> {
+        if self
+            .state
+            .lock()
+            .map_err(|_| "Project state unavailable")?
+            .active
+            .is_some()
+        {
+            return Err("The workspace already has a project".into());
+        }
+        Ok(())
+    }
+    pub(super) fn publish(
+        &self,
+        path: &Path,
+        token: Option<u64>,
+        project: &Project,
+        creating: bool,
+    ) -> Result<Attachment> {
         let mut store = self.state.lock().map_err(|_| "Project state unavailable")?;
         let active = match token {
             Some(token) => Some(
@@ -220,7 +241,14 @@ impl Projects {
             ),
             None => None,
         };
-        let path = destination(path)?;
+        let path = if creating {
+            if store.active.is_some() {
+                return Err("The workspace already has a project".into());
+            }
+            vsf_application::new_output::resolve(path).map_err(|e| e.to_string())?
+        } else {
+            destination(path)?
+        };
         let bytes = serialize(&path, project)?;
         let _lease = crate::save_lease::acquire(&path)?;
         if let Some(saved) = active.filter(|saved| saved.path == path)
@@ -240,7 +268,12 @@ impl Projects {
             }
         };
         let token = store.token()?;
-        crate::atomic_file::write(&path, &bytes)?;
+        let prepared = crate::atomic_file::prepare(&path, &bytes)?;
+        if creating {
+            prepared.commit_new()?;
+        } else {
+            prepared.commit()?;
+        }
         let saved = Baseline {
             token,
             path: path.clone(),

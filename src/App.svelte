@@ -19,6 +19,8 @@
   import SubtitleToolbar from './lib/cues/SubtitleToolbar.svelte';
   import ActionBrowser from './lib/workspace/ActionBrowser.svelte';
   import { WorkspaceCommands } from './lib/workspace/workspace-commands';
+  import CreateProjectDialog from './lib/project/CreateProjectDialog.svelte';
+  import type { CreateProjectPrompt } from './lib/project/create-project';
   import WorkspaceDecisions from './lib/dialogs/WorkspaceDecisions.svelte';
   import WorkspaceLegacyImport from './lib/project/WorkspaceLegacyImport.svelte';
   import VideoPreview from './lib/media/VideoPreview.svelte';
@@ -237,6 +239,16 @@
     ),
   );
 
+  const createDecision = disposeWithComponent(
+    new WorkspaceDecision<boolean, CreateProjectPrompt>(
+      false,
+      workspace,
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
+    ),
+  );
   const projectExitDecision = disposeWithComponent(
     new WorkspaceDecision<ProjectExitChoice, string>(
       'cancel',
@@ -460,6 +472,7 @@
         scenes.restore(session, generation),
       protect: unsaved.protect,
       saveSubtitles: () => unsaved.save(false),
+      createProject: (prompt) => createDecision.request(prompt),
       saveFailed: (failure) => projectExitDecision.request(String(failure)),
       referenceIssue: (issue) => projectReferenceDecision.request(issue),
       notify: (message) => {
@@ -1005,6 +1018,7 @@
       legacyDecision.visible ||
       legacyDecision.closing ||
       subtitleDecision.active ||
+      createDecision.active ||
       projectExitDecision.active ||
       projectReferenceDecision.active ||
       exchangeDecision.active ||
@@ -1467,6 +1481,10 @@
     diagnostics={view.diagnostics}
     bind:hardware={media.hardware}
   />
+  {#if createDecision.visible && createDecision.payload}<CreateProjectDialog
+      prompt={createDecision.payload}
+      onclose={(created) => void createDecision.answer(created)}
+    />{/if}
   <WorkspaceDecisions
     {subtitles}
     {subtitleDecision}

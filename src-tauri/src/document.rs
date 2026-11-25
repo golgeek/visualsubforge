@@ -12,6 +12,7 @@ use subtitle_formats::{Source, srt};
 
 mod autosave;
 mod checks;
+mod create_project;
 pub(crate) mod extraction;
 mod plugins;
 #[cfg(test)]
@@ -262,6 +263,38 @@ impl Loaded {
             || (self.path.is_none() && self.review.suggestion().is_some())
             || (self.path.is_none() && self.extracted_from.is_some())
             || (self.path.is_none() && self.translation.copied_from.is_some())
+    }
+    fn save_subtitles(
+        &mut self,
+        revision: u64,
+        destination: Option<&Path>,
+        new_file: bool,
+    ) -> Result<()> {
+        let protected = self
+            .translation
+            .protected_paths()
+            .chain(self.review.reference.protected_paths())
+            .chain(
+                self.extracted_from
+                    .as_ref()
+                    .map(|origin| origin.media_path.as_path()),
+            );
+        let session = vsf_application::document_save::Session {
+            editor: &mut self.editor,
+            path: &mut self.path,
+            saved_bytes: &mut self.saved_bytes,
+            recovered: &mut self.recovered,
+            resynced: &mut self.resynced,
+        };
+        if new_file {
+            session.save_new(
+                revision,
+                destination.ok_or("Choose a companion filename")?,
+                protected,
+            )
+        } else {
+            session.save(revision, destination, protected)
+        }
     }
     fn source(&self) -> &Source {
         self.editor.properties()
@@ -649,27 +682,7 @@ impl Store {
             }
             Action::Save { path } => {
                 let loaded = self.loaded_mut()?;
-                vsf_application::document_save::Session {
-                    editor: &mut loaded.editor,
-                    path: &mut loaded.path,
-                    saved_bytes: &mut loaded.saved_bytes,
-                    recovered: &mut loaded.recovered,
-                    resynced: &mut loaded.resynced,
-                }
-                .save(
-                    revision,
-                    path.as_deref().map(Path::new),
-                    loaded
-                        .translation
-                        .protected_paths()
-                        .chain(loaded.review.reference.protected_paths())
-                        .chain(
-                            loaded
-                                .extracted_from
-                                .as_ref()
-                                .map(|origin| origin.media_path.as_path()),
-                        ),
-                )?;
+                loaded.save_subtitles(revision, path.as_deref().map(Path::new), false)?;
             }
         }
         Ok(self.snapshot())
@@ -952,6 +965,48 @@ mod tests {
                 0,
             )
             .unwrap()
+    }
+
+    #[test]
+    fn create_project_preserves_the_published_subtitle_and_history_after_partial_failure() {
+        use vsf_application::create_project::{Outcome, Targets};
+
+        let dir = tempfile::tempdir().unwrap();
+        let targets = Targets::new(dir.path(), "work.vsfproject", Some("work.fr.srt")).unwrap();
+        let documents = Documents::default();
+        let draft = first_cue(&mut documents.0.lock().unwrap());
+        let version = (draft.generation, draft.revision);
+        assert!(
+            documents
+                .create_project((version.0, version.1 + 1), None, &targets, |_, _, _, _| Ok(
+                    ()
+                ))
+                .is_err()
+        );
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+        let partial = documents
+            .create_project(version, None, &targets, |_, _, _, _| {
+                Err::<(), _>("injected project failure".into())
+            })
+            .unwrap();
+        let path = targets.companion.as_ref().unwrap();
+        assert!(
+            matches!(partial, Outcome::SubtitleSavedProjectFailed {subtitle_path, ..} if Path::new(&subtitle_path) == path)
+        );
+        let saved = documents.0.lock().unwrap().snapshot();
+        assert!(!saved.dirty && saved.can_undo);
+        assert_eq!(saved.revision, draft.revision);
+        assert!(fs::read_to_string(path).unwrap().contains("New 世界"));
+        // A retry cannot replace the subtitle even if another writer changes it.
+        fs::write(path, b"external edit").unwrap();
+        let retry = Targets::new(dir.path(), "work.vsfproject", None).unwrap();
+        let result = documents
+            .create_project(version, Some(path), &retry, |_, _, _, _| {
+                crate::atomic_file::prepare(&retry.project, b"project")?.commit_new()
+            })
+            .unwrap();
+        assert!(matches!(result, Outcome::Created { .. }));
+        assert_eq!(fs::read(path).unwrap(), b"external edit");
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import { submitCreateProject } from './create-project.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 // Actual native-enabled desktop workflow. Only file choices and app-data paths
 // are supplied by the harness; all edits use the production Svelte/IPC boundary.
@@ -190,7 +191,6 @@ export async function assDocuments({
         { kind: 'saveSubtitles', path: join(root, `wrong-${extension}.srt`) },
         { kind: 'saveSubtitles', path: copy },
         { kind: 'subtitles', path: copy },
-        { kind: 'saveProject', path: project },
         { kind: 'project', path: project },
       ]);
       await menu('openMedia');
@@ -308,6 +308,7 @@ export async function assDocuments({
       assert.deepEqual(reopened.cues, changed.cues);
       await ready();
       await menu('saveProject');
+      await submitCreateProject(browser, project);
       await until('styled project written', async () => {
         try {
           return (

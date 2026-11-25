@@ -1,5 +1,6 @@
 // Real desktop owner/files/player; generated DOM input is distinct from physical
 // input. Optional native-window observations inspect sibling video composition.
+import { submitCreateProject } from './create-project.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { copyFile, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -209,7 +210,6 @@ export async function fontAuthoring({
           path: join(root, 'missing-parent', `font.${extension}`),
         },
         { kind: 'saveSubtitles', path: copy },
-        { kind: 'saveProject', path: project },
         { kind: 'subtitles', path: copy },
         { kind: 'project', path: project },
       ]);
@@ -312,6 +312,7 @@ export async function fontAuthoring({
       assert.equal(await readFile(copy, 'utf8'), changed);
       assert.equal(await readFile(source, 'utf8'), original);
       await menu('saveProject');
+      await submitCreateProject(browser, project);
       await until('font project saved', async () => {
         try {
           return (

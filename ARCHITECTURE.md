@@ -538,6 +538,21 @@ Leases coordinate participating VSF writers. They do not prevent arbitrary
 external editors from racing a save. Recovery and protected source-copy workflows
 require explicit Save As; their protection is separate from undo history.
 
+For a workspace without a project, File → Save Project opens one Create Project
+dialog. The frontend owns the names, folder and pending decision. It commits the
+cue draft on submission. Rust validates both new filenames before writing and
+uses atomic no-clobber publication for each. A blocking worker checks the media
+session and document generation, revision and saved path, then holds the
+document lock across the subtitle and project writes. The project attaches only
+after publication. A clean saved subtitle is referenced in place. An ordinary
+dirty subtitle uses its existing conflict-checked Save.
+
+The typed result records what reached disk. `Created` carries the attachment.
+`NothingWritten` keeps the dialog editable. `SubtitleSavedProjectFailed` carries
+the actual saved subtitle path and the project error. The frontend refreshes
+the editor's saved state and offers a project-only retry in the same dialog.
+Existing project saves, layout saves and exit decisions retain their own flows.
+
 A recovery worker captures accepted state, prepares temporary output off-lock,
 then rechecks its checkpoint identity before publication. Recovery restores
 accepted content and relevant context, not frontend drafts or undo history.

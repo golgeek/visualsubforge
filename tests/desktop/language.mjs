@@ -1,3 +1,4 @@
+import { submitCreateProject } from './create-project.mjs';
 import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
 // Real native webview, production Rust commands and isolated files. DOM-generated
@@ -181,7 +182,6 @@ export async function languageTools({
           },
           { kind: 'saveSubtitles', path: saved },
           { kind: 'subtitles', path: saved },
-          { kind: 'saveProject', path: project },
           { kind: 'project', path: project },
         ]);
         await ready();
@@ -309,6 +309,7 @@ export async function languageTools({
         );
         await ready();
         await menu('saveProject');
+        await submitCreateProject(browser, project);
         const projectData = await until('language project saved', async () => {
           try {
             return JSON.parse(await readFile(project, 'utf8'));

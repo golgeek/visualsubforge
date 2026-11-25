@@ -466,6 +466,9 @@ async function projectFixture(hold: string | null = null) {
         await step('protect');
         return true;
       },
+      createProject: async () => {
+        throw new Error('Unexpected Create Project');
+      },
       saveSubtitles: async () => true,
       saveFailed: async () => {
         await step('save choice');
@@ -494,6 +497,9 @@ async function projectFixture(hold: string | null = null) {
       restoreScenes: async () => {
         await step('scenes');
         return 4;
+      },
+      createProject: async () => {
+        throw new Error('Unexpected Create Project');
       },
       saveProject: async () => {
         await step('save');

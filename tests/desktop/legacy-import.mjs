@@ -1,3 +1,4 @@
+import { submitCreateProject } from './create-project.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 // Actual WebView/Rust/files and native playback. File choices and DOM events
 // are supplied; native-window observations and real OS choosers are separate.
@@ -232,7 +233,6 @@ export async function legacyImportWorkflow({
       const choices = [
         { kind: 'media', path: video },
         { kind: 'subtitles', path: active },
-        { kind: 'saveProject', path: activeProject },
         { kind: 'legacyProject', path: legacy },
         ...(foreign
           ? [
@@ -274,6 +274,7 @@ export async function legacyImportWorkflow({
       );
       await ready();
       await menu('saveProject');
+      await submitCreateProject(browser, activeProject);
       await until(
         'active project saved',
         async () => !(await absent(activeProject)),

@@ -64,19 +64,34 @@ impl Documents {
         ) -> Result<T>,
     ) -> Result<T> {
         let mut store = self.0.lock().map_err(|_| "Document worker unavailable")?;
-        if store
+        store.with_project_subtitle(path, publish)
+    }
+}
+
+impl Store {
+    pub(crate) fn with_project_subtitle<T>(
+        &mut self,
+        path: Option<&Path>,
+        publish: impl FnOnce(
+            &crate::quality_profile::Context,
+            Option<subtitle_formats::Format>,
+            &translation::Context,
+            &super::review::Context,
+        ) -> Result<T>,
+    ) -> Result<T> {
+        if self
             .loaded
             .as_ref()
             .is_some_and(|loaded| !loaded.translation.is_empty() && loaded.path.is_none())
         {
             return Err("Save the translation target before saving its project".into());
         }
-        if store.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
+        if self.loaded.as_ref().is_some_and(|loaded| loaded.resynced) {
             return Err(
                 "Save resynchronized subtitles to a new file before saving the project".into(),
             );
         }
-        if store
+        if self
             .loaded
             .as_ref()
             .and_then(|loaded| loaded.path.as_deref())
@@ -89,22 +104,19 @@ impl Documents {
         let empty = translation::Context::default();
         let empty_review = super::review::Context::default();
         let result = publish(
-            &store.quality.context(),
-            store
-                .loaded
+            &self.quality.context(),
+            self.loaded
                 .as_ref()
                 .filter(|loaded| loaded.path.is_some())
                 .map(|loaded| loaded.source().format()),
-            store
-                .loaded
+            self.loaded
                 .as_ref()
                 .map_or(&empty, |loaded| &loaded.translation),
-            store
-                .loaded
+            self.loaded
                 .as_ref()
                 .map_or(&empty_review, |loaded| &loaded.review),
         )?;
-        if let Some(loaded) = &mut store.loaded {
+        if let Some(loaded) = &mut self.loaded {
             loaded.translation.dirty = false;
             loaded.review.reference.dirty = false;
         }

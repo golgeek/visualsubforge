@@ -179,6 +179,18 @@ async fn request_file(
         if conversion { "Converted" } else { "Untitled" }
     );
     let response = match kind {
+        FileChoice::ProjectFolder => {
+            SelectedFiles::open_file()
+                .identifier(identifier)
+                .title("Choose Project Folder")
+                .modal(true)
+                .directory(true)
+                .multiple(false)
+                .current_folder::<&Path>(path)
+                .map_err(portal_failure)?
+                .send()
+                .await
+        }
         FileChoice::SaveReviewPackage
         | FileChoice::ComparisonReport
         | FileChoice::SaveSubtitles

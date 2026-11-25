@@ -82,6 +82,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             project::project_attach,
             project::project_detach,
             project::project_save,
+            project::create::create_project,
             project::import::project_import_start,
             project::import::project_import_view,
             project::import::project_import_cancel,
