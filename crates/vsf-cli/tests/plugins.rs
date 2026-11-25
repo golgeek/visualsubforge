@@ -469,6 +469,35 @@ fn ordinary_help_and_hidden_worker_mode_are_separate() {
 }
 
 #[cfg(unix)]
+fn gated_cli() -> PathBuf {
+    // An isolated `cargo test --test plugins` need not have built examples.
+    // Cargo reports the actual path even with a custom target directory.
+    let build = Command::new(env!("CARGO"))
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .args([
+            "build",
+            "--locked",
+            "--example",
+            "gated_plugin_cli",
+            "--message-format=json-render-diagnostics",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    String::from_utf8(build.stdout)
+        .unwrap()
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|msg| msg["target"]["name"] == "gated_plugin_cli" && msg["executable"].is_string())
+        .and_then(|msg| msg["executable"].as_str().map(PathBuf::from))
+        .expect("Cargo did not report the gated CLI")
+}
+
+#[cfg(unix)]
 fn live_worker(parent: &mut Running) -> u32 {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
@@ -495,8 +524,17 @@ fn live_worker(parent: &mut Running) -> u32 {
 fn live_cli_cancellation_reaps_helper_and_changed_source_is_rejected() {
     for cancel in [true, false] {
         let f = Fixture::new("srt", false);
-        f.script(if cancel { "while(true){}" } else { "let until=Date.now()+500;while(Date.now()<until){};VSFPlugin={check(){return 'x'},fix(c,h){h.update(c.id,{text:c.text.trimEnd()})}}" });
-        let mut parent = Running::start(f.command("preview").args(["--execution-ms", "5000"]));
+        let mut command = f.command("preview");
+        if cancel {
+            f.script("while(true){}");
+        } else {
+            // The fixture directory also removes the gate on test unwinding.
+            fs::write(f.root.path().join("hold-worker"), b"").unwrap();
+            let mut gated = Command::new(gated_cli());
+            gated.args(command.get_args()).current_dir(f.root.path());
+            command = gated;
+        }
+        let mut parent = Running::start(command.args(["--execution-ms", "5000"]));
         let worker = live_worker(&mut parent);
         if cancel {
             assert!(
@@ -506,6 +544,7 @@ fn live_cli_cancellation_reaps_helper_and_changed_source_is_rejected() {
             );
         } else {
             fs::write(&f.source, f.original.replace("Été", "changed")).unwrap();
+            fs::remove_file(f.root.path().join("hold-worker")).unwrap();
         }
         expect(parent.finish(), if cancel { 130 } else { 6 });
         let alive = run(Command::new("kill").args(["-0", &worker.to_string()]));
