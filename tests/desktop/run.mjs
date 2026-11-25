@@ -27,6 +27,7 @@ import { actionDiscovery } from './discovery.mjs';
 import { workspaceLayouts } from './layouts.mjs';
 import { textEditing } from './text.mjs';
 import { textPerformance } from './text-performance.mjs';
+import { qualityIndexBudget } from './quality-index-budget.mjs';
 import { qualityPerformance } from './performance.mjs';
 import { sceneQuality } from './scene-quality.mjs';
 import { durationQuality } from './duration-quality.mjs';
@@ -201,13 +202,13 @@ async function freePort() {
   );
   return port;
 }
-async function launch(choices) {
+async function launch(choices, dataRoot = root) {
   const port = await freePort();
   log = await open(join(evidence, `app-${++launchCount}.log`), 'wx');
   app = spawn(binary, [], {
     env: {
       ...process.env,
-      VSF_E2E_ROOT: root,
+      VSF_E2E_ROOT: dataRoot,
       VSF_E2E_CHOICES: JSON.stringify(choices),
       TAURI_WEBDRIVER_PORT: String(port),
     },
@@ -956,6 +957,22 @@ try {
         return browser;
       },
     });
+  for (const lane of ['performance', 'scenes'].filter((name) => values[name])) {
+    await qualityIndexBudget({
+      lane,
+      root,
+      menu,
+      status,
+      invoke,
+      until,
+      record,
+      restart: async (choices, dataRoot) => {
+        await terminate();
+        await launch(choices, dataRoot);
+        return browser;
+      },
+    });
+  }
   await menu('quit').catch(() => {}); // app can exit before the event ACK reaches WebDriver
   const stopped = await Promise.race([
     exit,

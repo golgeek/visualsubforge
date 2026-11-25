@@ -1,6 +1,21 @@
 import type { QualityRequest, QualityView } from '../../src/lib/client';
 import { qualityView } from './ipc-contract-samples';
 
+/** Build the modeled worker reply from the fixture’s complete, unfiltered findings. */
+export function fixtureIssueIndex(findings: QualityView['findings']) {
+  const violations = new Set<string>();
+  const advisories = new Set<string>();
+  for (const f of findings) {
+    for (const id of [f.cueId, f.relatedCueId]) {
+      if (id === null) continue;
+      if (f.severity === 'violation') violations.add(id);
+      else advisories.add(id);
+    }
+  }
+  for (const id of violations) advisories.delete(id);
+  return { violations: [...violations], advisories: [...advisories] };
+}
+
 /** Explicit empty report for App fixtures that do not test quality evaluation.
  * Quality/columns fixtures supply their own findings and paging behavior. */
 export function emptyQuality(args: unknown): QualityView {
@@ -16,6 +31,7 @@ export function emptyQuality(args: unknown): QualityView {
       loaded: true,
     },
     phase: 'ready',
+    issueIndex: { advisories: [], violations: [] },
     findings: [],
     metrics: [],
     selected: null,

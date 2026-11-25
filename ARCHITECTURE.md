@@ -751,13 +751,23 @@ findings viewport, and restores the scroll anchor inside it.
 Timing panels reserve their Apply footer. Statistics and Changes scroll within
 the dock body. The panel restores a visible finding’s offset by cue, rule and related
 cue or word range, falling back to a surviving neighbour in document order.
-QualitySession retains the existing single in-flight request lifetime. It pages
-Rust findings into a highest-severity-per-cue index (including related cues), and
-caches at most 32 windows of at most 200 accepted metrics. Problems filters/pages
-remain independent. Report identity, revision/context changes, failures and disposal
-prevent stale publication. Incomplete indexing is visible; no frontend quality rules
-are evaluated. The mandatory issue column enables accepted checking for loaded
-documents; explicit Pause checking remains available.
+The accepted quality worker builds the highest-severity index for primary and
+related cue IDs, file-ordered navigation lists for each rule/severity filter,
+and finding offsets for each cue. It publishes these together with the immutable
+report. The first ready read for an indexed report carries two lists of cue IDs,
+one per severity. Later reads send the known report ID and fetch only the requested
+Problems page, selected cue and metric window. Draft jobs retain the accepted
+report ID. QualitySession caches up to 32 windows of 200 metrics.
+
+A committed revision schedules admission immediately. Draft input keeps the
+180 ms debounce. After admission the next background read can name the worker it
+is waiting for. The command awaits that worker’s completion token outside the
+document, scene and media locks, then reads the current capture on the blocking
+pool. A worker that finished before the follow-up read satisfies the wait
+immediately. The frontend checks its request sequence and document context before
+publishing a reply. The mandatory issue column enables accepted checking for
+loaded documents. Pause remains available.
+
 
 ## Instant Settings and shortcut publication
 

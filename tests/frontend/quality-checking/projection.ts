@@ -54,6 +54,14 @@ export async function projection(
         key: { ...sample.key, epoch },
         phase: 'ready',
         offset,
+        reportId: sample.id,
+        issueIndex:
+          request.indexSince === 0
+            ? {
+                violations: ['1', '400'],
+                advisories: findings.slice(1, 399).map((f) => f.cueId),
+              }
+            : null,
         findingsCount: findings.length,
         filteredCount: findings.length,
         findings: findings.slice(offset, offset + request.limit),
@@ -82,17 +90,12 @@ export async function projection(
     session.configure(input);
     await session.poll();
     assert(
-      session.issues.size === 300 && !session.issueIndexComplete,
-      'Partial issue coverage was misrepresented',
+      session.issueIndexComplete && session.issues.size === 400,
+      'First ready reply must provide the complete issue index',
     );
     assert(
-      session.view?.findings.length === 100,
-      'Index paging replaced Problems page',
-    );
-    await session.poll();
-    assert(
-      session.issues.size === 400 && session.issueIndexComplete,
-      session.projectionError || 'Issue index did not complete bounded pages',
+      reads === 2 && session.view?.findings.length === 100,
+      'Only the first ready read and a metrics-only window are needed',
     );
     assert(
       session.issues.get('1') === 'violation',
@@ -103,7 +106,7 @@ export async function projection(
       'Visible original-index metric window was not cached',
     );
     passed(
-      'Issue pages preserve Problems filters, related-cue severity and original-index metric windows',
+      'The compact index preserves Problems filters, related-cue severity and original-index metric windows',
     );
 
     for (let i = 1; i <= 40; i++) {

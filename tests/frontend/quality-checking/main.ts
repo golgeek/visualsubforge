@@ -1,3 +1,4 @@
+import { fixtureIssueIndex } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -134,6 +135,10 @@ function read(request: QualityRequest): QualityView {
     generation: document.generation,
     revision: document.revision,
   };
+  view.issueIndex =
+    request.indexSince === view.reportId
+      ? null
+      : fixtureIssueIndex(base.findings);
   view.findings = base.findings.filter(
     (f) =>
       (!request.rule || request.rule === f.rule) &&

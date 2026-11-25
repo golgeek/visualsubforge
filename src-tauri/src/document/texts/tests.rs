@@ -262,6 +262,8 @@ fn preview_and_single_match_or_batch_acceptance_preserve_tags_history_and_save_p
     );
     let view = docs
         .quality_read(crate::quality_check::Request {
+            index_since: None,
+            after_worker: None,
             session: 0.try_into().unwrap(),
             generation: redone.generation.try_into().unwrap(),
             revision: redone.revision.try_into().unwrap(),

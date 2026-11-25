@@ -1,5 +1,5 @@
 import { visualCheckpoint } from '../visual-checkpoint';
-import { emptyQuality } from '../empty-quality';
+import { emptyQuality, fixtureIssueIndex } from '../empty-quality';
 import { mount, tick, unmount } from 'svelte';
 import { qualityView, styledDocument } from '../ipc-contract-samples';
 import App from '../../../src/App.svelte';
@@ -89,20 +89,23 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recent_capture':
         case 'recent_forget':
           return [];
-        case 'quality_read':
+        case 'quality_read': {
+          const findings = [
+            { ...qualityView.findings[0]!, cueId: '2', relatedCueId: '3' },
+            {
+              ...qualityView.findings[0]!,
+              cueId: '9000',
+              relatedCueId: null,
+            },
+          ];
           return {
             ...emptyQuality(args),
+            issueIndex: fixtureIssueIndex(findings),
             findingsCount: 2,
             filteredCount: 2,
-            findings: [
-              { ...qualityView.findings[0]!, cueId: '2', relatedCueId: '3' },
-              {
-                ...qualityView.findings[0]!,
-                cueId: '9000',
-                relatedCueId: null,
-              },
-            ],
+            findings,
           };
+        }
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':

@@ -98,6 +98,8 @@ fn checked(docs: &Documents) -> crate::quality_check::View {
         let current = docs.apply(Action::Status, 0, 0).unwrap();
         let report = docs
             .quality_read(crate::quality_check::Request {
+                index_since: None,
+                after_worker: None,
                 session: 0.try_into().unwrap(),
                 generation: current.generation.try_into().unwrap(),
                 revision: current.revision.try_into().unwrap(),
@@ -158,6 +160,8 @@ fn bounded_preview_is_read_only_and_acceptance_is_one_undo_redo_with_recheck() {
     assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
     let invalidated = docs
         .quality_read(crate::quality_check::Request {
+            index_since: None,
+            after_worker: None,
             session: 0.try_into().unwrap(),
             generation: accepted.generation.try_into().unwrap(),
             revision: accepted.revision.try_into().unwrap(),
