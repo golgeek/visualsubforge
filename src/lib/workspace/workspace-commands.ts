@@ -111,6 +111,7 @@ export class WorkspaceCommands {
       nextProblem: !!quality.view?.nextCue,
       operations: {
         mergeAsDialog: cueEditing.dialogueReason,
+        splitInHalf: cueEditing.midpointReason,
         endReview: doc.review?.path ? null : 'No review attached',
         previousOpenThread: doc.review?.path ? null : 'No review attached',
         nextOpenThread: doc.review?.path ? null : 'No review attached',

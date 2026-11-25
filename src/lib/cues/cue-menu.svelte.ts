@@ -6,7 +6,8 @@ import type { DocumentSession } from '../document/document-session.svelte';
 import type { MediaSession } from '../media/media-session.svelte';
 import type { TimelineView } from '../timeline/timeline-view.svelte';
 import type { TimingGesture } from '../timing/timing-gesture.svelte';
-import { commitCueGroup } from './cue-actions';
+import type { CueEditing } from './cue-editing.svelte';
+import { commitCueGroup, commitSplitInHalf } from './cue-actions';
 import {
   planCueOperation,
   orderedGroupIds,
@@ -19,12 +20,14 @@ interface MenuContext {
   cueId: number | null;
   tableIds: number[] | null;
   group: CueGroupActions | null;
+  midpointReason: string | null;
   range: [number, number] | null;
   generation: number;
   revision: number;
   session: number;
 }
 interface Effects extends HideVideoEffects {
+  splitMidpoint: CueEditing['splitMidpoint'];
   captureFocus: () => () => void;
   operationContext: () => Parameters<typeof planCueOperation>[1];
 }
@@ -71,6 +74,11 @@ export class CueMenu {
       items.push({ id: 'create', label: 'Create cue from selection' });
     if (menu.cueId !== null) {
       items.push({ id: 'edit', label: 'Edit cue text' });
+      items.push({
+        id: 'splitInHalf',
+        label: 'Split in half',
+        reason: menu.midpointReason,
+      });
       if (ids) {
         for (const [id, label] of [
           ['mergePrevious', 'Merge with previous'],
@@ -140,6 +148,7 @@ export class CueMenu {
       }
       const candidate: MenuContext = {
         group: null,
+        midpointReason: null,
         x,
         y,
         cueId,
@@ -165,6 +174,14 @@ export class CueMenu {
           candidate,
           orderedGroupIds(tableIds, this.subtitles.snapshot.cues),
         );
+        if (this.video.disposed) return;
+        verify();
+      } else if (cueId !== null) {
+        try {
+          await this.effects.splitMidpoint(candidate, cueId);
+        } catch (error) {
+          candidate.midpointReason = String(error);
+        }
         if (this.video.disposed) return;
         verify();
       }
@@ -260,7 +277,17 @@ export class CueMenu {
           !this.subtitles.snapshot.cues.some((cue) => cue.id === context.cueId)
         )
           throw new Error('This cue no longer exists.');
-        if (
+        if (action === 'splitInHalf') {
+          if (
+            (await commitSplitInHalf(
+              this.subtitles,
+              context.cueId,
+              this.effects.splitMidpoint,
+            )) &&
+            !this.video.disposed
+          )
+            await this.navigation.revealSelection();
+        } else if (
           action === 'delete' ||
           action === 'mergePrevious' ||
           action === 'mergeNext'

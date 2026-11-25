@@ -161,3 +161,65 @@ test('a failed group read leaves the menu closed and shows the error', async ({
     page.getByRole('menu', { name: 'Subtitle actions' }),
   ).toHaveCount(0);
 });
+
+for (const route of ['native', 'context']) {
+  test(
+    route + ' single cue offers Split in half without a playhead',
+    async ({ page }) => {
+      await page.goto('/tests/frontend/cue-editor/?groupMenu&midpoint');
+      const host = page.locator('#test');
+      const row = page.locator('[data-cue-id="1"]');
+      await row.click();
+      await expect(host).toHaveAttribute('data-midpoint-enabled', 'true');
+      if (route === 'context') {
+        await row.click({ button: 'right' });
+        await page
+          .getByRole('menuitem', { name: 'Split in half', exact: true })
+          .click();
+      } else {
+        await host.dispatchEvent('fixture-native-midpoint');
+      }
+      await expect(host).toHaveAttribute(
+        'data-split-request',
+        JSON.stringify({
+          action: { kind: 'split', cueId: 1, atMs: 2501 },
+          revision: 0,
+        }),
+      );
+      await expect(page.locator('[data-cue-id="4"]')).toContainText(
+        'One issue',
+      );
+    },
+  );
+}
+
+test('the single-cue menu explains a midpoint refusal and a group has no midpoint action', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/cue-editor/?groupMenu&midpoint');
+  const row = page.locator('[data-cue-id="2"]');
+  await row.click({ button: 'right' });
+  const item = page.getByRole('menuitem', {
+    name: 'Split in half',
+    exact: true,
+  });
+  await expect(item).toBeDisabled();
+  await expect(item).toHaveAccessibleDescription(
+    /each half needs at least 1 ms/,
+  );
+  await expect(page.locator('#test')).toHaveAttribute(
+    'data-midpoint-enabled',
+    'false',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#test')).toHaveAttribute(
+    'data-midpoint-reason',
+    /each half needs at least 1 ms/,
+  );
+  await page.locator('[data-cue-id="1"]').click({ modifiers: ['Shift'] });
+  await row.click({ button: 'right' });
+  await expect(
+    page.getByRole('menuitem', { name: 'Merge as dialog', exact: true }),
+  ).toBeVisible();
+  await expect(item).toHaveCount(0);
+});

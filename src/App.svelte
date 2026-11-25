@@ -416,6 +416,7 @@
         workspace.confirming,
       afterRender: tick,
       captureFocus,
+      splitMidpoint: cueEditing.splitMidpoint,
       operationContext: () => cueEditing.context,
     }),
   );
@@ -813,6 +814,7 @@
   });
 
   const cueActions = {
+    splitMidpoint: cueEditing.splitMidpoint,
     timeline,
     workspace,
     subtitles,
@@ -897,6 +899,7 @@
       case 'mergeNext':
       case 'mergePrevious':
       case 'redo':
+      case 'splitInHalf':
       case 'splitCue':
       case 'undo':
         return runCueAction(action, cueActions, event);

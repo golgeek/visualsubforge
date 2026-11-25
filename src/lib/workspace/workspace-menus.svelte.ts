@@ -12,16 +12,18 @@ export class WorkspaceMenus {
   ) {
     $effect(() => {
       if (!this.alive) return;
+      const context = this.commands.context;
       const state = {
+        splitInHalfReason: unavailable('splitInHalf', context),
         enabled: actions
           .filter(
             (action) =>
               action.native &&
               !this.workspace.confirming &&
-              !unavailable(action.id, this.commands.context),
+              !unavailable(action.id, context),
           )
           .map((action) => action.id),
-        checked: Object.entries(this.commands.context.checks ?? {})
+        checked: Object.entries(context.checks ?? {})
           .filter(([, checked]) => checked)
           .map(([id]) => id),
       };

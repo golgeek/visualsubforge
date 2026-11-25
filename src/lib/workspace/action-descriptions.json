@@ -97,7 +97,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 22
+    "order": 23
   },
   "splitCue": {
     "label": "Split at Playhead",
@@ -109,6 +109,16 @@
     "macShortcut": null,
     "order": 18
   },
+  "splitInHalf": {
+    "label": "Split in Half",
+    "group": "Cue",
+    "native": true,
+    "shortcut": "",
+    "aliases": [],
+    "alternateShortcuts": [],
+    "macShortcut": null,
+    "order": 19
+  },
   "mergePrevious": {
     "label": "Merge with Previous",
     "group": "Cue",
@@ -117,7 +127,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 20
+    "order": 21
   },
   "mergeNext": {
     "label": "Merge with Next",
@@ -127,7 +137,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 19
+    "order": 20
   },
   "mergeAsDialog": {
     "label": "Merge as Dialog",
@@ -137,7 +147,7 @@
     "aliases": [],
     "alternateShortcuts": [],
     "macShortcut": null,
-    "order": 21
+    "order": 22
   },
   "play": {
     "label": "Play / Pause",

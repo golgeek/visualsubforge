@@ -2951,6 +2951,7 @@ export const workspaceActions = [
   'showScenes',
   'snapShots',
   'splitCue',
+  'splitInHalf',
   'startReview',
   'statistics',
   'styles',

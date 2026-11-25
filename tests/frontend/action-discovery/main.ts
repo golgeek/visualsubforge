@@ -37,7 +37,11 @@ let occluded = false;
 let preferences = structuredClone(defaultPreferences);
 let settingsEpoch = 1;
 let creations = 0;
-let menuState: Parameters<typeof updateMenu>[0] = { enabled: [], checked: [] };
+let menuState: Parameters<typeof updateMenu>[0] = {
+  enabled: [],
+  checked: [],
+  splitInHalfReason: null,
+};
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }

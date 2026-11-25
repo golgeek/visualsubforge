@@ -32,6 +32,12 @@ export const commands = {
       'cue_group_actions',
       { generation, revision, ids },
     ),
+  cueSplitMidpoint: (generation: number, revision: number, cueId: number) =>
+    __TAURI_INVOKE<number>('cue_split_midpoint', {
+      generation,
+      revision,
+      cueId,
+    }),
   translationAction: (action: visualsubforge_document_translation_Action) =>
     __TAURI_INVOKE<visualsubforge_document_translation_Reply_Serialize>(
       'translation_action',
@@ -2239,6 +2245,7 @@ export type visualsubforge_project_MediaIdentity_Serialize = {
 export type visualsubforge_desktop_MenuState = {
   enabled: string[];
   checked: string[];
+  splitInHalfReason: string | null;
 };
 
 export type vsf_application_review_package_threads_Message =
@@ -3986,6 +3993,7 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'createCue'
   | 'deleteCue'
   | 'splitCue'
+  | 'splitInHalf'
   | 'mergePrevious'
   | 'mergeNext'
   | 'mergeAsDialog'

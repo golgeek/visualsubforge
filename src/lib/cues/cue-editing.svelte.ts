@@ -1,4 +1,8 @@
-import { cueGroupActions } from '../client';
+import {
+  cueGroupActions,
+  cueSplitMidpoint,
+  type DocumentSnapshot,
+} from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
 import type { MediaSession } from '../media/media-session.svelte';
 import type { TimelineView } from '../timeline/timeline-view.svelte';
@@ -30,17 +34,22 @@ export class CueEditing {
     },
   ) {
     $effect(() => {
-      const target = this.dialogueTarget;
+      const target = this.selectionTarget;
       if (!target) return;
       let current = true;
-      void cueGroupActions(target, target.ids).then(
-        (actions) => {
-          if (current && this.alive)
-            this.dialogueReply = { target, reason: actions.mergeAsDialog };
+      const reason =
+        target.ids.length === 1
+          ? this.splitMidpoint(target, target.ids[0]!).then(() => null)
+          : cueGroupActions(target, target.ids).then(
+              (actions) => actions.mergeAsDialog,
+            );
+      void reason.then(
+        (reason) => {
+          if (current && this.alive) this.selectionReply = { target, reason };
         },
         (error: unknown) => {
           if (current && this.alive)
-            this.dialogueReply = { target, reason: String(error) };
+            this.selectionReply = { target, reason: String(error) };
         },
       );
       return () => {
@@ -171,22 +180,64 @@ export class CueEditing {
       range: this.timeline.range,
     };
   });
-  private dialogueTarget = $derived.by(() => {
+  // Both menus and dispatch can share one read for this accepted cue version.
+  private midpointRead: {
+    generation: number;
+    revision: number;
+    id: number;
+    result: Promise<number>;
+  } | null = null;
+  splitMidpoint = (
+    version: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+    id: number,
+  ) => {
+    const { generation, revision } = version;
+    const last = this.midpointRead;
+    if (
+      last &&
+      last.generation === generation &&
+      last.revision === revision &&
+      last.id === id
+    )
+      return last.result;
+    const result = cueSplitMidpoint(version, id).catch((error: unknown) => {
+      if (this.midpointRead?.result === result) this.midpointRead = null;
+      throw error;
+    });
+    this.midpointRead = { generation, revision, id, result };
+    return result;
+  };
+  private selectionTarget = $derived.by(() => {
     const selected = this.subtitles.selectedIds;
-    if (selected.size !== 2) return null;
+    if (selected.size !== 1 && selected.size !== 2) return null;
     const { generation, revision, cues } = this.subtitles.snapshot;
-    return { generation, revision, ids: orderedGroupIds([...selected], cues) };
+    return {
+      generation,
+      revision,
+      ids:
+        selected.size === 1
+          ? [...selected]
+          : orderedGroupIds([...selected], cues),
+    };
   });
-  private dialogueReply = $state.raw<{
+  private selectionReply = $state.raw<{
     target: { generation: number; revision: number; ids: number[] };
     reason: string | null;
   } | null>(null);
+  private selectionReason = $derived(
+    this.selectionReply && this.selectionReply.target === this.selectionTarget
+      ? this.selectionReply.reason
+      : 'Checking cue selection…',
+  );
   dialogueReason = $derived(
-    !this.dialogueTarget
-      ? 'Select two adjacent cues'
-      : this.dialogueReply?.target === this.dialogueTarget
-        ? this.dialogueReply.reason
-        : 'Checking cue selection…',
+    this.selectionTarget?.ids.length === 2
+      ? this.selectionReason
+      : 'Select two adjacent cues',
+  );
+  midpointReason = $derived(
+    this.selectionTarget?.ids.length === 1
+      ? this.selectionReason
+      : 'Select one cue',
   );
   operations = $derived.by(() => {
     const context = this.context;

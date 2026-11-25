@@ -75,6 +75,10 @@ const original: DocumentSnapshot = {
     { id: 3, startMs: 9000, endMs: 12000, text: 'Five issues' },
   ],
 };
+if (new URLSearchParams(location.search).has('midpoint')) {
+  original.cues[0]!.endMs = 4001;
+  original.cues[1]!.endMs = 5001;
+}
 const groupTrial = new URLSearchParams(location.search).has('groupMenu');
 const explanationsTrial = new URLSearchParams(location.search).has(
   'explanations',
@@ -199,10 +203,15 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return null;
         case 'update_menu':
           menuState = args.state;
-          if (groupTrial)
+          if (groupTrial) {
+            host.dataset.midpointEnabled = String(
+              menuState?.enabled.includes('splitInHalf'),
+            );
+            host.dataset.midpointReason = menuState?.splitInHalfReason ?? '';
             host.dataset.dialogueEnabled = String(
               menuState?.enabled.includes('mergeAsDialog'),
             );
+          }
           return null;
         case 'quality_cancel':
           return null;
@@ -290,6 +299,17 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           }
           return structuredClone(media);
         }
+        case 'cue_split_midpoint': {
+          assert(
+            args.generation === snapshot.generation &&
+              args.revision === snapshot.revision,
+            'Midpoint query used stale version',
+          );
+          const cue = snapshot.cues.find((cue) => cue.id === args.cueId)!;
+          if (cue.endMs - cue.startMs < 2)
+            throw 'Cue is too short to split in half: each half needs at least 1 ms.';
+          return Math.round((cue.startMs + cue.endMs) / 2);
+        }
         case 'cue_group_actions': {
           await new Promise((resolve) => setTimeout(resolve, 60));
           assert(
@@ -376,6 +396,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               canRedo: true,
             };
           } else if (action.kind === 'split') {
+            if (groupTrial)
+              host.dataset.splitRequest = JSON.stringify({
+                action,
+                revision: args.revision,
+              });
             const cue = snapshot.cues.find((c) => c.id === action.cueId)!;
             history.push(structuredClone(snapshot));
             snapshot = {
@@ -413,6 +438,9 @@ async function select(id: number) {
 async function run() {
   const app = mount(App, { target: host });
   if (groupTrial) {
+    host.addEventListener('fixture-native-midpoint', () =>
+      callbacks.get(handler)?.({ payload: 'splitInHalf' }),
+    );
     host.addEventListener('fixture-native-dialogue', () =>
       callbacks.get(handler)?.({ payload: 'mergeAsDialog' }),
     );

@@ -1,10 +1,26 @@
 //! Conservative structural-edit policy, independent of desktop and renderer.
 use crate::Result;
 use crate::subtitle_markup::{MAX_CUE_BYTES, Projection};
-use subtitle_core::Cue;
+use subtitle_core::{Cue, Milliseconds};
 
 pub fn validate_split(cue: &Cue, format: subtitle_formats::Format) -> Result<()> {
     validate_split_text(cue, cue.text(), format)
+}
+
+/// The two endpoints of an accepted cue lie on the source time grid.
+pub fn split_midpoint(cue: &Cue, format: subtitle_formats::Format) -> Result<Milliseconds> {
+    validate_split(cue, format)?;
+    let step = format.time_step_ms();
+    let ticks = (cue.end().get() - cue.start().get()) / step;
+    if ticks < 2 {
+        return Err(format!(
+            "Cue is too short to split in half: each half needs at least {step} ms."
+        ));
+    }
+    // Give the first half the extra tick when the duration is odd.
+    Ok(Milliseconds::new(
+        cue.start().get() + ticks.div_ceil(2) * step,
+    )?)
 }
 
 fn validate_split_text(cue: &Cue, text: &str, format: subtitle_formats::Format) -> Result<()> {

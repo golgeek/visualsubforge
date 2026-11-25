@@ -80,7 +80,13 @@ Right-click a selected cue to act on the selection. Right-clicking a different
 cue commits any pending draft and selects that row. The context-menu key and
 Shift+F10 open the focused row’s menu. Escape returns focus to that row.
 
-One cue offers Edit cue text, Merge with previous, Merge with next and Delete.
+One cue offers Edit cue text, Split in half, Merge with previous, Merge with next and Delete.
+**Split in Half** in the Cue menu performs the same edit. Both halves keep the full
+text. Rust rounds the midpoint to the nearest millisecond for SRT/WebVTT or
+centisecond for ASS/SSA. An exact tie gives the first half the extra tick. Both
+menus explain when the cue is too short or its format prevents splitting.
+One Undo restores the original cue. **Split at Playhead** remains available for
+choosing a different boundary.
 For a group, Merge needs consecutive cues in file order, including cues hidden by
 filters. Delete accepts a discontinuous selection. Each operation takes one Undo
 step. A merge keeps the first cue’s ID, the earliest start and the latest end.
