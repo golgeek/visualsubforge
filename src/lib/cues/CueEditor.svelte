@@ -104,7 +104,7 @@
   );
   const metricError = $derived(
     (draftDirty && (draftMetricError || quality.view?.draftError)) ||
-      quality.error ||
+      (!lineMetric && quality.error) ||
       quality.view?.error,
   );
   const updating = settled(
@@ -112,6 +112,7 @@
       quality.refreshStarted &&
       showQualityMetrics &&
       !!cue &&
+      (!quality.retainingIndex || quality.checkingCue(cue.id) || draftDirty) &&
       (quality.stale ||
         quality.view?.phase !== 'ready' ||
         (draftDirty && (!draftMetric || !!quality.view?.draftChecking))),

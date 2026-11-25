@@ -44,6 +44,8 @@ let document: DocumentSnapshot = {
   ],
 };
 const anchorTrial = new URLSearchParams(location.search).get('anchor');
+const largeTrial = new URLSearchParams(location.search).has('large');
+const deleteTrial = new URLSearchParams(location.search).has('deleteTrial');
 const rowBodyTrial = new URLSearchParams(location.search).has('rowBody');
 const editorTrial = new URLSearchParams(location.search).get('editor');
 if (editorTrial !== null) {
@@ -54,7 +56,7 @@ if (anchorTrial !== null) {
   base.profile.limitations = ['Unsupported fixture rule'];
 }
 if (anchorTrial !== null || editorTrial !== null) {
-  document.cues = Array.from({ length: 70 }, (_, i) => ({
+  document.cues = Array.from({ length: largeTrial ? 10000 : 70 }, (_, i) => ({
     id: i + 1,
     startMs: 2000 * i,
     endMs: 2000 * i + 1500,
@@ -69,7 +71,12 @@ if (anchorTrial !== null || editorTrial !== null) {
     ...base.findings[0]!,
     cueIndex: i,
     cueId: String(cue.id),
-    relatedCueId: rowBodyTrial && cue.id === 33 ? '32' : null,
+    relatedCueId:
+      deleteTrial && cue.id === 2
+        ? '1'
+        : rowBodyTrial && cue.id === 33
+          ? '32'
+          : null,
   }));
 }
 let draft: QualityRequest['draft'] = null;
@@ -157,17 +164,17 @@ function read(request: QualityRequest): QualityView {
     request.offset,
     request.offset + request.limit,
   );
+  const order = new Map(document.cues.map((cue, i) => [cue.id, i]));
   view.nextCue =
-    String(
-      (cues.find((c) => document.cues.indexOf(c) > index) ?? cues[0])?.id ?? '',
-    ) || null;
+    String((cues.find((c) => order.get(c.id)! > index) ?? cues[0])?.id ?? '') ||
+    null;
   view.previousCue =
     String(
       (
         cues
           .slice()
           .reverse()
-          .find((c) => document.cues.indexOf(c) < index) ?? cues.at(-1)
+          .find((c) => order.get(c.id)! < index) ?? cues.at(-1)
       )?.id ?? '',
     ) || null;
   view.selected =
@@ -246,10 +253,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if ((args.action?.kind as string) === 'seek') mediaSeeks++;
           return structuredClone(emptyStatus);
         case 'quality_read': {
+          if (host.hasAttribute('data-fail-read'))
+            throw new Error('Fixture quality read failed');
           const view = read(args.request!);
           if (
             anchorTrial !== null &&
-            (args.request!.selected === 35 || rowBodyTrial)
+            (args.request!.selected === 35 ||
+              rowBodyTrial ||
+              ((largeTrial || deleteTrial) && edits > 0))
           ) {
             host.setAttribute('data-read-state', 'pending');
             await new Promise((resolve) =>
@@ -310,6 +321,22 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
                   : c,
               ),
             };
+          } else if (action.kind === 'delete') {
+            edits++;
+            const id = String(action.cueId);
+            document = {
+              ...document,
+              revision: document.revision + 1,
+              cues: document.cues.filter((cue) => cue.id !== action.cueId),
+            };
+            base.findings = base.findings
+              .filter((f) => f.cueId !== id && f.relatedCueId !== id)
+              .map((f) => ({
+                ...f,
+                cueIndex: document.cues.findIndex(
+                  (cue) => String(cue.id) === f.cueId,
+                ),
+              }));
           } else
             assert(
               action.kind === 'status',

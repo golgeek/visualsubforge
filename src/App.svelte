@@ -1127,7 +1127,7 @@
       >
         <WaveformPanel
           ghosts={[...reviewGhosts, ...originalGhosts]}
-          issues={quality.issues}
+          issues={quality.displayedIssues}
           qualityTiming={quality.view?.profile.timing ??
             preferences.timingSettings}
           {timeline}
@@ -1460,6 +1460,10 @@
     />
   {/if}
   <WorkspaceFooter
+    checkError={quality.error ||
+      quality.projectionError ||
+      quality.view?.error ||
+      ''}
     {workspace}
     {media}
     {gestures}

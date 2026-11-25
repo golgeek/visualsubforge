@@ -124,8 +124,8 @@ selection and inline rejection reason. The selected cue’s findings are highlig
 Click the finding’s explanation, measurement or row background to follow its cue.
 Related cue and language actions have their own buttons.
 Following a finding keeps its focus and position while metrics and selection refresh.
-During a report or filter change, the last page stays visible. Longer refreshes
-dim that page. Cue links still navigate, and report-specific actions wait for
+During a report or filter change, the last page stays visible. If an edit takes at least 150 ms to recheck, its issue marker and
+findings dim while the other cues and waveform stripes retain their displayed state. During deletion, the cue’s own findings and findings that reference it dim. If a check read fails, the footer shows the error and the last markers, stripes and metrics stay visible until a successful read replaces them. Cue links still navigate, and report-specific actions wait for
 the new page. When an edit resolves the anchored finding, its nearest surviving
 neighbour takes its place.
 

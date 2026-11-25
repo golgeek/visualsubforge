@@ -68,7 +68,7 @@ for (const delay of [70, 1000]) {
           String(i + 1),
         );
         if (delay === 1000) {
-          await expect(page.locator('.virtual-list')).toHaveAttribute(
+          await expect(row.locator('.issue')).toHaveAttribute(
             'aria-busy',
             'true',
           );

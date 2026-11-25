@@ -1,8 +1,10 @@
 /* eslint-disable svelte/prefer-svelte-reactivity -- Collections are replaced as immutable projections; the private metric cache is not reactive state. */
-import { cueIssueMap, type IssueSeverity } from './cue-issues';
+import { SvelteMap } from 'svelte/reactivity';
+import { reconcileCueIssues, type IssueSeverity } from './cue-issues';
 import {
   readQuality,
   cancelQuality,
+  type Cue,
   type QualityRequest,
   type QualityView,
   type QualityDraft,
@@ -51,7 +53,21 @@ export class QualitySession {
     return this.retainedIndex !== null;
   }
   lastDraft = $state.raw<QualityView['draft']>(null);
+  private displayMap = new SvelteMap<string, IssueSeverity>();
+  private indexedCues: readonly Cue[] = [];
+  private inputCues: readonly Cue[] = [];
+  private editedIds = $state.raw<ReadonlySet<number>>(new Set());
+  checkingCue(id: number | null) {
+    return this.retainingIndex && id !== null && this.editedIds.has(id);
+  }
+  private retainCompletedIndex() {
+    if (this.issueIndexComplete)
+      this.retainedIndex = { issues: this.issues, metrics: this.metrics };
+  }
   private clearDisplay() {
+    this.displayMap = new SvelteMap();
+    this.indexedCues = [];
+    this.editedIds = new Set();
     this.retainedIndex = null;
     this.displayedList = null;
     this.lastDraft = null;
@@ -94,7 +110,7 @@ export class QualitySession {
   userSelectedCue() {
     this.nextUserRead = true;
   }
-  configure(input: QualityInput) {
+  configure(input: QualityInput, cues: readonly Cue[] = []) {
     if (!this.alive) return;
     const signature = JSON.stringify([
       input,
@@ -111,12 +127,32 @@ export class QualitySession {
       this.input.generation !== input.generation ||
       this.input.context !== input.context;
     if (replaced) this.clearDisplay();
-    else if (version !== this.version && this.issueIndexComplete)
-      this.retainedIndex = { issues: this.issues, metrics: this.metrics };
+    else if (version !== this.version) this.retainCompletedIndex();
+    this.inputCues = cues;
+    if (!replaced && version !== this.version && this.retainedIndex) {
+      const previous = new Map(this.indexedCues.map((cue) => [cue.id, cue]));
+      const edited = new Set<number>();
+      for (const cue of cues) {
+        const prior = previous.get(cue.id);
+        previous.delete(cue.id);
+        if (
+          !prior ||
+          prior.startMs !== cue.startMs ||
+          prior.endMs !== cue.endMs ||
+          prior.text !== cue.text ||
+          prior.style !== cue.style ||
+          prior.actor !== cue.actor
+        )
+          edited.add(cue.id);
+      }
+      for (const deletedId of previous.keys()) edited.add(deletedId);
+      this.editedIds = edited;
+    }
     if (input.selected !== this.input?.selected || !input.draft)
       this.lastDraft = null;
     if (version !== this.version) {
       this.version = version;
+      this.error = '';
       this.view = null;
       this.clearProjection();
       this.draftSignature = undefined;
@@ -216,7 +252,10 @@ export class QualitySession {
     if (request.metricsLimit)
       this.keepMetrics(request.metricsOffset, view.metrics);
     if (view.issueIndex) {
-      this.issues = cueIssueMap(view.issueIndex);
+      reconcileCueIssues(this.displayMap, view.issueIndex);
+      this.issues = this.displayMap;
+      this.indexedCues = this.inputCues;
+      this.editedIds = new Set();
       this.indexedReport = view.reportId ?? view.id;
       this.issueIndexComplete = true;
       // Keep a single User Timing entry for commit-to-index measurements.
@@ -376,7 +415,7 @@ export class QualitySession {
         this.retainedIndex = null;
     } catch (error) {
       if (this.alive && sequence === this.sequence) {
-        this.clearDisplay();
+        this.retainCompletedIndex();
         this.error = String(error);
         this.listStale = true;
         this.stale = true;
@@ -403,6 +442,7 @@ export class QualitySession {
     this.nextUserRead = true;
     this.paused = false;
     this.restartPending = true;
+    this.retainCompletedIndex();
     this.listStale = true;
     this.view = null;
     this.clearProjection();

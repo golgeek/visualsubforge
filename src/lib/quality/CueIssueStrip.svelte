@@ -33,7 +33,11 @@
       quality.view.selectedIssues === projection,
   );
   const updating = settled(
-    () => quality.refreshStarted && !fresh && !!projection,
+    () =>
+      quality.refreshStarted &&
+      !fresh &&
+      !!projection &&
+      (!quality.retainingIndex || quality.checkingCue(cueId)),
   );
   let selected = $state(0);
   let identity = '';

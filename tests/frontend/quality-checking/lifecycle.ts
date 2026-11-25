@@ -69,6 +69,18 @@ export async function lifecycle(
   passed(
     'One in-flight read and revision guards suppress late document reports',
   );
+  let reject!: (reason: Error) => void;
+  pending = new Promise((_resolve, fail) => {
+    reject = fail;
+  });
+  const rejected = session.poll();
+  session.configure({ ...input, revision: input.revision + 2 });
+  reject(new Error('Subtitles changed before quality read'));
+  await rejected;
+  assert(
+    !session.error && !session.projectionError,
+    'Superseded failure reached the status slot',
+  );
   pending = new Promise((resolve) => {
     release = resolve;
   });

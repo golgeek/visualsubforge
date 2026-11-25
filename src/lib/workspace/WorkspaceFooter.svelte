@@ -13,6 +13,7 @@
     extraction,
     documentGeneration,
     showExtraction = false,
+    checkError,
   }: {
     workspace: Workspace;
     media: MediaSession;
@@ -21,8 +22,15 @@
     extraction?: ExtractionSession;
     documentGeneration?: number;
     showExtraction?: boolean;
+    checkError?: string | null;
   } = $props();
   const status = $derived(media.status);
+  const primaryError = $derived(
+    workspace.error || status.error || status.subtitlePreviewError,
+  );
+  const qualityError = $derived(
+    checkError && !primaryError ? 'Checks unavailable: ' + checkError : '',
+  );
 </script>
 
 <footer>
@@ -59,18 +67,12 @@
   {/if}
   <span
     class="message"
+    class:check-error={!!qualityError && !workspace.activity.visible}
     role="status"
-    title={workspace.error ||
-      status.error ||
-      status.subtitlePreviewError ||
-      undefined}
+    title={primaryError || qualityError || undefined}
     >{workspace.activity.visible
       ? 'Working…'
-      : workspace.error ||
-        status.error ||
-        status.subtitlePreviewError ||
-        workspace.notice ||
-        'Ready'}</span
+      : primaryError || qualityError || workspace.notice || 'Ready'}</span
   >{#if gestures.edit}<span
       >{gestures.snapHint || 'Timing preview'}
       {formatTime(gestures.edit.preview.startMs)}–{formatTime(
@@ -131,6 +133,9 @@
     padding: 0 4px;
     font-size: inherit;
   }
+  .check-error {
+    color: var(--err);
+  }
   .message {
     flex: 1;
     overflow: hidden;
@@ -147,6 +152,9 @@
       flex-basis: 100%;
       white-space: normal;
       overflow-wrap: anywhere;
+    }
+    .message.check-error {
+      white-space: nowrap;
     }
   }
 </style>
