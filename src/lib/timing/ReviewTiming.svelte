@@ -124,9 +124,13 @@
         scroll.getBoundingClientRect().top -
         anchor.offset;
   }
+  const pageId = $derived(current?.id ?? null);
+  const changesOffset = $derived(current?.offset ?? null);
+  // Polls return a fresh view of the same immutable proposal. Restoring on
+  // every reply can replay the old anchor before a user's scroll event arrives.
   $effect(() => {
-    if (current) {
-      choices.changesOffset = current.offset;
+    if (pageId !== null && changesOffset !== null) {
+      choices.changesOffset = changesOffset;
       void tick().then(restoreAnchor);
     }
   });
@@ -138,7 +142,6 @@
     coverage === 'partial' || coverage === 'unavailable',
   );
   const unavailable = $derived(coverage === 'noMedia' || blocked);
-  const pageId = $derived(current?.id ?? null);
   $effect(() => {
     const id = pageId,
       offset = choices.manualOffset,

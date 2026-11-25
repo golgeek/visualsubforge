@@ -84,6 +84,17 @@ async function until(check: () => boolean) {
   }
   await tick();
 }
+async function holdTimingReply(key: string) {
+  if (host.dataset.holdReply !== key) return;
+  host.dataset.heldReply = key;
+  await new Promise<void>((resolve) =>
+    host.addEventListener('release-timing-reply', () => resolve(), {
+      once: true,
+    }),
+  );
+  delete host.dataset.holdReply;
+  delete host.dataset.heldReply;
+}
 function type(text: string) {
   const input = host.querySelector<HTMLTextAreaElement>(
     '[aria-label="Subtitle text"]',
@@ -206,6 +217,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           }
           if (host.dataset.failStart)
             throw new Error('Injected preview failure');
+          await holdTimingReply('start');
           if (host.dataset.startDelay)
             await new Promise((resolve) =>
               setTimeout(resolve, Number(host.dataset.startDelay)),
@@ -307,6 +319,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return heldStart ?? starts;
         }
         case 'timing_fix_view': {
+          if (args.section === 'changes' && !args.previewIds)
+            await holdTimingReply('changes-' + args.offset);
           if (
             host.dataset.delayNextView &&
             !args.previewIds &&
