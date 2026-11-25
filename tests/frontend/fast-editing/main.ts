@@ -664,7 +664,27 @@ async function run() {
     passed(
       'Follow can be disabled and resumed independently after held timing',
     );
-    heading.textContent = 'PASS: all 23 fast-editing checks';
+    // Drag outwards from the left viewport edge. Both ends clamp to its start.
+    for (const [type, x] of [
+      ['pointerdown', rect.left],
+      ['pointerup', rect.left - 10],
+    ] as const) {
+      canvas.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 1,
+          isPrimary: true,
+          button: 0,
+          bubbles: true,
+          clientX: x,
+          clientY: rect.top + 10,
+          altKey: true,
+        }),
+      );
+      await tick();
+    }
+    assert(loop.disabled, 'A collapsed selection still enables Loop range');
+    passed('A zero-length selection cannot start a playback loop');
+    heading.textContent = 'PASS: all 24 fast-editing checks';
   } catch (error) {
     heading.textContent = `FAIL: ${String(error)}`;
   } finally {

@@ -68,7 +68,7 @@
       aria-describedby="workspace-tooltip"
       disabled={!status.loaded ||
         workspace.busy ||
-        (!status.loopActive && !timeline.range)}
+        (!status.loopActive && !timeline.hasRange)}
       onclick={() => void workspace.run(loopAction)}
     >
       <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">

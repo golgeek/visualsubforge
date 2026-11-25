@@ -112,6 +112,9 @@ export class TimelineView {
       this.wave?.durationSeconds ?? 0,
     );
   }
+  get hasRange() {
+    return !!this.range && this.range[1] > this.range[0];
+  }
   get waveCues() {
     const preview = this.effects.preview?.();
     return this.effects

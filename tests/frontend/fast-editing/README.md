@@ -2,7 +2,7 @@
 
 Run `npm run dev` with pinned Node, then open
 `http://localhost:1420/tests/frontend/fast-editing/`.
-Expect **PASS: all 23 fast-editing checks**.
+Expect **PASS: all 24 fast-editing checks**.
 
 The real App and client use modeled IPC in an ordinary browser. Checks cover
 immediate text focus, draft preservation before creating another cue, transport
