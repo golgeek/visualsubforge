@@ -36,6 +36,7 @@ mod timing_repairs;
 pub(crate) use checks::ipc_sample as quality_ipc_sample;
 #[cfg(test)]
 pub(crate) use texts::ipc_sample as text_ipc_sample;
+pub(crate) use timing_repairs::TimingStartError;
 #[cfg(test)]
 pub(crate) use timing_repairs::ipc_sample as timing_fix_ipc_sample;
 #[cfg(test)]

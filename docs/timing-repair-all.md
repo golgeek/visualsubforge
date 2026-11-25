@@ -63,6 +63,9 @@ selected changes for up to 200 visible cues. Apply includes all selected pages.
 Changing the selection or policy requests a fresh preview immediately. The last
 review rows, waveform ghosts and table deltas stay in place until replaced.
 A longer refresh dims them after 150 ms. Apply waits for the current proposal.
+If the previous worker is finishing or the timing policy changed during startup,
+the review tries again automatically, up to three attempts in total. Other start
+errors are shown immediately with Retry preview.
 Replacing the document, media or review context clears the display.
 After a checkbox edit, checked rows show the original and selected timings.
 The endpoint delta includes only the endpoints that row contributes.

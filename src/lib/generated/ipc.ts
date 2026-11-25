@@ -3698,6 +3698,14 @@ export type vsf_application_quality_profile_Timing = {
   sceneAfterMs: number;
 };
 
+export type visualsubforge_document_timing_repairs_TimingStartError = {
+  kind: visualsubforge_document_timing_repairs_TimingStartKind;
+  message: string;
+};
+
+export type visualsubforge_document_timing_repairs_TimingStartKind =
+  'workerBusy' | 'policyChanged' | 'rejected';
+
 export type vsf_application_comparison_words_TokenChange = {
   kind: vsf_application_comparison_words_TokenKind;
   text: string;

@@ -1,4 +1,5 @@
 import { untrack } from 'svelte';
+import { timingStartError } from '../client';
 import type {
   TimingFixView,
   DocumentSnapshot,
@@ -384,18 +385,16 @@ export class TimingRepairSession<V extends Review, S = string | null> {
     } catch (e) {
       if (this.active(epoch)) {
         if (this.id !== null) void this.api.cancel(this.id).catch(() => {});
-        const message = String(e);
+        const refusal = timingStartError(e);
         this.admissionRetryable =
-          message.includes(
-            'Wait for the current timing proposal to finish cancelling',
-          ) || message.includes('Timing policy changed before preview');
+          refusal?.kind === 'workerBusy' || refusal?.kind === 'policyChanged';
         if (
           !this.superseded &&
           (!this.live?.retainDisplay ||
             !this.admissionRetryable ||
             this.attempts >= 2)
         )
-          this.error = String(e);
+          this.error = refusal?.message ?? String(e);
         this.id = null;
         this.capture = null;
       }

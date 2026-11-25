@@ -100,30 +100,24 @@ pub(crate) async fn batch_timing_start(
     revision: SafeU64,
     request: BatchRequest,
     selection: Option<crate::review_selection::Selection>,
-) -> Result<SafeU64, String> {
+) -> Result<SafeU64, crate::document::TimingStartError> {
     tauri::async_runtime::spawn_blocking(move || {
         let selection = selection.map(|s| s.domain()).transpose()?;
         let request = request.domain()?;
-        app.state::<crate::media::Media>()
-            .with_context(session.get(), |path| {
-                let scenes = app
-                    .state::<crate::scenes::Scenes>()
-                    .capture_quality(session.get(), path.is_some())?;
-                Ok(app
-                    .state::<Documents>()
-                    .batch_timing_start_selected(
-                        generation.get(),
-                        revision.get(),
-                        scenes,
-                        request,
-                        selection,
-                    )?
-                    .try_into()?)
-            })
+        crate::timing_review::start_in_context(&app, session, |documents, scenes| {
+            documents.batch_timing_start_selected(
+                generation.get(),
+                revision.get(),
+                scenes,
+                request,
+                selection,
+            )
+        })
     })
     .await
     .map_err(|e| e.to_string())?
 }
+
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn batch_timing_view(

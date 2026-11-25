@@ -199,6 +199,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return;
         case 'timing_fix_start': {
           starts++;
+          if (host.dataset.nextStartError) {
+            const error = JSON.parse(host.dataset.nextStartError);
+            delete host.dataset.nextStartError;
+            throw error;
+          }
           if (host.dataset.failStart)
             throw new Error('Injected preview failure');
           if (host.dataset.startDelay)

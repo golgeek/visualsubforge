@@ -1,7 +1,7 @@
 //! Thin desktop composition for immutable shared timing proposals. All capture,
 //! projection and acceptance work is off the UI thread.
 use crate::{
-    document::{Documents, Snapshot},
+    document::{Documents, Snapshot, TimingStartError},
     ipc_number::SafeU64,
 };
 use serde::{Deserialize, Serialize};
@@ -108,22 +108,33 @@ pub(crate) async fn timing_fix_start(
     generation: SafeU64,
     revision: SafeU64,
     input: Input,
-) -> Result<SafeU64, String> {
+) -> Result<SafeU64, TimingStartError> {
     tauri::async_runtime::spawn_blocking(move || {
         input.domain()?;
-        app.state::<crate::media::Media>()
-            .with_context(session.get(), |path| {
-                let scenes = app
-                    .state::<crate::scenes::Scenes>()
-                    .capture_quality(session.get(), path.is_some())?;
-                Ok(app
-                    .state::<Documents>()
-                    .timing_fix_start(generation.get(), revision.get(), scenes, input)?
-                    .try_into()?)
-            })
+        start_in_context(&app, session, |documents, scenes| {
+            documents.timing_fix_start(generation.get(), revision.get(), scenes, input)
+        })
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+// The media owner guards its selection while Rust captures scenes and admits
+// the document job. Keep its context failures distinct from typed admission.
+pub(crate) fn start_in_context(
+    app: &tauri::AppHandle,
+    session: SafeU64,
+    start: impl FnOnce(&Documents, crate::scenes::SceneCapture) -> Result<u64, TimingStartError>,
+) -> Result<SafeU64, TimingStartError> {
+    let id = app
+        .state::<crate::media::Media>()
+        .with_context(session.get(), |path| {
+            let scenes = app
+                .state::<crate::scenes::Scenes>()
+                .capture_quality(session.get(), path.is_some())?;
+            Ok(start(&app.state::<Documents>(), scenes))
+        })??;
+    Ok(id.try_into()?)
 }
 pub(crate) fn with_current<T>(
     app: &tauri::AppHandle,
