@@ -286,6 +286,9 @@ supply the appropriate save continuation, including the project operation's own
 save context. TranslationSession clears hidden reference queries in its initialization
 scoped effect; TranslationReference handles user file operations and quality invalidation.
 
+In Issues and Timing, the primary cue button extends over its row. Checkboxes,
+disclosures, related cues and repair actions have independent hit targets and
+keyboard focus. Timing disclosure updates the review’s expanded rows.
 Following a cue keeps the originating dock tab. ReviewDock defers focus transfer
 on a dirty cue link until the click has captured its target. Dock links and F4
 delegate to CueNavigation.selectCue, the same apply-before-selection workspace

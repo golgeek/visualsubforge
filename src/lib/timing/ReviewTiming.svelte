@@ -46,6 +46,7 @@
     onaccepted: () => void;
     onnavigate: (id: string, origin: HTMLButtonElement) => void;
   } = $props();
+  const reviewId = $props.id();
   const labels: Record<keyof TimingFamilies, string> = {
     gaps: 'Gaps and overlaps',
     speed: 'Duration and reading speed',
@@ -327,18 +328,13 @@
             No changes for the ticked rules in this scope.
           </p>{/if}
         {#each result.rows as row (row.cueIndex)}
+          {@const expanded = choices.openRows.includes(row.cueIndex)}
+          {@const timecodesId = reviewId + '-timecodes-' + row.cueId}
           <div
             class="change"
             data-anchor={'change-' + row.cueId}
             data-index={row.cueIndex}
           >
-            <input
-              type="checkbox"
-              aria-label={'Include cue ' + row.cueLabel}
-              checked={row.selected}
-              disabled={updating}
-              onchange={() => toggle(row.cueIndex)}
-            />
             <button
               data-nav-key={'change-' + row.cueId}
               class="cue"
@@ -347,15 +343,27 @@
               onclick={(event) => onnavigate(row.cueId, event.currentTarget)}
               >{row.cueLabel}</button
             >
+            <input
+              type="checkbox"
+              aria-label={'Include cue ' + row.cueLabel}
+              checked={row.selected}
+              disabled={updating}
+              onchange={() => toggle(row.cueIndex)}
+            />
             <button
               class="detail"
               data-variant="quiet"
-              aria-expanded={choices.openRows.includes(row.cueIndex)}
+              aria-label={'Timecodes for cue ' + row.cueLabel}
+              aria-expanded={expanded}
+              aria-controls={timecodesId}
               onclick={() =>
-                (choices.openRows = choices.openRows.includes(row.cueIndex)
+                (choices.openRows = expanded
                   ? choices.openRows.filter((i) => i !== row.cueIndex)
                   : [...choices.openRows, row.cueIndex])}
             >
+              {expanded ? '▾' : '▸'}
+            </button>
+            <div class="summary">
               {#each [...new Set(row.unit.fixed.map(chip))] as name (name)}<span
                   class="chip">{name}</span
                 >{/each}
@@ -367,7 +375,7 @@
                 <small>{row.needs}</small>{/if}
               {#if row.replaces}<small>{row.replaces}</small>{/if}
               {#if row.offReason}<small>{row.offReason}</small>{/if}
-            </button>
+            </div>
             <!-- eslint-disable svelte/no-useless-mustaches -- A literal interpolation preserves both spaces across Svelte whitespace trimming. -->
             <small class="effect number"
               >{#each row.unit.effectsText as effect, index (index)}{#if index}{' · '}{/if}<span
@@ -375,11 +383,10 @@
                 >{/each}</small
             >
             <!-- eslint-enable svelte/no-useless-mustaches -->
-            {#if choices.openRows.includes(row.cueIndex)}<small
-                class="times number"
-                >{#each row.timecodes as line (line)}<span>{line}</span
-                  >{/each}</small
-              >{/if}
+            <small id={timecodesId} hidden={!expanded} class="times number"
+              >{#each row.timecodes as line (line)}<span>{line}</span
+                >{/each}</small
+            >
           </div>
         {/each}
         {#if result.total > 100}<nav aria-label="Timing proposal pages">
@@ -407,7 +414,14 @@
                 data-anchor={'manual-' + r.cueId}
                 data-index={r.cueNumber - 1}
               >
-                <span class="number">{r.cueNumber}</span>
+                <button
+                  class="cue"
+                  data-variant="quiet"
+                  data-nav-key={'manual-cue-' + r.cueId}
+                  aria-label={'Go to manual cue ' + r.cueNumber}
+                  onclick={(event) => onnavigate(r.cueId, event.currentTarget)}
+                  >{r.cueNumber}</button
+                >
                 <div>
                   <span>{r.detail.lead}</span>
                   {#each r.detail.facts as fact (fact)}<small>{fact}</small
@@ -618,9 +632,25 @@
   .switch label:focus-within {
     outline: 2px solid var(--focus);
   }
+  .change,
+  .manual {
+    isolation: isolate;
+    position: relative;
+  }
+  .cue::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .change input,
+  .detail,
+  .manual button:not(.cue) {
+    position: relative;
+    z-index: 1;
+  }
   .change {
     display: grid;
-    grid-template-columns: auto minmax(3ch, auto) minmax(0, 1fr);
+    grid-template-columns: minmax(3ch, auto) auto auto minmax(0, 1fr);
     column-gap: 6px;
     align-items: baseline;
   }
@@ -632,11 +662,16 @@
   .cue {
     color: var(--accent-text);
   }
-  .effect {
-    grid-column: 3;
+  .change .detail {
+    min-width: 24px;
+    text-align: center;
   }
+  .effect,
   .times {
-    grid-column: 3/-1;
+    grid-column: 4;
+  }
+  .times[hidden] {
+    display: none;
   }
   .times span,
   small {
