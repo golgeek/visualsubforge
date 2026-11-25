@@ -188,13 +188,30 @@ test('deep toggle keeps its page and scroll through the updating view', async ({
     name: 'Include cue 125',
     exact: true,
   });
-  await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  // Deliver the routine same-page poll before WebKit sends the scroll
+  // event that records the newly centered cue.
+  const fixture = page.locator('#test');
+  await fixture.evaluate((el) => {
+    el.dataset.holdReply = 'changes-100';
+  });
+  await expect(fixture).toHaveAttribute('data-held-reply', 'changes-100');
+  const rowTop = await row.evaluate((el) => {
+    el.scrollIntoView({ block: 'center' });
+    const top = el.getBoundingClientRect().top;
+    document
+      .querySelector('#test')!
+      .dispatchEvent(new Event('release-timing-reply'));
+    return top;
+  });
   const scroll = dock.locator('.scroll');
   const top = await scroll.evaluate((el) => el.scrollTop);
   expect(top).toBeGreaterThan(100);
-  const rowTop = await row.evaluate((el) => el.getBoundingClientRect().top);
-  await page.locator('#test').evaluate((el) => {
-    el.dataset.startDelay = '650';
+  // A completed read of the same page must not undo the user's scroll.
+  expect(Math.abs((await row.boundingBox())!.y - rowTop)).toBeLessThanOrEqual(
+    1,
+  );
+  await fixture.evaluate((el) => {
+    el.dataset.holdReply = 'start';
   });
   await row.uncheck();
   const busy = dock.locator('.results[aria-busy="true"]');
@@ -209,6 +226,8 @@ test('deep toggle keeps its page and scroll through the updating view', async ({
   const dir = process.env.VSF_TIMING_PRECISION_SCREENSHOTS;
   if (dir && info.project.name === 'chromium')
     await dock.screenshot({ path: path.join(dir, 'mid-list-updating.png') });
+  await expect(fixture).toHaveAttribute('data-held-reply', 'start');
+  await fixture.dispatchEvent('release-timing-reply');
   await expect(row).toBeEnabled();
   await expect(row).not.toBeChecked();
   await expect(row).toBeInViewport();
