@@ -3,6 +3,7 @@ import {
   cueFixesStart,
   cueFixesView,
   cueFixesCancel,
+  type CueFixOrigin,
   type CueFixesView,
   type DocumentSnapshot,
 } from '../client';
@@ -32,6 +33,7 @@ export class CueFixes {
   private input: Input | null = null;
   private id: number | null = null;
   private pending = false;
+  private origin: CueFixOrigin = 'automatic';
   private timer: ReturnType<typeof setTimeout> | null = null;
   constructor(
     private read: () => Input | null,
@@ -58,6 +60,7 @@ export class CueFixes {
       : '';
     if (identity === this.identity) return;
     this.identity = identity;
+    this.origin = 'automatic';
     this.input = input;
     ++this.sequence;
     this.clearTimer();
@@ -90,6 +93,7 @@ export class CueFixes {
           input.session,
           input.document,
           input.cueId,
+          this.origin,
         );
         if (!this.alive || sequence !== this.sequence) {
           await this.client.cancel(id).catch(() => {});
@@ -122,6 +126,7 @@ export class CueFixes {
     this.view = null;
     this.error = '';
     this.preparing = true;
+    this.origin = 'user';
     this.schedule(350);
   }
   get count() {

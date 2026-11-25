@@ -6,8 +6,16 @@ use crate::{
     quality_check::Key,
     timing_review::{self, Phase, Purpose},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Origin {
+    #[default]
+    Automatic,
+    User,
+}
+
 #[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct View {
@@ -27,6 +35,7 @@ pub(crate) async fn cue_fixes_start(
     generation: SafeU64,
     revision: SafeU64,
     cue_id: SafeU64,
+    origin: Option<Origin>,
 ) -> Result<SafeU64, String> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<crate::media::Media>()
@@ -41,6 +50,7 @@ pub(crate) async fn cue_fixes_start(
                         revision.get(),
                         scenes,
                         subtitle_core::CueId(cue_id.get()),
+                        origin.unwrap_or_default(),
                     )?
                     .try_into()?)
             })

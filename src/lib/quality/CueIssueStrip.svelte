@@ -116,7 +116,9 @@
         title="Apply safe fixes as one Undo step; never split a cue"
         >Fix {fixes.count}</button
       >
-    {:else if fixes.error}<button
+    {:else if fixes.error}<span class="fix-reason" title={fixes.error}
+        >{fixes.error}</span
+      ><button
         disabled={disabled || updating.showUpdating}
         onclick={() => fresh && fixes.retry()}
         title={fixes.error}>Retry fixes</button
@@ -145,6 +147,11 @@
 <style>
   .issue-strip[aria-busy='true'] {
     opacity: 0.65;
+  }
+  .fix-reason {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .spacer {
     flex: 1;

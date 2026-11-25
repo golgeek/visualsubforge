@@ -2,6 +2,7 @@
 //! publication share the document lock; evaluation and shutdown join do not.
 use super::*;
 use crate::batch_timing::{BatchRow, BatchView};
+use crate::cue_fixes::Origin;
 use crate::{
     quality_check::Key,
     scenes::{SceneCapture, SceneKey},
@@ -51,14 +52,14 @@ type StartResult<T> = std::result::Result<T, TimingStartError>;
 enum Operation {
     Fix(Input),
     Batch(batch::Request),
-    CueFixes(CueId),
+    CueFixes(CueId, Origin),
 }
 impl Operation {
     fn purpose(&self) -> Purpose {
         match self {
             Self::Fix(_) => Purpose::Fix,
             Self::Batch(_) => Purpose::Batch,
-            Self::CueFixes(_) => Purpose::CueFixes,
+            Self::CueFixes(..) => Purpose::CueFixes,
         }
     }
 }
@@ -257,7 +258,7 @@ impl Documents {
         let previous = store.timing_options.replace(value).unwrap_or_default();
         if let Some(job) = &mut store.timing_repairs.job
             && (matches!(&job.operation,Operation::Fix(input) if input.options!=value)
-                || matches!(job.operation, Operation::CueFixes(_)) && previous != value)
+                || matches!(job.operation, Operation::CueFixes(..)) && previous != value)
         {
             job.stale = true;
             job.cancel();
@@ -306,9 +307,16 @@ impl Documents {
         revision: u64,
         scenes: SceneCapture,
         cue: CueId,
+        origin: Origin,
     ) -> Result<u64> {
-        self.timing_repair_start(generation, revision, scenes, Operation::CueFixes(cue), None)
-            .map_err(|error| error.message)
+        self.timing_repair_start(
+            generation,
+            revision,
+            scenes,
+            Operation::CueFixes(cue, origin),
+            None,
+        )
+        .map_err(|error| error.message)
     }
     pub(crate) fn cue_fixes_view(&self, id: u64) -> Result<crate::cue_fixes::View> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
@@ -366,6 +374,17 @@ impl Documents {
         }
         // Reject busy admission before cloning another document snapshot.
         store.timing_repairs.ensure_idle()?;
+        // A completed worker still owns its review until it is accepted, retired or closed.
+        if matches!(operation, Operation::CueFixes(_, Origin::Automatic))
+            && store.timing_repairs.job.as_ref().is_some_and(|job| {
+                !matches!(job.operation, Operation::CueFixes(_, Origin::Automatic))
+                    && job.key == key
+                    && job.scenes == scenes.key
+                    && phase(job, false) == Phase::Reviewing
+            })
+        {
+            return Err("Finish the current timing review to preview cue fixes".into());
+        }
         let loaded = store.loaded.as_ref().ok_or("Open subtitles first")?;
         let document = loaded.editor.document().clone();
         let format = loaded.source().format();
@@ -395,7 +414,7 @@ impl Documents {
                 };
                 let original = selection.as_ref().map(|_| document.clone());
                 let proposal = match operation {
-                    Operation::CueFixes(cue) => engine::cue_fixes::propose(
+                    Operation::CueFixes(cue, _) => engine::cue_fixes::propose(
                         document,
                         context,
                         &scenes.data,

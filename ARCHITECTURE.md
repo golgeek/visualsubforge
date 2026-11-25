@@ -453,6 +453,11 @@ They include related-cue findings, group CPS/RS findings and sort violations fir
 The fixed-height strip renders three chips; overflow reveals the existing Issues
 dock without changing the preset. Meters and source-line counts use Rust projections.
 
+Rust checks the origin of a selected-cue preview under the document lock. A
+reviewable user proposal keeps the timing slot until acceptance, cancellation or
+invalidation. An automatic cue request yields with a reason in the cue strip.
+An explicit preview or Retry fixes may replace a ready review.
+
 Safe cue fixes reuse the existing single timing-proposal worker, cancellation,
 10-second deadline and media → scenes → document acceptance lock order. The pure
 application planner composes deterministic text and timing operations, keeps only

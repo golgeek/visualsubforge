@@ -100,6 +100,8 @@ let editCount = 0;
 let fixCount = 0;
 let rejectEdit = false;
 let fixId = 0;
+let timingReviewActive = false;
+const reviewInUse = 'Finish the current timing review to preview cue fixes';
 const plans = new Map<number, { cue: number; version: number }>();
 let selectedForChecks = 1;
 let menuState: Parameters<typeof updateMenu>[0] | undefined;
@@ -169,6 +171,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         handler?: number;
         event?: string;
         cueId?: number;
+        origin?: string;
         id?: number;
         revision?: number;
         generation?: number;
@@ -232,6 +235,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         }
         case 'cue_fixes_start': {
+          if (timingReviewActive && args.origin !== 'user') throw reviewInUse;
           const id = ++fixId;
           plans.set(id, { cue: args.cueId!, version: args.revision! });
           return id;
@@ -525,11 +529,33 @@ async function run() {
       'One, three and five issues keep fixed height; overflow lists all five groups in the cue dialog before opening Issues',
     );
 
+    stage = 'waiting for cue preview reason';
+    timingReviewActive = true;
+    await select(2);
+    await select(3);
+    await until(
+      () =>
+        host.querySelector('.fix-reason')?.textContent?.trim() === reviewInUse,
+    );
+    const strip = host.querySelector('.issue-strip')!;
+    assert(
+      strip.getBoundingClientRect().height === heights[0],
+      'A waiting cue fix shifted the issue strip',
+    );
+    assert(
+      !strip.querySelector('[role="alert"]') &&
+        !host.querySelector('.activity-slot.visible'),
+      'A background cue request announced activity',
+    );
+    stage = 'explicit cue preview retry';
+    await until(() => !button('Retry fixes').disabled);
+    button('Retry fixes').click();
     await until(() =>
       [...host.querySelectorAll('button')].some(
         (b) => b.textContent?.trim() === 'Fix 2',
       ),
     );
+    timingReviewActive = false;
     const before = structuredClone(snapshot);
     button('Fix 2').click();
     await until(() => fixCount === 1 && editor().value === 'Fixed\ntext');

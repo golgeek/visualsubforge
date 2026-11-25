@@ -111,12 +111,14 @@ export const commands = {
     generation: number,
     revision: number,
     cueId: number,
+    origin: 'automatic' | 'user' | null,
   ) =>
     __TAURI_INVOKE<number>('cue_fixes_start', {
       session,
       generation,
       revision,
       cueId,
+      origin,
     }),
   cueFixesView: (id: number) =>
     __TAURI_INVOKE<visualsubforge_cue_fixes_View>('cue_fixes_view', { id }),
@@ -2371,6 +2373,8 @@ export type visualsubforge_project_Options_Serialize = {
   timing: visualsubforge_timing_preset_Settings;
   quality: vsf_application_quality_profile_Profile_Serialize | null;
 };
+
+export type visualsubforge_cue_fixes_Origin = 'automatic' | 'user';
 
 export type visualsubforge_updates_Outcome =
   | { kind: 'quiet' }

@@ -681,16 +681,21 @@ export function batchTimingAccept(id: number): Promise<DocumentSnapshot> {
 }
 
 export type CueFixesView = Awaited<ReturnType<typeof commands.cueFixesView>>;
+export type CueFixOrigin = NonNullable<
+  Parameters<typeof commands.cueFixesStart>[4]
+>;
 export function cueFixesStart(
   session: number,
   document: DocumentSnapshot,
   cueId: number,
+  origin: CueFixOrigin,
 ) {
   return commands.cueFixesStart(
     session,
     document.generation,
     document.revision,
     cueId,
+    origin,
   );
 }
 export function cueFixesView(id: number) {
