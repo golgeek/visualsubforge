@@ -449,6 +449,20 @@ export function resyncAccept(id: number): Promise<DocumentSnapshot> {
 export type ReviewSelection = NonNullable<
   Parameters<typeof commands.batchTimingStart>[4]
 >;
+type TimingStartError =
+  IPC.visualsubforge_document_timing_repairs_TimingStartError;
+export function timingStartError(value: unknown): TimingStartError | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const error = value as Partial<TimingStartError>;
+  if (
+    typeof error.message === 'string' &&
+    (error.kind === 'workerBusy' ||
+      error.kind === 'policyChanged' ||
+      error.kind === 'rejected')
+  )
+    return { kind: error.kind, message: error.message };
+  return null;
+}
 export function timingFixStart(
   session: number,
   document: Pick<DocumentSnapshot, 'generation' | 'revision'>,

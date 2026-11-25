@@ -96,6 +96,32 @@ for (const control of ['Include cue 34', 'Gaps and overlaps', 'Keep spacing']) {
   );
 }
 
+for (const kind of ['workerBusy', 'policyChanged', 'rejected'] as const) {
+  test('timing admission follows the Rust kind: ' + kind, async ({ page }) => {
+    const dock = await open(page);
+    const message =
+      kind === 'rejected'
+        ? 'Timing policy changed before preview; try again'
+        : 'Different wording for a temporary refusal';
+    const host = page.locator('#test');
+    await host.evaluate(
+      (el, error) => {
+        el.dataset.nextStartError = JSON.stringify(error);
+      },
+      { kind, message },
+    );
+    await dock.getByRole('checkbox', { name: /Gaps and overlaps/ }).uncheck();
+    await expect(host).not.toHaveAttribute('data-next-start-error', /./);
+    if (kind === 'rejected') {
+      await expect(dock.getByRole('alert')).toHaveText(message);
+      await expect(dock.locator('.apply')).toBeDisabled();
+    } else {
+      await expect(dock.locator('.apply')).toBeEnabled();
+      await expect(dock.getByRole('alert')).toHaveCount(0);
+    }
+  });
+}
+
 test('a failed preview stays visible until Retry succeeds', async ({
   page,
 }) => {

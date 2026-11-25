@@ -370,7 +370,9 @@ superseded reads. Shift debounces inputs for 250 ms. Both compare semantic keys
 so unrelated playback updates cannot starve admission. Fix retains a display-only
 page and viewport projection across revisions within a document generation, media
 session and review context. The shared settle timer controls their updating style.
-Only the current capture and Rust proposal can admit Apply. Pure read-only admission retries stop after three attempts; mutations
+Only the current capture and Rust proposal can admit Apply. The retained timing review retries a start only when Rust reports a busy worker or changed timing policy
+through the generated IPC error kind. Other refusals display their message immediately.
+Read-only admission retries stop after three attempts; mutations
 are never retried. The capture is reactive and accepted snapshots remain immutable.
 Switching away from Timing disposes its worker. On return, the semantic key
 (document generation/revision, media session, scope IDs, quality/scene context,

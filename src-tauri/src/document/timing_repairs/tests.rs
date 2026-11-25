@@ -193,7 +193,7 @@ fn failed_saves_and_recovery_resync_protection_survive_acceptance_and_undo() {
     assert!(docs.apply(Action::Undo, 1, 1).unwrap().requires_save_as);
 }
 #[test]
-fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock() {
+fn timing_start_reports_worker_busy_until_the_cancelled_worker_finishes() {
     let (_dir, docs, scenes) = fixture();
     let (entered, started) = mpsc::channel();
     let (release, wait) = mpsc::channel();
@@ -217,17 +217,21 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
             .unwrap()
     };
     let cancel = started.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert!(
-        docs.timing_fix_start(
+    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
+    assert!(cancel.load(Ordering::Relaxed));
+    let refusal = docs
+        .timing_fix_start(
             1,
             0,
             scenes.capture_quality(7, true).unwrap(),
-            Input::preset(false, false, true)
+            Input::preset(false, false, true),
         )
-        .is_err()
+        .unwrap_err();
+    assert_eq!(refusal.kind, TimingStartKind::WorkerBusy);
+    assert_eq!(
+        refusal.message,
+        "Wait for the current timing proposal to finish cancelling"
     );
-    docs.timing_repair_cancel(id, Purpose::Fix).unwrap();
-    assert!(cancel.load(Ordering::Relaxed));
     release.send(()).unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
     while docs.timing_fix_view(id, 0, 100).unwrap().phase == Phase::Cancelling {
@@ -242,6 +246,10 @@ fn cancelling_failure_retry_and_shutdown_keep_one_worker_and_join_outside_lock()
         docs.timing_fix_view(next, 0, 100).unwrap().phase,
         Phase::Reviewing
     );
+}
+#[test]
+fn shutdown_joins_the_timing_worker_outside_the_lock() {
+    let (_dir, docs, scenes) = fixture();
     let clone = docs.clone();
     let (entered, started) = mpsc::channel();
     {
@@ -412,18 +420,32 @@ fn changing_saved_policy_retires_ready_fix() {
         ..Default::default()
     })
     .unwrap();
+    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
+    assert_eq!(docs.apply(Action::Status, 0, 0).unwrap().revision, 0);
+}
+
+#[test]
+fn timing_start_reports_policy_changed_when_the_request_uses_old_options() {
+    let (_dir, docs, scenes) = fixture();
+    docs.set_timing_options(timing_fix::Options {
+        start_tolerance_ms: 120,
+        ..Default::default()
+    })
+    .unwrap();
     let doc = docs.apply(Action::Status, 0, 0).unwrap();
-    assert!(
-        docs.timing_fix_start(
+    let refusal = docs
+        .timing_fix_start(
             doc.generation,
             doc.revision,
             scenes.capture_quality(7, true).unwrap(),
-            Input::preset(false, false, true)
+            Input::preset(false, false, true),
         )
-        .is_err()
+        .unwrap_err();
+    assert_eq!(refusal.kind, TimingStartKind::PolicyChanged);
+    assert_eq!(
+        refusal.message,
+        "Timing policy changed before preview; try again"
     );
-    assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
-    assert_eq!(docs.apply(Action::Status, 0, 0).unwrap().revision, 0);
 }
 
 #[test]

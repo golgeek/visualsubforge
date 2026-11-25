@@ -16,6 +16,37 @@ use std::{
 use vsf_application::batch_timing as batch;
 use vsf_application::quality::{self as engine, Profile, timing_fix, timing_selection};
 
+#[derive(Debug, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum TimingStartKind {
+    WorkerBusy,
+    PolicyChanged,
+    Rejected,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+pub(crate) struct TimingStartError {
+    kind: TimingStartKind,
+    pub(crate) message: String,
+}
+
+impl From<String> for TimingStartError {
+    fn from(message: String) -> Self {
+        Self {
+            kind: TimingStartKind::Rejected,
+            message,
+        }
+    }
+}
+
+impl From<&str> for TimingStartError {
+    fn from(message: &str) -> Self {
+        message.to_owned().into()
+    }
+}
+
+type StartResult<T> = std::result::Result<T, TimingStartError>;
+
 #[derive(Clone)]
 enum Operation {
     Fix(Input),
@@ -138,7 +169,7 @@ impl State {
             job.cancel();
         }
     }
-    fn ensure_idle(&mut self) -> Result<()> {
+    fn ensure_idle(&mut self) -> StartResult<()> {
         if let Some(job) = &mut self.job {
             job.refresh();
         }
@@ -146,7 +177,10 @@ impl State {
             return Err("Timing preview is shutting down".into());
         }
         if self.job.as_ref().is_some_and(|j| j.worker.is_some()) {
-            return Err("Wait for the current timing proposal to finish cancelling".into());
+            return Err(TimingStartError {
+                kind: TimingStartKind::WorkerBusy,
+                message: "Wait for the current timing proposal to finish cancelling".into(),
+            });
         }
         Ok(())
     }
@@ -157,7 +191,7 @@ impl State {
         operation: Operation,
         profile: Profile,
         run: impl FnOnce(Arc<AtomicBool>) -> Result<Prepared> + Send + 'static,
-    ) -> Result<u64> {
+    ) -> StartResult<u64> {
         self.ensure_idle()?;
         let id = self
             .next_id
@@ -221,7 +255,7 @@ impl Documents {
         revision: u64,
         scenes: SceneCapture,
         input: Input,
-    ) -> Result<u64> {
+    ) -> StartResult<u64> {
         self.timing_repair_start(generation, revision, scenes, Operation::Fix(input), None)
     }
     #[cfg(test)]
@@ -231,7 +265,7 @@ impl Documents {
         revision: u64,
         scenes: SceneCapture,
         request: batch::Request,
-    ) -> Result<u64> {
+    ) -> StartResult<u64> {
         self.batch_timing_start_selected(generation, revision, scenes, request, None)
     }
     pub(crate) fn batch_timing_start_selected(
@@ -241,7 +275,7 @@ impl Documents {
         scenes: SceneCapture,
         request: batch::Request,
         selection: Option<timing_selection::Selection>,
-    ) -> Result<u64> {
+    ) -> StartResult<u64> {
         self.timing_repair_start(
             generation,
             revision,
@@ -258,6 +292,7 @@ impl Documents {
         cue: CueId,
     ) -> Result<u64> {
         self.timing_repair_start(generation, revision, scenes, Operation::CueFixes(cue), None)
+            .map_err(|error| error.message)
     }
     pub(crate) fn cue_fixes_view(&self, id: u64) -> Result<crate::cue_fixes::View> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
@@ -297,7 +332,7 @@ impl Documents {
         scenes: SceneCapture,
         operation: Operation,
         selection: Option<timing_selection::Selection>,
-    ) -> Result<u64> {
+    ) -> StartResult<u64> {
         let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
         let key = store.quality_key()?;
         if !key.loaded || key.generation.get() != generation || key.revision.get() != revision {
@@ -308,7 +343,10 @@ impl Documents {
                 .timing_options
                 .is_some_and(|saved| input.options != saved)
         {
-            return Err("Timing policy changed before preview; try again".into());
+            return Err(TimingStartError {
+                kind: TimingStartKind::PolicyChanged,
+                message: "Timing policy changed before preview; try again".into(),
+            });
         }
         // Reject busy admission before cloning another document snapshot.
         store.timing_repairs.ensure_idle()?;
