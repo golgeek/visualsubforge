@@ -145,11 +145,12 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     };
     let item = |id: &str| {
         let action = description(id)?;
-        let builder = MenuItemBuilder::with_id(id, &action.label);
-        let builder = if action.shortcut.is_empty() {
-            builder
+        let (label, key) = shortcuts::native_binding(&action.label, Some(&action.shortcut));
+        let builder = MenuItemBuilder::with_id(id, label);
+        let builder = if let Some(key) = key {
+            builder.accelerator(key)
         } else {
-            builder.accelerator(&action.shortcut)
+            builder
         };
         builder.build(app)
     };
@@ -213,11 +214,12 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                 continue;
             }
             if checked_ids.contains(&id.as_str()) {
-                let check = CheckMenuItemBuilder::with_id(id, &action.label);
-                let check = if action.shortcut.is_empty() {
-                    check
+                let (label, key) = shortcuts::native_binding(&action.label, Some(&action.shortcut));
+                let check = CheckMenuItemBuilder::with_id(id, label);
+                let check = if let Some(key) = key {
+                    check.accelerator(key)
                 } else {
-                    check.accelerator(&action.shortcut)
+                    check
                 };
                 group = group.item(&check.build(app)?);
             } else {
