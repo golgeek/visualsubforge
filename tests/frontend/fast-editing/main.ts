@@ -664,6 +664,11 @@ async function run() {
     passed(
       'Follow can be disabled and resumed independently after held timing',
     );
+    loop.click();
+    await until(
+      () => loop.getAttribute('aria-pressed') === 'true' && !loop.disabled,
+    );
+    const sentLoops = loops.length;
     // Drag outwards from the left viewport edge. Both ends clamp to its start.
     for (const [type, x] of [
       ['pointerdown', rect.left],
@@ -682,6 +687,16 @@ async function run() {
       );
       await tick();
     }
+    assert(
+      loops.length === sentLoops,
+      'The collapsed range was sent to the player',
+    );
+    assert(
+      !loop.disabled && loop.getAttribute('aria-pressed') === 'true',
+      'An active loop must remain clearable',
+    );
+    loop.click();
+    await until(() => loop.getAttribute('aria-pressed') === 'false');
     assert(loop.disabled, 'A collapsed selection still enables Loop range');
     passed('A zero-length selection cannot start a playback loop');
     heading.textContent = 'PASS: all 24 fast-editing checks';

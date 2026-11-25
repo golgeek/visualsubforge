@@ -129,7 +129,8 @@ export class TimelineView {
   selectRange(next: [number, number]) {
     if (!this.alive) return;
     this.range = next;
-    this.effects.selectRange(this.effects.status().session, next);
+    if (this.hasRange)
+      this.effects.selectRange(this.effects.status().session, next);
   }
   invalidateTrack() {
     this.waveKey = '';
