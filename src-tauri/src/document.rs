@@ -9,10 +9,12 @@ use std::{
 };
 use subtitle_core::{CueId, Edit, Editor, Milliseconds, TextCommit, TextEditSession};
 use subtitle_formats::{Source, srt};
+use vsf_application::subtitle_operations::GroupOperation;
 
 mod autosave;
 mod checks;
 pub(crate) mod extraction;
+pub(crate) mod group_actions;
 mod plugins;
 #[cfg(test)]
 pub(crate) use plugins::ipc_samples as plugin_ipc_samples;
@@ -282,6 +284,19 @@ impl Loaded {
             )
             .map(|_| ())
             .map_err(String::from)
+    }
+    fn apply_group(
+        &mut self,
+        revision: u64,
+        operation: GroupOperation,
+        ids: Vec<crate::ipc_number::SafeU64>,
+    ) -> Result<()> {
+        let edit = operation.edit(
+            self.editor.document(),
+            self.source(),
+            ids.into_iter().map(|id| CueId(id.get())).collect(),
+        )?;
+        self.apply_edit(revision, edit)
     }
     fn apply_cue_edit(&mut self, revision: u64, edit: Edit, session: Option<String>) -> Result<()> {
         let Some(session) = session else {
@@ -593,22 +608,16 @@ impl Store {
                 }
             }
             Action::DeleteMany { ids } => {
-                self.loaded_mut()?.apply_edit(
-                    revision,
-                    Edit::DeleteMany {
-                        ids: ids.into_iter().map(|id| CueId(id.get())).collect(),
-                    },
-                )?;
+                self.loaded_mut()?
+                    .apply_group(revision, GroupOperation::Delete, ids)?
             }
             Action::MergeRun { ids, dialogue } => {
-                let loaded = self.loaded_mut()?;
-                let edit = vsf_application::subtitle_operations::merge_run(
-                    loaded.editor.document(),
-                    ids.into_iter().map(|id| CueId(id.get())).collect(),
-                    loaded.source().format(),
-                    dialogue,
-                )?;
-                loaded.apply_edit(revision, edit)?;
+                let operation = if dialogue {
+                    GroupOperation::Dialogue
+                } else {
+                    GroupOperation::Merge
+                };
+                self.loaded_mut()?.apply_group(revision, operation, ids)?;
             }
             Action::Delete { cue_id } => {
                 self.loaded_mut()?

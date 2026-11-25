@@ -83,8 +83,9 @@ For a group, Merge needs consecutive cues in file order, including cues hidden b
 filters. Delete accepts a discontinuous selection. Each operation takes one Undo
 step. A merge keeps the first cue’s ID, the earliest start and the latest end.
 The cues must have compatible metadata and pass the source format’s merge checks.
+The group menu shows the format’s reason beside each unavailable action.
 
-**Merge as Dialog** joins two adjacent cues into two speaker lines. It flattens
+**Merge as Dialog** joins two adjacent cues into two speaker lines. Each cue needs visible text after formatting. It flattens
 line breaks within each side and keeps existing hyphens and en/em dashes.
 ASS/SSA retain leading overrides before each speaker prefix and use `\N{\r}`
 between the two sides.

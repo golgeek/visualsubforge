@@ -171,6 +171,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         cueId?: number;
         id?: number;
         revision?: number;
+        generation?: number;
+        ids?: number[];
       },
     ) {
       switch (command) {
@@ -277,6 +279,33 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 
           if (action.kind === 'seek') media.positionSeconds = action.seconds;
           return structuredClone(media);
+        }
+        case 'cue_group_actions': {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          assert(
+            args.generation === snapshot.generation &&
+              args.revision === snapshot.revision,
+            'Group query used stale version',
+          );
+          const scenario = new URLSearchParams(location.search).get(
+            'groupReply',
+          );
+          if (scenario === 'failure')
+            throw new Error('Cannot read accepted cue selection');
+          const reason =
+            scenario === 'webvtt'
+              ? 'WebVTT merge would change markup scope; close optional voice tags before merging these cues'
+              : null;
+          const empty = snapshot.cues.some(
+            (cue) => args.ids?.includes(cue.id) && !cue.text,
+          );
+          return {
+            mergeRun: reason,
+            mergeAsDialog:
+              reason ??
+              (empty ? 'Merge as dialog needs text in both cues' : null),
+            deleteMany: null,
+          };
         }
         case 'document_action': {
           const action = args.action as DocumentAction;

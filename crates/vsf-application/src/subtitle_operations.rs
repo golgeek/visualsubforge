@@ -77,8 +77,11 @@ pub fn merge_separator(format: subtitle_formats::Format) -> &'static str {
     }
 }
 
-fn dialogue_side(text: &str, format: subtitle_formats::Format) -> String {
+fn dialogue_side(text: &str, format: subtitle_formats::Format) -> Result<String> {
     let projection = Projection::for_format(text, format);
+    if projection.visible.trim().is_empty() {
+        return Err("Merge as dialog needs text in both cues".into());
+    }
     let mut result = String::with_capacity(text.len() + 2);
     let prefix_end = if projection.ass_document {
         projection
@@ -101,7 +104,7 @@ fn dialogue_side(text: &str, format: subtitle_formats::Format) -> String {
         }
     }
     result.push_str(&text[copied..]);
-    result
+    Ok(result)
 }
 
 /// Validates the same document-order pairs as the desktop two-cue operation.
@@ -115,7 +118,16 @@ pub fn merge_run(
     if dialogue && ids.len() != 2 {
         return Err("Merge as dialog needs exactly two cues".into());
     }
-    let cues = &document.cues()[document.merge_range(&ids)?];
+    let range = document.merge_range(&ids).map_err(|error| {
+        if let subtitle_core::Error::NonAdjacentMerge { first, second } = error {
+            let position = |id| document.cues().iter().position(|c| c.id() == id);
+            if let (Some(a), Some(b)) = (position(first), position(second)) {
+                return format!("Cues {} and {} are not adjacent", a + 1, b + 1);
+            }
+        }
+        error.to_string()
+    })?;
+    let cues = &document.cues()[range];
     for pair in cues.windows(2) {
         validate_merge(&pair[0], &pair[1], format)?;
     }
@@ -123,7 +135,7 @@ pub fn merge_run(
     let text = if dialogue {
         cues.iter()
             .map(|c| dialogue_side(c.text(), format))
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>>>()?
             .join(separator)
     } else {
         let mut joined = String::new();
@@ -147,6 +159,65 @@ pub fn merge_run(
         joined
     };
     Ok(subtitle_core::Edit::MergeRun { ids, text })
+}
+
+#[derive(Clone, Copy)]
+pub enum GroupOperation {
+    Merge,
+    Dialogue,
+    Delete,
+}
+
+impl GroupOperation {
+    pub fn edit(
+        self,
+        doc: &subtitle_core::Document,
+        source: &subtitle_formats::Source,
+        ids: Vec<subtitle_core::CueId>,
+    ) -> Result<subtitle_core::Edit> {
+        match self {
+            Self::Merge | Self::Dialogue => {
+                merge_run(doc, ids, source.format(), matches!(self, Self::Dialogue))
+            }
+            Self::Delete => Ok(subtitle_core::Edit::DeleteMany { ids }),
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct GroupActions {
+    pub merge_run: Option<String>,
+    pub merge_as_dialog: Option<String>,
+    pub delete_many: Option<String>,
+}
+
+/// Try the real edits and serializer on a private document, without importing
+/// accepted history or allocating a frontend snapshot. None means available.
+pub fn group_actions(
+    doc: &subtitle_core::Document,
+    source: &subtitle_formats::Source,
+    ids: &[subtitle_core::CueId],
+) -> GroupActions {
+    let reason = |operation: GroupOperation| {
+        operation
+            .edit(doc, source, ids.to_vec())
+            .and_then(|edit| {
+                subtitle_core::Editor::new(doc.clone())
+                    .apply_edit(0, edit, |candidate| {
+                        crate::subtitle_file::validate_document(candidate, source)
+                    })
+                    .map(|_| ())
+                    .map_err(String::from)
+            })
+            .err()
+    };
+    GroupActions {
+        merge_run: reason(GroupOperation::Merge),
+        merge_as_dialog: reason(GroupOperation::Dialogue),
+        delete_many: reason(GroupOperation::Delete),
+    }
 }
 
 #[cfg(test)]
@@ -200,13 +271,38 @@ mod tests {
                 "- Already\nmarked",
                 "- Hello\n- Already marked",
             ),
-            (Format::Srt, "", "", "- \n- "),
         ] {
             let mut editor = Editor::new(document(&[left, right], format));
             let edit =
                 merge_run(editor.document(), vec![CueId(1), CueId(2)], format, true).unwrap();
             editor.apply_edit(0, edit, |_| Ok(())).unwrap();
             assert_eq!(editor.document().cues()[0].text(), expected);
+        }
+    }
+
+    #[test]
+    fn dialogue_needs_visible_text_in_both_cues() {
+        for (format, left, right) in [
+            (Format::Srt, "", ""),
+            (Format::Srt, "", "B"),
+            (Format::Srt, "A", " "),
+            (Format::Ass, r"{\i1}{\b0}", "B"),
+            (Format::Ssa, "A", r"{\i1}\N\h"),
+            (Format::WebVtt, "<i>&nbsp;</i>", "B"),
+        ] {
+            let result = merge_run(
+                &document(&[left, right], format),
+                vec![CueId(1), CueId(2)],
+                format,
+                true,
+            );
+            assert_eq!(
+                result
+                    .err()
+                    .expect("empty speaker was accepted")
+                    .to_string(),
+                "Merge as dialog needs text in both cues"
+            );
         }
     }
 

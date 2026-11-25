@@ -199,7 +199,11 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
     unregisterCallback: () => {},
     invoke: async (
       command: string,
-      args: { action?: DocumentAction; request?: QualityRequest },
+      args: {
+        action?: DocumentAction;
+        request?: QualityRequest;
+        ids?: number[];
+      },
     ) => {
       switch (command) {
         case 'recent_list':
@@ -263,6 +267,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             await heldRead;
           }
           return view;
+        }
+        case 'cue_group_actions': {
+          const reason =
+            args.ids?.join(',') === '1,10'
+              ? 'Cues 1 and 10 are not adjacent'
+              : null;
+          return { mergeRun: reason, mergeAsDialog: reason, deleteMany: null };
         }
         case 'document_action': {
           const action = args.action!;

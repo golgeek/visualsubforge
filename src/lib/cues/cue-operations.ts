@@ -116,39 +116,37 @@ export function operationSelection(
 
 export type GroupOperation = 'mergeRun' | 'mergeAsDialog' | 'deleteMany';
 
+// Selection order is transient. Rust takes IDs in document order for both the
+// availability read and the revision-guarded command.
+export function orderedGroupIds(
+  ids: readonly number[],
+  cues: readonly Cue[],
+): number[] {
+  const selected = new Set(ids);
+  const ordered = cues
+    .filter((cue) => selected.has(cue.id))
+    .map((cue) => cue.id);
+  if (ordered.length !== ids.length)
+    throw new Error('The selected cues changed');
+  return ordered;
+}
+
 export function planGroupOperation(
   operation: GroupOperation,
   ids: readonly number[],
   cues: readonly Cue[],
 ): CueOperationPlan {
-  if (operation === 'mergeAsDialog' && ids.length !== 2)
-    throw new Error('Merge as dialog needs exactly two cues');
-  if (ids.length < 2) throw new Error('Select at least two cues');
-  const selected = new Set(ids);
-  const indices: number[] = [];
-  for (const [index, cue] of cues.entries())
-    if (selected.has(cue.id)) indices.push(index);
-  if (indices.length !== ids.length)
-    throw new Error('The selected cues changed');
-  const first = indices[0]!;
-  const ordered = indices.map((index) => cues[index]!.id);
+  const ordered = orderedGroupIds(ids, cues);
+  const first = ordered[0];
+  if (first === undefined) throw new Error('Select cues first');
   if (operation === 'deleteMany') {
-    const next = cues.slice(first).find((cue) => !selected.has(cue.id));
+    const selected = new Set(ordered);
+    const index = cues.findIndex((cue) => cue.id === first);
+    const next = cues.slice(index).find((cue) => !selected.has(cue.id));
     return {
       action: { kind: 'deleteMany', ids: ordered },
-      selection: next?.id ?? cues[first - 1]?.id ?? null,
+      selection: next?.id ?? cues[index - 1]?.id ?? null,
     };
-  }
-  for (let i = 1; i < indices.length; i++) {
-    const before = indices[i - 1]!,
-      after = indices[i]!;
-    if (after !== before + 1)
-      throw new Error(`Cues ${before + 1} and ${after + 1} are not adjacent`);
-    if (
-      cues[before]!.style !== cues[after]!.style ||
-      cues[before]!.actor !== cues[after]!.actor
-    )
-      throw new Error('Merge requires matching cue style and actor');
   }
   return {
     action: {
@@ -156,19 +154,6 @@ export function planGroupOperation(
       ids: ordered,
       dialogue: operation === 'mergeAsDialog',
     },
-    selection: ordered[0]!,
+    selection: first,
   };
-}
-
-export function groupOperationReason(
-  operation: GroupOperation,
-  ids: readonly number[],
-  cues: readonly Cue[],
-): string | null {
-  try {
-    planGroupOperation(operation, ids, cues);
-    return null;
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
 }

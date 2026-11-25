@@ -102,3 +102,62 @@ test('right-clicking a selected run commits the draft before the group command',
     }),
   );
 });
+
+test('an empty speaker disables dialogue with its reason and still permits plain merge', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/cue-editor/?groupMenu');
+  const first = page.locator('[data-cue-id="1"]');
+  await first.click();
+  await page.getByLabel('Subtitle text', { exact: true }).fill('');
+  await page.locator('[data-cue-id="2"]').click({ modifiers: ['Shift'] });
+  await first.click({ button: 'right' });
+  const menu = page.getByRole('menu', { name: 'Subtitle actions' });
+  await expect(
+    menu.getByRole('menuitem', { name: 'Merge as dialog', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    menu.getByText('Merge as dialog needs text in both cues'),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: 'Merge', exact: true }),
+  ).toBeEnabled();
+  await expect(page.locator('#test')).toHaveAttribute(
+    'data-dialogue-enabled',
+    'false',
+  );
+});
+
+test('the menu shows a format refusal returned by Rust', async ({ page }) => {
+  await page.goto('/tests/frontend/cue-editor/?groupMenu&groupReply=webvtt');
+  const first = page.locator('[data-cue-id="1"]');
+  await first.click();
+  await page.locator('[data-cue-id="2"]').click({ modifiers: ['Shift'] });
+  await first.click({ button: 'right' });
+  const menu = page.getByRole('menu', { name: 'Subtitle actions' });
+  await expect(
+    menu.getByRole('menuitem', { name: 'Merge', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    menu.getByText(/WebVTT merge would change markup scope/).first(),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: 'Delete 2 cues' }),
+  ).toBeEnabled();
+});
+
+test('a failed group read leaves the menu closed and shows the error', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/cue-editor/?groupMenu&groupReply=failure');
+  const first = page.locator('[data-cue-id="1"]');
+  await first.click();
+  await page.locator('[data-cue-id="2"]').click({ modifiers: ['Shift'] });
+  await first.click({ button: 'right' });
+  await expect(page.locator('footer')).toContainText(
+    'Cannot read accepted cue selection',
+  );
+  await expect(
+    page.getByRole('menu', { name: 'Subtitle actions' }),
+  ).toHaveCount(0);
+});

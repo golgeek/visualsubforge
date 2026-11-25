@@ -1,3 +1,4 @@
+import { cueGroupActions, type CueGroupActions } from '../client';
 import type { CueNavigation } from './cue-navigation.svelte';
 import { HideVideo, type HideVideoEffects } from '../dialogs/hide-video.svelte';
 import type { Workspace } from '../workspace/workspace.svelte';
@@ -8,7 +9,7 @@ import type { TimingGesture } from '../timing/timing-gesture.svelte';
 import { commitCueGroup } from './cue-actions';
 import {
   planCueOperation,
-  groupOperationReason,
+  orderedGroupIds,
   type CueOperation,
 } from './cue-operations';
 
@@ -17,6 +18,7 @@ interface MenuContext {
   y: number;
   cueId: number | null;
   tableIds: number[] | null;
+  group: CueGroupActions | null;
   range: [number, number] | null;
   generation: number;
   revision: number;
@@ -50,7 +52,8 @@ export class CueMenu {
     const menu = this.context;
     if (!menu) return [];
     const ids = menu.tableIds;
-    if (ids && ids.length > 1) {
+    const group = menu.group;
+    if (ids && group) {
       return (
         [
           ['mergeRun', 'Merge'],
@@ -60,7 +63,7 @@ export class CueMenu {
       ).map(([id, label]) => ({
         id,
         label,
-        reason: groupOperationReason(id, ids, this.subtitles.snapshot.cues),
+        reason: group[id],
       }));
     }
     const items: { id: string; label: string; reason?: string | null }[] = [];
@@ -101,6 +104,7 @@ export class CueMenu {
     row?: HTMLButtonElement,
   ) {
     if (
+      this.committing ||
       !this.workspace.canAct ||
       (cueId === null && !inRange) ||
       this.video.disposed
@@ -118,6 +122,7 @@ export class CueMenu {
     const returnFocus = row
       ? () => row.focus({ preventScroll: true })
       : this.effects.captureFocus();
+    let attemptedHide = false;
     try {
       if (tableIds && cueId !== null) {
         this.committing = true;
@@ -134,6 +139,7 @@ export class CueMenu {
           this.subtitles.select(cueId);
       }
       const candidate: MenuContext = {
+        group: null,
         x,
         y,
         cueId,
@@ -143,15 +149,48 @@ export class CueMenu {
         revision: this.subtitles.snapshot.revision,
         session,
       };
+      const verify = () => {
+        const current = this.subtitles.snapshot;
+        if (
+          candidate.generation !== current.generation ||
+          candidate.revision !== current.revision ||
+          session !== this.media.status.session
+        )
+          throw new Error(
+            'The document or media changed; open the menu again.',
+          );
+      };
+      if (tableIds && tableIds.length > 1) {
+        candidate.group = await cueGroupActions(
+          candidate,
+          orderedGroupIds(tableIds, this.subtitles.snapshot.cues),
+        );
+        if (this.video.disposed) return;
+        verify();
+      }
       this.returnFocus = returnFocus;
+      attemptedHide = true;
       await this.video.open(
         () => {
+          verify();
           this.context = candidate;
         },
         { replace: true },
       );
     } catch (error) {
-      if (!this.video.disposed) this.workspace.error = String(error);
+      if (!this.video.disposed) {
+        this.workspace.error = String(error);
+        await this.video.close({
+          hide: () => {
+            this.context = null;
+            this.returnFocus = null;
+          },
+          restoreWhenIdle: attemptedHide,
+          failed: (restoreError) => {
+            this.workspace.error = String(error) + ' · ' + String(restoreError);
+          },
+        });
+      }
     } finally {
       this.committing = false;
     }

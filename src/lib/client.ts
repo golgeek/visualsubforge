@@ -31,6 +31,13 @@ function documentFailure(value: unknown): unknown {
   return value;
 }
 export type DocumentSnapshot = IPC.visualsubforge_document_Snapshot_Serialize;
+export type CueGroupActions = Awaited<
+  ReturnType<typeof commands.cueGroupActions>
+>;
+export const cueGroupActions = (
+  document: Pick<DocumentSnapshot, 'generation' | 'revision'>,
+  ids: number[],
+) => commands.cueGroupActions(document.generation, document.revision, ids);
 export type Cue = IPC.visualsubforge_document_CueView_Serialize;
 export type RecoveryStatus =
   IPC.visualsubforge_document_RecoveryStatus_Serialize;

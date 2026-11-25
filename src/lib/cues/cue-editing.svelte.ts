@@ -1,10 +1,11 @@
+import { cueGroupActions } from '../client';
 import type { DocumentSession } from '../document/document-session.svelte';
 import type { MediaSession } from '../media/media-session.svelte';
 import type { TimelineView } from '../timeline/timeline-view.svelte';
 import {
   cueOperationLabels,
   planCueOperation,
-  groupOperationReason,
+  orderedGroupIds,
   type CueOperation,
 } from './cue-operations';
 export const AUTOCOMMIT_DELAY_MS = 700;
@@ -28,6 +29,24 @@ export class CueEditing {
       leaveEditor: () => void;
     },
   ) {
+    $effect(() => {
+      const target = this.dialogueTarget;
+      if (!target) return;
+      let current = true;
+      void cueGroupActions(target, target.ids).then(
+        (actions) => {
+          if (current && this.alive)
+            this.dialogueReply = { target, reason: actions.mergeAsDialog };
+        },
+        (error: unknown) => {
+          if (current && this.alive)
+            this.dialogueReply = { target, reason: String(error) };
+        },
+      );
+      return () => {
+        current = false;
+      };
+    });
     subtitles.connectCommitSession(() => this.textSession);
     $effect(() => {
       const signature = JSON.stringify([
@@ -152,16 +171,23 @@ export class CueEditing {
       range: this.timeline.range,
     };
   });
-  dialogueReason = $derived.by(() => {
-    const ids = this.subtitles.selectedIds;
-    return ids.size === 2
-      ? groupOperationReason(
-          'mergeAsDialog',
-          [...ids],
-          this.subtitles.snapshot.cues,
-        )
-      : 'Select two adjacent cues';
+  private dialogueTarget = $derived.by(() => {
+    const selected = this.subtitles.selectedIds;
+    if (selected.size !== 2) return null;
+    const { generation, revision, cues } = this.subtitles.snapshot;
+    return { generation, revision, ids: orderedGroupIds([...selected], cues) };
   });
+  private dialogueReply = $state.raw<{
+    target: { generation: number; revision: number; ids: number[] };
+    reason: string | null;
+  } | null>(null);
+  dialogueReason = $derived(
+    !this.dialogueTarget
+      ? 'Select two adjacent cues'
+      : this.dialogueReply?.target === this.dialogueTarget
+        ? this.dialogueReply.reason
+        : 'Checking cue selection…',
+  );
   operations = $derived.by(() => {
     const context = this.context;
     return (Object.entries(cueOperationLabels) as [CueOperation, string][]).map(

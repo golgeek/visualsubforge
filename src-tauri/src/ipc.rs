@@ -10,6 +10,7 @@ pub fn bindings() -> tauri_specta::Builder<tauri::Wry> {
             media::media_action,
             crate::extraction::extraction_action,
             document::document_action,
+            document::group_actions::cue_group_actions,
             document::translation::translation_action,
             document::review::review_action,
             document::recovery_status,

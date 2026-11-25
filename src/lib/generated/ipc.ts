@@ -27,6 +27,11 @@ export const commands = {
       'document_action',
       { action, generation, revision, textSession },
     ),
+  cueGroupActions: (generation: number, revision: number, ids: number[]) =>
+    __TAURI_INVOKE<vsf_application_subtitle_operations_GroupActions>(
+      'cue_group_actions',
+      { generation, revision, ids },
+    ),
   translationAction: (action: visualsubforge_document_translation_Action) =>
     __TAURI_INVOKE<visualsubforge_document_translation_Reply_Serialize>(
       'translation_action',
@@ -1946,6 +1951,12 @@ export type vsf_application_quality_timing_fix_review_Ghost = {
   cueId: string;
   before: vsf_application_quality_timing_fix_Endpoints;
   after: vsf_application_quality_timing_fix_Endpoints;
+};
+
+export type vsf_application_subtitle_operations_GroupActions = {
+  mergeRun: string | null;
+  mergeAsDialog: string | null;
+  deleteMany: string | null;
 };
 
 export type visualsubforge_document_review_exchange_ImportCase =

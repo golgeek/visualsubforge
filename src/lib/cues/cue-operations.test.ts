@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   planCueOperation,
   planGroupOperation,
-  groupOperationReason,
   operationSelection,
   reconcileCueSelection,
   cueOperationLabels,
@@ -163,7 +162,7 @@ test('First cue starts untitled subtitles at the playhead or selected range', ()
   );
 });
 
-test('group requests use document order, preserve intervening cues and explain incompatible targets', () => {
+test('group requests use document order and preserve intervening cues', () => {
   assert.deepEqual(planGroupOperation('mergeRun', [12, 8, 3], cues), {
     action: { kind: 'mergeRun', ids: [8, 3, 12], dialogue: false },
     selection: 8,
@@ -172,18 +171,4 @@ test('group requests use document order, preserve intervening cues and explain i
     action: { kind: 'deleteMany', ids: [8, 12] },
     selection: 3,
   });
-  assert.equal(
-    groupOperationReason('mergeAsDialog', [8, 3, 12], cues),
-    'Merge as dialog needs exactly two cues',
-  );
-  for (const field of ['style', 'actor'] as const) {
-    assert.equal(
-      groupOperationReason(
-        'mergeAsDialog',
-        [8, 3],
-        [cues[0], { ...cues[1], [field]: 'other' }],
-      ),
-      'Merge requires matching cue style and actor',
-    );
-  }
 });
