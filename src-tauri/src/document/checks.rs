@@ -1,7 +1,8 @@
 //! The document mutex protects admission, capture and publication. The one CPU
 //! worker owns an immutable domain clone, never the document owner or its lock.
-//! There is one latest draft and no queued document snapshots. Joining running
-//! work happens only during explicit shutdown, after releasing the document lock.
+//! There is one latest draft and no queued document snapshots. After completion
+//! fires, refresh joins the returning thread under the lock. Shutdown releases the
+//! document lock before joining a worker that might still be computing.
 mod index;
 use super::*;
 use crate::quality_check::{Draft, DraftChange, Key, Metric, Phase, Request, View};
@@ -13,6 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
+use vsf_application::language::LanguageCache;
 use vsf_application::quality::{self as engine, Report};
 
 #[derive(Default)]
@@ -23,6 +25,7 @@ pub(super) struct Checks {
     id_key: Option<Key>,
     id_scenes: Option<crate::scenes::SceneKey>,
     worker: Option<Worker>,
+    language_cache: Option<LanguageCache>,
     report: Option<AcceptedReport>,
     completed_at_ms: Option<crate::ipc_number::SafeU64>,
     report_id: Option<crate::ipc_number::SafeU64>,
@@ -45,7 +48,7 @@ struct AcceptedReport {
     index: ReportIndex,
 }
 enum Output {
-    Accepted(Box<AcceptedReport>),
+    Accepted(Box<(AcceptedReport, LanguageCache)>),
     Draft(Metric),
 }
 impl Drop for Worker {
@@ -67,6 +70,12 @@ impl Checks {
     fn synchronize(&mut self, key: Key) {
         if self.key != Some(key) {
             self.cancel_worker();
+            if self
+                .key
+                .is_some_and(|prior| prior.generation != key.generation || prior.epoch != key.epoch)
+            {
+                self.language_cache = None;
+            }
             self.key = Some(key);
             self.report = None;
             self.error = None;
@@ -90,9 +99,11 @@ impl Checks {
             return;
         }
         match result {
-            Ok(Output::Accepted(report)) => {
+            Ok(Output::Accepted(output)) => {
+                let (report, cache) = *output;
+                self.language_cache = Some(cache);
                 self.completed_at_ms = crate::recent::now().ok();
-                self.report = Some(*report);
+                self.report = Some(report);
                 self.report_id = self.id.try_into().ok();
             }
             Ok(Output::Draft(metric)) if worker.draft == self.draft => {
@@ -111,6 +122,11 @@ impl Checks {
         draft: Option<Draft>,
         scenes: engine::scene::Scenes,
     ) -> Result<()> {
+        let cache = if draft.is_none() {
+            self.language_cache.take().unwrap_or_default()
+        } else {
+            LanguageCache::default()
+        };
         self.launch_with(key, draft.clone(), move |cancel| {
             let began = Instant::now();
             let mut document = document;
@@ -126,7 +142,7 @@ impl Checks {
                 document = editor.document().clone();
             }
             let context = capture.evaluation();
-            let report = engine::evaluate_with_scenes(&document, context, &scenes, |_, _| {
+            let checkpoint = |_, _| {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(engine::Error::Cancelled);
                 }
@@ -136,16 +152,21 @@ impl Checks {
                     ));
                 }
                 Ok(())
-            })
-            .map_err(|e| e.to_string())?;
+            };
             match draft {
-                Some(draft) => report
-                    .metrics
-                    .iter()
-                    .find(|m| m.cue_id == draft.cue_id.get().to_string())
-                    .map(|m| Output::Draft(m.into()))
-                    .ok_or_else(|| "Draft cue no longer exists".into()),
+                Some(draft) => {
+                    engine::evaluate_with_scenes(&document, context, &scenes, checkpoint)
+                        .map_err(|e| e.to_string())?
+                        .metrics
+                        .iter()
+                        .find(|m| m.cue_id == draft.cue_id.get().to_string())
+                        .map(|m| Output::Draft(m.into()))
+                        .ok_or_else(|| "Draft cue no longer exists".into())
+                }
                 None => {
+                    let (report, cache) =
+                        engine::evaluate_cached(&document, context, &scenes, cache, checkpoint)
+                            .map_err(|e| e.to_string())?;
                     let index = ReportIndex::build(&report, || {
                         if cancel.load(Ordering::Relaxed) {
                             return Err("Quality check cancelled".into());
@@ -155,10 +176,13 @@ impl Checks {
                         }
                         Ok(())
                     })?;
-                    Ok(Output::Accepted(Box::new(AcceptedReport {
-                        data: report,
-                        index,
-                    })))
+                    Ok(Output::Accepted(Box::new((
+                        AcceptedReport {
+                            data: report,
+                            index,
+                        },
+                        cache,
+                    ))))
                 }
             }
         })

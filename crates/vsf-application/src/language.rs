@@ -1,8 +1,10 @@
 //! Language policies and bounded dictionary operations, independent of UI/IO.
 mod analysis;
+mod cache;
 mod dictionary;
 pub(crate) use analysis::Analysis;
 pub use analysis::{Coverage, Detail};
+pub use cache::LanguageCache;
 pub use dictionary::{Lexicon, WordLists, is_correct, suggestions};
 use serde::{Deserialize, Serialize};
 

@@ -1,5 +1,6 @@
 //! Bounded deterministic checks over an immutable accepted document.
 use super::{Error, MAX_CUES, MAX_FINDINGS, Profile, Result, metrics};
+use crate::language::LanguageCache;
 use metrics::{Rate, Rating, TextMetrics};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -111,9 +112,31 @@ pub fn evaluate_with_scenes<'a>(
     document: &Document,
     profile: impl Into<super::Evaluation<'a>>,
     scenes: &super::scene::Scenes,
+    checkpoint: impl FnMut(usize, usize) -> Result<()>,
+) -> Result<Report> {
+    evaluate_report(document, profile.into(), scenes, None, checkpoint)
+}
+
+/// A cancelled or failed evaluation drops its private cache together with the
+/// unfinished report. Only a complete result returns ownership to the caller.
+pub fn evaluate_cached(
+    document: &Document,
+    context: super::Evaluation<'_>,
+    scenes: &super::scene::Scenes,
+    mut cache: LanguageCache,
+    checkpoint: impl FnMut(usize, usize) -> Result<()>,
+) -> Result<(Report, LanguageCache)> {
+    let report = evaluate_report(document, context, scenes, Some(&mut cache), checkpoint)?;
+    Ok((report, cache))
+}
+
+fn evaluate_report(
+    document: &Document,
+    context: super::Evaluation<'_>,
+    scenes: &super::scene::Scenes,
+    cache: Option<&mut LanguageCache>,
     mut checkpoint: impl FnMut(usize, usize) -> Result<()>,
 ) -> Result<Report> {
-    let context = profile.into();
     let profile = context.profile;
     profile.validate()?;
     let windows = super::scene::Windows::new(profile, scenes, || checkpoint(0, 0))?;
@@ -194,10 +217,13 @@ pub fn evaluate_with_scenes<'a>(
         ),
     };
     let empty_lexicon = crate::language::Lexicon::default();
-    let mut language = crate::language::Analysis::new(
-        &profile.language_tools,
-        context.lexicon.unwrap_or(&empty_lexicon),
-    );
+    let lexicon = context.lexicon.unwrap_or(&empty_lexicon);
+    let mut language = crate::language::Analysis::new(&profile.language_tools, lexicon);
+    let mut cache = cache;
+    if let Some(cache) = cache.as_deref_mut() {
+        cache.prepare(&report.profile_hash, context.format, lexicon);
+    }
+    let mut cache = cache.filter(|_| profile.language_tools.enabled());
     for (i, cue) in cues.iter().enumerate() {
         checkpoint(i, total)?;
         let text = &texts[i];
@@ -223,9 +249,19 @@ pub fn evaluate_with_scenes<'a>(
         };
         check_cue(&row, text, profile, &mut report.findings);
         windows.check(&row, &mut report.findings);
-        language.check(cue, i, context.format, &mut report.findings, || {
-            checkpoint(i, total)
-        })?;
+        let check = || checkpoint(i, total);
+        if let Some(cache) = cache.as_deref_mut() {
+            cache.check(
+                &mut language,
+                cue,
+                i,
+                context.format,
+                &mut report.findings,
+                check,
+            )?;
+        } else {
+            language.check(cue, i, context.format, &mut report.findings, check)?;
+        }
         if profile.rules.gaps {
             if let Some(prior) = overlaps[i] {
                 report.findings.push(Finding {

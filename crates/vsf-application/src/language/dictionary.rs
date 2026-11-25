@@ -65,7 +65,7 @@ impl WordLists {
 /// Immutable, normalized lookup sets captured with an evaluation. Construction is
 /// bounded and happens once per capture, never once per token. Case/apostrophe
 /// normalization applies to membership only; saved personal/source text is exact.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Lexicon {
     english_us: HashSet<String>,
     french: HashSet<String>,

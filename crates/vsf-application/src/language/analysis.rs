@@ -39,7 +39,7 @@ pub(crate) struct Analysis<'a> {
     lexicon: &'a Lexicon,
     cache: HashMap<String, bool>,
     pub coverage: Coverage,
-    sentence_start: bool,
+    pub(super) sentence_start: bool,
 }
 impl<'a> Analysis<'a> {
     pub fn new(settings: &'a Settings, lexicon: &'a Lexicon) -> Self {
@@ -201,7 +201,7 @@ impl Emitter<'_> {
         )
     }
 }
-fn push(
+pub(super) fn push(
     out: &mut Vec<Finding>,
     cue: &Cue,
     index: usize,

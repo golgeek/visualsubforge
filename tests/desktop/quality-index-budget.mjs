@@ -17,7 +17,7 @@ export async function qualityIndexBudget({
 }) {
   const scenes = lane === 'scenes';
   for (const english of [false, true]) {
-    const budgetMs = english ? 150 : 100;
+    const budgetMs = 100;
     const findings = english ? 50000 : 20000;
     const data = join(root, `index-${lane}-${english ? 'english' : 'off'}`);
     await mkdir(data);
