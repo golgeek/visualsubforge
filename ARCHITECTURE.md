@@ -435,6 +435,8 @@ choice, and returning to an available workspace starts a fresh pause interval.
 There is no file autosave change. The interaction timing remains subject to owner
 trial; see the [cue editor guide](docs/cue-editor.md).
 
+Draft quality checks prepare textarea input through the same source-format adapter as commits. The document owner reports validation errors in the draft projection and gives the worker only prepared text.
+
 An optional opaque focus-session argument accompanies text commits through the
 same command boundary. Rust supplies its monotonic timestamp. The core merges
 validated same-cue, text-only commits in one focus with at most five seconds idle,
@@ -974,7 +976,7 @@ It reuses immutable Reference and path/provenance validation through a distinct
 translation-context value, with its own options and epoch. One comparison worker
 owns captures only; Store validates generation/revision/epoch before exposing
 results. Discussion-only epochs retain the comparison. A change in the ordered thread IDs invalidates the anchor index for the worker to rebuild. Replies, status events and export bookkeeping reuse both results. Pages are bounded and frontend requests debounce and discard stale
-replies. Shutdown cancels and joins outside Store. Start Review preserves the
+replies. Shutdown cancels and joins outside Store. Start Review invalidates document workers when it installs the reviewed copy and advances the generation. Rust checks format equality before reverting cues or adopting a package revision into the existing editor. Its review summary and package inspection supply the disabled reasons to the UI. Start Review preserves the
 translation slot and any existing comparison base while publishing a new copy.
 
 Project v4 captures the review struct and validates expected original identity

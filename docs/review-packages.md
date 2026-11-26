@@ -48,4 +48,6 @@ Review → Export Review Package includes the accepted working document, even wh
 
 Open Review Package accepts either file. A different original opens an untitled document with both versions embedded. Save As proposes a sanitized revised filename beside the package. With the same original and revised fingerprints, opening merges only the messages. If working content differs, Keep Mine merges discussion, Use Their Version also replaces the cues in one Undo step, and Cancel keeps the current review. Undo restores cue content and leaves the discussion in place. The original always stays the comparison base.
 
+Use Their Version requires the working format to match the package’s revised format. For different formats, **Keep Mine** merges the discussion or **Open Their Version** opens the package as an untitled document after the ordinary unsaved-work prompt. For SRT, ASS and SSA, **File → Export As…** can make a working copy in the revised format. Open that copy, attach the original and reopen the package.
+
 Save a project to retain threads, export history, round and the link to a package-sourced original. Reopening a moved package offers relocation or End Review. Recovery includes accepted drafts and the original contents and can restore without the package.

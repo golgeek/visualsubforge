@@ -42,6 +42,7 @@
 </script>
 
 <section aria-label="Changes">
+  {#if review.revertDisabledReason}<p>{review.revertDisabledReason}</p>{/if}
   {#if review.error}<p role="alert">{review.error}</p>{/if}
   {#if review.page?.statistics}{@const s = review.page.statistics}
     <div class="overview">
@@ -196,7 +197,8 @@
               : 'Expand'}</button
           >
           <button
-            disabled={!review.canMutate}
+            title={review.revertDisabledReason}
+            disabled={!review.canRevert}
             onclick={() => void review.revertBlock(block.block.first)}
             >Revert Block</button
           >
@@ -225,7 +227,8 @@
             >{/if}
           {#if change.kind !== 'unchanged'}<button
               class="revert"
-              disabled={!review.canMutate}
+              title={review.revertDisabledReason}
+              disabled={!review.canRevert}
               onclick={() => void review.revert(change)}>Revert</button
             >{/if}
         </div>
@@ -245,7 +248,8 @@
       {/each}
     </section>{/if}
   {#if !review.threadFilter}<button
-      disabled={!review.canMutate || !review.page?.total}
+      title={review.revertDisabledReason}
+      disabled={!review.canRevert || !review.page?.total}
       onclick={() => void review.revert(null)}
       >Revert {review.page?.matched ?? 0}
       {review.filter

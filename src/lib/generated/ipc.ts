@@ -2085,7 +2085,20 @@ export type visualsubforge_workflow_trace_InputEvent_Serialize = {
 
 export type visualsubforge_workflow_trace_InputType = 'click' | 'keydown';
 
-export type visualsubforge_document_review_exchange_Inspection = {
+export type visualsubforge_document_review_exchange_Inspection =
+  | visualsubforge_document_review_exchange_Inspection_Serialize
+  | visualsubforge_document_review_exchange_Inspection_Deserialize;
+
+export type visualsubforge_document_review_exchange_Inspection_Deserialize = {
+  useTheirsDisabledReason: string | null;
+  case: visualsubforge_document_review_exchange_ImportCase;
+  digest: string;
+  exportedBy: string;
+  exportedAtMs: number;
+};
+
+export type visualsubforge_document_review_exchange_Inspection_Serialize = {
+  useTheirsDisabledReason?: string | null;
   case: visualsubforge_document_review_exchange_ImportCase;
   digest: string;
   exportedBy: string;
@@ -3052,7 +3065,7 @@ export type visualsubforge_document_review_ReviewReply_Deserialize = {
   blocks: visualsubforge_document_review_BlockRow[];
   discussion: visualsubforge_document_review_discussion_DiscussionPage_Deserialize | null;
   threadId: string | null;
-  inspection: visualsubforge_document_review_exchange_Inspection | null;
+  inspection: visualsubforge_document_review_exchange_Inspection_Deserialize | null;
   notice: string | null;
   matched: number;
   key: visualsubforge_document_review_ReviewKey;
@@ -3073,7 +3086,7 @@ export type visualsubforge_document_review_ReviewReply_Serialize = {
   blocks?: visualsubforge_document_review_BlockRow[];
   discussion?: visualsubforge_document_review_discussion_DiscussionPage_Serialize | null;
   threadId?: string | null;
-  inspection?: visualsubforge_document_review_exchange_Inspection | null;
+  inspection?: visualsubforge_document_review_exchange_Inspection_Serialize | null;
   notice?: string | null;
   matched: number;
   key: visualsubforge_document_review_ReviewKey;
@@ -3094,6 +3107,7 @@ export type visualsubforge_document_review_ReviewSummary =
   | visualsubforge_document_review_ReviewSummary_Deserialize;
 
 export type visualsubforge_document_review_ReviewSummary_Deserialize = {
+  revertDisabledReason: string | null;
   hasDiscussion: boolean;
   round: number | null;
   epoch: number;
@@ -3103,6 +3117,7 @@ export type visualsubforge_document_review_ReviewSummary_Deserialize = {
 };
 
 export type visualsubforge_document_review_ReviewSummary_Serialize = {
+  revertDisabledReason?: string | null;
   hasDiscussion?: boolean;
   round?: number | null;
   epoch: number;

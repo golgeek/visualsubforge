@@ -11,11 +11,12 @@ impl Documents {
         discard: bool,
     ) -> Result<ExtractionCapture> {
         let store = self.0.lock().map_err(|_| "Document worker unavailable")?;
-        if store.generation != generation || store.snapshot().revision != revision {
+        let key = store.checkpoint_key();
+        if key.generation != generation || key.revision != revision {
             return Err("Subtitles changed before extraction".into());
         }
         store.check_discard(discard)?;
-        Ok(ExtractionCapture(store.checkpoint_key()))
+        Ok(ExtractionCapture(key))
     }
     pub(crate) fn accept_extraction(
         &self,

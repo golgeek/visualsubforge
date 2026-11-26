@@ -104,6 +104,8 @@ pub struct ReviewKey {
 #[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewSummary {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revert_disabled_reason: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub has_discussion: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -306,8 +308,54 @@ pub(super) struct State {
     job: Option<Job>,
     closed: bool,
 }
+enum ReviewSource {
+    Original,
+    Package,
+}
+impl ReviewSource {
+    fn disabled_reason(
+        &self,
+        working: subtitle_formats::Format,
+        other: subtitle_formats::Format,
+    ) -> Option<String> {
+        use subtitle_formats::Format;
+        if working == other {
+            return None;
+        }
+        let label = |format: Format| match format {
+            Format::WebVtt => "WebVTT".to_owned(),
+            _ => format.extension().to_ascii_uppercase(),
+        };
+        let (action, source, retry) = match self {
+            Self::Original => ("Revert", "original", "choose Compare with Original again"),
+            Self::Package => (
+                "Use Their Version",
+                "revised file",
+                "attach the original and open the package again",
+            ),
+        };
+        let mut reason = format!(
+            "{action} needs the working file and the {source} in the same format (working: {}, {source}: {}).",
+            label(working),
+            label(other)
+        );
+        if working != Format::WebVtt && other != Format::WebVtt {
+            reason.push_str(&format!(
+                " Use File → Export As… to make a copy in {}, open it, then {retry}.",
+                label(other)
+            ));
+        }
+        Some(reason)
+    }
+}
+impl Loaded {
+    fn revert_disabled_reason(&self) -> Option<String> {
+        let original = &self.review.reference.reference.as_ref()?.reference;
+        ReviewSource::Original.disabled_reason(self.source().format(), original.format())
+    }
+}
 impl Store {
-    fn review_key(&self) -> Result<ReviewKey> {
+    pub(super) fn review_key(&self) -> Result<ReviewKey> {
         Ok(ReviewKey {
             generation: self.generation.try_into()?,
             revision: self
@@ -330,11 +378,13 @@ impl Store {
         }
     }
     pub(super) fn review_summary(&self) -> Option<ReviewSummary> {
-        let context = &self.loaded.as_ref()?.review;
+        let loaded = self.loaded.as_ref()?;
+        let context = &loaded.review;
         if context.reference.is_empty() && self.review.epoch == 0 {
             return None;
         }
         Some(ReviewSummary {
+            revert_disabled_reason: loaded.revert_disabled_reason(),
             has_discussion: context.has_discussion(),
             round: (context.discussion.round > 0).then_some(context.discussion.round),
             epoch: self.review.epoch.try_into().ok()?,
@@ -643,6 +693,7 @@ impl Documents {
             loaded.review.reference.dirty = true;
             loaded.path = Some(output);
             store.generation += 1;
+            store.invalidate_checks();
             store.next_review_epoch()?;
             let document = Some(store.snapshot());
             return store.review_reply(document, 0, 100, None);
