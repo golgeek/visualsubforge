@@ -414,13 +414,15 @@ fn cancellation_kills_and_reaps_a_live_helper_with_blocked_input() {
 fn early_exit_while_writing_reports_worker_diagnostic() {
     let directory = tempfile::tempdir().unwrap();
     let binary = probe(directory.path());
-    let pid = directory.path().join("early.pid");
-    let request = Request::new(" ".repeat(512 * 1024), Value::Null);
-    let args = [OsString::from("early-exit"), pid.clone().into_os_string()];
-    let result = run(&binary, &args, &request, &AtomicBool::new(false));
-    assert!(
-        matches!(&result, Err(Failure::Worker(message)) if message.contains("23") && message.contains("could not initialize fixture")),
-        "{result:?}"
-    );
-    assert_reaped(&pid);
+    for (mode, code) in [("early-exit", "23"), ("early-success", "0")] {
+        let pid = directory.path().join(format!("{mode}.pid"));
+        let request = Request::new(" ".repeat(512 * 1024), Value::Null);
+        let args = [OsString::from(mode), pid.clone().into_os_string()];
+        let result = run(&binary, &args, &request, &AtomicBool::new(false));
+        assert!(
+            matches!(&result, Err(Failure::Worker(message)) if message.contains(code) && message.contains("could not initialize fixture")),
+            "{result:?}"
+        );
+        assert_reaped(&pid);
+    }
 }

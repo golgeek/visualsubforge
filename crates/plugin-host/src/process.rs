@@ -129,11 +129,13 @@ pub fn run(
             match child.0.try_wait() {
                 Err(e) => break Err(e.into()),
                 Ok(Some(status)) => {
-                    if !status.success()
+                    if (!status.success() || pipe_failure.is_some())
                         && let Some(bytes) = &stderr
                     {
                         let diagnostic = String::from_utf8_lossy(bytes);
-                        let mut message = format!("Plugin worker exited unsuccessfully: {status}");
+                        let mut message = format!(
+                            "Plugin worker exited without completing the request: {status}"
+                        );
                         if !diagnostic.trim().is_empty() {
                             message.push_str(": ");
                             message.push_str(diagnostic.trim());

@@ -24,7 +24,7 @@ The earlier failure and all final source/binary identities remain in the linked
 record. Together with the historical comparison, this supersedes the earlier
 worker baseline and completes stage7. Native/physical-platform gates remain open.
 
-An unsuccessful helper exit reports its process status and diagnostic output (up to 4 KiB). A helper that exits before reading its input can use stderr to explain the failure.
+A helper that exits unsuccessfully or closes a pipe before the request completes reports its process status and diagnostic output (up to 4 KiB). A helper that exits before reading its input can use stderr to explain the failure.
 
 ## VM automated validation — 2026-10-18
 
