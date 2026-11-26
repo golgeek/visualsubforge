@@ -27,7 +27,8 @@ pub(crate) enum Phase {
     Closed,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub(crate) enum Purpose {
     Fix,
     Batch,
@@ -136,6 +137,25 @@ pub(crate) fn start_in_context(
         })??;
     Ok(id.try_into()?)
 }
+#[derive(Clone, Copy, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum TimingSignal {
+    Released,
+    Finished,
+}
+
+/// A retired proposal has already signalled. Each live caller gets its own withdrawable ticket.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn timing_proposal_watch(
+    documents: tauri::State<'_, Documents>,
+    id: SafeU64,
+    purpose: Purpose,
+    signal: TimingSignal,
+) -> Result<Option<SafeU64>, String> {
+    documents.timing_proposal_watch(id.get(), purpose, signal)
+}
+
 pub(crate) fn with_current<T>(
     app: &tauri::AppHandle,
     id: u64,

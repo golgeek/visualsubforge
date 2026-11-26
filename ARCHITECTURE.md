@@ -817,6 +817,21 @@ cancel its wait without closing the review. The frontend checks its request
 sequence before retrying. If a replacement worker is still preparing, the retry
 can wait on that worker’s completion using the same mechanism.
 
+The live Fix and Shift docks register their own tickets by proposal ID and
+purpose. Preparing or cancelling work uses the worker's completion token. A
+ready page uses the proposal's release token. Registration for a replaced job
+returns immediately. Withdrawing a ticket leaves the job and other waiters
+intact. On release, the owning dock disables Apply before reading the page once.
+A sequence check rejects wakes after replacement or disposal, including late
+registration replies. The dock does no timing view reads while idle.
+
+A changed document snapshot, media session, scene or policy context, or review
+input gates Apply directly. The live dock discards the obsolete proposal and
+reads the new one. Paging reads the requested page, and a viewport change reads
+only the ghost projection. Fix restores the scroll anchor on a proposal or page
+change. Rust rechecks slot ownership and document, media and scene currency at
+Apply under the existing locks.
+
 
 ## Instant Settings and shortcut publication
 

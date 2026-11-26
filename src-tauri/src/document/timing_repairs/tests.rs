@@ -248,7 +248,21 @@ async fn timing_start_reports_worker_busy_until_the_cancelled_worker_finishes() 
         result = &mut wait => panic!("Worker is still cancelling: {result:?}"),
         () = std::future::ready(()) => {}
     }
+    let owner_ticket = docs
+        .timing_proposal_watch(id, Purpose::Fix, TimingSignal::Finished)
+        .unwrap()
+        .unwrap();
+    let mut owner = Box::pin(docs.timing_slot_wait(owner_ticket.get()));
+    tokio::select! {
+        biased;
+        result = &mut owner => panic!("Owner woke before worker finish: {result:?}"),
+        () = std::future::ready(()) => {}
+    }
     release.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(1), owner)
+        .await
+        .unwrap()
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(1), wait)
         .await
         .unwrap()
@@ -670,6 +684,22 @@ async fn slot_wait_observes_every_review_exit_before_or_after_registration() {
         ready(&docs, id);
         let early = refused_ticket(&docs, &scenes);
         let late = refused_ticket(&docs, &scenes);
+        let owner = docs
+            .timing_proposal_watch(id, Purpose::Fix, TimingSignal::Released)
+            .unwrap()
+            .unwrap()
+            .get();
+        assert!(
+            docs.timing_proposal_watch(id, Purpose::Batch, TimingSignal::Released)
+                .unwrap()
+                .is_none()
+        );
+        let mut owning_wait = Box::pin(docs.timing_slot_wait(owner));
+        tokio::select! {
+            biased;
+            result = &mut owning_wait => panic!("Owner released while still reviewing: {result:?}"),
+            () = std::future::ready(()) => {}
+        }
         let mut waiting = Box::pin(docs.timing_slot_wait(early));
         // Poll once so the command has subscribed. It must yield with the
         // document unlocked, allowing the operation that releases the slot.
@@ -715,6 +745,14 @@ async fn slot_wait_observes_every_review_exit_before_or_after_registration() {
             Exit::Shutdown => docs.shutdown_timing_repairs().unwrap(),
         }
         tokio::time::timeout(Duration::from_secs(1), async {
+            owning_wait.await.unwrap();
+            if let Some(late_owner) = docs
+                .timing_proposal_watch(id, Purpose::Fix, TimingSignal::Released)
+                .unwrap()
+            {
+                docs.timing_slot_wait(late_owner.get()).await.unwrap();
+            }
+            assert!(docs.timing_repair_accept(id, Purpose::Fix).is_err());
             waiting.await.unwrap();
             docs.timing_slot_wait(late).await.unwrap();
         })
@@ -728,7 +766,11 @@ async fn withdrawing_one_slot_wait_preserves_the_review_and_other_waiters() {
     let (_dir, docs, scenes) = fixture();
     let id = start(&docs, &scenes);
     ready(&docs, id);
-    let first = refused_ticket(&docs, &scenes);
+    let first = docs
+        .timing_proposal_watch(id, Purpose::Fix, TimingSignal::Released)
+        .unwrap()
+        .unwrap()
+        .get();
     let second = refused_ticket(&docs, &scenes);
     docs.timing_slot_cancel_wait(first).unwrap();
     tokio::time::timeout(Duration::from_secs(1), docs.timing_slot_wait(first))

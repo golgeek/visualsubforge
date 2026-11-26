@@ -1,5 +1,10 @@
 import { untrack } from 'svelte';
-import { timingStartError } from '../client';
+import {
+  timingStartError,
+  timingProposalWatch,
+  timingSlotWait,
+  timingSlotCancelWait,
+} from '../client';
 import type {
   TimingFixView,
   DocumentSnapshot,
@@ -9,6 +14,7 @@ import type { DocumentSession } from '../document/document-session.svelte';
 type Review = Pick<TimingFixView, 'phase' | 'changed' | 'error'> &
   Partial<Pick<TimingFixView, 'coverage' | 'selectionError'>>;
 interface Client<V, S> {
+  purpose: 'fix' | 'batch';
   start(
     session: number,
     document: DocumentSnapshot,
@@ -91,6 +97,11 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   private get superseded() {
     return this.live?.retainDisplay && this.liveDirty && !this.current;
   }
+  private watchSequence = 0;
+  private watch: { ticket: number | null } | null = null;
+  private released = $state(false);
+  private readRequested = false;
+  private driveOnIdle = false;
   private previewKey = '';
 
   constructor(
@@ -164,30 +175,26 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   private async drive() {
     if (!this.alive || !this.live) return;
     if (this.pending || this.polling || this.accepting) {
-      this.schedule(100);
+      this.driveOnIdle = true;
       return;
     }
     const delay = this.live.retainDisplay ? 0 : LIVE_REVIEW_DELAY_MS;
     const signature = this.liveSignature;
     const document = this.liveDocument;
+    if (this.readRequested && !this.liveDirty) {
+      this.readRequested = false;
+      await this.poll();
+    }
     if (!this.liveWanted) {
-      if (this.id !== null && this.view?.phase !== 'cancelled')
-        await this.cancel();
+      if (this.id !== null) await this.discard();
       this.preview = null;
-      if (this.running) this.schedule(LIVE_REVIEW_DELAY_MS);
       return;
     }
     if (this.liveDirty) {
-      if (
-        this.id !== null &&
-        (!this.view ||
-          !['cancelled', 'stale', 'failed', 'closed', 'accepted'].includes(
-            this.view.phase,
-          ))
-      ) {
-        await this.cancel();
-        if (this.alive)
-          this.schedule(this.running ? LIVE_REVIEW_DELAY_MS : delay);
+      if (this.id !== null) {
+        await this.discard();
+        if (!this.alive) return;
+        this.schedule(delay);
         return;
       }
       if (!this.canStart) {
@@ -215,15 +222,16 @@ export class TimingRepairSession<V extends Review, S = string | null> {
         return;
       }
       this.liveDirty = false;
-    } else await this.poll();
+    }
     if (!this.alive) return;
     if (signature !== this.liveSignature || document !== this.liveDocument) {
       this.schedule(delay);
       return;
     }
-    if (this.current && this.view?.phase === 'reviewing')
+    if (this.current && this.view?.phase === 'reviewing' && !this.released) {
+      if (this.id !== null) void this.watchProposal(this.id, 'released');
       await this.readPreview();
-    else {
+    } else {
       this.preview = null;
       this.previewKey = '';
     }
@@ -233,9 +241,69 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       !this.running
     )
       this.endActivity?.();
-    if (this.alive && this.id !== null)
-      this.schedule(this.liveDirty && this.live.retainDisplay ? 0 : 400);
+    if (this.alive && this.running && this.id !== null)
+      void this.watchProposal(this.id, 'finished');
   }
+  private resumeDrive() {
+    if (
+      this.driveOnIdle &&
+      this.alive &&
+      !this.pending &&
+      !this.polling &&
+      !this.accepting
+    ) {
+      this.driveOnIdle = false;
+      this.schedule(0);
+    }
+  }
+  private withdrawWatch() {
+    ++this.watchSequence;
+    const ticket = this.watch?.ticket;
+    this.watch = null;
+    this.readRequested = false;
+    if (ticket != null) void timingSlotCancelWait(ticket).catch(() => {});
+  }
+
+  private async watchProposal(id: number, signal: 'finished' | 'released') {
+    if (this.watch) return;
+    const sequence = this.watchSequence;
+    try {
+      if (
+        !(await this.waitForSignal(id, signal)) ||
+        sequence !== this.watchSequence
+      )
+        return;
+      // Gate the old proposal before dispatching or awaiting its final read.
+      if (signal === 'released') this.released = true;
+      this.readRequested = true;
+      this.schedule(0);
+    } catch (error) {
+      if (sequence !== this.watchSequence) return;
+      this.released = true;
+      this.error = String(error);
+      this.endActivity?.();
+    }
+  }
+  private async waitForSignal(id: number, signal: 'finished' | 'released') {
+    const watch = { ticket: null as number | null };
+    this.watch = watch;
+    try {
+      const ticket = await timingProposalWatch(id, this.api.purpose, signal);
+      if (this.watch !== watch) {
+        if (ticket !== null) await timingSlotCancelWait(ticket);
+        return false;
+      }
+      watch.ticket = ticket;
+      if (ticket !== null) await timingSlotWait(ticket);
+      return this.watch === watch;
+    } catch (error) {
+      if (this.watch !== watch) return false;
+      throw error;
+    } finally {
+      if (this.watch === watch) this.watch = null;
+    }
+  }
+
   private async readPreview() {
     if (
       !this.live ||
@@ -255,6 +323,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       if (
         !this.active(epoch) ||
         !this.current ||
+        this.released ||
         key !== JSON.stringify([this.id, this.live.previewIds().slice(0, 200)])
       )
         return;
@@ -269,6 +338,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       }
     } finally {
       this.polling = false;
+      this.resumeDrive();
     }
   }
   retry() {
@@ -308,6 +378,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
   }
   get canAccept() {
     return (
+      !this.released &&
       this.canStart &&
       (!this.live || this.live.enabled()) &&
       this.current &&
@@ -337,6 +408,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       if (this.alive) {
         this.pending = false;
         this.applyingDraft = false;
+        this.resumeDrive();
       }
     }
   }
@@ -355,6 +427,8 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       session: this.mediaSession(),
       selectedCueId: this.scope(),
     };
+    this.withdrawWatch();
+    this.released = false;
     const epoch = ++this.epoch;
     this.pending = true;
     this.error = '';
@@ -400,6 +474,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       }
     } finally {
       if (this.active(epoch)) this.pending = false;
+      this.resumeDrive();
     }
   }
   private async read(epoch: number) {
@@ -424,6 +499,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
         this.error = `${reason}; preview again.`;
       return;
     }
+    if (this.released && view.phase === 'reviewing') return;
     this.view = view;
     if (this.live?.retainDisplay && this.capture) {
       if (view.phase === 'reviewing') {
@@ -448,7 +524,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       this.id === null
     )
       return;
-    // Poll completed proposals too: scene/profile changes are Rust-owned.
+    // A signalled worker or released owner gets one status read.
     this.polling = true;
     const epoch = this.epoch;
     try {
@@ -463,6 +539,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       }
     } finally {
       this.polling = false;
+      this.resumeDrive();
     }
   }
   async page(offset: number) {
@@ -476,21 +553,33 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       if (this.active(epoch) && !this.superseded) this.error = String(e);
     } finally {
       if (this.active(epoch)) this.pending = false;
+      this.resumeDrive();
     }
   }
-  async cancel() {
-    if (!this.alive || this.id === null || this.pending || this.accepting)
-      return;
+  // A changed context needs a new proposal. Reading the cancelled page cannot inform it.
+  private async discard() {
+    const id = this.id;
+    if (id === null) return;
+    this.withdrawWatch();
     const epoch = ++this.epoch;
     this.pending = true;
-    this.error = '';
+    this.released = true;
+    const running = this.running;
     try {
-      await this.api.cancel(this.id);
-      await this.read(epoch);
-    } catch (e) {
-      if (this.active(epoch) && !this.superseded) this.error = String(e);
+      await this.api.cancel(id);
+      // Admission cannot replace a draining worker. Wait for its actual finish.
+      if (running && this.active(epoch))
+        await this.waitForSignal(id, 'finished');
+    } catch (error) {
+      if (this.active(epoch) && !this.superseded) this.error = String(error);
     } finally {
-      if (this.active(epoch)) this.pending = false;
+      if (this.active(epoch)) {
+        this.pending = false;
+        this.id = null;
+        this.view = null;
+        this.capture = null;
+        this.resumeDrive();
+      }
     }
   }
   async accept(): Promise<boolean> {
@@ -506,11 +595,13 @@ export class TimingRepairSession<V extends Review, S = string | null> {
       return false;
     } finally {
       if (this.alive) this.accepting = false;
+      this.resumeDrive();
     }
   }
   dispose() {
     if (!this.alive) return;
     this.alive = false;
+    this.withdrawWatch();
     this.endActivity?.();
     this.retained = null;
     if (this.timer !== null) clearTimeout(this.timer);

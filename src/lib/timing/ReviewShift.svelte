@@ -113,6 +113,7 @@
             input
               ? batchTimingStart(media, document, input, subset)
               : Promise.reject(new Error('Enter a valid offset.')),
+          purpose: 'batch',
           view: batchTimingView,
           cancel: batchTimingCancel,
           accept: (id, doc) => subtitles.acceptBatchTiming(id, doc),

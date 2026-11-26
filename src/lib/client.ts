@@ -473,6 +473,13 @@ export function timingStartError(value: unknown): TimingStartError | null {
     };
   return null;
 }
+export function timingProposalWatch(
+  id: number,
+  purpose: 'fix' | 'batch',
+  signal: 'released' | 'finished',
+) {
+  return commands.timingProposalWatch(id, purpose, signal);
+}
 export async function timingSlotWait(id: number) {
   await commands.timingSlotWait(id);
 }

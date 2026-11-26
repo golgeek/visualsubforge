@@ -188,11 +188,12 @@ test('deep toggle keeps its page and scroll through the updating view', async ({
     name: 'Include cue 125',
     exact: true,
   });
-  // Deliver the routine same-page poll before WebKit sends the scroll
+  // Deliver an explicit same-page read before WebKit sends the scroll
   // event that records the newly centered cue.
   const fixture = page.locator('#test');
   await fixture.evaluate((el) => {
     el.dataset.holdReply = 'changes-100';
+    el.dispatchEvent(new Event('read-timing-page'));
   });
   await expect(fixture).toHaveAttribute('data-held-reply', 'changes-100');
   const rowTop = await row.evaluate((el) => {

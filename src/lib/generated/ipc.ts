@@ -126,6 +126,17 @@ export const commands = {
       cueId,
       origin,
     }),
+  /**  A retired proposal has already signalled. Each live caller gets its own withdrawable ticket. */
+  timingProposalWatch: (
+    id: number,
+    purpose: visualsubforge_timing_review_Purpose,
+    signal: visualsubforge_timing_review_TimingSignal,
+  ) =>
+    __TAURI_INVOKE<number | null>('timing_proposal_watch', {
+      id,
+      purpose,
+      signal,
+    }),
   timingSlotWait: (id: number) =>
     __TAURI_INVOKE<null>('timing_slot_wait', { id }),
   timingSlotCancelWait: (id: number) =>
@@ -2755,6 +2766,8 @@ export type vsf_application_subtitle_extraction_Provenance = {
   suggested_name: string;
 };
 
+export type visualsubforge_timing_review_Purpose = 'fix' | 'batch' | 'cueFixes';
+
 export type vsf_application_quality_statistics_Range = {
   first: number;
   last: number;
@@ -3742,6 +3755,8 @@ export type vsf_application_quality_profile_Timing = {
   sceneBeforeMs: number;
   sceneAfterMs: number;
 };
+
+export type visualsubforge_timing_review_TimingSignal = 'released' | 'finished';
 
 export type visualsubforge_document_timing_repairs_TimingStartError = {
   waitId: number | null;

@@ -1,3 +1,7 @@
+import { checkRefreshInputs } from './refresh-inputs.svelte';
+import { batchTimingStart } from '../../../src/lib/client';
+import { TimingFixSession } from '../../../src/lib/timing/timing-fix-session.svelte';
+import { TimingTickets } from '../timing-tickets';
 import episode from './timing-episode.json';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
@@ -22,6 +26,7 @@ const activityTrial = new URLSearchParams(location.search).has('activity');
 const episodeTrial = new URLSearchParams(location.search).has('episode');
 const incompleteTrial = new URLSearchParams(location.search).has('incomplete');
 const policyTrial = new URLSearchParams(location.search).has('policy');
+const tickets = new TimingTickets();
 const host = document.querySelector<HTMLElement>('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
@@ -84,6 +89,23 @@ async function until(check: () => boolean) {
   }
   await tick();
 }
+// Explicitly deliver a same-page read in the scroll/race regressions. A ready
+// production dock no longer initiates this request on an idle timer.
+if (location.search.includes('scroll')) {
+  host.addEventListener('replace-with-shift', () => {
+    void batchTimingStart(1, doc, {
+      scope: { kind: 'all' },
+      change: { kind: 'shift', earlier: false, amountMs: 125 },
+    });
+  });
+  let liveSession: TimingFixSession | undefined;
+  const start = TimingFixSession.prototype.start;
+  TimingFixSession.prototype.start = function () {
+    liveSession = this;
+    return start.call(this);
+  };
+  host.addEventListener('read-timing-page', () => void liveSession?.poll());
+}
 async function holdTimingReply(key: string) {
   if (host.dataset.holdReply !== key) return;
   host.dataset.heldReply = key;
@@ -101,6 +123,13 @@ function type(text: string) {
   )!;
   input.value = text;
   input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+async function showCoverage(coverage: TimingFixView['coverage']) {
+  button('Close').click();
+  await until(() => !host.querySelector('[aria-label="Live timing review"]'));
+  view = { ...view, coverage };
+  await open();
+  await until(() => !!host.querySelector('.change'));
 }
 async function open() {
   await until(
@@ -134,6 +163,14 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) => {
       switch (command) {
+        case 'timing_proposal_watch':
+          return tickets.register(args.id!);
+        case 'timing_slot_wait':
+          await tickets.wait(args.id!);
+          await holdTimingReply('owner-wake');
+          return;
+        case 'timing_slot_cancel_wait':
+          return tickets.withdraw(args.id!);
         case 'recent_list':
         case 'recent_capture':
         case 'recent_forget':
@@ -208,6 +245,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           };
         case 'statistics_cancel':
           return;
+        case 'batch_timing_start':
+          tickets.release(view.id);
+          return ++starts;
         case 'timing_fix_start': {
           starts++;
           if (host.dataset.nextStartError) {
@@ -319,8 +359,15 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return heldStart ?? starts;
         }
         case 'timing_fix_view': {
+          host.dataset.timingReads = String(
+            Number(host.dataset.timingReads ?? 0) + 1,
+          );
           if (args.section === 'changes' && !args.previewIds)
             await holdTimingReply('changes-' + args.offset);
+          if (args.id !== starts && policyTrial)
+            throw new Error(
+              'Timing proposal was replaced or has a different kind',
+            );
           if (
             host.dataset.delayNextView &&
             !args.previewIds &&
@@ -495,7 +542,7 @@ async function run() {
       'Completed scene preview projects both changed endpoints without changing accepted subtitles',
     );
     for (const coverage of ['noMedia', 'unavailable', 'partial'] as const) {
-      view = { ...view, coverage };
+      await showCoverage(coverage);
       await until(() => button('Apply 2 changes').disabled);
       assert(
         ![...host.querySelectorAll('label')].some((label) =>
@@ -503,10 +550,10 @@ async function run() {
         ),
         'Missing scenes could be acknowledged away',
       );
-      view = { ...view, coverage: 'checked' };
+      await showCoverage('checked');
       await until(() => !button('Apply 2 changes').disabled);
     }
-    view = { ...view, coverage: 'reduced' };
+    await showCoverage('reduced');
     await until(() =>
       host.textContent!.includes('Reduced detection can miss cuts'),
     );
@@ -589,6 +636,7 @@ async function run() {
       'Skipped reasons and 100-row proposal paging stay reviewable without enabling an empty acceptance',
     );
     view = { ...view, phase: 'stale' };
+    tickets.release(view.id);
     await until(() =>
       host
         .querySelector('[aria-label="Live timing review"]')!
@@ -624,7 +672,16 @@ async function run() {
     await unmount(app);
   }
 }
-if (policyTrial || episodeTrial) {
+if (location.search.includes('refreshInputs')) {
+  void checkRefreshInputs(original, sample).then(
+    () => {
+      heading.textContent = 'PASS: refresh inputs';
+    },
+    (error) => {
+      heading.textContent = String(error);
+    },
+  );
+} else if (policyTrial || episodeTrial) {
   void until(() =>
     navDelay !== null
       ? !!host.querySelector('.cue-row')

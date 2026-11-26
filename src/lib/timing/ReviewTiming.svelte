@@ -126,7 +126,7 @@
   }
   const pageId = $derived(current?.id ?? null);
   const changesOffset = $derived(current?.offset ?? null);
-  // Polls return a fresh view of the same immutable proposal. Restoring on
+  // Reads can return a fresh view of the same immutable proposal. Restoring on
   // every reply can replay the old anchor before a user's scroll event arrives.
   $effect(() => {
     if (pageId !== null && changesOffset !== null) {

@@ -27,6 +27,7 @@ export class TimingFixSession extends TimingRepairSession<
       subtitles,
       mediaSession,
       {
+        purpose: 'fix',
         start: api.timingFixStart,
         view: (id, offset, limit, ids) =>
           api.timingFixView(id, offset, limit, 'changes', ids),

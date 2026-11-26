@@ -1,3 +1,4 @@
+import { TimingTickets } from '../timing-tickets';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -13,6 +14,7 @@ import {
 } from '../../../src/lib/client';
 import { fixSpeedSample as sample } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
+const tickets = new TimingTickets();
 const host = document.querySelector('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
@@ -73,6 +75,13 @@ function type(text: string) {
   input.value = text;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+async function showCoverage(coverage: TimingFixView['coverage']) {
+  button('Close').click();
+  await until(() => !host.querySelector('[aria-label="Live timing review"]'));
+  view = { ...view, coverage };
+  await open();
+  await until(() => !!host.querySelector('.change'));
+}
 async function open() {
   await until(
     () => host.querySelector('main')?.getAttribute('aria-busy') === 'false',
@@ -104,6 +113,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) => {
       switch (command) {
+        case 'timing_proposal_watch':
+          return tickets.register(args.id!);
+        case 'timing_slot_wait':
+          return tickets.wait(args.id!);
+        case 'timing_slot_cancel_wait':
+          return tickets.withdraw(args.id!);
         case 'recent_list':
         case 'recent_capture':
         case 'recent_forget':
@@ -295,7 +310,7 @@ async function run() {
       'List selection scopes the captured proposal; changing scope disables acceptance until the whole-document preview is current',
     );
     for (const coverage of ['unavailable', 'partial'] as const) {
-      view = { ...view, coverage };
+      await showCoverage(coverage);
       await until(() => button('Apply 2 changes').disabled);
       assert(
         ![...host.querySelectorAll('label')].some((label) =>
@@ -303,10 +318,10 @@ async function run() {
         ),
         'Missing scenes could be acknowledged away',
       );
-      view = { ...view, coverage: 'checked' };
+      await showCoverage('checked');
       await until(() => !button('Apply 2 changes').disabled);
     }
-    view = { ...view, coverage: 'reduced' };
+    await showCoverage('reduced');
     await until(() =>
       host.textContent!.includes('Reduced detection can miss cuts'),
     );
@@ -317,7 +332,7 @@ async function run() {
     passed(
       'Missing and partial scenes prevent acceptance; Reduced detection carries an explicit heuristic limitation',
     );
-    view = { ...view, coverage: 'notRequired' };
+    await showCoverage('notRequired');
     await until(() => host.textContent!.includes('Scene checks are disabled'));
     assert(
       !button('Apply 2 changes').disabled,
@@ -399,6 +414,7 @@ async function run() {
       'Skipped reasons and 100-row proposal paging stay reviewable without enabling an empty acceptance',
     );
     view = { ...view, phase: 'stale' };
+    tickets.release(view.id);
     await until(() =>
       host
         .querySelector('[aria-label="Live timing review"]')!
