@@ -890,7 +890,7 @@ A second raster adds the range, buffers and timing marks in their original
 paint order. Moving the playhead or guide copies the completed raster at device
 resolution. Equal visible cue snapshots reuse their pixels, and text-only edits
 can reuse the opaque gap strip when it begins on a backing-pixel boundary.
-Layer dimensions track the viewport, scale and theme. Unmount cancels a queued
+Viewport or scale changes resize the layers. Theme and font changes invalidate their pixels. Unmount cancels a queued
 frame and releases the component’s canvases.
 The existing gesture owner alone commits cue timing, with its stale-version guards.
 

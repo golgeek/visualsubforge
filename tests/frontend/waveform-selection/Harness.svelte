@@ -128,6 +128,43 @@
           'Moving only the playhead must reuse cue pixels',
         );
       }
+      const element = canvas();
+      const context = element.getContext('2d')!;
+      const copy = context.drawImage.bind(context);
+      let presentations = 0;
+      const previousWidth = element.width;
+      const previousHeight = element.height;
+      try {
+        // A dimension write clears the canvas even when assigned the same value.
+        for (const dimension of ['width', 'height'] as const) {
+          Object.defineProperty(element, dimension, {
+            configurable: true,
+            get: () => (dimension === 'width' ? previousWidth : previousHeight),
+            set: () => {
+              throw new Error('Resized a fixed viewport during playback');
+            },
+          });
+        }
+        context.drawImage = (...args: unknown[]) => {
+          presentations++;
+          Reflect.apply(copy, context, args);
+        };
+        position = 0.5;
+        await tick();
+        position = 1.5;
+        await tick();
+        position = 2.5;
+        await paint();
+        assert(
+          presentations === 1,
+          'Multiple playhead updates before a frame must paint once',
+        );
+      } finally {
+        context.drawImage = copy;
+        Reflect.deleteProperty(element, 'width');
+        Reflect.deleteProperty(element, 'height');
+      }
+      position = null;
       draws.length = 0;
       cues = cues.map((cue) => ({ ...cue }));
       await paint();
@@ -157,7 +194,6 @@
       await paint();
       assert(draws.includes('Sample 512'), 'Dense selected cue lost its label');
       const x = Math.ceil((canvas().width * 1.01) / span);
-      const context = canvas().getContext('2d')!;
       const stripe = () =>
         context
           .getImageData(x + 1, Math.round((40 * canvas().width) / width), 1, 1)
