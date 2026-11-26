@@ -176,6 +176,45 @@ test('a fast replacement swaps directly with immediate Apply protection', async 
   ).toBeNull();
 });
 
+test('Shift opens one preview immediately and debounces subsequent inputs', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/batch-timing/?first-open');
+  const host = page.locator('#test');
+  await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false');
+  const time = new Date('2025-01-01T12:00:00Z');
+  await page.clock.install({ time });
+  await page.clock.pauseAt(new Date(time.getTime() + 1000));
+  await host.dispatchEvent('open-shift');
+  await page.clock.runFor(100);
+  await expect(host).toHaveAttribute('data-starts', '1', { timeout: 1000 });
+  const initial = JSON.parse((await host.getAttribute('data-last-request'))!);
+  expect(initial.change).toMatchObject({ kind: 'shift', amountMs: 100 });
+  const apply = page.locator('.timing-review .apply');
+  await expect(apply).toBeEnabled();
+  const rows = await host.locator('.change').allTextContents();
+  const offset = page.getByLabel('Shift offset in milliseconds');
+  await offset.fill('150');
+  await offset.fill('200');
+  await expect(apply).toBeDisabled();
+  await page.clock.runFor(249);
+  expect(await host.getAttribute('data-starts')).toBe('1');
+  // Discarding a previous proposal can require another drive turn.
+  await page.clock.runFor(600);
+  await expect(host).toHaveAttribute('data-starts', '2');
+  expect(
+    JSON.parse((await host.getAttribute('data-last-request'))!).change.amountMs,
+  ).toBe(200);
+  await offset.fill('100');
+  await page.clock.runFor(650);
+  await expect(apply).toBeEnabled();
+  expect(JSON.parse((await host.getAttribute('data-last-request'))!)).toEqual(
+    initial,
+  );
+  expect(await host.locator('.change').allTextContents()).toEqual(rows);
+  expect(await host.getAttribute('data-starts')).toBe('3');
+});
+
 for (const [kind, fixture] of [
   ['Fix', 'scene-quality/?policy&scroll'],
   ['Shift', 'batch-timing/?idle'],

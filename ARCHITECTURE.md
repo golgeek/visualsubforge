@@ -374,7 +374,7 @@ that reconcile a lost reply fetch authoritative state before continuing.
 
 Fix and Shift share `TimingRepairSession` for
 start/read/page/cancel/accept ordering and disposal. Fix schedules changed live inputs immediately and silently retires
-superseded reads. Shift debounces inputs for 250 ms. Both compare semantic keys
+superseded reads. Shift starts the initial preview on open and debounces subsequent inputs for 250 ms. Both compare semantic keys
 so unrelated playback updates cannot starve admission. Fix retains a display-only
 page and viewport projection across revisions within a document generation, media
 session and review context. The shared settle timer controls their updating style.

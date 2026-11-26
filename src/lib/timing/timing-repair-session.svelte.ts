@@ -137,6 +137,7 @@ export class TimingRepairSession<V extends Review, S = string | null> {
             document === this.liveDocument
           )
             return;
+          const opening = this.liveDocument === null;
           this.viewportKey = ids;
           if (
             signature !== this.liveSignature ||
@@ -156,7 +157,9 @@ export class TimingRepairSession<V extends Review, S = string | null> {
             this.error = '';
           }
           this.liveWanted = wanted;
-          this.schedule(live.retainDisplay ? 0 : LIVE_REVIEW_DELAY_MS);
+          this.schedule(
+            opening || live.retainDisplay ? 0 : LIVE_REVIEW_DELAY_MS,
+          );
         });
       });
   }
