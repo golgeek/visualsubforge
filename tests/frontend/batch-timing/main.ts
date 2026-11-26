@@ -1,3 +1,4 @@
+import { TimingTickets } from '../timing-tickets';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
@@ -13,7 +14,8 @@ import {
   type BatchTimingView,
 } from '../../../src/lib/client';
 import { batchTimingView as sample } from '../ipc-contract-samples';
-const host = document.querySelector('#test')!;
+const tickets = new TimingTickets();
+const host = document.querySelector<HTMLElement>('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
 let doc = {
@@ -138,6 +140,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) => {
       switch (command) {
+        case 'timing_proposal_watch':
+          return tickets.register(args.id!);
+        case 'timing_slot_wait':
+          return tickets.wait(args.id!);
+        case 'timing_slot_cancel_wait':
+          return tickets.withdraw(args.id!);
         case 'recent_list':
         case 'recent_capture':
         case 'recent_forget':
@@ -216,6 +224,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             : starts;
         }
         case 'batch_timing_view':
+          host.dataset.timingReads = String(
+            Number(host.dataset.timingReads ?? 0) + 1,
+          );
           return {
             ...structuredClone(view),
             offset: args.offset ?? 0,
@@ -475,4 +486,6 @@ async function run() {
     await unmount(app);
   }
 }
-void run();
+if (location.search.includes('idle')) {
+  void open().then(() => input('Shift offset in milliseconds', '200'));
+} else void run();

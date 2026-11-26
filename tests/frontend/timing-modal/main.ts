@@ -1,3 +1,4 @@
+import { TimingTickets } from '../timing-tickets';
 import { emptyQuality } from '../empty-quality';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
@@ -103,6 +104,8 @@ async function fixture(variant: (typeof variants)[number], above = true) {
   let discovering = false;
   const calls: string[] = [];
   const cancels: number[] = [];
+  const tickets = new TimingTickets();
+  let proposal = 998;
   let occluded = false;
   let hide: ReturnType<typeof deferred> | null = null;
   let restore: ReturnType<typeof deferred> | null = null;
@@ -149,6 +152,12 @@ async function fixture(variant: (typeof variants)[number], above = true) {
           case 'recent_capture':
           case 'recent_forget':
             return [];
+          case 'timing_proposal_watch':
+            return tickets.register(args.id!);
+          case 'timing_slot_wait':
+            return tickets.wait(args.id!);
+          case 'timing_slot_cancel_wait':
+            return tickets.withdraw(args.id!);
           case 'quality_read':
             return emptyQuality(args);
           case 'quality_cancel':
@@ -202,12 +211,13 @@ async function fixture(variant: (typeof variants)[number], above = true) {
         if (command === `${variant.prefix}_start`) {
           calls.push('start');
           await start?.promise;
-          return 999;
+          tickets.release(proposal);
+          return ++proposal;
         }
         if (command === `${variant.prefix}_view`)
           return {
             ...structuredClone(variant.sample),
-            id: 999,
+            id: proposal,
             key: {
               ...variant.sample.key,
               generation: doc.generation,
@@ -216,12 +226,14 @@ async function fixture(variant: (typeof variants)[number], above = true) {
             coverage: variant.name === 'batch' ? undefined : 'checked',
           };
         if (command === `${variant.prefix}_cancel`) {
+          tickets.release(args.id!);
           cancels.push(args.id!);
           return;
         }
         if (command === `${variant.prefix}_accept`) {
           calls.push('accept');
           await mutation?.promise;
+          tickets.release(args.id!);
           doc = { ...doc, revision: doc.revision + 1 };
           return structuredClone(doc);
         }

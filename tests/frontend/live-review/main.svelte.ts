@@ -1,3 +1,5 @@
+import { mockIPC } from '@tauri-apps/api/mocks';
+import { TimingTickets } from '../timing-tickets';
 import { defaultPreferences } from '../../../src/lib/client';
 import { tick } from 'svelte';
 import { TimingFixSession } from '../../../src/lib/timing/timing-fix-session.svelte';
@@ -58,6 +60,20 @@ let starts = 0;
 let failures = 0;
 let held: Promise<number> | null = null;
 const cancelled: number[] = [];
+const tickets = new TimingTickets();
+mockIPC((command, args) => {
+  const id = Number(args && 'id' in args && args.id);
+  switch (command) {
+    case 'timing_proposal_watch':
+      return tickets.register(id);
+    case 'timing_slot_wait':
+      return tickets.wait(id);
+    case 'timing_slot_cancel_wait':
+      return tickets.withdraw(id);
+    default:
+      throw new Error('Unexpected IPC: ' + command);
+  }
+});
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- Fake server storage is never observed by the component.
 const plans = new Map<
   number,
@@ -129,6 +145,7 @@ async function run() {
             };
           },
           timingFixCancel: async (id) => {
+            tickets.release(id);
             cancelled.push(id);
             const plan = plans.get(id);
             if (plan && plan.view.phase !== 'stale')
@@ -180,6 +197,7 @@ async function run() {
     );
     const staleId = starts;
     plans.get(staleId)!.view.phase = 'stale';
+    tickets.release(staleId);
     await until(() => session.view?.phase === 'stale');
     assert(!session.canAccept, 'Backend-stale plan remained acceptable');
     session.retry();
@@ -188,8 +206,9 @@ async function run() {
     passed(
       'Explicit retry replaces a backend-stale job even when cancellation retains its stale terminal phase',
     );
+    const disabledId = starts;
     enabled = false;
-    await until(() => session.view?.phase === 'cancelled');
+    await until(() => cancelled.includes(disabledId) && session.view === null);
     assert(
       !session.preview && !session.canAccept,
       'Disabled review retained ghosts or acceptance',

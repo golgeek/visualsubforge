@@ -4,6 +4,7 @@ use super::*;
 use crate::batch_timing::{BatchRow, BatchView};
 use crate::cue_fixes::Origin;
 use crate::ipc_number::SafeU64;
+use crate::timing_review::TimingSignal;
 use crate::{
     quality_check::Key,
     scenes::{SceneCapture, SceneKey},
@@ -202,26 +203,34 @@ impl State {
     /// Register under the admission lock. A late wait then sees either its
     /// latched token or a retired ticket, both of which complete immediately.
     fn register_admission_wait(&mut self, mut error: TimingStartError) -> TimingStartError {
-        let Some(job) = self.job.as_mut() else {
-            return error;
-        };
         let signal = match error.kind {
-            TimingStartKind::ReviewOpen => job.released.token(),
-            TimingStartKind::WorkerBusy => &job.finished,
+            TimingStartKind::ReviewOpen => TimingSignal::Released,
+            TimingStartKind::WorkerBusy => TimingSignal::Finished,
             _ => return error,
         };
-        let Some(id) = self
+        match self.register_wait(signal) {
+            Ok(ticket) => error.wait_id = ticket,
+            Err(reason) => return reason.into(),
+        }
+        error
+    }
+
+    fn register_wait(&mut self, signal: TimingSignal) -> Result<Option<SafeU64>> {
+        let Some(job) = self.job.as_mut() else {
+            return Ok(None);
+        };
+        let token = match signal {
+            TimingSignal::Released => job.released.token(),
+            TimingSignal::Finished => &job.finished,
+        };
+        let id = self
             .next_wait
             .checked_add(1)
             .and_then(|id| SafeU64::try_from(id).ok())
-        else {
-            return "Timing wait identities exhausted".into();
-        };
+            .ok_or("Timing wait identities exhausted")?;
         self.next_wait = id.get();
-        job.waits
-            .insert(id.get(), signal.child_token().drop_guard());
-        error.wait_id = Some(id);
-        error
+        job.waits.insert(id.get(), token.child_token().drop_guard());
+        Ok(Some(id))
     }
 
     fn ensure_idle(&mut self) -> StartResult<()> {
@@ -289,6 +298,24 @@ impl State {
     }
 }
 impl Documents {
+    pub(crate) fn timing_proposal_watch(
+        &self,
+        id: u64,
+        purpose: Purpose,
+        signal: TimingSignal,
+    ) -> Result<Option<SafeU64>> {
+        let mut store = self.0.lock().map_err(|_| "Document state unavailable")?;
+        let state = &mut store.timing_repairs;
+        if !state
+            .job
+            .as_ref()
+            .is_some_and(|job| job.id == id && job.operation.purpose() == purpose)
+        {
+            return Ok(None);
+        }
+        state.register_wait(signal)
+    }
+
     pub(crate) async fn timing_slot_wait(&self, id: u64) -> Result<()> {
         let token = {
             let store = self.0.lock().map_err(|_| "Document state unavailable")?;

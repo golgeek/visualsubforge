@@ -18,6 +18,7 @@ test('superseding a delayed timing view never announces an error', async ({
   const dock = await open(page);
   await page.locator('#test').evaluate((el) => {
     el.dataset.delayNextView = '1';
+    el.dispatchEvent(new Event('read-timing-page'));
     new MutationObserver(() => {
       const alert = el.querySelector('.timing-review [role=alert]');
       if (alert) el.dataset.seenError = alert.textContent!;
@@ -173,4 +174,77 @@ test('a fast replacement swaps directly with immediate Apply protection', async 
   expect(
     await page.locator('#test').getAttribute('data-showed-busy'),
   ).toBeNull();
+});
+
+for (const [kind, fixture] of [
+  ['Fix', 'scene-quality/?policy&scroll'],
+  ['Shift', 'batch-timing/?idle'],
+]) {
+  test(
+    kind + ' makes zero timing view reads while a ready review is idle',
+    async ({ page }) => {
+      await page.goto('/tests/frontend/' + fixture);
+      await expect(page.locator('.timing-review .apply')).toBeEnabled();
+      await expect(page.locator('.ghost').first()).toBeVisible();
+      const reads = () =>
+        page.locator('#test').getAttribute('data-timing-reads');
+      const before = await reads();
+      expect(Number(before)).toBeGreaterThan(0);
+      await page.waitForTimeout(2100);
+      expect(await reads()).toBe(before);
+    },
+  );
+}
+
+test('a Shift preview replacing Fix gates Apply before the single reread returns', async ({
+  page,
+}) => {
+  const dock = await open(page);
+  const fixture = page.locator('#test');
+  const apply = dock.locator('.apply');
+  const before = await apply.boundingBox();
+  const reads = Number(await fixture.getAttribute('data-timing-reads'));
+  await fixture.evaluate(async (el) => {
+    el.dataset.holdReply = 'changes-0';
+    el.dispatchEvent(new Event('replace-with-shift'));
+  });
+  await expect(fixture).toHaveAttribute('data-held-reply', 'changes-0');
+  await expect(apply).toBeDisabled();
+  expect(await apply.boundingBox()).toEqual(before);
+  await fixture.dispatchEvent('release-timing-reply');
+  await expect(dock.getByRole('alert')).toContainText('replaced');
+  await expect(apply).toBeDisabled();
+  expect(Number(await fixture.getAttribute('data-timing-reads'))).toBe(
+    reads + 1,
+  );
+});
+
+test('each document, media, scene and policy change gates Apply immediately and reads one new page', async ({
+  page,
+}) => {
+  await page.goto('/tests/frontend/scene-quality/?refreshInputs');
+  await expect(page.locator('#result')).toHaveText('PASS: refresh inputs');
+});
+
+test('a delayed release wake from the previous proposal leaves the newer Fix page alone', async ({
+  page,
+}) => {
+  const dock = await open(page);
+  const fixture = page.locator('#test');
+  await fixture.evaluate((el) => {
+    el.dataset.holdReply = 'owner-wake';
+    el.dispatchEvent(new Event('replace-with-shift'));
+  });
+  await expect(fixture).toHaveAttribute('data-held-reply', 'owner-wake');
+  await dock
+    .getByRole('checkbox', { name: 'Include cue 34', exact: true })
+    .uncheck();
+  await expect(dock.locator('.apply')).toHaveText('Apply 159 changes');
+  await expect(dock.locator('.apply')).toBeEnabled();
+  await expect(page.locator('.ghost.updating')).toHaveCount(0);
+  const reads = await fixture.getAttribute('data-timing-reads');
+  await fixture.dispatchEvent('release-timing-reply');
+  await expect(fixture).not.toHaveAttribute('data-held-reply', 'owner-wake');
+  await expect(dock.locator('.apply')).toBeEnabled();
+  expect(await fixture.getAttribute('data-timing-reads')).toBe(reads);
 });

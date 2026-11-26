@@ -1,3 +1,4 @@
+import { TimingTickets } from '../timing-tickets';
 import { chooseCommand } from '../command-discovery';
 import { mount, unmount, tick } from 'svelte';
 import App from '../../../src/App.svelte';
@@ -13,6 +14,7 @@ import {
 } from '../../../src/lib/client';
 import { fixGapsSample as sample } from '../ipc-contract-samples';
 import { lifecycle } from './lifecycle';
+const tickets = new TimingTickets();
 const host = document.querySelector('#test')!;
 const heading = document.querySelector('#result')!;
 const output = document.querySelector('#checks')!;
@@ -103,6 +105,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       },
     ) => {
       switch (command) {
+        case 'timing_proposal_watch':
+          return tickets.register(args.id!);
+        case 'timing_slot_wait':
+          return tickets.wait(args.id!);
+        case 'timing_slot_cancel_wait':
+          return tickets.withdraw(args.id!);
         case 'recent_list':
         case 'recent_capture':
         case 'recent_forget':
@@ -372,6 +380,7 @@ async function run() {
       'Skipped reasons and 100-row proposal paging stay reviewable without enabling an empty acceptance',
     );
     view = { ...view, phase: 'stale' };
+    tickets.release(view.id);
     await until(() =>
       host
         .querySelector('[aria-label="Live timing review"]')!
