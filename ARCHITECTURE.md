@@ -558,6 +558,7 @@ The plugin host creates a fresh helper process/runtime for each invocation.
 JavaScript values stay on that helper's execution thread. The parent bounds
 pipes, deadlines and cancellation and reaps the child. The desktop launches the
 installed sibling CLI in helper mode; it does not discover an executable on PATH.
+On a pipe IO error the parent allows up to 50 ms within the existing deadline to collect the exit status and bounded stderr.
 Engine limits are not an OS sandbox. See the [plugin contract](docs/plugin-host.md).
 
 ## Persistence and recovery

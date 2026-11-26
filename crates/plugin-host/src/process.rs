@@ -98,6 +98,7 @@ pub fn run(
                 let _ = sender.send(Pipe::Error(read_bounded(error, MAX_DIAGNOSTIC_BYTES)));
             })?;
         let mut written = false;
+        let mut pipe_failure = None;
         let mut stdout = None;
         let mut stderr = None;
         let result = loop {
@@ -113,7 +114,12 @@ pub fn run(
                 Ok(Pipe::Output(Ok(bytes))) => stdout = Some(bytes),
                 Ok(Pipe::Error(Ok(bytes))) => stderr = Some(bytes),
                 Ok(Pipe::Input(Err(e)) | Pipe::Output(Err(e)) | Pipe::Error(Err(e))) => {
-                    break Err(e);
+                    if !matches!(e, Failure::Io(_)) {
+                        break Err(e);
+                    }
+                    // A helper that exits before reading can close stdin before
+                    // its exit status and diagnostic reach this thread.
+                    pipe_failure.get_or_insert((e, Instant::now() + Duration::from_millis(50)));
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -123,10 +129,16 @@ pub fn run(
             match child.0.try_wait() {
                 Err(e) => break Err(e.into()),
                 Ok(Some(status)) => {
-                    if !status.success() {
-                        break Err(Failure::Worker(format!(
-                            "Plugin worker exited unsuccessfully: {status}"
-                        )));
+                    if !status.success()
+                        && let Some(bytes) = &stderr
+                    {
+                        let diagnostic = String::from_utf8_lossy(bytes);
+                        let mut message = format!("Plugin worker exited unsuccessfully: {status}");
+                        if !diagnostic.trim().is_empty() {
+                            message.push_str(": ");
+                            message.push_str(diagnostic.trim());
+                        }
+                        break Err(Failure::Worker(message));
                     }
                     if written && stdout.is_some() && stderr.is_some() {
                         let bytes = stdout.take().unwrap_or_default();
@@ -145,6 +157,13 @@ pub fn run(
                     }
                 }
                 Ok(None) => {}
+            }
+            if pipe_failure
+                .as_ref()
+                .is_some_and(|(_, until)| Instant::now() >= *until)
+                && let Some((error, _)) = pipe_failure.take()
+            {
+                break Err(error);
             }
         };
         // No successful result escapes after cancellation or a deadline that
