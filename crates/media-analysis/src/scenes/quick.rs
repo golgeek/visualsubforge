@@ -79,6 +79,7 @@ pub(super) fn detect(
     source: &Source,
     cancellation: &Cancellation,
     timeout: Duration,
+    workers: usize,
     publish: &mut (impl FnMut(Update) + Send),
 ) -> Result<Vec<f64>> {
     if source.codec.as_deref() != Some("h264") {
@@ -92,7 +93,7 @@ pub(super) fn detect(
         .and_then(|(n, d)| Some(n.parse::<f64>().ok()? / d.parse::<f64>().ok()?))
         .filter(|t| t.is_finite() && *t > 0.)
         .ok_or_else(|| Error::Message("Unknown H.264 time base".into()))?;
-    let mut command = Command::new(&tools.ffmpeg);
+    let mut command = scan_command(&tools.ffmpeg);
     command
         .args(["-v", "info", "-nostats", "-nostdin", "-copyts", "-i"])
         .arg(&source.path)
@@ -143,9 +144,6 @@ pub(super) fn detect(
         cuts: vec![],
         note: None,
     });
-    let workers = std::thread::available_parallelism()
-        .map(|n| (n.get() / 2).clamp(1, 8))
-        .unwrap_or(1);
     let next = AtomicUsize::new(0);
     // A bounded channel provides backpressure; only the coordinator publishes.
     let (send, receive) = std::sync::mpsc::sync_channel(workers);
@@ -160,7 +158,7 @@ pub(super) fn detect(
                     let index = next.fetch_add(1, Ordering::Relaxed);
                     let Some(&(pts, begin, end, previous2, previous1)) = candidates.get(index) else { break; };
                     if cancellation.is_cancelled() || started.elapsed() >= timeout { break; }
-                    let mut command = Command::new(&tools.ffmpeg);
+                    let mut command = scan_command(&tools.ffmpeg);
                     command.args(["-v", "error", "-nostdin", "-threads", "2", "-ss", &format!("{begin:.9}"), "-t", &format!("{:.9}", end-begin), "-copyts", "-i"])
                         .arg(&source.path).args(["-map", &format!("0:{}", source.stream), "-an", "-sn", "-dn", "-filter_threads", "1", "-vf", "scale=320:-2,settb=expr=1/1000000,scdet=threshold=1,metadata=mode=print:key=lavfi.scd.score:file=-", "-fps_mode", "passthrough", "-f", "null", "-"]);
                     let result = process::run(command, cancellation, timeout.saturating_sub(started.elapsed()), |reader| {

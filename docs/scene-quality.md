@@ -26,6 +26,14 @@ analysis and partial/running scans are not passing scene results. Completed
 Standard and Reduced scans can supply checks; both remain heuristic, and Reduced
 can miss cuts. A completed empty scan is different from unavailable data.
 
+The background scan uses one CPU budget for both phases. The quick pass runs
+that many verification workers, then the full pass uses that many software
+decoder threads with a single filter thread. The budget is one third of the
+available logical CPUs, rounded to nearest and clamped to 2–8. FFmpeg runs
+with niceness increased by 5 on macOS/Linux and below-normal priority on
+Windows. Scheduling does not alter the Standard/Reduced detector settings or
+their saved-project analysis versions (3/4).
+
 ## Reviewing shot changes
 
 **Snap to shot changes…** opens the shot preset. The review applies the active profile’s exclusion windows and protects other timing rules. [Review workflow and coverage](timing-repair-all.md)

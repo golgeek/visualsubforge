@@ -164,6 +164,34 @@ struct Source {
     time_base: Option<String>,
 }
 
+/// The background scan reserves roughly a third of the available CPUs (rounded
+/// to nearest, 2–8). Its sequential phases use this as the quick verifier count
+/// and the full-pass decoder thread count. FFmpeg also has filter/IO threads.
+fn scan_budget(available: usize) -> usize {
+    (available.saturating_add(1) / 3).clamp(2, 8)
+}
+
+/// Lower only the scan subprocess's scheduling priority. On Unix nice execs
+/// the tool in place, so the supervisor still kills and reaps the decoder PID.
+fn scan_command(tool: &Path) -> Command {
+    #[cfg(unix)]
+    {
+        let mut command = Command::new("/usr/bin/nice");
+        command.args(["-n", "5"]).arg(tool);
+        command
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x4000;
+        let mut command = Command::new(tool);
+        command.creation_flags(BELOW_NORMAL_PRIORITY_CLASS);
+        command
+    }
+    #[cfg(not(any(unix, windows)))]
+    Command::new(tool)
+}
+
 /// Quick, image-verified non-key I pictures followed by a gentle whole-video
 /// scan. Neither absence nor presence of I candidates establishes coverage.
 /// Callbacks run on analysis/pipe-reader workers, never on the UI thread.
@@ -173,6 +201,27 @@ pub fn scan(
     cancellation: &Cancellation,
     timeout: Duration,
     detail: Detail,
+    publish: impl FnMut(Update) + Send,
+) -> Result<SceneCuts> {
+    let available = std::thread::available_parallelism().map_or(1, usize::from);
+    scan_with_budget(
+        tools,
+        path,
+        cancellation,
+        timeout,
+        detail,
+        scan_budget(available),
+        publish,
+    )
+}
+
+fn scan_with_budget(
+    tools: &Tools,
+    path: &Path,
+    cancellation: &Cancellation,
+    timeout: Duration,
+    detail: Detail,
+    budget: usize,
     mut publish: impl FnMut(Update) + Send,
 ) -> Result<SceneCuts> {
     let started = Instant::now();
@@ -186,12 +235,18 @@ pub fn scan(
     let quick_budget = timeout
         .saturating_sub(started.elapsed())
         .min(Duration::from_secs(30));
-    let (mut cuts, note) =
-        match quick::detect(tools, &source, cancellation, quick_budget, &mut publish) {
-            Ok(cuts) => (cuts, None),
-            Err(Error::Cancelled) => return Err(Error::Cancelled),
-            Err(error) => (vec![], Some(format!("Quick scan unavailable: {error}"))),
-        };
+    let (mut cuts, note) = match quick::detect(
+        tools,
+        &source,
+        cancellation,
+        quick_budget,
+        budget,
+        &mut publish,
+    ) {
+        Ok(cuts) => (cuts, None),
+        Err(Error::Cancelled) => return Err(Error::Cancelled),
+        Err(error) => (vec![], Some(format!("Quick scan unavailable: {error}"))),
+    };
     if cancellation.is_cancelled() {
         return Err(Error::Cancelled);
     }
@@ -201,11 +256,17 @@ pub fn scan(
         cuts: cuts.clone(),
         note: note.clone(),
     });
-    let mut command = Command::new(&tools.ffmpeg);
-    // Bound background CPU pressure, independent of the short parallel quick pass.
-    // Two decoder threads + one filter thread; this is not a hard CPU quota.
+    let mut command = scan_command(&tools.ffmpeg);
     command
-        .args(["-v", "error", "-nostdin", "-threads", "2", "-copyts", "-i"])
+        .args([
+            "-v",
+            "error",
+            "-nostdin",
+            "-threads",
+            &budget.to_string(),
+            "-copyts",
+            "-i",
+        ])
         .arg(&source.path);
     let filter = format!(
         "{},settb=expr=1/1000000,scdet=threshold=10,metadata=mode=print:key=lavfi.scd.score:file=-:direct=1",
@@ -491,6 +552,68 @@ fn parse(text: &str, origin: f64) -> Result<Vec<f64>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn background_budget_rounds_and_bounds_the_shared_worker_count() {
+        for (available, expected) in [(1, 2), (4, 2), (8, 3), (14, 5), (32, 8), (usize::MAX, 8)] {
+            assert_eq!(scan_budget(available), expected);
+        }
+    }
+
+    #[test]
+    #[ignore = "requires generated scene fixtures and FFmpeg"]
+    fn rescans_at_different_budgets_publish_identical_quick_and_complete_cuts() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/generated");
+        let tools = Tools::default();
+        for name in [
+            "scene-intra-cfr.mkv",
+            "scene-intra-vfr.mkv",
+            "scene-fixed-gop.mkv",
+            "scene-vfr.mkv",
+        ] {
+            for detail in [Detail::Standard, Detail::Reduced] {
+                let path = fixtures.join(name);
+                let timeout = Duration::from_secs(30);
+                let cancelled = Cancellation::default();
+                let result =
+                    scan_with_budget(&tools, &path, &cancelled, timeout, detail, 2, |update| {
+                        if matches!(update.phase, Phase::Full) {
+                            cancelled.cancel();
+                        }
+                    });
+                assert!(matches!(result, Err(Error::Cancelled)));
+                let run = |budget| {
+                    let mut quick = None;
+                    let mut complete = None;
+                    let result = scan_with_budget(
+                        &tools,
+                        &path,
+                        &Cancellation::default(),
+                        timeout,
+                        detail,
+                        budget,
+                        |update| {
+                            if matches!(update.phase, Phase::Full) {
+                                if update.progress == 0. {
+                                    quick = Some(update.cuts);
+                                } else if update.progress == 1. {
+                                    complete = Some(update.cuts);
+                                }
+                            }
+                        },
+                    )
+                    .unwrap();
+                    assert_eq!(complete.as_ref(), Some(&result.seconds));
+                    (quick.unwrap(), result.seconds)
+                };
+                let expected = run(2);
+                assert!(!expected.1.is_empty());
+                for budget in [5, 8] {
+                    assert_eq!(expected, run(budget), "{name} {detail:?}, budget {budget}");
+                }
+            }
+        }
+    }
+
     #[test]
     fn exact_pts_map_offsets_sort_and_deduplicate_without_fps_assumptions() {
         let cuts = parse("frame:0 pts:5123456 pts_time:5.12346\nlavfi.scd.time=5.12346\nframe:1 pts:6000000 pts_time:6\nframe:2 pts:5123456 pts_time:5.12346\nframe:3 pts:4999999 pts_time:5", 5.0).unwrap();
