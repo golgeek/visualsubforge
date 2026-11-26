@@ -4,13 +4,32 @@ async function recordStripes(page: Page) {
   await page.addInitScript(() => {
     const draws: number[][] = [];
     Object.assign(window, { stripes: draws });
-    const rect = CanvasRenderingContext2D.prototype.fillRect;
-    CanvasRenderingContext2D.prototype.fillRect = function (x, y, w, h) {
-      if (this.canvas.matches('canvas[aria-label^="Audio waveform"]')) {
-        if (x === 0 && y === 0) draws.push([]);
-        if (y === 21 && w === 3) draws.at(-1)?.push(x);
-      }
+    // Follow painted stripes through 1:1 layer copies. Record the stripe
+    // list on presentation, including any frame that presents an empty layer.
+    const layers = new WeakMap<HTMLCanvasElement, number[]>();
+    const proto = CanvasRenderingContext2D.prototype;
+    const rect = proto.fillRect;
+    proto.fillRect = function (x, y, w, h) {
+      if (x === 0 && y === 0) layers.set(this.canvas, []);
+      if (y === 21 && w === 3) layers.get(this.canvas)?.push(x);
       rect.call(this, x, y, w, h);
+    };
+    const copy = proto.drawImage;
+    proto.drawImage = function (
+      source: CanvasImageSource,
+      ...coords: number[]
+    ) {
+      Reflect.apply(copy, this, [source, ...coords]);
+      if (
+        !(source instanceof HTMLCanvasElement) ||
+        coords[0] !== 0 ||
+        coords[1] !== 0
+      )
+        return;
+      const stripes = [...(layers.get(source) ?? [])];
+      layers.set(this.canvas, stripes);
+      if (this.canvas.matches('canvas[aria-label^="Audio waveform"]'))
+        draws.push(stripes);
     };
   });
 }
@@ -127,6 +146,9 @@ test('a failed quality read retains stripes, markers, metrics and layout until r
   await expect(metric).toBeVisible();
   const beforeMetrics = await metric.innerText();
   const beforeMarkers = await markers();
+  await expect
+    .poll(async () => (await stripes())?.length ?? 0)
+    .toBeGreaterThan(1);
   const beforeStripes = await stripes();
   expect(beforeStripes?.length).toBeGreaterThan(1);
   await page

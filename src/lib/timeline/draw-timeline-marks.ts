@@ -41,13 +41,10 @@ export function drawTimelineMarks(
     span: number;
     cuts: readonly number[];
     cues: readonly Cue[];
-    gaps: readonly GapMark[];
     timing: TimingSettings;
-    guides: readonly SnapGuide[];
   },
 ) {
-  const { width, height, start, span, cuts, cues, gaps, timing, guides } =
-    options;
+  const { width, height, start, span, cuts, cues, timing } = options;
   const x = (ms: number) => ((ms / 1000 - start) / span) * width;
   const bottom = Math.max(20, height - 12);
   context.save();
@@ -104,6 +101,21 @@ export function drawTimelineMarks(
     context.fillStyle = colors.warning;
     context.fillText(label, left + 3, 31);
   }
+  context.restore();
+}
+
+export function drawGaps(
+  context: CanvasRenderingContext2D,
+  colors: CanvasPalette,
+  gaps: readonly GapMark[],
+  start: number,
+  span: number,
+  width: number,
+  height: number,
+  bottom: number,
+) {
+  const x = (ms: number) => ((ms / 1000 - start) / span) * width;
+  context.font = `9px ${colors.fontMono}`;
   context.fillStyle = colors.background;
   context.fillRect(0, bottom, width, height - bottom);
   for (const gap of gaps) {
@@ -124,6 +136,21 @@ export function drawTimelineMarks(
       context.fillText(label, left + 3, height - 1);
     }
   }
+}
+
+export function drawGuides(
+  context: CanvasRenderingContext2D,
+  colors: CanvasPalette,
+  guides: readonly SnapGuide[],
+  start: number,
+  span: number,
+  width: number,
+  bottom: number,
+) {
+  if (guides.length === 0) return;
+  const x = (ms: number) => ((ms / 1000 - start) / span) * width;
+  context.save();
+  context.font = `9px ${colors.fontMono}`;
   context.strokeStyle = colors.accent;
   context.lineWidth = 1;
   context.setLineDash([4, 3]);
