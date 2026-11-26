@@ -510,6 +510,10 @@ Explicit review services use bounded admission rather than unbounded queues;
 Fix, batch and selected-cue repair share one timing worker, and text/style/font/conversion share
 another. Waveform and scene analysis each allow one active request and one
 replaceable pending request. Replacement cancels obsolete work before reuse.
+The scene worker derives the quick verifier count and full decoder thread count
+from available parallelism at scan start. It lowers FFmpeg priority on Windows
+and on Unix systems with `/usr/bin/nice`. The supervisor owns each child
+through exit, cancellation and reaping.
 
 Scene capture and guarded document work have different lock lifetimes. During
 timing, statistics and plugin start, `Media::with_context` holds media selection
