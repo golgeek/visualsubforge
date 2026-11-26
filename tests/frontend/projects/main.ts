@@ -562,10 +562,8 @@ async function run() {
     const canvas = host.querySelector<HTMLCanvasElement>(
       'canvas[aria-label^="Audio waveform:"]',
     )!;
-    const widthDescriptor = Object.getOwnPropertyDescriptor(
-      HTMLCanvasElement.prototype,
-      'width',
-    )!;
+    const context = canvas.getContext('2d')!;
+    const present = context.drawImage;
     let redraws = 0;
     const redrawDetails: unknown[] = [];
     let canvasSize = { width: 0, height: 0 };
@@ -582,24 +580,17 @@ async function run() {
       fontEvents++;
     };
     document.fonts.addEventListener('loadingdone', fontLoaded);
-    Object.defineProperty(canvas, 'width', {
-      configurable: true,
-      get() {
-        return widthDescriptor.get!.call(this);
-      },
-      set(value: number) {
-        redraws++;
-        redrawDetails.push({
-          ...canvasSize,
-          value,
-          fontEvents,
-          fonts: document.fonts.status,
-          position: media.positionSeconds,
-          polls: statusPolls,
-        });
-        widthDescriptor.set!.call(this, value);
-      },
-    });
+    context.drawImage = (...args: unknown[]) => {
+      redraws++;
+      redrawDetails.push({
+        ...canvasSize,
+        fontEvents,
+        fonts: document.fonts.status,
+        position: media.positionSeconds,
+        polls: statusPolls,
+      });
+      Reflect.apply(present, context, args);
+    };
     try {
       // Bundled fonts legitimately repaint canvas labels and can resize the
       // layout. Finish that startup work before measuring status-only polls.
@@ -641,7 +632,7 @@ async function run() {
     } finally {
       sizes.disconnect();
       document.fonts.removeEventListener('loadingdone', fontLoaded);
-      Reflect.deleteProperty(canvas, 'width');
+      context.drawImage = present;
     }
     menuAction('saveProject');
     await until(

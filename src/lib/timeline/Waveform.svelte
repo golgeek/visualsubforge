@@ -181,7 +181,10 @@
   let gapGeometryDirty = true;
   let lastGaps: readonly GapMark[] | undefined;
   let lastCues: readonly Cue[] | undefined;
-  let lastIssues: ReadonlyMap<string, IssueSeverity> | undefined;
+  // Quality reconciles its SvelteMap in place. Read visible keys in a tracked
+  // derivation and keep the values that produced the last raster.
+  const severities = $derived(cues.map((cue) => issues.get(String(cue.id))));
+  let lastSeverities: typeof severities | undefined;
   let lastSelected: number | null = null;
   let checkCues = true;
   let cuesDirty = true;
@@ -202,7 +205,7 @@
     const colors = palette;
     context.fillStyle = colors.background;
     context.fillRect(0, 0, width, height);
-    for (const cue of cues) {
+    for (const [index, cue] of cues.entries()) {
       const left = Math.max(0, x(cue.startMs / 1000));
       const right = Math.min(width, x(cue.endMs / 1000));
       if (right <= left) continue;
@@ -218,7 +221,7 @@
         Math.max(0, right - left - 1),
         plotHeight - 22,
       );
-      const severity = issues.get(String(cue.id));
+      const severity = severities[index];
       if (severity) {
         context.fillStyle =
           severity === 'violation' ? colors.error : colors.warning;
@@ -351,13 +354,17 @@
   // cues. Compare the fields that actually reach the raster, in paint order.
   function cuePixelsChanged() {
     const old = lastCues;
-    const oldIssues = lastIssues;
+    const oldSeverities = lastSeverities;
     const oldSelected = lastSelected;
     lastCues = cues;
-    lastIssues = issues;
+    lastSeverities = severities;
     lastSelected = selected;
-    if (!old || !oldIssues || old.length !== cues.length) return true;
-    if (old === cues && oldIssues === issues && selected === oldSelected)
+    if (!old || !oldSeverities || old.length !== cues.length) return true;
+    if (
+      old === cues &&
+      oldSeverities === severities &&
+      selected === oldSelected
+    )
       return false;
     return cues.some((cue, i) => {
       const prior = old[i]!;
@@ -367,7 +374,7 @@
         prior.endMs !== cue.endMs ||
         prior.text !== cue.text ||
         (prior.id === oldSelected) !== (cue.id === selected) ||
-        oldIssues.get(String(prior.id)) !== issues.get(String(cue.id))
+        oldSeverities[i] !== severities[i]
       );
     });
   }
@@ -534,7 +541,7 @@
   $effect(() => {
     void cues;
     void selected;
-    void issues;
+    void severities;
     checkCues = true;
     scheduleDraw();
   });
