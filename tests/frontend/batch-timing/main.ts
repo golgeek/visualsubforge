@@ -177,7 +177,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return null;
         case 'batch_timing_start': {
           request = structuredClone(args.request!);
-          starts++;
+          host.dataset.starts = String(++starts);
+          host.dataset.lastRequest = JSON.stringify(request);
           const scope = request.scope;
           const cues = doc.cues.filter(
             (c) =>
@@ -486,6 +487,8 @@ async function run() {
     await unmount(app);
   }
 }
-if (location.search.includes('idle')) {
+if (location.search.includes('first-open')) {
+  host.addEventListener('open-shift', () => void open());
+} else if (location.search.includes('idle')) {
   void open().then(() => input('Shift offset in milliseconds', '200'));
 } else void run();
