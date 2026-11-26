@@ -1220,10 +1220,22 @@ export type visualsubforge_batch_timing_BatchView = {
   rows: visualsubforge_batch_timing_BatchRow[];
 };
 
-export type visualsubforge_preferences_shortcuts_Binding = {
+export type visualsubforge_preferences_shortcuts_Binding =
+  | visualsubforge_preferences_shortcuts_Binding_Serialize
+  | visualsubforge_preferences_shortcuts_Binding_Deserialize;
+
+export type visualsubforge_preferences_shortcuts_Binding_Deserialize = {
   action: string;
   mode: visualsubforge_preferences_shortcuts_Mode;
   key: string;
+  macKey?: string | null;
+};
+
+export type visualsubforge_preferences_shortcuts_Binding_Serialize = {
+  action: string;
+  mode: visualsubforge_preferences_shortcuts_Mode;
+  key: string;
+  macKey?: string | null;
 };
 
 export type visualsubforge_document_review_BlockRow = {
@@ -2555,7 +2567,7 @@ export type visualsubforge_preferences_Preferences_Deserialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Deserialize;
   appearance: visualsubforge_preferences_appearance_Appearance;
-  shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
+  shortcuts: visualsubforge_preferences_shortcuts_Shortcuts_Deserialize;
   reviewName?: string;
   automaticUpdates?: boolean | null;
   autoScanScenes: boolean;
@@ -2572,7 +2584,7 @@ export type visualsubforge_preferences_Preferences_Serialize = {
   version: number;
   layout: visualsubforge_preferences_layout_LayoutPreferences_Serialize;
   appearance: visualsubforge_preferences_appearance_Appearance;
-  shortcuts: visualsubforge_preferences_shortcuts_Shortcuts;
+  shortcuts: visualsubforge_preferences_shortcuts_Shortcuts_Serialize;
   reviewName: string;
   automaticUpdates: boolean | null;
   autoScanScenes: boolean;
@@ -3339,9 +3351,18 @@ export type vsf_application_comparison_ShiftBlock = {
   revised_end_ms: number;
 };
 
-export type visualsubforge_preferences_shortcuts_Shortcuts = {
+export type visualsubforge_preferences_shortcuts_Shortcuts =
+  | visualsubforge_preferences_shortcuts_Shortcuts_Serialize
+  | visualsubforge_preferences_shortcuts_Shortcuts_Deserialize;
+
+export type visualsubforge_preferences_shortcuts_Shortcuts_Deserialize = {
   preset: visualsubforge_preferences_shortcuts_Preset;
-  bindings: visualsubforge_preferences_shortcuts_Binding[];
+  bindings: visualsubforge_preferences_shortcuts_Binding_Deserialize[];
+};
+
+export type visualsubforge_preferences_shortcuts_Shortcuts_Serialize = {
+  preset: visualsubforge_preferences_shortcuts_Preset;
+  bindings: visualsubforge_preferences_shortcuts_Binding_Serialize[];
 };
 
 export type visualsubforge_document_Snapshot =
@@ -3995,6 +4016,8 @@ export type visualsubforge_desktop_WorkspaceAction =
   | 'importLegacyProject'
   | 'saveProject'
   | 'saveProjectAs'
+  | 'previousCue'
+  | 'nextCue'
   | 'createCue'
   | 'deleteCue'
   | 'splitCue'

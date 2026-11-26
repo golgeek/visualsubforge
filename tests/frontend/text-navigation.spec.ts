@@ -47,3 +47,34 @@ test('macOS word jumps and selections reach editable fields, and seeking still w
   ).toBe(false);
   await expect(host).toHaveAttribute('data-last-seek', '2');
 });
+
+test('macOS cue text keeps paragraph navigation while cue jump keys select adjacent cues', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel' }),
+  );
+  await page.goto('/tests/frontend/cue-editor/?groupMenu');
+  await expect(page.locator('#test')).toHaveAttribute(
+    'data-dialogue-enabled',
+    'false',
+  );
+  const editor = page.getByLabel('Subtitle text', { exact: true });
+  const filter = page.getByLabel('Filter cues by text or number');
+  for (const target of [editor, filter])
+    for (const key of ['ArrowUp', 'ArrowDown'])
+      expect(await arrow(target, key)).toBe(true);
+  await editor.press('Meta+Alt+ArrowDown');
+  await expect(editor).toHaveValue('Three issues');
+  await editor.press('Meta+Alt+ArrowUp');
+  await expect(editor).toHaveValue('One issue');
+  for (const target of [
+    page.locator('[data-cue-id="1"]'),
+    page.locator('canvas[aria-label^="Audio waveform"]'),
+  ]) {
+    expect(await arrow(target, 'ArrowDown')).toBe(false);
+    await expect(editor).toHaveValue('Three issues');
+    expect(await arrow(target, 'ArrowUp')).toBe(false);
+    await expect(editor).toHaveValue('One issue');
+  }
+});

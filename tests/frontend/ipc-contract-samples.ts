@@ -2912,6 +2912,7 @@ export const workspaceActions = [
   'mergeNext',
   'mergePrevious',
   'nextChange',
+  'nextCue',
   'nextFrame',
   'nextOpenThread',
   'nextProblem',
@@ -2924,6 +2925,7 @@ export const workspaceActions = [
   'playRange',
   'plugins',
   'previousChange',
+  'previousCue',
   'previousFrame',
   'previousOpenThread',
   'previousProblem',
@@ -3698,9 +3700,21 @@ export const preferences = {
         mode: 'global',
       },
       {
+        action: 'previousCue',
+        key: '',
+        macKey: 'CmdOrCtrl+Alt+Up',
+        mode: 'text',
+      },
+      {
         action: 'nextCue',
         key: 'Alt+Down',
         mode: 'global',
+      },
+      {
+        action: 'nextCue',
+        key: '',
+        macKey: 'CmdOrCtrl+Alt+Down',
+        mode: 'text',
       },
       {
         action: 'previousProblem',

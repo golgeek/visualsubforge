@@ -849,7 +849,11 @@ bindings the webview must dispatch according to focus. Rust displays these keys
 as native menu hints and leaves them unregistered as accelerators, including on
 startup and after a rebind.
 
-The mode-aware preset remains opt-in pending owner trials. Migrated settings keep
+The Single-key editing preset (`vsfDefault` in saved settings) is opt-in.
+A binding can override its portable key with `macKey`. All three bundled
+presets use a macOS-only cue-text slot for Command+Option+Up/Down. Both
+platform projections are validated on save. Menus, Settings and the webview
+resolve the same confirmed bindings. Existing custom sets keep their slots. Migrated settings keep
 current bindings except Replace moves to Cmd/Ctrl+Shift+F to resolve the macOS
 Merge Previous collision. See [Settings and shortcuts](docs/settings-shortcuts.md).
 Distinct cue counts per quality rule are computed once from the accepted report

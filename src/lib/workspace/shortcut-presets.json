@@ -246,9 +246,21 @@
       "key": "Alt+Up"
     },
     {
+      "action": "previousCue",
+      "mode": "text",
+      "key": "",
+      "macKey": "CmdOrCtrl+Alt+Up"
+    },
+    {
       "action": "nextCue",
       "mode": "global",
       "key": "Alt+Down"
+    },
+    {
+      "action": "nextCue",
+      "mode": "text",
+      "key": "",
+      "macKey": "CmdOrCtrl+Alt+Down"
     },
     {
       "action": "previousProblem",
@@ -633,9 +645,21 @@
       "key": "Alt+Up"
     },
     {
+      "action": "previousCue",
+      "mode": "text",
+      "key": "",
+      "macKey": "CmdOrCtrl+Alt+Up"
+    },
+    {
       "action": "nextCue",
       "mode": "global",
       "key": "Alt+Down"
+    },
+    {
+      "action": "nextCue",
+      "mode": "text",
+      "key": "",
+      "macKey": "CmdOrCtrl+Alt+Down"
     },
     {
       "action": "previousProblem",
@@ -1110,9 +1134,21 @@
       "key": "Alt+Up"
     },
     {
+      "action": "previousCue",
+      "mode": "text",
+      "key": "",
+      "macKey": "CmdOrCtrl+Alt+Up"
+    },
+    {
       "action": "nextCue",
       "mode": "global",
       "key": "Alt+Down"
+    },
+    {
+      "action": "nextCue",
+      "mode": "text",
+      "key": "",
+      "macKey": "CmdOrCtrl+Alt+Down"
     },
     {
       "action": "previousProblem",

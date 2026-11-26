@@ -36,7 +36,7 @@ or stale. They do not count findings or unsaved cue text.
 
 The transport bar starts with Play/Pause and Loop range. Loop range plays the
 selected interval. Press it again to clear an active loop. Previous Frame and
-Next Frame are available in the Playback menu. In the VSF default (trial)
+Next Frame are available in the Playback menu. In the Single-key editing
 preset, Left and Right step frames with the cue list or waveform focused.
 
 ## Shortcut presets
@@ -47,7 +47,7 @@ shortcut. Assign one under Settings → Shortcuts.
 Existing settings migrate to **Current VSF bindings**. Replace uses
 Cmd/Ctrl+Shift+F, resolving its former macOS collision with Merge with Previous.
 
-**VSF default (trial)** is opt-in. With the list or waveform focused, N creates,
+**Single-key editing** is opt-in. With the list or waveform focused, N creates,
 S splits, M/Shift+M merges next/previous, Backspace deletes, Space plays, and
 brackets set start/end at the playhead. In cue text, ordinary keys type, Tab plays
 and Shift+Tab replays from two seconds earlier. Escape returns to the waveform.
@@ -71,14 +71,18 @@ appears in parentheses in its menu item and runs through the focused view.
 On macOS, Option+Left/Right seeks from the cue list or waveform. In text fields it
 moves by word, and adding Shift selects by word. Command+arrows and their Shift
 variants also stay with text fields. On Windows and Linux, text fields keep
-Ctrl+arrows and Home/End, including Shift selections. In cue text, Option+Up/Down
-still edits the previous or next cue. The Classic preset follows the same focus
-rule. Confirmed changes update menus, command
+Ctrl+arrows and Home/End, including Shift selections. In all three macOS presets,
+Option+Up/Down moves to a paragraph boundary in any text field. Use
+Command+Option+Up/Down to edit the previous or next cue from cue text, or
+Option+Up/Down from the list or waveform. On Windows and Linux, Alt+Up/Down
+changes cues from all three places. Existing custom bindings are preserved. On
+macOS, a custom Alt+Up or Alt+Down binding yields to paragraph navigation while
+editing. Confirmed changes update menus, command
 help and tooltips. Rust validates persistence and native publication together,
 restoring previous accelerators on failure. A failed restoration is reported
 explicitly and requires restarting the app.
 
-Before adopting the trial preset, exercise ordinary typing/IME/AltGr, Tab and
+Before adopting Single-key editing, exercise ordinary typing/IME/AltGr, Tab and
 Shift+Tab in cue text versus other controls, N/S/M/Backspace in list and waveform,
 Escape focus return, bracket edge edits and Undo. Test a rebind, a conflict,
 restart persistence and both menu and keyboard invocation on your platform.

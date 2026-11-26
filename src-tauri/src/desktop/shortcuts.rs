@@ -1,7 +1,7 @@
 //! Serialize accelerator publication with preference persistence. Tauri dispatches
 //! menu mutations to its UI thread; callers and filesystem work stay on a
 //! blocking worker. Settings owns modal admission while the transaction runs.
-use crate::preferences::shortcuts::Shortcuts;
+use crate::preferences::shortcuts::{Mode, Shortcuts};
 use std::{
     collections::BTreeMap,
     sync::{LazyLock, Mutex},
@@ -32,8 +32,38 @@ fn menu_binding<'a>(label: &str, key: Option<&'a str>, mac: bool) -> (String, Op
     }
 }
 
-pub(super) fn native_binding<'a>(label: &str, key: Option<&'a str>) -> (String, Option<&'a str>) {
-    menu_binding(label, key, cfg!(target_os = "macos"))
+pub(super) fn native_binding<'a>(
+    id: &str,
+    label: &str,
+    shortcuts: &'a Shortcuts,
+    mac: bool,
+) -> (String, Option<&'a str>) {
+    let key = |mode| shortcuts.key_for(id, mode, mac);
+    let (mut title, accelerator) = menu_binding(label, key(Mode::Global), mac);
+    if mac
+        && matches!(id, "previousCue" | "nextCue")
+        && let Some(chord) = key(Mode::Text)
+    {
+        // A scoped chord is a label hint only. Native accelerators run before focus routing.
+        let mut parts = chord.split('+').collect::<Vec<_>>();
+        let key = match parts.pop().unwrap_or_default() {
+            "Up" => "↑",
+            "Down" => "↓",
+            "Left" => "←",
+            "Right" => "→",
+            "Return" | "Enter" => "↵",
+            other => other,
+        };
+        let mut glyphs = String::new();
+        for (modifier, glyph) in [("Alt", '⌥'), ("Shift", '⇧'), ("CmdOrCtrl", '⌘')] {
+            if parts.contains(&modifier) {
+                glyphs.push(glyph);
+            }
+        }
+        glyphs.push_str(key);
+        title.push_str(&format!(" (cue text: {glyphs})"));
+    }
+    (title, accelerator)
 }
 
 fn publish(app: &tauri::AppHandle, shortcuts: &Shortcuts) -> Result<(), String> {
@@ -64,7 +94,7 @@ fn publish(app: &tauri::AppHandle, shortcuts: &Shortcuts) -> Result<(), String> 
         set(item, None)?;
     }
     for (id, label, item) in &items {
-        let (text, key) = native_binding(label, shortcuts.native_key(id));
+        let (text, key) = native_binding(id, label, shortcuts, cfg!(target_os = "macos"));
         match item {
             MenuItemKind::MenuItem(item) => item.set_text(&text),
             MenuItemKind::Check(item) => item.set_text(&text),
@@ -130,6 +160,25 @@ fn transition<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cue_jumps_have_platform_menu_shortcuts_and_scoped_keys_stay_in_the_webview() {
+        let shortcuts = Shortcuts::default();
+        for (id, label, arrow, key) in [
+            ("previousCue", "Edit Previous Cue", "↑", "Alt+Up"),
+            ("nextCue", "Edit Next Cue", "↓", "Alt+Down"),
+        ] {
+            assert!(super::super::WorkspaceAction::from_menu_id(id).is_some());
+            assert_eq!(
+                native_binding(id, label, &shortcuts, true),
+                (format!("{label} (⌥{arrow}) (cue text: ⌥⌘{arrow})"), None)
+            );
+            assert_eq!(
+                native_binding(id, label, &shortcuts, false),
+                (label.into(), Some(key))
+            );
+        }
+    }
 
     #[test]
     fn text_navigation_is_shown_in_native_menus_without_intercepting_the_chord() {

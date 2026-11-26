@@ -172,6 +172,7 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
     let mut value: Preferences =
         serde_json::from_value(json).map_err(|e| format!("Invalid settings: {e}"))?;
     value.shortcuts.upgrade_zoom_defaults();
+    value.shortcuts.upgrade_cue_text_defaults();
     value.layout.upgrade_preview_defaults();
     value.validate()?;
     Ok(value)
@@ -456,7 +457,9 @@ mod tests {
         .unwrap();
         let restored = read(&path).unwrap();
         assert_eq!(
-            restored.shortcuts.native_key("splitCue"),
+            restored
+                .shortcuts
+                .key_for("splitCue", shortcuts::Mode::Global, false),
             Some("CmdOrCtrl+Shift+L")
         );
         let saved = fs::read(&path).unwrap();

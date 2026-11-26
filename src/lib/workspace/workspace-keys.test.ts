@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { shortcutPreset } from './shortcut-settings.ts';
 import { routeWorkspaceKey } from './workspace-keys.ts';
 
 type Key = Parameters<typeof routeWorkspaceKey>[0];
@@ -81,10 +82,23 @@ test('navigation bindings in native menus dispatch from workspace focus and pres
     ['ArrowUp', 'previousCue'],
     ['ArrowDown', 'nextCue'],
   ] as const) {
-    assert.deepEqual(
+    assert.equal(
       route(key, { altKey: true }, { mac: true, editing: true, cueText: true }),
+      null,
+    );
+    assert.deepEqual(
+      route(
+        key,
+        { altKey: true, metaKey: true },
+        { mac: true, editing: true, cueText: true },
+      ),
       { kind: 'editing', action },
     );
+    for (const mac of [false, true])
+      assert.equal(
+        route(key, { altKey: true, ctrlKey: true }, { mac, editing: true }),
+        null,
+      );
     assert.equal(
       route(
         key,
@@ -94,6 +108,63 @@ test('navigation bindings in native menus dispatch from workspace focus and pres
       null,
     );
   }
+});
+
+test('all bundled presets reserve the new cue-text chord for macOS and preserve custom Alt arrows', () => {
+  const down = {
+    key: 'ArrowDown',
+    code: 'ArrowDown',
+    altKey: true,
+    metaKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+    repeat: false,
+    isComposing: false,
+    defaultPrevented: false,
+  };
+  const jump = { kind: 'editing', action: 'nextCue' };
+  for (const preset of [
+    'current',
+    'vsfDefault',
+    'visualSubSyncClassic',
+  ] as const) {
+    const shortcuts = shortcutPreset(preset);
+    for (const mac of [true, false]) {
+      const field = { ...context, mac, editing: true, cueText: true };
+      assert.deepEqual(
+        routeWorkspaceKey(down, field, shortcuts),
+        mac ? null : jump,
+      );
+      assert.deepEqual(
+        routeWorkspaceKey(
+          { ...down, metaKey: mac, ctrlKey: !mac },
+          field,
+          shortcuts,
+        ),
+        mac ? jump : null,
+      );
+      assert.deepEqual(
+        routeWorkspaceKey(down, { ...context, mac }, shortcuts),
+        jump,
+      );
+    }
+  }
+  const custom = {
+    preset: 'custom' as const,
+    bindings: [{ action: 'nextCue', mode: 'global' as const, key: 'Alt+Down' }],
+  };
+  assert.equal(
+    routeWorkspaceKey(
+      down,
+      { ...context, mac: true, editing: true, cueText: true },
+      custom,
+    ),
+    null,
+  );
+  assert.deepEqual(
+    routeWorkspaceKey(down, { ...context, mac: true }, custom),
+    jump,
+  );
 });
 
 test('Find and Replace stay distinct from Merge on both platforms', () => {

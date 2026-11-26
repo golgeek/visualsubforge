@@ -79,6 +79,8 @@ pub enum WorkspaceAction {
     ImportLegacyProject,
     SaveProject,
     SaveProjectAs,
+    PreviousCue,
+    NextCue,
     CreateCue,
     DeleteCue,
     SplitCue,
@@ -124,6 +126,7 @@ struct ActionDescription {
     group: String,
     order: u32,
     label: String,
+    #[cfg(test)]
     shortcut: String,
 }
 fn action_descriptions() -> tauri::Result<std::collections::BTreeMap<String, ActionDescription>> {
@@ -144,9 +147,11 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             ))
         })
     };
+    let defaults = crate::preferences::shortcuts::Shortcuts::default();
     let item = |id: &str| {
         let action = description(id)?;
-        let (label, key) = shortcuts::native_binding(&action.label, Some(&action.shortcut));
+        let (label, key) =
+            shortcuts::native_binding(id, &action.label, &defaults, cfg!(target_os = "macos"));
         let builder = MenuItemBuilder::with_id(id, label);
         let builder = if let Some(key) = key {
             builder.accelerator(key)
@@ -215,7 +220,12 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                 continue;
             }
             if checked_ids.contains(&id.as_str()) {
-                let (label, key) = shortcuts::native_binding(&action.label, Some(&action.shortcut));
+                let (label, key) = shortcuts::native_binding(
+                    id,
+                    &action.label,
+                    &defaults,
+                    cfg!(target_os = "macos"),
+                );
                 let check = CheckMenuItemBuilder::with_id(id, label);
                 let check = if let Some(key) = key {
                     check.accelerator(key)

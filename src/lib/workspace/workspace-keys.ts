@@ -1,6 +1,7 @@
 import {
   isNativeAction,
-  matchesShortcut,
+  matchesBinding,
+  platformKey,
   type ActionId,
 } from './action-registry.ts';
 import textNavigationKeys from './text-navigation-keys.json' with { type: 'json' };
@@ -85,24 +86,17 @@ export function routeWorkspaceKey(
       (binding.mode === 'global' ||
         binding.mode === 'alternate' ||
         binding.mode === mode) &&
-      matchesShortcut(binding.key, e),
+      matchesBinding(binding, e, !!context.mac),
   );
   if (!binding) return null;
   const action = binding.action as ActionId;
+  const chord = platformKey(binding, !!context.mac);
   const textNavigation = Object.hasOwn(
     context.mac ? textNavigationKeys.macos : textNavigationKeys.other,
-    binding.key,
+    chord,
   );
-  const cueJump =
-    mode === 'text' &&
-    ((action === 'previousCue' && binding.key === 'Alt+Up') ||
-      (action === 'nextCue' && binding.key === 'Alt+Down'));
-  if (context.editing && textNavigation && !cueJump) return null;
-  if (
-    action === 'play' &&
-    binding.mode === 'workspace' &&
-    binding.key === 'Space'
-  ) {
+  if (context.editing && textNavigation) return null;
+  if (action === 'play' && binding.mode === 'workspace' && chord === 'Space') {
     if (e.repeat || !context.canAct) return { kind: 'consume' };
     return context.timing && !context.paused
       ? { kind: 'held' }
@@ -111,7 +105,7 @@ export function routeWorkspaceKey(
   if (e.repeat && action !== 'previousProblem' && action !== 'nextProblem')
     return null;
   if (action === 'commandPalette') return { kind: 'browser', mode: 'commands' };
-  if (action === 'shortcutSheet' && context.editing && binding.key === '?')
+  if (action === 'shortcutSheet' && context.editing && chord === '?')
     return null;
   if (action === 'shortcutSheet') return { kind: 'browser', mode: 'shortcuts' };
   if (action === 'find' || action === 'replace')

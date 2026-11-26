@@ -1,5 +1,9 @@
 import descriptions from './action-descriptions.json' with { type: 'json' };
-import type { WorkspaceAction, ShortcutPreferences } from '../client';
+import type {
+  WorkspaceAction,
+  ShortcutBinding,
+  ShortcutPreferences,
+} from '../client';
 
 export type ActionId = keyof typeof descriptions;
 export type ActionGroup =
@@ -19,23 +23,45 @@ void nativeCoverage;
 export const actions = Object.entries(descriptions)
   .map(([id, description]) => ({ id: id as ActionId, ...description }))
   .sort((left, right) => left.order - right.order);
+export function platformKey(
+  binding: ShortcutBinding,
+  mac = navigator.platform.startsWith('Mac'),
+) {
+  return mac ? (binding.macKey ?? binding.key) : binding.key;
+}
+export function matchesBinding(
+  binding: ShortcutBinding,
+  event: ShortcutKey,
+  mac = navigator.platform.startsWith('Mac'),
+) {
+  const key = platformKey(binding, mac);
+  // A macOS override that names Command must never consume Control+Option.
+  if (
+    mac &&
+    binding.macKey != null &&
+    key.startsWith('CmdOrCtrl+') &&
+    !event.metaKey
+  )
+    return false;
+  return matchesShortcut(key, event);
+}
 export function actionDescription(
   id: ActionId,
   shortcuts?: ShortcutPreferences,
 ): ActionDescription {
   if (!shortcuts) return descriptions[id];
   const bindings = shortcuts.bindings.filter(
-    (binding) => binding.action === id && binding.key,
+    (binding) => binding.action === id && platformKey(binding),
   );
   const primary =
     bindings.find((binding) => binding.mode === 'global') ?? bindings[0];
   return {
     ...descriptions[id],
-    shortcut: primary?.key ?? '',
+    shortcut: primary ? platformKey(primary) : '',
     macShortcut: null,
     alternateShortcuts: bindings
       .filter((binding) => binding !== primary)
-      .map((binding) => binding.key),
+      .map((binding) => platformKey(binding)),
   };
 }
 export function actionsFor(shortcuts?: ShortcutPreferences) {
