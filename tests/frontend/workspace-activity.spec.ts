@@ -62,7 +62,8 @@ test('settle and overlapping activity lifetimes with a fake clock', async ({
   page,
 }) => {
   await page.goto('/tests/frontend/workspace-activity/settle.svelte.ts');
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2030-01-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2030-01-01T00:01:00Z'));
   const unit = await page.evaluateHandle(async () => {
     const path = '/tests/frontend/workspace-activity/settle.svelte.ts';
     const module: typeof import('./workspace-activity/settle.svelte') =
@@ -93,9 +94,22 @@ test('settle and overlapping activity lifetimes with a fake clock', async ({
     e[0]!();
     e[0]!();
   });
-  await page.clock.runFor(155);
+  await page.clock.runFor(150);
   expect(await unit.evaluate((u) => u.activity.visible)).toBe(true);
   await ends.evaluate((e) => e[1]!());
+  await page.clock.runFor(299);
+  expect(await unit.evaluate((u) => u.activity.visible)).toBe(true);
+  // New work during the minimum keeps the slot visible beyond the deadline.
+  const end = await unit.evaluateHandle((u) => u.activity.begin());
+  await page.clock.runFor(1);
+  expect(await unit.evaluate((u) => u.activity.visible)).toBe(true);
+  await end.evaluate((finish) => finish());
+  expect(await unit.evaluate((u) => u.activity.visible)).toBe(false);
+
+  await unit.evaluate((u) => {
+    u.activity.begin();
+  });
+  await page.clock.runFor(150);
   await unit.evaluate((u) => u.activity.dispose());
   await page.clock.runFor(300);
   expect(await unit.evaluate((u) => u.activity.visible)).toBe(false);
