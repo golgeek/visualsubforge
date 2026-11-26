@@ -98,13 +98,13 @@ if (location.search.includes('scroll')) {
       change: { kind: 'shift', earlier: false, amountMs: 125 },
     });
   });
-  let liveSession: TimingFixSession | undefined;
+  let readPage: (() => Promise<void>) | undefined;
   const start = TimingFixSession.prototype.start;
   TimingFixSession.prototype.start = function () {
-    liveSession = this;
+    readPage = () => this.poll();
     return start.call(this);
   };
-  host.addEventListener('read-timing-page', () => void liveSession?.poll());
+  host.addEventListener('read-timing-page', () => void readPage?.());
 }
 async function holdTimingReply(key: string) {
   if (host.dataset.holdReply !== key) return;
