@@ -58,6 +58,15 @@ struct Job {
     note: Option<String>,
 }
 impl Job {
+    fn restore_completed(&mut self, note: &str) {
+        if let Some(cuts) = self.completed.take() {
+            self.cuts = cuts;
+            self.partial = false;
+            self.progress = 1.;
+            self.phase = None;
+            self.note = Some(note.into());
+        }
+    }
     fn update(&mut self, generation: u64, session: u64, current: u64, update: Update) {
         if self.generation != generation
             || self.session != session
@@ -103,7 +112,10 @@ impl Job {
                 self.completed = None;
                 self.progress = 1.;
             }
-            Err(error) => self.error = Some(error),
+            Err(error) => {
+                self.restore_completed("Rescan failed; showing the previous scan");
+                self.error = Some(error);
+            }
         }
         self.scanning = None;
         true
@@ -263,6 +275,7 @@ impl Scenes {
         job.running = false;
         job.scanning = None;
         job.error = None;
+        job.restore_completed("Rescan stopped; showing the previous scan");
         Ok(job.generation)
     }
     pub fn shutdown(&self) {
@@ -386,8 +399,7 @@ impl Scenes {
             })
             .inspect_err(|e| {
                 if let Ok(mut job) = self.job.lock() {
-                    job.running = false;
-                    job.error = Some(e.clone());
+                    job.finish(generation, session, session, Err(e.clone()));
                 }
             })?;
         Ok(generation)
@@ -800,8 +812,12 @@ mod tests {
         assert_eq!(saved.version, 1);
         let stopped = scenes.stop().unwrap();
         let view = scenes.view(stopped, 0., 4., 0.).unwrap();
-        assert!(view.partial && !view.running);
-        assert_eq!(view.progress, 0.4);
+        assert!(!view.partial && !view.running);
+        assert_eq!(view.cuts, saved.cuts);
+        assert!(view.note.as_deref().unwrap().contains("previous scan"));
+        assert!(
+            matches!(scenes.capture_quality(7, true).unwrap().data, vsf_application::quality::scene::Scenes::Complete(cuts) if cuts.len() == 1 && cuts[0].get() == 1000)
+        );
         scenes
             .job
             .lock()
@@ -825,6 +841,32 @@ mod tests {
             job.cuts = vec![9.];
         }
         assert!(scenes.saved(7, &identity).unwrap().is_none());
+    }
+    #[test]
+    fn failed_rescan_restores_reduced_cache_and_reports_the_error() {
+        let scenes = Scenes::default();
+        scenes.test_completed(7, vec![1.], true);
+        let (generation, identity) = {
+            let mut job = scenes.job.lock().unwrap();
+            let generation = job.generation;
+            job.completed = Some(std::mem::take(&mut job.cuts));
+            job.cuts = vec![2.];
+            job.partial = true;
+            job.running = true;
+            assert!(job.finish(generation, 7, 7, Err("decoder failed".into())));
+            (generation, job.identity.clone().unwrap())
+        };
+        let view = scenes.view(generation, 0., 4., 0.).unwrap();
+        assert!(!view.partial && !view.running);
+        assert_eq!(view.error.as_deref(), Some("decoder failed"));
+        assert!(view.note.as_deref().unwrap().contains("previous scan"));
+        assert!(
+            matches!(scenes.capture_quality(7, true).unwrap().data, vsf_application::quality::scene::Scenes::Reduced(cuts) if cuts.len() == 1 && cuts[0].get() == 1000)
+        );
+        let saved = scenes.saved(7, &identity).unwrap().unwrap();
+        assert_eq!(saved.version, 4);
+        assert_eq!(saved.cuts, vec![1.]);
+        assert_eq!(view.cuts, saved.cuts);
     }
     #[test]
     fn shutdown_cancels_and_joins_workers() {

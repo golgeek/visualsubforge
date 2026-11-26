@@ -12,6 +12,7 @@ const details: string[] = [];
 let phase = 'candidates';
 let progress = 0;
 let cancelled = 0;
+let note: string | null = null;
 let fail = false;
 let delay = false;
 let release: (() => void) | null = null;
@@ -33,6 +34,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             release = r;
           });
         if (fail) throw new Error('Detector unavailable');
+        note = null;
         starts.push(args.mode!);
         details.push(args.detail!);
         scanning = args.mode!;
@@ -41,6 +43,8 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
       }
       if (command === 'scenes_cancel') {
         cancelled++;
+        cuts = [1, 2];
+        note = 'Rescan stopped; showing the previous scan';
         running = false;
         scanning = null;
         return ++generation;
@@ -56,7 +60,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           phase,
           progress,
           partial: running,
-          note: null,
+          note,
           error: null,
           total: cuts.length,
           truncated: false,
@@ -173,11 +177,19 @@ async function run() {
       host.querySelector('#cuts')?.textContent === '[1,2]',
       'Rescan keeps completed scene changes visible',
     );
+    cuts = [1, 2, 3];
+    await until(() => host.querySelector('#cuts')?.textContent === '[1,2,3]');
     button('Cancel scan').click();
     await until(
       () =>
         host.querySelector('#running')?.textContent === 'false' &&
         host.querySelector('#cuts')?.textContent === '[1,2]',
+    );
+    await until(
+      () =>
+        !!host
+          .querySelector('[role=status]')
+          ?.textContent?.includes('showing the previous scan'),
     );
     assert(
       cancelled === 1 && host.querySelector('#cuts')?.textContent === '[1,2]',

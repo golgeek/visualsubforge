@@ -521,6 +521,8 @@ from available parallelism at scan start. It lowers FFmpeg priority on Windows
 and on Unix systems with `/usr/bin/nice`. The supervisor owns each child
 through exit, cancellation and reaping.
 
+During a rescan the scene job retains the completed cuts and their provenance for the current media session. Stop or failure moves those cuts back into the displayed and checkable result under the job mutex. Late worker updates still require the current generation and session.
+
 Scene capture and guarded document work have different lock lifetimes. During
 timing, statistics and plugin start, `Media::with_context` holds media selection
 while `capture_quality` copies scene data. That scene guard is released before

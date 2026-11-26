@@ -29,7 +29,6 @@ impl Job {
                 && self.session == session
                 && !self.running
                 && !self.partial
-                && self.error.is_none()
                 && self.mode == Some(Mode::Visual)
                 && self.identity.is_some(),
         }
