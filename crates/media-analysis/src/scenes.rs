@@ -164,11 +164,36 @@ struct Source {
     time_base: Option<String>,
 }
 
-/// The background scan reserves roughly a third of the available CPUs (rounded
-/// to nearest, 2–8). Its sequential phases use this as the quick verifier count
-/// and the full-pass decoder thread count. FFmpeg also has filter/IO threads.
-fn scan_budget(available: usize) -> usize {
-    (available.saturating_add(1) / 3).clamp(2, 8)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ScanBudget {
+    quick_workers: usize,
+    full_threads: usize,
+}
+
+/// Quick verification uses half the available CPUs and full decoding a third,
+/// both rounded to nearest and bounded to 2–8. FFmpeg also has filter/IO threads.
+fn scan_budget(available: usize) -> ScanBudget {
+    let full_threads = (available.saturating_add(1) / 3).clamp(2, 8);
+    ScanBudget {
+        quick_workers: available.div_ceil(2).clamp(2, 8),
+        full_threads,
+    }
+}
+
+#[cfg(unix)]
+fn unix_scan_command(tool: &Path, nice: &Path, available: &std::sync::OnceLock<bool>) -> Command {
+    use std::os::unix::fs::PermissionsExt;
+
+    if !available.get_or_init(|| {
+        nice.metadata()
+            .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+    }) {
+        return Command::new(tool);
+    }
+
+    let mut command = Command::new(nice);
+    command.args(["-n", "5"]).arg(tool);
+    command
 }
 
 /// Lower only the scan subprocess's scheduling priority. On Unix nice execs
@@ -176,9 +201,8 @@ fn scan_budget(available: usize) -> usize {
 fn scan_command(tool: &Path) -> Command {
     #[cfg(unix)]
     {
-        let mut command = Command::new("/usr/bin/nice");
-        command.args(["-n", "5"]).arg(tool);
-        command
+        static NICE_AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        unix_scan_command(tool, Path::new("/usr/bin/nice"), &NICE_AVAILABLE)
     }
     #[cfg(windows)]
     {
@@ -221,7 +245,7 @@ fn scan_with_budget(
     cancellation: &Cancellation,
     timeout: Duration,
     detail: Detail,
-    budget: usize,
+    budget: ScanBudget,
     mut publish: impl FnMut(Update) + Send,
 ) -> Result<SceneCuts> {
     let started = Instant::now();
@@ -240,7 +264,7 @@ fn scan_with_budget(
         &source,
         cancellation,
         quick_budget,
-        budget,
+        budget.quick_workers,
         &mut publish,
     ) {
         Ok(cuts) => (cuts, None),
@@ -263,7 +287,7 @@ fn scan_with_budget(
             "error",
             "-nostdin",
             "-threads",
-            &budget.to_string(),
+            &budget.full_threads.to_string(),
             "-copyts",
             "-i",
         ])
@@ -553,10 +577,52 @@ fn parse(text: &str, origin: f64) -> Result<Vec<f64>> {
 mod tests {
     use super::*;
     #[test]
-    fn background_budget_rounds_and_bounds_the_shared_worker_count() {
-        for (available, expected) in [(1, 2), (4, 2), (8, 3), (14, 5), (32, 8), (usize::MAX, 8)] {
-            assert_eq!(scan_budget(available), expected);
+    fn background_budget_rounds_and_bounds_each_phase() {
+        for (available, quick_workers, full_threads) in [
+            (1, 2, 2),
+            (4, 2, 2),
+            (5, 3, 2),
+            (8, 4, 3),
+            (14, 7, 5),
+            (32, 8, 8),
+            (usize::MAX, 8, 8),
+        ] {
+            assert_eq!(
+                scan_budget(available),
+                ScanBudget {
+                    quick_workers,
+                    full_threads
+                }
+            );
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_launch_checks_the_optional_nice_program_once() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::sync::OnceLock;
+
+        let dir = tempfile::tempdir().unwrap();
+        let nice = dir.path().join("nice");
+        let tool = Path::new("ffmpeg");
+        let available = OnceLock::new();
+        let direct = unix_scan_command(tool, &nice, &available);
+        assert_eq!(direct.get_program(), tool);
+        assert_eq!(direct.get_args().count(), 0);
+
+        std::fs::write(&nice, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&nice, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(
+            unix_scan_command(tool, &nice, &available).get_program(),
+            tool
+        );
+        let lowered = unix_scan_command(tool, &nice, &OnceLock::new());
+        assert_eq!(lowered.get_program(), nice);
+        assert_eq!(
+            lowered.get_args().collect::<Vec<_>>(),
+            ["-n", "5", "ffmpeg"]
+        );
     }
 
     #[test]
@@ -574,12 +640,19 @@ mod tests {
                 let path = fixtures.join(name);
                 let timeout = Duration::from_secs(30);
                 let cancelled = Cancellation::default();
-                let result =
-                    scan_with_budget(&tools, &path, &cancelled, timeout, detail, 2, |update| {
+                let result = scan_with_budget(
+                    &tools,
+                    &path,
+                    &cancelled,
+                    timeout,
+                    detail,
+                    scan_budget(4),
+                    |update| {
                         if matches!(update.phase, Phase::Full) {
                             cancelled.cancel();
                         }
-                    });
+                    },
+                );
                 assert!(matches!(result, Err(Error::Cancelled)));
                 let run = |budget| {
                     let mut quick = None;
@@ -605,10 +678,15 @@ mod tests {
                     assert_eq!(complete.as_ref(), Some(&result.seconds));
                     (quick.unwrap(), result.seconds)
                 };
-                let expected = run(2);
+                let expected = run(scan_budget(4));
                 assert!(!expected.1.is_empty());
-                for budget in [5, 8] {
-                    assert_eq!(expected, run(budget), "{name} {detail:?}, budget {budget}");
+                for cores in [6, 8, 10, 12, 14, 32] {
+                    let budget = scan_budget(cores);
+                    assert_eq!(
+                        expected,
+                        run(budget),
+                        "{name} {detail:?}, budget {budget:?}"
+                    );
                 }
             }
         }
