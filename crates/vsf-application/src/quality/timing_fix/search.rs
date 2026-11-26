@@ -363,22 +363,56 @@ impl Search<'_> {
         }
         Some((fixed, reduction, trade))
     }
-    pub(super) fn choose(&self) -> Option<(Unit, u64)> {
+    /// With only inward shot repairs selected and zero start tolerance, the
+    /// neighbour cannot move. Snapping each offending endpoint to its inward
+    /// boundary fixes every attainable shot finding with the least movement.
+    /// If a protected rule rejects that trial, other ends can still be useful.
+    fn inward_shot_trial(
+        &self,
+        original: Endpoints,
+        next: Option<Endpoints>,
+        bounds: [Bounds; 2],
+        base: Score,
+    ) -> Option<(Trial, Score)> {
+        let families = self.request.families;
+        if !families.shots
+            || families.gaps
+            || families.speed
+            || self.request.options.scene_edges != SceneEdges::Inward
+            || self.request.options.start_tolerance_ms != 0
+        {
+            return None;
+        }
+        let mut current = original;
+        if let Some((_, right)) = self.windows.containing(original.start_ms) {
+            if self.locked {
+                return None;
+            }
+            current.start_ms = right.try_into().ok()?;
+        }
+        if let Some((left, _)) = self.windows.containing(original.end_ms) {
+            current.end_ms = left.try_into().ok()?;
+        }
+        if current == original
+            || current.start_ms >= current.end_ms
+            || next.is_some_and(|n| current.start_ms >= n.start_ms || n.start_ms >= n.end_ms)
+        {
+            return None;
+        }
+        let trial = Trial { current, next };
+        let score = self.score(trial, bounds);
+        self.rank(base, score)?;
+        Some((trial, score))
+    }
+
+    fn search_trials(
+        &self,
+        original: Endpoints,
+        next: Option<Endpoints>,
+        [bounds, next_bounds]: [Bounds; 2],
+        base: Score,
+    ) -> Option<(Trial, Score, bool, bool)> {
         let profile = self.context.profile;
-        let index = self.index;
-        let original = self.points[index];
-        let next = self.next.map(|next_index| self.points[next_index]);
-        let bounds = Bounds::new(&self.before.metrics[index], profile);
-        let next_bounds = self.next.map_or(bounds, |next_index| {
-            Bounds::new(&self.before.metrics[next_index], profile)
-        });
-        let base = self.score(
-            Trial {
-                current: original,
-                next,
-            },
-            [bounds, next_bounds],
-        );
         let tolerance = u64::from(self.request.options.start_tolerance_ms);
         let gap = u64::from(profile.timing.cue_gap_ms);
         let start_window = self.windows.containing(original.start_ms);
@@ -560,7 +594,32 @@ impl Search<'_> {
                 }
             }
         }
-        let (trial, score, partial, trade_off) = best?;
+        best
+    }
+
+    pub(super) fn choose(&self) -> Option<(Unit, u64)> {
+        let profile = self.context.profile;
+        let index = self.index;
+        let original = self.points[index];
+        let next = self.next.map(|next_index| self.points[next_index]);
+        let bounds = Bounds::new(&self.before.metrics[index], profile);
+        let next_bounds = self.next.map_or(bounds, |next_index| {
+            Bounds::new(&self.before.metrics[next_index], profile)
+        });
+        let base = self.score(
+            Trial {
+                current: original,
+                next,
+            },
+            [bounds, next_bounds],
+        );
+        let bounds = [bounds, next_bounds];
+        let (trial, score, partial, trade_off) =
+            if let Some((trial, score)) = self.inward_shot_trial(original, next, bounds, base) {
+                (trial, score, false, false)
+            } else {
+                self.search_trials(original, next, bounds, base)?
+            };
         let mut endpoints = vec![];
         let mut fixed = vec![];
         let mut effects = vec![];

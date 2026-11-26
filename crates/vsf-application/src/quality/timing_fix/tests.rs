@@ -371,3 +371,92 @@ fn independent_checker_ranks_current_cue_assignments_for_both_priorities() {
 mod dependencies;
 mod episode;
 mod oracle;
+
+#[test]
+fn desktop_scene_fixture_preserves_all_units_endpoints_and_manual_rows() {
+    use sha2::{Digest, Sha256};
+
+    // Match the large Snap to shot changes fixture in tests/desktop/scene-quality.mjs.
+    let text = "{\\c&H00FFFF&}<i>This is a subtitle line with Unicode 日本語 😀.</i>\nAnother line to wrap.";
+    let rows: Vec<_> = (0..10_000)
+        .map(|i| (i * 1400 + 1350, i * 1400 + 2250, text))
+        .collect();
+    let mut profile = Profile::builtin("sw3-uk-vo-subset")
+        .unwrap()
+        .custom("scene-desktop-large".into(), "Desktop scene large".into());
+    profile.timing.cue_gap_ms = 80;
+    profile.timing.scene_before_ms = 130;
+    profile.timing.scene_after_ms = 130;
+    profile.rules.duration.minimum_ms = 500;
+    profile.rules.duration.maximum_ms = 7000;
+    profile.rules.speed.minimum_rs = None;
+    profile.rules.speed.maximum_rs_exclusive = Some(500);
+    profile.rules.speed.minimum_cps = None;
+    profile.rules.speed.maximum_cps = Some(150);
+    let request = Request {
+        families: Families {
+            gaps: false,
+            speed: false,
+            shots: true,
+        },
+        ..Request::default()
+    };
+    let scenes = Scenes::Complete((1..=10_000).map(|i| ms(i * 1400)).collect());
+    let plan = propose(doc(&rows), (&profile).into(), &scenes, request, || Ok(())).unwrap();
+    assert_eq!(plan.units().len(), rows.len());
+    assert!(plan.manual().is_empty());
+    for (i, unit) in plan.units().iter().enumerate() {
+        let i = i as u64;
+        assert_eq!(unit.endpoints.len(), 1);
+        assert_eq!(
+            unit.endpoints[0].after,
+            Endpoints {
+                start_ms: i * 1400 + 1530,
+                end_ms: i * 1400 + 2250
+            }
+        );
+    }
+    // Fingerprint the full ordered units (including effects and dependencies) from 0fc109e.
+    let bytes = serde_json::to_vec(&(plan.units(), plan.manual())).unwrap();
+    assert_eq!(
+        format!("{:x}", Sha256::digest(bytes)),
+        "766df59dca615a756063defe0de707eb5e5d152fdaba42733cb2bb61f455ae66"
+    );
+}
+
+#[test]
+fn inward_shot_keeps_searching_when_the_nearest_snap_would_shorten_a_protected_cue() {
+    let original = doc(&[(1000, 2000, "First")]);
+    let mut p = profile();
+    p.rules.duration.minimum_ms = 1000;
+    p.timing.scene_before_ms = 100;
+    p.timing.scene_after_ms = 100;
+    let scenes = Scenes::Complete(vec![ms(1000)]);
+    let request = Request {
+        families: Families {
+            shots: true,
+            speed: false,
+            gaps: false,
+        },
+        ..Request::default()
+    };
+    for format in [Format::Srt, Format::WebVtt, Format::Ass, Format::Ssa] {
+        let plan = propose(
+            original.clone(),
+            Evaluation::from(&p).with_format(format),
+            &scenes,
+            request.clone(),
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(plan.units().len(), 1);
+        assert_eq!(
+            plan.units()[0].endpoints[0].after,
+            Endpoints {
+                start_ms: 1100,
+                end_ms: 2100
+            }
+        );
+        assert!(plan.manual().is_empty());
+    }
+}
