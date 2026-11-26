@@ -344,7 +344,6 @@
       span,
       cuts: sceneCuts,
       cues,
-
       timing: warningTiming ?? timing,
     });
     paintGapStrip(context);
