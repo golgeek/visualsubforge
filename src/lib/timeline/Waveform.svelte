@@ -7,9 +7,15 @@
     type TimingSettings,
   } from '../timing/magnetic-timing';
   import { bufferVisibility, gapMarks, type GapMark } from './timeline-marks';
-  import { hatch, drawTimelineMarks } from './draw-timeline-marks';
+  import {
+    hatch,
+    drawTimelineMarks,
+    drawGuides,
+    drawGaps,
+  } from './draw-timeline-marks';
   import type { IssueSeverity } from '../quality/cue-issues';
   import { onMount } from 'svelte';
+  import { devicePixelRatio } from 'svelte/reactivity/window';
   import '../ui/tokens.css';
   import {
     readCanvasPalette,
@@ -156,6 +162,9 @@
   const guides = $derived(
     gesture?.guides ?? (externalGuide ? [externalGuide] : []),
   );
+  const showBuffers = $derived(
+    !!gesture?.preview || editingCueId !== null || previewRange !== null,
+  );
   const displayedRange = $derived(gesture?.preview ?? previewRange ?? range);
   // The parent receives fresh media-status objects on every poll. Compare the
   // position itself before invalidating this expensive canvas draw.
@@ -164,23 +173,35 @@
   const readPalette = () =>
     readCanvasPalette(getComputedStyle(document.documentElement));
   let palette = $state.raw<CanvasPalette>(readPalette());
-  function draw() {
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    const scale = devicePixelRatio || 1;
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-    context.scale(scale, scale);
+  // Both cached rasters start with the opaque waveform background. Copy them at
+  // backing-store resolution to preserve the original compositing and text.
+  let cueLayer: HTMLCanvasElement;
+  let markedLayer: HTMLCanvasElement;
+  let gapStrip: HTMLCanvasElement;
+  let gapGeometryDirty = true;
+  let lastGaps: readonly GapMark[] | undefined;
+  let lastCues: readonly Cue[] | undefined;
+  let lastIssues: ReadonlyMap<string, IssueSeverity> | undefined;
+  let lastSelected: number | null = null;
+  let checkCues = true;
+  let cuesDirty = true;
+  let marksDirty = true;
+  let animation: number | null = null;
+  const x = (t: number) => timeToX(t, start, span, width);
+  const plotHeight = $derived(Math.max(20, height - 12));
+  const scale = $derived(devicePixelRatio.current || 1);
+
+  function resize(target: HTMLCanvasElement) {
+    const w = Math.round(width * scale);
+    const h = Math.round(height * scale);
+    if (target.width !== w) target.width = w;
+    if (target.height !== h) target.height = h;
+  }
+
+  function drawCues(context: CanvasRenderingContext2D) {
     const colors = palette;
     context.fillStyle = colors.background;
     context.fillRect(0, 0, width, height);
-    const x = (t: number) => timeToX(t, start, span, width);
-    const plotHeight = Math.max(20, height - 12);
-    const buffers = bufferVisibility(
-      !!gesture?.preview || editingCueId !== null || previewRange !== null,
-    );
-
     for (const cue of cues) {
       const left = Math.max(0, x(cue.startMs / 1000));
       const right = Math.min(width, x(cue.endMs / 1000));
@@ -208,6 +229,9 @@
           Math.max(0, plotHeight - 22),
         );
       }
+      // An empty clip cannot contribute label pixels. Preserve even a partial
+      // glyph in a narrow interval, and always issue the selected label.
+      if (right - left <= 8 && cue.id !== selected) continue;
       context.save();
       context.beginPath();
       context.rect(
@@ -259,6 +283,11 @@
         }
       }
     context.stroke();
+  }
+
+  function drawMarks(context: CanvasRenderingContext2D) {
+    const colors = palette;
+    const buffers = bufferVisibility(showBuffers);
     if (displayedRange) {
       context.fillStyle = colors.rangeFill;
       context.fillRect(
@@ -312,10 +341,118 @@
       span,
       cuts: sceneCuts,
       cues,
-      gaps: displayedGaps,
+
       timing: warningTiming ?? timing,
-      guides,
     });
+    paintGapStrip(context);
+  }
+
+  // Reopening and saving can deliver a fresh snapshot with the same visible
+  // cues. Compare the fields that actually reach the raster, in paint order.
+  function cuePixelsChanged() {
+    const old = lastCues;
+    const oldIssues = lastIssues;
+    const oldSelected = lastSelected;
+    lastCues = cues;
+    lastIssues = issues;
+    lastSelected = selected;
+    if (!old || !oldIssues || old.length !== cues.length) return true;
+    if (old === cues && oldIssues === issues && selected === oldSelected)
+      return false;
+    return cues.some((cue, i) => {
+      const prior = old[i]!;
+      return (
+        prior.id !== cue.id ||
+        prior.startMs !== cue.startMs ||
+        prior.endMs !== cue.endMs ||
+        prior.text !== cue.text ||
+        (prior.id === oldSelected) !== (cue.id === selected) ||
+        oldIssues.get(String(prior.id)) !== issues.get(String(cue.id))
+      );
+    });
+  }
+
+  // Gap labels depend only on neighboring times and the warning policy.
+  // Keep the opaque bottom strip when a text-only edit replaces every cue.
+  function paintGapStrip(context: CanvasRenderingContext2D) {
+    const offset = plotHeight * scale;
+    if (!Number.isInteger(offset) || offset >= markedLayer.height) {
+      drawGaps(
+        context,
+        palette,
+        displayedGaps,
+        start,
+        span,
+        width,
+        height,
+        plotHeight,
+      );
+      return;
+    }
+    const old = lastGaps;
+    if (
+      gapGeometryDirty ||
+      !old ||
+      (old !== displayedGaps &&
+        (old.length !== displayedGaps.length ||
+          displayedGaps.some((gap, i) => {
+            const prior = old[i]!;
+            return (
+              gap.fromMs !== prior.fromMs ||
+              gap.toMs !== prior.toMs ||
+              gap.milliseconds !== prior.milliseconds ||
+              gap.severity !== prior.severity
+            );
+          })))
+    ) {
+      gapStrip ??= document.createElement('canvas');
+      if (gapStrip.width !== markedLayer.width)
+        gapStrip.width = markedLayer.width;
+      if (gapStrip.height !== markedLayer.height - offset)
+        gapStrip.height = markedLayer.height - offset;
+      const strip = gapStrip.getContext('2d');
+      if (!strip) {
+        drawGaps(
+          context,
+          palette,
+          displayedGaps,
+          start,
+          span,
+          width,
+          height,
+          plotHeight,
+        );
+        return;
+      }
+      strip.setTransform(scale, 0, 0, scale, 0, -offset);
+      strip.clearRect(
+        0,
+        plotHeight,
+        gapStrip.width / scale,
+        gapStrip.height / scale,
+      );
+      drawGaps(
+        strip,
+        palette,
+        displayedGaps,
+        start,
+        span,
+        width,
+        height,
+        plotHeight,
+      );
+      gapGeometryDirty = false;
+    }
+    lastGaps = displayedGaps;
+    context.save();
+    context.resetTransform();
+    context.drawImage(gapStrip, 0, offset);
+    context.restore();
+  }
+
+  function drawOverlay(context: CanvasRenderingContext2D) {
+    const colors = palette;
+    drawGuides(context, colors, guides, start, span, width, plotHeight);
     if (playhead === null) return;
     context.strokeStyle = colors.playhead;
     context.lineWidth = 2;
@@ -324,25 +461,92 @@
     context.lineTo(x(playhead), height);
     context.stroke();
   }
+  function draw() {
+    animation = null;
+    if (!canvas || width <= 0 || height <= 0) return;
+    cueLayer ??= document.createElement('canvas');
+    markedLayer ??= document.createElement('canvas');
+    if (checkCues) {
+      const changed = cuePixelsChanged();
+      cuesDirty ||= changed;
+      checkCues = false;
+    }
+    if (cuesDirty) {
+      resize(cueLayer);
+      const context = cueLayer.getContext('2d');
+      if (!context) return;
+      context.save();
+      context.setTransform(scale, 0, 0, scale, 0, 0);
+      context.clearRect(0, 0, cueLayer.width / scale, cueLayer.height / scale);
+      drawCues(context);
+      context.restore();
+      cuesDirty = false;
+      marksDirty = true;
+    }
+    if (marksDirty) {
+      resize(markedLayer);
+      const context = markedLayer.getContext('2d');
+      if (!context) return;
+      context.clearRect(0, 0, markedLayer.width, markedLayer.height);
+      context.drawImage(cueLayer, 0, 0);
+      context.save();
+      context.setTransform(scale, 0, 0, scale, 0, 0);
+      drawMarks(context);
+      context.restore();
+      marksDirty = false;
+    }
+    resize(canvas);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(markedLayer, 0, 0);
+    context.save();
+    context.setTransform(scale, 0, 0, scale, 0, 0);
+    drawOverlay(context);
+    context.restore();
+  }
+
+  function scheduleDraw() {
+    animation ??= requestAnimationFrame(draw);
+  }
   $effect(() => {
-    void view;
     void start;
     void span;
-    void playhead;
-    void cues;
-    void selected;
-    void sceneCuts;
-    void timing;
-    void warningTiming;
-    void editingCueId;
-    void displayedGaps;
-    void guides;
-    void issues;
-    void displayedRange;
     void palette;
     void width;
     void height;
-    draw();
+    void scale;
+    gapGeometryDirty = true;
+    cuesDirty = true;
+    scheduleDraw();
+  });
+  $effect(() => {
+    void view;
+    cuesDirty = true;
+    scheduleDraw();
+  });
+  $effect(() => {
+    void cues;
+    void selected;
+    void issues;
+    checkCues = true;
+    scheduleDraw();
+  });
+  $effect(() => {
+    void showBuffers;
+    void editingCueId;
+    void timing;
+    void warningTiming;
+    void sceneCuts;
+    void displayedGaps;
+    void displayedRange;
+    marksDirty = true;
+    scheduleDraw();
+  });
+  $effect(() => {
+    void playhead;
+    void guides;
+    scheduleDraw();
   });
   onMount(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -358,6 +562,7 @@
       palette = readPalette();
     });
     return () => {
+      if (animation !== null) cancelAnimationFrame(animation);
       unwatch();
       canvas.removeEventListener('wheel', navigate);
       observer.disconnect();

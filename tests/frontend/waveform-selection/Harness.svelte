@@ -19,6 +19,8 @@
   let ranges: [number, number][] = [];
   let seeks: number[] = [];
   let cues = $state<Cue[]>([]);
+  let position = $state<number | null>(null);
+  let issues = $state.raw<ReadonlyMap<string, 'violation'>>(new Map());
   let selected = $state<number | null>(null);
   let selections: number[] = [];
   let activeGesture = false;
@@ -61,6 +63,8 @@
     duration = 60;
     enabled = true;
     width = 600;
+    position = null;
+    issues = new Map();
     mounted = true;
     await paint();
     // Handler/lifecycle coverage only. Synthetic events cannot acquire OS capture.
@@ -88,8 +92,95 @@
     );
     await tick();
   }
+  async function checkCueLayer() {
+    await reset();
+    range = null;
+    cues = [
+      { id: 1, startMs: 1000, endMs: 2000, text: 'Sample one' },
+      { id: 2, startMs: 2500, endMs: 3500, text: 'Sample two' },
+    ];
+    selected = 1;
+    sceneCuts = [2.1];
+    const draws: string[] = [];
+    const original = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (label, ...args) {
+      if (label.startsWith('Sample ')) draws.push(label);
+      original.call(this, label, ...args);
+    };
+    try {
+      for (const zoom of [4, 10, 25]) {
+        span = zoom;
+        await paint();
+        const baseline = canvas().toDataURL();
+        assert(draws.includes('Sample one'), 'Zoom must draw selected label');
+        draws.length = 0;
+        position = 3;
+        await paint();
+        assert(canvas().toDataURL() !== baseline, 'Playhead must move');
+        position = null;
+        await paint();
+        assert(
+          canvas().toDataURL() === baseline,
+          'Restoring playhead must restore every pixel',
+        );
+        assert(
+          draws.length === 0,
+          'Moving only the playhead must reuse cue pixels',
+        );
+      }
+      draws.length = 0;
+      cues = cues.map((cue) => ({ ...cue }));
+      await paint();
+      assert(
+        draws.length === 0,
+        'Equivalent cue snapshots must reuse the layer',
+      );
+      cues = Array.from({ length: 512 }, (_, i) => ({
+        id: i + 1,
+        startMs: 1010,
+        endMs: 1011,
+        text: 'Sample ' + (i + 1),
+      }));
+      selected = 100;
+      draws.length = 0;
+      await paint();
+      assert(
+        draws.length === 1 && draws[0] === 'Sample 100',
+        'Only the selected label draws when every clip is empty',
+      );
+      // Coincident cues exercise the original paint order. The last cue's
+      // issue stripe and the selected label still draw when their bounds fit.
+      cues = cues.map((cue) => ({ ...cue, endMs: 5010 }));
+      selected = 512;
+      issues = new Map([['512', 'violation']]);
+      draws.length = 0;
+      await paint();
+      assert(draws.includes('Sample 512'), 'Dense selected cue lost its label');
+      const x = Math.ceil((canvas().width * 1.01) / span);
+      const context = canvas().getContext('2d')!;
+      const stripe = () =>
+        context
+          .getImageData(x + 1, Math.round((40 * canvas().width) / width), 1, 1)
+          .data.join(',');
+      const marked = stripe();
+      const markedImage = canvas().toDataURL();
+      issues = new Map();
+      await paint();
+      assert(
+        marked !== stripe() && markedImage !== canvas().toDataURL(),
+        'Dense issue stripe must update',
+      );
+    } finally {
+      CanvasRenderingContext2D.prototype.fillText = original;
+    }
+  }
+
   async function run() {
     try {
+      await checkCueLayer();
+      results.push(
+        'PASS: waveform layers preserve zoomed cue pixels and reuse them while the playhead moves',
+      );
       await reset();
       await pointer('pointerdown', 180, 1, 2);
       await pointer('pointerup', 180, 1, 2);
@@ -474,9 +565,10 @@
       {span}
       {duration}
       {enabled}
-      position={null}
+      {position}
       {cues}
       {selected}
+      {issues}
       onedge={testEdges
         ? {
             begin: async (id, current) => {
