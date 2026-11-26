@@ -376,7 +376,13 @@
   // Keep the opaque bottom strip when a text-only edit replaces every cue.
   function paintGapStrip(context: CanvasRenderingContext2D) {
     const offset = plotHeight * scale;
-    if (!Number.isInteger(offset) || offset >= markedLayer.height) {
+    // A partially covered edge blends with the waveform underneath. Draw
+    // directly there instead of composing independently antialiased layers.
+    if (
+      !Number.isInteger(offset) ||
+      offset >= markedLayer.height ||
+      width * scale < markedLayer.width
+    ) {
       drawGaps(
         context,
         palette,

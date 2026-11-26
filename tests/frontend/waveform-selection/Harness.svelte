@@ -206,6 +206,27 @@
         marked !== stripe() && markedImage !== canvas().toDataURL(),
         'Dense issue stripe must update',
       );
+      // The last backing pixel may be only partly covered by each of the two
+      // background fills (waveform, then gap strip). Preserve both blends.
+      cues = [];
+      sceneCuts = [];
+      width = 600 + 0.65 / devicePixelRatio;
+      await paint();
+      const surface = canvas();
+      const bounds = surface.getBoundingClientRect();
+      const reference = document.createElement('canvas');
+      reference.width = surface.width;
+      reference.height = surface.height;
+      const expected = reference.getContext('2d')!;
+      expected.scale(devicePixelRatio, devicePixelRatio);
+      expected.fillRect(0, 0, bounds.width, bounds.height);
+      expected.fillRect(0, bounds.height - 12, bounds.width, 12);
+      const edgeAlpha = (ctx: CanvasRenderingContext2D) =>
+        ctx.getImageData(surface.width - 1, surface.height - 2, 1, 1).data[3];
+      assert(
+        edgeAlpha(surface.getContext('2d')!) === edgeAlpha(expected),
+        'Fractional gap-strip edge lost a background blend',
+      );
     } finally {
       CanvasRenderingContext2D.prototype.fillText = original;
     }
