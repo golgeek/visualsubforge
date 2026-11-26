@@ -82,7 +82,7 @@
             );
         }}
       >
-        {#each Object.entries(presetNames) as [id, name]}
+        {#each Object.entries(presetNames) as [id, name] (id)}
           {#if id !== 'custom' || value.preset === 'custom'}<option value={id}
               >{name}</option
             >{/if}
