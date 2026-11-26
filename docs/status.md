@@ -15,9 +15,18 @@ Text stay visible; text/file-number and Issues filters preserve original cue
 indices. Metrics come from Rust's checker, and ASS/SSA also expose Style/Actor.
 The cue list’s context menu follows the selection. Group delete and contiguous
 merges use one history entry. Two adjacent cues can merge as speaker dialogue.
+For a single cue, **Split in half** rounds the midpoint to the format’s time step
+and keeps the full text in both halves. Use **Split at Playhead** for a chosen
+boundary. See the [cue menu](cue-editor.md#cue-list-context-menu).
+
 Manual list scrolling pauses following; row clicks retain it and Jump resumes.
 Waveform zoom retains following, panning suspends it temporarily, and cue selection
 centers the range with optional zoom. Unselected cue edges share timing gestures.
+During playback the waveform reuses its cue layer and redraws the playhead at
+most once per animation frame. The scene scan uses separate worker limits to
+publish early cuts sooner and leave CPU time for playback during full decoding.
+See [waveform drawing](../ARCHITECTURE.md#timeline-visual-projections) and
+[scene detection](scene-quality.md).
 
 [Cue editing](cue-editor.md) commits on pause/ordinary blur with Rust-owned text
 history grouping. Escape retains confirmed-state semantics; fixed-height issues,
@@ -25,17 +34,22 @@ source-line counts, meters and combined safe fixes remain bounded projections.
 The interaction defaults still require owner trial. Nominal frame nudges do not
 establish variable-rate frame-boundary accuracy.
 
+The transport bar has Play/Pause and a Loop range toggle. Frame stepping is in
+the Playback menu. On macOS, ⌘⌥↑/↓ jumps to the previous or next cue from cue
+text. ⌥↑/↓ retains paragraph navigation in text fields and jumps cues from the
+list or waveform. **Single-key editing** is an opt-in preset. See
+[Settings and shortcuts](settings-shortcuts.md#shortcut-presets).
+
 The docked Review panel combines Issues, timing repairs, Shift, Statistics and Changes.
+Opening [Shift](batch-timing.md#shift--align-cues) starts the first valid preview
+immediately. Subsequent input changes wait briefly for typing to settle.
 Review menu actions and issue entry points reveal it in the current layout;
 Translation restores a displaced Review dock when closed. Layout presets inherit
-the current preview height until explicitly resized. Targeted macOS native debug
-checks covered video alignment and Arrange pointer swaps before the latest navigation/menu review changes; current native menus
-and navigation still need an on-screen trial. Windows and Linux native
-geometry/input still require platform trials.
+the current preview height until explicitly resized. Windows and Linux native
+geometry and input still require platform trials.
 Live proposals stay read-only until Apply; Rust validates checked subsets and
 commits one Undo step. Visible ghost/list projections are bounded to 200 cue IDs;
-complete plans remain in Rust. This targeted check does not establish playback,
-audio, installation or display-scale acceptance.
+complete plans remain in Rust.
 
 ## Feature and platform matrix
 
