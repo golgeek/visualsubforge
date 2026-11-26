@@ -424,6 +424,8 @@ planning. They introduce no registry or second accepted-state owner.
 4. `DocumentSession` replaces its projection and reconciles drafts/selection.
    Background recovery and subtitle preview observe the accepted revision.
 
+Each accepted edit returns the full document projection, including every cue. If large-document measurements show that projection costs dominate, a response containing only the changed range is one option.
+
 `CueEditing` commits after a 700 ms typing pause, ordinary blur, protected cue
 navigation or a cue command. IME composition defers pause/blur; Escape cancels an
 unsent timer, waits for a dispatched commit and restores the latest confirmed
@@ -503,6 +505,8 @@ Blocking IO, analysis and helper execution run off the UI thread. Tauri handlers
 translate inputs/outputs and delegate to owners through blocking tasks or the
 media control worker. Shared application file operations are synchronous; their
 desktop callers are responsible for dispatching them correctly.
+
+Checks, statistics, timing repairs, text tools, translation, review, plugins and resync each manage their own worker slot, cancellation and phase. A shared single-slot worker type is a possible refactor once those patterns stabilize.
 
 Document jobs capture immutable inputs under the owner lock, then evaluate
 outside it. Revision/context checks protect result publication and acceptance.
@@ -589,7 +593,7 @@ the editor's saved state and offers a project-only retry in the same dialog.
 Existing project saves, layout saves and exit decisions retain their own flows.
 
 A recovery worker captures accepted state, prepares temporary output off-lock,
-then rechecks its checkpoint identity before publication. Recovery restores
+and validates the complete record once before writing. Under the document lock it can publish an older accepted revision while edits continue if the document is still dirty and the generation, path, saved-state identity, resync flag and context epochs still match. It retries after 250 ms to capture the newer revision. Clearing a checkpoint requires an exact match. Recovery restores
 accepted content and relevant context, not frontend drafts or undo history.
 Projects separately persist references, effective settings, completed scene data
 and paused position. Project preflight/restoration precedes attachment; failed

@@ -63,7 +63,7 @@ impl Record {
         generation: u64,
         revision: u64,
     ) -> Result<Self> {
-        let record = Self {
+        Ok(Self {
             version: if format == subtitle_formats::Format::Srt {
                 3
             } else {
@@ -85,9 +85,7 @@ impl Record {
                 .as_millis()
                 .try_into()
                 .map_err(|_| "Recovery timestamp exceeds range")?,
-        };
-        record.validate()?;
-        Ok(record)
+        })
     }
     pub fn format_extension(&self) -> &str {
         self.format.as_deref().unwrap_or("srt")
@@ -225,6 +223,10 @@ impl Session {
     }
     pub fn clear(&self) -> Result<()> {
         remove_snapshot(&self.directory.join("snapshot.json"))
+    }
+    #[cfg(test)]
+    pub fn read_published(&self) -> Result<Recovered> {
+        read(&self.directory)
     }
     #[cfg(test)]
     pub fn write(&self, record: Option<&Record>) -> Result<()> {

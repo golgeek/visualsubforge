@@ -190,7 +190,9 @@ fn normalization_growth_is_rejected_on_open_and_recovery() {
         .contains("16 MiB")
     );
     assert_eq!(snapshot_bytes(&store), before);
-    assert!(crate::recovery_store::Record::new(None, String::new(), input, 1, 0).is_err());
+    let record = crate::recovery_store::Record::new(None, String::new(), input, 1, 0).unwrap();
+    let session = crate::recovery_store::Session::create(directory.path()).unwrap();
+    assert!(session.write(Some(&record)).unwrap_err().contains("16 MiB"));
 }
 
 #[test]
