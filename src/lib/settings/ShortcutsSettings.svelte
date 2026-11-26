@@ -1,7 +1,12 @@
 <script lang="ts">
-  import { actions, type ActionId } from '../workspace/action-registry';
+  import {
+    actions,
+    platformKey,
+    type ActionId,
+  } from '../workspace/action-registry';
   import {
     shortcutModes,
+    presetNames,
     shortcutPreset,
     shortcutFromEvent,
     shortcutError,
@@ -28,9 +33,12 @@
     ),
   );
   const conflict = $derived(shortcutError(value));
-  const binding = (action: ActionId, mode: ShortcutMode) =>
-    value.bindings.find((item) => item.action === action && item.mode === mode)
-      ?.key ?? '';
+  const binding = (action: ActionId, mode: ShortcutMode) => {
+    const item = value.bindings.find(
+      (item) => item.action === action && item.mode === mode,
+    );
+    return item ? platformKey(item) : '';
+  };
   function change(action: ActionId, mode: ShortcutMode, key: string) {
     const bindings = value.bindings.filter(
       (item) => item.action !== action || item.mode !== mode,
@@ -74,11 +82,11 @@
             );
         }}
       >
-        <option value="current">Current VSF bindings</option><option
-          value="vsfDefault">VSF default (trial)</option
-        ><option value="visualSubSyncClassic">VisualSubSync classic</option
-        >{#if value.preset === 'custom'}<option value="custom">Custom</option
-          >{/if}
+        {#each Object.entries(presetNames) as [id, name] (id)}
+          {#if id !== 'custom' || value.preset === 'custom'}<option value={id}
+              >{name}</option
+            >{/if}
+        {/each}
       </select></label
     >
     <input
@@ -93,9 +101,9 @@
     />
   </div>
   <p>
-    The proposed VSF default is opt-in for trial. Single keys act only in the
-    list or waveform; Tab plays in cue text and Shift+Tab replays. Escape leaves
-    text. Other fields keep normal Tab navigation.
+    Single-key editing is opt-in. Single keys act only in the list or waveform;
+    Tab plays in cue text and Shift+Tab replays. Escape leaves text. Other
+    fields keep normal Tab navigation.
   </p>
   {#if value.preset === 'visualSubSyncClassic'}<p>
       Classic maps available VSS actions: F1 play/pause, F2 loop range, Ctrl/⌘+O

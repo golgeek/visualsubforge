@@ -22,6 +22,17 @@ pub struct Binding {
     pub action: String,
     pub mode: Mode,
     pub key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac_key: Option<String>,
+}
+impl Binding {
+    pub fn platform_key(&self, mac: bool) -> &str {
+        if mac {
+            self.mac_key.as_deref().unwrap_or(&self.key)
+        } else {
+            &self.key
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +94,7 @@ impl Shortcuts {
                 action: "zoomIn".into(),
                 mode: Mode::Alternate,
                 key: "CmdOrCtrl+Shift+=".into(),
+                mac_key: None,
             });
         }
         if next.validate().is_ok() {
@@ -90,6 +102,28 @@ impl Shortcuts {
         }
     }
 
+    // Add only missing bundled slots. Custom sets remain exactly as saved.
+    pub fn upgrade_cue_text_defaults(&mut self) {
+        if self.preset != Preset::Custom {
+            for binding in Self::default()
+                .bindings
+                .into_iter()
+                .filter(|b| b.mac_key.is_some())
+            {
+                if !self
+                    .bindings
+                    .iter()
+                    .any(|b| b.action == binding.action && b.mode == binding.mode)
+                {
+                    self.bindings.push(binding);
+                    // A previously valid imported set can already use this chord.
+                    if self.validate().is_err() {
+                        self.bindings.pop();
+                    }
+                }
+            }
+        }
+    }
     pub fn validate(&self) -> Result<(), String> {
         let actions: BTreeMap<String, serde_json::Value> = serde_json::from_str(include_str!(
             "../../../src/lib/workspace/action-descriptions.json"
@@ -105,37 +139,41 @@ impl Shortcuts {
             {
                 return Err("Unknown action or duplicate shortcut mode".into());
             }
-            if binding.key.is_empty() {
-                continue;
-            }
-            validate_key(binding)?;
-            if let Some(other) = self.bindings[..index].iter().find(|other| {
-                other.mode.overlaps(binding.mode)
-                    && canonical(&other.key) == canonical(&binding.key)
-            }) {
-                return Err(format!(
-                    "{} conflicts with {} in an overlapping focus mode",
-                    binding.action, other.action
-                ));
+            for mac in [false, true] {
+                let key = binding.platform_key(mac);
+                if key.is_empty() {
+                    continue;
+                }
+                validate_key(binding, key)?;
+                if let Some(other) = self.bindings[..index].iter().find(|other| {
+                    other.mode.overlaps(binding.mode)
+                        && canonical(other.platform_key(mac)) == canonical(key)
+                }) {
+                    return Err(format!(
+                        "{} conflicts with {} in an overlapping focus mode",
+                        binding.action, other.action
+                    ));
+                }
             }
         }
-        // OS Quit and editor escape/formatting retain their established owners.
         for (action, key) in [("quit", "CmdOrCtrl+Q"), ("focusWaveform", "Escape")] {
-            if !self
-                .bindings
-                .iter()
-                .any(|b| b.action == action && b.mode == Mode::Global && b.key == key)
-            {
+            if !self.bindings.iter().any(|b| {
+                b.action == action
+                    && b.mode == Mode::Global
+                    && b.key == key
+                    && b.platform_key(true) == key
+            }) {
                 return Err(format!("{action} keeps its reserved {key} binding"));
             }
         }
         Ok(())
     }
-    pub fn native_key(&self, action: &str) -> Option<&str> {
+    pub fn key_for(&self, action: &str, mode: Mode, mac: bool) -> Option<&str> {
         self.bindings
             .iter()
-            .find(|b| b.action == action && b.mode == Mode::Global && !b.key.is_empty())
-            .map(|b| b.key.as_str())
+            .find(|b| b.action == action && b.mode == mode)
+            .map(|b| b.platform_key(mac))
+            .filter(|key| !key.is_empty())
     }
 }
 fn canonical(key: &str) -> String {
@@ -144,8 +182,8 @@ fn canonical(key: &str) -> String {
         .collect::<Vec<_>>()
         .join("+")
 }
-fn validate_key(binding: &Binding) -> Result<(), String> {
-    let parts: Vec<_> = binding.key.split('+').collect();
+fn validate_key(binding: &Binding, chord: &str) -> Result<(), String> {
+    let parts: Vec<_> = chord.split('+').collect();
     let key = parts.last().copied().unwrap_or_default();
     let modifiers = &parts[..parts.len().saturating_sub(1)];
     let expected: Vec<_> = ["CmdOrCtrl", "Alt", "Shift"]
@@ -160,7 +198,7 @@ fn validate_key(binding: &Binding) -> Result<(), String> {
         && (key.as_bytes()[0].is_ascii_uppercase()
             || key.as_bytes()[0].is_ascii_digit()
             || ["[", "]", ",", ".", "/", "?", "-", "="].contains(&key));
-    if binding.key.len() > 48
+    if chord.len() > 48
         || (key == "?" && modifiers.contains(&"Shift"))
         || modifiers != expected
         || !(function
@@ -212,9 +250,9 @@ fn validate_key(binding: &Binding) -> Result<(), String> {
         "CmdOrCtrl+Tab",
         "Alt+Tab",
     ];
-    if reserved.contains(&binding.key.as_str())
-        || (binding.key == "Escape" && binding.action != "focusWaveform")
-        || (binding.key == "CmdOrCtrl+Q" && binding.action != "quit")
+    if reserved.contains(&chord)
+        || (chord == "Escape" && binding.action != "focusWaveform")
+        || (chord == "CmdOrCtrl+Q" && binding.action != "quit")
     {
         return Err("This shortcut is reserved for text editing or the operating system".into());
     }
@@ -243,6 +281,7 @@ mod tests {
             action: "splitCue".into(),
             mode: Mode::Workspace,
             key: "Space".into(),
+            mac_key: None,
         });
         assert!(value.validate().unwrap_err().contains("conflicts"));
         value.bindings.last_mut().unwrap().mode = Mode::Text;
@@ -252,6 +291,33 @@ mod tests {
         value.bindings.last_mut().unwrap().key = "CmdOrCtrl+S".into();
         assert!(value.validate().unwrap_err().contains("conflicts"));
     }
+    #[test]
+    fn old_bundled_sets_gain_only_missing_cue_text_slots_and_custom_sets_keep_their_bindings() {
+        let current = Shortcuts::default();
+        let mut old = current.clone();
+        old.bindings.retain(|b| b.mac_key.is_none());
+        let mut custom = old.clone();
+        custom.preset = Preset::Custom;
+        let saved = custom.clone();
+        custom.upgrade_cue_text_defaults();
+        assert_eq!(custom, saved);
+        old.upgrade_cue_text_defaults();
+        old.upgrade_cue_text_defaults();
+        assert_eq!(old.bindings.len(), current.bindings.len());
+        assert_eq!(
+            old.key_for("previousCue", Mode::Text, true),
+            Some("CmdOrCtrl+Alt+Up")
+        );
+        assert_eq!(old.key_for("previousCue", Mode::Text, false), None);
+        // A macOS-only conflict must also be refused when imported elsewhere.
+        old.bindings
+            .iter_mut()
+            .find(|b| b.action == "play" && b.mode == Mode::Alternate)
+            .unwrap()
+            .key = "CmdOrCtrl+Alt+Up".into();
+        assert!(old.validate().unwrap_err().contains("conflicts"));
+    }
+
     #[test]
     fn malformed_reserved_and_unknown_bindings_fail() {
         for key in [
@@ -268,6 +334,7 @@ mod tests {
                 action: "splitCue".into(),
                 mode: Mode::Text,
                 key: key.into(),
+                mac_key: None,
             });
             assert!(value.validate().is_err(), "{key}");
         }
@@ -296,9 +363,18 @@ mod zoom_upgrade_tests {
         custom.upgrade_zoom_defaults();
         assert_eq!(custom, before);
         old.upgrade_zoom_defaults();
-        assert_eq!(old.native_key("zoomIn"), Some("CmdOrCtrl+="));
-        assert_eq!(old.native_key("zoomOut"), Some("CmdOrCtrl+-"));
-        assert_eq!(old.native_key("fitWaveform"), Some("CmdOrCtrl+0"));
+        assert_eq!(
+            old.key_for("zoomIn", Mode::Global, false),
+            Some("CmdOrCtrl+=")
+        );
+        assert_eq!(
+            old.key_for("zoomOut", Mode::Global, false),
+            Some("CmdOrCtrl+-")
+        );
+        assert_eq!(
+            old.key_for("fitWaveform", Mode::Global, false),
+            Some("CmdOrCtrl+0")
+        );
         old.validate().unwrap();
     }
 }

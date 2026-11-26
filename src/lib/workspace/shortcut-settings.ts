@@ -6,11 +6,18 @@ import type {
   ShortcutMode,
 } from '../client';
 import {
-  matchesShortcut,
+  matchesBinding,
+  platformKey,
   type ActionId,
   type ShortcutKey,
 } from './action-registry.ts';
 
+export const presetNames: Record<ShortcutPreferences['preset'], string> = {
+  current: 'Current VSF bindings',
+  vsfDefault: 'Single-key editing',
+  visualSubSyncClassic: 'VisualSubSync classic',
+  custom: 'Custom',
+};
 export const shortcutModes: { id: ShortcutMode; label: string }[] = [
   { id: 'global', label: 'Everywhere' },
   { id: 'alternate', label: 'Everywhere (alternate)' },
@@ -49,8 +56,20 @@ export function shortcutConflict(
   );
 }
 export function shortcutError(settings: ShortcutPreferences): string | null {
+  for (const mac of [false, true]) {
+    const error = validateBindings(
+      settings.bindings.map((binding) => ({
+        ...binding,
+        key: platformKey(binding, mac),
+      })),
+    );
+    if (error) return error;
+  }
+  return null;
+}
+function validateBindings(bindings: ShortcutBinding[]): string | null {
   const slots = new Set<string>();
-  for (const [index, binding] of settings.bindings.entries()) {
+  for (const [index, binding] of bindings.entries()) {
     const slot = `${binding.action}/${binding.mode}`;
     if (!(binding.action in descriptions) || slots.has(slot))
       return 'Unknown action or duplicate focus mode';
@@ -111,7 +130,7 @@ export function shortcutError(settings: ShortcutPreferences): string | null {
       (binding.key === 'CmdOrCtrl+Q' && binding.action !== 'quit')
     )
       return 'This shortcut is reserved for text editing or the operating system';
-    const conflict = shortcutConflict(settings.bindings, binding, index);
+    const conflict = shortcutConflict(bindings, binding, index);
     if (conflict)
       return `${descriptions[binding.action as ActionId].label} conflicts with ${descriptions[conflict.action as ActionId].label} in an overlapping focus mode`;
   }
@@ -120,7 +139,7 @@ export function shortcutError(settings: ShortcutPreferences): string | null {
     ['focusWaveform', 'Escape'],
   ])
     if (
-      !settings.bindings.some(
+      !bindings.some(
         (b) => b.action === action && b.mode === 'global' && b.key === key,
       )
     )
@@ -168,8 +187,7 @@ export function bindingAction(
   )
     return null;
   const binding = settings.bindings.find(
-    (b) =>
-      (globalMode(b.mode) || b.mode === mode) && matchesShortcut(b.key, event),
+    (b) => (globalMode(b.mode) || b.mode === mode) && matchesBinding(b, event),
   );
   return (binding?.action as ActionId) ?? null;
 }

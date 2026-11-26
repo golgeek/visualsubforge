@@ -14,7 +14,10 @@
   import CueMetrics from '../quality/CueMetrics.svelte';
   import { formatTime } from '../timeline/timeline';
   import { measurePaneControl } from '../layout/measure-pane-control';
-  import { matchesShortcut } from '../workspace/action-registry';
+  import {
+    matchesShortcut,
+    matchesBinding,
+  } from '../workspace/action-registry';
   import type { TextFormat, QualityRule, ShortcutPreferences } from '../client';
   import type { AuthoringModal } from '../dialogs/workspace-modal.svelte';
   import CommentThreads from '../review/CommentThreads.svelte';
@@ -151,7 +154,7 @@
             (binding) =>
               binding.action === 'apply' &&
               ['global', 'alternate', 'text'].includes(binding.mode) &&
-              matchesShortcut(binding.key, e),
+              matchesBinding(binding, e),
           )
         : matchesShortcut('CmdOrCtrl+Return', e))
     ) {

@@ -552,7 +552,7 @@
   "previousCue": {
     "label": "Edit Previous Cue",
     "group": "Cue",
-    "native": false,
+    "native": true,
     "shortcut": "Alt+Up",
     "aliases": [],
     "alternateShortcuts": [],
@@ -562,7 +562,7 @@
   "nextCue": {
     "label": "Edit Next Cue",
     "group": "Cue",
-    "native": false,
+    "native": true,
     "shortcut": "Alt+Down",
     "aliases": [],
     "alternateShortcuts": [],

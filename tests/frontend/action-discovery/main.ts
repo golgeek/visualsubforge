@@ -332,6 +332,20 @@ async function run() {
     await until(() => preferences.shortcuts.preset === 'vsfDefault');
     button('Close')!.click();
     await until(() => !host.querySelector('dialog[open]') && !occluded);
+    callbacks.get(listener)!({ payload: 'settings' });
+    await until(() => !!host.querySelector('[aria-label="Shortcut preset"]'));
+    const savedPreset = host.querySelector<HTMLSelectElement>(
+      '[aria-label="Shortcut preset"]',
+    )!;
+    await until(
+      () => !savedPreset.disabled && savedPreset.value === 'vsfDefault',
+    );
+    assert(
+      savedPreset.selectedOptions[0]?.textContent === 'Single-key editing',
+      'Saved vsfDefault loads as Single-key editing',
+    );
+    button('Close')!.click();
+    await until(() => !host.querySelector('dialog[open]') && !occluded);
     editor.focus();
     key(editor, 'n');
     await tick();
@@ -352,7 +366,7 @@ async function run() {
       'Other buttons retain ordinary control focus',
     );
     passed(
-      'Confirmed trial preset routes cue-row keys through Rust while protecting text, composition and other controls',
+      'Single-key editing routes cue-row keys through Rust while protecting text, composition and other controls',
     );
     heading.textContent = `PASS: all ${output.childElementCount} action discovery checks`;
   } catch (error) {

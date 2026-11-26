@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Kbd from '../ui/Kbd.svelte';
-  import { shortcutModes } from './shortcut-settings';
+  import { shortcutModes, presetNames } from './shortcut-settings';
   import {
     actionsFor,
+    platformKey,
     unavailable,
     type ActionId,
     type ActionContext,
@@ -122,6 +123,9 @@
 >
   <header>
     <h2 id="action-browser-title">{title}</h2>
+    {#if shortcuts && mode === 'shortcuts'}<span
+        >{presetNames[shortcuts.preset]}</span
+      >{/if}
     <button disabled={pending} onclick={() => void run(onclose)}>Close</button>
   </header>
   <input
@@ -163,12 +167,12 @@
           >
             <span>{action.label}</span><span class="bindings">
               {#if shortcuts}
-                {#each shortcuts.bindings.filter((binding) => binding.action === action.id && binding.key) as binding (binding.mode)}
+                {#each shortcuts.bindings.filter((binding) => binding.action === action.id && platformKey(binding, mac)) as binding (binding.mode)}
                   <span
                     ><small
                       >{shortcutModes.find((mode) => mode.id === binding.mode)
                         ?.label}</small
-                    ><Kbd shortcut={binding.key} /></span
+                    ><Kbd shortcut={platformKey(binding, mac)} /></span
                   >
                 {:else}<small>Unassigned</small>{/each}
               {:else}

@@ -556,7 +556,7 @@ focus-scoped bindings; `shortcut-settings.ts` validates draft conflicts and
 confirmed bindings explicitly to routing, CueEditor, ActionBrowser and Tooltips;
 there is no mutable global registry. Native publication and rollback live behind
 Rust's desktop boundary. Current bindings remain the migration default, with the
-Replace collision fixed; the VSF mode-aware scheme is an opt-in trial.
+Replace collision fixed; Single-key editing is opt-in.
 `QualitySession.view.ruleCues` supplies distinct accepted cue counts per rule;
 checking/stale counts are labeled unavailable. See the
 [Settings guide](../../docs/settings-shortcuts.md) for focus and recovery behavior.
