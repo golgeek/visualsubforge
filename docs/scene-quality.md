@@ -42,6 +42,41 @@ buffers zero. This is an explicit coverage change from the previous checker.
 The desktop uses `evaluate_with_scenes`; headless callers can supply the same
 bounded, immutable scene input directly through the shared Rust API.
 
+## Desktop timing preview at 10,000 cues
+
+On 2026-11-25, build `49fd211` ran on an Apple M3 Max (Mac15,10, 36 GiB,
+macOS 27.0 build 26A428) with Rust 1.98.1 and Node 24.21.0. The scene fixture
+has 10,000 cues and 10,000 cuts. The scene stopwatch starts once WebDriver sees
+the review panel and stops when it observes **Apply 10000 changes**. WebDriver
+polls the visible control every 100 ms.
+
+| Build | Scene preview, release (ms) | Scene preview, debug (ms) | Duration preview, release (ms) |
+| --- | --- | --- | ---: |
+| `0fc109e` | 207, 210, 208 | 1,250 | 113 |
+| `49fd211` | 104, 110, 105 | 523, 520, 519 | 107 |
+
+Both profiles use the 1,000 ms preview budget. The three release scene runs
+and the release duration run passed through acceptance, Undo and invalidation
+to normal shutdown. All three debug scene runs passed the timing checks,
+then exceeded the separate release-build budget for the quality index.
+Windows and Linux timings are unverified.
+
+The release lanes use the macOS ANGLE build environment.
+
+```sh
+npm run tauri -- build --no-bundle --features desktop-e2e,macos-angle --config tests/desktop/tauri.test.json -- --locked
+cargo build --locked --release -p vsf-cli
+node tests/desktop/run.mjs --scenes --binary target/release/visualsubforge --cli target/release/vsf
+node tests/desktop/run.mjs --duration --binary target/release/visualsubforge --cli target/release/vsf
+```
+
+The debug measurement uses the development media adapter.
+
+```sh
+npm run tauri -- build --debug --no-bundle --features desktop-e2e,media-prototype --config tests/desktop/tauri.test.json -- --locked
+node tests/desktop/run.mjs --scenes --binary target/debug/visualsubforge --cli target/release/vsf
+```
+
 ## Historical validation
 
 Development Mac arm64, Rust 1.98.1, Node 24.21.0/npm 11.19.0, FFmpeg 9.0.2.
@@ -69,12 +104,9 @@ coverage. All ordinary Settings/text/save/restart/recovery steps still pass.
 Predeclared scale budgets: 10,000 cues/940,000 source bytes and 10,000 cuts;
 release check/proposal p95 <500 ms over 20 warm runs; additional sampled RSS
 <96 MiB; desktop interaction/cancellation/invalidation <1 second. Final release
-results are 7.124 ms check p95, 22.531 ms repair p95 and 37,257,216 added RSS bytes.
-The explicit stress profile permits all 10,000 repairs; ordinary profile safety
-has independent correctness fixtures. The real debug app previews all 10,000
-changes in 413 ms, accepts from page two in 110 ms and restores all with one
-Undo. Generated draft interaction takes 1 ms, cancellation 3 ms and invalidation
-13 ms; the review mounts 100 rows. Declared budgets pass.
+results at that checkpoint were 7.124 ms check p95, 22.531 ms repair p95
+and 37,257,216 added RSS bytes. The stress profile permits all 10,000 repairs.
+Ordinary profile safety has independent correctness fixtures.
 
 ```sh
 cargo test --locked --workspace
@@ -131,10 +163,7 @@ Validation passes 236 Rust tests, 39 frontend unit tests, 42 Chromium/WebKit cas
 strict Clippy/lint/type/format/IPC checks and the default desktop build. The actual
 media-enabled Mac workflow verifies Problems, static/timed tag handling,
 preview/acceptance, failed saves, exact save/reopen, Undo/Redo, rescan/media
-invalidation and the existing restart/recovery workflow. With 10,000 cues/cuts,
-preview takes 413 ms, acceptance 110 ms, draft interaction 1 ms, cancellation
-3 ms and invalidation 13 ms. Release check/repair p95 is 7.124/22.531 ms, with
-37,257,216 additional sampled RSS bytes; declared budgets pass. Quality report
+invalidation and the existing restart/recovery workflow. Quality report
 schema 2 adds scene coverage: the CLI returns incomplete coverage for nonzero
 scene buffers because it supplies no scene data. See [scene quality](scene-quality.md)
 for exact commands, retained evidence and the Mac OpenGL runtime scope. New
