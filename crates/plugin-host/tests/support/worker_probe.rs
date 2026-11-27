@@ -6,11 +6,14 @@ use std::{
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     std::fs::write(&args[2], std::process::id().to_string()).unwrap();
-    if args[1] != "no-read" {
+    if !matches!(args[1].as_str(), "no-read" | "early-exit" | "early-success") {
         io::stdin().read_to_end(&mut Vec::new()).unwrap();
     }
     match args[1].as_str() {
-        "crash" => std::process::exit(23),
+        "crash" | "early-exit" | "early-success" => {
+            eprintln!("could not initialize fixture");
+            std::process::exit(if args[1] == "early-success" { 0 } else { 23 });
+        }
         "bad-json" => {
             print!("not json");
             return;

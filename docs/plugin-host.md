@@ -24,6 +24,8 @@ The earlier failure and all final source/binary identities remain in the linked
 record. Together with the historical comparison, this supersedes the earlier
 worker baseline and completes stage7. Native/physical-platform gates remain open.
 
+A helper that exits unsuccessfully or closes a pipe before the request completes reports its process status and diagnostic output (up to 4 KiB). A helper that exits before reading its input can use stderr to explain the failure.
+
 ## VM automated validation — 2026-10-18
 
 Isolated Ubuntu 26.04 ARM64 and Windows 11 ARM64 runs verify all 781 tracked
@@ -162,6 +164,7 @@ serialization hooks. Parent cancellation/deadline can independently kill a helpe
 that stops reading/writing or returning. Three scoped pipe threads prevent a full
 pipe from blocking the watchdog. The child guard is dropped inside the scope:
 kill/reap precedes joining pipe threads on success, failure and early return.
+A descendant that inherits the helper’s pipes can delay completion until it exits, and the helper starts no descendants.
 No pipe thread or helper is intentionally detached. Ordinary OS process creation,
 termination and scheduling latency are not a real-time guarantee.
 

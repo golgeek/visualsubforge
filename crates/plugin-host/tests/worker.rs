@@ -356,7 +356,10 @@ fn parent_watchdog_bounds_blocked_pipes_floods_crash_and_invalid_protocol() {
         if matches!(mode, "no-read" | "after-reply") {
             assert_eq!(result, Err(Failure::Timeout));
         } else if mode == "crash" {
-            assert!(matches!(result, Err(Failure::Worker(_))), "{result:?}");
+            assert!(
+                matches!(&result, Err(Failure::Worker(message)) if message.contains("23") && message.contains("could not initialize fixture")),
+                "{mode}: {result:?}"
+            );
         } else if mode == "nested-json" {
             let mut expected = json!(1);
             for _ in 0..32 {
@@ -405,4 +408,21 @@ fn cancellation_kills_and_reaps_a_live_helper_with_blocked_input() {
     });
     assert_reaped(&pid);
     assert_eq!(execute("return 42;", Value::Null).unwrap(), 42);
+}
+
+#[test]
+fn early_exit_while_writing_reports_worker_diagnostic() {
+    let directory = tempfile::tempdir().unwrap();
+    let binary = probe(directory.path());
+    for (mode, code) in [("early-exit", "23"), ("early-success", "0")] {
+        let pid = directory.path().join(format!("{mode}.pid"));
+        let request = Request::new(" ".repeat(512 * 1024), Value::Null);
+        let args = [OsString::from(mode), pid.clone().into_os_string()];
+        let result = run(&binary, &args, &request, &AtomicBool::new(false));
+        assert!(
+            matches!(&result, Err(Failure::Worker(message)) if message.contains(code) && message.contains("could not initialize fixture")),
+            "{result:?}"
+        );
+        assert_reaped(&pid);
+    }
 }
