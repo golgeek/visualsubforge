@@ -1203,3 +1203,133 @@ fn replacing_or_ending_review_requires_current_discard_consent() {
     .unwrap();
     assert!(snapshot(&d).review.unwrap().path.is_none());
 }
+
+#[test]
+fn cross_format_reverts_preserve_history_and_review_context() {
+    for (working_ext, working, original_ext, original) in [
+        ("ass", ass_tests::ASS, "srt", ORIGINAL),
+        ("ssa", ass_tests::SSA, "ass", ass_tests::ASS),
+        (
+            "srt",
+            ORIGINAL,
+            "vtt",
+            "WEBVTT\n\n00:01.000 --> 00:03.000\nOther\n",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join(format!("working.{working_ext}"));
+        let base = dir.path().join(format!("base.{original_ext}"));
+        fs::write(&source, working).unwrap();
+        fs::write(&base, original).unwrap();
+        let d = Documents::default();
+        action(
+            &d,
+            super::super::Action::Open {
+                path: source.to_string_lossy().into(),
+                discard: false,
+            },
+        );
+        attach(&d, &base);
+        ready(&d);
+        let before = serde_json::to_value(snapshot(&d)).unwrap();
+        let key = key(&d);
+        for command in [
+            ReviewAction::Revert {
+                key,
+                change_key: None,
+                source_index: None,
+                filter: None,
+            },
+            ReviewAction::RevertBlock { key, first: 0 },
+        ] {
+            let reason = d
+                .review_action(command)
+                .err()
+                .expect("mixed formats must be rejected");
+            assert!(reason.contains("same format"), "{reason}");
+            assert_eq!(reason.contains("Export As"), original_ext != "vtt");
+            assert_eq!(before["review"]["revertDisabledReason"], reason);
+            assert_eq!(serde_json::to_value(snapshot(&d)).unwrap(), before);
+        }
+    }
+}
+
+#[test]
+fn package_format_mismatch_prevents_use_theirs_before_mutation() {
+    let (dir, d, original, _) = fixture();
+    attach(&d, &original);
+    let path = dir.path().join("package.vsfreview");
+    let package = review_package::Package {
+        format: "visualsubforge-review".into(),
+        version: 1,
+        round: 1,
+        exported_by: "Ana".into(),
+        exported_at_ms: 10,
+        threads: vec![],
+        options: Default::default(),
+        original: review_package::Subtitle::capture(
+            "original.srt",
+            subtitle_formats::Format::Srt,
+            ORIGINAL.as_bytes(),
+        ),
+        revised: review_package::Subtitle::capture(
+            "working.ass",
+            subtitle_formats::Format::Ass,
+            ass_tests::ASS.as_bytes(),
+        ),
+    };
+    fs::write(&path, package.write().unwrap()).unwrap();
+    let info = d
+        .import_review(key(&d), &path, None)
+        .unwrap()
+        .inspection
+        .unwrap();
+    assert_eq!(info.case, exchange::ImportCase::Different);
+    let before = serde_json::to_value(snapshot(&d)).unwrap();
+    let error = d
+        .import_review(
+            key(&d),
+            &path,
+            Some((&info.digest, exchange::ImportChoice::UseTheirs, true)),
+        )
+        .err()
+        .expect("mixed formats must be rejected");
+    assert!(
+        error.contains("same format") && error.contains("Export As"),
+        "{error}"
+    );
+    assert_eq!(
+        serde_json::to_value(&info).unwrap()["useTheirsDisabledReason"],
+        error
+    );
+    assert_eq!(serde_json::to_value(snapshot(&d)).unwrap(), before);
+    assert!(
+        d.import_review(
+            key(&d),
+            &path,
+            Some((&info.digest, exchange::ImportChoice::Open, false))
+        )
+        .is_err()
+    );
+    let opened = d
+        .import_review(
+            key(&d),
+            &path,
+            Some((&info.digest, exchange::ImportChoice::Open, true)),
+        )
+        .unwrap()
+        .document
+        .unwrap();
+    assert!(opened.path.is_none() && !opened.can_undo);
+    assert_eq!(opened.cues[0].text, "Red title");
+    assert_eq!(
+        d.0.lock()
+            .unwrap()
+            .loaded
+            .as_ref()
+            .unwrap()
+            .source()
+            .format(),
+        subtitle_formats::Format::Ass
+    );
+}

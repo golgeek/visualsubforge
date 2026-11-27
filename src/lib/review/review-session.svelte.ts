@@ -28,8 +28,14 @@ export type ExchangePrompt =
       author: string;
       progress: ReturnType<typeof exportProgress>;
     }
-  | { kind: 'different'; author: string; time: number };
+  | {
+      kind: 'different';
+      author: string;
+      time: number;
+      disabledReason: string | undefined;
+    };
 export type ExchangeAnswer =
+  | 'open'
   | 'theirs'
   | 'review'
   | 'mine'
@@ -267,9 +273,15 @@ export class ReviewSession {
   get options() {
     return this.subtitles.snapshot.review?.options;
   }
-  get canMutate() {
+  get revertDisabledReason() {
+    return this.subtitles.snapshot.review?.revertDisabledReason;
+  }
+  get canRevert() {
     return (
-      this.workspace.canAct && !this.subtitles.dirty && !!this.page?.statistics
+      this.workspace.canAct &&
+      !this.subtitles.dirty &&
+      !!this.page?.statistics &&
+      !this.revertDisabledReason
     );
   }
   get selectedChange() {
@@ -468,7 +480,7 @@ export class ReviewSession {
     }
   }
   async revert(change: ReviewChange | null) {
-    if (!this.canMutate) return;
+    if (!this.canRevert) return;
     await this.workspace.task(async () => {
       await this.subtitles.changeReview(
         {
@@ -487,7 +499,7 @@ export class ReviewSession {
   }
   async revertBlock(first: number) {
     if (
-      !this.canMutate ||
+      !this.canRevert ||
       JSON.stringify(this.page?.key) !== JSON.stringify(this.key())
     )
       return;
@@ -601,7 +613,21 @@ export class ReviewSession {
       )
         return;
       let choice: 'open' | 'merge' | 'keep' | 'useTheirs';
-      if (info.case === 'new') {
+      if (info.case === 'different') {
+        const answer = await this.decideExchange({
+          kind: 'different',
+          author: info.exportedBy,
+          time: info.exportedAtMs,
+          disabledReason: info.useTheirsDisabledReason ?? undefined,
+        });
+        if (!this.alive) return;
+        if (answer === 'open' && info.useTheirsDisabledReason) choice = 'open';
+        else if (answer === 'theirs' && !info.useTheirsDisabledReason)
+          choice = 'useTheirs';
+        else if (answer === 'mine') choice = 'keep';
+        else return;
+      } else choice = info.case === 'new' ? 'open' : 'merge';
+      if (choice === 'open') {
         if (!(await this.unsaved.protect(this.saveProject)) || !this.alive)
           return;
         const protectedKey = this.key();
@@ -613,22 +639,15 @@ export class ReviewSession {
             path,
           });
           if (
-            checked.inspection?.case !== 'new' ||
-            checked.inspection.digest !== info.digest
+            checked.inspection?.case !== info.case ||
+            checked.inspection.digest !== info.digest ||
+            checked.inspection.useTheirsDisabledReason !==
+              info.useTheirsDisabledReason
           )
             throw new Error('The review changed. Open the package again.');
           key = protectedKey;
         }
-        choice = 'open';
-      } else if (info.case === 'different') {
-        const answer = await this.decideExchange({
-          kind: 'different',
-          author: info.exportedBy,
-          time: info.exportedAtMs,
-        });
-        if (!this.alive || (answer !== 'theirs' && answer !== 'mine')) return;
-        choice = answer === 'theirs' ? 'useTheirs' : 'keep';
-      } else choice = 'merge';
+      }
       const adopted = await this.subtitles.changeReview(
         {
           kind: 'importPackage',

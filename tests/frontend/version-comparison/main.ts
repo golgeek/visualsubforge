@@ -23,6 +23,12 @@ let newer = false;
 let exported = false;
 let importCase: 'same' | 'new' | 'different' = 'same';
 const imports: string[] = [];
+const revertReason =
+  'Revert needs the same format (working: SRT, original: WebVTT).';
+const importReason =
+  'Use Their Version needs the same format (working: SRT, revised: ASS). Use File → Export As…';
+let mixedOriginal = false;
+let mixedPackage = false;
 let previousCues: typeof doc.cues | null = null;
 let starts = 0;
 let queryCount = 0;
@@ -256,7 +262,9 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'choose_file':
           files.push(String(args.kind));
           return args.kind === 'reviewOriginal'
-            ? '/original.srt'
+            ? mixedOriginal
+              ? '/original.vtt'
+              : '/original.srt'
             : args.kind === 'reviewRevised'
               ? '/revised.srt'
               : args.kind === 'comparisonReport'
@@ -307,6 +315,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               inspection: {
                 case: importCase,
                 digest: 'fixture',
+                ...(mixedPackage && { useTheirsDisabledReason: importReason }),
                 exportedBy: 'Sam',
                 exportedAtMs: 21,
               },
@@ -383,7 +392,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           }
           if (a.kind === 'inspect') return { ...reply(), newerOriginal: newer };
           if (a.kind === 'attach') {
-            doc.review = { epoch: ++epoch, dirty: true, path: a.path, options };
+            doc.review = {
+              epoch: ++epoch,
+              dirty: true,
+              path: a.path,
+              options,
+              ...(mixedOriginal && { revertDisabledReason: revertReason }),
+            };
             return { ...reply(), document: structuredClone(doc) };
           }
           if (a.kind === 'start') {
@@ -1246,6 +1261,7 @@ async function run() {
     await until(
       () => draftField()?.value === 'Revised' && !draftField()!.disabled,
     );
+    mixedOriginal = true;
     const pendingText = 'Save this cue before comparing files';
     draftField()!.value = pendingText;
     draftField()!.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1271,10 +1287,42 @@ async function run() {
       ?.getAttribute('title');
     assert(!error, 'Compare Files reported ' + error);
     assert(
-      doc.path === '/revised.srt' && doc.review?.path === '/original.srt',
+      doc.path === '/revised.srt' && doc.review?.path === '/original.vtt',
       'Save opens the revised file and attaches the original',
     );
     passed('Compare Files continues after saving an uncommitted cue draft');
+    await until(() => !!button('Revert'));
+    const reverts = [
+      ...host.querySelectorAll<HTMLButtonElement>('button'),
+    ].filter((b) => b.textContent?.trim().startsWith('Revert'));
+    assert(
+      reverts.length > 0 &&
+        reverts.every((b) => b.disabled && b.title === revertReason),
+      'Mixed-format revert controls explain the restriction',
+    );
+    passed(
+      'A cross-format comparison displays the reason for disabled Revert controls',
+    );
+    mixedPackage = true;
+    importCase = 'different';
+    await exchangeCommand('openReviewPackage');
+    await until(() => !!button('Use Their Version'));
+    assert(
+      button('Use Their Version')!.disabled &&
+        button('Use Their Version')!.title === importReason,
+      'Mixed-format Use Their Version explains the restriction',
+    );
+    assert(
+      !button('Keep Mine')!.disabled && !button('Open Their Version')!.disabled,
+      'Can keep mine or open the incoming document',
+    );
+    button('Open Their Version')!.click();
+    await until(
+      () => button('Discard changes')?.closest('dialog')?.open === true,
+    );
+    button('Discard changes')!.click();
+    await until(() => doc.path === null);
+    passed('Cross-format packages can open as a separate working document');
     assert(queryCount > 0, 'Comparison exercised');
     document.querySelector('#result')!.textContent =
       `PASS: all ${document.querySelectorAll('#checks li').length} version comparison checks`;

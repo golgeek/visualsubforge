@@ -923,3 +923,142 @@ async fn cancelled_cache_never_crosses_generation_or_quality_epoch() {
         assert!(store.checks.report.is_none());
     }
 }
+
+#[test]
+fn start_review_invalidates_the_previous_check_worker() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("original.srt");
+    fs::write(&source, "1\n00:00:01,000 --> 00:00:02,000\nOriginal\n").unwrap();
+    let docs = Documents::default();
+    docs.apply(
+        Action::Open {
+            path: source.to_string_lossy().into(),
+            discard: false,
+        },
+        0,
+        0,
+    )
+    .unwrap();
+    let (release, gate) = std::sync::mpsc::channel();
+    let review_key = docs.0.lock().unwrap().review_key().unwrap();
+    let (token, old_key) = {
+        let mut store = docs.0.lock().unwrap();
+        let key = store.quality_key().unwrap();
+        store
+            .checks
+            .launch_with(key, None, move |_, _| {
+                let _ = gate.recv_timeout(Duration::from_secs(5));
+                Err("obsolete result".into())
+            })
+            .unwrap();
+        (store.checks.worker.as_ref().unwrap().cancel.clone(), key)
+    };
+    docs.review_action(review::ReviewAction::Start {
+        key: review_key,
+        path: dir.path().join("copy.srt").to_string_lossy().into(),
+        discard: false,
+    })
+    .unwrap();
+    release.send(()).unwrap();
+    assert!(token.load(Ordering::Relaxed));
+    let view = ready(&docs);
+    assert_ne!(view.key.generation, old_key.generation);
+    assert!(view.error.is_none());
+}
+
+fn draft_for_text(docs: &Documents, text: &str) -> View {
+    let mut query = request(docs);
+    query.draft = Some(DraftChange::Update {
+        value: Draft {
+            cue_id: 1.try_into().unwrap(),
+            start_ms: 1000.try_into().unwrap(),
+            end_ms: 3000.try_into().unwrap(),
+            text: text.into(),
+        },
+    });
+    docs.quality_read(query).unwrap();
+    ready(docs)
+}
+
+#[test]
+fn multiline_draft_matches_committed_metrics_for_each_format() {
+    for (ext, source) in [
+        ("srt", "1\n00:00:01,000 --> 00:00:03,000\nHi\n"),
+        ("vtt", "WEBVTT\n\n00:01.000 --> 00:03.000\nHi\n"),
+        ("ass", ass_tests::ASS),
+        ("ssa", ass_tests::SSA),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("working.{ext}"));
+        fs::write(&path, source).unwrap();
+        let docs = Documents::default();
+        docs.apply(
+            Action::Open {
+                path: path.to_string_lossy().into(),
+                discard: false,
+            },
+            0,
+            0,
+        )
+        .unwrap();
+        let draft = draft_for_text(&docs, "Hello\nWorld").draft.unwrap();
+        docs.apply(
+            Action::Edit {
+                cue_id: 1,
+                start_ms: 1000,
+                end_ms: 3000,
+                text: "Hello\nWorld".into(),
+            },
+            1,
+            0,
+        )
+        .unwrap();
+        assert_eq!(draft.data, ready(&docs).selected.unwrap().data, "{ext}");
+    }
+}
+
+#[test]
+fn rejected_format_draft_reports_the_commit_error() {
+    for (ext, source, bad) in [
+        (
+            "srt",
+            "1\n00:00:01,000 --> 00:00:03,000\nHi\n",
+            "one\n\ntwo",
+        ),
+        (
+            "vtt",
+            "WEBVTT\n\n00:01.000 --> 00:03.000\nHi\n",
+            "one --> two",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("working.{ext}"));
+        fs::write(&path, source).unwrap();
+        let docs = Documents::default();
+        docs.apply(
+            Action::Open {
+                path: path.to_string_lossy().into(),
+                discard: false,
+            },
+            0,
+            0,
+        )
+        .unwrap();
+        draft_for_text(&docs, "Valid draft");
+        let view = draft_for_text(&docs, bad);
+        let error = docs
+            .apply(
+                Action::Edit {
+                    cue_id: 1,
+                    start_ms: 1000,
+                    end_ms: 3000,
+                    text: bad.into(),
+                },
+                1,
+                0,
+            )
+            .unwrap_err();
+        assert_eq!(view.draft_error.as_deref(), Some(error.as_str()), "{ext}");
+        assert!(view.draft.is_none());
+    }
+}

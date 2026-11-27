@@ -70,6 +70,10 @@ impl Store {
         filter: Option<engine::Kind>,
         block: Option<u32>,
     ) -> Result<()> {
+        self.check_review_key(key)?;
+        if let Some(reason) = self.loaded_mut()?.revert_disabled_reason() {
+            return Err(reason);
+        }
         let result = self.comparison(key)?;
         let scope = match block {
             Some(first) => {

@@ -30,7 +30,7 @@ pub(super) struct Checks {
     completed_at_ms: Option<crate::ipc_number::SafeU64>,
     report_id: Option<crate::ipc_number::SafeU64>,
     error: Option<String>,
-    draft: Option<Draft>,
+    draft: Option<Result<Draft>>,
     draft_metric: Option<Metric>,
     draft_error: Option<String>,
     cancelled: bool,
@@ -62,6 +62,9 @@ impl Drop for Worker {
     }
 }
 impl Checks {
+    fn prepared_draft(&self) -> Option<&Draft> {
+        self.draft.as_ref()?.as_ref().ok()
+    }
     fn cancel_worker(&self) {
         if let Some(worker) = &self.worker {
             worker.cancel.store(true, Ordering::Relaxed);
@@ -116,11 +119,13 @@ impl Checks {
                 self.report = Some(*report);
                 self.report_id = self.id.try_into().ok();
             }
-            Ok(Output::Draft(metric)) if worker.draft == self.draft => {
+            Ok(Output::Draft(metric)) if worker.draft.as_ref() == self.prepared_draft() => {
                 self.draft_metric = Some(metric)
             }
             Err(error) if worker.draft.is_none() => self.error = Some(error),
-            Err(error) if worker.draft == self.draft => self.draft_error = Some(error),
+            Err(error) if worker.draft.as_ref() == self.prepared_draft() => {
+                self.draft_error = Some(error)
+            }
             _ => {}
         }
     }
@@ -381,14 +386,23 @@ impl Documents {
         if let Some(change) = request.draft.take() {
             let draft = match change {
                 DraftChange::Clear => None,
-                DraftChange::Update { value } => Some(value),
+                DraftChange::Update { value } => {
+                    if value.text.len() > engine::MAX_TEXT_BYTES {
+                        return Err("Quality draft exceeds 16 MiB".into());
+                    }
+                    let source = store
+                        .loaded
+                        .as_ref()
+                        .ok_or("Open subtitles first")?
+                        .source();
+                    Some(
+                        source
+                            .prepare_text(value.text)
+                            .map(|text| Draft { text, ..value })
+                            .map_err(String::from),
+                    )
+                }
             };
-            if draft
-                .as_ref()
-                .is_some_and(|d| d.text.len() > engine::MAX_TEXT_BYTES)
-            {
-                return Err("Quality draft exceeds 16 MiB".into());
-            }
             if draft != store.checks.draft {
                 if store
                     .checks
@@ -415,7 +429,7 @@ impl Documents {
                 && checks.draft_metric.is_none()
                 && checks.draft_error.is_none()
             {
-                checks.draft.clone()
+                checks.prepared_draft().cloned()
             } else {
                 None
             };
@@ -519,11 +533,16 @@ fn project_view(
         previous_cue: None,
         next_cue: None,
         draft: checks.draft_metric.clone(),
-        draft_checking: checks.draft.is_some()
+        draft_checking: checks.prepared_draft().is_some()
             && checks.draft_metric.is_none()
             && checks.draft_error.is_none()
             && !checks.cancelled,
-        draft_error: checks.draft_error.clone(),
+        draft_error: checks
+            .draft
+            .as_ref()
+            .and_then(|d| d.as_ref().err())
+            .or(checks.draft_error.as_ref())
+            .cloned(),
     };
     let Some(AcceptedReport {
         data: report,

@@ -46,7 +46,8 @@
           /> Checked</label
         >{/if}
       <button
-        disabled={!review?.canMutate}
+        title={review?.revertDisabledReason}
+        disabled={!review?.canRevert}
         onclick={() => void review?.revert(change)}>Revert</button
       >
     </header>

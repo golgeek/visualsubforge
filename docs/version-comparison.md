@@ -97,6 +97,8 @@ and wording from that service are not reused.
 
 ## Desktop review context
 
+Revert, Revert Block and Revert Changes require the working file and original to have the same format. ASS and SSA are distinct. To revert across SRT, ASS or SSA, use **File → Export As…** to make a copy in the original’s format, open the copy, then choose **Compare with Original** again. WebVTT supports cross-format comparison only.
+
 Review → Start Review writes a separate `<stem>.reviewed.<ext>` file from saved
 content and opens Changes without changing the layout preset. Normal Save then
 writes that copy. The copy must use an extension compatible with the source format. Save/Discard/Cancel protects unsaved work first. Compare with

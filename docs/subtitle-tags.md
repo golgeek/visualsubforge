@@ -66,6 +66,8 @@ status and cannot make stale text look current. Track cleanup, session guards,
 and native timing/composition ownership are unchanged. Preview never mutates
 the accepted document or undo history.
 
+Draft metrics use the same source-format text preparation as a committed cue. In ASS/SSA a textarea line break becomes a literal `\N` before counting. Invalid SRT or WebVTT draft text shows the same validation message as committing it.
+
 Quality counting is a separate named policy. `vss_utf16_v1` removes complete
 override blocks, including unknown ones, but counts literal `\N` as two UTF-16
 units and does not turn it into a line boundary. Drawing instructions outside

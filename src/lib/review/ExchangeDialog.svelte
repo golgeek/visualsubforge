@@ -29,11 +29,24 @@
         prompt.time,
       )}.
     </p>
-    <p>
-      Both choices merge the discussion. Use Their Version also replaces the
-      working cues in one Undo step.
-    </p>
-    <button onclick={() => onchoose('theirs')}>Use Their Version</button>
+    {#if prompt.disabledReason}
+      <p>{prompt.disabledReason}</p>
+      <p>
+        Keep Mine merges the discussion. Open Their Version opens the package as
+        an untitled document.
+      </p>
+      <button onclick={() => onchoose('open')}>Open Their Version</button>
+    {:else}
+      <p>
+        Both choices merge the discussion. Use Their Version also replaces the
+        working cues in one Undo step.
+      </p>
+    {/if}
+    <button
+      disabled={!!prompt.disabledReason}
+      title={prompt.disabledReason}
+      onclick={() => onchoose('theirs')}>Use Their Version</button
+    >
     <button onclick={() => onchoose('mine')}>Keep Mine</button>
   {:else}
     <h2>

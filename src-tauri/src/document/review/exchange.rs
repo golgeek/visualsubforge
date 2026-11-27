@@ -61,6 +61,8 @@ pub enum ImportChoice {
 #[derive(Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Inspection {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_theirs_disabled_reason: Option<String>,
     pub case: ImportCase,
     pub digest: String,
     pub exported_by: String,
@@ -161,9 +163,15 @@ impl Documents {
         let mut store = self.0.lock().map_err(|_| "Document unavailable")?;
         store.check_review_key(key)?;
         let case = store.import_case(&p)?;
+        let revised_format =
+            Format::from_extension(&p.revised.format).ok_or("Unknown revised format")?;
+        let use_theirs_disabled_reason = store.loaded.as_ref().and_then(|loaded| {
+            ReviewSource::Package.disabled_reason(loaded.source().format(), revised_format)
+        });
         let Some((expected, choice, discard)) = accept else {
             let mut r = store.review_reply(None, 0, 0, None)?;
             r.inspection = Some(Inspection {
+                use_theirs_disabled_reason,
                 case,
                 digest,
                 exported_by: p.exported_by,
@@ -174,19 +182,21 @@ impl Documents {
         if digest != expected {
             return Err("Review package changed after inspection".into());
         }
-        if !matches!(
-            (case, choice),
+        match (case, choice) {
             (ImportCase::New, ImportChoice::Open)
-                | (ImportCase::Same, ImportChoice::Merge)
-                | (
-                    ImportCase::Different,
-                    ImportChoice::Keep | ImportChoice::UseTheirs
-                )
-        ) {
-            return Err("Review changed; inspect the package again".into());
+            | (ImportCase::Same, ImportChoice::Merge)
+            | (ImportCase::Different, ImportChoice::Keep) => {}
+            (ImportCase::Different, ImportChoice::UseTheirs) => {
+                if let Some(reason) = use_theirs_disabled_reason {
+                    return Err(reason);
+                }
+            }
+            (ImportCase::Different, ImportChoice::Open) if use_theirs_disabled_reason.is_some() => {
+            }
+            _ => return Err("Review changed; inspect the package again".into()),
         }
         let checkpoint = store.checkpoint_key();
-        let prior = if case == ImportCase::New {
+        let prior = if matches!(choice, ImportChoice::Open) {
             store.check_discard(discard)?;
             Discussion::default()
         } else {
@@ -220,7 +230,7 @@ impl Documents {
         let target = matches!(choice, ImportChoice::Open | ImportChoice::UseTheirs)
             .then(|| p.revised.parsed())
             .transpose()?;
-        let original = (case == ImportCase::New)
+        let original = matches!(choice, ImportChoice::Open)
             .then(|| reference(path, &p.original))
             .transpose()?;
         let baseline = if original.is_some() {
@@ -283,12 +293,6 @@ impl Documents {
         } else {
             let l = store.loaded_mut()?;
             if let Some(parsed) = target {
-                let same_format = parsed.source.format() == l.source().format();
-                let default_metadata = if same_format {
-                    None
-                } else {
-                    l.source().default_metadata()?
-                };
                 let current = l.editor.document().cues();
                 let cues = parsed
                     .document
@@ -300,15 +304,7 @@ impl Documents {
                         start: c.start(),
                         end: c.end(),
                         text: c.text().into(),
-                        metadata: if same_format {
-                            c.metadata().cloned()
-                        } else {
-                            current
-                                .get(i)
-                                .and_then(|q| q.metadata())
-                                .cloned()
-                                .or_else(|| default_metadata.clone())
-                        },
+                        metadata: c.metadata().cloned(),
                     })
                     .collect();
                 l.apply_edit(key.revision.get(), Edit::ReplaceCues { cues })?;
