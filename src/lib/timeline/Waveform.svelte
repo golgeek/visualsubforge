@@ -36,6 +36,7 @@
     range,
     enabled = true,
     onseek,
+    onclearrange,
     onrange,
     onwidth,
     onnavigate,
@@ -71,6 +72,7 @@
     range: [number, number] | null;
     enabled?: boolean;
     onseek: (time: number) => void;
+    onclearrange?: (seek?: number) => void;
     onselect?: (cueId: number) => void;
     onedge?:
       | {
@@ -785,7 +787,12 @@
       const alreadyRanged = exactRange(clickedCue, selected, range);
       if (previous.cueId !== null && onselect && !alreadyRanged)
         onselect(previous.cueId);
-      else onseek(time(e, previous));
+      else {
+        const seconds = time(e, previous);
+        if (range && onclearrange && !cueAt(previous.cues, selected, seconds))
+          onclearrange(seconds);
+        else onseek(seconds);
+      }
     } else onrange(snappedRange(e, previous));
   }
   function contextMenu(e: MouseEvent) {
@@ -820,7 +827,23 @@
 />
 <canvas
   bind:this={canvas}
-  aria-label="Audio waveform: click a cue to select it, click empty space to seek, drag to select a range"
+  onkeydown={(e) => {
+    if (
+      e.key === 'Escape' &&
+      enabled &&
+      range &&
+      !gesture &&
+      !edge &&
+      !previewRange &&
+      !e.isComposing &&
+      !e.defaultPrevented &&
+      onclearrange
+    ) {
+      e.preventDefault();
+      onclearrange();
+    }
+  }}
+  aria-label="Audio waveform: click a cue to select it, click empty space to clear the range and seek, drag to select a range"
   aria-describedby={guides.length ? snapId : undefined}
   title="Click a cue to select its range; click inside it again to seek. Scroll horizontally to pan; vertically to zoom. Shift+wheel also pans."
   tabindex="0"

@@ -173,6 +173,7 @@ impl Player {
         self.presenting(false);
         for (name, value) in [
             ("pause", "yes"),
+            ("end", "none"),
             ("ab-loop-a", "no"),
             ("ab-loop-b", "no"),
             ("aid", "auto"),

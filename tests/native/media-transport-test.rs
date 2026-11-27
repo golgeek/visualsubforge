@@ -169,3 +169,68 @@ fn failed_rollback_reports_the_failure_and_keeps_output_paused() {
     );
     assert!(player.paused());
 }
+
+#[path = "../../src-tauri/src/media_selection.rs"]
+mod media_selection;
+
+#[test]
+fn one_shot_resumes_only_a_user_pause_inside_the_same_session_and_range() {
+    let mut player = Player::new(true);
+    let mut selection = media_selection::SelectionPlayback::default();
+    let starts = |player: &Player| {
+        player
+            .commands
+            .iter()
+            .filter(|cmd| cmd[0] == "seek")
+            .count()
+    };
+    selection.play(&mut player, 1, 0.5, 1.5, false).unwrap();
+    assert_eq!(starts(&player), 1);
+    selection.pause(&mut player, true).unwrap();
+    selection.play(&mut player, 1, 0.5, 1.5, false).unwrap();
+    assert_eq!(starts(&player), 1);
+    // The last displayed frame can lie strictly inside the cut after natural EOF.
+    player.command(&["set", "pause", "yes"]).unwrap();
+    player.command(&["set", "eof-reached", "yes"]).unwrap();
+    selection.play(&mut player, 1, 0.5, 1.5, false).unwrap();
+    assert_eq!(starts(&player), 2);
+    player.command(&["set", "eof-reached", "no"]).unwrap();
+    selection.pause(&mut player, true).unwrap();
+    selection.play(&mut player, 2, 0.5, 1.5, false).unwrap();
+    assert_eq!(starts(&player), 3);
+}
+
+#[test]
+fn cue_retargets_playback_and_an_outside_seek_removes_the_native_cut() {
+    let mut player = Player::new(true);
+    let mut selection = media_selection::SelectionPlayback::default();
+    selection.play(&mut player, 1, 0.5, 1.5, false).unwrap();
+    selection
+        .seek_to_cue(&mut player, 1, 2.0, 3.0, false)
+        .unwrap();
+    assert_eq!(player.text(c"end").as_deref(), Some("3"));
+    selection.seek(&mut player, 2.4).unwrap();
+    assert_eq!(player.text(c"end").as_deref(), Some("3"));
+    selection.seek(&mut player, 4.0).unwrap();
+    assert_eq!(player.text(c"end").as_deref(), Some("none"));
+    assert_eq!(
+        player.commands.last().unwrap(),
+        &["seek", "4", "absolute+exact"]
+    );
+    selection
+        .seek_to_cue(&mut player, 1, 2.0, 3.0, false)
+        .unwrap();
+    assert_eq!(player.text(c"end").as_deref(), Some("none"));
+}
+
+#[test]
+fn failed_range_seek_does_not_leave_a_native_end_on_the_file() {
+    let mut player = Player::new(true);
+    player
+        .fail
+        .push(vec!["seek".into(), "1".into(), "absolute+exact".into()]);
+    let mut selection = media_selection::SelectionPlayback::default();
+    assert!(selection.play(&mut player, 1, 1.0, 2.0, false).is_err());
+    assert_eq!(player.text(c"end").as_deref(), Some("none"));
+    assert!(player.paused());
+}

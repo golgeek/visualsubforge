@@ -152,7 +152,15 @@ export class CueNavigation {
       if (this.subtitles.cue && this.media.status.loaded)
         await commandMedia(
           { media: this.media, gestures: this.gestures },
-          { kind: 'seek', seconds: this.subtitles.cue.startMs / 1000 },
+          this.media.status.paused ||
+            this.media.status.loopActive ||
+            this.subtitles.cue.endMs <= this.subtitles.cue.startMs
+            ? { kind: 'seek', seconds: this.subtitles.cue.startMs / 1000 }
+            : {
+                kind: 'seekToCue',
+                start: this.subtitles.cue.startMs / 1000,
+                end: this.subtitles.cue.endMs / 1000,
+              },
         );
     });
   };

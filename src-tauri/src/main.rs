@@ -29,6 +29,11 @@ mod media_memory;
     feature = "media-prototype",
     any(target_os = "macos", target_os = "windows", target_os = "linux")
 ))]
+mod media_selection;
+#[cfg(all(
+    feature = "media-prototype",
+    any(target_os = "macos", target_os = "windows", target_os = "linux")
+))]
 mod media_smoke;
 #[cfg(all(
     feature = "media-prototype",

@@ -134,6 +134,17 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           if (args.action?.kind !== 'status' && args.action?.kind !== 'layout')
             transport.push(args.action!.kind);
           if (args.action?.kind === 'pause') media.paused = args.action.paused;
+          if (args.action?.kind === 'playSelection') {
+            media.paused = false;
+            media.positionSeconds = args.action.start;
+          }
+          if (args.action?.kind === 'seekToCue')
+            media.positionSeconds = args.action.start;
+          if (
+            args.action?.kind === 'clearPlaySelection' &&
+            args.action.seek != null
+          )
+            media.positionSeconds = args.action.seek;
           if (args.action?.kind === 'seek')
             media.positionSeconds = args.action.seconds;
           return structuredClone(media);
@@ -342,7 +353,9 @@ async function run() {
         host.querySelectorAll('.cue-row[aria-pressed="true"]').length === 1 &&
         !!menuState?.enabled.includes('settings'),
     );
-    const before = transport.filter((k) => k === 'seek').length;
+    const before = transport.filter(
+      (k) => k === 'seek' || k === 'seekToCue',
+    ).length;
     const row = host.querySelector<HTMLButtonElement>('.cue-row')!;
     row.dispatchEvent(
       new MouseEvent('contextmenu', {
@@ -363,7 +376,8 @@ async function run() {
     );
     assert(
       !snapshot.cues.some((c) => c.id === 1) &&
-        transport.filter((k) => k === 'seek').length === before,
+        transport.filter((k) => k === 'seek' || k === 'seekToCue').length ===
+          before,
       'Wrong cue deleted / video sought',
     );
     passed('Row context deletion targets the clicked cue without seeking');
@@ -609,7 +623,9 @@ async function run() {
           clientY: rect.top + 40,
         }),
       );
-    const seekCount = transport.filter((k) => k === 'seek').length;
+    const seekCount = transport.filter(
+      (k) => k === 'seek' || k === 'seekToCue',
+    ).length;
     cueClick('pointerdown');
     cueClick('pointerup');
     await until(
@@ -619,7 +635,8 @@ async function run() {
       host
         .querySelector('.cue-row.selected')
         ?.textContent?.includes('00:00:18,000') === true &&
-        transport.filter((k) => k === 'seek').length === seekCount + 1 &&
+        transport.filter((k) => k === 'seek' || k === 'seekToCue').length ===
+          seekCount + 1 &&
         media.positionSeconds === 18 &&
         !media.paused,
       'Waveform click did not select and seek to cue start while playing',
@@ -734,7 +751,8 @@ async function run() {
     firstRow.click();
     await until(
       () =>
-        transport.filter((k) => k === 'seek').length === seekCount + 4 &&
+        transport.filter((k) => k === 'seek' || k === 'seekToCue').length ===
+          seekCount + 4 &&
         !(!menuState || !menuState!.enabled.includes('settings')),
     );
     assert(
@@ -793,7 +811,45 @@ async function run() {
     await until(() => loop.getAttribute('aria-pressed') === 'false');
     assert(loop.disabled, 'A collapsed selection still enables Loop range');
     passed('A zero-length selection cannot start a playback loop');
-    heading.textContent = 'PASS: all 24 fast-editing checks';
+    const selectPlays = () =>
+      transport.filter((kind) => kind === 'playSelection').length;
+    async function toggle(paused: boolean) {
+      await until(() => !button(paused ? 'Pause' : 'Play').disabled);
+      button(paused ? 'Pause' : 'Play').click();
+      await until(
+        () =>
+          media.paused === paused && !!menuState?.enabled.includes('settings'),
+      );
+    }
+    if (!media.paused) await toggle(true);
+    const initialPlays = selectPlays();
+    await toggle(false);
+    assert(selectPlays() === initialPlays, 'Ordinary Play must stay unbounded');
+    await toggle(true);
+    firstRow.click();
+    await until(
+      () => !loop.disabled && !!menuState?.enabled.includes('settings'),
+    );
+    await toggle(false);
+    assert(
+      selectPlays() === initialPlays + 1 &&
+        media.positionSeconds === snapshot.cues[0]!.startMs / 1000,
+      'Play must send the selected cue bounds',
+    );
+    loop.click();
+    await until(
+      () => media.loopActive && !!menuState?.enabled.includes('settings'),
+    );
+    await toggle(true);
+    await toggle(false);
+    assert(
+      selectPlays() === initialPlays + 1 && media.loopActive,
+      'Play must preserve an active loop',
+    );
+    passed(
+      'Selection Play, ordinary Play and active-loop Play use distinct transport policies',
+    );
+    heading.textContent = 'PASS: all 25 fast-editing checks';
   } catch (error) {
     heading.textContent = `FAIL: ${String(error)}`;
   } finally {

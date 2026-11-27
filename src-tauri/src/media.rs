@@ -55,6 +55,22 @@ pub enum Action {
         #[specta(type = crate::ipc_number::finite::FiniteF64)]
         end: f64,
     },
+    PlaySelection {
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
+        start: f64,
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
+        end: f64,
+    },
+    SeekToCue {
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
+        start: f64,
+        #[specta(type = crate::ipc_number::finite::FiniteF64)]
+        end: f64,
+    },
+    ClearPlaySelection {
+        #[specta(type = Option<crate::ipc_number::finite::FiniteF64>)]
+        seek: Option<f64>,
+    },
     ClearLoop,
     Decode {
         hardware: bool,
@@ -145,13 +161,21 @@ fn audio_tracks(player: &mut media_player::Player) -> Vec<AudioTrack> {
 }
 fn validate(action: &Action) -> Result<(), String> {
     match action {
-        Action::Seek { seconds } if !seconds.is_finite() || *seconds < 0.0 => {
+        Action::Seek { seconds }
+        | Action::ClearPlaySelection {
+            seek: Some(seconds),
+        } if !seconds.is_finite() || *seconds < 0.0 => {
             Err("Seek time must be finite and nonnegative".into())
         }
         Action::Loop { start, end }
             if !start.is_finite() || !end.is_finite() || *start < 0.0 || end <= start =>
         {
             Err("Loop requires 0 ≤ start < end".into())
+        }
+        Action::PlaySelection { start, end } | Action::SeekToCue { start, end }
+            if !start.is_finite() || !end.is_finite() || *start < 0.0 || end <= start =>
+        {
+            Err("Playback selection requires 0 ≤ start < end".into())
         }
         Action::Track { id: 0 } => Err("Audio track IDs start at 1".into()),
         _ => Ok(()),
@@ -362,6 +386,7 @@ impl Media {
                 // Engine lifetime and file-session lifetime are independent.
                 let mut active_session = false;
                 let mut preview = crate::subtitle_preview::Renderer::default();
+                let mut selection = crate::media_selection::SelectionPlayback::default();
                 let mut frame_origin = 0;
                 let mut status = Status {
                     available: true,
@@ -426,6 +451,7 @@ impl Media {
                         match &request.action {
                             Action::Occlude { occluded } => surface.occlude(*occluded)?,
                             Action::Open { path, hardware } => {
+                                selection = Default::default();
                                 active_session = false;
                                 status = Status {
                                     session: request.session,
@@ -489,6 +515,7 @@ impl Media {
                                 active_session = true;
                             }
                             Action::Close => {
+                                selection = Default::default();
                                 active_session = false;
                                 status = Status {
                                     session: request.session,
@@ -528,17 +555,27 @@ impl Media {
                                 }
                                 let active = player.as_mut().ok_or("No media is open")?;
                                 match action {
-                                    Action::Pause { paused } => active.command(&[
-                                        "set",
-                                        "pause",
-                                        if *paused { "yes" } else { "no" },
-                                    ])?,
-                                    Action::Seek { seconds } => active.command(&[
-                                        "seek",
-                                        &seconds.to_string(),
-                                        "absolute+exact",
-                                    ])?,
+                                    Action::Pause { paused } => selection.pause(active, *paused)?,
+                                    Action::Seek { seconds } => selection.seek(active, *seconds)?,
+                                    Action::PlaySelection { start, end } => selection.play(
+                                        active,
+                                        request.session,
+                                        *start,
+                                        *end,
+                                        status.queued_audio_clock,
+                                    )?,
+                                    Action::SeekToCue { start, end } => selection.seek_to_cue(
+                                        active,
+                                        request.session,
+                                        *start,
+                                        *end,
+                                        status.queued_audio_clock,
+                                    )?,
+                                    Action::ClearPlaySelection { seek } => {
+                                        selection.clear_selection(active, *seek)?
+                                    }
                                     Action::Step { backwards } => {
+                                        selection.cancel(active)?;
                                         active.command(&[if *backwards {
                                             "frame-back-step"
                                         } else {
@@ -549,6 +586,7 @@ impl Media {
                                         active.command(&["set", "aid", &id.to_string()])?
                                     }
                                     Action::Loop { start, end } => {
+                                        selection.cancel(active)?;
                                         active.command(&[
                                             "set",
                                             "ab-loop-a",

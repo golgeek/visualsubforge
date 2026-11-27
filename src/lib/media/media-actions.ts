@@ -57,10 +57,19 @@ export async function runMediaAction(
         break;
       case 'play':
         if (media.status.loaded)
-          await commandMedia(owners, {
-            kind: 'pause',
-            paused: !media.status.paused,
-          });
+          await commandMedia(
+            owners,
+            media.status.paused &&
+              !media.status.loopActive &&
+              timeline.range &&
+              timeline.hasRange
+              ? {
+                  kind: 'playSelection',
+                  start: timeline.range[0],
+                  end: timeline.range[1],
+                }
+              : { kind: 'pause', paused: !media.status.paused },
+          );
         break;
       case 'previousFrame':
       case 'nextFrame':

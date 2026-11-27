@@ -612,6 +612,9 @@ export type visualsubforge_media_Action =
   | { kind: 'step'; backwards: boolean }
   | { kind: 'track'; id: number }
   | { kind: 'loop'; start: number; end: number }
+  | { kind: 'playSelection'; start: number; end: number }
+  | { kind: 'seekToCue'; start: number; end: number }
+  | { kind: 'clearPlaySelection'; seek: number | null }
   | { kind: 'clearLoop' }
   | { kind: 'decode'; hardware: boolean };
 

@@ -247,6 +247,18 @@
       oncontext={(x, y, cueId, inRange) =>
         void actions.openCueMenu(x, y, cueId, inRange)}
       onseek={(t) => void actions.seek(t)}
+      onclearrange={(seconds) => {
+        gestures.cancelHeld();
+        void workspace.task(async () => {
+          if (
+            await media.command({
+              kind: 'clearPlaySelection',
+              seek: seconds ?? null,
+            })
+          )
+            timeline.range = null;
+        });
+      }}
       onselect={(id) => void actions.selectCue(id)}
       {ongesture}
       onedge={{

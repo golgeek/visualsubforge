@@ -34,8 +34,12 @@ be overwritten by a stale dialog. Quality-rule counts represent distinct cues in
 the accepted report, including related cues, and are unavailable while checking
 or stale. They do not count findings or unsaved cue text.
 
-The transport bar starts with Play/Pause and Loop range. Loop range plays the
-selected interval. Press it again to clear an active loop. Previous Frame and
+Play/Pause plays a selected range once, from its start to its end. Play again
+replays it. If you pause during that playback while strictly inside the same
+range, Play resumes there. With no range, playback continues from the cursor.
+Click empty waveform space to clear the range and seek, or press Escape on the
+focused waveform to clear it in place. Loop range repeats the selected interval.
+Play/Pause pauses and resumes an active loop. Press it again to clear an active loop. Previous Frame and
 Next Frame are available in the Playback menu. With Current VSF bindings, comma
 steps back one frame and period steps forward when the list or waveform has
 focus. They follow the character your keyboard layout produces, including when
@@ -58,7 +62,9 @@ Other fields keep Tab navigation; other buttons keep Enter/Space activation.
 Modified variants remain available. Edge edits commit through Rust and reject
 nonpositive intervals; source-format precision controls rounding.
 
-**VisualSubSync classic** maps supported actions: F1 play/pause, F2 loop range,
+**VisualSubSync classic** maps F1 to the same selection-aware Play/Pause. VSF
+intentionally resumes a user-paused selection where VisualSubSync restarts it.
+F2 loops the range. Other classic bindings include
 Cmd/Ctrl+O open project, Cmd/Ctrl+D shift and Cmd/Ctrl+Y redo. Other VSF bindings
 remain. This is not complete legacy emulation; F4 remains issue navigation.
 
