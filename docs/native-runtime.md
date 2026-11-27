@@ -239,6 +239,8 @@ Run from the repository root after [common setup](../CONTRIBUTING.md#prerequisit
 and `npm ci`. Build frontend assets with `npm run build` before direct Cargo
 compilation; the Tauri build command also performs that prerequisite.
 
+On GTK, `VSF_RENDER_TRACE=1` samples queued, rendered and skipped frames every 500 ms. With tracing disabled the surface schedules work only for a layout, a frame notification or an unmap with a pending paint.
+
 Linux file dialogs use the pinned ashpd desktop-portal adapter.
 Run with a working session bus, `xdg-desktop-portal`, and a FileChooser backend
 for the desktop (GNOME in the supplied VM). No `GTK_USE_PORTAL` override is

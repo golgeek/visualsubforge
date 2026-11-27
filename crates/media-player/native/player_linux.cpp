@@ -26,7 +26,9 @@ struct Surface {
     GtkWidget *box = nullptr, *web = nullptr, *overlay = nullptr, *area = nullptr;
     int position = 0;
     gboolean expand = TRUE, fill = TRUE;
-    guint padding = 0, timer = 0;
+    guint padding = 0, trace_timer = 0;
+    // Producers publish their flags before competing for the one GTK idle.
+    std::atomic<bool> scheduled{false};
     GtkPackType pack = GTK_PACK_START;
     std::thread::id ui_thread = std::this_thread::get_id();
     std::mutex mutex; // Desired state only; never held during GTK/mpv calls.
@@ -38,8 +40,8 @@ struct Surface {
     Bounds applied; // Main only; used by overlay allocation.
     bool pending_paint = false; // Main only; GTK may unmap a queued draw.
     const bool trace = std::getenv("VSF_RENDER_TRACE") != nullptr;
-    gint64 last_tick = 0, last_render = 0, last_report = 0;
-    gint64 max_tick_gap = 0, max_render_time = 0;
+    gint64 last_render = 0;
+    gint64 max_render_time = 0;
     uint64_t queued_renders = 0, skipped_renders = 0;
 };
 struct Playback {
@@ -78,7 +80,20 @@ void on_main(Surface &surface, std::function<void()> action) {
 }
 
 void *gl_proc(void *, const char *name) { return reinterpret_cast<void *>(eglGetProcAddress(name)); }
-void frame_ready(void *raw) { static_cast<Surface *>(raw)->frame_dirty.store(true); }
+gboolean service(gpointer raw);
+void schedule(Surface &s) {
+    if (!s.scheduled.exchange(true))
+        g_idle_add_full(G_PRIORITY_HIGH_IDLE, service, &s, nullptr);
+}
+void frame_ready(void *raw) {
+    auto &s = *static_cast<Surface *>(raw);
+    s.frame_dirty.store(true);
+    schedule(s);
+}
+void unmapped(GtkWidget *, gpointer raw) {
+    auto &s = *static_cast<Surface *>(raw);
+    if (s.pending_paint) schedule(s);
+}
 
 gboolean position_video(GtkOverlay *, GtkWidget *child, GdkRectangle *rect, gpointer raw) {
     auto &s = *static_cast<Surface *>(raw);
@@ -121,26 +136,28 @@ gboolean render(GtkGLArea *area, GdkGLContext *, gpointer raw) {
     }
     return TRUE;
 }
-gboolean tick(gpointer raw) {
+gboolean report_trace(gpointer raw) {
     auto &s = *static_cast<Surface *>(raw);
-    if (s.trace) {
+    if (s.renderer) {
         const gint64 now = g_get_monotonic_time();
-        if (s.last_tick) s.max_tick_gap = std::max(s.max_tick_gap, now - s.last_tick);
-        s.last_tick = now;
-        if (s.renderer && now - s.last_report >= 500000) {
-            GtkAllocation rect, clip;
-            gtk_widget_get_allocation(s.area, &rect);
-            gtk_widget_get_clip(s.area, &clip);
-            std::fprintf(stderr, "VSF render trace t=%lld tick_gap_us=%lld render_us=%lld age_us=%lld frames=%llu queued=%llu skipped=%llu mapped=%d visible=%d rect=%d,%d,%d,%d clip=%d,%d,%d,%d\n",
-                static_cast<long long>(now), static_cast<long long>(s.max_tick_gap),
-                static_cast<long long>(s.max_render_time), static_cast<long long>(s.last_render ? now-s.last_render : -1),
-                static_cast<unsigned long long>(s.frames.load()), static_cast<unsigned long long>(s.queued_renders),
-                static_cast<unsigned long long>(s.skipped_renders), gtk_widget_get_mapped(s.area), gtk_widget_get_visible(s.area),
-                rect.x, rect.y, rect.width, rect.height, clip.x, clip.y, clip.width, clip.height);
-            s.last_report = now;
-            s.max_tick_gap = 0; s.max_render_time = 0;
-        }
+        GtkAllocation rect, clip;
+        gtk_widget_get_allocation(s.area, &rect);
+        gtk_widget_get_clip(s.area, &clip);
+        std::fprintf(stderr, "VSF render trace t=%lld render_us=%lld age_us=%lld frames=%llu queued=%llu skipped=%llu mapped=%d visible=%d rect=%d,%d,%d,%d clip=%d,%d,%d,%d\n",
+            static_cast<long long>(now),
+            static_cast<long long>(s.max_render_time), static_cast<long long>(s.last_render ? now-s.last_render : -1),
+            static_cast<unsigned long long>(s.frames.load()), static_cast<unsigned long long>(s.queued_renders),
+            static_cast<unsigned long long>(s.skipped_renders), gtk_widget_get_mapped(s.area), gtk_widget_get_visible(s.area),
+            rect.x, rect.y, rect.width, rect.height, clip.x, clip.y, clip.width, clip.height);
+        s.max_render_time = 0;
     }
+    return G_SOURCE_CONTINUE;
+}
+gboolean service(gpointer raw) {
+    auto &s = *static_cast<Surface *>(raw);
+    // Clear before consuming flags so work arriving during service queues
+    // another GTK turn. No callback can run once surface_release returns.
+    s.scheduled.store(false);
     if (s.layout_dirty.exchange(false)) apply_layout(s);
     if (s.renderer && s.frame_dirty.exchange(false)) {
         // Advanced control needs an update for every coalesced mpv callback,
@@ -165,7 +182,7 @@ gboolean tick(gpointer raw) {
         ++s.skipped_renders;
         if (result < 0) s.error.store(result);
     }
-    return G_SOURCE_CONTINUE;
+    return G_SOURCE_REMOVE;
 }
 }
 
@@ -205,10 +222,11 @@ extern "C" void *vsf_surface_create(void *parent) try {
     gtk_box_reorder_child(GTK_BOX(box), s->overlay, s->position);
     g_signal_connect(s->overlay, "get-child-position", G_CALLBACK(position_video), s.get());
     g_signal_connect(s->area, "render", G_CALLBACK(render), s.get());
+    g_signal_connect(s->area, "unmap", G_CALLBACK(unmapped), s.get());
     gtk_widget_show_all(s->overlay);
     gtk_widget_realize(s->area);
     gtk_widget_hide(s->area);
-    s->timer = g_timeout_add(8, tick, s.get());
+    if (s->trace) s->trace_timer = g_timeout_add(500, report_trace, s.get());
     return s.release();
 } catch (...) { return nullptr; }
 extern "C" void vsf_surface_layout(void *raw, double x, double y, double width, double height, int visible) {
@@ -217,6 +235,7 @@ extern "C" void vsf_surface_layout(void *raw, double x, double y, double width, 
       s.desired.x=x; s.desired.y=y; s.desired.width=width; s.desired.height=height;
       s.desired.visible=visible != 0; }
     s.layout_dirty.store(true);
+    schedule(s);
 }
 extern "C" int vsf_surface_occlude(void *raw, int value) {
     auto &s = *static_cast<Surface *>(raw);
@@ -232,7 +251,14 @@ extern "C" int vsf_surface_occlude(void *raw, int value) {
 extern "C" void vsf_surface_release(void *raw) {
     std::unique_ptr<Surface> s(static_cast<Surface *>(raw));
     on_main(*s, [&] {
-        g_source_remove(s->timer);
+        // The control owner has already unregistered mpv and freed the renderer.
+        g_signal_handlers_disconnect_by_data(s->area, s.get());
+        g_signal_handlers_disconnect_by_data(s->overlay, s.get());
+        if (s->trace_timer) g_source_remove(s->trace_timer);
+        // No producer remains. GTK serializes this teardown with service().
+        // Remove only our idle, independently of the trace timer above.
+        if (s->scheduled.load()) g_idle_remove_by_data(s.get());
+
         // Renderer and core are already gone. Restore Wry's original parent
         // before destroying our overlay so its own shutdown retains ownership.
         g_object_ref(s->web);
@@ -306,6 +332,7 @@ extern "C" void vsf_presenting(void *raw,int value) {
     auto &s=*static_cast<Playback *>(raw)->surface;
     { std::lock_guard lock(s.mutex); s.desired.presenting=value != 0; }
     s.layout_dirty.store(true);
+    schedule(s);
 }
 extern "C" int vsf_discard_events(void *raw) {
     auto *player = static_cast<Playback *>(raw);
