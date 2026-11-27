@@ -21,7 +21,7 @@ export async function timelineCases(passed: (message: string) => void) {
         mediaPath: () => '',
         preview: () => null,
         pending: () => false,
-        cues: () => [],
+        cues: () => [{ id: 1, startMs: 3000, endMs: 4000, text: 'A cue' }],
         gap: () => 0,
         selectRange: () => {},
       },
@@ -34,9 +34,25 @@ export async function timelineCases(passed: (message: string) => void) {
   });
   try {
     flushSync();
+    const first = owner.waveCues;
+    assert(
+      owner.waveCues === first,
+      'Repeated reads reuse the visible cue projection',
+    );
+    const preview = { ...first[0]!, endMs: 5000 };
+    owner.connectPreview(() => preview);
+    assert(
+      owner.waveCues[0] === preview,
+      'Connecting a preview invalidates the cached cues',
+    );
+    owner.connectPreview(() => null);
     assert(owner.start === 2, 'Playback keeps lookahead');
     status.positionSeconds = 99;
     flushSync();
+    assert(
+      first.length === 1 && owner.waveCues.length === 0,
+      'Panning updates the visible cues',
+    );
     assert(owner.start === 80, 'Playback clamps at EOF');
     owner.interacting = true;
     status.positionSeconds = 2;

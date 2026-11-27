@@ -605,9 +605,7 @@
     }
   };
   $effect(() => {
-    const input = JSON.stringify(review.projectionInput());
-    const ready = review.page?.statistics;
-    if (ready && input) void review.projectVisible();
+    if (review.page?.statistics) void review.projectVisible();
   });
   const originalGhosts = $derived(
     review.showOriginal && status.loaded

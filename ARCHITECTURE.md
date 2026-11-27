@@ -893,6 +893,11 @@ The bounded projection uses the same report identity/epoch and stale guards as
 
 ## Timeline visual projections
 
+An unchanged media poll retains the current status object. TimelineView caches
+its visible cue projection until the viewport, cue data, gap or preview changes.
+Review projection reads viewport inputs only once the comparison is ready.
+Timeline strips reuse their canvas backing store between size changes.
+
 The waveform, full-file minimap and video scrubber remain frontend projections.
 `timeline-marks.ts` computes display geometry and bounded cue-density bins;
 accepted cue issue severities come from `QualitySession`. Gap colors and cut

@@ -6,6 +6,30 @@ import {
 } from '../client';
 import { LiveLoop } from './live-loop';
 
+function sameStatus(current: MediaStatus, next: MediaStatus) {
+  return (Object.keys(next) as (keyof MediaStatus)[]).every((key) => {
+    if (current[key] === next[key]) return true;
+    if (key === 'audioTracks')
+      return (
+        current.audioTracks.length === next.audioTracks.length &&
+        next.audioTracks.every((track, i) => {
+          const previous = current.audioTracks[i]!;
+          return (
+            track.id === previous.id &&
+            track.title === previous.title &&
+            track.audioOrdinal === previous.audioOrdinal
+          );
+        })
+      );
+    if (key === 'subtitleFontDiagnostics')
+      return (
+        current[key].length === next[key].length &&
+        next[key].every((message, i) => current[key][i] === message)
+      );
+    return false;
+  });
+}
+
 // The native engine owns playback. This owner publishes only current responses
 // and owns the polling/loop lifetimes, chosen path and hardware preference.
 // Native layout and waveform gestures have their own workspace/timeline owners.
@@ -71,7 +95,8 @@ export class MediaSession {
     const request = this.revision;
     try {
       const next = await this.send({ kind: 'status' }, this.value.session);
-      if (this.current(request)) this.value = next;
+      if (this.current(request) && !sameStatus(this.value, next))
+        this.value = next;
     } catch (error) {
       if (this.current(request)) this.failed(error);
     } finally {
