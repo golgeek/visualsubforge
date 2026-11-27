@@ -190,6 +190,21 @@
       results.push(
         'PASS: bounded coverage and disposal never publish a false complete overview',
       );
+      const minimap = canvas('Timeline minimap');
+      let resets = 0;
+      const sizeChanges = new MutationObserver((records) => {
+        resets += records.length;
+      });
+      sizeChanges.observe(minimap, {
+        attributes: true,
+        attributeFilter: ['width', 'height'],
+      });
+      start++;
+      await tick();
+      resets += sizeChanges.takeRecords().length;
+      sizeChanges.disconnect();
+      assert(resets === 0, 'Panning must not reset the canvas backing store');
+      start--;
       for (const theme of ['dark', 'light']) {
         document.documentElement.dataset.theme = theme;
         await paint();

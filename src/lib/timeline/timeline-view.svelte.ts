@@ -33,6 +33,7 @@ export class TimelineView {
   generation = $state<number | null>(null);
   error = $state('');
   width = $state(600);
+  private preview = $state.raw<TimelineEffects['preview']>();
   private alive = true;
   private waveKey = '';
   private waveRequest = 0;
@@ -44,6 +45,7 @@ export class TimelineView {
     private startWave = waveformStart,
     private readWave = waveformView,
   ) {
+    this.preview = effects.preview;
     $effect(() => {
       if (!this.alive) return;
       const next = viewport(this.start, this.span, this.duration || 20);
@@ -92,7 +94,7 @@ export class TimelineView {
       if (
         this.follow &&
         !this.suspended &&
-        !this.effects.preview?.() &&
+        !this.preview?.() &&
         !this.interacting &&
         !this.effects.pending() &&
         !this.effects.status().seeking &&
@@ -104,7 +106,7 @@ export class TimelineView {
     });
   }
   connectPreview(read: () => Cue | null) {
-    this.effects.preview = read;
+    this.preview = read;
   }
   get duration() {
     return Math.max(
@@ -115,8 +117,8 @@ export class TimelineView {
   get hasRange() {
     return !!this.range && this.range[1] > this.range[0];
   }
-  get waveCues() {
-    const preview = this.effects.preview?.();
+  readonly waveCues = $derived.by(() => {
+    const preview = this.preview?.();
     return this.effects
       .cues()
       .map((c) => (c.id === preview?.id ? preview : c))
@@ -125,7 +127,7 @@ export class TimelineView {
           (c.endMs + this.effects.gap()) / 1000 >= this.start &&
           (c.startMs - this.effects.gap()) / 1000 <= this.start + this.span,
       );
-  }
+  });
   selectRange(next: [number, number]) {
     if (!this.alive) return;
     this.range = next;

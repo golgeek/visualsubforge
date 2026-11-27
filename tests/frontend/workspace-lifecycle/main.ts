@@ -288,6 +288,41 @@ async function mediaCases() {
           : status(2);
     },
   );
+  const paused = {
+    ...status(2),
+    audioTracks: [{ id: 1, title: 'Dialogue', audioOrdinal: 0 }],
+    subtitleFontDiagnostics: ['font loaded'],
+  };
+  async function publish(next: MediaStatus) {
+    poll = deferred<MediaStatus>();
+    const read = model.poll();
+    poll.resolve(next);
+    await read;
+  }
+  await publish(paused);
+  const original = model.status;
+  await publish(structuredClone(paused));
+  assert(
+    model.status === original,
+    'Equivalent paused polls keep the same status',
+  );
+  await publish({
+    ...paused,
+    audioTracks: [{ ...paused.audioTracks[0]!, title: 'Commentary' }],
+  });
+  assert(
+    model.status.audioTracks[0]?.title === 'Commentary',
+    'Changed track metadata must publish',
+  );
+  await publish({ ...model.status, subtitleFontDiagnostics: ['missing font'] });
+  assert(
+    model.status.subtitleFontDiagnostics[0] === 'missing font',
+    'Changed font diagnostics must publish',
+  );
+  passed(
+    'status polling preserves identity across equal track and diagnostic arrays',
+  );
+  poll = deferred<MediaStatus>();
   const stale = model.poll();
   await model.command({ kind: 'open', path: '/new.mkv', hardware: false });
   poll.resolve(status(1));

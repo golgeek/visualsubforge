@@ -89,9 +89,12 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const scale = devicePixelRatio || 1;
-    canvas.width = Math.round(width * scale);
-    canvas.height = 20 * scale;
-    ctx.scale(scale, scale);
+    const pixelsWide = Math.round(width * scale);
+    const pixelsHigh = Math.round(20 * scale);
+    if (canvas.width !== pixelsWide) canvas.width = pixelsWide;
+    if (canvas.height !== pixelsHigh) canvas.height = pixelsHigh;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.clearRect(0, 0, width, 20);
     const c = palette;
     ctx.fillStyle = c.background;
     ctx.fillRect(0, 0, width, 20);
