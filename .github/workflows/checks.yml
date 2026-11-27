@@ -186,7 +186,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, windows-2022, ubuntu-24.04]
+        include:
+          - { os: macos-15 }
+          - { os: ubuntu-24.04 }
+          - { os: windows-2022, sample: '1' }
+          - { os: windows-2022, sample: '2' }
+          - { os: windows-2022, sample: '3' }
+          - { os: windows-2022, sample: '4' }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -247,14 +253,22 @@ jobs:
         env:
           GDK_BACKEND: x11
         run: xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- npm run test:desktop
+      - name: Record installed WebView2 runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem "${env:ProgramFiles(x86)}/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe" |
+            ForEach-Object { "WebView2 Runtime $($_.VersionInfo.ProductVersion) [$($_.FullName)]" }
       - name: Real webview, IPC, persistence and recovery
         if: runner.os != 'Linux'
         timeout-minutes: 5
+        env:
+          VSF_WINDOWS_STARTUP_TRACE: ${{ runner.os == 'Windows' && '1' || '' }}
         run: npm run test:desktop
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: desktop-workflow-results-${{ matrix.os }}
+          name: desktop-workflow-results-${{ matrix.os }}${{ matrix.sample }}
           path: test-results/desktop-*/
           retention-days: 7
       - name: Compile macOS GPU adapter (no runtime claim)

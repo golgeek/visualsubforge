@@ -90,7 +90,23 @@ use std::sync::atomic::Ordering;
 use tauri::Manager;
 use tauri_specta::Event;
 
+#[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+fn startup_trace(stage: &str) {
+    if std::env::var_os("VSF_WINDOWS_STARTUP_TRACE").is_some() {
+        let elapsed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+        eprintln!(
+            "startup epoch_ms={} pid={} {stage}",
+            elapsed.as_millis(),
+            std::process::id()
+        );
+    }
+}
+
 fn main() {
+    #[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+    startup_trace("entered main");
     #[cfg(all(feature = "media-prototype", target_os = "linux"))]
     {
         // SAFETY: first startup operation, before Tauri, GTK or our workers.
@@ -101,6 +117,8 @@ fn main() {
         }
     }
     let ipc = ipc::bindings();
+    #[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+    startup_trace("IPC bindings ready");
     #[cfg(feature = "desktop-e2e")]
     let test_driver = desktop_test::Driver::from_environment().unwrap_or_else(|error| {
         eprintln!("Cannot start desktop test: {error}");
@@ -109,11 +127,28 @@ fn main() {
     let builder = tauri::Builder::default();
     #[cfg(feature = "desktop-e2e")]
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+    #[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+    let builder = if std::env::var_os("VSF_WINDOWS_STARTUP_TRACE").is_some() {
+        startup_trace("registered WebDriver plugin");
+        builder.plugin(
+            tauri::plugin::Builder::new("startup-observer")
+                .setup(|_, _| {
+                    startup_trace("WebDriver plugin setup returned");
+                    Ok(())
+                })
+                .on_webview_ready(|_| startup_trace("native WebView2 controller created"))
+                .build(),
+        )
+    } else {
+        builder
+    };
     #[cfg(not(target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_dialog::init());
     let app = builder
         .invoke_handler(ipc.invoke_handler())
         .setup(move |app| {
+            #[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+            startup_trace("entered application setup");
             ipc.mount_events(app);
             #[cfg(feature = "desktop-e2e")]
             app.manage(test_driver);
@@ -204,9 +239,17 @@ fn main() {
                 any(target_os = "macos", target_os = "windows", target_os = "linux")
             )))]
             app.manage(media::Media::default());
+            #[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+            startup_trace("application setup completed");
             Ok(())
         })
         .build(tauri::generate_context!());
+    #[cfg(all(target_os = "windows", feature = "desktop-e2e"))]
+    startup_trace(if app.is_ok() {
+        "builder returned Ok"
+    } else {
+        "builder returned Err"
+    });
     match app {
         Ok(app) => app.run(|app, event| {
             // Linux can deliver runtime events before setup installs media.

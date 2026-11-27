@@ -7,7 +7,7 @@ import { startChrome, saveAppearance } from './start-appearance.mjs';
 // Real webview + Tauri IPC + filesystem. Only file selection and app-data paths
 // are supplied by the optional desktop-e2e build; document commands are not mocked.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import {
   open,
@@ -21,7 +21,7 @@ import {
 import { createServer } from 'node:net';
 import { join, resolve, toNamespacedPath } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { parseArgs } from 'node:util';
+import { parseArgs, promisify } from 'node:util';
 import { remote } from 'webdriverio';
 import { autoCommit } from './auto-commit.mjs';
 import { qualitySettings } from './quality.mjs';
@@ -224,23 +224,67 @@ async function launch(choices, dataRoot = root) {
   });
   // Keep a spawn error observed even if readiness fails first.
   void exit.catch(() => {});
-  await until(
-    'owned application WebDriver server',
-    async () => {
-      try {
-        return (
-          await (
-            await fetch(`http://127.0.0.1:${port}/status`, {
-              signal: AbortSignal.timeout(1000),
-            })
-          ).json()
-        ).value?.ready;
-      } catch {
-        return false;
-      }
-    },
-    30_000,
-  );
+  const trace =
+    process.platform === 'win32' &&
+    process.env.VSF_WINDOWS_STARTUP_TRACE === '1';
+  const started = Date.now();
+  let previous;
+  function observe(value) {
+    if (trace && previous !== value) {
+      console.log(new Date().toISOString(), 'startup', {
+        launchCount,
+        pid: app.pid,
+        port,
+        ms: Date.now() - started,
+        value,
+      });
+      previous = value;
+    }
+  }
+  async function ready() {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/status`, {
+        signal: AbortSignal.timeout(1000),
+      });
+      const body = await response.json();
+      observe(`HTTP ${response.status} ${JSON.stringify(body.value)}`);
+      return body.value?.ready;
+    } catch (error) {
+      observe(error.cause?.code ?? error.message);
+      return false;
+    }
+  }
+  observe('spawned');
+  try {
+    await until('owned application WebDriver server', ready, 30_000);
+  } catch (error) {
+    if (trace && app.pid) {
+      // Preserve the original failure. Observe this same process before cleanup.
+      const snapshot = promisify(execFile)(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-File',
+          resolve('tests/desktop/windows-startup.ps1'),
+          String(app.pid),
+          String(port),
+          evidence,
+        ],
+        { timeout: 25_000 },
+      ).catch((e) => console.error('startup snapshot:', e.message));
+      const outcome = await until(
+        'post-timeout observation',
+        ready,
+        30_000,
+      ).then(
+        () => 'late ready',
+        () => 'still unavailable',
+      );
+      observe(outcome);
+      await snapshot;
+    }
+    throw error;
+  }
   browser = await remote({
     hostname: '127.0.0.1',
     port,
