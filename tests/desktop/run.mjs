@@ -24,6 +24,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { remote } from 'webdriverio';
 import { autoCommit } from './auto-commit.mjs';
+import { waitForDesktopDriver } from './driver-readiness.mjs';
 import { qualitySettings } from './quality.mjs';
 import { qualityChecking } from './checks.mjs';
 import { gapReview } from './gaps.mjs';
@@ -224,8 +225,8 @@ async function launch(choices, dataRoot = root) {
   });
   // Keep a spawn error observed even if readiness fails first.
   void exit.catch(() => {});
-  await until(
-    'owned application WebDriver server',
+  await waitForDesktopDriver(
+    until,
     async () => {
       try {
         return (
@@ -236,10 +237,10 @@ async function launch(choices, dataRoot = root) {
           ).json()
         ).value?.ready;
       } catch {
-        return false;
+        return undefined;
       }
     },
-    30_000,
+    launchCount === 1 && process.env.VSF_E2E_COLD_WEBVIEW2 === '1',
   );
   browser = await remote({
     hostname: '127.0.0.1',

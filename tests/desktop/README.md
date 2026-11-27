@@ -57,7 +57,10 @@ owner. `VSF_E2E_ROOT` confines fixture paths; it is not an OS sandbox.
 The runner waits for the application document, Tauri APIs, editor and completed
 workspace initialization. Waits are bounded. It terminates only processes it
 spawned and retains failure evidence. A startup timeout is not a completed
-workflow. CI's default runtime step has its own five-minute deadline.
+workflow. On Windows CI the first launch allows 30 seconds for a WebDriver
+status reply and up to 60 seconds total for WebView2 to become ready. Subsequent
+launches have a 30-second readiness budget. CI's default runtime step has its
+own five-minute deadline.
 
 Each invocation creates an ignored `test-results/desktop-*` directory containing
 inputs, isolated recovery/settings data, process logs, `receipt.json`, screenshots
