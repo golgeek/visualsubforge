@@ -57,9 +57,31 @@ struct Job {
     progress: f64,
     note: Option<String>,
 }
+enum ScanFailure {
+    Analysis(String),
+    MediaIdentity(String),
+}
+
+fn verify_detection(
+    path: &Path,
+    initial: &crate::project::MediaIdentity,
+    cached: Option<&crate::project::MediaIdentity>,
+    detection: Result<Vec<f64>>,
+) -> std::result::Result<Vec<f64>, ScanFailure> {
+    let current = crate::project::identify(path).map_err(ScanFailure::MediaIdentity)?;
+    if current != *initial || (detection.is_err() && cached.is_some_and(|old| old != &current)) {
+        return Err(ScanFailure::MediaIdentity(
+            "Media changed during scene analysis".into(),
+        ));
+    }
+    detection.map_err(ScanFailure::Analysis)
+}
+
 impl Job {
     fn restore_completed(&mut self, note: &str) {
-        if let Some(cuts) = self.completed.take() {
+        if self.mode == Some(Mode::Visual)
+            && let Some(cuts) = self.completed.take()
+        {
             self.cuts = cuts;
             self.partial = false;
             self.progress = 1.;
@@ -93,7 +115,7 @@ impl Job {
         generation: u64,
         session: u64,
         current: u64,
-        result: Result<Vec<f64>>,
+        result: std::result::Result<Vec<f64>, ScanFailure>,
     ) -> bool {
         if self.generation != generation
             || self.session != session
@@ -112,7 +134,17 @@ impl Job {
                 self.completed = None;
                 self.progress = 1.;
             }
-            Err(error) => {
+            Err(ScanFailure::MediaIdentity(error)) => {
+                // Only saved() may read the completed cache, after matching its identity.
+                self.cuts.clear();
+                self.mode = None;
+                self.partial = false;
+                self.phase = None;
+                self.progress = 0.;
+                self.note = None;
+                self.error = Some(error);
+            }
+            Err(ScanFailure::Analysis(error)) => {
                 self.restore_completed("Rescan failed; showing the previous scan");
                 self.error = Some(error);
             }
@@ -181,23 +213,19 @@ impl Scenes {
         identity: &crate::project::MediaIdentity,
     ) -> Result<Option<Saved>> {
         let job = self.job.lock().map_err(|_| "Scene state unavailable")?;
-        let Some(mode @ Mode::Visual) = job.mode else {
-            return Ok(None);
-        };
-        let cuts = if job.partial {
-            let Some(cuts) = &job.completed else {
-                return Ok(None);
-            };
-            cuts
-        } else {
+        let cuts = if let Some(completed) = &job.completed {
+            completed
+        } else if job.mode == Some(Mode::Visual) && !job.partial {
             &job.cuts
+        } else {
+            return Ok(None);
         };
         if session != job.session || job.identity.as_ref() != Some(identity) {
             return Err("Media changed since scene analysis; rescan before saving project".into());
         }
         Ok(Some(Saved {
             version: job.analysis_version,
-            mode,
+            mode: Mode::Visual,
             cuts: cuts.clone(),
             identity: identity.clone(),
         }))
@@ -304,7 +332,7 @@ impl Scenes {
         if app.state::<crate::media::Media>().current_session() != session {
             return Err("Media changed before scene detection started".into());
         }
-        let (generation, cancellation) = {
+        let (generation, cancellation, cached_identity) = {
             let mut job = self.job.lock().map_err(|_| "Scene state unavailable")?;
             job.cancellation.cancel();
             let generation = job.generation + 1;
@@ -348,7 +376,7 @@ impl Scenes {
                 running: true,
                 ..Job::default()
             };
-            (generation, job.cancellation.clone())
+            (generation, job.cancellation.clone(), job.identity.clone())
         };
         let state = self.clone();
         worker
@@ -356,33 +384,37 @@ impl Scenes {
                 let source_identity = crate::project::identify(Path::new(&path));
                 let result = source_identity
                     .as_ref()
-                    .map_err(Clone::clone)
+                    .map_err(|error| ScanFailure::MediaIdentity(error.clone()))
                     .and_then(|identity| {
-                        media_analysis::scenes::scan(
-                            &Tools::discover().map_err(|error| error.to_string())?,
+                        let detection = Tools::discover()
+                            .and_then(|tools| {
+                                media_analysis::scenes::scan(
+                                    &tools,
+                                    Path::new(&path),
+                                    &cancellation,
+                                    Duration::from_secs(1800),
+                                    detail,
+                                    |update| {
+                                        if let Ok(mut job) = state.job.lock() {
+                                            job.update(
+                                                generation,
+                                                session,
+                                                app.state::<crate::media::Media>()
+                                                    .current_session(),
+                                                update,
+                                            );
+                                        }
+                                    },
+                                )
+                            })
+                            .map(|data| data.seconds)
+                            .map_err(|error| error.to_string());
+                        verify_detection(
                             Path::new(&path),
-                            &cancellation,
-                            Duration::from_secs(1800),
-                            detail,
-                            |update| {
-                                if let Ok(mut job) = state.job.lock() {
-                                    job.update(
-                                        generation,
-                                        session,
-                                        app.state::<crate::media::Media>().current_session(),
-                                        update,
-                                    );
-                                }
-                            },
+                            identity,
+                            cached_identity.as_ref(),
+                            detection,
                         )
-                        .map(|data| data.seconds)
-                        .map_err(|e| e.to_string())
-                        .and_then(|cuts| {
-                            if crate::project::identify(Path::new(&path))? != *identity {
-                                return Err("Media changed during scene analysis".into());
-                            }
-                            Ok(cuts)
-                        })
                     });
                 if let Ok(mut job) = state.job.lock() {
                     let succeeded = result.is_ok();
@@ -399,7 +431,12 @@ impl Scenes {
             })
             .inspect_err(|e| {
                 if let Ok(mut job) = self.job.lock() {
-                    job.finish(generation, session, session, Err(e.clone()));
+                    job.finish(
+                        generation,
+                        session,
+                        session,
+                        Err(ScanFailure::Analysis(e.clone())),
+                    );
                 }
             })?;
         Ok(generation)
@@ -650,7 +687,7 @@ mod tests {
             scanning: Some(Mode::Visual),
             ..Job::default()
         };
-        assert!(job.finish(0, 0, 0, Err("failed".into())));
+        assert!(job.finish(0, 0, 0, Err(ScanFailure::Analysis("failed".into()))));
         assert_eq!(job.cuts, vec![1.]);
         assert_eq!(job.mode, Some(Mode::Visual));
     }
@@ -726,7 +763,12 @@ mod tests {
         {
             let mut job = scenes.job.lock().unwrap();
             job.scanning = Some(Mode::Visual);
-            assert!(job.finish(generation, 7, 7, Err("failed".into())));
+            assert!(job.finish(
+                generation,
+                7,
+                7,
+                Err(ScanFailure::Analysis("failed".into()))
+            ));
         }
         assert_eq!(scenes.saved(7, &identity).unwrap().unwrap().version, 1);
         {
@@ -853,7 +895,12 @@ mod tests {
             job.cuts = vec![2.];
             job.partial = true;
             job.running = true;
-            assert!(job.finish(generation, 7, 7, Err("decoder failed".into())));
+            assert!(job.finish(
+                generation,
+                7,
+                7,
+                Err(ScanFailure::Analysis("decoder failed".into()))
+            ));
             (generation, job.identity.clone().unwrap())
         };
         let view = scenes.view(generation, 0., 4., 0.).unwrap();
@@ -868,6 +915,55 @@ mod tests {
         assert_eq!(saved.cuts, vec![1.]);
         assert_eq!(view.cuts, saved.cuts);
     }
+    #[test]
+    fn identity_failure_makes_rescan_unavailable_and_preserves_the_save_guard() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("video");
+        std::fs::write(&path, b"original media").unwrap();
+        let original = crate::project::identify(&path).unwrap();
+        std::fs::write(&path, b"replacement").unwrap();
+        let replacement = crate::project::identify(&path).unwrap();
+        for missing in [false, true] {
+            if missing {
+                std::fs::remove_file(&path).unwrap();
+            }
+            let outcome = verify_detection(&path, &original, Some(&original), Ok(vec![2.]));
+            let scenes = Scenes::default();
+            let generation = scenes
+                .restore(
+                    7,
+                    Saved {
+                        mode: Mode::Visual,
+                        version: 3,
+                        cuts: vec![1.],
+                        identity: original.clone(),
+                    },
+                )
+                .unwrap();
+            {
+                let mut job = scenes.job.lock().unwrap();
+                job.completed = Some(job.cuts.clone());
+                job.cuts.push(2.);
+                job.partial = true;
+                job.running = true;
+                assert!(job.finish(generation, 7, 7, outcome));
+            }
+            assert!(matches!(
+                scenes.capture_quality(7, true).unwrap().data,
+                vsf_application::quality::scene::Scenes::Unavailable
+            ));
+            let view = scenes.view(generation, 0., 4., 0.).unwrap();
+            assert!(view.error.unwrap().starts_with(if missing {
+                "Cannot read media"
+            } else {
+                "Media changed during scene analysis"
+            }));
+            assert!(view.cuts.is_empty() && view.note.is_none());
+            assert!(scenes.saved(7, &replacement).is_err());
+            assert_eq!(scenes.saved(7, &original).unwrap().unwrap().cuts, [1.]);
+        }
+    }
+
     #[test]
     fn shutdown_cancels_and_joins_workers() {
         let scenes = Scenes::default();

@@ -26,7 +26,7 @@ analysis and partial/running scans are not passing scene results. Completed
 Standard and Reduced scans can supply checks; both remain heuristic, and Reduced
 can miss cuts. A completed empty scan is different from unavailable data.
 
-Stopping a rescan or encountering a scan error restores the previous completed cuts for the same media session. The timeline, quality checks, timing repairs and project saves use that scan and its original detail level. The error remains visible after a failed rescan. A first scan can only show its partial results.
+Stopping a rescan or encountering a detector error on matching media restores the previous completed cuts for the same media session. The timeline, quality checks, timing repairs and project saves use that scan and its original detail level. The error remains visible after a failed rescan. If the file changes or its identity cannot be read, the timeline clears the cuts and quality checks and timing repairs report scenes as unavailable. A project can save the completed scan only if the media identity matches. A first scan can only show its partial results.
 
 The quick pass uses half the available logical CPUs for verification workers.
 The full pass uses one third for software decoder threads and one filter thread.
