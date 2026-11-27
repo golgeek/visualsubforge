@@ -131,7 +131,7 @@ fn main() {
     let builder = if std::env::var_os("VSF_WINDOWS_STARTUP_TRACE").is_some() {
         startup_trace("registered WebDriver plugin");
         builder.plugin(
-            tauri::plugin::Builder::new("startup-observer")
+            tauri::plugin::Builder::<_, ()>::new("startup-observer")
                 .setup(|_, _| {
                     startup_trace("WebDriver plugin setup returned");
                     Ok(())

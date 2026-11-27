@@ -193,6 +193,7 @@ jobs:
           - { os: windows-2022, sample: '2' }
           - { os: windows-2022, sample: '3' }
           - { os: windows-2022, sample: '4' }
+          - { os: windows-2022, sample: '5' }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -268,7 +269,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: desktop-workflow-results-${{ matrix.os }}${{ matrix.sample }}
+          name: desktop-workflow-results-${{ matrix.os }}${{ matrix.sample && format('-{0}', matrix.sample) || '' }}
           path: test-results/desktop-*/
           retention-days: 7
       - name: Compile macOS GPU adapter (no runtime claim)
