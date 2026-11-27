@@ -471,10 +471,13 @@ extern "C" int vsf_flag(void *raw, const char *name) {
     return vsf_mpv::flag((*static_cast<PlayerRef *>(raw))->core, name);
 }
 extern "C" uint64_t vsf_frames(void *raw) { return (*static_cast<PlayerRef *>(raw))->frames.load(); }
-extern "C" int vsf_event_error(void *raw, int *file_transition) {
+extern "C" void vsf_set_wakeup(void *raw, void (*callback)(void *), void *context) {
+    mpv_set_wakeup_callback((*static_cast<PlayerRef *>(raw))->core, callback, context);
+}
+extern "C" int vsf_event_error(void *raw, int *file_transition, int *more = nullptr) {
     auto player = *static_cast<PlayerRef *>(raw);
     return vsf_mpv::poll_events((*static_cast<PlayerRef *>(raw))->core, player->renderError.exchange(0),
-                                std::getenv("VSF_MEDIA_SMOKE") != nullptr, file_transition, &player->fontDiagnostics);
+                                std::getenv("VSF_MEDIA_SMOKE") != nullptr, file_transition, &player->fontDiagnostics, more);
 }
 extern "C" const char *vsf_font_diagnostics(void *raw) {
     return (*static_cast<PlayerRef *>(raw))->fontDiagnostics.text();

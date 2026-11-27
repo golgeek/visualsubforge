@@ -118,13 +118,15 @@ inline int flag(mpv_handle *core, const char *name) {
 }
 
 inline int poll_events(mpv_handle *core, int render_error, bool log_messages,
-                       int *file_transition, FontDiagnostics *fonts = nullptr) {
+                       int *file_transition, FontDiagnostics *fonts = nullptr, int *more = nullptr) {
+    if (more) *more = 0;
     *file_transition = 0;
     int result = render_error;
     // Bound control work. Unconsumed events remain queued for the next poll.
     for (int i = 0; i < 64; ++i) {
         const mpv_event *event = mpv_wait_event(core, 0);
         if (event->event_id == MPV_EVENT_NONE) break;
+        if (i == 63 && more) *more = 1;
         if (event->event_id == MPV_EVENT_LOG_MESSAGE) {
             const auto *log = static_cast<mpv_event_log_message *>(event->data);
             if (fonts) fonts->observe(log);

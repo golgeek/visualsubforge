@@ -169,8 +169,31 @@ struct Request {
     session: u64,
     reply: mpsc::Sender<Result<Status, String>>,
 }
+#[cfg_attr(not(any(test, feature = "media-prototype")), allow(dead_code))]
+enum Message {
+    Command(Request),
+    Wake,
+}
+// Callback senders remain valid through core destruction. Dropping the
+// application endpoint also wakes a dormant worker if startup/exit is interrupted.
+struct CommandSender {
+    channel: mpsc::SyncSender<Message>,
+    stopping: Arc<AtomicBool>,
+}
+impl CommandSender {
+    fn stop(&self) {
+        self.stopping.store(true, Ordering::Release);
+        // A full queue already wakes recv. Shutdown must never wait for space.
+        let _ = self.channel.try_send(Message::Wake);
+    }
+}
+impl Drop for CommandSender {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
 pub struct Media {
-    sender: Option<mpsc::SyncSender<Request>>,
+    sender: Option<CommandSender>,
     latest: Arc<AtomicU64>,
     // Serializes file-session replacement with resync capture/acceptance.
     // Never held by the native worker or while waiting for a native reply.
@@ -257,11 +280,12 @@ impl Media {
         };
         let (reply, response) = mpsc::channel();
         sender
-            .send(Request {
+            .channel
+            .send(Message::Command(Request {
                 action,
                 session,
                 reply,
-            })
+            }))
             .map_err(|_| "Player command queue is closed")?;
         response
             .recv()
@@ -299,7 +323,10 @@ impl Media {
         !self.stopping.swap(true, Ordering::AcqRel)
     }
     pub fn shutdown(&self) {
-        self.stopping.store(true, Ordering::Relaxed);
+        self.stopping.store(true, Ordering::Release);
+        if let Some(sender) = &self.sender {
+            sender.stop();
+        }
         if let Ok(mut worker) = self.worker.lock()
             && let Some(worker) = worker.take()
         {
@@ -322,7 +349,8 @@ impl Media {
         surface: media_player::Surface,
         documents: crate::document::Documents,
     ) -> Result<Self, String> {
-        let (sender, receiver) = mpsc::sync_channel::<Request>(16);
+        let (sender, receiver) = mpsc::sync_channel::<Message>(16);
+        let wake_sender = sender.clone();
         let latest = Arc::new(AtomicU64::new(0));
         let stopping = Arc::new(AtomicBool::new(false));
         let newest = latest.clone();
@@ -363,20 +391,21 @@ impl Media {
                         status.preview_document_generation = revision.map(|r| r.0);
                         status.preview_document_revision = revision.map(|r| r.1);
                     }
-                    let request = match receiver.recv_timeout(std::time::Duration::from_millis(20))
+                    let Ok(message) = receiver.recv() else { break };
+                    if stop.load(Ordering::Acquire) {
+                        break;
+                    }
+                    // A wake can coalesce with a full command queue. Drain on
+                    // either kind of message, including between file sessions.
+                    if let Some(engine) = &mut player
+                        && let Some(error) = engine.event_error()
+                        && active_session
                     {
-                        Ok(request) => request,
-                        Err(mpsc::RecvTimeoutError::Timeout) => {
-                            if active_session
-                                && let Some(player) = &mut player
-                                && let Some(error) = player.event_error()
-                            {
-                                status.error = Some(error);
-                                status.loaded = false;
-                            }
-                            continue;
-                        }
-                        Err(_) => break,
+                        status.error = Some(error);
+                        status.loaded = false;
+                    }
+                    let Message::Command(request) = message else {
+                        continue;
                     };
                     if std::env::var_os("VSF_MEDIA_SMOKE").is_some()
                         && !matches!(request.action, Action::Status)
@@ -424,7 +453,11 @@ impl Media {
                                 }
                                 let path = path.to_str().ok_or("Media path is not valid UTF-8")?;
                                 if player.is_none() {
-                                    player = Some(media_player::Player::new(&surface)?);
+                                    let sender = wake_sender.clone();
+                                    player =
+                                        Some(media_player::Player::new(&surface, move || {
+                                            let _ = sender.try_send(Message::Wake);
+                                        })?);
                                 }
                                 status.queued_audio_clock = player.as_mut().is_some_and(|engine| {
                                     engine.text(c"vsf-audio-clock-version").as_deref() == Some("1")
@@ -596,7 +629,10 @@ impl Media {
             })
             .map_err(|e| e.to_string())?;
         Ok(Self {
-            sender: Some(sender),
+            sender: Some(CommandSender {
+                channel: sender,
+                stopping: stopping.clone(),
+            }),
             latest,
             selection: Default::default(),
             stopping,
@@ -652,19 +688,46 @@ mod tests {
         assert!(!media.begin_shutdown());
     }
     #[test]
+    fn shutdown_wakes_a_worker_waiting_without_a_player() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let (observed, result) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let woke = matches!(
+                receiver.recv_timeout(std::time::Duration::from_secs(2)),
+                Ok(Message::Wake)
+            );
+            observed.send(woke).unwrap();
+        });
+        let media = Media {
+            sender: Some(CommandSender {
+                channel: sender,
+                stopping: Default::default(),
+            }),
+            worker: std::sync::Mutex::new(Some(worker)),
+            ..Media::default()
+        };
+        media.shutdown();
+        assert!(result.recv().unwrap());
+    }
+    #[test]
     fn selection_guard_serializes_replacement_and_rejects_old_or_closed_sessions() {
         use std::time::Duration;
         let wait = Duration::from_secs(5);
-        let (sender, receiver) = mpsc::sync_channel::<Request>(2);
+        let (sender, receiver) = mpsc::sync_channel::<Message>(2);
         let media = Media {
-            sender: Some(sender),
+            sender: Some(CommandSender {
+                channel: sender,
+                stopping: Default::default(),
+            }),
             ..Media::test_selection(std::path::Path::new("first.mkv"))
         };
         // Controlled command acknowledgments; this tests selection ownership,
         // not native loading, rendering or audio.
         let replies = std::thread::spawn(move || {
             for _ in 0..2 {
-                let request = receiver.recv_timeout(wait).unwrap();
+                let Message::Command(request) = receiver.recv_timeout(wait).unwrap() else {
+                    panic!("expected command")
+                };
                 request
                     .reply
                     .send(Ok(Status {

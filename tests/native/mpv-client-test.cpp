@@ -102,10 +102,22 @@ int main() {
     std::vector<mpv_event> pending(64, event(MPV_EVENT_TICK));
     pending.push_back(event(MPV_EVENT_FILE_LOADED));
     queue(pending);
-    assert(vsf_mpv::poll_events(nullptr, 0, false, &transition) == 0);
-    assert(wait_calls == 64 && next_event == 64 && transition == 0);
-    assert(vsf_mpv::poll_events(nullptr, 0, false, &transition) == 0);
-    assert(next_event == 65 && transition == 1);
+    int more = 0;
+    assert(vsf_mpv::poll_events(nullptr, 0, false, &transition, nullptr, &more) == 0);
+    assert(wait_calls == 64 && next_event == 64 && transition == 0 && more);
+    assert(vsf_mpv::poll_events(nullptr, 0, false, &transition, nullptr, &more) == 0);
+    assert(next_event == 65 && transition == 1 && !more);
+
+    // A single notification can represent more events than the unload cap.
+    // Each full batch requests another wake, leaving a turn for commands.
+    queue(std::vector<mpv_event>(2049, event(MPV_EVENT_TICK)));
+    int batches = 0;
+    do {
+        assert(vsf_mpv::poll_events(nullptr, 0, false, &transition, nullptr, &more) == 0);
+        ++batches;
+    } while (more && batches < 34);
+    assert(batches == 33 && !more && next_event == 2049);
+    assert(vsf_mpv::discard_events(nullptr) == 0);
 
     queue(std::vector<mpv_event>(1023, event(MPV_EVENT_TICK)));
     assert(vsf_mpv::discard_events(nullptr) == 0 && wait_calls == 1024);

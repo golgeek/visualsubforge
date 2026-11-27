@@ -32,7 +32,13 @@ unsafe extern "C" {
     fn vsf_number(player: *mut c_void, name: *const c_char) -> f64;
     fn vsf_flag(player: *mut c_void, name: *const c_char) -> c_int;
     fn vsf_frames(player: *mut c_void) -> u64;
-    fn vsf_event_error(player: *mut c_void, file_transition: *mut c_int) -> c_int;
+    fn vsf_set_wakeup(
+        player: *mut c_void,
+        callback: Option<extern "C" fn(*mut c_void)>,
+        context: *mut c_void,
+    );
+    fn vsf_event_error(player: *mut c_void, file_transition: *mut c_int, more: *mut c_int)
+    -> c_int;
     fn vsf_font_diagnostics(player: *mut c_void) -> *const c_char;
     fn vsf_text(player: *mut c_void, name: *const c_char) -> *mut c_char;
     fn vsf_text_free(text: *mut c_char);
@@ -133,6 +139,15 @@ pub struct Player {
     _thread: PhantomData<Rc<()>>,
     surface: Arc<SurfaceInner>,
     file_loaded: bool,
+    wake: Box<Wake>,
+}
+// Thin stable FFI address, retained until after native renderer/core destruction.
+struct Wake(Box<dyn Fn() + Send + Sync>);
+extern "C" fn wake_worker(context: *mut c_void) {
+    // SAFETY: the control worker registers this boxed Wake and unregisters it
+    // before destroying the core. mpv threads only signal the command queue.
+    let wake = unsafe { &*context.cast::<Wake>() };
+    (wake.0)();
 }
 impl Player {
     /// Unload the file while retaining the core/render context. Only the control
@@ -172,7 +187,12 @@ impl Player {
         unsafe { vsf_presenting(self.raw, value.into()) };
     }
 
-    pub fn new(surface: &Surface) -> Result<Self, String> {
+    /// mpv may call notify on its internal threads, including during registration.
+    /// Only signal the control owner here. Do not call mpv or wait for a reply.
+    pub fn new(
+        surface: &Surface,
+        notify: impl Fn() + Send + Sync + 'static,
+    ) -> Result<Self, String> {
         if surface.0.active.swap(true, Ordering::AcqRel) {
             return Err("Surface already has an active player".into());
         }
@@ -184,11 +204,16 @@ impl Player {
             surface.0.active.store(false, Ordering::Release);
             Err(error(code))
         } else {
+            let mut wake = Box::new(Wake(Box::new(notify)));
+            // SAFETY: registration can signal immediately. Its context stays at
+            // this address until Drop unregisters and destroys the native core.
+            unsafe { vsf_set_wakeup(raw, Some(wake_worker), (&raw mut *wake).cast()) };
             Ok(Self {
                 raw,
                 _thread: PhantomData,
                 surface: surface.0.clone(),
                 file_loaded: false,
+                wake,
             })
         }
     }
@@ -252,7 +277,11 @@ impl Player {
         // SAFETY: only control owner polls this core's event queue.
         // Native code writes the last file transition in this bounded batch;
         // it retains neither the pointer nor any borrowed event data.
-        let code = unsafe { vsf_event_error(self.raw, &mut transition) };
+        let mut more = 0;
+        let code = unsafe { vsf_event_error(self.raw, &mut transition, &mut more) };
+        if more != 0 {
+            (self.wake.0)();
+        }
         if transition != 0 {
             self.file_loaded = transition > 0;
         }
@@ -274,7 +303,10 @@ impl Player {
 impl Drop for Player {
     fn drop(&mut self) {
         // SAFETY: sole owner; native code joins rendering before core destruction.
-        unsafe { vsf_player_destroy(self.raw) }
+        unsafe {
+            vsf_set_wakeup(self.raw, None, std::ptr::null_mut());
+            vsf_player_destroy(self.raw);
+        }
         self.surface.active.store(false, Ordering::Release);
     }
 }

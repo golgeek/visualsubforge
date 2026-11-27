@@ -645,7 +645,7 @@ The font proposal and ASS/SSA packet renderer use the same encoded-header budget
 Only the preview copy may omit embedded fonts. The renderer owns the resulting
 notice for the installed revision and clears it on replacement or media reset.
 
-One media control worker owns the native player and playback session. Native
+One media control worker owns the native player and playback session. It blocks on a bounded command channel. Each core has a wake callback that signals the same queue without waiting for space. Any queued message drains events, including after unload. A full 64-event batch schedules a continuation. The boxed callback owns a sender and stays allocated through core destruction. Dropping the application endpoint signals a dormant worker. Shutdown wakes the receiver before joining. Native
 surface creation and window changes respect the platform UI thread. macOS maps
 the actual WKWebView bounds into the native surface parent on the main thread,
 so standard and overlay title bars share the DOM coordinate origin. The lookup

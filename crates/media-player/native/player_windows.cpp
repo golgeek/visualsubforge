@@ -203,10 +203,13 @@ extern "C" int vsf_flag(void *raw, const char *name) {
 // Internal D3D11 swaps are not counted by this adapter. The typed status marks
 // this counter unavailable; vo-configured is separate and is not pixel evidence.
 extern "C" uint64_t vsf_frames(void *) { return 0; }
-extern "C" int vsf_event_error(void *raw, int *file_transition) {
+extern "C" void vsf_set_wakeup(void *raw, void (*callback)(void *), void *context) {
+    mpv_set_wakeup_callback(static_cast<Playback *>(raw)->core, callback, context);
+}
+extern "C" int vsf_event_error(void *raw, int *file_transition, int *more = nullptr) {
     return vsf_mpv::poll_events(static_cast<Playback *>(raw)->core, 0,
                                 std::getenv("VSF_MEDIA_SMOKE") != nullptr, file_transition,
-                                &static_cast<Playback *>(raw)->fontDiagnostics);
+                                &static_cast<Playback *>(raw)->fontDiagnostics, more);
 }
 extern "C" const char *vsf_font_diagnostics(void *raw) {
     return static_cast<Playback *>(raw)->fontDiagnostics.text();
