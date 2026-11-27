@@ -30,3 +30,12 @@ export async function submitCreateProject(browser, path) {
   await installCreateProject(browser);
   await browser.execute((path) => window.__submitCreateProject(path), path);
 }
+
+export async function chooseProjectReference(browser, choice) {
+  const dialog = await browser.$(
+    'dialog[open][aria-label="Project subtitles"]',
+  );
+  const button = await dialog.$('button=' + choice);
+  await button.waitForDisplayed();
+  await button.click();
+}

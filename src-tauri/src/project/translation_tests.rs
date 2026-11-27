@@ -453,13 +453,81 @@ fn v4_review_saves_as_v4_until_discussion_and_missing_package_preserves_v5() {
     loaded.options.follow_playback = !loaded.options.follow_playback;
     assert!(
         projects
-            .save_document(&docs, Some(&target), &path, Some(token), loaded.clone())
+            .save_document(
+                &docs,
+                Some(&target),
+                &path,
+                Some(token),
+                loaded.clone(),
+                false
+            )
             .is_err()
     );
     assert_eq!(fs::read(&path).unwrap(), previous);
     fs::rename(root.join("moved.vsfreview"), &source).unwrap();
     projects
-        .save_document(&docs, Some(&target), &path, Some(token), loaded)
+        .save_document(&docs, Some(&target), &path, Some(token), loaded, false)
         .unwrap();
     assert_ne!(fs::read(&path).unwrap(), previous);
+}
+
+#[test]
+fn changed_subtitle_save_requires_consent_and_preserves_project_bytes() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let (mut project, target, _) = fixture(&root, "srt", SRT);
+    let path = root.join("episode.vsfproject");
+    write(&path, &project).unwrap();
+    let previous = fs::read(&path).unwrap();
+    let projects = Projects::default();
+    let token = projects.open(&path).unwrap().token;
+    projects.attach(token).unwrap();
+    let captions = root.join("subs");
+    fs::create_dir(&captions).unwrap();
+    let replacement = captions.join("other.srt");
+    fs::copy(&target, &replacement).unwrap();
+    let docs = Documents::default();
+    open_target(&docs, &replacement);
+    let relative = portable(&root, &replacement);
+    assert_eq!(relative, "subs/other.srt");
+    project.subtitle_path = Some(relative);
+    let outcome = projects
+        .save_document(
+            &docs,
+            Some(&replacement),
+            &path,
+            Some(token),
+            project.clone(),
+            false,
+        )
+        .unwrap();
+    assert!(
+        matches!(outcome, SaveOutcome::SubtitleReferenceChanged {from, to} if from.as_deref()==target.to_str() && to.as_deref()==replacement.to_str())
+    );
+    assert_eq!(fs::read(&path).unwrap(), previous);
+    let copy = root.join("copy.vsfproject");
+    assert!(matches!(
+        projects
+            .save_document(
+                &docs,
+                Some(&replacement),
+                &copy,
+                Some(token),
+                project.clone(),
+                false
+            )
+            .unwrap(),
+        SaveOutcome::SubtitleReferenceChanged { .. }
+    ));
+    assert!(!copy.exists());
+    assert!(matches!(
+        projects
+            .save_document(&docs, Some(&replacement), &path, Some(token), project, true)
+            .unwrap(),
+        SaveOutcome::Saved { .. }
+    ));
+    assert_eq!(
+        read(&path).unwrap().subtitle_path.as_deref(),
+        replacement.to_str()
+    );
 }

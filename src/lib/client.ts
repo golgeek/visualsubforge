@@ -562,11 +562,8 @@ export async function detachProject(): Promise<void> {
 }
 export const createProject = commands.createProject;
 export type CreateProjectOutcome = Awaited<ReturnType<typeof createProject>>;
-export function saveProject(
-  request: SaveProjectRequest,
-): Promise<ProjectAttachment> {
-  return commands.projectSave(request);
-}
+export const saveProject = commands.projectSave;
+export const projectSubtitleReference = commands.projectSubtitleReference;
 export function restoreScenes(
   path: string,
   session: number,

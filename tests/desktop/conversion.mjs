@@ -1,4 +1,7 @@
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import { commitCue } from './editor-input.mjs';
 // Actual desktop/WebView, Rust and files. Only file selections and app-data paths
 // are supplied. Optional independent native captures inspect the video sibling.
@@ -483,6 +486,8 @@ export async function conversionWorkflow({
           assert.deepEqual(restored.cues, opened.cues);
         }
         await menu('openSubtitles');
+        if (!crashRecovery)
+          await chooseProjectReference(browser, 'Open without project');
         const reopened = await documentIs('converted output reopened', (d) =>
           samePath(d.path, output),
         );

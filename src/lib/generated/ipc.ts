@@ -436,9 +436,18 @@ export const commands = {
     ),
   projectDetach: () => __TAURI_INVOKE<null>('project_detach'),
   projectSave: (request: visualsubforge_project_SaveRequest_Deserialize) =>
-    __TAURI_INVOKE<visualsubforge_project_store_Attachment_Serialize>(
+    __TAURI_INVOKE<visualsubforge_project_SaveOutcome_Serialize>(
       'project_save',
       { request },
+    ),
+  projectSubtitleReference: (
+    token: number,
+    subtitle: string | null,
+    media: string | null,
+  ) =>
+    __TAURI_INVOKE<visualsubforge_project_SubtitleReference>(
+      'project_subtitle_reference',
+      { token, subtitle, media },
     ),
   createProject: (
     request: visualsubforge_project_create_CreateRequest_Deserialize,
@@ -3229,16 +3238,44 @@ export type vsf_application_quality_profile_Rules = {
   empty: boolean;
 };
 
+export type visualsubforge_project_SaveOutcome =
+  | visualsubforge_project_SaveOutcome_Serialize
+  | visualsubforge_project_SaveOutcome_Deserialize;
+
+export type visualsubforge_project_SaveOutcome_Deserialize =
+  | ({
+      kind: 'saved';
+      attachment: visualsubforge_project_store_Attachment_Deserialize;
+    } & { from?: never; to?: never })
+  | ({
+      kind: 'subtitleReferenceChanged';
+      from: string | null;
+      to: string | null;
+    } & { attachment?: never });
+
+export type visualsubforge_project_SaveOutcome_Serialize =
+  | ({
+      kind: 'saved';
+      attachment: visualsubforge_project_store_Attachment_Serialize;
+    } & { from?: never; to?: never })
+  | ({
+      kind: 'subtitleReferenceChanged';
+      from: string | null;
+      to: string | null;
+    } & { attachment?: never });
+
 export type visualsubforge_project_SaveRequest =
   | visualsubforge_project_SaveRequest_Serialize
   | visualsubforge_project_SaveRequest_Deserialize;
 
 export type visualsubforge_project_SaveRequest_Deserialize = {
+  updateSubtitleReference?: boolean;
   path: string;
   token?: number | null;
 } & visualsubforge_project_WorkspaceInput_Deserialize;
 
 export type visualsubforge_project_SaveRequest_Serialize = {
+  updateSubtitleReference: boolean;
   path: string;
   token: number | null;
 } & visualsubforge_project_WorkspaceInput_Serialize;
@@ -3609,6 +3646,13 @@ export type vsf_application_authoring_styles_StyleSummary = {
 export type visualsubforge_document_StyleView = {
   name: string;
   fields: [string, string][];
+};
+
+export type visualsubforge_project_SubtitleReference = {
+  from: string | null;
+  changed: boolean;
+  hasMedia: boolean;
+  differentMedia: boolean;
 };
 
 export type visualsubforge_document_translation_Summary = {

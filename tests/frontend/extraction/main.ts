@@ -377,6 +377,8 @@ async function run() {
       modal,
       async () => true,
       async () => {},
+      async () => true,
+      () => false,
     );
     await session.observe('/synthetic/notice.mkv', false);
     assert(session.notice?.count === 1, 'Usable media notice missing');

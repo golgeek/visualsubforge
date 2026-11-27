@@ -10,7 +10,7 @@ import type {
   TranslationAction,
   TranslationReply,
 } from '../../../src/lib/client';
-import { legacyImportReview } from '../ipc-contract-samples';
+import { legacyImportReview, recovery } from '../ipc-contract-samples';
 import { mount, unmount, tick } from 'svelte';
 import { isTauri } from '@tauri-apps/api/core';
 import App from '../../../src/App.svelte';
@@ -24,6 +24,11 @@ import {
 } from '../../../src/lib/client';
 if (isTauri()) throw new Error('Browser fixture only');
 const host = document.querySelector('#test')!;
+const referenceTrial = new URLSearchParams(location.search).get(
+  'referenceTrial',
+);
+let dropHandler = 0;
+let savedSubtitle: string | null = '/captions.srt';
 let media = { ...emptyStatus, available: true, surfaceAboveWebview: true };
 let doc = structuredClone(emptyDocument);
 let failOpen = false;
@@ -131,7 +136,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         state?: Parameters<typeof updateMenu>[0];
         request?: Record<string, unknown>;
         path?: string;
+        kind?: string;
         reference?: ProjectReferenceOverride | null;
+        subtitle?: string | null;
+        media?: string | null;
       },
     ) {
       calls.push(command);
@@ -141,12 +149,25 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recent_list':
         case 'recent_capture':
         case 'recent_forget':
+          if (referenceTrial?.startsWith('recent'))
+            return [
+              {
+                kind: 'subtitles',
+                path: '/other.srt',
+                mediaPath:
+                  referenceTrial === 'recentOwn' ? '/clip.mkv' : '/other.mkv',
+                subtitlePath: '/other.srt',
+                usedAtMs: 1000,
+                summary: null,
+              },
+            ];
           return [];
         case 'quality_read':
           return emptyQuality(args);
         case 'quality_cancel':
           return null;
         case 'plugin:event|listen':
+          if (args.event === 'tauri://drag-drop') dropHandler = args.handler!;
           if (args.event !== 'workspace-action') return 2;
           document.body.dataset.workspaceListener = 'waiting';
           await registration;
@@ -158,9 +179,39 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'update_menu':
           menuState = args.state;
           return;
+        case 'review_action':
+          if (referenceTrial === 'compareFiles')
+            return {
+              key: {
+                generation: doc.generation,
+                revision: doc.revision,
+                epoch: 0,
+              },
+              newerOriginal: false,
+              sameOriginal: false,
+            };
+          throw new Error(command);
+        case 'extraction_action': {
+          const kind = args.action?.kind as string;
+          if (kind === 'accept') {
+            doc = { ...doc, path: null, dirty: true, requiresSaveAs: true };
+            document.body.dataset.acceptedExtraction = 'yes';
+          }
+          return {
+            id: 1,
+            status: 'ready',
+            listing: { tracks: [{ index: 0, codec: 'subrip', default: true }] },
+            snapshot: doc,
+            repairedCues: [],
+            cueCount: 1,
+          };
+        }
         case 'recovery_status':
+          if (referenceTrial === 'recover') return structuredClone(recovery);
           return { entries: [], error: null };
         case 'choose_file':
+          if (referenceTrial && args.kind === 'reviewOriginal')
+            return '/original.srt';
           return chosenPath;
         case 'project_open':
           openedPath = args.path;
@@ -188,16 +239,40 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'project_import_cancel':
           return;
         case 'project_attach':
+          savedSubtitle = project.subtitlePath;
           if (attachReference)
             doc.translation = structuredClone(referenceSummary);
           return { path: '/work.vsfproject', token: 41 };
+        case 'project_subtitle_reference':
+          return {
+            from: savedSubtitle,
+            changed: savedSubtitle !== args.subtitle,
+            hasMedia: !!project.mediaPath,
+            differentMedia: !!args.media && args.media !== project.mediaPath,
+          };
         case 'project_detach':
+          document.body.dataset.detached = 'yes';
           return;
         case 'project_save':
           if (projectSaveError) throw new Error(projectSaveError);
+          if (
+            referenceTrial &&
+            args.request!.subtitlePath !== savedSubtitle &&
+            !args.request!.updateSubtitleReference
+          )
+            return {
+              kind: 'subtitleReferenceChanged',
+              from: savedSubtitle,
+              to: args.request!.subtitlePath,
+            };
+          savedSubtitle = args.request!.subtitlePath as string | null;
+          document.body.dataset.savedSubtitle = savedSubtitle ?? '';
           saves.push(args.request!);
           if (doc.translation) doc.translation.dirty = false;
-          return { path: args.request!.path, token: 42 };
+          return {
+            kind: 'saved',
+            attachment: { path: args.request!.path, token: 42 },
+          };
         case 'translation_action': {
           const action = args.action as TranslationAction;
           const key = () => ({
@@ -340,6 +415,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             occluded = action.occluded;
           }
           if (action.kind === 'open') {
+            document.body.dataset.openMedia = action.path;
             loadingPolls = 0;
             mediaOpening = true;
             media = {
@@ -385,16 +461,22 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
               ...doc,
               translation: null,
               loaded: true,
-              path: '/captions.srt',
+              path: action.path,
               generation: 1,
               cues: [
                 { id: 1, startMs: 1000, endMs: 2000, text: 'Project cue' },
               ],
             };
           }
+          if (referenceTrial) {
+            if (action.kind === 'save' && action.path) doc.path = action.path;
+            if (action.kind === 'close') doc = structuredClone(emptyDocument);
+            document.body.dataset.workingSubtitle = doc.path ?? '';
+          }
           return structuredClone(doc);
         }
         case 'finish_exit':
+          document.body.dataset.exited = 'yes';
           return;
         default:
           throw new Error(command);
@@ -489,8 +571,105 @@ async function run() {
     await restoreProject();
   }
   try {
+    if (referenceTrial?.startsWith('recent')) project.subtitlePath = null;
+    if (referenceTrial === 'closeOnly') {
+      project.mediaPath = null;
+      project.mediaIdentity = null;
+      project.scenes = null;
+      project.positionSeconds = 0;
+    }
     await until(workspaceReady);
     await restoreProject();
+    if (referenceTrial) {
+      chosenPath = '/other.srt';
+      switch (referenceTrial) {
+        case 'recentOwn':
+        case 'recentOther': {
+          // The attached media-only project's playback ended. Start now shows Recent.
+          media.loaded = false;
+          await until(
+            () => !!host.querySelector('.recent .open:not(:disabled)'),
+          );
+          host.querySelector<HTMLButtonElement>('.recent .open')!.click();
+          break;
+        }
+        case 'dropOwn':
+        case 'dropOther':
+          callbacks.get(dropHandler)!({
+            payload: {
+              paths: [
+                chosenPath,
+                referenceTrial === 'dropOwn' ? '/clip.mkv' : '/other.mkv',
+              ],
+            },
+          });
+          break;
+        case 'closeOnly':
+        case 'close':
+          menuAction('closeSubtitles');
+          break;
+        case 'recover':
+          button('Recovery');
+          await until(
+            () =>
+              !!host.querySelector(
+                'dialog[aria-label="Subtitle recovery"][open]',
+              ),
+          );
+          button('Recover');
+          break;
+        case 'extractOwn':
+        case 'extractOther':
+          chosenPath =
+            referenceTrial === 'extractOwn' ? '/clip.mkv' : '/other.mkv';
+          menuAction('extractSubtitles');
+          await until(
+            () =>
+              !!host.querySelector('dialog[open] input[type=radio]:checked'),
+          );
+          button('Extract');
+          break;
+        case 'startReview':
+          chosenPath = '/captions.reviewed.srt';
+          menuAction('startReview');
+          break;
+        case 'compareFiles':
+          menuAction('compareFiles');
+          break;
+        case 'discardQuit':
+        case 'save':
+        case 'quit':
+          menuAction('saveAs');
+          await until(() => doc.path === '/other.srt' && workspaceReady());
+          if (referenceTrial === 'discardQuit') {
+            const draft = host.querySelector<HTMLTextAreaElement>(
+              '[aria-label="Subtitle text"]',
+            )!;
+            draft.value = 'Discard this draft';
+            draft.dispatchEvent(new Event('input', { bubbles: true }));
+            await tick();
+          }
+          menuAction(referenceTrial === 'save' ? 'saveProject' : 'quit');
+          break;
+        default:
+          menuAction('openSubtitles');
+      }
+      // Leave the interactive trial mounted for Playwright and manual checks.
+      await new Promise<void>(() => {});
+    }
+    chosenPath = '/other.srt';
+    menuAction('openSubtitles');
+    await until(
+      () =>
+        !!host.querySelector('dialog[aria-label="Project subtitles"][open]'),
+    );
+    button('Cancel');
+    await until(workspaceReady);
+    assert(
+      doc.path === '/captions.srt' && !calls.includes('project_detach'),
+      'Cancelling replacement preserves document and attachment',
+    );
+    chosenPath = '/work.vsfproject';
     const pluginDialog = () =>
       host.querySelector<HTMLDialogElement>(
         'dialog[aria-labelledby="plugin-title"][open]',

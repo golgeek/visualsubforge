@@ -1,6 +1,9 @@
 // Actual webview/Rust/filesystem review. Generated DOM input is not physical
 // interaction or compositor-presentation evidence; runtime identity is retained.
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { copyFile, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -305,6 +308,7 @@ export async function styleAuthoring({
       });
       await ready();
       await menu('closeSubtitles');
+      await chooseProjectReference(browser, 'Close without project');
       await documentIs('closed style copy', (d) => !d.loaded);
       await ready();
       await menu('openSubtitles');

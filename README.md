@@ -17,7 +17,7 @@ The editor provides:
 - [Embedded subtitle extraction](docs/subtitle-extraction.md) with a desktop track chooser, recovery, CLI and reviewed font embedding.
 
 - [Version comparison](docs/version-comparison.md) and [offline review packages](docs/review-packages.md) for exchanging subtitle versions and comments in the desktop or CLI.
-- Projects, portable settings/profiles, reviewed VisualSubSync project import,
+- [Projects and subtitle references](docs/projects.md), portable settings/profiles, reviewed VisualSubSync project import,
   manual translation references and a bounded JavaScript checker/fix plugin subset.
 
 See the [current feature/platform matrix](docs/status.md) for supported scope,

@@ -46,8 +46,12 @@ export class UnsavedChanges {
       this.subtitles.snapshot.review?.dirty;
     return { save: project ? saveContext : () => this.save(false) };
   };
-  protect = async (saveContext: () => Promise<boolean>): Promise<boolean> => {
+  protect = async (
+    saveContext: () => Promise<boolean>,
+    onDiscard?: () => void,
+  ): Promise<boolean> => {
     const decision = await this.decide(saveContext);
+    if (decision === 'discard') onDiscard?.();
     return typeof decision === 'object'
       ? decision.save()
       : decision !== 'cancel';

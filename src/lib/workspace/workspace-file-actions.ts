@@ -60,7 +60,7 @@ export async function runFileAction(action: FileAction, owners: Owners) {
         break;
       }
       case 'closeSubtitles':
-        if (await protect())
+        if (await projects.replaceSubtitle('close', null, null, protect))
           await subtitles.command({ kind: 'close', discard: true });
         break;
       case 'save':
@@ -77,9 +77,22 @@ export async function runFileAction(action: FileAction, owners: Owners) {
 }
 
 /** Shared picker/drop/recent continuation; the caller owns the workspace task. */
-export async function openSubtitlePath(owners: Owners, path: string) {
+export async function openSubtitlePath(
+  owners: Owners,
+  path: string,
+  pairedMedia: string | null = null,
+) {
   const { workspace, subtitles, protect, tableView, resetScroll } = owners;
-  if (workspace.disposed || !(await protect()) || workspace.disposed)
+  if (
+    workspace.disposed ||
+    !(await owners.projects.replaceSubtitle(
+      'open',
+      path,
+      pairedMedia,
+      protect,
+    )) ||
+    workspace.disposed
+  )
     return false;
   if (
     !(await subtitles.command({ kind: 'open', path, discard: true })) ||

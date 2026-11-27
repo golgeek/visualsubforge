@@ -601,6 +601,16 @@ the actual saved subtitle path and the project error. The frontend refreshes
 the editor's saved state and offers a project-only retry in the same dialog.
 Existing project saves, layout saves and exit decisions retain their own flows.
 
+The project store owns the canonical saved subtitle and media paths. On a blocking
+worker it compares proposed replacements against the active attachment token.
+The frontend project workflow owns one pending decision shared by file opening,
+close, recovery, extraction and review. A retained project reuses its own video.
+Saving an attached project compares the working subtitle path with the baseline
+before publishing or clearing dirty reference metadata. A difference returns
+`SubtitleReferenceChanged`. Explicit consent retries the same request and the
+store checks the token again at publication. Discard on quit preserves the previous reference.
+Relative project references use forward slashes.
+
 A recovery worker captures accepted state, prepares temporary output off-lock,
 and validates the complete record once before writing. Under the document lock it can publish an older accepted revision while edits continue if the document is still dirty and the generation, path, saved-state identity, resync flag and context epochs still match. It retries after 250 ms to capture the newer revision. Clearing a checkpoint requires an exact match. Recovery restores
 accepted content and relevant context, not frontend drafts or undo history.

@@ -505,6 +505,7 @@ async function projectFixture(hold: string | null = null) {
         throw new Error('Unexpected Create Project');
       },
       saveSubtitles: async () => true,
+      confirmReference: async () => 'cancel',
       saveFailed: async () => {
         await step('save choice');
         return 'quit';
@@ -536,9 +537,15 @@ async function projectFixture(hold: string | null = null) {
       createProject: async () => {
         throw new Error('Unexpected Create Project');
       },
+      projectSubtitleReference: async () => {
+        throw new Error('Unexpected reference check');
+      },
       saveProject: async () => {
         await step('save');
-        return { path: '/copy.vsfproject', token: 8 };
+        return {
+          kind: 'saved',
+          attachment: { path: '/copy.vsfproject', token: 8 },
+        };
       },
       finishExit: async () => {
         await step('exit');

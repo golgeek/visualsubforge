@@ -1,5 +1,8 @@
 // Scenario for the isolated release WebView harness. Both participants and every file are synthetic.
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -128,6 +131,7 @@ export async function exchangeRoundTrip({
     'Reviewer posted a literal comment and exported unsaved cues as round 1, then saved the review project',
   );
   await menu('closeSubtitles');
+  await chooseProjectReference(browser, 'Close without project');
   await until('closed', async () => !(await status()).loaded);
   await menu('openReviewPackage');
   await until('untitled author copy', async () => {

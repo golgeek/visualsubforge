@@ -600,6 +600,14 @@ legacy import retain their own guarded workflows; legacy drops only preselect th
 review input. Picker/drop paths share openSubtitlePath/openMediaPath. Failed media
 commands do not publish a chosen path or detach the current project.
 
+Picker, drop and Recent pass paired video through the subtitle decision before
+either file opens. ProjectWorkflow.replaceSubtitle shares Rust's token-checked
+path comparison and a WorkspaceDecision with Close, Recover, extraction
+acceptance, Start Review and Compare Files. The unsaved-document guard still
+protects drafts. A foreign video requires detachment. The attached project's own
+video can stay loaded. ProjectWorkflow.saveAt asks separately before changing the
+saved reference, including on quit and after subtitle Save As.
+
 RecoveryCard retains the Recovery owner's polling, discard confirmation and
 unsaved-copy behavior. It appears on Start and in a HideVideo dialog reachable
 from the toolbar after loading work. Dialog actions close presentation before

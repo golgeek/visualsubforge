@@ -81,7 +81,12 @@
   import { isTauri } from '@tauri-apps/api/core';
   import { DocumentSession } from './lib/document/document-session.svelte';
   import { MediaSession } from './lib/media/media-session.svelte';
-  import { ProjectWorkflow } from './lib/project/project-workflow.svelte';
+  import SubtitleReferenceDialog from './lib/project/SubtitleReferenceDialog.svelte';
+  import {
+    ProjectWorkflow,
+    type ReferenceChoice,
+    type ReferencePrompt,
+  } from './lib/project/project-workflow.svelte';
   import {
     WorkspaceModal,
     type AuthoringModal,
@@ -260,6 +265,16 @@
     ),
   );
 
+  const subtitleReferenceDecision = disposeWithComponent(
+    new WorkspaceDecision<ReferenceChoice, ReferencePrompt>(
+      'cancel',
+      workspace,
+      decisionEffects(
+        media,
+        () => view.diagnostics || tooltips.active || layout.active,
+      ),
+    ),
+  );
   const projectReferenceDecision = disposeWithComponent(
     new WorkspaceDecision<
       'cancel' | 'choose' | 'reload',
@@ -475,6 +490,7 @@
       saveSubtitles: () => unsaved.save(false),
       createProject: (prompt) => createDecision.request(prompt),
       saveFailed: (failure) => projectExitDecision.request(String(failure)),
+      confirmReference: (prompt) => subtitleReferenceDecision.request(prompt),
       referenceIssue: (issue) => projectReferenceDecision.request(issue),
       notify: (message) => {
         workspace.notice = message;
@@ -495,7 +511,10 @@
 
   const recovery = disposeWithComponent(
     new Recovery(workspace, subtitles, {
-      protect: () => unsaved.protect(() => projects.save(false)),
+      protect: () =>
+        projects.replaceSubtitle('recover', null, null, () =>
+          unsaved.protect(() => projects.save(false)),
+        ),
       suspendFollowing: () => navigation.suspendFollowing(),
     }),
   );
@@ -550,6 +569,8 @@
   review.goToTime = (startMs) =>
     timeline.frameCue({ id: 0, startMs, endMs: startMs + 1, text: '' });
   review.decideExchange = (prompt) => exchangeDecision.request(prompt);
+  review.replaceSubtitle = (action, path, protect) =>
+    projects.replaceSubtitle(action, path, null, protect);
   review.detachProject = () => projects.detach();
   review.projectAttached = () => !!projects.path;
   review.decideProject = () => reviewProjectDecision.request(true);
@@ -732,9 +753,15 @@
       workspaceModal,
       () => unsaved.protect(() => projects.save(false)),
       async (path) => {
-        if (media.path !== path && media.status.available)
-          await openMediaPath(mediaActions, path);
+        if (
+          media.status.available &&
+          (!media.status.loaded || (!projects.path && media.path !== path))
+        )
+          await openMediaPath(mediaActions, path, !!projects.path);
       },
+      (path) =>
+        projects.replaceSubtitle('extract', null, path, async () => true),
+      () => !!projects.path,
     ),
   );
   $effect(() => {
@@ -748,10 +775,22 @@
   const opener = disposeWithComponent(
     new WorkspaceOpen(
       workspace,
-      async (file) => {
+      async (file, pairedMedia) => {
         gestures.cancelHeld();
-        if (file.kind === 'subtitles')
-          return openSubtitlePath(fileActions, file.path);
+        if (file.kind === 'subtitles') {
+          const opened = await openSubtitlePath(
+            fileActions,
+            file.path,
+            pairedMedia,
+          );
+          if (opened && pairedMedia && projects.path) {
+            // Rust verified the pair uses the attached project's own video.
+            if (!media.status.loaded)
+              await openMediaPath(mediaActions, pairedMedia, true);
+            return false;
+          }
+          return opened;
+        }
         if (file.kind === 'media')
           return openMediaPath(mediaActions, file.path);
         if (file.kind === 'project') await projects.openPath(file.path);
@@ -1022,6 +1061,7 @@
       subtitleDecision.active ||
       createDecision.active ||
       projectExitDecision.active ||
+      subtitleReferenceDecision.active ||
       projectReferenceDecision.active ||
       exchangeDecision.active ||
       reviewDecision.active ||
@@ -1491,6 +1531,12 @@
       prompt={createDecision.payload}
       onclose={(created) => void createDecision.answer(created)}
     />{/if}
+  {#if subtitleReferenceDecision.payload}
+    <SubtitleReferenceDialog
+      prompt={subtitleReferenceDecision.payload}
+      onchoose={(choice) => void subtitleReferenceDecision.answer(choice)}
+    />
+  {/if}
   <WorkspaceDecisions
     {subtitles}
     {subtitleDecision}
