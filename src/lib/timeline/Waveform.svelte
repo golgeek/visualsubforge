@@ -22,6 +22,7 @@
     watchCanvasPalette,
     type CanvasPalette,
   } from '../ui/canvas-palette';
+  import { cueAt, exactRange, edgeAt, waveformCursor } from './waveform-hit';
   import { wheelViewport } from './waveform-navigation';
   import type { Cue, WaveformView } from '../client';
   import { clamp, orderedRange, timeToX, xToTime } from './timeline';
@@ -116,7 +117,7 @@
     preview: [number, number] | null;
     guides: SnapGuide[];
   } | null>(null);
-  let edge: {
+  let edge = $state.raw<{
     pointer: number;
     cue: Cue;
     boundary: 'start' | 'end';
@@ -125,31 +126,20 @@
     span: number;
     ready: boolean;
     latest: PointerEvent;
-  } | null = null;
-  function edgeAt(event: PointerEvent) {
+  } | null>(null);
+  let hover = $state.raw<{ x: number; y: number } | null>(null);
+  function locate(e: PointerEvent) {
     const rect = canvas.getBoundingClientRect();
-    if (!onedge || event.clientY - rect.top < 20) return null;
-    let closest: {
-      cue: Cue;
-      boundary: 'start' | 'end';
-      distance: number;
-    } | null = null;
-    for (const cue of cues)
-      for (const boundary of ['start', 'end'] as const) {
-        const distance = Math.abs(
-          timeToX(
-            cue[boundary === 'start' ? 'startMs' : 'endMs'] / 1000,
-            start,
-            span,
-            rect.width,
-          ) -
-            (event.clientX - rect.left),
-        );
-        if (distance <= 6 && (!closest || distance < closest.distance))
-          closest = { cue, boundary, distance };
-      }
-    return closest;
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
+  const cursor = $derived(
+    waveformCursor(hover, { start, span, width }, cues, selected, range, {
+      enabled,
+      drag: edge ? 'edge' : gesture?.preview ? 'range' : null,
+      canResize: !!onedge,
+      canSelect: !!onselect,
+    }),
+  );
   function finishEdge(commit: boolean) {
     const previous = edge;
     edge = null;
@@ -665,8 +655,11 @@
       timing: { ...timing },
       anchor: time(e, mapping),
       anchorX: e.clientX,
-      cueId: e.clientY - rect.top >= 20 ? cueAt(time(e, mapping)) : null,
-      edge: edgeAt(e),
+      cueId:
+        e.clientY - rect.top >= 20
+          ? (cueAt(cues, selected, time(e, mapping))?.id ?? null)
+          : null,
+      edge: onedge ? edgeAt(locate(e), mapping, cues) : null,
       preview: null,
       guides: [],
     };
@@ -718,8 +711,7 @@
     ];
   }
   function move(e: PointerEvent) {
-    canvas.style.cursor =
-      edge || (enabled && edgeAt(e)) ? 'ew-resize' : 'crosshair';
+    hover = locate(e);
     if (edge?.pointer === e.pointerId) {
       edge.latest = e;
       if (edge.ready) {
@@ -790,23 +782,11 @@
     cancel();
     if (Math.abs(e.clientX - previous.anchorX) <= 3) {
       const clickedCue = cues.find((cue) => cue.id === previous.cueId);
-      const alreadyRanged =
-        clickedCue &&
-        selected === clickedCue.id &&
-        range?.[0] === clickedCue.startMs / 1000 &&
-        range?.[1] === clickedCue.endMs / 1000;
+      const alreadyRanged = exactRange(clickedCue, selected, range);
       if (previous.cueId !== null && onselect && !alreadyRanged)
         onselect(previous.cueId);
       else onseek(time(e, previous));
     } else onrange(snappedRange(e, previous));
-  }
-  function cueAt(seconds: number): number | null {
-    const matches = cues.filter(
-      (c) => c.startMs <= seconds * 1000 && seconds * 1000 < c.endMs,
-    );
-    return (
-      (matches.find((c) => c.id === selected) ?? matches.at(-1))?.id ?? null
-    );
   }
   function contextMenu(e: MouseEvent) {
     if (!enabled || !oncontext) return;
@@ -817,7 +797,9 @@
     oncontext(
       e.clientX,
       e.clientY,
-      e.clientY - rect.top >= 20 ? cueAt(t) : null,
+      e.clientY - rect.top >= 20
+        ? (cueAt(cues, selected, t)?.id ?? null)
+        : null,
       !!range && t >= range[0] && t <= range[1],
     );
   }
@@ -844,6 +826,9 @@
   tabindex="0"
   oncontextmenu={contextMenu}
   onpointerdown={begin}
+  style:cursor
+  onpointerenter={(e) => (hover = locate(e))}
+  onpointerleave={() => (hover = null)}
   onpointermove={move}
   onpointerup={end}
   onpointercancel={cancelPointer}
@@ -872,6 +857,5 @@
     height: 100%;
     min-height: 0;
     touch-action: none;
-    cursor: crosshair;
   }
 </style>

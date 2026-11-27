@@ -13,6 +13,8 @@ reason. Retry never blindly replays an unknown outcome: it first refreshes Rust'
 state, then asks you to review before another mutation. If the target was removed
 or replaced, retained text remains available to copy without attaching to a new cue.
 
+On the waveform, a hand marks a cue that a click will select. Its timing edges show a horizontal resize cursor. A crosshair marks a seek or range selection, including a click inside the selected cue when its exact range is already active.
+
 Following a cue link from Issues, Timing or Statistics commits the current draft
 before selecting and revealing the target, just like selecting a cue in the list.
 The dock stays on the same tab. If the commit is rejected, the editor stays on

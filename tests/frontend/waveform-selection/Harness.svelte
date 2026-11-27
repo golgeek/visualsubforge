@@ -234,6 +234,30 @@
 
   async function run() {
     try {
+      await reset();
+      cues = [{ id: 1, startMs: 1000, endMs: 2000, text: 'Hover' }];
+      await tick();
+      await pointer('pointerenter', 90);
+      const cursor = () => getComputedStyle(canvas()).cursor;
+      assert(
+        cursor() === 'pointer',
+        'Entering a selectable cue should show a hand',
+      );
+      selected = 1;
+      await tick();
+      assert(
+        cursor() === 'crosshair',
+        'Selection updates under a stationary pointer',
+      );
+      selected = null;
+      start = 2;
+      await tick();
+      assert(cursor() === 'crosshair', 'Panning away should clear the hand');
+      start = 0;
+      await tick();
+      assert(cursor() === 'pointer', 'Panning back should restore the hand');
+      await pointer('pointerleave', 90);
+      assert(cursor() === 'crosshair', 'Leaving clears the hover position');
       await checkCueLayer();
       results.push(
         'PASS: waveform layers preserve zoomed cue pixels and reuse them while the playhead moves',
