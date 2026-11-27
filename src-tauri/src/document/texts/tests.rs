@@ -458,19 +458,23 @@ fn worker_failure_can_be_retried_and_shutdown_cancels_and_joins_outside_document
             .launch(key, Request::Text(operation()), profile, move |cancel| {
                 entered.send(()).unwrap();
                 let deadline = Instant::now() + Duration::from_secs(5);
-                while !cancel.load(Ordering::Relaxed) && Instant::now() < deadline {
-                    std::thread::yield_now();
+                // Shutdown sets cancel while it still holds the document lock.
+                while Instant::now() < deadline {
+                    if cancel.load(Ordering::Relaxed) && documents.0.try_lock().is_ok() {
+                        signal.store(true, Ordering::Release);
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(1));
                 }
-                signal.store(
-                    cancel.load(Ordering::Relaxed) && documents.0.try_lock().is_ok(),
-                    Ordering::Release,
-                );
                 Err("Stopped".into())
             })
             .unwrap();
     }
     rx.recv_timeout(Duration::from_secs(5)).unwrap();
     docs.shutdown_quality().unwrap();
-    assert!(stopped.load(Ordering::Acquire));
+    assert!(
+        stopped.load(Ordering::Acquire),
+        "Text worker must observe cancellation and acquire the document lock before shutdown returns"
+    );
     assert!(docs.0.lock().unwrap().texts.job.is_none());
 }
