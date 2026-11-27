@@ -17,6 +17,7 @@
 #endif
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <future>
 #include <memory>
 #include <thread>
@@ -45,6 +46,14 @@ struct Surface {
 #endif
     int width, height;
     std::mutex drawable;
+    // The surface receives layout before and between file sessions. This lock
+    // pairs flag publication with sleep; never hold it during graphics or mpv calls.
+    std::mutex wakeMutex;
+    std::condition_variable wake;
+    void signal(std::atomic<bool> &flag) {
+        { std::lock_guard lock(wakeMutex); flag.store(true); }
+        wake.notify_one();
+    }
     std::atomic<bool> resized{false};
     NSRect desired;
     bool visible = false, retryQueued = false, retired = false;
@@ -118,7 +127,7 @@ static void applyLayout(const SurfaceRef &surface) {
 #ifdef VSF_USE_ANGLE
     surface->metal.drawableSize = CGSizeMake(surface->width, surface->height);
 #endif
-    surface->resized.store(true);
+    surface->signal(surface->resized);
 }
 
 extern "C" void vsf_surface_layout(void *raw, double x, double y, double width, double height, int visible) {
@@ -141,7 +150,8 @@ extern "C" int vsf_surface_occlude(void *raw, int value) {
         surface->occluded = value != 0;
         surface->view.hidden = surface->occluded || !surface->visible;
         acknowledged = !surface->occluded || surface->view.hidden;
-        fprintf(stderr, "VSF Metal occlusion: requested=%d visible=%d\n", value, !surface->view.hidden);
+        if (std::getenv("VSF_RENDER_TRACE") || std::getenv("VSF_MEDIA_SMOKE"))
+            fprintf(stderr, "VSF Metal occlusion: requested=%d visible=%d\n", value, !surface->view.hidden);
     };
     if ([NSThread isMainThread]) change();
     else dispatch_sync(dispatch_get_main_queue(), change);
@@ -150,8 +160,9 @@ extern "C" int vsf_surface_occlude(void *raw, int value) {
 #endif
 
 static void updated(void *context) {
-    // mpv callback performs no rendering, dispatch, or blocking operation.
-    static_cast<Playback *>(context)->dirty.store(true);
+    // Callback only publishes work. Its context lives through unregistration.
+    auto *player = static_cast<Playback *>(context);
+    player->surface->signal(player->dirty);
 }
 
 extern "C" void *vsf_surface_create(void *parentPointer) try {
@@ -339,6 +350,14 @@ extern "C" void *vsf_player_create(void *rawSurface, int *error) try {
             lock.unlock();
             while (!player->stopping.load()) {
                 @autoreleasepool {
+                auto &surface = *player->surface;
+                {
+                    std::unique_lock wakeLock(surface.wakeMutex);
+                    if (!surface.wake.wait_for(wakeLock, std::chrono::milliseconds(250), [&] {
+                        return player->dirty.load() || surface.resized.load() || player->stopping.load();
+                    })) continue;
+                }
+                if (player->stopping.load()) break;
                 auto waiting = trace.now();
                 lock.lock();
                 bool resized = player->surface->resized.exchange(false);
@@ -398,7 +417,6 @@ extern "C" void *vsf_player_create(void *rawSurface, int *error) try {
                     }
                 }
                 lock.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(4));
                 }
             }
             if (!lock.owns_lock()) lock.lock();
@@ -422,7 +440,7 @@ extern "C" void vsf_player_destroy(void *raw) {
     if (!raw) return;
     auto player = *static_cast<PlayerRef *>(raw);
     delete static_cast<PlayerRef *>(raw);
-    player->stopping.store(true);
+    player->surface->signal(player->stopping);
     player->renderer.join(); // Called on control worker, never on main queue.
     mpv_terminate_destroy(player->core);
 
@@ -434,7 +452,7 @@ extern "C" void vsf_presenting(void *raw, int value) {
     auto player = *static_cast<PlayerRef *>(raw);
     // No GL on the control thread: it requests a draw on the renderer.
     player->presenting.store(value != 0);
-    player->dirty.store(true);
+    player->surface->signal(player->dirty);
 }
 extern "C" int vsf_discard_events(void *raw) {
     auto player = *static_cast<PlayerRef *>(raw);

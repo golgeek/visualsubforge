@@ -20,6 +20,22 @@ static void sample(const char *phase, int cycle) {
         heap.size_in_use, heap.size_allocated, heap.blocks_in_use);
     fflush(stdout);
 }
+// Opt-in on a quiet physical Mac with a paused, silent fixture. Count only
+// this isolated process, not the compositing desktop or a running editor.
+static void checkPausedWakeups() {
+    auto wakeups = [] {
+        rusage_info_v4 usage{};
+        if (proc_pid_rusage(getpid(), RUSAGE_INFO_V4, (rusage_info_t *)&usage) != 0)
+            throw std::runtime_error("proc_pid_rusage failed");
+        return usage.ri_interrupt_wkups;
+    };
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    auto before = wakeups();
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    auto delta = wakeups() - before;
+    printf("paused_seconds=5 interrupt_wakeups=%llu\n", delta);
+    if (delta >= 500) throw std::runtime_error("paused process kept waking at least 100 times/s");
+}
 static void command(void *player, std::initializer_list<const char *> args) {
     std::vector<const char *> list(args);
     list.push_back(nullptr);
@@ -29,7 +45,8 @@ static void command(void *player, std::initializer_list<const char *> args) {
 static void until(void *player, const std::function<bool()> &done) {
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     for (;;) {
-        int error = vsf_event_error(player);
+        int transition = 0;
+        int error = vsf_event_error(player, &transition);
         if (error < 0) throw std::runtime_error(vsf_error(error));
         if (done()) return;
         if (std::chrono::steady_clock::now() > deadline) throw std::runtime_error("state wait timed out");
@@ -101,6 +118,7 @@ int main(int argc, char **argv) {
                         if (i == 1 && decoder) printf("actual_decoder=%s\n", decoder);
                         vsf_text_free(decoder);
                         if (!correct) throw std::runtime_error("decoder mismatch");
+                        if (std::getenv("VSF_PROBE_IDLE")) checkPausedWakeups();
                         if (std::getenv("VSF_PROBE_PLAY")) {
                             command(player, {"seek", "0", "absolute+exact"});
                             until(player, [&] { return !vsf_flag(player, "seeking") && vsf_number(player, "time-pos") < .02; });

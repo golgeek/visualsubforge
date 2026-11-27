@@ -291,6 +291,8 @@ Render-API development builds must include the [pinned upstream fence correction
 
 ### macOS ANGLE/Metal application experiment
 
+For a paused Mac playback check, set `VSF_PROBE_IDLE=1` on the native memory probe with a silent fixture. It samples process interrupt wakeups for five seconds. `VSF_RENDER_TRACE=1` records swap timing and enables ANGLE occlusion messages.
+
 The `macos-angle` feature includes `media-prototype` and uses the existing
 native boundary with an opaque webview. Use the [Mac build guide](build-macos.md)
 and [SDK preflight](native-runtime.md#sdk-preflight-and-a-fresh-application-build)

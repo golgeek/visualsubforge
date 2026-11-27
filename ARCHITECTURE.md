@@ -654,6 +654,8 @@ uses a dedicated render worker, Linux GLArea rendering belongs to GTK's main
 context, and Windows delegates rendering to mpv's video output. Native rendering
 on a platform UI thread does not permit blocking analysis or file IO there.
 
+On macOS the surface owns a condition variable shared by AppKit layout, mpv update notifications and the render worker. Layout, redraw and shutdown publish their flags before signalling. The renderer releases the wake mutex before acquiring the drawable and unregisters its callback before freeing the render context.
+
 Teardown releases the render context/resources before destroying the player core,
 then removes the native surface on its required thread. Decoded frames stay in
 the native rendering path; ordinary commands/events carry status, geometry,
