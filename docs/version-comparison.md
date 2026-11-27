@@ -46,6 +46,11 @@ Group steps require `GROUP_TEXT_THRESHOLD = 0.75` and 75% token containment for 
 Unmatched cues cost `GAP_COST = 0.65`. Among equally scoring paths at a
 prefix boundary, prefer the one with less accumulated variation in the start
 offset of successive matches. Fixed traversal order breaks remaining ties.
+For Han, Hiragana, Katakana, Thai, Lao, Khmer and Myanmar text, pairing,
+split/merge detection and highlighting compare individual characters with
+their following combining marks. Korean and other spaced scripts retain the
+existing word boundaries.
+
 These constants are implementation policy, not user preferences.
 
 Sparse dynamic programming uses prefix maxima and delayed group publication;

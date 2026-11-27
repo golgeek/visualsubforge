@@ -974,6 +974,9 @@ an intermediate temporary file and its cleanup/filename ownership concerns.
 
 ## Version comparison engine
 
+The comparison engine shares script-aware character boundaries between similarity,
+split/merge detection and word highlighting for unspaced scripts.
+
 `vsf-application::comparison` takes immutable cue captures, formats, options and
 cooperative checkpoints. It owns no filesystem, media, UI or accepted editor.
 The CLI reads through the bounded subtitle reader and atomically publishes new

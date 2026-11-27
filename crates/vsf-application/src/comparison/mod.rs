@@ -308,7 +308,7 @@ impl<'a> From<&'a CueSnapshot> for TimedText<'a> {
 }
 fn token_counts<'a>(side: &[TimedText<'a>]) -> std::collections::BTreeMap<&'a str, usize> {
     let mut counts = std::collections::BTreeMap::new();
-    for word in side.iter().flat_map(|c| c.text.split_whitespace()) {
+    for word in side.iter().flat_map(|c| words::reading_tokens(c.text)) {
         *counts.entry(word).or_default() += 1;
     }
     counts

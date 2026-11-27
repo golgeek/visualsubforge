@@ -661,3 +661,49 @@ fn report_counts_cue_duration_bands_and_omits_empty_controls() {
             && !shifted.contains("<span class=\"band-change\">")
     );
 }
+
+#[test]
+fn unspaced_script_edits_pair_split_merge_and_highlight() {
+    for (left, right, old, new, tail) in [
+        ("今日は", "晴れです", "晴", "雨", "れです"),
+        ("วันนี้", "ร้อนมาก", "ร้", "ช้", "อนมาก"),
+    ] {
+        let original = format!("{left}{right}");
+        let revised = format!("{left}{new}{tail}");
+        let a = [cue(1, 1000, 4000, &original)];
+        let changed = [cue(1, 3500, 6500, &revised)];
+        assert_eq!(
+            kinds(&run(&a, &changed, Options::default())),
+            [Kind::TextAndTiming]
+        );
+        let parts = [cue(1, 1000, 2500, left), cue(2, 2500, 4000, right)];
+        assert_eq!(kinds(&run(&a, &parts, Options::default())), [Kind::Split]);
+        assert_eq!(kinds(&run(&parts, &a, Options::default())), [Kind::Merged]);
+        let diff = word_diff(&original, &revised);
+        assert_eq!(
+            diff.iter()
+                .map(|t| (t.kind, t.text.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                (TokenKind::Equal, left),
+                (TokenKind::Removed, old),
+                (TokenKind::Added, new),
+                (TokenKind::Equal, tail)
+            ]
+        );
+    }
+}
+
+#[test]
+fn reading_tokens_keep_spaced_scripts_and_marks_intact() {
+    for text in ["Hello, italic-word!", "안녕, 세계", "cafe\u{301} déjà"] {
+        assert_eq!(
+            words::reading_tokens(text).collect::<Vec<_>>(),
+            text.split_whitespace().collect::<Vec<_>>()
+        );
+    }
+    assert_eq!(
+        words::reading_tokens("abc漢かカคำກັកាကာ").collect::<Vec<_>>(),
+        ["abc", "漢", "か", "カ", "ค", "ำ", "ກັ", "កា", "ကာ"]
+    );
+}
