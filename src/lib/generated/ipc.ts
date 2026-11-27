@@ -1189,6 +1189,7 @@ export type vsf_application_authoring_attachments_AttachmentSummary = {
   after: vsf_application_authoring_attachments_AttachmentEntry | null;
   documentBytes: number;
   previewSizeExceeded: boolean;
+  previewFontsOmitted: boolean;
 };
 
 export type vsf_application_authoring_attachments_AttachmentType =
