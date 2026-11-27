@@ -17,6 +17,8 @@ and propagates option errors. Review the complete built-in list in upstream
 core through a separately signed initialization probe, without JIT exceptions;
 actual signed GUI playback remains a separate acceptance check.
 
+The media-control worker sleeps between commands and mpv events. Its wake callback also services the retained engine between files. When investigating event delivery, cover idle startup, paused playback, close/reopen and shutdown.
+
 ## Maintenance ownership
 
 The maintainer approving a dependency update owns its source provenance,
