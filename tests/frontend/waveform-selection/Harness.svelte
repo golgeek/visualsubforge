@@ -350,11 +350,27 @@
       await pointer('pointerup', 181);
       assert(
         !ranges.length &&
+          range === null &&
           seeks.length === 1 &&
           Math.abs(seeks[0]! - 181 / 60) < 0.00001,
-        'Ordinary click must seek without replacing range',
+        'Empty-space click must clear the range and seek',
       );
-      results.push('PASS: click seeks and preserves the selected range');
+      results.push(
+        'PASS: empty-space click clears the selected range and seeks',
+      );
+      await reset();
+      canvas().focus();
+      canvas().dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      assert(
+        range === null && !seeks.length,
+        'Escape on the waveform clears the range without seeking',
+      );
       await reset();
       enabled = false;
       await tick();
@@ -665,6 +681,10 @@
       ongesture={(active) => (activeGesture = active)}
       {range}
       onseek={(value) => seeks.push(value)}
+      onclearrange={(seconds) => {
+        range = null;
+        if (seconds !== undefined) seeks.push(seconds);
+      }}
       onrange={(value) => {
         ranges.push(value);
         range = value;

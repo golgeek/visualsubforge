@@ -623,6 +623,12 @@ at their documented conversion boundary. Native playback exposes seconds as
 floating-point values; missing clock values remain unavailable rather than
 becoming zero. The media worker reports whether both native loop endpoints are set.
 The transport toggle reads that status independently of the current waveform selection.
+Svelte sends the selected bounds when Play starts. The Rust control worker owns
+the one-shot target, its media session and whether the user paused it. It sets
+mpv’s playback `end` before seeking and unpausing. mpv clips decoded output and
+`keep-open` pauses after drain, independently of status reads and worker wakeups.
+A seek outside the interval releases the target. Unloading a reused player
+resets `end` alongside its loop endpoints.
 The waveform keeps the latest local pointer position in Svelte. Hover feedback and click selection share cue hit testing, exact-range checks and the edge tolerance. A stationary pointer follows changes to the time mapping and selection.
 
 Timeline helpers convert explicitly before committing edits.

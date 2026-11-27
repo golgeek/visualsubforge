@@ -296,7 +296,7 @@ export async function editingKey(action: EditingShortcut, owners: KeyOwners) {
     const seconds = Math.max(0, status.positionSeconds - 2);
     await workspace.task(async () => {
       if (
-        !(await media.command({ kind: 'seek', seconds })) ||
+        !(await media.command({ kind: 'clearPlaySelection', seek: seconds })) ||
         workspace.disposed ||
         media.status.session !== status.session
       )

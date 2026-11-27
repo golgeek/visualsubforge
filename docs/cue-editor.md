@@ -79,6 +79,12 @@ Escape-cancel and single-Undo timing operation. A drag outside the edge toleranc
 continues to select a range. When you drag or arrow-nudge a selected boundary
 past the visible window, its handle stays at the edge until you finish the edit.
 
+Play runs from the selection start to its end once. A second Play replays the
+range. Pausing inside it lets you resume. Selecting another cue during one-shot
+playback moves playback to that cue. To play onward, click empty waveform space
+to clear the range and seek, or press Escape on the focused waveform to clear
+the range at the current cursor. Loop range remains an explicit transport action.
+
 ## Cue list context menu
 
 Right-click a selected cue to act on the selection. Right-clicking a different

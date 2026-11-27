@@ -421,10 +421,10 @@ test('replay seeks before playing and never resumes after a rejected or stale se
       calls,
       outcome === 'accepted'
         ? [
-            { kind: 'seek', seconds: 0 },
+            { kind: 'clearPlaySelection', seek: 0 },
             { kind: 'pause', paused: false },
           ]
-        : [{ kind: 'seek', seconds: 0 }],
+        : [{ kind: 'clearPlaySelection', seek: 0 }],
     );
   }
 });
