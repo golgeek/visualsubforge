@@ -27,6 +27,8 @@ export class ExtractionSession {
     private modal: WorkspaceModal,
     private protect: () => Promise<boolean>,
     private openMedia: (path: string) => Promise<unknown>,
+    private confirmAcceptance: (path: string) => Promise<boolean>,
+    private projectAttached: () => boolean,
   ) {}
   async open(path?: string) {
     const chosen = path ?? (await chooseFile('extractSubtitles', null));
@@ -111,6 +113,14 @@ export class ExtractionSession {
         epoch,
       );
       if (!reply || !this.alive || epoch !== this.epoch) return;
+      if (this.projectAttached()) {
+        await this.modal.close();
+        if (!(await this.confirmAcceptance(path))) {
+          await this.cancel();
+          return;
+        }
+        if (!this.alive || epoch !== this.epoch) return;
+      }
       if (!(await this.subtitles.acceptExtraction(reply.id, expected))) return;
       this.result = {
         generation: this.subtitles.snapshot.generation,

@@ -1,6 +1,9 @@
 // Real desktop owner/files/player; generated DOM input is distinct from physical
 // input. Optional native-window observations inspect sibling video composition.
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { copyFile, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -326,6 +329,7 @@ export async function fontAuthoring({
       });
       await ready();
       await menu('closeSubtitles');
+      await chooseProjectReference(browser, 'Close without project');
       await documentIs('font copy closed', (d) => !d.loaded);
       await ready();
       await menu('openSubtitles');

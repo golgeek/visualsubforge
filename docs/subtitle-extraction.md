@@ -53,6 +53,11 @@ preselects a usable default. Save/Discard/Cancel protection runs before extracti
 The elapsed-time busy indicator remains cancellable. Acceptance opens an untitled,
 dirty document requiring Save As, then opens the source video if playback is
 available. Existing media is unchanged on extraction failure or cancellation.
+With an attached project, accepting the extracted subtitles asks which project
+to use. Extracting from its own video offers **Use in project**, **Open without
+project** and **Cancel**. A different video offers **Open without project** and
+**Cancel**. See [project subtitle references](projects.md).
+
 A dismissible result notice reports cue count, conversion, repaired durations and fonts.
 It stays with the document while the source video opens and scene detection runs.
 A dismissible one-line media notice is offered only without an open document, counts extractable text tracks,

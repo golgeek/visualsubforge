@@ -1,4 +1,7 @@
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import { commitCue, discardCue } from './editor-input.mjs';
 // Actual native-enabled desktop workflow. Only file choices and app-data paths
 // are supplied by the harness; all edits use the production Svelte/IPC boundary.
@@ -324,6 +327,7 @@ export async function assDocuments({
       assert.equal(savedProject.subtitlePath, `copy.${extension}`);
       await ready();
       await menu('closeSubtitles');
+      await chooseProjectReference(browser, 'Close without project');
       await documentIs('closed before project restore', (d) => !d.loaded);
       await ready();
       await menu('openProject');

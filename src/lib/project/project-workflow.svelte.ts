@@ -6,6 +6,7 @@ import {
   attachProject,
   detachProject,
   saveProject,
+  projectSubtitleReference,
   restoreScenes,
   finishExit,
   type ProjectAttachment,
@@ -24,9 +25,21 @@ const client = {
   attachProject,
   detachProject,
   saveProject,
+  projectSubtitleReference,
   restoreScenes,
   finishExit,
 };
+export type Replacement =
+  'open' | 'close' | 'recover' | 'extract' | 'review' | 'compare';
+export type ReferencePrompt = {
+  project: string;
+  from: string | null;
+  to: string | null;
+  action: Replacement | 'save' | 'quit';
+  canKeep: boolean;
+  differentMedia?: string | null;
+};
+export type ReferenceChoice = 'keep' | 'detach' | 'quit' | 'cancel';
 export interface ProjectWorkspace {
   read(): { mediaPath: string; hardware: boolean; options: ProjectOptions };
   beginRestore(): void;
@@ -37,7 +50,11 @@ export interface ProjectWorkspace {
   ): void | Promise<void>;
   restoreScenes(session: number, generation: number): void;
   detachLayout?(check: () => void): Promise<void>;
-  protect(saveContext: () => Promise<boolean>): Promise<boolean>;
+  protect(
+    saveContext: () => Promise<boolean>,
+    onDiscard?: () => void,
+  ): Promise<boolean>;
+  confirmReference(prompt: ReferencePrompt): Promise<ReferenceChoice>;
   referenceIssue?(
     issue: ProjectReferenceIssue,
   ): Promise<'cancel' | 'choose' | 'reload'>;
@@ -84,13 +101,56 @@ export class ProjectWorkflow {
   async detach() {
     const operation = ++this.operation;
     const attached = this.attachment !== null;
-    this.attachment = null;
     if (this.alive && attached) {
       await this.client.detachProject();
       this.check(operation);
+      this.attachment = null;
       await this.workspace.detachLayout?.(() => this.check(operation));
       this.check(operation);
     }
+  }
+  async replaceSubtitle(
+    action: Replacement,
+    to: string | null,
+    media: string | null,
+    protect: () => Promise<boolean>,
+  ): Promise<boolean> {
+    const attached = this.attachment;
+    let choice: ReferenceChoice = 'keep';
+    if (attached) {
+      const operation = this.operation;
+      const ref = await this.client.projectSubtitleReference(
+        attached.token,
+        to,
+        media,
+      );
+      this.check(operation);
+      if (
+        ref.changed ||
+        ref.differentMedia ||
+        action === 'recover' ||
+        action === 'extract' ||
+        (action === 'close' && !ref.hasMedia)
+      ) {
+        const canKeep =
+          !ref.differentMedia && (action !== 'close' || ref.hasMedia);
+        choice = await this.workspace.confirmReference({
+          project: attached.path,
+          from: ref.from,
+          to,
+          action,
+          canKeep,
+          differentMedia: ref.differentMedia ? media : null,
+        });
+        this.check(operation);
+        if (choice !== 'detach' && !(canKeep && choice === 'keep'))
+          return false;
+      }
+    }
+    // A cancelled dirty-document prompt must also preserve the attachment.
+    if (!(await protect()) || !this.alive) return false;
+    if (choice === 'detach') await this.detach();
+    return this.alive;
   }
   async open() {
     const operation = ++this.operation;
@@ -332,6 +392,7 @@ export class ProjectWorkflow {
     operation: number,
     as: boolean,
     saveSubtitles: boolean,
+    purpose: 'save' | 'quit' | 'discard' = 'save',
   ): Promise<boolean> {
     this.check(operation);
     const session = this.media.status.session;
@@ -359,13 +420,36 @@ export class ProjectWorkflow {
         : this.path;
     this.check(operation, session);
     if (!path) return false;
-    const attached = await this.client.saveProject({
+    const request = {
       ...this.workspaceInput(session),
       path,
-      token: this.attachment?.token ?? null,
-    });
+      token: this.token,
+    };
+    let outcome = await this.client.saveProject(request);
     this.check(operation, session);
-    this.attachment = attached;
+    if (outcome.kind === 'subtitleReferenceChanged') {
+      if (purpose === 'discard') return true;
+      const answer = await this.workspace.confirmReference({
+        project: path,
+        from: outcome.from,
+        to: outcome.to,
+        action: purpose,
+        canKeep: true,
+      });
+      this.check(operation, session);
+      if (purpose === 'quit' && answer === 'quit') return true;
+      if (answer !== 'keep') return false;
+      outcome = await this.client.saveProject({
+        ...request,
+        updateSubtitleReference: true,
+      });
+      this.check(operation, session);
+      if (outcome.kind !== 'saved')
+        throw new Error(
+          'Project subtitle reference changed during confirmation',
+        );
+    }
+    this.attachment = outcome.attachment;
     if (!(await this.document.command({ kind: 'status' }))) return false;
     this.check(operation, session);
     this.workspace.notify('Project saved');
@@ -377,8 +461,12 @@ export class ProjectWorkflow {
     const contextWasDirty =
       this.document.snapshot.translation?.dirty === true ||
       this.document.snapshot.review?.dirty === true;
-    const proceed = await this.workspace.protect(() =>
-      this.saveAt(operation, false, true),
+    let discarded = false;
+    const proceed = await this.workspace.protect(
+      () => this.saveAt(operation, false, true, 'quit'),
+      () => {
+        discarded = true;
+      },
     );
     this.check(operation);
     if (!proceed) return;
@@ -393,7 +481,15 @@ export class ProjectWorkflow {
       while (true) {
         this.check(operation);
         try {
-          if (!(await this.saveAt(operation, saveAs, false))) return;
+          if (
+            !(await this.saveAt(
+              operation,
+              saveAs,
+              false,
+              discarded ? 'discard' : 'quit',
+            ))
+          )
+            return;
           break;
         } catch (error) {
           this.check(operation);

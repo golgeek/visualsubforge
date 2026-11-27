@@ -1,4 +1,7 @@
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import { acceptReview, closeReview } from './review.mjs';
 import { commitCue } from './editor-input.mjs';
 import { chooseCommand } from './commands.mjs';
@@ -439,6 +442,7 @@ export async function webvttWorkflow({
     assert.equal(report.project.subtitlePath, 'copy.vtt');
     await ready();
     await menu('closeSubtitles');
+    await chooseProjectReference(browser, 'Close without project');
     await documentIs('WebVTT closed for project', (d) => !d.loaded);
     await ready();
     await menu('openProject');

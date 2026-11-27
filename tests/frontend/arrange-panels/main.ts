@@ -142,7 +142,13 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           projectSaves.push(
             JSON.parse(JSON.stringify(args.request!)) as SaveProjectRequest,
           );
-          return { path: '/arrange.vsfproject', token: projectSaves.length };
+          return {
+            kind: 'saved',
+            attachment: {
+              path: '/arrange.vsfproject',
+              token: projectSaves.length,
+            },
+          };
         case 'project_detach':
           return null;
         case 'media_action':

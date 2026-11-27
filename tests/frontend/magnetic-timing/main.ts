@@ -152,7 +152,10 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
           return null; // Rust () serializes to JSON null; the facade returns void.
         case 'project_save':
           saves.push(args.request!);
-          return { path: args.request!.path, token: 42 };
+          return {
+            kind: 'saved',
+            attachment: { path: args.request!.path, token: 42 },
+          };
         case 'scenes_restore':
           return 4;
         case 'scenes_view':

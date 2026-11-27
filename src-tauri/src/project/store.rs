@@ -67,6 +67,28 @@ impl Store {
     }
 }
 impl Projects {
+    pub(super) fn subtitle_reference(
+        &self,
+        token: u64,
+        subtitle: Option<&Path>,
+        media: Option<&Path>,
+    ) -> Result<SubtitleReference> {
+        let store = self.state.lock().map_err(|_| "Project state unavailable")?;
+        let saved = store
+            .active
+            .as_ref()
+            .filter(|saved| saved.token == token)
+            .ok_or("Project attachment changed; retry from the current workspace")?;
+        Ok(SubtitleReference {
+            from: saved
+                .subtitle_path
+                .as_deref()
+                .map(|p| p.to_string_lossy().into_owned()),
+            changed: saved.subtitle_path.as_deref() != subtitle,
+            has_media: saved.media_path.is_some(),
+            different_media: media.is_some() && saved.media_path.as_deref() != media,
+        })
+    }
     pub(crate) fn recent_paths(
         &self,
         token: Option<u64>,
@@ -239,12 +261,12 @@ impl Projects {
                         "Project changed; reopen it or use Save As from the current workspace",
                     )?,
             ),
+            None if store.active.is_some() => {
+                return Err("The workspace already has a project".into());
+            }
             None => None,
         };
         let path = if creating {
-            if store.active.is_some() {
-                return Err("The workspace already has a project".into());
-            }
             vsf_application::new_output::resolve(path).map_err(|e| e.to_string())?
         } else {
             destination(path)?

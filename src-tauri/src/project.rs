@@ -211,10 +211,14 @@ pub(crate) fn absolute(base: &Path, path: &str) -> PathBuf {
     }
 }
 pub(crate) fn portable(base: &Path, path: &Path) -> String {
-    path.strip_prefix(base)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .into_owned()
+    match path.strip_prefix(base) {
+        Ok(relative) => relative
+            .components()
+            .map(|part| part.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/"),
+        Err(_) => path.to_string_lossy().into_owned(),
+    }
 }
 fn read_bytes(path: &Path) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
@@ -398,9 +402,61 @@ pub async fn project_detach(app: tauri::AppHandle) -> Result<()> {
     .await
     .map_err(|e| e.to_string())?
 }
+#[derive(Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitleReference {
+    from: Option<String>,
+    changed: bool,
+    has_media: bool,
+    different_media: bool,
+}
+#[tauri::command]
+#[specta::specta]
+pub async fn project_subtitle_reference(
+    app: tauri::AppHandle,
+    token: crate::ipc_number::SafeU64,
+    subtitle: Option<String>,
+    media: Option<String>,
+) -> Result<SubtitleReference> {
+    tauri::async_runtime::spawn_blocking(move || {
+        // Start Review can name an output which does not exist yet.
+        let subtitle = subtitle
+            .as_deref()
+            .map(Path::new)
+            .map(destination)
+            .transpose()?;
+        let media = media
+            .as_deref()
+            .map(Path::new)
+            .map(Path::canonicalize)
+            .transpose()
+            .map_err(|e| e.to_string())?;
+        app.state::<Projects>().subtitle_reference(
+            token.get(),
+            subtitle.as_deref(),
+            media.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(Serialize, specta::Type)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SaveOutcome {
+    Saved {
+        attachment: Attachment,
+    },
+    SubtitleReferenceChanged {
+        from: Option<String>,
+        to: Option<String>,
+    },
+}
 #[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveRequest {
+    #[serde(default)]
+    update_subtitle_reference: bool,
     path: String,
     #[serde(default, with = "crate::ipc_number::optional")]
     #[specta(type = Option<crate::ipc_number::SafeU64>)]
@@ -423,12 +479,12 @@ pub struct WorkspaceInput {
 }
 #[tauri::command]
 #[specta::specta]
-pub async fn project_save(app: tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
+pub async fn project_save(app: tauri::AppHandle, request: SaveRequest) -> Result<SaveOutcome> {
     tauri::async_runtime::spawn_blocking(move || save(&app, request))
         .await
         .map_err(|e| e.to_string())?
 }
-fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
+fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<SaveOutcome> {
     let path = Path::new(&request.path);
     if path.extension().is_none_or(|s| s != "vsfproject") {
         return Err("Project filename must end in .vsfproject".into());
@@ -454,6 +510,7 @@ fn save(app: &tauri::AppHandle, request: SaveRequest) -> Result<Attachment> {
                 &destination,
                 request.token,
                 project,
+                request.update_subtitle_reference,
             )
         },
     )
@@ -519,11 +576,26 @@ impl Projects {
         destination: &Path,
         token: Option<u64>,
         project: Project,
-    ) -> Result<Attachment> {
+        update_reference: bool,
+    ) -> Result<SaveOutcome> {
+        // Only successful publication may clear dirty translation/review state.
+        // publish rechecks this attachment token under the project lock.
+        if let Some(token) = token {
+            let reference = self.subtitle_reference(token, subtitle, None)?;
+            if reference.changed && !update_reference {
+                return Ok(SaveOutcome::SubtitleReferenceChanged {
+                    from: reference.from,
+                    to: subtitle.map(|p| p.to_string_lossy().into_owned()),
+                });
+            }
+        } else {
+            self.require_unattached()?;
+        }
         documents.with_project_subtitle(subtitle, |context, format, translation, review| {
             let project =
                 project.with_document(destination, context, format, translation, review)?;
             self.save(destination, token, &project)
+                .map(|attachment| SaveOutcome::Saved { attachment })
         })
     }
 }

@@ -133,7 +133,11 @@ export async function selectAudioTrack(
 }
 
 /** Reuse the media owner and detach policy for picker/drop/recent entry points. */
-export async function openMediaPath(owners: Owners, path: string) {
+export async function openMediaPath(
+  owners: Owners,
+  path: string,
+  keepProject = false,
+) {
   const { workspace, media, timeline, projects, scenes, preferences } = owners;
   if (workspace.disposed) return false;
   if (!media.status.available)
@@ -151,6 +155,7 @@ export async function openMediaPath(owners: Owners, path: string) {
   )
     return false;
   media.path = path;
+  if (keepProject) return true;
   await projects.detach();
   if (workspace.disposed) return false;
   scenes.clearRestored();

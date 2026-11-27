@@ -8,7 +8,7 @@ export class WorkspaceOpen {
   private unlisten: (() => void) | null = null;
   constructor(
     private workspace: Workspace,
-    private open: (file: OpenFile) => Promise<boolean>,
+    private open: (file: OpenFile, pairedMedia?: string) => Promise<boolean>,
     private prepare: () => Promise<void>,
     private api = client,
   ) {}
@@ -53,7 +53,11 @@ export class WorkspaceOpen {
   }
   private async openFiles(files: OpenFile[]) {
     for (const file of files) {
-      if (!this.alive || !(await this.open(file))) return;
+      const pairedMedia =
+        file.kind === 'subtitles'
+          ? files.find((f) => f.kind === 'media')?.path
+          : undefined;
+      if (!this.alive || !(await this.open(file, pairedMedia))) return;
     }
   }
   dispose() {

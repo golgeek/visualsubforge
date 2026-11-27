@@ -1,6 +1,9 @@
 // Isolated real Rust/WebView review lane. All subtitles/media are generated here.
 // File choices and DOM events are supplied; native-window observations are separate.
-import { submitCreateProject } from './create-project.mjs';
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import { packageChoices, exchangeRoundTrip } from './review-packages.mjs';
 import { acceptReview } from './review.mjs';
 import { time } from './timing-fixtures.mjs';
@@ -395,6 +398,7 @@ async function comparisonWorkflows() {
   assert.equal((await compared()).statistics.changes, 1);
   await record('Saved subtitles-only review project reopens');
   await menu('openSubtitles');
+  await chooseProjectReference(browser, 'Open without project');
   await until('received open', async () => (await status()).path === revised);
   await menu('compareOriginal');
   const changes = await compared();

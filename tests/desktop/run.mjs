@@ -1,3 +1,7 @@
+import {
+  chooseProjectReference,
+  submitCreateProject,
+} from './create-project.mjs';
 import { commitCue, installEditorInput } from './editor-input.mjs';
 import { startChrome, saveAppearance } from './start-appearance.mjs';
 // Real webview + Tauri IPC + filesystem. Only file selection and app-data paths
@@ -449,8 +453,33 @@ try {
   );
   const savedBytes = await readFile(copy, 'utf8');
   assert.equal(savedBytes, original.replace('<i>世界</i>', 'Edited 世界'));
+  const subtitleProject = join(root, 'copy.vsfproject');
+  await menu('saveProject');
+  await submitCreateProject(browser, subtitleProject);
+  await until('subtitle-only project attached', () =>
+    browser
+      .$('footer [role="status"]')
+      .getText()
+      .then((text) => text.includes('Project created')),
+  );
+  const projectBytes = await readFile(subtitleProject);
   await menu('closeSubtitles');
+  await chooseProjectReference(browser, 'Cancel');
+  await until('close cancellation releases the workspace', () =>
+    browser.execute(
+      () =>
+        document.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+        !document.querySelector('dialog[open]'),
+    ),
+  );
+  assert.ok(samePath((await status()).path, copy));
+  await menu('closeSubtitles');
+  await chooseProjectReference(browser, 'Close without project');
   await documentIs('closed document', (doc) => !doc.loaded);
+  assert.deepEqual(await readFile(subtitleProject), projectBytes);
+  await record({
+    step: 'Cancel keeps the only subtitle open. Close without project detaches and preserves project bytes.',
+  });
   await menu('openSubtitles');
   await documentIs(
     'reopened saved copy',

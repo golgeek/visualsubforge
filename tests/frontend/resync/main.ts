@@ -511,7 +511,10 @@ async function appCases() {
               'Project saved before protected subtitles',
             );
             projectSubtitle = args.request!.subtitlePath;
-            return { path: '/target.vsfproject', token: 1 };
+            return {
+              kind: 'saved',
+              attachment: { path: '/target.vsfproject', token: 1 },
+            };
           case 'media_action': {
             const action = args.action as MediaAction;
             if (action.kind === 'occlude') occluded = action.occluded;

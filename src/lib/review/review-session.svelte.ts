@@ -292,6 +292,11 @@ export class ReviewSession {
     );
   }
 
+  replaceSubtitle: (
+    action: 'review' | 'compare',
+    path: string,
+    protect: () => Promise<boolean>,
+  ) => Promise<boolean> = (_action, _path, protect) => protect();
   detachProject: () => Promise<void> = async () => {};
   projectAttached: () => boolean = () => false;
   decideProject: () => Promise<'save' | 'later'> = async () => 'later';
@@ -777,7 +782,11 @@ export class ReviewSession {
         return;
       }
       if (operation === 'startReview') {
-        if (!(await this.unsaved.protect(this.saveProject)) || !this.alive)
+        const neededSave = !this.subtitles.snapshot.path;
+        if (
+          neededSave &&
+          (!(await this.unsaved.protect(this.saveProject)) || !this.alive)
+        )
           return;
         const original = this.subtitles.snapshot.path;
         if (!original)
@@ -786,6 +795,15 @@ export class ReviewSession {
         const proposal = original.replace(/(\.[^./\\]+)$/u, '.reviewed$1');
         const path = await chooseFile('saveSubtitles', proposal);
         if (!path || !this.alive) return;
+        if (
+          !(await this.replaceSubtitle('review', path, () =>
+            neededSave
+              ? Promise.resolve(true)
+              : this.unsaved.protect(this.saveProject),
+          )) ||
+          !this.alive
+        )
+          return;
         await this.subtitles.changeReview(
           { kind: 'start', key: this.key(), path, discard: true },
           this.subtitles.snapshot,
@@ -816,13 +834,23 @@ export class ReviewSession {
             replace = true;
           }
         }
-        const consent = await this.confirmReplacement(
-          inspect.key,
-          !replace && !!inspect.sameOriginal,
-          replace,
-        );
-        if (!consent || !this.alive) return;
+        const consent = () =>
+          this.confirmReplacement(
+            inspect.key,
+            !replace && !!inspect.sameOriginal,
+            replace,
+          );
+        let attachConsent;
         if (replace && revised) {
+          if (
+            !(await this.replaceSubtitle(
+              'compare',
+              revised,
+              async () => !!(await consent()),
+            )) ||
+            !this.alive
+          )
+            return;
           if (
             !(await this.subtitles.command({
               kind: 'open',
@@ -831,12 +859,16 @@ export class ReviewSession {
             }))
           )
             return;
+          attachConsent = { key: this.key(), discard: false };
+        } else {
+          attachConsent = await consent();
+          if (!attachConsent || !this.alive) return;
         }
         await this.subtitles.changeReview(
           {
             kind: 'attach',
             path: original,
-            ...(replace ? { key: this.key(), discard: false } : consent),
+            ...attachConsent,
           },
           this.subtitles.snapshot,
         );
