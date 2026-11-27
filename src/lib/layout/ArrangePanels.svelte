@@ -92,7 +92,11 @@
     );
   }
   function resize(row: number, field: 'weight' | 'split', value: number) {
-    if (!Number.isInteger(value)) return;
+    if (
+      !Number.isFinite(value) ||
+      (field === 'split' && !Number.isInteger(value))
+    )
+      return;
     const next = structuredClone($state.snapshot(layout.arrangement));
     next.rows[row]![field] = value;
     void run(() => layout.arrange(next));

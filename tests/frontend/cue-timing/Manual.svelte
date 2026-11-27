@@ -7,6 +7,7 @@
   } from '../../../src/lib/timing/cue-timing';
   import type { Cue } from '../../../src/lib/client';
 
+  const zoomed = new URLSearchParams(location.search).has('zoom');
   let accepted = $state<Cue>({
     id: 1,
     startMs: 1000,
@@ -52,8 +53,8 @@
 <div style="position: relative; height: 110px; width: 700px; background: #222;">
   <CueTiming
     {cue}
-    start={0}
-    span={5}
+    start={zoomed ? 1 : 0}
+    span={zoomed ? 3 : 5}
     duration={60}
     enabled={true}
     onbegin={() => {

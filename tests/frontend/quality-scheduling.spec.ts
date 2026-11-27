@@ -22,11 +22,14 @@ test('a commit reads immediately and waits for the worker silently while draft i
     const { qualityView }: typeof import('./ipc-contract-samples') =
       await import(sampleModule);
     const reads: QualityRequest[] = [];
+    const cancels: number[] = [];
     let finish = () => {};
     const activity = new WorkspaceActivity();
     const session = new QualitySession(
       {
-        cancelQuality: async () => {},
+        cancelQuality: async (id) => {
+          cancels.push(id);
+        },
         readQuality: async (request) => {
           reads.push(request);
           if (request.afterWorker != null)
@@ -65,7 +68,7 @@ test('a commit reads immediately and waits for the worker silently while draft i
       draft: null,
     };
     session.configure(input);
-    return { session, reads, activity, input, finish: () => finish() };
+    return { session, reads, cancels, activity, input, finish: () => finish() };
   });
   await page.clock.runFor(181);
   expect(await unit.evaluate((u) => u.reads.length)).toBe(1);
@@ -100,6 +103,17 @@ test('a commit reads immediately and waits for the worker silently while draft i
   expect(await unit.evaluate((u) => u.reads.at(-1)?.draft?.kind)).toBe(
     'update',
   );
+  const beforePause = await unit.evaluate((u) => {
+    u.session.pause();
+    u.session.configure({ ...u.input, revision: 3 });
+    return u.reads.length;
+  });
+  await page.clock.runFor(2000);
+  expect(await unit.evaluate((u) => u.cancels)).toEqual([17]);
+  expect(await unit.evaluate((u) => u.reads.length)).toBe(beforePause);
+  await unit.evaluate((u) => u.session.restart());
+  await page.clock.runFor(5);
+  expect(await unit.evaluate((u) => u.reads.at(-1)?.restart)).toBe(true);
   await unit.evaluate((u) => {
     u.session.dispose();
     u.activity.dispose();

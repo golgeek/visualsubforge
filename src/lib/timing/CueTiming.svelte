@@ -28,6 +28,7 @@
   } = $props();
   const boundaries: CueBoundary[] = ['start', 'end'];
   let layer: HTMLDivElement;
+  let activeBoundary = $state<CueBoundary | null>(null);
   let gesture: {
     boundary: CueBoundary;
     pointer: number | null;
@@ -42,6 +43,7 @@
     const previous = gesture;
     if (!previous) return;
     gesture = null;
+    activeBoundary = null;
     if (
       previous.pointer !== null &&
       previous.element.hasPointerCapture(previous.pointer)
@@ -67,6 +69,7 @@
       originalMs: boundary === 'start' ? cue.startMs : cue.endMs,
       dragging: false,
     };
+    activeBoundary = boundary;
     element.focus({ preventScroll: true });
     return true;
   }
@@ -161,7 +164,7 @@
 <div class="timing-layer" bind:this={layer}>
   {#each boundaries as boundary (boundary)}
     {@const time = boundary === 'start' ? cue.startMs : cue.endMs}
-    {#if time / 1000 >= start && time / 1000 <= start + span}
+    {#if activeBoundary === boundary || (time / 1000 >= start && time / 1000 <= start + span)}
       <button
         class="boundary"
         class:end={boundary === 'end'}
