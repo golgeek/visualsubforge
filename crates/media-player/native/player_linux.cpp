@@ -82,7 +82,8 @@ void on_main(Surface &surface, std::function<void()> action) {
 void *gl_proc(void *, const char *name) { return reinterpret_cast<void *>(eglGetProcAddress(name)); }
 gboolean service(gpointer raw);
 void schedule(Surface &s) {
-    if (!s.scheduled.exchange(true)) g_idle_add(service, &s);
+    if (!s.scheduled.exchange(true))
+        g_idle_add_full(G_PRIORITY_HIGH_IDLE, service, &s, nullptr);
 }
 void frame_ready(void *raw) {
     auto &s = *static_cast<Surface *>(raw);

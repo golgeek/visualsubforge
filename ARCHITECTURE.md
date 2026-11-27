@@ -24,7 +24,7 @@ media libraries with per-file origin-relative runpaths. GTK, WebKitGTK and
 driver libraries retain their distribution-managed dependencies. The loader
 audit observes bindings and mapped files in the running GUI process.
 
-The GTK surface coalesces render and layout notifications into one idle source on the GTK main context. Unmap schedules a pending paint for acknowledgement. The scheduled flag is cleared before processing the dirty flags, so concurrent work can schedule another turn. Shutdown disconnects widget handlers and removes pending sources after render-context teardown. Only tracing installs a 500 ms reporting timer. It tracks a
+The GTK surface coalesces render and layout notifications into one high-idle source on the GTK main context so layout and render requests precede GTK resize and redraw. Unmap schedules a pending paint for acknowledgement. The scheduled flag is cleared before processing the dirty flags, so concurrent work can schedule another turn. Shutdown disconnects widget handlers and removes pending sources after render-context teardown. Only tracing installs a 500 ms reporting timer. It tracks a
 pending frame until GTK paints it or the surface becomes unmapped, at which point
 it acknowledges a skipped frame. GTK can discard a queued draw during
 close/reopen or occlusion. The mpv control worker remains independent of painting.

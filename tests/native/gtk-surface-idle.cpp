@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
     vsf_surface_layout(surface, 0, 0, 100, 100, 1);
     auto *source = pending();
     assert(source);
+    assert(g_source_get_priority(source) == G_PRIORITY_HIGH_IDLE);
     vsf_surface_layout(surface, 0, 0, 200, 200, 1);
     assert(pending() == source);
     while (pending()) g_main_context_iteration(context, TRUE);

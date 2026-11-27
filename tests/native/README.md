@@ -20,7 +20,7 @@ rustc --edition=2024 --test --cfg 'feature="media-prototype"' tests/native/media
 /tmp/vsf-media-transport-test
 ```
 
-On a GTK 3 / WebKitGTK 4.1 desktop, the source-lifetime control exercises creation, coalescing, dispatch and removal of pending native work. Run it with tracing disabled.
+On a GTK 3 / WebKitGTK 4.1 desktop, the source-lifetime control exercises creation, high-idle priority, coalescing, dispatch and removal of pending native work. Run it with tracing disabled.
 
 ```sh
 g++ -std=c++17 -pthread tests/native/gtk-surface-idle.cpp -o /tmp/vsf-gtk-idle $(pkg-config --cflags --libs webkit2gtk-4.1 gtk+-3.0 mpv epoxy)
