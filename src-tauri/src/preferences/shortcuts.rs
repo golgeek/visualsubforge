@@ -65,6 +65,19 @@ impl Default for Shortcuts {
     }
 }
 impl Shortcuts {
+    // Earlier versions allowed Shift as a separate modifier for comma and period.
+    pub fn normalize_saved_punctuation(&mut self) {
+        for binding in &mut self.bindings {
+            for chord in std::iter::once(&mut binding.key).chain(binding.mac_key.as_mut()) {
+                let mut parts: Vec<_> = chord.split('+').collect();
+                if matches!(parts.as_slice(), [.., "Shift", "," | "."]) {
+                    parts.remove(parts.len() - 2);
+                    *chord = parts.join("+");
+                }
+            }
+        }
+    }
+
     // Older bundled presets had empty zoom slots. Never overwrite a custom
     // binding or introduce a conflict while upgrading the bundled defaults.
     pub fn upgrade_zoom_defaults(&mut self) {
@@ -103,13 +116,15 @@ impl Shortcuts {
     }
 
     // Add only missing bundled slots. Custom sets remain exactly as saved.
-    pub fn upgrade_cue_text_defaults(&mut self) {
+    pub fn upgrade_scoped_defaults(&mut self) {
         if self.preset != Preset::Custom {
-            for binding in Self::default()
-                .bindings
-                .into_iter()
-                .filter(|b| b.mac_key.is_some())
-            {
+            let current = self.preset == Preset::Current;
+            for binding in Self::default().bindings.into_iter().filter(|b| {
+                b.mac_key.is_some()
+                    || (current
+                        && b.mode == Mode::Workspace
+                        && matches!(b.action.as_str(), "previousFrame" | "nextFrame"))
+            }) {
                 if !self
                     .bindings
                     .iter()
@@ -150,7 +165,7 @@ impl Shortcuts {
                         && canonical(other.platform_key(mac)) == canonical(key)
                 }) {
                     return Err(format!(
-                        "{} conflicts with {} in an overlapping focus mode",
+                        "{} conflicts with {} on {key} in an overlapping focus mode",
                         binding.action, other.action
                     ));
                 }
@@ -199,7 +214,7 @@ fn validate_key(binding: &Binding, chord: &str) -> Result<(), String> {
             || key.as_bytes()[0].is_ascii_digit()
             || ["[", "]", ",", ".", "/", "?", "-", "="].contains(&key));
     if chord.len() > 48
-        || (key == "?" && modifiers.contains(&"Shift"))
+        || (matches!(key, "?" | "," | ".") && modifiers.contains(&"Shift"))
         || modifiers != expected
         || !(function
             || character
@@ -299,10 +314,10 @@ mod tests {
         let mut custom = old.clone();
         custom.preset = Preset::Custom;
         let saved = custom.clone();
-        custom.upgrade_cue_text_defaults();
+        custom.upgrade_scoped_defaults();
         assert_eq!(custom, saved);
-        old.upgrade_cue_text_defaults();
-        old.upgrade_cue_text_defaults();
+        old.upgrade_scoped_defaults();
+        old.upgrade_scoped_defaults();
         assert_eq!(old.bindings.len(), current.bindings.len());
         assert_eq!(
             old.key_for("previousCue", Mode::Text, true),
@@ -316,6 +331,19 @@ mod tests {
             .unwrap()
             .key = "CmdOrCtrl+Alt+Up".into();
         assert!(old.validate().unwrap_err().contains("conflicts"));
+    }
+
+    #[test]
+    fn explicit_shift_punctuation_is_rejected_for_new_bindings() {
+        for chord in ["Shift+,", "Shift+.", "Alt+Shift+,", "CmdOrCtrl+Shift+."] {
+            let binding = Binding {
+                action: "splitCue".into(),
+                mode: Mode::Workspace,
+                key: chord.into(),
+                mac_key: None,
+            };
+            assert!(validate_key(&binding, chord).is_err(), "{chord}");
+        }
     }
 
     #[test]

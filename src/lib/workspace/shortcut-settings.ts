@@ -7,6 +7,7 @@ import type {
 } from '../client';
 import {
   matchesBinding,
+  matchesByCharacter,
   platformKey,
   type ActionId,
   type ShortcutKey,
@@ -86,7 +87,7 @@ function validateBindings(bindings: ShortcutBinding[]): string | null {
       !/^(?:[A-Z0-9[\],./?=-]|F(?:[1-9]|1\d|2[0-4])|Return|Enter|Escape|Space|Tab|Left|Right|Up|Down|Backspace|Delete)$/.test(
         key,
       ) ||
-      (key === '?' && parts.includes('Shift'))
+      (matchesByCharacter(key) && parts.includes('Shift'))
     )
       return 'Use CmdOrCtrl, Alt, Shift and a supported key, in that order';
     if (
@@ -167,7 +168,7 @@ export function shortcutFromEvent(event: ShortcutKey): string | null {
   return [
     event.ctrlKey || event.metaKey ? 'CmdOrCtrl' : '',
     event.altKey ? 'Alt' : '',
-    event.shiftKey && key !== '?' ? 'Shift' : '',
+    event.shiftKey && !matchesByCharacter(key) ? 'Shift' : '',
     key,
   ]
     .filter(Boolean)

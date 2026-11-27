@@ -8,6 +8,10 @@ export async function stateOwnerCases(passed: (message: string) => void) {
     if (!condition) throw new Error(message);
   };
   const preferences = new WorkspacePreferences();
+  assert(
+    defaultPreferences.showQualityMetrics && preferences.showQualityMetrics,
+    'Cue metrics start visible',
+  );
   const saved = {
     ...defaultPreferences,
     showQualityMetrics: true,

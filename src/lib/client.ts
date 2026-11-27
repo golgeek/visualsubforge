@@ -598,7 +598,7 @@ export const defaultPreferences: Preferences = {
   sceneDetail: 'standard',
   timing: defaultTiming,
   quality: builtinQualityProfiles[0]!,
-  showQualityMetrics: false,
+  showQualityMetrics: true,
   zoomWaveformToCue: true,
   timingRepair: {
     priority: 'readingSpeed',

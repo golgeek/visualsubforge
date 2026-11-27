@@ -13,7 +13,7 @@ export class WorkspacePreferences {
   });
   private timing = $state({ ...defaultTiming });
   private context = $state(0);
-  showQualityMetrics = $state(false);
+  showQualityMetrics = $state(defaultPreferences.showQualityMetrics);
   get preferences() {
     return this.saved;
   }

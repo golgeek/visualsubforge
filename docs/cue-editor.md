@@ -41,7 +41,7 @@ Start near shot change and End near shot change identify the affected endpoint.
 Both +N and All explanations… open the selected cue’s accepted findings. Close returns
 focus to the button that opened the dialog. Show all issues in file opens the Issues dock. Meters and per-source-line character
 counts come from Rust; wrapped display lines do not change source-line counts.
-Enable Cue metrics to show the meters and source-line counts. Draft and accepted
+Cue metrics show the meters and source-line counts by default. Turn off **Cue metrics** to hide them. Draft and accepted
 metrics are labelled separately. During a refresh the meters and source-line
 gutter keep their size. The last measurements for the same cue show their
 source and dim in place if the read takes longer. Issue chips and both

@@ -463,7 +463,9 @@ ungrouped command. Rust remains the sole formatting/validation/history owner.
 Selected-cue issue pages are independent of Problems filters and bounded to 200.
 They include related-cue findings, group CPS/RS findings and sort violations first.
 The fixed-height strip renders three chips; overflow reveals the existing Issues
-dock without changing the preset. Meters and source-line counts use Rust projections.
+dock without changing the preset. Meters and source-line counts use Rust projections
+and default to visible. A saved visibility preference takes precedence. Wide
+editors put the meters beside the issue strip to preserve cue-list capacity.
 
 Rust checks the origin of a selected-cue preview under the document lock. A
 reviewable user proposal keeps the timing slot until acceptance, cancellation or
@@ -882,8 +884,10 @@ startup and after a rebind.
 The Single-key editing preset (`vsfDefault` in saved settings) is opt-in.
 A binding can override its portable key with `macKey`. All three bundled
 presets use a macOS-only cue-text slot for Command+Option+Up/Down. Both
-platform projections are validated on save. Menus, Settings and the webview
-resolve the same confirmed bindings. Existing custom sets keep their slots. Migrated settings keep
+platform projections are validated on save. On read, Rust removes redundant
+Shift modifiers from legacy comma and period bindings before adding missing
+defaults and validating conflicts. This migration runs in memory. Menus, Settings
+and the webview resolve the same confirmed bindings. Existing custom sets keep their slots. Migrated settings keep
 current bindings except Replace moves to Cmd/Ctrl+Shift+F to resolve the macOS
 Merge Previous collision. See [Settings and shortcuts](docs/settings-shortcuts.md).
 Distinct cue counts per quality rule are computed once from the accepted report

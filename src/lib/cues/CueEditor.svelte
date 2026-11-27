@@ -469,6 +469,16 @@
     font-size: 11px;
   }
 
+  /* Wide editors can show both readouts without taking a cue row from the list. */
+  @container (min-width: 68rem) {
+    .quality-readout:has(.metric-slot) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(34rem, 1fr);
+      align-items: center;
+      column-gap: 12px;
+    }
+  }
+
   .metric-slot {
     height: 28px;
     flex: none;
@@ -484,6 +494,7 @@
   }
 
   .editor {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     padding: 3px 8px;

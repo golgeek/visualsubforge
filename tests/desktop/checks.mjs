@@ -29,7 +29,8 @@ export async function qualityChecking({
   const before = await status();
   const context = (await invoke('quality_settings')).current;
   const metrics = await browser.$('input[aria-label="Cue metrics"]');
-  await metrics.click();
+  const initiallyVisible = await metrics.isSelected();
+  if (!initiallyVisible) await metrics.click();
   const accepted = await browser.$('[aria-label="Accepted cue metrics"]');
   await until('accepted cue metrics', () => accepted.isExisting());
   await chooseCommand(browser, 'problems');
@@ -166,7 +167,7 @@ export async function qualityChecking({
   });
   await browser.saveScreenshot(join(evidence, 'quality-findings.png'));
   await (await browser.$('[aria-label="Close issues"]')).click();
-  await metrics.click();
+  if (!initiallyVisible) await metrics.click();
   await (await browser.$$('.cue-row'))[0].click();
   await until(
     'original cue selected',

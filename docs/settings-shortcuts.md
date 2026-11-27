@@ -36,8 +36,11 @@ or stale. They do not count findings or unsaved cue text.
 
 The transport bar starts with Play/Pause and Loop range. Loop range plays the
 selected interval. Press it again to clear an active loop. Previous Frame and
-Next Frame are available in the Playback menu. In the Single-key editing
-preset, Left and Right step frames with the cue list or waveform focused.
+Next Frame are available in the Playback menu. With Current VSF bindings, comma
+steps back one frame and period steps forward when the list or waveform has
+focus. They follow the character your keyboard layout produces, including when
+it needs Shift. In text fields, comma and period type normally. In the Single-key
+editing preset, Left and Right step frames with the cue list or waveform focused.
 
 ## Shortcut presets
 
@@ -64,6 +67,10 @@ Everywhere and its alternate overlap all focus modes; list/waveform and cue-text
 bindings may share a key. Conflicts prevent saving. Escape, text formatting and
 OS-reserved keys retain their owners. Ctrl+Alt character bindings are rejected to
 preserve AltGr typing; composition is never dispatched as a command.
+
+Older saved shortcuts with Shift before a comma or period load without that
+Shift. If this makes two saved actions conflict, loading reports both actions
+and leaves the file intact. Reassign one in the settings file and reopen the app.
 
 Native menus display the primary Everywhere binding. Scoped and alternate
 bindings are handled by the webview. A primary shortcut that also navigates text

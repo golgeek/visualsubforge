@@ -219,24 +219,25 @@ async function run() {
       new URLSearchParams(location.search).get('capacity'),
     );
     if (capacity) {
-      await until(
-        () =>
-          host.querySelector('.cue-list')!.clientHeight >=
-          capacity *
-            host.querySelector('.cue-row')!.getBoundingClientRect().height,
-      );
-      const text = host.querySelector<HTMLTextAreaElement>(
-        '[aria-label="Subtitle text"]',
-      )!;
-      const css = getComputedStyle(text);
-      assert(
-        (text.clientHeight -
+      // Pane measurements reach the grid on the frame after ResizeObserver.
+      await until(() => {
+        const text = host.querySelector<HTMLTextAreaElement>(
+          '[aria-label="Subtitle text"]',
+        )!;
+        const css = getComputedStyle(text);
+        const contentHeight =
+          text.clientHeight -
           parseFloat(css.paddingTop) -
-          parseFloat(css.paddingBottom)) /
-          parseFloat(css.lineHeight) >=
-          2,
-        'Two editor lines survive native chrome budget',
-      );
+          parseFloat(css.paddingBottom);
+        const rowHeight = host
+          .querySelector('.cue-row')!
+          .getBoundingClientRect().height;
+        return (
+          host.querySelector('.cue-list')!.clientHeight >=
+            capacity * rowHeight &&
+          contentHeight >= 2 * parseFloat(css.lineHeight)
+        );
+      });
       passed(
         'Timing preserves requested rows and two editor lines in the smaller hosted client area',
       );
