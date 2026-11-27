@@ -496,3 +496,29 @@ fn font_count_aggregate_and_document_limits_are_independent() {
         oversized
     );
 }
+
+#[test]
+fn font_proposals_warn_at_the_encoded_header_budget() {
+    let parsed = subtitle_formats::parse(ASS, None).unwrap();
+    let small = attachments::propose(
+        &parsed.document,
+        &parsed.source,
+        put(None, "test.ttf", TTF),
+        || Ok(()),
+    )
+    .unwrap();
+    assert!(!small.summary.preview_fonts_omitted);
+    let large = large_font(1600 * 1024);
+    let replace = attachments::propose(
+        small.document(),
+        small.source(),
+        put(
+            Some(small.summary.after.as_ref().unwrap().id),
+            "test.ttf",
+            &large,
+        ),
+        || Ok(()),
+    )
+    .unwrap();
+    assert!(replace.summary.preview_fonts_omitted);
+}

@@ -356,6 +356,9 @@ impl Media {
                         preview.reconcile(player, &documents);
                         status.subtitle_preview_error = preview.error.clone();
                         status.subtitle_font_diagnostics = player.font_diagnostics();
+                        if let Some(notice) = preview.font_notice {
+                            status.subtitle_font_diagnostics.insert(0, notice.into());
+                        }
                         let revision = preview.revision().filter(|_| preview.error.is_none());
                         status.preview_document_generation = revision.map(|r| r.0);
                         status.preview_document_revision = revision.map(|r| r.1);

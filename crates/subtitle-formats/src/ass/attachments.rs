@@ -241,15 +241,7 @@ impl Source {
             // Canonical font data can itself begin '[' and end ']'. Only a
             // recognized header, or text outside the encoding alphabet, can
             // delimit it. Guessing a section here would split valid fonts.
-            let encoded_line = !text.is_empty()
-                && text.len() <= 80
-                && text.bytes().all(|b| (33..=96).contains(&b));
-            if text.starts_with('[')
-                && text.ends_with(']')
-                && (section != Some(AttachmentKind::Font)
-                    || recognized_header(text)
-                    || !encoded_line)
-            {
+            if section_header(text, section == Some(AttachmentKind::Font)) {
                 if let Some(mut block) = active.take() {
                     block.end = index;
                     if block.kind == AttachmentKind::Font && !recognized_header(text) {
@@ -333,6 +325,14 @@ fn body(raw: &str) -> &str {
     raw.strip_suffix("\r\n")
         .or_else(|| raw.strip_suffix('\n'))
         .unwrap_or(raw)
+}
+pub(super) fn section_header(text: &str, in_fonts: bool) -> bool {
+    text.starts_with('[')
+        && text.ends_with(']')
+        && (!in_fonts
+            || recognized_header(text)
+            || text.len() > 80
+            || !text.bytes().all(|b| (33..=96).contains(&b)))
 }
 fn recognized_header(text: &str) -> bool {
     [

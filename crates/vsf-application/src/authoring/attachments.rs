@@ -7,6 +7,20 @@ use sha2::{Digest, Sha256};
 use subtitle_core::Document;
 use subtitle_formats::{Source, ass::AttachmentKind};
 
+pub const PREVIEW_HEADER_LIMIT: usize = 2 * 1024 * 1024;
+
+/// Share the exact encoded-header decision between the proposal and the renderer.
+pub fn preview_header(script: &subtitle_formats::ass::Source) -> (String, bool) {
+    let header = script.preview_header();
+    if header.len() > PREVIEW_HEADER_LIMIT {
+        let without_fonts = script.preview_header_without_fonts();
+        if without_fonts.len() <= PREVIEW_HEADER_LIMIT {
+            return (without_fonts, true);
+        }
+    }
+    (header, false)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +69,7 @@ pub struct AttachmentSummary {
     pub after: Option<AttachmentEntry>,
     pub document_bytes: u32,
     pub preview_size_exceeded: bool,
+    pub preview_fonts_omitted: bool,
 }
 pub enum FontEdit<'a> {
     Put {
@@ -239,6 +254,7 @@ pub fn propose(
             )
         }
     };
+    let (_, preview_fonts_omitted) = preview_header(&next);
     let next = Source::Ass(next);
     crate::subtitle_file::validate_document(document, &next)?;
     let after = if action == AttachmentAction::Remove {
@@ -272,6 +288,7 @@ pub fn propose(
             after,
             document_bytes: number(length)?,
             preview_size_exceeded: length > 4 * 1024 * 1024,
+            preview_fonts_omitted,
         },
     })
 }

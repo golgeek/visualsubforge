@@ -3,6 +3,12 @@
 Task 018 is complete within the Mac runtime scope below. Accepted subtitle text,
 style declarations, save bytes and history are unchanged by font selection.
 
+When embedded fonts push the ASS/SSA preview header over 2 MiB (roughly
+1.5 MiB of decoded fonts), VSF tries the same preview without its Fonts
+section. Subtitle font notices explains that installed fonts are being used.
+Saving or exporting the subtitle file retains its embedded fonts. The normal
+transport limit still applies to the remaining headers and cue packets.
+
 ## Rendering and notices
 
 libass resolves declared fonts, font attachments and platform fonts. On the

@@ -629,6 +629,10 @@ floating-point outputs must be finite. Optional native measurements may be null.
 
 ## Native media boundary
 
+The font proposal and ASS/SSA packet renderer use the same encoded-header budget.
+Only the preview copy may omit embedded fonts. The renderer owns the resulting
+notice for the installed revision and clears it on replacement or media reset.
+
 One media control worker owns the native player and playback session. Native
 surface creation and window changes respect the platform UI thread. macOS maps
 the actual WKWebView bounds into the native surface parent on the main thread,
