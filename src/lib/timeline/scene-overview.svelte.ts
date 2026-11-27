@@ -50,7 +50,7 @@ export class SceneOverview {
           view.generation !== input.generation ||
           view.running ||
           view.mode !== 'visual' ||
-          view.error
+          (view.error && view.partial)
         )
           throw new Error(
             view.error ||

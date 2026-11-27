@@ -65,7 +65,7 @@
         !view.running &&
         !pending &&
         !error &&
-        !view.error
+        !(view.error && view.partial)
         ? {
             session,
             generation,
@@ -102,12 +102,13 @@
   );
   const message = $derived(
     error ||
-      view?.error ||
+      (view?.error && [view.error, view.note].filter(Boolean).join(' · ')) ||
       (view?.running
         ? `${phaseLabel}${view.phase === 'candidates' ? '…' : ` ${percent}%`} · ${countLabel(view.total, 'scene change')}`
-        : view?.mode === 'visual'
-          ? `${countLabel(view.total, 'scene change')}${view.partial ? ' · partial' : ''}${view.truncated ? ' · zoom for all' : ''}`
-          : ''),
+        : view?.note ||
+          (view?.mode === 'visual'
+            ? `${countLabel(view.total, 'scene change')}${view.partial ? ' · partial' : ''}${view.truncated ? ' · zoom for all' : ''}`
+            : '')),
   );
   $effect(() => {
     const key = `${session}:${loaded}:${path}`;
@@ -195,8 +196,7 @@
         const next = await scenesCancel(session);
         if (alive && request === epoch) {
           generation = next;
-          if (view)
-            view = { ...view, running: false, scanning: null, error: null };
+          // The next poll supplies the authoritative cuts and completion note.
         }
       } else {
         const next = await scenesStart(path, session, 'visual', detail);
@@ -260,7 +260,7 @@
   });
 </script>
 
-{#if view?.running || error || view?.error || view?.truncated || view?.partial}
+{#if view?.running || error || view?.error || view?.truncated || view?.partial || view?.note}
   <div class="scenes" aria-label="Scene detection">
     {#if view?.running}
       <progress
@@ -272,7 +272,8 @@
     <span
       class="status"
       role="status"
-      title={[message, view?.note].filter(Boolean).join(' · ')}>{message}</span
+      title={view?.running && view.note ? `${message} · ${view.note}` : message}
+      >{message}</span
     >
   </div>
 {/if}
