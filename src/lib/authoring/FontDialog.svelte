@@ -207,7 +207,10 @@
       {#if summary.action === 'remove'}<p>
           Cues using this font may fall back to an installed font.
         </p>{/if}
-      {#if summary.previewSizeExceeded}<p role="alert">
+      {#if summary.previewFontsOmitted}<p role="alert">
+          Embedded fonts exceed the preview budget. VSF will use installed
+          fonts; the subtitle file will still contain the embedded fonts.
+        </p>{:else if summary.previewSizeExceeded}<p role="alert">
           This file exceeds the 4 MiB native subtitle preview limit. It can be
           saved, but its preview will be unavailable.
         </p>{/if}

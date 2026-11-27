@@ -7,6 +7,7 @@ mod text;
 pub(crate) struct Source {
     pub url: String,
     styled: bool,
+    fonts_omitted: bool,
 }
 
 pub(crate) fn serialize(document: &subtitle_core::Document) -> Result<Option<Source>, String> {
@@ -19,7 +20,11 @@ pub(crate) fn serialize(document: &subtitle_core::Document) -> Result<Option<Sou
     } else {
         text::serialize(document)?.map(|text| format!("memory://{text}"))
     };
-    Ok(url.map(|url| Source { url, styled }))
+    Ok(url.map(|url| Source {
+        url,
+        styled,
+        fonts_omitted: false,
+    }))
 }
 
 pub(crate) fn serialize_source(
@@ -27,9 +32,7 @@ pub(crate) fn serialize_source(
     source: &subtitle_formats::Source,
 ) -> Result<Option<Source>, String> {
     match source {
-        subtitle_formats::Source::Ass(source) => {
-            Ok(ass::serialize_document(document, source)?.map(|url| Source { url, styled: true }))
-        }
+        subtitle_formats::Source::Ass(source) => ass::serialize_document(document, source),
         subtitle_formats::Source::Srt(_) => serialize(document),
         subtitle_formats::Source::WebVtt(_) => {
             if document.cues().is_empty() {
@@ -49,6 +52,7 @@ pub(crate) fn serialize_source(
             Ok(Some(Source {
                 url: format!("memory://{text}"),
                 styled: false,
+                fonts_omitted: false,
             }))
         }
     }
@@ -75,6 +79,7 @@ pub struct Renderer {
     track: Option<u64>,
     unknown_track: bool,
     pub error: Option<String>,
+    pub font_notice: Option<&'static str>,
 }
 impl Renderer {
     pub fn reset(&mut self, session: u64) {
@@ -95,6 +100,7 @@ impl Renderer {
             return;
         }
         self.revision = Some(snapshot.revision);
+        self.font_notice = None;
         if self.unknown_track {
             // Do not accumulate unidentifiable tracks on subsequent edits.
             self.error =
@@ -121,6 +127,11 @@ impl Renderer {
                     self.unknown_track = true;
                     output.command(&["set", "sid", "no"])?;
                     return Err("Native player did not select the accepted subtitle preview".into());
+                }
+                if source.fonts_omitted {
+                    self.font_notice = Some(
+                        "Embedded fonts are too large for VSF’s preview (about 1.5 MiB in total), so the preview uses installed fonts. The fonts are still saved in the file.",
+                    );
                 }
             }
             Ok(())
@@ -245,9 +256,29 @@ mod tests {
             content: Ok(text.map(|text| Source {
                 url: format!("memory://{text}"),
                 styled: false,
+                fonts_omitted: false,
             })),
         }
     }
+    #[test]
+    fn installed_font_notice_belongs_to_the_installed_revision() {
+        let mut renderer = Renderer::default();
+        let mut player = Fake::default();
+        let mut large = snapshot(1, Some("preview"));
+        large
+            .content
+            .as_mut()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .fonts_omitted = true;
+        renderer.replace(&mut player, large);
+        assert!(renderer.error.is_none());
+        assert!(renderer.font_notice.unwrap().contains("installed fonts"));
+        renderer.replace(&mut player, snapshot(2, None));
+        assert!(renderer.font_notice.is_none());
+    }
+
     #[test]
     fn replacement_removes_old_track_and_closed_document_clears_preview() {
         let mut r = Renderer::default();

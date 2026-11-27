@@ -262,7 +262,8 @@ support single sfnt TTF/OTF fonts, bounded to 32 fonts, 4 MiB per decoded font a
 Font collections and opaque/malformed/graphic attachments remain preserved and
 read-only. Font bytes will be read on the existing review worker, with no system
 font installation, filesystem extraction or decoded font data sent to the UI.
-The existing 4 MiB native subtitle-preview ceiling remains separately visible.
+Manage Fonts warns before acceptance if the proposed encoded header needs the
+installed-font fallback. You can still accept, save and undo the change.
 
 Pure format code will own record boundaries/encoding, while application code
 checks sfnt table-directory structure and prepares a reviewable source-property

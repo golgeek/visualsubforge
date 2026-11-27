@@ -32,11 +32,12 @@ pub(super) fn serialize(document: &Document) -> Result<Option<String>, String> {
 pub(super) fn serialize_document(
     document: &Document,
     source: &subtitle_formats::ass::Source,
-) -> Result<Option<String>, String> {
+) -> Result<Option<super::Source>, String> {
+    let (header, fonts_omitted) = vsf_application::authoring::attachments::preview_header(source);
     let ssa = source.variant() == subtitle_formats::ass::Variant::Ssa;
     packets(
         document,
-        &source.preview_header(),
+        &header,
         if ssa { "S_TEXT/SSA" } else { "S_TEXT/ASS" },
         |index, cue| {
             let metadata = cue
@@ -56,6 +57,13 @@ pub(super) fn serialize_document(
             ))
         },
     )
+    .map(|url| {
+        url.map(|url| super::Source {
+            url,
+            styled: true,
+            fonts_omitted,
+        })
+    })
 }
 
 fn packets(
@@ -64,7 +72,7 @@ fn packets(
     codec: &str,
     packet: impl Fn(usize, &subtitle_core::Cue) -> Result<String, String>,
 ) -> Result<Option<String>, String> {
-    if header.len() > MAX_BYTES / 2 {
+    if header.len() > vsf_application::authoring::attachments::PREVIEW_HEADER_LIMIT {
         return Err(limit());
     }
     let mut cues: Vec<_> = document
@@ -222,7 +230,8 @@ mod tests {
                     .unwrap();
             let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
                 .unwrap()
-                .unwrap();
+                .unwrap()
+                .url;
             let bytes = decode_url(&url);
             let contains = |text: &str| {
                 bytes
@@ -285,7 +294,8 @@ mod tests {
             .unwrap();
             let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
                 .unwrap()
-                .unwrap();
+                .unwrap()
+                .url;
             let path = dir.join(format!("{extension}.mks"));
             std::fs::write(&path, decode_url(&url)).unwrap();
             std::fs::write(dir.join(format!("{extension}.url")), &url).unwrap();
@@ -355,6 +365,21 @@ mod tests {
     }
 
     #[test]
+    fn oversized_embedded_fonts_keep_subtitle_packets_and_saved_bytes() {
+        let base = include_str!("../../../tests/fixtures/subtitles/embedded-font.ass");
+        let original = format!("{base}{}", format!("{}\n", "!".repeat(79)).repeat(27000));
+        let parsed = subtitle_formats::parse(&original, None).unwrap();
+        let src = super::super::serialize_source(&parsed.document, &parsed.source)
+            .unwrap()
+            .unwrap();
+        assert!(src.fonts_omitted);
+        let bytes = decode_url(&src.url);
+        assert!(!bytes.windows(7).any(|w| w == b"[Fonts]"));
+        assert!(bytes.windows(14).any(|w| w == b"VSF Fixture Fo"));
+        assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), original);
+    }
+
+    #[test]
     fn embedded_font_header_and_source_are_preserved() {
         let source = include_str!("../../../tests/fixtures/subtitles/embedded-font.ass");
         let parsed = subtitle_formats::parse(source, Some(subtitle_formats::Format::Ass)).unwrap();
@@ -364,7 +389,8 @@ mod tests {
         assert!(header.contains("Style: Default,VSF Fixture Font,"));
         let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
             .unwrap()
-            .unwrap();
+            .unwrap()
+            .url;
         assert!(
             decode_url(&url)
                 .windows(attachment.len())
@@ -399,7 +425,8 @@ mod tests {
                 subtitle_formats::parse(&source, Some(subtitle_formats::Format::Ass)).unwrap();
             let url = serialize_document(&parsed.document, parsed.source.ass().unwrap())
                 .unwrap()
-                .unwrap();
+                .unwrap()
+                .url;
             std::fs::write(dir.join(format!("{name}.url")), &url).unwrap();
             std::fs::write(dir.join(format!("{name}.mks")), decode_url(&url)).unwrap();
             assert_eq!(parsed.source.serialize(&parsed.document).unwrap(), source);
@@ -432,7 +459,8 @@ mod tests {
             .unwrap();
             let url = serialize_document(proposal.document(), proposal.source().ass().unwrap())
                 .unwrap()
-                .unwrap();
+                .unwrap()
+                .url;
             std::fs::write(dir.join(format!("{name}.url")), &url).unwrap();
             std::fs::write(dir.join(format!("{name}.mks")), decode_url(&url)).unwrap();
         }

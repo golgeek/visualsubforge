@@ -391,6 +391,13 @@ impl Source {
     /// own timestamps; retained comments/unknown data remain in saved source.
     /// This does not import or resolve external resources.
     pub fn preview_header(&self) -> String {
+        self.build_preview_header(true)
+    }
+    pub fn preview_header_without_fonts(&self) -> String {
+        self.build_preview_header(false)
+    }
+    fn build_preview_header(&self, include_fonts: bool) -> String {
+        let mut in_fonts = false;
         let mut header = String::new();
         let mut events = false;
         let mut skip_until = 0;
@@ -399,7 +406,9 @@ impl Source {
                 continue;
             }
             if let Some((raw, end)) = self.font_replacement(i) {
-                header.push_str(raw);
+                if include_fonts {
+                    header.push_str(raw);
+                }
                 skip_until = end;
                 continue;
             }
@@ -409,10 +418,11 @@ impl Source {
                 break;
             };
             let trimmed = line.raw.trim_start_matches('\u{feff}').trim();
-            if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            if attachments::section_header(trimmed, in_fonts) {
+                in_fonts = trimmed.eq_ignore_ascii_case("[Fonts]");
                 events = trimmed.eq_ignore_ascii_case("[Events]");
             }
-            if !events {
+            if !events && (include_fonts || !in_fonts) {
                 if let Some(raw) = self.1.records.get(&i) {
                     header.push_str(raw);
                 } else {
@@ -421,7 +431,9 @@ impl Source {
             }
         }
         let mut ended = header.is_empty() || header.ends_with('\n');
-        self.write_added_fonts(&mut ended, |part| header.push_str(part));
+        if include_fonts {
+            self.write_added_fonts(&mut ended, |part| header.push_str(part));
+        }
         header.push_str("\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
         header
     }
