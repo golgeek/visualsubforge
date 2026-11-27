@@ -247,9 +247,14 @@ jobs:
         env:
           GDK_BACKEND: x11
         run: xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' dbus-run-session -- npm run test:desktop
+      - name: Check cold WebView2 startup deadlines
+        if: runner.os == 'Windows'
+        run: node --test tests/desktop/driver-readiness.test.mjs
       - name: Real webview, IPC, persistence and recovery
         if: runner.os != 'Linux'
         timeout-minutes: 5
+        env:
+          VSF_E2E_COLD_WEBVIEW2: ${{ runner.os == 'Windows' && '1' || '' }}
         run: npm run test:desktop
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
