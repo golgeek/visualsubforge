@@ -209,7 +209,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'media_action':
           if (activityTrial || navDelay !== null) {
             const action = args.action as { kind: string };
-            if (action.kind === 'seek') {
+            if (action.kind === 'seek' || action.kind === 'seekToCue') {
               host.dataset.seeks = String(Number(host.dataset.seeks ?? 0) + 1);
               host.dataset.seek = 'pending';
               await new Promise((resolve) =>
