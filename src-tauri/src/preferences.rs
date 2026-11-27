@@ -55,7 +55,7 @@ impl Default for Preferences {
             scene_detail: Detail::Standard,
             timing: Timing::default(),
             quality: Default::default(),
-            show_quality_metrics: false,
+            show_quality_metrics: true,
             zoom_waveform_to_cue: true,
             timing_repair: Default::default(),
             personal_words: Default::default(),
@@ -168,11 +168,11 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
     }
     object
         .entry("showQualityMetrics")
-        .or_insert(serde_json::Value::Bool(false));
+        .or_insert(serde_json::Value::Bool(true));
     let mut value: Preferences =
         serde_json::from_value(json).map_err(|e| format!("Invalid settings: {e}"))?;
     value.shortcuts.upgrade_zoom_defaults();
-    value.shortcuts.upgrade_cue_text_defaults();
+    value.shortcuts.upgrade_scoped_defaults();
     value.layout.upgrade_preview_defaults();
     value.validate()?;
     Ok(value)
@@ -297,6 +297,60 @@ pub(crate) async fn timing_repair_options_save(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cue_metrics_default_on_and_preserve_saved_visibility() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut settings = read(&path).unwrap();
+        assert!(settings.show_quality_metrics);
+        settings.show_quality_metrics = false;
+        write(&path, &settings).unwrap();
+        assert!(!read(&path).unwrap().show_quality_metrics);
+    }
+
+    #[test]
+    fn current_frame_steps_upgrade_only_missing_conflict_free_workspace_slots() {
+        use shortcuts::{Mode, Preset};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = Preferences::default();
+        old.shortcuts.bindings.retain(|b| {
+            !(b.mode == Mode::Workspace
+                && matches!(b.action.as_str(), "previousFrame" | "nextFrame"))
+        });
+        write(&path, &old).unwrap();
+        let migrated = read(&path).unwrap();
+        assert_eq!(
+            migrated
+                .shortcuts
+                .key_for("previousFrame", Mode::Workspace, false),
+            Some(",")
+        );
+        assert_eq!(
+            migrated
+                .shortcuts
+                .key_for("nextFrame", Mode::Workspace, true),
+            Some(".")
+        );
+        write(&path, &migrated).unwrap();
+        assert_eq!(read(&path).unwrap().shortcuts, migrated.shortcuts);
+        old.shortcuts.preset = Preset::Custom;
+        write(&path, &old).unwrap();
+        assert_eq!(read(&path).unwrap().shortcuts, old.shortcuts);
+        old.shortcuts.preset = Preset::Current;
+        old.shortcuts.bindings.push(shortcuts::Binding {
+            action: "find".into(),
+            mode: Mode::Workspace,
+            key: ",".into(),
+            mac_key: None,
+        });
+        write(&path, &old).unwrap();
+        let kept = read(&path).unwrap().shortcuts;
+        assert_eq!(kept.key_for("find", Mode::Workspace, false), Some(","));
+        assert_eq!(kept.key_for("previousFrame", Mode::Workspace, false), None);
+        assert_eq!(kept.key_for("nextFrame", Mode::Workspace, false), Some("."));
+    }
+
     #[test]
     fn timing_policy_defaults_for_old_settings_and_survives_general_writes() {
         let dir = tempfile::tempdir().unwrap();
@@ -682,7 +736,7 @@ mod tests {
             crate::quality_profile::Profile::default().rules
         );
         assert_eq!(migrated.quality.timing.cue_gap_ms, 167);
-        assert!(!migrated.show_quality_metrics);
+        assert!(migrated.show_quality_metrics);
         assert_eq!(fs::read(&path).unwrap(), bytes);
         write(&path, &migrated).unwrap();
         let saved = fs::read(&path).unwrap();

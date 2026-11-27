@@ -200,7 +200,8 @@ export async function qualityPerformance({
       };
       requestAnimationFrame(tick);
     }, request);
-    await (await browser.$('input[aria-label="Cue metrics"]')).click();
+    const metrics = await browser.$('input[aria-label="Cue metrics"]');
+    if (!(await metrics.isSelected())) await metrics.click();
     await chooseCommand(browser, 'problems');
     await until('large-document metrics and findings', async () =>
       browser.execute(

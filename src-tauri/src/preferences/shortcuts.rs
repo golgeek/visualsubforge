@@ -103,13 +103,15 @@ impl Shortcuts {
     }
 
     // Add only missing bundled slots. Custom sets remain exactly as saved.
-    pub fn upgrade_cue_text_defaults(&mut self) {
+    pub fn upgrade_scoped_defaults(&mut self) {
         if self.preset != Preset::Custom {
-            for binding in Self::default()
-                .bindings
-                .into_iter()
-                .filter(|b| b.mac_key.is_some())
-            {
+            let current = self.preset == Preset::Current;
+            for binding in Self::default().bindings.into_iter().filter(|b| {
+                b.mac_key.is_some()
+                    || (current
+                        && b.mode == Mode::Workspace
+                        && matches!(b.action.as_str(), "previousFrame" | "nextFrame"))
+            }) {
                 if !self
                     .bindings
                     .iter()
@@ -299,10 +301,10 @@ mod tests {
         let mut custom = old.clone();
         custom.preset = Preset::Custom;
         let saved = custom.clone();
-        custom.upgrade_cue_text_defaults();
+        custom.upgrade_scoped_defaults();
         assert_eq!(custom, saved);
-        old.upgrade_cue_text_defaults();
-        old.upgrade_cue_text_defaults();
+        old.upgrade_scoped_defaults();
+        old.upgrade_scoped_defaults();
         assert_eq!(old.bindings.len(), current.bindings.len());
         assert_eq!(
             old.key_for("previousCue", Mode::Text, true),

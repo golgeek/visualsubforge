@@ -3585,6 +3585,16 @@ export const preferences = {
         mode: 'global',
       },
       {
+        action: 'previousFrame',
+        key: ',',
+        mode: 'workspace',
+      },
+      {
+        action: 'nextFrame',
+        key: '.',
+        mode: 'workspace',
+      },
+      {
         action: 'playRange',
         key: '',
         mode: 'global',
@@ -3854,7 +3864,7 @@ export const preferences = {
     ],
     preset: 'current',
   },
-  showQualityMetrics: false,
+  showQualityMetrics: true,
   timing: {
     cueGapMs: 80,
     enabled: false,

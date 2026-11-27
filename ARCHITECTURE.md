@@ -463,7 +463,9 @@ ungrouped command. Rust remains the sole formatting/validation/history owner.
 Selected-cue issue pages are independent of Problems filters and bounded to 200.
 They include related-cue findings, group CPS/RS findings and sort violations first.
 The fixed-height strip renders three chips; overflow reveals the existing Issues
-dock without changing the preset. Meters and source-line counts use Rust projections.
+dock without changing the preset. Meters and source-line counts use Rust projections
+and default to visible. A saved visibility preference takes precedence. Wide
+editors put the meters beside the issue strip to preserve cue-list capacity.
 
 Rust checks the origin of a selected-cue preview under the document lock. A
 reviewable user proposal keeps the timing slot until acceptance, cancellation or

@@ -36,7 +36,9 @@ or stale. They do not count findings or unsaved cue text.
 
 The transport bar starts with Play/Pause and Loop range. Loop range plays the
 selected interval. Press it again to clear an active loop. Previous Frame and
-Next Frame are available in the Playback menu. In the Single-key editing
+Next Frame are available in the Playback menu. With Current VSF bindings, comma
+steps back one frame and period steps forward when the list or waveform has
+focus. Both keys type punctuation in text fields. In the Single-key editing
 preset, Left and Right step frames with the cue list or waveform focused.
 
 ## Shortcut presets

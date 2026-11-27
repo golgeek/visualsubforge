@@ -75,11 +75,11 @@ async function run() {
   check(session.ready && !calls, 'Loading settings is read-only');
   session.draft.autoScanScenes = false;
   void session.changed();
-  session.draft.showQualityMetrics = true;
+  session.draft.showQualityMetrics = false;
   void session.changed();
   await until(() => accepted.length === 1);
   check(
-    calls === 1 && !saved.autoScanScenes && saved.showQualityMetrics,
+    calls === 1 && !saved.autoScanScenes && !saved.showQualityMetrics,
     'Rapid valid changes coalesce into one coherent confirmed save',
   );
   hold = true;

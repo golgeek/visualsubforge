@@ -131,6 +131,16 @@
       "key": ""
     },
     {
+      "action": "previousFrame",
+      "mode": "workspace",
+      "key": ","
+    },
+    {
+      "action": "nextFrame",
+      "mode": "workspace",
+      "key": "."
+    },
+    {
       "action": "playRange",
       "mode": "global",
       "key": ""

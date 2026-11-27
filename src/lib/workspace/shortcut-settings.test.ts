@@ -35,6 +35,19 @@ test('presets preserve focus separation and current settings remain opt-in', () 
     'play',
   );
 });
+test('Current steps frames with punctuation only in workspace focus', () => {
+  const current = shortcutPreset('current');
+  const classic = shortcutPreset('visualSubSyncClassic');
+  for (const [chord, action] of [
+    [',', 'previousFrame'],
+    ['.', 'nextFrame'],
+  ] as const) {
+    assert.equal(bindingAction(current, key(chord), 'workspace'), action);
+    assert.equal(bindingAction(current, key(chord), 'text'), null);
+    assert.equal(bindingAction(current, key(chord), 'control'), null);
+    assert.equal(bindingAction(classic, key(chord), 'workspace'), null);
+  }
+});
 test('conflicts include global/text intersections and Enter aliases', () => {
   const settings = shortcutPreset('current');
   settings.bindings.push({
