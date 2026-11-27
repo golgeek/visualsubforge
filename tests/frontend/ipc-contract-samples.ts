@@ -1109,7 +1109,6 @@ export const fontReview = {
     },
     before: null,
     documentBytes: 2827,
-    previewFontsOmitted: false,
     previewSizeExceeded: false,
   },
 } satisfies FontReview;
