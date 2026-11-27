@@ -320,6 +320,13 @@ async function run() {
     passed(
       'hide and restore keep the video placeholder and background owner alive',
     );
+    const weight = host.querySelector<HTMLInputElement>(
+      'dialog input[max="100"]',
+    )!;
+    weight.value = '1.5';
+    weight.dispatchEvent(new Event('change', { bubbles: true }));
+    await until(() => stored.custom?.rows[0]?.weight === 1.5);
+    passed('a fractional height weight is accepted and saved');
     const preciseWeights = stored.custom!.rows.map((row) => row.weight);
     const displayedWeights = [
       ...host.querySelectorAll<HTMLInputElement>(
@@ -456,7 +463,7 @@ async function run() {
     passed(
       'removing Remember restores user placement and saves a null project override',
     );
-    heading.textContent = 'PASS: all 17 arrange panel checks';
+    heading.textContent = 'PASS: all 18 arrange panel checks';
   } finally {
     await unmount(app);
   }

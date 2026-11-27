@@ -72,7 +72,8 @@ is not selected, after more than three pixels of pointer movement. A plain click
 keeps cue selection and seek behavior. Pending fields commit before selecting that cue; the captured
 pointer is checked again before starting. Edges use the existing snap, preview,
 Escape-cancel and single-Undo timing operation. A drag outside the edge tolerance
-continues to select a range.
+continues to select a range. When you drag or arrow-nudge a selected boundary
+past the visible window, its handle stays at the edge until you finish the edit.
 
 ## Cue list context menu
 

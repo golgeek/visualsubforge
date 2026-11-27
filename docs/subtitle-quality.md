@@ -132,7 +132,7 @@ neighbour takes its place.
 Checks run on one cancellable Rust worker. Document edits, Undo/Redo and policy
 or workspace/scene replacement retire old results; late replies cannot publish into a
 new context. Checking does not occupy the UI thread. **Pause checking** retains
-valid accepted results and stops new work until **Check again**. The mandatory
+valid accepted results, cancels the worker and stops polling until **Check again**. The mandatory
 issue column keeps accepted-state checking enabled while a document is loaded,
 even when editor metrics and Problems are hidden. A ready report supplies the complete issue index in one read, including related cues.
 The Problems list and visible cue metrics use bounded pages. **Issues**

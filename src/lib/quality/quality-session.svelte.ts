@@ -322,13 +322,13 @@ export class QualitySession {
   }
   private schedule(delay: number) {
     this.clearTimer();
-    if (this.alive && this.input?.enabled && !this.pending)
+    if (this.alive && this.input?.enabled && !this.paused && !this.pending)
       this.timer = setTimeout(() => void this.poll(), delay);
   }
   async poll() {
     this.clearTimer();
     const input = this.input;
-    if (!this.alive || !input?.enabled || this.pending) return;
+    if (!this.alive || !input?.enabled || this.paused || this.pending) return;
     const sequence = this.sequence;
     const version = this.version;
     const draftSignature = JSON.stringify(input.draft);
@@ -336,7 +336,7 @@ export class QualitySession {
       session: input.session,
       generation: input.generation,
       revision: input.revision,
-      run: !this.paused,
+      run: true,
       afterWorker: this.afterWorker,
       indexSince: input.indexIssues ? this.indexedReport : null,
       restart: this.restartPending,
@@ -366,10 +366,13 @@ export class QualitySession {
       const view = await (userRead && this.activity
         ? this.activity.track(read)
         : read);
+      const previousId = this.id;
       this.id = view.id;
       if (!this.alive || !this.input?.enabled || this.paused) {
-        await this.api.cancelQuality(view.id).catch(() => {});
-        if (!this.alive || !this.input?.enabled) return;
+        // A read already in flight at pause can reveal a different worker.
+        if (!this.paused || view.id !== previousId)
+          await this.api.cancelQuality(view.id).catch(() => {});
+        return;
       }
       // A retired document/context cannot acknowledge the current draft. Within
       // the same context, Rust accepted the sent draft even if typing moved on.
@@ -452,6 +455,8 @@ export class QualitySession {
     this.schedule(0);
   }
   pause() {
+    if (this.paused) return;
+    this.clearTimer();
     this.paused = true;
     ++this.sequence;
     if (this.id !== null)

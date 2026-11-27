@@ -483,7 +483,8 @@ considered per preparation. Opening another modal retires the transient plan.
 Failed acceptance refreshes authoritative state and is never blindly replayed.
 
 Nominal frame cadence is read by the existing native control worker, without new
-native resources. Frame nudges quantize once to format precision. Unavailable
+native resources. The active boundary button retains focus and pointer capture across viewport edges.
+Frame nudges quantize once to format precision. Unavailable
 cadence disables nudges, and variable-rate boundary accuracy is not claimed.
 
 ### Review and accept a batch operation
@@ -704,7 +705,7 @@ layout writes acquire only the writer. Atomic publication permits concurrent rea
 of either complete version. Versions 1–5 migrate in memory to version 6; the historical
 settings filename remains valid. Custom arrangements use a bounded version-1
 row schema: seven distinct panel kinds, at most two per row, finite weights
-from zero to 100 and integer split percentages. Preset-to-custom conversion
+from zero to 100 and integer split percentages. Arrange Panels accepts weights in tenths. Preset-to-custom conversion
 derives weights from current pane heights above their minima, retaining preset
 gutters and fractional precision so swapping panels does not resize rows. Pure frontend geometry refuses moves that exceed the current
 viewport and preserves panel minima through scrolling when a saved layout is
