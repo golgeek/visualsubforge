@@ -411,7 +411,7 @@ async function run() {
     anchor.style.removeProperty('left');
     anchor.style.removeProperty('top');
     const menuRow = host.querySelector<HTMLButtonElement>('[data-cue-id="4"]')!;
-    for (const overlapping of [true, false]) {
+    const openMenu = (overlapping: boolean) => {
       menuRow.dispatchEvent(
         new MouseEvent('contextmenu', {
           bubbles: true,
@@ -420,11 +420,37 @@ async function run() {
           clientY: overlapping ? video.top + 8 : innerHeight - 12,
         }),
       );
+    };
+    // Close before the hover delay expires: admission must have cancelled it.
+    anchor.dispatchEvent(new PointerEvent('pointerenter'));
+    openMenu(false);
+    await until(() => !!host.querySelector('.cue-menu'));
+    key(document.activeElement!, 'Escape');
+    await until(() => !host.querySelector('.cue-menu'));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert(
+      !host.querySelector('[role=tooltip]'),
+      'A retired hover must not reappear',
+    );
+    for (const overlapping of [true, false]) {
+      if (!overlapping) {
+        anchor.dispatchEvent(new PointerEvent('pointerenter'));
+        await until(() => !!host.querySelector('[role=tooltip]'));
+      }
+      openMenu(overlapping);
       await until(
         () => !!host.querySelector('.cue-menu') && occluded === overlapping,
       );
+      assert(
+        !host.querySelector('[role=tooltip]'),
+        'Opening a cue menu must retire the visible tooltip even away from video',
+      );
       anchor.dispatchEvent(new PointerEvent('pointerenter'));
       await new Promise((resolve) => setTimeout(resolve, 400));
+      assert(
+        !host.querySelector('[role=tooltip]'),
+        'An open cue menu must block hover even away from video',
+      );
       anchor.dispatchEvent(new PointerEvent('pointerleave'));
       await settle();
       assert(

@@ -150,7 +150,7 @@ without replaying writes.
 
 The command palette, Commands menu and shortcut sheet use `WorkspaceModal` and
 `HideVideo` for hide-before-presentation, close ordering and return focus.
-Tooltips and cue menus render before measuring overlap with the last submitted native video rectangle. The tooltip includes its anchor in that measurement. Each overlay reports whether it needs video hidden. Workspace admission remains separate so an open cue menu can still dispatch its action. A pending edit retains the menu's measured need. Modal and decision presentation request hiding before opening. A captured splitter holds one layout session until release, capture loss or cancellation. Each close reconciles visibility against the remaining owners.
+Menu and modal admission retires hover presentation first. An open menu, a modal or an active workspace operation blocks new tooltips. Tooltips and cue menus render before measuring overlap with the last submitted native video rectangle. The tooltip includes its anchor in that measurement. Each overlay reports whether it needs video hidden. Workspace admission remains separate so an open cue menu can still dispatch its action. A pending edit retains the menu's measured need. Modal and decision presentation request hiding before opening. A captured splitter holds one layout session until release, capture loss or cancellation. Each close reconciles visibility against the remaining owners.
 
 Appearance comes from `src/lib/ui/`: `tokens.css` defines the dark and light
 palettes, type and shape, and `base.css` styles native elements. Components use

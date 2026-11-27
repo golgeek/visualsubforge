@@ -198,7 +198,7 @@
       (error) => {
         if (!workspace.disposed) workspace.error = String(error);
       },
-      () => !workspace.confirming && !workspace.busy && !cueMenu.occluding,
+      () => !workspace.confirming && !workspace.busy && !cueMenu.isOpen,
       () => preferences.preferences.shortcuts,
     ),
   );
@@ -410,7 +410,8 @@
 
   const cueMenu = disposeWithComponent(
     new CueMenu(workspace, subtitles, media, timeline, gestures, navigation, {
-      occlude: occludeOverlay,
+      retireTooltip: () => tooltips.hide(),
+      occlude: (value) => media.occlude(value),
       remainingOcclusion: videoOccluded,
       afterRender: tick,
       captureFocus,

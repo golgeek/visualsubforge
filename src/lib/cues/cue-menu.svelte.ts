@@ -28,6 +28,7 @@ interface MenuContext {
 }
 interface Effects extends HideVideoEffects {
   overlaps: () => boolean;
+  retireTooltip: () => Promise<void>;
   splitMidpoint: CueEditing['splitMidpoint'];
   captureFocus: () => () => void;
   operationContext: () => Parameters<typeof planCueOperation>[1];
@@ -55,6 +56,9 @@ export class CueMenu {
   }
   get active() {
     return this.video.opening || this.committing;
+  }
+  get isOpen() {
+    return this.video.active || this.committing;
   }
   get occluding() {
     return this.video.occluding || this.keepHidden;
@@ -139,9 +143,11 @@ export class CueMenu {
       ? () => row.focus({ preventScroll: true })
       : this.effects.captureFocus();
     let attemptedHide = false;
+    this.committing = true;
     try {
+      await this.effects.retireTooltip();
+      if (this.video.disposed) return;
       if (tableIds && cueId !== null) {
-        this.committing = true;
         if (!(await this.subtitles.apply()) || this.video.disposed) return;
         if (
           this.subtitles.snapshot.generation !== doc.generation ||

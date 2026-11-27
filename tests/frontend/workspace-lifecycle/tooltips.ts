@@ -71,13 +71,13 @@ export async function tooltipCases(passed: (message: string) => void) {
     );
     pendingHide = null;
     events.length = 0;
-    remaining = true;
     owner.show('splitCue', anchor);
     await until(() => events.includes('hide:true'));
+    remaining = true; // An overlapping cue menu now owns the hidden surface.
     await owner.hide();
     assert(
       events.join(',') === 'render,hide:true,render,hide:true',
-      'Tooltip close must preserve another overlay',
+      'Closing a tooltip must leave video hidden for the overlapping menu',
     );
     events.length = 0;
     overlaps = false;
