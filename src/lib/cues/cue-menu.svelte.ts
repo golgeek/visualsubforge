@@ -27,6 +27,7 @@ interface MenuContext {
   session: number;
 }
 interface Effects extends HideVideoEffects {
+  overlaps: () => boolean;
   splitMidpoint: CueEditing['splitMidpoint'];
   captureFocus: () => () => void;
   operationContext: () => Parameters<typeof planCueOperation>[1];
@@ -35,6 +36,7 @@ interface Effects extends HideVideoEffects {
 export class CueMenu {
   context = $state.raw<MenuContext | null>(null);
   private committing = $state(false);
+  private keepHidden = $state(false);
   private video: HideVideo;
   private returnFocus: (() => void) | null = null;
   constructor(
@@ -46,10 +48,16 @@ export class CueMenu {
     private navigation: CueNavigation,
     private effects: Effects,
   ) {
-    this.video = new HideVideo(effects);
+    this.video = new HideVideo({
+      ...effects,
+      remainingOcclusion: () => this.keepHidden || effects.remainingOcclusion(),
+    });
   }
   get active() {
     return this.video.opening || this.committing;
+  }
+  get occluding() {
+    return this.video.occluding || this.keepHidden;
   }
   get items(): { id: string; label: string; reason?: string | null }[] {
     const menu = this.context;
@@ -192,7 +200,7 @@ export class CueMenu {
           verify();
           this.context = candidate;
         },
-        { replace: true },
+        { replace: true, overlaps: this.effects.overlaps },
       );
     } catch (error) {
       if (!this.video.disposed) {
@@ -233,6 +241,7 @@ export class CueMenu {
     if (!item || item.reason) return;
     this.committing = true;
     this.workspace.error = '';
+    this.keepHidden = this.video.occluding;
     try {
       await this.close(false);
       if (this.video.disposed) return;
@@ -310,7 +319,16 @@ export class CueMenu {
     } catch (error) {
       if (!this.video.disposed) this.workspace.error = String(error);
     } finally {
-      if (!this.video.disposed) this.committing = false;
+      const restore = this.keepHidden && !this.video.disposed;
+      this.keepHidden = false;
+      try {
+        if (restore)
+          await this.effects.occlude(this.effects.remainingOcclusion());
+      } catch (error) {
+        if (!this.video.disposed) this.workspace.error = String(error);
+      } finally {
+        this.committing = false;
+      }
     }
   }
   dispose() {

@@ -12,7 +12,9 @@ export class Tooltips {
   private closing: Promise<void> | null = null;
   private alive = true;
   constructor(
-    effects: HideVideoEffects,
+    private effects: HideVideoEffects & {
+      overlaps: (anchor: HTMLElement) => boolean;
+    },
     private failure: (error: unknown) => void,
     private available: () => boolean = () => true,
     private shortcuts?: () => ShortcutPreferences,
@@ -21,6 +23,9 @@ export class Tooltips {
   }
   get active() {
     return this.video.active;
+  }
+  get occluding() {
+    return this.video.occluding;
   }
   show(id: ActionId, anchor: HTMLElement) {
     const epoch = ++this.epoch;
@@ -42,15 +47,30 @@ export class Tooltips {
       return;
     const bounds = anchor.getBoundingClientRect();
     try {
-      await this.video.open(() => {
-        this.content = {
-          id,
-          x: Math.max(8, Math.min(bounds.left, window.innerWidth - 280)),
-          y: Math.max(8, Math.min(bounds.bottom + 6, window.innerHeight - 64)),
-        };
-      });
+      await this.video.open(
+        () => {
+          this.content = {
+            id,
+            x: Math.max(8, Math.min(bounds.left, window.innerWidth - 280)),
+            y: Math.max(
+              8,
+              Math.min(bounds.bottom + 6, window.innerHeight - 64),
+            ),
+          };
+        },
+        { overlaps: () => this.effects.overlaps(anchor) },
+      );
     } catch (error) {
-      if (this.alive) this.failure(error);
+      if (this.alive) {
+        this.failure(error);
+        await this.video.close({
+          hide: () => {
+            this.content = null;
+          },
+          failed: this.failure,
+          restoreWhenIdle: true,
+        });
+      }
     }
   }
   hide() {

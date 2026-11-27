@@ -13,6 +13,7 @@ export async function ownerChecks(passed: (message: string) => void) {
   };
   const pause = () => new Promise((resolve) => setTimeout(resolve, 300));
   const writes: Preferences['layout'][] = [];
+  const visibility: boolean[] = [];
   const errors: unknown[] = [];
   let release: (() => void) | null = null;
   let hold = false;
@@ -21,6 +22,7 @@ export async function ownerChecks(passed: (message: string) => void) {
     { cue: undefined },
     {
       occlude: async (hidden) => {
+        visibility.push(hidden);
         if (hidden && hold)
           await new Promise<void>((resolve) => (release = resolve));
       },
@@ -34,6 +36,22 @@ export async function ownerChecks(passed: (message: string) => void) {
     },
   );
   try {
+    owner.beginDrag();
+    await pause();
+    owner.resizePreview(39);
+    await pause();
+    owner.resizePreview(40);
+    await pause();
+    assert(
+      owner.active && visibility.join(',') === 'true',
+      'Drag holds one hide across slow moves',
+    );
+    owner.endDrag();
+    await pause();
+    assert(
+      !owner.active && visibility.join(',') === 'true,false',
+      'Release restores once',
+    );
     owner.workspaceHeight = 940;
     owner.viewportHeight = 1000;
     owner.resizePreview(40);

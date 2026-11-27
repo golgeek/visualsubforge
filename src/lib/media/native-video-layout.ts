@@ -5,6 +5,25 @@ export class NativeVideoLayout {
   private alive = true;
   private pending: Promise<void> | null = null;
   private last = '';
+  private sent: DOMRect | null = null;
+  overlaps(...elements: (Element | null)[]) {
+    const video = this.sent;
+    return (
+      !!video &&
+      elements.some((element) => {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.left < video.right &&
+          rect.right > video.left &&
+          rect.top < video.bottom &&
+          rect.bottom > video.top
+        );
+      })
+    );
+  }
   private observer: ResizeObserver | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private update: () => Promise<void> = async () => {};
@@ -40,6 +59,7 @@ export class NativeVideoLayout {
         devicePixelRatio,
       ]);
       if (key === this.last) return;
+      this.sent = bounds.visible ? rect : null;
       const pending = this.media
         .layout(bounds)
         .then(() => {

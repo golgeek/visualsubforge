@@ -28,6 +28,8 @@ formatted text separately. Explicit history buttons use document history;
 ordinary native/text-input Undo shortcuts retain their existing text-focus policy.
 The interaction defaults are implemented for owner trial and remain adjustable.
 
+A tooltip or subtitle action menu hides native video when it overlaps the picture. Choosing a menu command preserves that visibility until the edit finishes. Dragging a panel splitter hides the picture until release. Dialogs hide it wherever they open.
+
 A modal or Save/Discard decision retains its existing draft-protection controls.
 Its focus transfer does not implicitly commit underneath the decision. Closing
 it restarts the pause interval. Ctrl/Cmd+Enter can still commit immediately.

@@ -7,6 +7,7 @@ export async function tooltipCases(passed: (message: string) => void) {
   const events: string[] = [];
   let pendingHide: Promise<void> | null = null;
   let remaining = false;
+  let overlaps = true;
   let available = true;
   const anchor = document.createElement('button');
   document.body.append(anchor);
@@ -16,6 +17,7 @@ export async function tooltipCases(passed: (message: string) => void) {
         events.push(`hide:${value}`);
         if (value) await pendingHide;
       },
+      overlaps: () => overlaps,
       remainingOcclusion: () => remaining,
       afterRender: async () => {
         events.push('render');
@@ -52,12 +54,16 @@ export async function tooltipCases(passed: (message: string) => void) {
     });
     owner.show('splitCue', anchor);
     await until(() => events.includes('hide:true'));
-    assert(!owner.content, 'Tooltip must wait for native hide');
+    assert(
+      owner.content && owner.occluding,
+      'Tooltip must render for measurement and retain its pending hide',
+    );
     const closing = owner.hide();
     release();
     await closing;
     assert(
-      !owner.content && events.join(',') === 'hide:true,render,hide:false',
+      !owner.content &&
+        events.join(',') === 'render,hide:true,render,hide:false',
       'Leaving during hide must retire presentation and restore in order',
     );
     passed(
@@ -67,12 +73,22 @@ export async function tooltipCases(passed: (message: string) => void) {
     events.length = 0;
     remaining = true;
     owner.show('splitCue', anchor);
+    await until(() => events.includes('hide:true'));
+    await owner.hide();
+    assert(
+      events.join(',') === 'render,hide:true,render,hide:true',
+      'Tooltip close must preserve another overlay',
+    );
+    events.length = 0;
+    overlaps = false;
+    owner.show('splitCue', anchor);
     await until(() => !!owner.content);
     await owner.hide();
     assert(
-      events.join(',') === 'hide:true,render,hide:true',
-      'Tooltip close must preserve another overlay',
+      events.join(',') === 'render,render',
+      'Closing a nonoverlapping tooltip leaves the other overlay hidden',
     );
+    overlaps = true;
     events.length = 0;
     pendingHide = new Promise((resolve) => {
       release = resolve;
@@ -84,7 +100,7 @@ export async function tooltipCases(passed: (message: string) => void) {
     await Promise.resolve();
     await Promise.resolve();
     assert(
-      !owner.content && events.join(',') === 'hide:true',
+      !owner.content && events.join(',') === 'render,hide:true',
       'Disposal must suppress late content and leave native cleanup to media teardown',
     );
     passed(

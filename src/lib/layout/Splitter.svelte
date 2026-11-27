@@ -1,25 +1,40 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   let {
     label,
     vertical = false,
     value,
     onchange,
+    onstart,
+    onend,
   }: {
     label: string;
     vertical?: boolean;
     value: number;
+    onstart: () => void;
+    onend: () => void;
     onchange: (value: number) => void;
   } = $props();
+  let pointer: number | null = null;
+  function end(e?: PointerEvent) {
+    if (pointer !== null && (!e || pointer === e.pointerId)) {
+      pointer = null;
+      onend();
+    }
+  }
+  onDestroy(() => end());
   let start = 0;
   let original = 0;
   let size = 1;
   function begin(e: PointerEvent) {
-    if (!e.isPrimary || e.button !== 0) return;
+    if (pointer !== null || !e.isPrimary || e.button !== 0) return;
     // Resizing must not start WebKit's text-selection/HTML drag operation.
     e.preventDefault();
     const element = e.currentTarget as HTMLButtonElement;
     element.focus({ preventScroll: true });
     element.setPointerCapture(e.pointerId);
+    pointer = e.pointerId;
+    onstart();
     start = vertical ? e.clientX : e.clientY;
     original = value;
     const rect = element.parentElement!.getBoundingClientRect();
@@ -41,6 +56,9 @@
   title={`${label} (drag or use arrow keys)`}
   onpointerdown={begin}
   onpointermove={move}
+  onpointerup={end}
+  onpointercancel={end}
+  onlostpointercapture={end}
   onkeydown={(e) => {
     if (['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) {
       e.preventDefault();
