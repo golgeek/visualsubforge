@@ -856,6 +856,7 @@ impl Documents {
 // editor revision. Recovery publication and proposal acceptance recheck all fields.
 #[derive(Clone, PartialEq, Eq)]
 struct CheckpointKey {
+    saved_state: u64,
     generation: u64,
     revision: u64,
     dirty: bool,
@@ -872,7 +873,16 @@ impl Store {
         prepared: Option<crate::atomic_file::Prepared>,
         session: &crate::recovery_store::Session,
     ) -> Result<bool> {
-        if self.checkpoint_key() != *key {
+        let mut current = self.checkpoint_key();
+        // Only a dirty image can lag behind edits. Every other identity,
+        // including the saved baseline, must still match under this lock.
+        if prepared.is_some()
+            && key.revision < current.revision
+            && self.loaded.as_ref().is_some_and(|d| d.editor.dirty())
+        {
+            current.revision = key.revision;
+        }
+        if current != *key {
             return Ok(false);
         }
         match prepared {
@@ -883,6 +893,7 @@ impl Store {
     }
     fn checkpoint_key(&self) -> CheckpointKey {
         CheckpointKey {
+            saved_state: self.loaded.as_ref().map_or(0, |d| d.editor.saved_state()),
             generation: self.generation,
             revision: self.loaded.as_ref().map_or(0, |d| d.editor.revision()),
             dirty: self.loaded.as_ref().is_some_and(|d| {
@@ -1314,8 +1325,23 @@ mod tests {
         assert_eq!(crate::recovery_store::list(&root).unwrap().len(), 1);
     }
 
+    fn recovery_record(store: &Store) -> crate::recovery_store::Record {
+        let loaded = store.loaded.as_ref().unwrap();
+        crate::recovery_store::Record::new(
+            loaded
+                .path
+                .as_ref()
+                .map(|p| p.to_string_lossy().into_owned()),
+            String::from_utf8(loaded.saved_bytes.clone()).unwrap(),
+            loaded.source().serialize(loaded.editor.document()).unwrap(),
+            store.generation,
+            loaded.editor.revision(),
+        )
+        .unwrap()
+    }
+
     #[test]
-    fn stale_prepared_recovery_cannot_replace_newer_edit_or_clean_save() {
+    fn edit_during_prepare_publishes_older_then_current_accepted_content() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("original.srt");
         fs::write(&path, ORIGINAL).unwrap();
@@ -1324,15 +1350,8 @@ mod tests {
         open(&mut store, &path);
         edit(&mut store);
         let key = store.checkpoint_key();
-        let record = crate::recovery_store::Record::new(
-            path.to_string_lossy().into_owned(),
-            ORIGINAL.into(),
-            ORIGINAL.replace("Héllo", "snapshot"),
-            key.generation,
-            key.revision,
-        )
-        .unwrap();
-        let pending = session.prepare(&record).unwrap();
+        let older_record = recovery_record(&store);
+        let pending = session.prepare(&older_record).unwrap();
         store
             .apply(
                 Action::Edit {
@@ -1346,31 +1365,77 @@ mod tests {
             )
             .unwrap();
         assert!(
-            !store
+            store
                 .publish_checkpoint(&key, Some(pending), &session)
                 .unwrap()
         );
+        let recovered = session.read_published().unwrap();
+        assert_eq!(recovered.record.revision, 1);
+        assert_eq!(recovered.parsed.document.cues()[0].text(), "Changed\n世界");
         let newer = store.checkpoint_key();
+        let record = recovery_record(&store);
         assert!(
             store
                 .publish_checkpoint(&newer, Some(session.prepare(&record).unwrap()), &session)
                 .unwrap()
         );
-        let pending = session.prepare(&record).unwrap();
+        let recovered = session.read_published().unwrap();
+        assert_eq!(recovered.record.revision, 2);
+        assert_eq!(recovered.parsed.document.cues()[0].text(), "Newer");
         store.apply(Action::Save { path: None }, 1, 2).unwrap();
         assert!(
             !store
-                .publish_checkpoint(&newer, Some(pending), &session)
+                .publish_checkpoint(&newer, Some(session.prepare(&record).unwrap()), &session)
                 .unwrap()
         );
+        // Undo after Save is dirty again, but its saved baseline has changed.
+        store.apply(Action::Undo, 1, 2).unwrap();
         assert!(
-            store
-                .publish_checkpoint(&store.checkpoint_key(), None, &session)
+            !store
+                .publish_checkpoint(
+                    &key,
+                    Some(session.prepare(&older_record).unwrap()),
+                    &session
+                )
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn undo_to_clean_and_recover_reject_a_delayed_checkpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("original.srt");
+        fs::write(&path, ORIGINAL).unwrap();
+        let root = dir.path().join("recovery");
+        let session = crate::recovery_store::Session::create(&root).unwrap();
+        let mut store = Store {
+            recovery_root: Some(root.clone()),
+            ..Default::default()
+        };
+        open(&mut store, &path);
+        edit(&mut store);
+        let key = store.checkpoint_key();
+        let record = recovery_record(&store);
+        store.apply(Action::Undo, 1, 1).unwrap();
+        assert!(
+            !store
+                .publish_checkpoint(&key, Some(session.prepare(&record).unwrap()), &session)
+                .unwrap()
+        );
+        let other = crate::recovery_store::Session::create(&root).unwrap();
+        other.write(Some(&record)).unwrap();
+        drop(other);
+        let id = crate::recovery_store::list(&root).unwrap().remove(0).id;
+        store
+            .apply(Action::Recover { id, discard: false }, 1, 2)
+            .unwrap();
+        assert!(
+            !store
+                .publish_checkpoint(&key, Some(session.prepare(&record).unwrap()), &session)
                 .unwrap()
         );
         drop(session);
-        assert!(crate::recovery_store::list(dir.path()).unwrap().is_empty());
-        assert!(fs::read_to_string(path).unwrap().contains("Newer"));
+        assert_eq!(crate::recovery_store::list(&root).unwrap().len(), 1);
     }
     #[test]
     fn delayed_recovery_write_and_clear_cannot_cross_document_replacement() {
@@ -1385,22 +1450,8 @@ mod tests {
 
         // Capture actual accepted bytes, as the background worker does, before
         // close/reopen reuses the same cue IDs and editor revision numbers.
-        let capture = |store: &Store| {
-            let loaded = store.loaded.as_ref().unwrap();
-            crate::recovery_store::Record::new(
-                loaded
-                    .path
-                    .as_ref()
-                    .map(|path| path.to_string_lossy().into_owned()),
-                String::from_utf8(loaded.saved_bytes.clone()).unwrap(),
-                loaded.source().serialize(loaded.editor.document()).unwrap(),
-                store.generation,
-                loaded.editor.revision(),
-            )
-            .unwrap()
-        };
         let old_key = store.checkpoint_key();
-        let old_record = capture(&store);
+        let old_record = recovery_record(&store);
         let delayed_write = session.prepare(&old_record).unwrap();
         store.apply(Action::Close { discard: true }, 1, 1).unwrap();
         let closed_key = store.checkpoint_key();
@@ -1426,7 +1477,7 @@ mod tests {
                 0,
             )
             .unwrap();
-        let latest = capture(&store);
+        let latest = recovery_record(&store);
         assert_eq!(old_record.revision, latest.revision);
         assert_eq!(old_record.source_path, latest.source_path);
         assert!(

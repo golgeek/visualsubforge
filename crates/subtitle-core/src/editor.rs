@@ -197,6 +197,10 @@ impl<P: Clone + PartialEq> Editor<P> {
     pub fn revision(&self) -> u64 {
         self.revision
     }
+    /// Identity of the saved content within this editor lifetime.
+    pub fn saved_state(&self) -> u64 {
+        self.saved_state
+    }
     pub fn dirty(&self) -> bool {
         self.state != self.saved_state
     }

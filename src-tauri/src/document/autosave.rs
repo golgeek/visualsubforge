@@ -4,6 +4,7 @@ use super::{Documents, Result};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 #[derive(Default)]
 pub(super) struct RecoveryControl {
@@ -49,6 +50,7 @@ impl Documents {
                 };
                 let mut previous = None;
                 loop {
+                    let mut delay = Duration::from_secs(2);
                     let stopping = stop.load(std::sync::atomic::Ordering::Acquire);
                     let Some(shared) = weak.upgrade() else { return };
                     let (key, image) = {
@@ -105,25 +107,27 @@ impl Documents {
                             }
                         })();
                         let Ok(mut store) = shared.lock() else { return };
-                        if store.checkpoint_key() == key {
-                            let result = prepared.and_then(|prepared| {
-                                store.publish_checkpoint(&key, prepared, &session)
-                            });
-                            match result {
-                                Ok(true) => {
-                                    previous = Some(key);
-                                    store.recovery_error = None;
+                        let current = store.checkpoint_key() == key;
+                        let result = prepared.and_then(|prepared| {
+                            store.publish_checkpoint(&key, prepared, &session)
+                        });
+                        match result {
+                            Ok(true) => {
+                                if !current {
+                                    delay = Duration::from_millis(250);
                                 }
-                                Ok(false) => {}
-                                Err(error) => store.recovery_error = Some(error),
+                                previous = Some(key);
+                                store.recovery_error = None;
                             }
+                            Err(error) if current => store.recovery_error = Some(error),
+                            _ => {}
                         }
                     }
                     if stopping {
                         return;
                     }
                     drop(shared);
-                    std::thread::park_timeout(std::time::Duration::from_secs(2));
+                    std::thread::park_timeout(delay);
                 }
             })
             .map_err(|e| format!("Cannot start recovery worker: {e}"))?;
