@@ -171,6 +171,7 @@ pub(crate) fn read(path: &Path) -> Result<Preferences> {
         .or_insert(serde_json::Value::Bool(true));
     let mut value: Preferences =
         serde_json::from_value(json).map_err(|e| format!("Invalid settings: {e}"))?;
+    value.shortcuts.normalize_saved_punctuation();
     value.shortcuts.upgrade_zoom_defaults();
     value.shortcuts.upgrade_scoped_defaults();
     value.layout.upgrade_preview_defaults();
@@ -306,6 +307,63 @@ mod tests {
         settings.show_quality_metrics = false;
         write(&path, &settings).unwrap();
         assert!(!read(&path).unwrap().show_quality_metrics);
+    }
+
+    #[test]
+    fn saved_shift_punctuation_normalizes_portable_and_mac_keys_on_read() {
+        use shortcuts::Mode;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut saved = Preferences::default();
+        saved.shortcuts.preset = shortcuts::Preset::Custom;
+        let next = saved
+            .shortcuts
+            .bindings
+            .iter_mut()
+            .find(|b| b.action == "nextFrame" && b.mode == Mode::Workspace)
+            .unwrap();
+        next.key = "Shift+.".into();
+        next.mac_key = Some("Alt+Shift+,".into());
+        let bytes = serde_json::to_vec(&saved).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        let migrated = read(&path).unwrap();
+        assert_eq!(
+            migrated
+                .shortcuts
+                .key_for("nextFrame", Mode::Workspace, false),
+            Some(".")
+        );
+        assert_eq!(
+            migrated
+                .shortcuts
+                .key_for("nextFrame", Mode::Workspace, true),
+            Some("Alt+,")
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        write(&path, &migrated).unwrap();
+        assert_eq!(read(&path).unwrap().shortcuts, migrated.shortcuts);
+    }
+
+    #[test]
+    fn saved_shift_punctuation_conflict_names_both_actions_and_preserves_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut saved = Preferences::default();
+        let previous = saved
+            .shortcuts
+            .bindings
+            .iter_mut()
+            .find(|b| b.action == "previousFrame" && b.mode == shortcuts::Mode::Workspace)
+            .unwrap();
+        previous.mac_key = Some("Shift+.".into());
+        let bytes = serde_json::to_vec(&saved).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        let error = read(&path).err().expect("ambiguous macOS binding");
+        assert!(
+            error.contains("previousFrame") && error.contains("nextFrame"),
+            "{error}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
     }
 
     #[test]

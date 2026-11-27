@@ -48,6 +48,23 @@ test('Current steps frames with punctuation only in workspace focus', () => {
     assert.equal(bindingAction(classic, key(chord), 'workspace'), null);
   }
 });
+test('recorded punctuation omits layout Shift and typed chords reject redundant Shift', () => {
+  for (const character of [',', '.']) {
+    assert.equal(shortcutFromEvent(key(character, true)), character);
+    assert.equal(
+      shortcutFromEvent({ ...key(character, true), altKey: true }),
+      `Alt+${character}`,
+    );
+    const settings = shortcutPreset('current');
+    settings.bindings.push({
+      action: 'splitCue',
+      mode: 'workspace',
+      key: `Shift+${character}`,
+    });
+    assert.ok(shortcutError(settings));
+  }
+});
+
 test('conflicts include global/text intersections and Enter aliases', () => {
   const settings = shortcutPreset('current');
   settings.bindings.push({

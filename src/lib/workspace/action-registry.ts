@@ -227,6 +227,11 @@ const keyNames: Record<string, string> = {
   Down: 'ArrowDown',
   Space: ' ',
 };
+// Shift may be part of producing these characters on the active keyboard layout.
+export function matchesByCharacter(key: string): boolean {
+  return key === '?' || key === ',' || key === '.';
+}
+
 export function matchesShortcut(shortcut: string, event: ShortcutKey): boolean {
   if (!shortcut) return false;
   const parts = shortcut.split('+');
@@ -240,7 +245,7 @@ export function matchesShortcut(shortcut: string, event: ShortcutKey): boolean {
       : event.ctrlKey === parts.includes('Ctrl') &&
         event.metaKey === parts.includes('Meta')) &&
     event.altKey === parts.includes('Alt') &&
-    (key === '?' ||
+    (matchesByCharacter(key) ||
       (key === '=' && parts.includes('Shift') && event.key === '+') ||
       event.shiftKey === parts.includes('Shift'))
   );

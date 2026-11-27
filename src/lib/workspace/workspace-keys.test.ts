@@ -39,6 +39,21 @@ function route(
   );
 }
 
+test('frame steps follow the punctuation produced by the keyboard layout', () => {
+  const azertyPeriod = { code: 'Comma', shiftKey: true };
+  assert.deepEqual(route('.', azertyPeriod), {
+    kind: 'action',
+    action: 'nextFrame',
+  });
+  assert.deepEqual(route(',', { shiftKey: true }), {
+    kind: 'action',
+    action: 'previousFrame',
+  });
+  for (const cueText of [false, true])
+    assert.equal(route('.', azertyPeriod, { editing: true, cueText }), null);
+  assert.equal(route('>', { code: 'Period', shiftKey: true }), null);
+});
+
 test('navigation bindings in native menus dispatch from workspace focus and preserve text navigation', () => {
   for (const mac of [false, true]) {
     const mod = mac ? { metaKey: true } : { ctrlKey: true };
