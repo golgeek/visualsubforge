@@ -279,7 +279,7 @@ async function run() {
     )!;
     anchor.dispatchEvent(new PointerEvent('pointerenter'));
     await until(() => !!host.querySelector('[role="tooltip"]'));
-    assert(occluded, 'Tooltip also hides native video');
+    assert(!occluded, 'Toolbar tooltip away from video must leave it visible');
     const tooltip = host.querySelector('[role="tooltip"]')!;
     assert(
       tooltip.textContent!.includes(label.label) &&

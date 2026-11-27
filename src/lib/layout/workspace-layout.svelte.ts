@@ -203,6 +203,9 @@ export class WorkspaceLayout {
       this.effects.arranged?.(this.custom.rows.flatMap((row) => row.panels));
     else this.effects.preset(this.preset);
   }
+  get occluding() {
+    return this.video.occluding;
+  }
   get active() {
     return this.changing;
   }
@@ -277,10 +280,21 @@ export class WorkspaceLayout {
       this.current[this.preset].editorPct = clamp(100 - value, 10, 45);
     }).catch(() => {});
   }
+  private dragging = false;
+  private resume: (() => void) | null = null;
+  beginDrag() {
+    this.dragging = true;
+    void this.change(() => {}, false).catch(() => {});
+  }
+  endDrag() {
+    this.dragging = false;
+    this.resume?.();
+  }
   private change(apply: () => void, persist = true): Promise<void> {
     if (!this.alive) return Promise.resolve();
     this.saveRequested ||= persist;
     this.next = apply;
+    this.resume?.();
     if (this.transition) return this.transition;
     this.changing = true;
     this.transition = this.drain().finally(() => {
@@ -295,7 +309,14 @@ export class WorkspaceLayout {
       // restore callers await this same lifetime before publishing readiness.
       do {
         await this.video.open(() => {});
-        while (this.alive && this.next) {
+        while (this.alive && (this.next || this.dragging)) {
+          if (!this.next) {
+            await new Promise<void>((resolve) => {
+              this.resume = resolve;
+            });
+            this.resume = null;
+            continue;
+          }
           const next = this.next;
           this.next = null;
           next();
@@ -379,6 +400,7 @@ export class WorkspaceLayout {
   }
   dispose() {
     this.alive = false;
+    this.endDrag();
     this.next = null;
     this.pendingSave = null;
     if (this.timer !== null) clearTimeout(this.timer);

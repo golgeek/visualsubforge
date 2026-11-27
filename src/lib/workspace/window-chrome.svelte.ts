@@ -30,6 +30,9 @@ export class WindowChrome {
   ) {
     this.video = new HideVideo(effects);
   }
+  get occluding() {
+    return this.video.occluding;
+  }
   get overlay() {
     return this.native && (this.platform === 'macos' || this.custom);
   }

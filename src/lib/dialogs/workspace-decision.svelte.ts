@@ -23,6 +23,9 @@ export class WorkspaceDecision<Choice, Payload = never> {
     this.video = new HideVideo(effects);
     this.decision = new PendingDecision(cancelled);
   }
+  get occluding() {
+    return this.video.occluding;
+  }
   get active() {
     return this.video.opening || this.video.visible;
   }

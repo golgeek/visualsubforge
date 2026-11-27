@@ -33,6 +33,9 @@ export class WorkspaceModal {
   get opening() {
     return this.video.opening;
   }
+  get occluding() {
+    return this.video.occluding;
+  }
   get active() {
     return this.video.active;
   }

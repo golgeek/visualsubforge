@@ -7,6 +7,10 @@ export interface HideVideoEffects {
 /** One hide/render/restore lifetime. Owners retain content, focus and answers. */
 export class HideVideo {
   private phase = $state<'idle' | 'opening' | 'open' | 'closing'>('idle');
+  private needsVideoHidden = $state(false);
+  get occluding() {
+    return this.needsVideoHidden;
+  }
   private alive = true;
   private epoch = 0;
   private pendingHide: Promise<void> | null = null;
@@ -30,24 +34,35 @@ export class HideVideo {
 
   async open(
     present: () => void,
-    options: { replace?: boolean } = {},
+    options: { replace?: boolean; overlaps?: () => boolean } = {},
   ): Promise<boolean> {
     if (!this.alive) return false;
     if (this.active && !options.replace)
       throw new Error('A video overlay is already active.');
     const previous = this.phase;
     const epoch = ++this.epoch;
+    const previouslyHidden = this.occluding;
     this.phase = 'opening';
     try {
-      const hide = this.effects.occlude(true);
-      this.pendingHide = hide;
-      await hide;
-      if (!this.current(epoch)) return false;
-      present();
+      if (options.overlaps) {
+        present();
+        await this.effects.afterRender();
+        if (!this.current(epoch)) return false;
+      }
+      this.needsVideoHidden = options.overlaps?.() ?? true;
+      if (this.occluding || previouslyHidden) {
+        this.pendingHide = this.effects.occlude(
+          this.occluding || this.effects.remainingOcclusion(),
+        );
+        await this.pendingHide;
+        if (!this.current(epoch)) return false;
+      }
+      if (!options.overlaps) present();
       this.phase = 'open';
       return true;
     } catch (error) {
       if (this.current(epoch)) {
+        this.needsVideoHidden = previouslyHidden;
         this.phase = previous === 'open' ? 'open' : 'idle';
         throw error;
       }
@@ -81,7 +96,10 @@ export class HideVideo {
       if (!this.current(epoch)) return;
       await this.effects.afterRender();
       if (!this.current(epoch)) return;
-      await this.effects.occlude(this.effects.remainingOcclusion());
+      const reconcile = this.occluding || content.restoreWhenIdle;
+      this.needsVideoHidden = false;
+      if (reconcile)
+        await this.effects.occlude(this.effects.remainingOcclusion());
       restored = true;
     } catch (error) {
       if (this.current(epoch)) content.failed(error);
@@ -101,6 +119,7 @@ export class HideVideo {
 
   dispose() {
     this.alive = false;
+    this.needsVideoHidden = false;
     ++this.epoch;
     this.phase = 'idle';
     this.pendingHide = null;

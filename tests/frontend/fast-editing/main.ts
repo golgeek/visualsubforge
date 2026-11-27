@@ -21,12 +21,16 @@ let snapshot: DocumentSnapshot = structuredClone(emptyDocument);
 const media = {
   ...emptyStatus,
   available: true,
+  surfaceAboveWebview: true,
   loaded: true,
   session: 1,
   durationSeconds: 100,
   positionSeconds: 5,
   paused: false,
 };
+let occluded = false;
+let holdDelete = false;
+let releaseDelete: (() => void) | undefined;
 const transport: string[] = [];
 const loops: [number, number][] = [];
 function assert(condition: boolean, message: string): void {
@@ -121,6 +125,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
         case 'recovery_status':
           return { entries: [], error: null };
         case 'media_action':
+          if (args.action?.kind === 'occlude') occluded = args.action.occluded;
           if (args.action?.kind === 'loop') {
             media.loopActive = true;
             loops.push([args.action.start, args.action.end]);
@@ -165,6 +170,12 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
             );
             snapshot.revision++;
           } else if (action.kind === 'delete') {
+            if (holdDelete) {
+              await new Promise<void>((resolve) => {
+                releaseDelete = resolve;
+              });
+              throw new Error('Test rejected deletion');
+            }
             snapshot.cues = snapshot.cues.filter((c) => c.id !== action.cueId);
             snapshot.revision++;
           } else
@@ -380,6 +391,89 @@ async function run() {
     passed(
       'Existing waveform cues expose actions; menu keyboard cancellation restores focus',
     );
+
+    const anchor = host.querySelector<HTMLElement>(
+      '[data-tooltip-action="splitCue"]',
+    )!;
+    const video = host.querySelector('.video-space')!.getBoundingClientRect();
+    // At opposite edges only the anchor or only the rendered label crosses.
+    const anchorHeight = anchor.getBoundingClientRect().height;
+    for (const top of [video.top - anchorHeight - 2, video.bottom - 2]) {
+      anchor.style.position = 'fixed';
+      anchor.style.left = video.left + 12 + 'px';
+      anchor.style.top = top + 'px';
+      anchor.dispatchEvent(new PointerEvent('pointerenter'));
+      await until(() => !!host.querySelector('[role=tooltip]') && occluded);
+      anchor.dispatchEvent(new PointerEvent('pointerleave'));
+      await until(() => !host.querySelector('[role=tooltip]') && !occluded);
+    }
+    anchor.style.removeProperty('position');
+    anchor.style.removeProperty('left');
+    anchor.style.removeProperty('top');
+    const menuRow = host.querySelector<HTMLButtonElement>('[data-cue-id="4"]')!;
+    const openMenu = (overlapping: boolean) => {
+      menuRow.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: overlapping ? video.left + 8 : 12,
+          clientY: overlapping ? video.top + 8 : innerHeight - 12,
+        }),
+      );
+    };
+    // Close before the hover delay expires: admission must have cancelled it.
+    anchor.dispatchEvent(new PointerEvent('pointerenter'));
+    openMenu(false);
+    await until(() => !!host.querySelector('.cue-menu'));
+    key(document.activeElement!, 'Escape');
+    await until(() => !host.querySelector('.cue-menu'));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert(
+      !host.querySelector('[role=tooltip]'),
+      'A retired hover must not reappear',
+    );
+    for (const overlapping of [true, false]) {
+      if (!overlapping) {
+        anchor.dispatchEvent(new PointerEvent('pointerenter'));
+        await until(() => !!host.querySelector('[role=tooltip]'));
+      }
+      openMenu(overlapping);
+      await until(
+        () => !!host.querySelector('.cue-menu') && occluded === overlapping,
+      );
+      assert(
+        !host.querySelector('[role=tooltip]'),
+        'Opening a cue menu must retire the visible tooltip even away from video',
+      );
+      anchor.dispatchEvent(new PointerEvent('pointerenter'));
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      assert(
+        !host.querySelector('[role=tooltip]'),
+        'An open cue menu must block hover even away from video',
+      );
+      anchor.dispatchEvent(new PointerEvent('pointerleave'));
+      await settle();
+      assert(
+        occluded === overlapping,
+        'Tooltip dismissal preserves the menu overlap',
+      );
+      holdDelete = true;
+      host
+        .querySelector<HTMLButtonElement>(
+          '.cue-menu [aria-label="Delete cue"]',
+        )!
+        .click();
+      await until(() => !!releaseDelete);
+      assert(
+        !host.querySelector('.cue-menu') && occluded === overlapping,
+        'Pending commit retains its menu geometry',
+      );
+      releaseDelete!();
+      releaseDelete = undefined;
+      holdDelete = false;
+      await until(() => !occluded && !!menuState?.enabled.includes('settings'));
+    }
+    canvas.focus();
 
     const count = snapshot.cues.length;
     key(canvas, ' ');

@@ -186,22 +186,43 @@
   const tooltips: Tooltips = disposeWithComponent(
     new Tooltips(
       {
+        overlaps: (anchor) =>
+          videoLayout.overlaps(
+            anchor,
+            document.getElementById('workspace-tooltip'),
+          ),
         occlude: (value) => media.occlude(value),
-        remainingOcclusion: () =>
-          view.diagnostics ||
-          workspace.confirming ||
-          cueMenu.active ||
-          layout.active,
+        remainingOcclusion: videoOccluded,
         afterRender: tick,
       },
       (error) => {
         if (!workspace.disposed) workspace.error = String(error);
       },
-      () => !workspace.confirming && !workspace.busy && !cueMenu.active,
+      () => !workspace.confirming && !workspace.busy && !cueMenu.isOpen,
       () => preferences.preferences.shortcuts,
     ),
   );
   setContext(tooltipContext, tooltips);
+
+  function videoOccluded(): boolean {
+    return (
+      view.diagnostics ||
+      tooltips.occluding ||
+      cueMenu.occluding ||
+      layout.occluding ||
+      chrome.occluding ||
+      workspaceModal.occluding ||
+      legacyDecision.occluding ||
+      subtitleDecision.occluding ||
+      createDecision.occluding ||
+      projectExitDecision.occluding ||
+      subtitleReferenceDecision.occluding ||
+      projectReferenceDecision.occluding ||
+      exchangeDecision.occluding ||
+      reviewDecision.occluding ||
+      reviewProjectDecision.occluding
+    );
+  }
 
   // Retire hover presentation before publishing another interactive overlay.
   async function occludeOverlay(value: boolean) {
@@ -214,8 +235,7 @@
   const workspaceModal = disposeWithComponent(
     new WorkspaceModal(workspace, {
       occlude: occludeOverlay,
-      remainingOcclusion: () =>
-        view.diagnostics || tooltips.active || layout.active,
+      remainingOcclusion: videoOccluded,
       afterRender: async () => {
         await tick();
         await videoLayout.flush();
@@ -228,40 +248,26 @@
     new WorkspaceDecision<'save' | 'discard' | 'cancel', 'review'>(
       'cancel',
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-        () => confirmation!.close(),
-      ),
+      decisionEffects(media, videoOccluded, () => confirmation!.close()),
     ),
   );
 
   const legacyDecision = disposeWithComponent(
-    new LegacyImportDecision(
-      workspace,
-      media,
-      () => view.diagnostics || tooltips.active || layout.active,
-    ),
+    new LegacyImportDecision(workspace, media, videoOccluded),
   );
 
   const createDecision = disposeWithComponent(
     new WorkspaceDecision<boolean, CreateProjectPrompt>(
       false,
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
+      decisionEffects(media, videoOccluded),
     ),
   );
   const projectExitDecision = disposeWithComponent(
     new WorkspaceDecision<ProjectExitChoice, string>(
       'cancel',
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
+      decisionEffects(media, videoOccluded),
     ),
   );
 
@@ -269,24 +275,14 @@
     new WorkspaceDecision<ReferenceChoice, ReferencePrompt>(
       'cancel',
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
+      decisionEffects(media, videoOccluded),
     ),
   );
   const projectReferenceDecision = disposeWithComponent(
     new WorkspaceDecision<
       'cancel' | 'choose' | 'reload',
       ProjectReferenceIssue
-    >(
-      'cancel',
-      workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
-    ),
+    >('cancel', workspace, decisionEffects(media, videoOccluded)),
   );
 
   const unsaved = disposeWithComponent(
@@ -301,30 +297,21 @@
     new WorkspaceDecision<'swap' | 'keep' | 'cancel', string>(
       'cancel',
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
+      decisionEffects(media, videoOccluded),
     ),
   );
   const exchangeDecision = disposeWithComponent(
     new WorkspaceDecision<ExchangeAnswer, ExchangePrompt>(
       'cancel',
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
+      decisionEffects(media, videoOccluded),
     ),
   );
   const reviewProjectDecision = disposeWithComponent(
     new WorkspaceDecision<'save' | 'later', boolean>(
       'later',
       workspace,
-      decisionEffects(
-        media,
-        () => view.diagnostics || tooltips.active || layout.active,
-      ),
+      decisionEffects(media, videoOccluded),
     ),
   );
   const review: ReviewSession = disposeWithComponent(
@@ -423,14 +410,12 @@
 
   const cueMenu = disposeWithComponent(
     new CueMenu(workspace, subtitles, media, timeline, gestures, navigation, {
-      occlude: occludeOverlay,
-      remainingOcclusion: () =>
-        view.diagnostics ||
-        tooltips.active ||
-        layout.active ||
-        workspace.confirming,
+      retireTooltip: () => tooltips.hide(),
+      occlude: (value) => media.occlude(value),
+      remainingOcclusion: videoOccluded,
       afterRender: tick,
       captureFocus,
+      overlaps: () => videoLayout.overlaps(document.querySelector('.cue-menu')),
       splitMidpoint: cueEditing.splitMidpoint,
       operationContext: () => cueEditing.context,
     }),
@@ -673,12 +658,7 @@
   const layout: WorkspaceLayout = disposeWithComponent(
     new WorkspaceLayout(preferences, subtitles, {
       occlude: occludeOverlay,
-      remainingOcclusion: () =>
-        view.diagnostics ||
-        tooltips.active ||
-        workspace.confirming ||
-        cueMenu.active ||
-        workspaceModal.active,
+      remainingOcclusion: videoOccluded,
       afterRender: async () => {
         await tick();
         await videoLayout.flush();
@@ -874,7 +854,7 @@
     view,
     scenes,
     layout,
-    remainingOcclusion: () => tooltips.active,
+    remainingOcclusion: videoOccluded,
   };
 
   async function run(action: WorkspaceAction, event?: Event) {
@@ -1030,11 +1010,7 @@
   const chrome = disposeWithComponent(
     new WindowChrome(workspace, {
       occlude: occludeOverlay,
-      remainingOcclusion: () =>
-        workspace.confirming ||
-        view.diagnostics ||
-        tooltips.active ||
-        layout.active,
+      remainingOcclusion: videoOccluded,
       afterRender: async () => {
         await tick();
         await videoLayout.flush();
@@ -1197,6 +1173,8 @@
         />
       </div>
       <Splitter
+        onstart={() => layout.beginDrag()}
+        onend={() => layout.endDrag()}
         label="Resize waveform and video"
         vertical
         value={layout.wavePct}
@@ -1229,6 +1207,8 @@
       </div>
     </div>
     <Splitter
+      onstart={() => layout.beginDrag()}
+      onend={() => layout.endDrag()}
       label="Resize preview and subtitle list"
       value={(layout.panes.topPixels / layout.panes.paneHeight) * 100}
       onchange={(v) => layout.resizePreview(v)}
@@ -1373,6 +1353,8 @@
       </div>
     </section>
     <Splitter
+      onstart={() => layout.beginDrag()}
+      onend={() => layout.endDrag()}
       label="Resize subtitle list and editor"
       value={layout.preset === 'editorAbove'
         ? (layout.panes.editorPixels / layout.panes.paneHeight) * 100

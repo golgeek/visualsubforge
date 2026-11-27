@@ -332,6 +332,27 @@ async function run() {
     const splitter = host.querySelector<HTMLButtonElement>(
       '[aria-label="Resize waveform and video"]',
     )!;
+    // Synthetic pointer events cannot take OS capture in a browser fixture.
+    splitter.setPointerCapture = () => {};
+    for (const release of ['pointercancel', 'lostpointercapture']) {
+      splitter.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          isPrimary: true,
+          button: 0,
+          pointerId: 9,
+        }),
+      );
+      await until(() => occluded);
+      splitter.dispatchEvent(
+        new PointerEvent(release, { bubbles: true, pointerId: 9 }),
+      );
+      await until(
+        () =>
+          !occluded &&
+          host.querySelector('main')?.getAttribute('aria-busy') === 'false',
+      );
+    }
     const width = video!.getBoundingClientRect().width;
     delayHide = true;
     splitter.dispatchEvent(
