@@ -164,6 +164,7 @@ serialization hooks. Parent cancellation/deadline can independently kill a helpe
 that stops reading/writing or returning. Three scoped pipe threads prevent a full
 pipe from blocking the watchdog. The child guard is dropped inside the scope:
 kill/reap precedes joining pipe threads on success, failure and early return.
+A descendant that inherits the helper’s pipes can delay completion until it exits, and the helper starts no descendants.
 No pipe thread or helper is intentionally detached. Ordinary OS process creation,
 termination and scheduling latency are not a real-time guarantee.
 
