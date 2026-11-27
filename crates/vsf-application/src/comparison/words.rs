@@ -13,6 +13,41 @@ pub struct TokenChange {
     pub kind: TokenKind,
     pub text: String,
 }
+// Test the script property, rather than broad blocks which include other scripts.
+fn unspaced(c: char) -> bool {
+    static SCRIPT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"[\p{scx:Han}\p{scx:Hiragana}\p{scx:Katakana}\p{Thai}\p{Lao}\p{Khmer}\p{Myanmar}]",
+        )
+        .expect("valid Unicode script properties")
+    });
+    !c.is_ascii() && SCRIPT.is_match(c.encode_utf8(&mut [0; 4]))
+}
+
+fn base_with_marks(text: &str, first: char) -> usize {
+    first.len_utf8()
+        + text[first.len_utf8()..]
+            .chars()
+            .take_while(|&c| unicode_normalization::char::is_combining_mark(c))
+            .map(char::len_utf8)
+            .sum::<usize>()
+}
+
+pub(super) fn reading_tokens(text: &str) -> impl Iterator<Item = &str> {
+    text.split_whitespace().flat_map(|mut word| {
+        std::iter::from_fn(move || {
+            let first = word.chars().next()?;
+            let end = if unspaced(first) {
+                base_with_marks(word, first)
+            } else {
+                word.find(unspaced).unwrap_or(word.len())
+            };
+            let (token, rest) = word.split_at(end);
+            word = rest;
+            Some(token)
+        })
+    })
+}
 fn tokens(text: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut pos = 0;
@@ -25,6 +60,9 @@ fn tokens(text: &str) -> Vec<&str> {
             _ => None,
         }
         .unwrap_or_else(|| {
+            if unspaced(first) {
+                return base_with_marks(tail, first);
+            }
             if first == '\n' || (!first.is_alphanumeric() && !first.is_whitespace()) {
                 return first.len_utf8();
             }
@@ -32,6 +70,7 @@ fn tokens(text: &str) -> Vec<&str> {
                 .skip(1)
                 .find(|(_, c)| {
                     *c == '\n'
+                        || unspaced(*c)
                         || c.is_alphanumeric() != first.is_alphanumeric()
                         || c.is_whitespace() != first.is_whitespace()
                 })
